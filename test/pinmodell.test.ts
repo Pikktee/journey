@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { naechsterIndex, zustaende, stufenZiele, blendeSchritt, weltGroesse, imBild } from '../src/pinmodell'
+import {
+  naechsterIndex,
+  zustaende,
+  stufenZiele,
+  blendeSchritt,
+  weltGroesse,
+  imBild,
+} from '../src/pinmodell'
 
 // Streckenmeter der Foto-Stopps einer Beispieltour (Koh Pha-ngan, gerundet)
 const STOPPS = [756, 4228, 9184, 13440, 17304, 19292]

@@ -88,7 +88,9 @@ describe('Filmtempo', () => {
     // Basistempo und Faktoren einzeln — sonst könnten sich zwei Fehler
     // gegenseitig aufheben und das Produkt bliebe richtig.
     expect(BASIS_TEMPO_MS).toBe(120)
-    expect(Object.keys(MODUS_TEMPO).slice().sort()).toEqual(Object.keys(fixture.tempoMs).slice().sort())
+    expect(Object.keys(MODUS_TEMPO).slice().sort()).toEqual(
+      Object.keys(fixture.tempoMs).slice().sort(),
+    )
   })
 
   it('bemisst Standzeiten wie festgelegt (Fixture)', () => {

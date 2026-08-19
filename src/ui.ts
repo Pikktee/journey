@@ -268,7 +268,9 @@ export class UI {
     try {
       const gemerkt = sessionStorage.getItem('maptale:video-sound')
       if (gemerkt !== null) this._soundOn = gemerkt === '1'
-    } catch { /* Storage kann in restriktiven Kontexten fehlen */ }
+    } catch {
+      /* Storage kann in restriktiven Kontexten fehlen */
+    }
     // `ended` und `error` sind seit Etappe 4 nur noch Notausgänge: Der Halt
     // endet an der ACHSE, nicht am Dateiende (tour.ts, `onMediaEnded`).
     this.els.video.addEventListener('ended', () => this.onMediaEnded?.())
@@ -279,7 +281,9 @@ export class UI {
       this.els.video.muted = !this._soundOn
       try {
         sessionStorage.setItem('maptale:video-sound', this._soundOn ? '1' : '0')
-      } catch { /* ignorieren */ }
+      } catch {
+        /* ignorieren */
+      }
       this._syncSoundBtn()
       // Pegel und Ducking zieht der nächste Kopfschritt nach (synchronisiereKarte).
     })
@@ -397,7 +401,9 @@ export class UI {
     // erscheinen, nicht als voll skaliertes DEM-Rauschen
     const span = Math.max(maxE - minE, 150)
     this.profileY = ys.map((e) => 3 + (VB_H - 8) * (1 - (e - minE) / span)) // 3..25, Basis 30
-    const pts = this.profileY.map((y, i) => `L${((i / (PROFILE_SAMPLES - 1)) * 100).toFixed(2)},${y.toFixed(2)}`).join(' ')
+    const pts = this.profileY
+      .map((y, i) => `L${((i / (PROFILE_SAMPLES - 1)) * 100).toFixed(2)},${y.toFixed(2)}`)
+      .join(' ')
     const d = `M0,${VB_H} ${pts} L100,${VB_H} Z`
     this.els.profileBase.setAttribute('d', d)
     this.els.profileFill.setAttribute('d', d)
@@ -586,9 +592,13 @@ export class UI {
         standbild.src = photo.poster
         if (standbild.complete && standbild.naturalWidth) merkeSeitenverhaeltnis(standbild)
         else {
-          standbild.addEventListener('load', () => {
-            if (gen === this._standbildGen) merkeSeitenverhaeltnis(standbild)
-          }, { once: true })
+          standbild.addEventListener(
+            'load',
+            () => {
+              if (gen === this._standbildGen) merkeSeitenverhaeltnis(standbild)
+            },
+            { once: true },
+          )
         }
       } else {
         standbild.hidden = true
@@ -679,7 +689,12 @@ export class UI {
       if (hatFrame) this._videoHatteFrame = true
       if (video.videoWidth > 0 && (hatFrame || this._videoHatteFrame)) {
         return {
-          quelle: { bild: video, breite: video.videoWidth, hoehe: video.videoHeight, kennung: video.src },
+          quelle: {
+            bild: video,
+            breite: video.videoWidth,
+            hoehe: video.videoHeight,
+            kennung: video.src,
+          },
           bereit: hatFrame && !video.seeking,
         }
       }
@@ -688,7 +703,12 @@ export class UI {
       // Auskunft, und im Film wäre er ein schwarzes Feld.
       if (!standbild.hidden && standbild.complete && standbild.naturalWidth > 0) {
         return {
-          quelle: { bild: standbild, breite: standbild.naturalWidth, hoehe: standbild.naturalHeight, kennung: standbild.src },
+          quelle: {
+            bild: standbild,
+            breite: standbild.naturalWidth,
+            hoehe: standbild.naturalHeight,
+            kennung: standbild.src,
+          },
           bereit: true,
         }
       }

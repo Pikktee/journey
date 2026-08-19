@@ -186,7 +186,9 @@ async function ladeGeraete(): Promise<void> {
   }
 
   const abmelden = async (geraet: Geraet): Promise<void> => {
-    const antwort = await fetch(`/api/auth/me/geraete/${encodeURIComponent(geraet.id)}`, { method: 'DELETE' })
+    const antwort = await fetch(`/api/auth/me/geraete/${encodeURIComponent(geraet.id)}`, {
+      method: 'DELETE',
+    })
     if (!antwort.ok) {
       melde('Das Gerät ließ sich nicht abmelden.')
       return
@@ -218,7 +220,9 @@ async function ladeSpeicher(): Promise<void> {
     if (!antwort.ok) throw new Error(String(antwort.status))
     stand = (await antwort.json()) as SpeicherStand
   } catch {
-    legende.replaceChildren(el('span', undefined, 'Der Speicherstand ließ sich gerade nicht laden.'))
+    legende.replaceChildren(
+      el('span', undefined, 'Der Speicherstand ließ sich gerade nicht laden.'),
+    )
     return
   }
 
@@ -562,7 +566,8 @@ export async function starteKonto(): Promise<void> {
   if (trackerRueckkehr) melde(trackerRueckkehr)
 
   // Die Formulare erst beim ersten Griff — sie bringen die Passwortbewertung mit.
-  const dialoge = async (): Promise<typeof import('./kontodialoge.js')> => import('./kontodialoge.js')
+  const dialoge = async (): Promise<typeof import('./kontodialoge.js')> =>
+    import('./kontodialoge.js')
 
   $('btn-mail')?.addEventListener('click', async () => {
     ;(await dialoge()).oeffneMailDialog(melde)

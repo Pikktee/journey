@@ -54,13 +54,17 @@ describe('isoMitZone / exifDatumZuMs', () => {
   it('formatiert mit Zonen-Offset', () => {
     expect(isoMitZone(Date.parse('2026-07-04T08:00:00Z'), 'UTC')).toBe('2026-07-04T08:00:00+00:00')
     // Sommerzeit Berlin = +02:00
-    expect(isoMitZone(Date.parse('2026-07-04T06:00:00Z'), 'Europe/Berlin')).toBe('2026-07-04T08:00:00+02:00')
+    expect(isoMitZone(Date.parse('2026-07-04T06:00:00Z'), 'Europe/Berlin')).toBe(
+      '2026-07-04T08:00:00+02:00',
+    )
   })
 
   it('lässt Sub-Sekunden-Reste nicht in den Zonen-Offset lecken (M7-Fund)', () => {
     // file.lastModified kann Bruchteile tragen → ohne Rundung wurde daraus
     // ein kaputter Offset wie „+01:59.99335…"
-    expect(isoMitZone(Date.parse('2026-07-04T06:00:00Z') + 0.4, 'Europe/Berlin')).toBe('2026-07-04T08:00:00+02:00')
+    expect(isoMitZone(Date.parse('2026-07-04T06:00:00Z') + 0.4, 'Europe/Berlin')).toBe(
+      '2026-07-04T08:00:00+02:00',
+    )
   })
 
   it('deutet zonenlose EXIF-Zeit in der Tour-Zone', () => {
@@ -76,10 +80,21 @@ describe('baueUploadManifest', () => {
     const m = baueUploadManifest({
       clientTourId: 'studio:tour.gpx:123',
       title: 'Mein Tag',
-      zeitspanne: { startMs: Date.parse('2026-07-04T08:00:00Z'), endMs: Date.parse('2026-07-04T09:00:00Z') },
+      zeitspanne: {
+        startMs: Date.parse('2026-07-04T08:00:00Z'),
+        endMs: Date.parse('2026-07-04T09:00:00Z'),
+      },
       zone: 'UTC',
       trackMode: 'bike',
-      medien: [{ id: 'm1', type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T08:10:00+00:00', anchor: [7.9, 46.5] }],
+      medien: [
+        {
+          id: 'm1',
+          type: 'photo',
+          file: 'a.jpg',
+          takenAt: '2026-07-04T08:10:00+00:00',
+          anchor: [7.9, 46.5],
+        },
+      ],
     })
     expect(m.schema).toBe('maptale/upload@1')
     expect(m.trackFile).toBe('track.gpx')

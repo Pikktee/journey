@@ -50,7 +50,9 @@ export function leseDienstkonto(json: string): Dienstkonto {
   try {
     objekt = JSON.parse(json) as Record<string, unknown>
   } catch {
-    throw new Error('MAPTALE_FCM_SERVICE_ACCOUNT ist kein lesbares JSON (Base64 vollständig kopiert?)')
+    throw new Error(
+      'MAPTALE_FCM_SERVICE_ACCOUNT ist kein lesbares JSON (Base64 vollständig kopiert?)',
+    )
   }
   const projekt = typeof objekt.project_id === 'string' ? objekt.project_id : null
   const klientMail = typeof objekt.client_email === 'string' ? objekt.client_email : null
@@ -63,7 +65,11 @@ export function leseDienstkonto(json: string): Dienstkonto {
 
 /** Base64url ohne Polsterung — die Kodierung, die JWT vorschreibt. */
 function base64url(daten: string | Buffer): string {
-  return Buffer.from(daten).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  return Buffer.from(daten)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
 }
 
 /**

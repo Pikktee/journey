@@ -58,7 +58,11 @@ describe('Fassungen beim Rendern', () => {
     const id = await legeFertigeTourAn(u)
 
     for (const datei of ['m1.w1920.jpg', 'm1.t480.jpg']) {
-      const antwort = await u.app.inject({ method: 'GET', url: `/api/media/${id}/${datei}`, cookies: u.cookies })
+      const antwort = await u.app.inject({
+        method: 'GET',
+        url: `/api/media/${id}/${datei}`,
+        cookies: u.cookies,
+      })
       expect(antwort.statusCode, datei).toBe(200)
       expect(antwort.headers['content-type']).toBe('image/jpeg')
     }
@@ -94,7 +98,11 @@ describe('Fassungen beim Rendern', () => {
     const u = await mitWerkzeug()
     const id = await legeFertigeTourAn(u)
 
-    const nochmal = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies })
+    const nochmal = await u.app.inject({
+      method: 'POST',
+      url: `/api/tours/${id}/finalize`,
+      cookies: u.cookies,
+    })
     await u.app.verarbeitungen.get(id)
     expect(nochmal.statusCode).toBe(202)
   })
@@ -136,7 +144,12 @@ describe('trageBildfassungenNach', () => {
     const id = await legeFertigeTourAn(u)
     expect(await u.storage.info(id, 'media/m1.jpg')).not.toBeNull()
 
-    const ergebnis = await trageBildfassungenNach(u.app.deps.db, u.storage, TOURJSON_PFAD, new FakeBildWerkzeug())
+    const ergebnis = await trageBildfassungenNach(
+      u.app.deps.db,
+      u.storage,
+      TOURJSON_PFAD,
+      new FakeBildWerkzeug(),
+    )
 
     expect(ergebnis.touren).toBe(1)
     const tour = await tourJson(u, id)
@@ -144,7 +157,9 @@ describe('trageBildfassungenNach', () => {
     expect(tour.media[0]?.thumb).toBe(`/api/media/${id}/m1.t480.jpg`)
     expect(await u.storage.info(id, 'media/m1.jpg')).toBeNull()
 
-    const zeile = u.app.deps.db.prepare('SELECT cover, cover_thumb FROM tours WHERE id = ?').get(id) as {
+    const zeile = u.app.deps.db
+      .prepare('SELECT cover, cover_thumb FROM tours WHERE id = ?')
+      .get(id) as {
       cover: string
       cover_thumb: string
     }
@@ -156,7 +171,16 @@ describe('trageBildfassungenNach', () => {
     const u = await mitWerkzeug()
     await legeFertigeTourAn(u)
     // Beim Rendern schon geschehen — es gibt nichts nachzutragen
-    expect((await trageBildfassungenNach(u.app.deps.db, u.storage, TOURJSON_PFAD, new FakeBildWerkzeug())).touren).toBe(0)
+    expect(
+      (
+        await trageBildfassungenNach(
+          u.app.deps.db,
+          u.storage,
+          TOURJSON_PFAD,
+          new FakeBildWerkzeug(),
+        )
+      ).touren,
+    ).toBe(0)
   })
 
   it('behält die Titelbild-Wahl des Nutzers bei', async () => {
@@ -173,7 +197,12 @@ describe('trageBildfassungenNach', () => {
       caption: null,
     })
     const id = (
-      await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: manifest })
+      await u.app.inject({
+        method: 'POST',
+        url: '/api/tours',
+        cookies: u.cookies,
+        payload: manifest,
+      })
     ).json() as { id: string }
     for (const mid of ['m1', 'm2']) {
       await u.app.inject({
@@ -195,7 +224,9 @@ describe('trageBildfassungenNach', () => {
 
     await trageBildfassungenNach(u.app.deps.db, u.storage, TOURJSON_PFAD, new FakeBildWerkzeug())
 
-    const zeile = u.app.deps.db.prepare('SELECT cover FROM tours WHERE id = ?').get(id.id) as { cover: string }
+    const zeile = u.app.deps.db.prepare('SELECT cover FROM tours WHERE id = ?').get(id.id) as {
+      cover: string
+    }
     expect(zeile.cover).toBe(`/api/media/${id.id}/m2.w1920.jpg`)
   })
 

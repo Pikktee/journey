@@ -14,12 +14,22 @@ import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 // — Helfer wie in api.test.ts, plus ein Manifest mit zwei verankerten Fotos —
 
 async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
-  const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: manifest })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: '/api/tours',
+    cookies: u.cookies,
+    payload: manifest,
+  })
   expect(antwort.statusCode).toBe(201)
   return (antwort.json() as { id: string }).id
 }
 
-async function ladeMediumHoch(u: TestUmgebung, tourId: string, mid: string, inhalt = 'fake-jpeg-bytes'): Promise<void> {
+async function ladeMediumHoch(
+  u: TestUmgebung,
+  tourId: string,
+  mid: string,
+  inhalt = 'fake-jpeg-bytes',
+): Promise<void> {
   const antwort = await u.app.inject({
     method: 'PUT',
     url: `/api/tours/${tourId}/media/${mid}`,
@@ -31,7 +41,11 @@ async function ladeMediumHoch(u: TestUmgebung, tourId: string, mid: string, inha
 }
 
 async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
-  const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${tourId}/finalize`, cookies: u.cookies })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: `/api/tours/${tourId}/finalize`,
+    cookies: u.cookies,
+  })
   expect(antwort.statusCode).toBe(202)
   await u.app.verarbeitungen.get(tourId)
 }
@@ -70,7 +84,9 @@ async function nachreichen(
 
 /** Das rohe Manifest der Tour — die Quelle, gegen die der Dedup läuft. */
 async function manifestVon(u: TestUmgebung, tourId: string): Promise<UploadManifest> {
-  return JSON.parse((await u.app.deps.storage.lese(tourId, MANIFEST_PFAD)).toString()) as UploadManifest
+  return JSON.parse(
+    (await u.app.deps.storage.lese(tourId, MANIFEST_PFAD)).toString(),
+  ) as UploadManifest
 }
 
 /**
@@ -93,7 +109,11 @@ function verzoegereManifestLesen(u: TestUmgebung, ms = 20): void {
 }
 
 async function tourJson(u: TestUmgebung, tourId: string): Promise<TourJson> {
-  const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${tourId}`, cookies: u.cookies })
+  const antwort = await u.app.inject({
+    method: 'GET',
+    url: `/api/tours/${tourId}`,
+    cookies: u.cookies,
+  })
   expect(antwort.statusCode).toBe(200)
   return antwort.json() as TourJson
 }
@@ -127,7 +147,11 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     expect(ueberschreiben.statusCode).toBe(409)
 
     // Reprocess nimmt das nachgereichte Medium in die Wiedergabe auf
-    const reprocess = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: u.cookies })
+    const reprocess = await u.app.inject({
+      method: 'POST',
+      url: `/api/tours/${id}/reprocess`,
+      cookies: u.cookies,
+    })
     expect(reprocess.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
     const json = await tourJson(u, id)
@@ -144,7 +168,12 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
-    const eintrag = { type: 'photo' as const, file: 'IMG_1.jpg', takenAt: '2026-07-04T10:30:00+02:00', quelle: 'galerie:4711' }
+    const eintrag = {
+      type: 'photo' as const,
+      file: 'IMG_1.jpg',
+      takenAt: '2026-07-04T10:30:00+02:00',
+      quelle: 'galerie:4711',
+    }
     const erst = await nachreichen(u, id, [eintrag])
     const zweit = await nachreichen(u, id, [eintrag])
 
@@ -166,8 +195,18 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
-    const a = { type: 'photo' as const, file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00', quelle: 'galerie:1' }
-    const b = { type: 'photo' as const, file: 'b.jpg', takenAt: '2026-07-04T10:31:00+02:00', quelle: 'galerie:2' }
+    const a = {
+      type: 'photo' as const,
+      file: 'a.jpg',
+      takenAt: '2026-07-04T10:30:00+02:00',
+      quelle: 'galerie:1',
+    }
+    const b = {
+      type: 'photo' as const,
+      file: 'b.jpg',
+      takenAt: '2026-07-04T10:31:00+02:00',
+      quelle: 'galerie:2',
+    }
     const erst = await nachreichen(u, id, [a])
     const zweit = await nachreichen(u, id, [a, b])
     expect(zweit.medien).toHaveLength(2)
@@ -237,7 +276,12 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     await Promise.all([
       u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies }),
       nachreichen(u, id, [
-        { type: 'photo', file: 'neu.jpg', takenAt: '2026-07-04T10:32:00+02:00', quelle: 'galerie:N' },
+        {
+          type: 'photo',
+          file: 'neu.jpg',
+          takenAt: '2026-07-04T10:32:00+02:00',
+          quelle: 'galerie:N',
+        },
       ]),
     ])
     await u.app.verarbeitungen.get(id)
@@ -266,7 +310,9 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     ])
     expect(statusCode).toBe(400)
     // Auch der gültige Eintrag wurde NICHT geschrieben
-    const manifest = JSON.parse((await u.storage.lese(id, 'original/manifest.json')).toString()) as UploadManifest
+    const manifest = JSON.parse(
+      (await u.storage.lese(id, 'original/manifest.json')).toString(),
+    ) as UploadManifest
     expect(manifest.media).toHaveLength(1)
   })
 
@@ -297,7 +343,11 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     expect(vorher.media.map((m) => m.id)).toEqual(expect.arrayContaining(['m1', 'm2']))
     const grosseVorher = await u.storage.gesamtGroesse(id)
 
-    const antwort = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/media/m1`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     await u.app.verarbeitungen.get(id)
 
@@ -308,12 +358,16 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     // Speicher ist tatsächlich frei
     expect(await u.storage.gesamtGroesse(id)).toBeLessThan(grosseVorher)
     // Tombstone im Manifest, Eintrag bleibt stehen
-    const manifest = JSON.parse((await u.storage.lese(id, 'original/manifest.json')).toString()) as UploadManifest
+    const manifest = JSON.parse(
+      (await u.storage.lese(id, 'original/manifest.json')).toString(),
+    ) as UploadManifest
     expect(manifest.media.find((m) => m.id === 'm1')?.entfernt).toBe(true)
     // tour.json referenziert m1 nicht mehr; das Cover fällt auf m2 zurück
     const nachher = await tourJson(u, id)
     expect(nachher.media.map((m) => m.id)).not.toContain('m1')
-    const zeile = u.app.deps.db.prepare('SELECT cover FROM tours WHERE id = ?').get(id) as { cover: string | null }
+    const zeile = u.app.deps.db.prepare('SELECT cover FROM tours WHERE id = ?').get(id) as {
+      cover: string | null
+    }
     expect(zeile.cover).toContain('m2')
   })
 
@@ -323,10 +377,18 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
-    const erste = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies })
+    const erste = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/media/m1`,
+      cookies: u.cookies,
+    })
     expect(erste.statusCode).toBe(200)
     await u.app.verarbeitungen.get(id)
-    const zweite = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies })
+    const zweite = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/media/m1`,
+      cookies: u.cookies,
+    })
     expect(zweite.statusCode).toBe(200)
 
     const put = await u.app.inject({
@@ -337,12 +399,22 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     })
     expect(put.statusCode).toBe(409)
     // Unbekannte ID bleibt davon unterschieden: 404
-    const unbekannt = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m99`, cookies: u.cookies })
+    const unbekannt = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/media/m99`,
+      cookies: u.cookies,
+    })
     expect(unbekannt.statusCode).toBe(404)
   })
 
   it('löscht bei Videos auch Web-Fassung, Poster und Kachel', async () => {
-    const werkzeug = new FakeVideoWerkzeug({ codecVideo: 'h264', codecAudio: 'aac', dauerS: 12, breite: 1920, hoehe: 1080 })
+    const werkzeug = new FakeVideoWerkzeug({
+      codecVideo: 'h264',
+      codecAudio: 'aac',
+      dauerS: 12,
+      breite: 1920,
+      hoehe: 1080,
+    })
     const u = await baueTestApp([], null, werkzeug, {}, null, null, new FakeBildWerkzeug())
     const manifest = beispielManifest()
     manifest.media.push({
@@ -358,7 +430,11 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await ladeMediumHoch(u, id, 'v1', 'fake-video-bytes')
     await finalisiere(u, id)
 
-    const antwort = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/v1`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/media/v1`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     await u.app.verarbeitungen.get(id)
     for (const datei of ['v1.mp4', 'v1.web.mp4', 'v1.poster.jpg', 'v1.t480.jpg']) {
@@ -378,11 +454,20 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       titelbild: 'm1',
       medien: { m1: { caption: 'Gipfelkreuz' }, m2: { caption: 'Abfahrt' } },
     }
-    const speichern = await u.app.inject({ method: 'PUT', url: `/api/tours/${id}/edits`, cookies: u.cookies, payload: edits })
+    const speichern = await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: edits,
+    })
     expect(speichern.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
 
-    const antwort = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/media/m1`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     await u.app.verarbeitungen.get(id)
 
@@ -400,7 +485,11 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     const id = await legeTourAn(u, manifestMitZweiFotos())
     await ladeMediumHoch(u, id, 'm2')
     // m1 wurde nie hochgeladen und wird bei „angelegt" gelöscht
-    const antwort = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/media/m1`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     // finalize meldet KEIN „Medien fehlen" für den Tombstone
     await finalisiere(u, id)
@@ -417,7 +506,9 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies })
     await u.app.verarbeitungen.get(id)
 
-    const editor = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+    const editor = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    ).json() as {
       medien: Array<{ id: string }>
     }
     expect(editor.medien.map((m) => m.id)).toEqual(['m2'])
@@ -433,14 +524,20 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       { type: 'photo', file: 'nie-hochgeladen.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
     ])
     // Kein PUT — direkt neu verarbeiten
-    const reprocess = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: u.cookies })
+    const reprocess = await u.app.inject({
+      method: 'POST',
+      url: `/api/tours/${id}/reprocess`,
+      cookies: u.cookies,
+    })
     expect(reprocess.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
 
     const json = await tourJson(u, id)
     expect(json.media.map((m) => m.id)).not.toContain(medien[0]?.id)
     // Die Tour ist trotzdem sauber fertig geworden
-    expect(u.app.deps.db.prepare('SELECT status FROM tours WHERE id = ?').get(id)).toEqual({ status: 'bereit' })
+    expect(u.app.deps.db.prepare('SELECT status FROM tours WHERE id = ?').get(id)).toEqual({
+      status: 'bereit',
+    })
   })
 
   it('zeigt einen Nachzügler ohne Datei bei „bereit" auch im Editor nicht', async () => {
@@ -456,7 +553,9 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     const { medien } = await nachreichen(u, id, [
       { type: 'photo', file: 'abgebrochen.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
     ])
-    const editor = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+    const editor = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    ).json() as {
       medien: Array<{ id: string }>
     }
     expect(editor.medien.map((m) => m.id)).toEqual(['m1'])

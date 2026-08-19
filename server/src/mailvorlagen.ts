@@ -15,15 +15,16 @@
 // Missbrauch, sobald es je einen zweiten Admin gibt.
 
 import type { Db } from './db.js'
-import { findePlatzhalter, rendereMail, type GerenderteMail, type LayoutKontext, type MailBausteine } from './maillayout.js'
+import {
+  findePlatzhalter,
+  rendereMail,
+  type GerenderteMail,
+  type LayoutKontext,
+  type MailBausteine,
+} from './maillayout.js'
 
 export type VorlagenSchluessel =
-  | 'verifikation'
-  | 'reset'
-  | 'email-wechsel'
-  | 'warteliste'
-  | 'warteliste-einladung'
-  | 'export'
+  'verifikation' | 'reset' | 'email-wechsel' | 'warteliste' | 'warteliste-einladung' | 'export'
 
 export interface PlatzhalterInfo {
   name: string
@@ -61,10 +62,15 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     schluessel: 'verifikation',
     name: 'E-Mail bestätigen',
-    anlass: 'Geht sofort nach der Registrierung raus. Ohne den Klick darf niemand Touren hochladen.',
+    anlass:
+      'Geht sofort nach der Registrierung raus. Ohne den Klick darf niemand Touren hochladen.',
     hatLink: true,
     platzhalter: [
-      { name: 'name', beschreibung: 'Name des Kontos (aus der Registrierung oder der Adresse abgeleitet)', beispiel: 'Mira Wolf' },
+      {
+        name: 'name',
+        beschreibung: 'Name des Kontos (aus der Registrierung oder der Adresse abgeleitet)',
+        beispiel: 'Mira Wolf',
+      },
       LINK_INFO('Bestätigungslink', 'https://maptale.io/anmelden#verify=beispiel'),
     ],
     standard: {
@@ -86,7 +92,11 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
     anlass: 'Geht raus, wenn jemand auf der Anmeldeseite „Passwort vergessen" wählt.',
     hatLink: true,
     platzhalter: [
-      { name: 'name', beschreibung: 'Name des Kontos, zu dem die Adresse gehört', beispiel: 'Mira Wolf' },
+      {
+        name: 'name',
+        beschreibung: 'Name des Kontos, zu dem die Adresse gehört',
+        beispiel: 'Mira Wolf',
+      },
       LINK_INFO('Link zum neuen Passwort', 'https://maptale.io/anmelden#reset=beispiel'),
     ],
     standard: {
@@ -130,7 +140,9 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
     anlass:
       'Geht raus, sobald sich jemand ohne Einladungscode einträgt. Erst der Klick macht daraus einen Platz in der Schlange (Double-Opt-in).',
     hatLink: true,
-    platzhalter: [LINK_INFO('Bestätigungslink', 'https://maptale.io/registrieren#warteliste=beispiel')],
+    platzhalter: [
+      LINK_INFO('Bestätigungslink', 'https://maptale.io/registrieren#warteliste=beispiel'),
+    ],
     standard: {
       betreff: 'Bitte bestätige deinen Platz auf der Warteliste',
       titel: 'Fast auf der Liste',
@@ -148,14 +160,23 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     schluessel: 'warteliste-einladung',
     name: 'Warteliste: Platz ist frei',
-    anlass: 'Geht raus, wenn du in der Warteliste auf „Einladen" drückst, mit dem frisch erzeugten Code.',
+    anlass:
+      'Geht raus, wenn du in der Warteliste auf „Einladen" drückst, mit dem frisch erzeugten Code.',
     hatLink: true,
     platzhalter: [
-      { name: 'code', beschreibung: 'Der Einladungscode. Steht er allein in einem Absatz, wird er hervorgehoben.', beispiel: 'MAPT-4F7K' },
-      LINK_INFO('Registrierung mit eingetragenem Code', 'https://maptale.io/registrieren#einladung=MAPT-4F7K'),
+      {
+        name: 'code',
+        beschreibung: 'Der Einladungscode. Steht er allein in einem Absatz, wird er hervorgehoben.',
+        beispiel: 'MAPT-4F7K',
+      },
+      LINK_INFO(
+        'Registrierung mit eingetragenem Code',
+        'https://maptale.io/registrieren#einladung=MAPT-4F7K',
+      ),
       {
         name: 'austragenLink',
-        beschreibung: 'Weg aus der Warteliste, muss in der Mail stehen (Löschung ohne Umweg über uns)',
+        beschreibung:
+          'Weg aus der Warteliste, muss in der Mail stehen (Löschung ohne Umweg über uns)',
         beispiel: 'https://maptale.io/registrieren#warteliste-austragen=beispiel',
       },
     ],
@@ -204,7 +225,8 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
 
 const NACH_SCHLUESSEL = new Map(VORLAGEN.map((v) => [v.schluessel, v]))
 
-export const istVorlagenSchluessel = (wert: string): wert is VorlagenSchluessel => NACH_SCHLUESSEL.has(wert as VorlagenSchluessel)
+export const istVorlagenSchluessel = (wert: string): wert is VorlagenSchluessel =>
+  NACH_SCHLUESSEL.has(wert as VorlagenSchluessel)
 
 export function vorlage(schluessel: VorlagenSchluessel): VorlagenEintrag {
   const eintrag = NACH_SCHLUESSEL.get(schluessel)
@@ -237,7 +259,10 @@ export function pruefeBausteine(eintrag: VorlagenEintrag, bausteine: MailBaustei
   ])
   const bekannt = new Set(eintrag.platzhalter.map((p) => p.name))
   for (const name of benutzt) {
-    if (!bekannt.has(name)) probleme.push(`{{${name}}} gibt es in dieser Mail nicht, es bliebe so stehen, wie es dasteht.`)
+    if (!bekannt.has(name))
+      probleme.push(
+        `{{${name}}} gibt es in dieser Mail nicht, es bliebe so stehen, wie es dasteht.`,
+      )
   }
 
   // Ein Platzhalter, der den einzigen Weg der Mail trägt, muss ankommen: `link`
@@ -256,7 +281,9 @@ export function pruefeBausteine(eintrag: VorlagenEintrag, bausteine: MailBaustei
 
 /** Unterscheiden sich zwei Fassungen inhaltlich? Randleerraum zählt nicht. */
 export const weichtAb = (a: MailBausteine, b: MailBausteine): boolean =>
-  (['betreff', 'titel', 'text', 'knopf', 'fuss'] as const).some((feld) => a[feld].trim() !== b[feld].trim())
+  (['betreff', 'titel', 'text', 'knopf', 'fuss'] as const).some(
+    (feld) => a[feld].trim() !== b[feld].trim(),
+  )
 
 interface VorlagenZeile {
   schluessel: string
@@ -283,11 +310,17 @@ export class MailVorlagenDienst {
 
   /** Die wirksamen Bausteine einer Vorlage — Anpassung, sonst Standard. */
   bausteine(schluessel: VorlagenSchluessel): MailBausteine {
-    const zeile = this.db.prepare('SELECT * FROM mailvorlagen WHERE schluessel = ?').get(schluessel) as
-      | VorlagenZeile
-      | undefined
+    const zeile = this.db
+      .prepare('SELECT * FROM mailvorlagen WHERE schluessel = ?')
+      .get(schluessel) as VorlagenZeile | undefined
     if (!zeile) return vorlage(schluessel).standard
-    return { betreff: zeile.betreff, titel: zeile.titel, text: zeile.text, knopf: zeile.knopf, fuss: zeile.fuss }
+    return {
+      betreff: zeile.betreff,
+      titel: zeile.titel,
+      text: zeile.text,
+      knopf: zeile.knopf,
+      fuss: zeile.fuss,
+    }
   }
 
   /** Der ganze Katalog samt Anpassungsstand — die Liste in der Verwaltung. */
@@ -350,11 +383,17 @@ export class MailVorlagenDienst {
 
   /** Zurück auf den Stand im Code; false, wenn nie etwas angepasst war. */
   setzeZurueck(schluessel: VorlagenSchluessel): boolean {
-    return this.db.prepare('DELETE FROM mailvorlagen WHERE schluessel = ?').run(schluessel).changes > 0
+    return (
+      this.db.prepare('DELETE FROM mailvorlagen WHERE schluessel = ?').run(schluessel).changes > 0
+    )
   }
 
   /** Die fertige Mail — der eine Weg, auf dem System-Mails entstehen. */
-  rendere(schluessel: VorlagenSchluessel, werte: Record<string, string>, kontext: LayoutKontext): GerenderteMail {
+  rendere(
+    schluessel: VorlagenSchluessel,
+    werte: Record<string, string>,
+    kontext: LayoutKontext,
+  ): GerenderteMail {
     return rendereMail(this.bausteine(schluessel), werte, kontext)
   }
 }

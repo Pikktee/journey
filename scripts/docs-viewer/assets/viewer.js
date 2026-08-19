@@ -127,7 +127,6 @@
   window.addEventListener('scroll', schliesseSchwebend, true)
   window.addEventListener('resize', schliesseSchwebend)
 
-
   /* ── Auswahlfelder ────────────────────────────────────────────────────
    * Ein eigenes Dropdown über dem echten `<select>`.
    *
@@ -186,7 +185,8 @@
       // Nur FILTER färben sich ein: Eine Sortierung schränkt nichts ein, und
       // ein amberfarbenes Feld ließe eine vollständige Liste unvollständig
       // aussehen.
-      const filtert = feld.dataset.sortierung === undefined && feld.value !== 'alle' && feld.value !== ''
+      const filtert =
+        feld.dataset.sortierung === undefined && feld.value !== 'alle' && feld.value !== ''
       huelle.classList.toggle('gefiltert', filtert)
       optionen.forEach(function (p) {
         p.el.classList.toggle('gewaehlt', p.o.value === feld.value)
@@ -302,7 +302,14 @@
         .slice(0, 8)
         .map(function (e) {
           return (
-            '<li><a href="' + auf + e.z + '"><b>' + hervor(e.t, '') + '</b><small>' + e.b + '</small></a></li>'
+            '<li><a href="' +
+            auf +
+            e.z +
+            '"><b>' +
+            hervor(e.t, '') +
+            '</b><small>' +
+            e.b +
+            '</small></a></li>'
           )
         })
         .join('')
@@ -329,8 +336,17 @@
             var marke = t.e.a ? '<span class="treffer-archiv">Archiv</span>' : ''
             var teile = (t.e.s || []).length ? ' · ' + t.e.s.slice(0, 2).join(', ') : ''
             return (
-              '<li' + (t.e.a ? ' class="ist-archiv"' : '') + '><a href="' + ziel + '"><b>' +
-              marke + hervor(t.e.t, suche) + '</b><small>' + unter + teile + '</small></a></li>'
+              '<li' +
+              (t.e.a ? ' class="ist-archiv"' : '') +
+              '><a href="' +
+              ziel +
+              '"><b>' +
+              marke +
+              hervor(t.e.t, suche) +
+              '</b><small>' +
+              unter +
+              teile +
+              '</small></a></li>'
             )
           })
           .join('')
@@ -401,7 +417,6 @@
     }
   })
 
-
   /* ── Schreiben: bearbeiten, archivieren, zurückholen ──────────────────
    * Nur wenn die Seite über HTTP kam — als Datei geöffnet gibt es keinen
    * Dienst, der antworten könnte. `body.mit-dienst` schaltet die Knöpfe
@@ -422,9 +437,12 @@
     tafel.classList.toggle('schlimm', !!schlimm)
     tafel.classList.add('sichtbar')
     clearTimeout(tafel._zeit)
-    tafel._zeit = setTimeout(function () {
-      tafel.classList.remove('sichtbar')
-    }, schlimm ? 6000 : 2600)
+    tafel._zeit = setTimeout(
+      function () {
+        tafel.classList.remove('sichtbar')
+      },
+      schlimm ? 6000 : 2600,
+    )
   }
 
   function ruf(aktion, daten) {
@@ -489,11 +507,13 @@
       })
   }
 
-  ;[].slice.call(document.querySelectorAll('.kopftafel [data-pfad-kopieren]')).forEach(function (k) {
-    k.addEventListener('click', function () {
-      kopierePfad(k.textContent.trim())
+  ;[].slice
+    .call(document.querySelectorAll('.kopftafel [data-pfad-kopieren]'))
+    .forEach(function (k) {
+      k.addEventListener('click', function () {
+        kopierePfad(k.textContent.trim())
+      })
     })
-  })
   /* ── Verlauf ──────────────────────────────────────────────────────────
    * Zwei Kleinigkeiten, ohne die der Block halb funktioniert: Der SHA lässt
    * sich kopieren (er ist nur als Kürzel abgedruckt, der volle steht im
@@ -517,13 +537,15 @@
   window.addEventListener('hashchange', oeffneVerlauf)
   oeffneVerlauf()
 
-  ;[].slice.call(document.querySelectorAll('.kopftafel [data-editor-oeffnen]')).forEach(function (k) {
-    var tafel = k.closest('.kopftafel')
-    var pfadKnopf = tafel && tafel.querySelector('[data-pfad-kopieren]')
-    k.addEventListener('click', function () {
-      if (pfadKnopf) oeffneImEditor(pfadKnopf.textContent.trim())
+  ;[].slice
+    .call(document.querySelectorAll('.kopftafel [data-editor-oeffnen]'))
+    .forEach(function (k) {
+      var tafel = k.closest('.kopftafel')
+      var pfadKnopf = tafel && tafel.querySelector('[data-pfad-kopieren]')
+      k.addEventListener('click', function () {
+        if (pfadKnopf) oeffneImEditor(pfadKnopf.textContent.trim())
+      })
     })
-  })
 
   /* ── Umbenennen ─────────────────────────────────────────────────────────
    * Eine Schicht für alle Objekte der Seite. Sie merkt sich, WELCHES gemeint
@@ -614,7 +636,6 @@
      * Klappe, Einträge mit Datenattributen. Geöffnet ist immer höchstens eines
      * — zwei offene Menüs nebeneinander sind eine Frage ohne Antwort. */
 
-
     var nachAktion = function (a) {
       melde(a.meldung)
       // Auf der Einzelseite eines verschobenen Objekts stimmt die Adresse
@@ -651,7 +672,11 @@
         eintrag.addEventListener('click', function () {
           schliesseSchwebend()
           melde('Roadmap …')
-          ruf('roadmap', { datei: datei, titel: titel, phase: eintrag.getAttribute('data-roadmap-phase') })
+          ruf('roadmap', {
+            datei: datei,
+            titel: titel,
+            phase: eintrag.getAttribute('data-roadmap-phase'),
+          })
             .then(function (a) {
               melde(a.meldung)
               setTimeout(function () {
@@ -691,9 +716,11 @@
           schliesseSchwebend()
           if (!confirm('„' + titel + '" ins Archiv verschieben?')) return
           melde('Verschiebe …')
-          ruf('archivieren', { datei: datei }).then(nachAktion).catch(function (f) {
-            melde(f.message, true)
-          })
+          ruf('archivieren', { datei: datei })
+            .then(nachAktion)
+            .catch(function (f) {
+              melde(f.message, true)
+            })
         })
 
       ;[].slice.call(klappe.querySelectorAll('[data-zurueckholen]')).forEach(function (eintrag) {
@@ -830,7 +857,10 @@
         if (abbrechen) {
           // Wirklich abbrechen heißt: die alte Ordnung wiederherstellen, nicht
           // nur die Karte fallen lassen.
-          if (geaendert) urspruenglich.forEach(function (li) { startListe.appendChild(li) })
+          if (geaendert)
+            urspruenglich.forEach(function (li) {
+              startListe.appendChild(li)
+            })
           return
         }
         if (!geaendert) return
@@ -840,7 +870,8 @@
           return li.getAttribute('data-datei')
         })
         var phase = jetzt.getAttribute('data-phase')
-        if (jetzt === startListe) return speichere('roadmap-ordnen', { reihenfolge: reihenfolge }, phase)
+        if (jetzt === startListe)
+          return speichere('roadmap-ordnen', { reihenfolge: reihenfolge }, phase)
         speichere(
           'roadmap-verschieben',
           { datei: k.getAttribute('data-datei'), reihenfolge: reihenfolge },
@@ -960,11 +991,15 @@
             liste.insertBefore(karte, e.key === 'ArrowUp' ? alle[j] : alle[j].nextSibling)
             ruecke(alle[j], lage)
             griff.focus()
-            speichere('roadmap-ordnen', {
-              reihenfolge: karten(liste).map(function (li) {
-                return li.getAttribute('data-datei')
-              }),
-            }, liste.getAttribute('data-phase'))
+            speichere(
+              'roadmap-ordnen',
+              {
+                reihenfolge: karten(liste).map(function (li) {
+                  return li.getAttribute('data-datei')
+                }),
+              },
+              liste.getAttribute('data-phase'),
+            )
           })
         })
       })
@@ -1073,7 +1108,6 @@
     }
   }
 
-
   /* ── Scrollspy im Inhaltsverzeichnis ──────────────────────────────────
    * Zwei Anzeigen aus einer Messung: der Balken sagt, WIE WEIT man im Text
    * ist, die hervorgehobene Zeile sagt, WO. Das CSS für beides (`.fortschritt
@@ -1126,8 +1160,11 @@
 
       function linie(ziel) {
         // Die vier Pixel Puffer fangen die Rundung des Sprungziels ab.
-        return zahl(getComputedStyle(document.documentElement).scrollPaddingTop) +
-          zahl(getComputedStyle(ziel).scrollMarginTop) + 4
+        return (
+          zahl(getComputedStyle(document.documentElement).scrollPaddingTop) +
+          zahl(getComputedStyle(ziel).scrollMarginTop) +
+          4
+        )
       }
 
       function fuehreMit(a) {
@@ -1178,7 +1215,8 @@
         if (balken) {
           var k = prosa || document.body
           var start = k.getBoundingClientRect().top + window.scrollY
-          var anteil = k.offsetHeight > 0 ? (window.scrollY + window.innerHeight - start) / k.offsetHeight : 1
+          var anteil =
+            k.offsetHeight > 0 ? (window.scrollY + window.innerHeight - start) / k.offsetHeight : 1
           balken.style.width = Math.max(0, Math.min(1, anteil)) * 100 + '%'
         }
       }
@@ -1269,7 +1307,10 @@
       var art = sortWahl ? sortWahl.value : 'datum'
       var geordnet = karten.slice().sort(function (a, b) {
         if (art === 'titel')
-          return (a.getAttribute('data-titel') || '').localeCompare(b.getAttribute('data-titel') || '', 'de')
+          return (a.getAttribute('data-titel') || '').localeCompare(
+            b.getAttribute('data-titel') || '',
+            'de',
+          )
         if (art === 'kurz')
           return Number(a.getAttribute('data-minuten')) - Number(b.getAttribute('data-minuten'))
         if (art === 'verweise')
@@ -1340,16 +1381,23 @@
       var r = karteSvg.getBoundingClientRect()
       var hud = document.querySelector('.karte-hud')
       if (!r.width || !r.height) return lage
-      var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+      var x0 = Infinity,
+        y0 = Infinity,
+        x1 = -Infinity,
+        y1 = -Infinity
       ;[].slice.call(karteSvg.querySelectorAll('.knoten')).forEach(function (g) {
         var t = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(g.getAttribute('transform'))
         if (!t) return
-        var x = parseFloat(t[1]), y = parseFloat(t[2]), rad = parseFloat(g.getAttribute('data-r')) || 6
+        var x = parseFloat(t[1]),
+          y = parseFloat(t[2]),
+          rad = parseFloat(g.getAttribute('data-r')) || 6
         // Der Zuschlag ist das ETIKETT: Es steht mittig unter dem Punkt und
         // ragt seitlich weit über ihn hinaus. Ohne ihn schnitt der Rand die
         // äußeren Namen ab — sichtbar war der Punkt, lesbar nichts.
-        x0 = Math.min(x0, x - rad - 110); x1 = Math.max(x1, x + rad + 110)
-        y0 = Math.min(y0, y - rad - 52); y1 = Math.max(y1, y + rad + 44)
+        x0 = Math.min(x0, x - rad - 110)
+        x1 = Math.max(x1, x + rad + 110)
+        y0 = Math.min(y0, y - rad - 52)
+        y1 = Math.max(y1, y + rad + 44)
       })
       if (!isFinite(x0)) return lage
       var proPx = box.width / r.width
@@ -1370,7 +1418,13 @@
     var zeichne = function () {
       welt.setAttribute(
         'transform',
-        'translate(' + stand.x.toFixed(2) + ',' + stand.y.toFixed(2) + ') scale(' + stand.k.toFixed(3) + ')',
+        'translate(' +
+          stand.x.toFixed(2) +
+          ',' +
+          stand.y.toFixed(2) +
+          ') scale(' +
+          stand.k.toFixed(3) +
+          ')',
       )
       // Ab dieser Stufe blendet das Blatt alle Beschriftungen ein: Vorher
       // stehen nur die der gut vernetzten Punkte da, sonst überlagern sich in
@@ -1491,7 +1545,11 @@
     document.addEventListener('keydown', function (e) {
       // Im echten Vollbild räumt Esc der Browser selbst ab; hier geht es nur
       // um den Rückfall ohne API.
-      if (e.key === 'Escape' && !document.fullscreenElement && document.body.classList.contains('karte-vollbild'))
+      if (
+        e.key === 'Escape' &&
+        !document.fullscreenElement &&
+        document.body.classList.contains('karte-vollbild')
+      )
         zeigeStand(false)
     })
 
@@ -1532,7 +1590,9 @@
         // dort: Ohne Feder hat ein Punkt im Kräftespiel keinen Ort, er würde
         // aus der Reihe geschoben und läge gleich wieder irgendwo. Die Reihe
         // ist eine Ordnung von Hand — die darf die Simulation nicht auflösen.
-        fest: Number(g.getAttribute('data-grad')) ? null : { x: parseFloat(t[1]), y: parseFloat(t[2]) },
+        fest: Number(g.getAttribute('data-grad'))
+          ? null
+          : { x: parseFloat(t[1]), y: parseFloat(t[2]) },
         heim: { x: parseFloat(t[1]), y: parseFloat(t[2]) },
         grad: Number(g.getAttribute('data-grad')) || 0,
         etikett: g.querySelector('.etikett'),
@@ -1568,7 +1628,12 @@
       return hud.getBoundingClientRect().right - r.left + 22
     })()
     var mitteX =
-      (box.x + ((freiLinks + karteSvg.getBoundingClientRect().width) / 2 / Math.max(1, karteSvg.getBoundingClientRect().width)) * box.width - stand.x) /
+      (box.x +
+        ((freiLinks + karteSvg.getBoundingClientRect().width) /
+          2 /
+          Math.max(1, karteSvg.getBoundingClientRect().width)) *
+          box.width -
+        stand.x) /
       stand.k
     var mitteY = (box.y + box.height / 2 - stand.y) / stand.k
     var hitze = 0.35
@@ -1705,28 +1770,31 @@
     karteSvg.addEventListener('pointerup', zugEnde)
     karteSvg.addEventListener('pointercancel', zugEnde)
 
-
     var wendeFilter = function () {
       alleKnoten.forEach(function (k) {
         k.style.display = ausgeblendet[k.getAttribute('data-bereich')] ? 'none' : ''
       })
       alleBoegen.forEach(function (bg) {
         var vonK = karteSvg.querySelector('.knoten[data-abs="' + bg.getAttribute('data-von') + '"]')
-        var nachK = karteSvg.querySelector('.knoten[data-abs="' + bg.getAttribute('data-nach') + '"]')
+        var nachK = karteSvg.querySelector(
+          '.knoten[data-abs="' + bg.getAttribute('data-nach') + '"]',
+        )
         var weg =
           (vonK && vonK.style.display === 'none') || (nachK && nachK.style.display === 'none')
         bg.style.display = weg ? 'none' : ''
       })
     }
 
-    ;[].slice.call(document.querySelectorAll('[data-karte-bereiche] .filterchip')).forEach(function (chip) {
-      chip.addEventListener('click', function () {
-        var id = chip.getAttribute('data-bereich')
-        ausgeblendet[id] = !ausgeblendet[id]
-        chip.classList.toggle('an', !ausgeblendet[id])
-        wendeFilter()
+    ;[].slice
+      .call(document.querySelectorAll('[data-karte-bereiche] .filterchip'))
+      .forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          var id = chip.getAttribute('data-bereich')
+          ausgeblendet[id] = !ausgeblendet[id]
+          chip.classList.toggle('an', !ausgeblendet[id])
+          wendeFilter()
+        })
       })
-    })
 
     var teilWahlKarte = document.querySelector('[data-karte-teil]')
     if (teilWahlKarte)

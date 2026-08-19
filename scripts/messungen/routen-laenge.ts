@@ -15,9 +15,18 @@ const meter = (a: number[], b: number[]): number => {
   return Math.hypot((b[0]! - a[0]!) * kx, (b[1]! - a[1]!) * 110_540)
 }
 
-const TEMPO: Record<string, number> = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
+const TEMPO: Record<string, number> = {
+  walk: 0.4,
+  bike: 1,
+  moped: 1.15,
+  jeep: 1.45,
+  tram: 1.25,
+  ferry: 2.5,
+}
 
-console.log('Tour              roh (m)  route.total  Abw.%   Filmzeit roh  Filmzeit Player  Abw. (s)')
+console.log(
+  'Tour              roh (m)  route.total  Abw.%   Filmzeit roh  Filmzeit Player  Abw. (s)',
+)
 for (const id of readdirSync(WURZEL)) {
   let tour: any
   try {

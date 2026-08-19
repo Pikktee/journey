@@ -15,7 +15,12 @@ export interface GalerieTour {
   coverThumb?: string | null
   km: number | null
   erstelltAm: string
-  autor: { anzeigename: string; avatarUrl: string | null; id?: string; handle?: string | null } | null
+  autor: {
+    anzeigename: string
+    avatarUrl: string | null
+    id?: string
+    handle?: string | null
+  } | null
 }
 
 export interface GalerieAntwort {

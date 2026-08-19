@@ -231,13 +231,17 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     // rechnet ihn dann wie bei Bestandsdaten aus `f`.
     const kamera = tour.camera
       .filter((k) => Number.isFinite(k.f))
-      .map(({ filmS, ...rest }) => (Number.isFinite(filmS) ? { ...rest, filmS: filmS as number } : rest))
+      .map(({ filmS, ...rest }) =>
+        Number.isFinite(filmS) ? { ...rest, filmS: filmS as number } : rest,
+      )
     if (kamera.length) cfg.camera = kamera
   }
   if (tour.moments?.length) {
     // f muss endlich sein (landet als s-Anker in der Engine); dauerS optional,
     // aber wenn gesetzt endlich (sonst NaN-Timer im Moment-Zweig).
-    const momente = tour.moments.filter((m) => Number.isFinite(m.f) && (m.dauerS === undefined || Number.isFinite(m.dauerS)))
+    const momente = tour.moments.filter(
+      (m) => Number.isFinite(m.f) && (m.dauerS === undefined || Number.isFinite(m.dauerS)),
+    )
     if (momente.length) cfg.moments = momente
   }
   if (tour.audio?.length) {
@@ -336,7 +340,9 @@ export async function ladeServerTouren(
   try {
     const antwort = await fetch(`${basisUrl}/api/tours`, { credentials: 'same-origin' })
     if (!antwort.ok) return []
-    const json = (await antwort.json()) as { tours: Array<{ id: string; title: string | null; status: string }> }
+    const json = (await antwort.json()) as {
+      tours: Array<{ id: string; title: string | null; status: string }>
+    }
     return json.tours.filter((t) => t.status === 'bereit')
   } catch {
     return []

@@ -25,7 +25,8 @@ describe('buildRoute', () => {
     expect(route.cum[1]! - route.cum[0]!).toBeCloseTo(14, 5)
     expect(route.cum[2]! - route.cum[1]!).toBeCloseTo(14, 5)
     // Monoton steigend bis total
-    for (let i = 1; i < route.cum.length; i++) expect(route.cum[i]).toBeGreaterThanOrEqual(route.cum[i - 1]!)
+    for (let i = 1; i < route.cum.length; i++)
+      expect(route.cum[i]).toBeGreaterThanOrEqual(route.cum[i - 1]!)
     expect(route.cum[route.cum.length - 1]).toBe(route.total)
   })
 
@@ -52,7 +53,8 @@ describe('buildRoute', () => {
       expect(route.wpS).toHaveLength(wegpunkte.length)
       expect(route.wpS[0]).toBe(0)
       expect(route.wpS[route.wpS.length - 1]).toBeCloseTo(route.total, 9)
-      for (let i = 1; i < route.wpS.length; i++) expect(route.wpS[i]).toBeGreaterThan(route.wpS[i - 1]!)
+      for (let i = 1; i < route.wpS.length; i++)
+        expect(route.wpS[i]).toBeGreaterThan(route.wpS[i - 1]!)
     })
 
     it('trifft den Ort des Wegpunktes (Gegenprobe über pointAt)', () => {
@@ -138,7 +140,12 @@ describe('gruppiereStopps', () => {
   })
 
   it('misst zum Anfang des Halts — eine Kette verschmilzt nicht endlos', () => {
-    const stopps = gruppiereStopps([foto('a', 1000), foto('b', 1100), foto('c', 1200), foto('d', 1300)])
+    const stopps = gruppiereStopps([
+      foto('a', 1000),
+      foto('b', 1100),
+      foto('c', 1200),
+      foto('d', 1300),
+    ])
     expect(stopps.map((x) => x.items.map((m) => m.id))).toEqual([
       ['a', 'b'],
       ['c', 'd'],

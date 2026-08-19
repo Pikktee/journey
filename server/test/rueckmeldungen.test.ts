@@ -152,12 +152,13 @@ describe('Rückmeldungen', () => {
 
   it('räumt erledigte Meldungen früher weg als offene', async () => {
     const u = await baueTestApp()
-    const alt = (tage: number): string =>
-      new Date(Date.now() - tage * 86_400_000).toISOString()
+    const alt = (tage: number): string => new Date(Date.now() - tage * 86_400_000).toISOString()
     const erledigt = u.app.rueckmeldungen.nimmAn({ text: 'alt und erledigt' })
     const offen = u.app.rueckmeldungen.nimmAn({ text: 'alt und offen' })
     u.app.rueckmeldungen.aktualisiere(erledigt.id, { status: 'erledigt' })
-    const setzeDatum = u.app.deps.db.prepare('UPDATE rueckmeldungen SET angelegt_am = ? WHERE id = ?')
+    const setzeDatum = u.app.deps.db.prepare(
+      'UPDATE rueckmeldungen SET angelegt_am = ? WHERE id = ?',
+    )
     setzeDatum.run(alt(FRIST_ERLEDIGT_TAGE + 1), erledigt.id)
     setzeDatum.run(alt(FRIST_ERLEDIGT_TAGE + 1), offen.id)
 

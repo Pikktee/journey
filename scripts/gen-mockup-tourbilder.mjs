@@ -22,7 +22,10 @@ const KOPIEN = [
 ]
 for (const k of KOPIEN) {
   const ziel = path.join(OUT, k.nach)
-  if (fs.existsSync(ziel)) { console.log(`· ${k.nach} — vorhanden`); continue }
+  if (fs.existsSync(ziel)) {
+    console.log(`· ${k.nach} — vorhanden`)
+    continue
+  }
   fs.copyFileSync(path.join(ROOT, k.von), ziel)
   // sips liegt auf jedem Mac bei; 720 px Breite reicht für 2× Retina.
   execFileSync('sips', ['-Z', '720', '-s', 'formatOptions', '72', ziel], { stdio: 'ignore' })
@@ -32,7 +35,10 @@ for (const k of KOPIEN) {
 // — 2. Neu über fal.ai: die erfundene Lissabon-Tour —
 const env = fs.readFileSync(path.join(ROOT, '.env'), 'utf8')
 const KEY = (env.match(/^FAL_KEY\s*=\s*(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, '')
-if (!KEY) { console.error('FAL_KEY fehlt in .env'); process.exit(1) }
+if (!KEY) {
+  console.error('FAL_KEY fehlt in .env')
+  process.exit(1)
+}
 
 const FILM =
   'Photorealistic 35mm analog film photograph, Kodak Portra, subtle film grain, natural realistic colours, candid documentary travel snapshot, no text, no watermark.'
@@ -46,7 +52,10 @@ const NEU = [
 
 for (const bild of NEU) {
   const ziel = path.join(OUT, bild.name)
-  if (fs.existsSync(ziel)) { console.log(`· ${bild.name} — vorhanden`); continue }
+  if (fs.existsSync(ziel)) {
+    console.log(`· ${bild.name} — vorhanden`)
+    continue
+  }
   process.stdout.write(`… ${bild.name} `)
   const antwort = await fetch('https://fal.run/fal-ai/flux/dev', {
     method: 'POST',
@@ -60,10 +69,16 @@ for (const bild of NEU) {
       enable_safety_checker: false,
     }),
   })
-  if (!antwort.ok) { console.error(`\nFehler ${antwort.status}: ${await antwort.text()}`); process.exit(1) }
+  if (!antwort.ok) {
+    console.error(`\nFehler ${antwort.status}: ${await antwort.text()}`)
+    process.exit(1)
+  }
   const daten = await antwort.json()
   const url = daten.images?.[0]?.url
-  if (!url) { console.error('\nKeine Bild-URL:', JSON.stringify(daten).slice(0, 300)); process.exit(1) }
+  if (!url) {
+    console.error('\nKeine Bild-URL:', JSON.stringify(daten).slice(0, 300))
+    process.exit(1)
+  }
   fs.writeFileSync(ziel, Buffer.from(await (await fetch(url)).arrayBuffer()))
   execFileSync('sips', ['-Z', '720', ziel], { stdio: 'ignore' })
   console.log(`→ ${(fs.statSync(ziel).size / 1024).toFixed(0)} kB`)

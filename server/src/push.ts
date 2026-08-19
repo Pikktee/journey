@@ -111,7 +111,12 @@ export class PushDienst {
    * Neuinstallation erneut, und beim Erneuern („token refresh") schickt die App
    * ihn ungefragt noch einmal: Beides ist hier ein UPDATE, kein Fehlerfall.
    */
-  registriere(benutzerId: string, token: string, plattform: Plattform, appTokenId: string | null): PushGeraet {
+  registriere(
+    benutzerId: string,
+    token: string,
+    plattform: Plattform,
+    appTokenId: string | null,
+  ): PushGeraet {
     const jetzt = new Date().toISOString()
     this.db
       .prepare(
@@ -124,7 +129,9 @@ export class PushDienst {
            zuletzt_gesehen_am = excluded.zuletzt_gesehen_am`,
       )
       .run(neueTourId().replace('t_', 'g_'), benutzerId, appTokenId, plattform, token, jetzt, jetzt)
-    return zuGeraet(this.db.prepare('SELECT * FROM push_geraete WHERE token = ?').get(token) as GeraeteZeile)
+    return zuGeraet(
+      this.db.prepare('SELECT * FROM push_geraete WHERE token = ?').get(token) as GeraeteZeile,
+    )
   }
 
   /**
@@ -136,8 +143,11 @@ export class PushDienst {
    * DELETE eine Lücke.
    */
   entferne(benutzerId: string, token: string): boolean {
-    return this.db.prepare('DELETE FROM push_geraete WHERE benutzer_id = ? AND token = ?').run(benutzerId, token)
-      .changes > 0
+    return (
+      this.db
+        .prepare('DELETE FROM push_geraete WHERE benutzer_id = ? AND token = ?')
+        .run(benutzerId, token).changes > 0
+    )
   }
 
   /** Alle Geräte eines Kontos — für den Versand und für den Datenexport. */

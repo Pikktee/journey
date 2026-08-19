@@ -100,7 +100,9 @@ export class ExportDienst {
     const id = neueExportId()
     try {
       this.db
-        .prepare(`INSERT INTO exporte (id, benutzer_id, status, angefordert_am) VALUES (?, ?, 'laeuft', ?)`)
+        .prepare(
+          `INSERT INTO exporte (id, benutzer_id, status, angefordert_am) VALUES (?, ?, 'laeuft', ?)`,
+        )
         .run(id, benutzerId, jetzt)
     } catch {
       // Der partielle UNIQUE-Index hat zugeschlagen: Es läuft schon einer.
@@ -131,13 +133,17 @@ export class ExportDienst {
   /** Auftrag als gescheitert eintragen — der Grund bleibt intern. */
   meldeFehler(id: string, grund: string): void {
     this.db
-      .prepare(`UPDATE exporte SET status = 'fehler', fehler = ? WHERE id = ? AND status = 'laeuft'`)
+      .prepare(
+        `UPDATE exporte SET status = 'fehler', fehler = ? WHERE id = ? AND status = 'laeuft'`,
+      )
       .run(grund.slice(0, 500), id)
   }
 
   /** Ein abrufbares Archiv: fertig UND innerhalb der Frist. */
   abrufbar(id: string): ExportStand | null {
-    const z = this.db.prepare(`SELECT * FROM exporte WHERE id = ? AND status = 'fertig'`).get(id) as Zeile | undefined
+    const z = this.db
+      .prepare(`SELECT * FROM exporte WHERE id = ? AND status = 'fertig'`)
+      .get(id) as Zeile | undefined
     if (!z?.laeuft_ab_am) return null
     return new Date(z.laeuft_ab_am) > this.jetzt() ? alsStand(z) : null
   }
@@ -161,8 +167,10 @@ export class ExportDienst {
     const grenze = jetzt.toISOString()
     const haenger = new Date(jetzt.getTime() - 6 * 60 * 60 * 1000).toISOString()
     this.db
-      .prepare(`UPDATE exporte SET status = 'fehler', fehler = 'Abgebrochen (Neustart oder Absturz)'
-                WHERE status = 'laeuft' AND angefordert_am < ?`)
+      .prepare(
+        `UPDATE exporte SET status = 'fehler', fehler = 'Abgebrochen (Neustart oder Absturz)'
+                WHERE status = 'laeuft' AND angefordert_am < ?`,
+      )
       .run(haenger)
     const alt = this.db
       .prepare(
@@ -170,7 +178,10 @@ export class ExportDienst {
          WHERE (status = 'fertig' AND laeuft_ab_am <= ?)
             OR (status = 'fehler' AND angefordert_am <= ?)`,
       )
-      .all(grenze, new Date(jetzt.getTime() - FRIST_STUNDEN * 60 * 60 * 1000).toISOString()) as Array<{ id: string }>
+      .all(
+        grenze,
+        new Date(jetzt.getTime() - FRIST_STUNDEN * 60 * 60 * 1000).toISOString(),
+      ) as Array<{ id: string }>
     for (const { id } of alt) {
       await this.archive.loescheTour(id).catch(() => undefined)
       this.db.prepare('DELETE FROM exporte WHERE id = ?').run(id)
@@ -225,7 +236,12 @@ export function baueArchiv(eintraege: ArchivEintrag[]): Readable {
   for (const e of eintraege) {
     const opts = { compress: !e.gepackt }
     if (typeof e.inhalt === 'function') zip.addReadStream(e.inhalt(), e.name, opts)
-    else zip.addBuffer(Buffer.isBuffer(e.inhalt) ? e.inhalt : Buffer.from(e.inhalt, 'utf8'), e.name, opts)
+    else
+      zip.addBuffer(
+        Buffer.isBuffer(e.inhalt) ? e.inhalt : Buffer.from(e.inhalt, 'utf8'),
+        e.name,
+        opts,
+      )
   }
   zip.end()
   return zip.outputStream as Readable

@@ -182,23 +182,37 @@ describe('initiale', () => {
 describe('beschreibeEinladung', () => {
   it('sagt bei offenen Codes, wie lange sie noch gelten', () => {
     expect(beschreibeEinladung(einladung())).toBe('Offen · ohne Ablaufdatum')
-    expect(beschreibeEinladung(einladung({ ablauf: '2026-04-03T10:00:00.000Z' }))).toMatch(/^Offen · gültig bis \d{2}\./)
+    expect(beschreibeEinladung(einladung({ ablauf: '2026-04-03T10:00:00.000Z' }))).toMatch(
+      /^Offen · gültig bis \d{2}\./,
+    )
   })
 
   it('nennt bei eingelösten Codes die Person', () => {
     const text = beschreibeEinladung(
-      einladung({ zustand: 'eingeloest', eingeloestVon: 'anna@example.com', eingeloestAm: '2026-03-06T10:00:00.000Z' }),
+      einladung({
+        zustand: 'eingeloest',
+        eingeloestVon: 'anna@example.com',
+        eingeloestAm: '2026-03-06T10:00:00.000Z',
+      }),
     )
     expect(text).toContain('anna@example.com')
   })
 
   it('kommt ohne Person aus, wenn das Konto gelöscht wurde', () => {
-    const text = beschreibeEinladung(einladung({ zustand: 'eingeloest', eingeloestVon: null, eingeloestAm: '2026-03-06T10:00:00.000Z' }))
+    const text = beschreibeEinladung(
+      einladung({
+        zustand: 'eingeloest',
+        eingeloestVon: null,
+        eingeloestAm: '2026-03-06T10:00:00.000Z',
+      }),
+    )
     expect(text).toContain('gelöschten Konto')
   })
 
   it('nennt bei abgelaufenen Codes das Datum', () => {
-    expect(beschreibeEinladung(einladung({ zustand: 'abgelaufen', ablauf: '2026-03-05T10:00:00.000Z' }))).toMatch(/^Abgelaufen am /)
+    expect(
+      beschreibeEinladung(einladung({ zustand: 'abgelaufen', ablauf: '2026-03-05T10:00:00.000Z' })),
+    ).toMatch(/^Abgelaufen am /)
   })
 })
 
@@ -206,7 +220,11 @@ describe('zaehleEinladungen', () => {
   it('zählt je Zustand und fängt bei null an', () => {
     expect(zaehleEinladungen([])).toEqual({ offen: 0, eingeloest: 0, abgelaufen: 0 })
     expect(
-      zaehleEinladungen([einladung(), einladung({ zustand: 'eingeloest' }), einladung({ zustand: 'eingeloest' })]),
+      zaehleEinladungen([
+        einladung(),
+        einladung({ zustand: 'eingeloest' }),
+        einladung({ zustand: 'eingeloest' }),
+      ]),
     ).toEqual({ offen: 1, eingeloest: 2, abgelaufen: 0 })
   })
 })
@@ -248,7 +266,9 @@ describe('einladungsLink', () => {
   })
 
   it('verträgt einen Schrägstrich am Ende der Basis-URL', () => {
-    expect(einladungsLink('https://maptale.example/', 'AB-CD')).toBe('https://maptale.example/registrieren#einladung=AB-CD')
+    expect(einladungsLink('https://maptale.example/', 'AB-CD')).toBe(
+      'https://maptale.example/registrieren#einladung=AB-CD',
+    )
   })
 })
 
@@ -337,12 +357,18 @@ describe('Warteliste', () => {
 
   it('sagt zu jedem Eintrag, wo er gerade steht', () => {
     expect(beschreibeWartenden(wartender())).toContain('Bestätigung steht aus')
-    expect(beschreibeWartenden(wartender({ zustand: 'wartend', bestaetigtAm: '2026-03-05T08:00:00.000Z' }))).toBe(
-      'Bestätigt am 05.03.2026 · wartet',
-    )
     expect(
       beschreibeWartenden(
-        wartender({ zustand: 'eingeladen', eingeladenAm: '2026-03-06T08:00:00.000Z', eingeladenCode: 'ABCD-2345' }),
+        wartender({ zustand: 'wartend', bestaetigtAm: '2026-03-05T08:00:00.000Z' }),
+      ),
+    ).toBe('Bestätigt am 05.03.2026 · wartet')
+    expect(
+      beschreibeWartenden(
+        wartender({
+          zustand: 'eingeladen',
+          eingeladenAm: '2026-03-06T08:00:00.000Z',
+          eingeladenCode: 'ABCD-2345',
+        }),
       ),
     ).toBe('Eingeladen am 06.03.2026 mit Code ABCD-2345')
   })
@@ -393,8 +419,20 @@ describe('System-Mails', () => {
     anlass: 'Geht nach der Registrierung raus.',
     platzhalter: [{ name: 'link', beschreibung: 'Bestätigungslink', beispiel: 'https://…' }],
     hatLink: true,
-    standard: { betreff: 'Bestätige', titel: 'Willkommen', text: 'Hallo', knopf: 'Los', fuss: '24 Stunden' },
-    bausteine: { betreff: 'Bestätige', titel: 'Willkommen', text: 'Hallo', knopf: 'Los', fuss: '24 Stunden' },
+    standard: {
+      betreff: 'Bestätige',
+      titel: 'Willkommen',
+      text: 'Hallo',
+      knopf: 'Los',
+      fuss: '24 Stunden',
+    },
+    bausteine: {
+      betreff: 'Bestätige',
+      titel: 'Willkommen',
+      text: 'Hallo',
+      knopf: 'Los',
+      fuss: '24 Stunden',
+    },
     angepasst: false,
     geaendertAm: null,
     geaendertVon: null,
@@ -409,14 +447,20 @@ describe('System-Mails', () => {
 
   it('nennt bei angepassten Vorlagen Zeitpunkt und Person', () => {
     expect(
-      beschreibeVorlage(vorlage({ angepasst: true, geaendertAm: '2026-03-05T08:00:00.000Z', geaendertVon: 'chefin@example.com' })),
+      beschreibeVorlage(
+        vorlage({
+          angepasst: true,
+          geaendertAm: '2026-03-05T08:00:00.000Z',
+          geaendertVon: 'chefin@example.com',
+        }),
+      ),
     ).toBe('Angepasst am 05.03.2026 von chefin@example.com')
   })
 
   it('kommt ohne bekannte Person aus — das Konto kann gelöscht sein', () => {
-    expect(beschreibeVorlage(vorlage({ angepasst: true, geaendertAm: '2026-03-05T08:00:00.000Z' }))).toBe(
-      'Angepasst am 05.03.2026',
-    )
+    expect(
+      beschreibeVorlage(vorlage({ angepasst: true, geaendertAm: '2026-03-05T08:00:00.000Z' })),
+    ).toBe('Angepasst am 05.03.2026')
   })
 })
 
@@ -430,7 +474,14 @@ describe('Protokoll', () => {
   })
 
   it('sucht auch im Detail — die Tour-ID steht oft nur dort', () => {
-    const liste = [e(), e({ nr: 2, text: 'Anreicherung fehlgeschlagen', detail: 'Tour t_abc123 · Track nicht lesbar' })]
+    const liste = [
+      e(),
+      e({
+        nr: 2,
+        text: 'Anreicherung fehlgeschlagen',
+        detail: 'Tour t_abc123 · Track nicht lesbar',
+      }),
+    ]
     expect(filtereProtokoll(liste, 't_abc123').map((x) => x.nr)).toEqual([2])
   })
 
@@ -444,14 +495,20 @@ describe('Protokoll', () => {
     // Innerhalb einer Minute entscheidet die Sekunde über die Reihenfolge —
     // deshalb steht sie in der Zeile, das Datum aber nur, wenn es abweicht.
     const zeit = new Date('2026-08-04T12:30:05')
-    expect(formatiereZeitpunkt(zeit.toISOString(), new Date('2026-08-04T18:00:00'))).toBe('12:30:05')
-    expect(formatiereZeitpunkt(zeit.toISOString(), new Date('2026-08-05T09:00:00'))).toBe('04.08. 12:30:05')
+    expect(formatiereZeitpunkt(zeit.toISOString(), new Date('2026-08-04T18:00:00'))).toBe(
+      '12:30:05',
+    )
+    expect(formatiereZeitpunkt(zeit.toISOString(), new Date('2026-08-05T09:00:00'))).toBe(
+      '04.08. 12:30:05',
+    )
   })
 
   // Ein leerer Puffer ist die gute Nachricht. Er darf nicht wie ein Ausfall
   // klingen („keine Daten"), sondern sagt, seit wann nichts vorgefallen ist.
   it('macht aus Leere eine Aussage statt eines Mangels', () => {
-    expect(beschreibeProtokoll(0, 0, '2026-08-04T09:15:00')).toMatch(/^Nichts vorgefallen seit dem Start der API am 04\.08\.2026 um 09:15:00\.$/)
+    expect(beschreibeProtokoll(0, 0, '2026-08-04T09:15:00')).toMatch(
+      /^Nichts vorgefallen seit dem Start der API am 04\.08\.2026 um 09:15:00\.$/,
+    )
   })
 
   it('nennt die Fehler gesondert, wenn es welche gibt', () => {

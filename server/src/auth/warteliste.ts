@@ -92,7 +92,8 @@ const zuEintrag = (z: Zeile): WartelistenEintrag => ({
   zustand: z.eingeladen_am ? 'eingeladen' : z.bestaetigt_am ? 'wartend' : 'unbestaetigt',
 })
 
-const vorTagen = (tage: number): string => new Date(Date.now() - tage * 24 * 60 * 60 * 1000).toISOString()
+const vorTagen = (tage: number): string =>
+  new Date(Date.now() - tage * 24 * 60 * 60 * 1000).toISOString()
 
 export class WartelistenDienst {
   constructor(private readonly db: Db) {}
@@ -107,9 +108,9 @@ export class WartelistenDienst {
    * und zeigt vor der Tür nur noch das Codefeld.
    */
   offen(): boolean {
-    const zeile = this.db.prepare('SELECT wert FROM einstellungen WHERE schluessel = ?').get(SCHLUESSEL_OFFEN) as
-      | { wert: string }
-      | undefined
+    const zeile = this.db
+      .prepare('SELECT wert FROM einstellungen WHERE schluessel = ?')
+      .get(SCHLUESSEL_OFFEN) as { wert: string } | undefined
     return zeile ? zeile.wert === '1' : true
   }
 
@@ -138,9 +139,9 @@ export class WartelistenDienst {
    */
   trageEin(email: string, notiz: string | null, ip: string | null): Eintragung {
     const adresse = email.toLowerCase().trim()
-    const vorhanden = this.db.prepare(`SELECT ${SPALTEN} FROM warteliste WHERE email = ?`).get(adresse) as
-      | Zeile
-      | undefined
+    const vorhanden = this.db
+      .prepare(`SELECT ${SPALTEN} FROM warteliste WHERE email = ?`)
+      .get(adresse) as Zeile | undefined
     if (vorhanden && (vorhanden.bestaetigt_am || vorhanden.eingeladen_am)) return { token: null }
 
     const token = neuesTokenSecret()
@@ -174,19 +175,23 @@ export class WartelistenDienst {
    * „Link ungültig" zu führen, das niemand einordnen könnte.
    */
   bestaetige(token: string, ip: string | null): WartelistenEintrag | null {
-    const zeile = this.db.prepare(`SELECT ${SPALTEN} FROM warteliste WHERE token_hash = ?`).get(sha256(token)) as
-      | Zeile
-      | undefined
+    const zeile = this.db
+      .prepare(`SELECT ${SPALTEN} FROM warteliste WHERE token_hash = ?`)
+      .get(sha256(token)) as Zeile | undefined
     if (!zeile) return null
     if (zeile.bestaetigt_am) return zuEintrag(zeile)
     const jetzt = new Date().toISOString()
-    this.db.prepare('UPDATE warteliste SET bestaetigt_am = ?, bestaetigt_ip = ? WHERE id = ?').run(jetzt, ip, zeile.id)
+    this.db
+      .prepare('UPDATE warteliste SET bestaetigt_am = ?, bestaetigt_ip = ? WHERE id = ?')
+      .run(jetzt, ip, zeile.id)
     return zuEintrag({ ...zeile, bestaetigt_am: jetzt })
   }
 
   /** Austragen über den Link aus der Mail — der Weg zur Löschung ohne Konto. */
   trageAus(token: string): boolean {
-    return this.db.prepare('DELETE FROM warteliste WHERE token_hash = ?').run(sha256(token)).changes > 0
+    return (
+      this.db.prepare('DELETE FROM warteliste WHERE token_hash = ?').run(sha256(token)).changes > 0
+    )
   }
 
   /**
@@ -220,15 +225,16 @@ export class WartelistenDienst {
   }
 
   nachId(id: string): WartelistenEintrag | null {
-    const zeile = this.db.prepare(`SELECT ${SPALTEN} FROM warteliste WHERE id = ?`).get(id) as Zeile | undefined
+    const zeile = this.db.prepare(`SELECT ${SPALTEN} FROM warteliste WHERE id = ?`).get(id) as
+      Zeile | undefined
     return zeile ? zuEintrag(zeile) : null
   }
 
   /** Wer hinter einem Mail-Token steckt — für das Aufräumen VOR dem Austragen. */
   nachToken(token: string): WartelistenEintrag | null {
-    const zeile = this.db.prepare(`SELECT ${SPALTEN} FROM warteliste WHERE token_hash = ?`).get(sha256(token)) as
-      | Zeile
-      | undefined
+    const zeile = this.db
+      .prepare(`SELECT ${SPALTEN} FROM warteliste WHERE token_hash = ?`)
+      .get(sha256(token)) as Zeile | undefined
     return zeile ? zuEintrag(zeile) : null
   }
 
@@ -258,7 +264,11 @@ export class WartelistenDienst {
            OR (bestaetigt_am IS NOT NULL AND eingeladen_am IS NULL AND bestaetigt_am < ?)
            OR (eingeladen_am IS NOT NULL AND eingeladen_am < ?)`,
       )
-      .run(vorTagen(FRIST_UNBESTAETIGT_TAGE), vorTagen(FRIST_WARTEND_TAGE), vorTagen(FRIST_EINGELADEN_TAGE))
+      .run(
+        vorTagen(FRIST_UNBESTAETIGT_TAGE),
+        vorTagen(FRIST_WARTEND_TAGE),
+        vorTagen(FRIST_EINGELADEN_TAGE),
+      )
     return erg.changes
   }
 }

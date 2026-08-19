@@ -52,16 +52,24 @@ export function registriereNewsletterRouten(app: FastifyInstance): void {
     '/api/newsletter/abmelden',
     {
       schema: {
-        body: { type: 'object', additionalProperties: false, required: ['token'], properties: { token: tokenSchema } },
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['token'],
+          properties: { token: tokenSchema },
+        },
       },
     },
     async (request, reply) => {
       if (gebremst(`ip:${request.ip}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
       if (!trageAus(request.body.token)) {
         return reply.code(400).send({
-          fehler: 'Dieser Abmeldelink gilt nicht mehr. In den Kontoeinstellungen kannst du den Schalter selbst umlegen.',
+          fehler:
+            'Dieser Abmeldelink gilt nicht mehr. In den Kontoeinstellungen kannst du den Schalter selbst umlegen.',
         })
       }
       return { ok: true }
@@ -75,9 +83,12 @@ export function registriereNewsletterRouten(app: FastifyInstance): void {
   // wird deshalb gar nicht gelesen (die App parst `*` ohnehin als Stream), und
   // die Antwort ist absichtlich leer — sie geht an ein Programm, nicht an einen
   // Menschen.
-  app.post<{ Params: { token: string } }>('/api/newsletter/ein-klick/:token', async (request, reply) => {
-    if (gebremst(`ip:${request.ip}`)) return reply.code(429).send()
-    if (!trageAus(request.params.token)) return reply.code(400).send()
-    return reply.code(200).send()
-  })
+  app.post<{ Params: { token: string } }>(
+    '/api/newsletter/ein-klick/:token',
+    async (request, reply) => {
+      if (gebremst(`ip:${request.ip}`)) return reply.code(429).send()
+      if (!trageAus(request.params.token)) return reply.code(400).send()
+      return reply.code(200).send()
+    },
+  )
 }

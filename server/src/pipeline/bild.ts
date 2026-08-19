@@ -316,9 +316,16 @@ async function bereiteEinFotoAuf(
 
     if (anzeigeFehlt) {
       const ziel = join(arbeitsdir, 'anzeige.jpg')
-      await werkzeug.skaliere(quellTemp, ziel, { kante: ANZEIGE_KANTE, guete: ANZEIGE_GUETE, drehung })
+      await werkzeug.skaliere(quellTemp, ziel, {
+        kante: ANZEIGE_KANTE,
+        guete: ANZEIGE_GUETE,
+        drehung,
+      })
       const gedreht = await readFile(ziel)
-      await speicher.schreibe(`media/${anzeigeName}`, exif ? mitExif(gedreht, ohneOrientierung(exif)) : gedreht)
+      await speicher.schreibe(
+        `media/${anzeigeName}`,
+        exif ? mitExif(gedreht, ohneOrientierung(exif)) : gedreht,
+      )
     }
     if (thumbFehlt) {
       const ziel = join(arbeitsdir, 'thumb.jpg')

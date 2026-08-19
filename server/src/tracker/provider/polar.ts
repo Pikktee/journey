@@ -76,7 +76,10 @@ export function dauerZuSekunden(dauer: string | undefined): number | null {
  * Sonnenstand und Foto-Platzierung hängt, fällt es als „falsches Licht" auf,
  * nicht als Zeitfehler.
  */
-export function startZeitpunkt(startTime: string | undefined, versatzMinuten: number | undefined): number | null {
+export function startZeitpunkt(
+  startTime: string | undefined,
+  versatzMinuten: number | undefined,
+): number | null {
   if (!startTime) return null
   const alsUtc = Date.parse(/[Zz]|[+-]\d{2}:\d{2}$/.test(startTime) ? startTime : `${startTime}Z`)
   if (!Number.isFinite(alsUtc)) return null
@@ -112,7 +115,9 @@ export class PolarProvider implements TrackerProvider {
   }
 
   async tauscheCode(code: string, redirectUri: string): Promise<ProviderTokens> {
-    const basic = Buffer.from(`${this.zugang.clientId}:${this.zugang.clientSecret}`).toString('base64')
+    const basic = Buffer.from(`${this.zugang.clientId}:${this.zugang.clientSecret}`).toString(
+      'base64',
+    )
     const antwort = await this.hol(TOKEN, {
       method: 'POST',
       headers: {
@@ -120,11 +125,16 @@ export class PolarProvider implements TrackerProvider {
         'content-type': 'application/x-www-form-urlencoded',
         accept: 'application/json;charset=UTF-8',
       },
-      body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }).toString(),
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+      }).toString(),
     })
     if (!antwort.ok) throw new Error(`Token-Tausch abgelehnt (${antwort.status})`)
     const json = (await antwort.json()) as { access_token?: string; x_user_id?: number | string }
-    if (!json.access_token || json.x_user_id === undefined) throw new Error('Token-Antwort ohne Zugang oder Nutzerkennung')
+    if (!json.access_token || json.x_user_id === undefined)
+      throw new Error('Token-Antwort ohne Zugang oder Nutzerkennung')
     return {
       zugriff: json.access_token,
       // Diese Kennung ist der Zuordnungsweg jedes späteren Webhooks: Sie steht
@@ -193,7 +203,11 @@ export class PolarProvider implements TrackerProvider {
     istPing: (anfrage: WebhookAnfrage): boolean => {
       try {
         const daten = JSON.parse(anfrage.rohBody || '{}') as Record<string, unknown>
-        return daten['event'] === 'PING' && daten['user_id'] === undefined && daten['entity_id'] === undefined
+        return (
+          daten['event'] === 'PING' &&
+          daten['user_id'] === undefined &&
+          daten['entity_id'] === undefined
+        )
       } catch {
         return false
       }
@@ -266,7 +280,9 @@ export class PolarProvider implements TrackerProvider {
     const roh = await this.json('/v3/exercises', tokens)
     // Je nach Fassung antwortet Polar mit einer Liste oder mit einem Objekt,
     // das sie unter `exercises` trägt.
-    const liste = Array.isArray(roh) ? roh : ((feld<unknown[]>(roh, 'exercises') ?? []) as unknown[])
+    const liste = Array.isArray(roh)
+      ? roh
+      : ((feld<unknown[]>(roh, 'exercises') ?? []) as unknown[])
     const ereignisse: TrackerEreignis[] = []
     for (const eintrag of liste) {
       if (!eintrag || typeof eintrag !== 'object') continue
@@ -295,7 +311,8 @@ export class PolarProvider implements TrackerProvider {
       Number(feld(uebung, 'start-time-utc-offset') ?? 0),
     )
     const dauerS = dauerZuSekunden(feld<string>(uebung, 'duration'))
-    if (startMs === null || dauerS === null) throw new Error('Aktivität ohne brauchbare Start- oder Dauerangabe')
+    if (startMs === null || dauerS === null)
+      throw new Error('Aktivität ohne brauchbare Start- oder Dauerangabe')
     // Dauer null heißt: gestartet und sofort gestoppt. Das ist eine Aussage
     // über die Aktivität und keine Störung — als Fehler geführt liefe sie
     // dreimal durch den Wiederhol-Weg, obwohl sich daran nie etwas ändert.

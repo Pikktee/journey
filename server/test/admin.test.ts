@@ -6,7 +6,13 @@
 
 import { describe, expect, it } from 'vitest'
 import { vorlage } from '../src/mailvorlagen.js'
-import { baueTestApp, beispielManifest, legeAdminAn, oeffneRegistrierung, type TestUmgebung } from './helfer.js'
+import {
+  baueTestApp,
+  beispielManifest,
+  legeAdminAn,
+  oeffneRegistrierung,
+  type TestUmgebung,
+} from './helfer.js'
 
 const registriere = (u: TestUmgebung, payload: Record<string, unknown>) =>
   u.app.inject({ method: 'POST', url: '/api/auth/register', payload })
@@ -17,7 +23,12 @@ async function ladeEin(
   cookies: { maptale_session: string },
   koerper: Record<string, unknown> = {},
 ): Promise<string> {
-  const antwort = await u.app.inject({ method: 'POST', url: '/api/admin/einladungen', cookies, payload: koerper })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: '/api/admin/einladungen',
+    cookies,
+    payload: koerper,
+  })
   expect(antwort.statusCode).toBe(201)
   return (antwort.json() as { einladung: { code: string } }).einladung.code
 }
@@ -26,7 +37,11 @@ describe('Zugang zur Verwaltung', () => {
   it('antwortet ohne Anmeldung mit 401 und für gewöhnliche Konten mit 403', async () => {
     const u = await baueTestApp()
     expect((await u.app.inject({ method: 'GET', url: '/api/admin/benutzer' })).statusCode).toBe(401)
-    const alsNutzer = await u.app.inject({ method: 'GET', url: '/api/admin/benutzer', cookies: u.cookies })
+    const alsNutzer = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/benutzer',
+      cookies: u.cookies,
+    })
     expect(alsNutzer.statusCode).toBe(403)
     expect(alsNutzer.json()).toMatchObject({ fehler: expect.stringContaining('Administrator') })
   })
@@ -34,12 +49,30 @@ describe('Zugang zur Verwaltung', () => {
   it('verwehrt auch die schreibenden Routen (403)', async () => {
     const u = await baueTestApp()
     const c = u.cookies
-    expect((await u.app.inject({ method: 'POST', url: '/api/admin/einladungen', cookies: c, payload: {} })).statusCode).toBe(403)
     expect(
-      (await u.app.inject({ method: 'PATCH', url: '/api/admin/einstellungen', cookies: c, payload: { einladungPflicht: false } }))
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/admin/einladungen',
+          cookies: c,
+          payload: {},
+        })
+      ).statusCode,
+    ).toBe(403)
+    expect(
+      (
+        await u.app.inject({
+          method: 'PATCH',
+          url: '/api/admin/einstellungen',
+          cookies: c,
+          payload: { einladungPflicht: false },
+        })
+      ).statusCode,
+    ).toBe(403)
+    expect(
+      (await u.app.inject({ method: 'DELETE', url: '/api/admin/benutzer/u_egal', cookies: c }))
         .statusCode,
     ).toBe(403)
-    expect((await u.app.inject({ method: 'DELETE', url: '/api/admin/benutzer/u_egal', cookies: c })).statusCode).toBe(403)
   })
 
   it('meldet die Rolle in /auth/me — daran hängt der Weg zur Verwaltung im Studio', async () => {
@@ -47,7 +80,11 @@ describe('Zugang zur Verwaltung', () => {
     const admin = await legeAdminAn(u)
     const alsNutzer = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
     expect(alsNutzer.json()).toMatchObject({ benutzer: { rolle: 'nutzer' } })
-    const alsAdmin = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: admin.cookies })
+    const alsAdmin = await u.app.inject({
+      method: 'GET',
+      url: '/api/auth/me',
+      cookies: admin.cookies,
+    })
     expect(alsAdmin.json()).toMatchObject({ benutzer: { rolle: 'admin' } })
   })
 })
@@ -56,17 +93,35 @@ describe('Konten verwalten', () => {
   it('listet alle Konten mit Rolle, Bestätigung, Tourenzahl und Speicher', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+    await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: beispielManifest(),
+    })
 
-    const antwort = await u.app.inject({ method: 'GET', url: '/api/admin/benutzer', cookies: admin.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/benutzer',
+      cookies: admin.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const { benutzer } = antwort.json() as {
-      benutzer: Array<{ email: string; rolle: string; touren: number; speicher: number; verifiziert: boolean }>
+      benutzer: Array<{
+        email: string
+        rolle: string
+        touren: number
+        speicher: number
+        verifiziert: boolean
+      }>
     }
     const testerin = benutzer.find((b) => b.email === 'test@example.com')
     expect(testerin).toMatchObject({ rolle: 'nutzer', touren: 1, verifiziert: true })
     expect(testerin?.speicher).toBeGreaterThan(0)
-    expect(benutzer.find((b) => b.email === 'chefin@example.com')).toMatchObject({ rolle: 'admin', touren: 0 })
+    expect(benutzer.find((b) => b.email === 'chefin@example.com')).toMatchObject({
+      rolle: 'admin',
+      touren: 0,
+    })
   })
 
   it('legt ein Konto an, das sich sofort anmelden kann', async () => {
@@ -90,7 +145,9 @@ describe('Konten verwalten', () => {
     const me = await u.app.inject({
       method: 'GET',
       url: '/api/auth/me',
-      cookies: { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' },
+      cookies: {
+        maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '',
+      },
     })
     expect(me.json()).toMatchObject({ verifiziert: true })
   })
@@ -126,7 +183,12 @@ describe('Konten verwalten', () => {
     })
     expect(antwort.statusCode).toBe(200)
     expect(antwort.json()).toMatchObject({
-      benutzer: { name: 'Neuer Name', email: 'neu@example.com', rolle: 'admin', verifiziert: false },
+      benutzer: {
+        name: 'Neuer Name',
+        email: 'neu@example.com',
+        rolle: 'admin',
+        verifiziert: false,
+      },
     })
   })
 
@@ -146,27 +208,43 @@ describe('Konten verwalten', () => {
     expect(me.json()).toMatchObject({ benutzer: null })
     // … das neue Passwort schon, das alte nicht
     expect(
-      (await u.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'test@example.com', passwort: 'geheim123' } }))
-        .statusCode,
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          payload: { email: 'test@example.com', passwort: 'geheim123' },
+        })
+      ).statusCode,
     ).toBe(401)
     expect(
-      (await u.app.inject({
-        method: 'POST',
-        url: '/api/auth/login',
-        payload: { email: 'test@example.com', passwort: 'frischgesetzt1' },
-      })).statusCode,
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          payload: { email: 'test@example.com', passwort: 'frischgesetzt1' },
+        })
+      ).statusCode,
     ).toBe(200)
   })
 
   it('löscht ein Konto samt Touren und Dateien', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    const tour = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+    const tour = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: beispielManifest(),
+    })
     const tourId = (tour.json() as { id: string }).id
     expect(await u.storage.gesamtGroesse(tourId)).toBeGreaterThan(0)
 
     const ziel = u.app.auth.alleBenutzer().find((b) => b.email === 'test@example.com')!
-    const antwort = await u.app.inject({ method: 'DELETE', url: `/api/admin/benutzer/${ziel.id}`, cookies: admin.cookies })
+    const antwort = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/benutzer/${ziel.id}`,
+      cookies: admin.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     expect(await u.storage.gesamtGroesse(tourId)).toBe(0)
     expect(u.app.auth.benutzerNachId(ziel.id)).toBeNull()
@@ -176,11 +254,23 @@ describe('Konten verwalten', () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
     expect(
-      (await u.app.inject({ method: 'PATCH', url: '/api/admin/benutzer/u_gibtsnicht', cookies: admin.cookies, payload: { name: 'X' } }))
-        .statusCode,
+      (
+        await u.app.inject({
+          method: 'PATCH',
+          url: '/api/admin/benutzer/u_gibtsnicht',
+          cookies: admin.cookies,
+          payload: { name: 'X' },
+        })
+      ).statusCode,
     ).toBe(404)
     expect(
-      (await u.app.inject({ method: 'DELETE', url: '/api/admin/benutzer/u_gibtsnicht', cookies: admin.cookies })).statusCode,
+      (
+        await u.app.inject({
+          method: 'DELETE',
+          url: '/api/admin/benutzer/u_gibtsnicht',
+          cookies: admin.cookies,
+        })
+      ).statusCode,
     ).toBe(404)
   })
 })
@@ -196,7 +286,11 @@ describe('Selbstschutz der Verwaltung', () => {
       payload: { rolle: 'nutzer' },
     })
     expect(runter.statusCode).toBe(409)
-    const weg = await u.app.inject({ method: 'DELETE', url: `/api/admin/benutzer/${admin.id}`, cookies: admin.cookies })
+    const weg = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/benutzer/${admin.id}`,
+      cookies: admin.cookies,
+    })
     expect(weg.statusCode).toBe(409)
     expect(u.app.auth.anzahlAdmins()).toBe(1)
   })
@@ -225,7 +319,9 @@ describe('Selbstschutz der Verwaltung', () => {
   it('schützt die in der Konfiguration gesetzten Adressen', async () => {
     // Ohne diesen Riegel wäre die Änderung ohnehin nur bis zum nächsten Start
     // gültig — hebeAdmins holt sie zurück.
-    const u = await baueTestApp(undefined, undefined, undefined, { adminEmails: ['chefin@example.com'] })
+    const u = await baueTestApp(undefined, undefined, undefined, {
+      adminEmails: ['chefin@example.com'],
+    })
     const admin = await legeAdminAn(u)
     const zweiter = await legeAdminAn(u, 'zweite@example.com')
     const runter = await u.app.inject({
@@ -236,7 +332,11 @@ describe('Selbstschutz der Verwaltung', () => {
     })
     expect(runter.statusCode).toBe(409)
     expect(runter.json()).toMatchObject({ fehler: expect.stringContaining('Konfiguration') })
-    const weg = await u.app.inject({ method: 'DELETE', url: `/api/admin/benutzer/${admin.id}`, cookies: zweiter.cookies })
+    const weg = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/benutzer/${admin.id}`,
+      cookies: zweiter.cookies,
+    })
     expect(weg.statusCode).toBe(409)
   })
 
@@ -257,14 +357,41 @@ describe('Einladungen', () => {
     const code = await ladeEin(u, admin.cookies, { notiz: 'für Anna' })
     expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)
 
-    const liste = await u.app.inject({ method: 'GET', url: '/api/admin/einladungen', cookies: admin.cookies })
+    const liste = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/einladungen',
+      cookies: admin.cookies,
+    })
     expect(liste.json()).toMatchObject({ einladungPflicht: true })
-    const { einladungen } = liste.json() as { einladungen: Array<{ code: string; notiz: string; zustand: string; erstelltVon: string }> }
+    const { einladungen } = liste.json() as {
+      einladungen: Array<{ code: string; notiz: string; zustand: string; erstelltVon: string }>
+    }
     expect(einladungen).toHaveLength(1)
-    expect(einladungen[0]).toMatchObject({ code, notiz: 'für Anna', zustand: 'offen', erstelltVon: 'chefin@example.com' })
+    expect(einladungen[0]).toMatchObject({
+      code,
+      notiz: 'für Anna',
+      zustand: 'offen',
+      erstelltVon: 'chefin@example.com',
+    })
 
-    expect((await u.app.inject({ method: 'DELETE', url: `/api/admin/einladungen/${code}`, cookies: admin.cookies })).statusCode).toBe(200)
-    expect((await u.app.inject({ method: 'DELETE', url: `/api/admin/einladungen/${code}`, cookies: admin.cookies })).statusCode).toBe(404)
+    expect(
+      (
+        await u.app.inject({
+          method: 'DELETE',
+          url: `/api/admin/einladungen/${code}`,
+          cookies: admin.cookies,
+        })
+      ).statusCode,
+    ).toBe(200)
+    expect(
+      (
+        await u.app.inject({
+          method: 'DELETE',
+          url: `/api/admin/einladungen/${code}`,
+          cookies: admin.cookies,
+        })
+      ).statusCode,
+    ).toBe(404)
   })
 
   it('vergibt ohne Angabe eine Gültigkeit und lässt sie auf Wunsch weg', async () => {
@@ -272,7 +399,11 @@ describe('Einladungen', () => {
     const admin = await legeAdminAn(u)
     await ladeEin(u, admin.cookies)
     await ladeEin(u, admin.cookies, { gueltigTage: 0 })
-    const liste = await u.app.inject({ method: 'GET', url: '/api/admin/einladungen', cookies: admin.cookies })
+    const liste = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/einladungen',
+      cookies: admin.cookies,
+    })
     const { einladungen } = liste.json() as { einladungen: Array<{ ablauf: string | null }> }
     expect(einladungen.filter((e) => e.ablauf === null)).toHaveLength(1)
     expect(einladungen.filter((e) => e.ablauf !== null)).toHaveLength(1)
@@ -282,7 +413,11 @@ describe('Einladungen', () => {
 describe('Registrierung mit Einladung', () => {
   it('verlangt einen Code, solange die Pflicht steht', async () => {
     const u = await baueTestApp()
-    const ohne = await registriere(u, { email: 'neu@example.com', passwort: 'geheim12345', name: 'Neu' })
+    const ohne = await registriere(u, {
+      email: 'neu@example.com',
+      passwort: 'geheim12345',
+      name: 'Neu',
+    })
     expect(ohne.statusCode).toBe(403)
     expect(ohne.json()).toMatchObject({ fehler: expect.stringContaining('Einladungscode') })
     // Kein halb angelegtes Konto zurücklassen
@@ -294,18 +429,35 @@ describe('Registrierung mit Einladung', () => {
     const admin = await legeAdminAn(u)
     const code = await ladeEin(u, admin.cookies)
 
-    const erste = await registriere(u, { email: 'anna@example.com', passwort: 'geheim12345', name: 'Anna', code })
+    const erste = await registriere(u, {
+      email: 'anna@example.com',
+      passwort: 'geheim12345',
+      name: 'Anna',
+      code,
+    })
     expect(erste.statusCode).toBe(201)
 
     // Die Einladung trägt jetzt, wer sie eingelöst hat
-    const liste = await u.app.inject({ method: 'GET', url: '/api/admin/einladungen', cookies: admin.cookies })
-    expect((liste.json() as { einladungen: Array<{ zustand: string; eingeloestVon: string }> }).einladungen[0]).toMatchObject({
+    const liste = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/einladungen',
+      cookies: admin.cookies,
+    })
+    expect(
+      (liste.json() as { einladungen: Array<{ zustand: string; eingeloestVon: string }> })
+        .einladungen[0],
+    ).toMatchObject({
       zustand: 'eingeloest',
       eingeloestVon: 'anna@example.com',
     })
 
     // Ein zweites Mal geht derselbe Code nicht
-    const zweite = await registriere(u, { email: 'bert@example.com', passwort: 'geheim12345', name: 'Bert', code })
+    const zweite = await registriere(u, {
+      email: 'bert@example.com',
+      passwort: 'geheim12345',
+      name: 'Bert',
+      code,
+    })
     expect(zweite.statusCode).toBe(403)
     expect(zweite.json()).toMatchObject({ fehler: expect.stringContaining('eingelöst') })
   })
@@ -326,16 +478,34 @@ describe('Registrierung mit Einladung', () => {
   it('weist unbekannte und abgelaufene Codes mit eigener Begründung ab', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    const unbekannt = await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code: 'XXXX-XXXX' })
+    const unbekannt = await registriere(u, {
+      email: 'a@example.com',
+      passwort: 'geheim12345',
+      name: 'A',
+      code: 'XXXX-XXXX',
+    })
     expect(unbekannt.json()).toMatchObject({ fehler: expect.stringContaining('gibt es nicht') })
 
     const code = await ladeEin(u, admin.cookies)
-    u.app.deps.db.prepare('UPDATE einladungen SET ablauf = ? WHERE code = ?').run('2020-01-01T00:00:00.000Z', code)
-    const abgelaufen = await registriere(u, { email: 'b@example.com', passwort: 'geheim12345', name: 'B', code })
+    u.app.deps.db
+      .prepare('UPDATE einladungen SET ablauf = ? WHERE code = ?')
+      .run('2020-01-01T00:00:00.000Z', code)
+    const abgelaufen = await registriere(u, {
+      email: 'b@example.com',
+      passwort: 'geheim12345',
+      name: 'B',
+      code,
+    })
     expect(abgelaufen.statusCode).toBe(403)
     expect(abgelaufen.json()).toMatchObject({ fehler: expect.stringContaining('abgelaufen') })
-    const liste = await u.app.inject({ method: 'GET', url: '/api/admin/einladungen', cookies: admin.cookies })
-    expect((liste.json() as { einladungen: Array<{ zustand: string }> }).einladungen[0]?.zustand).toBe('abgelaufen')
+    const liste = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/einladungen',
+      cookies: admin.cookies,
+    })
+    expect(
+      (liste.json() as { einladungen: Array<{ zustand: string }> }).einladungen[0]?.zustand,
+    ).toBe('abgelaufen')
   })
 
   it('lässt ohne Pflicht jeden herein — und der Schalter überlebt den Aufruf', async () => {
@@ -348,7 +518,10 @@ describe('Registrierung mit Einladung', () => {
       payload: { einladungPflicht: false },
     })
     expect(aus.json()).toMatchObject({ einladungPflicht: false })
-    expect((await registriere(u, { email: 'frei@example.com', passwort: 'geheim12345', name: 'Frei' })).statusCode).toBe(201)
+    expect(
+      (await registriere(u, { email: 'frei@example.com', passwort: 'geheim12345', name: 'Frei' }))
+        .statusCode,
+    ).toBe(201)
 
     const wieder = await u.app.inject({
       method: 'PATCH',
@@ -363,7 +536,10 @@ describe('Registrierung mit Einladung', () => {
     const u = await baueTestApp(undefined, undefined, undefined, { registrierungOffen: false })
     const admin = await legeAdminAn(u)
     const code = await ladeEin(u, admin.cookies)
-    expect((await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code })).statusCode).toBe(403)
+    expect(
+      (await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code }))
+        .statusCode,
+    ).toBe(403)
   })
 
   it('prüft einen Code, ohne ihn zu verbrauchen — Schritt 1 der Registrierung', async () => {
@@ -378,10 +554,19 @@ describe('Registrierung mit Einladung', () => {
     expect(gut.json()).toMatchObject({ ok: true, pflicht: true })
     // Zweimal prüfen ändert nichts — verbraucht wird erst beim Anlegen
     expect((await pruefen(code)).statusCode).toBe(200)
-    const liste = await u.app.inject({ method: 'GET', url: '/api/admin/einladungen', cookies: admin.cookies })
-    expect((liste.json() as { einladungen: Array<{ zustand: string }> }).einladungen[0]?.zustand).toBe('offen')
+    const liste = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/einladungen',
+      cookies: admin.cookies,
+    })
+    expect(
+      (liste.json() as { einladungen: Array<{ zustand: string }> }).einladungen[0]?.zustand,
+    ).toBe('offen')
     // … und danach lässt er sich noch einlösen
-    expect((await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code })).statusCode).toBe(201)
+    expect(
+      (await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code }))
+        .statusCode,
+    ).toBe(201)
   })
 
   it('nennt beim Prüfen denselben Grund wie beim Registrieren', async () => {
@@ -397,7 +582,11 @@ describe('Registrierung mit Einladung', () => {
 
     const code = await ladeEin(u, admin.cookies)
     await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code })
-    const verbraucht = await u.app.inject({ method: 'POST', url: '/api/auth/einladung-pruefen', payload: { code } })
+    const verbraucht = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/einladung-pruefen',
+      payload: { code },
+    })
     expect(verbraucht.statusCode).toBe(403)
     expect(verbraucht.json()).toMatchObject({ fehler: expect.stringContaining('eingelöst') })
   })
@@ -418,7 +607,11 @@ describe('Registrierung mit Einladung', () => {
     const u = await baueTestApp(undefined, undefined, undefined, { registrierungOffen: false })
     const admin = await legeAdminAn(u)
     const code = await ladeEin(u, admin.cookies)
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/einladung-pruefen', payload: { code } })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/einladung-pruefen',
+      payload: { code },
+    })
     expect(antwort.statusCode).toBe(403)
     expect(antwort.json()).toMatchObject({ fehler: expect.stringContaining('keine neuen Konten') })
   })
@@ -441,7 +634,10 @@ describe('Registrierung mit Einladung', () => {
   it('meldet den Registrierungsmodus auch ohne Anmeldung — das Formular fragt danach', async () => {
     const u = await baueTestApp()
     const zu = await u.app.inject({ method: 'GET', url: '/api/auth/me' })
-    expect(zu.json()).toMatchObject({ benutzer: null, registrierung: { offen: true, einladungPflicht: true } })
+    expect(zu.json()).toMatchObject({
+      benutzer: null,
+      registrierung: { offen: true, einladungPflicht: true },
+    })
     oeffneRegistrierung(u)
     const offen = await u.app.inject({ method: 'GET', url: '/api/auth/me' })
     expect(offen.json()).toMatchObject({ registrierung: { einladungPflicht: false } })
@@ -454,27 +650,51 @@ describe('System-Mails verwalten', () => {
   it('verwehrt gewöhnlichen Konten jeden Zugriff (403)', async () => {
     const u = await baueTestApp()
     const c = u.cookies
-    expect((await u.app.inject({ method: 'GET', url: '/api/admin/mailvorlagen', cookies: c })).statusCode).toBe(403)
     expect(
-      (await u.app.inject({ method: 'PATCH', url: '/api/admin/mailvorlagen/reset', cookies: c, payload: standard() }))
+      (await u.app.inject({ method: 'GET', url: '/api/admin/mailvorlagen', cookies: c }))
         .statusCode,
     ).toBe(403)
     expect(
-      (await u.app.inject({ method: 'POST', url: '/api/admin/mailvorlagen/reset/test', cookies: c, payload: {} }))
+      (
+        await u.app.inject({
+          method: 'PATCH',
+          url: '/api/admin/mailvorlagen/reset',
+          cookies: c,
+          payload: standard(),
+        })
+      ).statusCode,
+    ).toBe(403)
+    expect(
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/admin/mailvorlagen/reset/test',
+          cookies: c,
+          payload: {},
+        })
+      ).statusCode,
+    ).toBe(403)
+    expect(
+      (await u.app.inject({ method: 'DELETE', url: '/api/admin/mailvorlagen/reset', cookies: c }))
         .statusCode,
     ).toBe(403)
-    expect((await u.app.inject({ method: 'DELETE', url: '/api/admin/mailvorlagen/reset', cookies: c })).statusCode).toBe(403)
   })
 
   it('listet alle Vorlagen mit Standardtext, Platzhaltern und Anpassungsstand', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    const antwort = await u.app.inject({ method: 'GET', url: '/api/admin/mailvorlagen', cookies: admin.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/mailvorlagen',
+      cookies: admin.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const { vorlagen } = antwort.json() as { vorlagen: Array<Record<string, unknown>> }
     expect(vorlagen).toHaveLength(6)
     expect(vorlagen[0]).toMatchObject({ schluessel: 'verifikation', angepasst: false })
-    expect(vorlagen[0]?.platzhalter).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'link' })]))
+    expect(vorlagen[0]?.platzhalter).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'link' })]),
+    )
   })
 
   it('speichert einen angepassten Text und verschickt ihn danach', async () => {
@@ -520,15 +740,33 @@ describe('System-Mails verwalten', () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
     expect(
-      (await u.app.inject({ method: 'PATCH', url: '/api/admin/mailvorlagen/rechnung', cookies: admin.cookies, payload: standard() }))
-        .statusCode,
+      (
+        await u.app.inject({
+          method: 'PATCH',
+          url: '/api/admin/mailvorlagen/rechnung',
+          cookies: admin.cookies,
+          payload: standard(),
+        })
+      ).statusCode,
     ).toBe(404)
     expect(
-      (await u.app.inject({ method: 'DELETE', url: '/api/admin/mailvorlagen/rechnung', cookies: admin.cookies })).statusCode,
+      (
+        await u.app.inject({
+          method: 'DELETE',
+          url: '/api/admin/mailvorlagen/rechnung',
+          cookies: admin.cookies,
+        })
+      ).statusCode,
     ).toBe(404)
     expect(
-      (await u.app.inject({ method: 'POST', url: '/api/admin/mailvorlagen/rechnung/vorschau', cookies: admin.cookies, payload: standard() }))
-        .statusCode,
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/admin/mailvorlagen/rechnung/vorschau',
+          cookies: admin.cookies,
+          payload: standard(),
+        })
+      ).statusCode,
     ).toBe(404)
   })
 
@@ -541,9 +779,15 @@ describe('System-Mails verwalten', () => {
       cookies: admin.cookies,
       payload: { ...vorlage('reset').standard, titel: 'Anders' },
     })
-    const antwort = await u.app.inject({ method: 'DELETE', url: '/api/admin/mailvorlagen/reset', cookies: admin.cookies })
+    const antwort = await u.app.inject({
+      method: 'DELETE',
+      url: '/api/admin/mailvorlagen/reset',
+      cookies: admin.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
-    const { vorlagen } = antwort.json() as { vorlagen: Array<{ schluessel: string; angepasst: boolean }> }
+    const { vorlagen } = antwort.json() as {
+      vorlagen: Array<{ schluessel: string; angepasst: boolean }>
+    }
     expect(vorlagen.find((v) => v.schluessel === 'reset')?.angepasst).toBe(false)
   })
 
@@ -606,7 +850,12 @@ describe('System-Mails verwalten', () => {
       cookies: admin.cookies,
       payload: { ...vorlage('reset').standard, titel: 'Gespeichert' },
     })
-    await u.app.inject({ method: 'POST', url: '/api/admin/mailvorlagen/reset/test', cookies: admin.cookies, payload: {} })
+    await u.app.inject({
+      method: 'POST',
+      url: '/api/admin/mailvorlagen/reset/test',
+      cookies: admin.cookies,
+      payload: {},
+    })
     expect(u.mail.nachrichten.at(-1)?.html).toContain('Gespeichert')
   })
 
@@ -631,7 +880,11 @@ describe('Betriebsprotokoll', () => {
     const u = await baueTestApp()
     const ohne = await u.app.inject({ method: 'GET', url: '/api/admin/protokoll' })
     expect(ohne.statusCode).toBe(401)
-    const alsNutzer = await u.app.inject({ method: 'GET', url: '/api/admin/protokoll', cookies: u.cookies })
+    const alsNutzer = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/protokoll',
+      cookies: u.cookies,
+    })
     expect(alsNutzer.statusCode).toBe(403)
   })
 
@@ -641,7 +894,11 @@ describe('Betriebsprotokoll', () => {
     u.app.protokoll.schreibe('warnung', 'Bildanalyse: HTTP 429 (Rate-Limit)')
     u.app.protokoll.schreibe('fehler', 'Anreicherung fehlgeschlagen', 'Track nicht lesbar')
 
-    const antwort = await u.app.inject({ method: 'GET', url: '/api/admin/protokoll', cookies: admin.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/protokoll',
+      cookies: admin.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const koerper = antwort.json() as {
       eintraege: Array<{ nr: number; stufe: string; text: string; detail?: string }>
@@ -671,7 +928,13 @@ describe('Betriebsprotokoll', () => {
     })
     expect((nurFehler.json() as { eintraege: unknown[] }).eintraege).toHaveLength(1)
 
-    const seit = await u.app.inject({ method: 'GET', url: '/api/admin/protokoll?seit=2', cookies: admin.cookies })
-    expect((seit.json() as { eintraege: Array<{ text: string }> }).eintraege.map((e) => e.text)).toEqual(['neu'])
+    const seit = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/protokoll?seit=2',
+      cookies: admin.cookies,
+    })
+    expect(
+      (seit.json() as { eintraege: Array<{ text: string }> }).eintraege.map((e) => e.text),
+    ).toEqual(['neu'])
   })
 })

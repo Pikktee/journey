@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { baueBenennung, benenneTour, ebenenAusAdresse, FesterGeocoder, titleZuHtml } from '../src/pipeline/naming.js'
+import {
+  baueBenennung,
+  benenneTour,
+  ebenenAusAdresse,
+  FesterGeocoder,
+  titleZuHtml,
+} from '../src/pipeline/naming.js'
 
 const basis = {
   startPunkt: [7.9086, 46.5934] as [number, number],
@@ -10,7 +16,11 @@ const basis = {
 
 describe('benenneTour', () => {
   it('baut „Start → Ziel" aus den Geocoder-Orten', async () => {
-    const b = await benenneTour({ ...basis, nutzerTitel: null, geocoder: new FesterGeocoder(['Lauterbrunnen', 'Grindelwald']) })
+    const b = await benenneTour({
+      ...basis,
+      nutzerTitel: null,
+      geocoder: new FesterGeocoder(['Lauterbrunnen', 'Grindelwald']),
+    })
     expect(b.title).toBe('Lauterbrunnen → Grindelwald')
     expect(b.stops).toEqual(['Lauterbrunnen', 'Grindelwald'])
     expect(b.finaleTitle).toBe('Grindelwald')
@@ -21,7 +31,11 @@ describe('benenneTour', () => {
   })
 
   it('erkennt Rundtouren (Start = Ziel)', async () => {
-    const b = await benenneTour({ ...basis, nutzerTitel: null, geocoder: new FesterGeocoder(['Wengen', 'Wengen']) })
+    const b = await benenneTour({
+      ...basis,
+      nutzerTitel: null,
+      geocoder: new FesterGeocoder(['Wengen', 'Wengen']),
+    })
     expect(b.title).toBe('Runde bei Wengen')
     expect(b.stops).toEqual(['Wengen'])
     // Nur hier gibt es eine Vorbelegung für die Dachzeile: Der Titel nennt den
@@ -38,30 +52,43 @@ describe('benenneTour', () => {
     const zeit = { zeitStart: basis.zeitStart, zone: basis.zone }
 
     it('nimmt die Vorbelegung, solange nie etwas gesetzt wurde', () => {
-      expect(baueBenennung({ ...orte, ...zeit, nutzerTitel: null, dachzeile: null }).kicker).toBe('Wengen')
+      expect(baueBenennung({ ...orte, ...zeit, nutzerTitel: null, dachzeile: null }).kicker).toBe(
+        'Wengen',
+      )
       expect(baueBenennung({ ...orte, ...zeit, nutzerTitel: null }).kicker).toBe('Wengen')
     })
 
     it('lässt die Zeile beim leeren String ausdrücklich weg', () => {
       expect(baueBenennung({ ...orte, ...zeit, nutzerTitel: null, dachzeile: '' }).kicker).toBe('')
-      expect(baueBenennung({ ...orte, ...zeit, nutzerTitel: null, dachzeile: '   ' }).kicker).toBe('')
+      expect(baueBenennung({ ...orte, ...zeit, nutzerTitel: null, dachzeile: '   ' }).kicker).toBe(
+        '',
+      )
     })
 
     it('nimmt jeden anderen Text, wie er ist', () => {
-      expect(baueBenennung({ ...orte, ...zeit, nutzerTitel: null, dachzeile: ' Völklinger Hütte ' }).kicker).toBe(
-        'Völklinger Hütte',
-      )
+      expect(
+        baueBenennung({ ...orte, ...zeit, nutzerTitel: null, dachzeile: ' Völklinger Hütte ' })
+          .kicker,
+      ).toBe('Völklinger Hütte')
     })
   })
 
   it('nutzt den Nutzer-Titel unverändert, geocodiert aber die Stops', async () => {
-    const b = await benenneTour({ ...basis, nutzerTitel: '  Alpenglühen  ', geocoder: new FesterGeocoder(['Lauterbrunnen', 'Grindelwald']) })
+    const b = await benenneTour({
+      ...basis,
+      nutzerTitel: '  Alpenglühen  ',
+      geocoder: new FesterGeocoder(['Lauterbrunnen', 'Grindelwald']),
+    })
     expect(b.title).toBe('Alpenglühen')
     expect(b.stops).toEqual(['Lauterbrunnen', 'Grindelwald'])
   })
 
   it('fällt ohne Geocoder-Treffer aufs Datum zurück', async () => {
-    const b = await benenneTour({ ...basis, nutzerTitel: null, geocoder: new FesterGeocoder([null, null]) })
+    const b = await benenneTour({
+      ...basis,
+      nutzerTitel: null,
+      geocoder: new FesterGeocoder([null, null]),
+    })
     expect(b.title).toBe('Tour vom 4. Juli 2026')
     expect(b.stops).toEqual(['Tour vom 4. Juli 2026'])
     expect(b.finaleTitle).toBe('Tour vom 4. Juli 2026')
@@ -103,14 +130,15 @@ describe('ebenenAusAdresse', () => {
   })
 
   it('lässt Dubletten weg — Stadtstaaten nennen sich zweimal', () => {
-    expect(ebenenAusAdresse({ city: 'Hamburg', state: 'Hamburg', country: 'Deutschland' })).toEqual([
-      'Hamburg',
-      'Deutschland',
-    ])
+    expect(ebenenAusAdresse({ city: 'Hamburg', state: 'Hamburg', country: 'Deutschland' })).toEqual(
+      ['Hamburg', 'Deutschland'],
+    )
   })
 
   it('nimmt keine Anschrift auf', () => {
-    expect(ebenenAusAdresse({ road: 'Rathausstraße', house_number: '2', city: 'Völklingen' })).toEqual(['Völklingen'])
+    expect(
+      ebenenAusAdresse({ road: 'Rathausstraße', house_number: '2', city: 'Völklingen' }),
+    ).toEqual(['Völklingen'])
   })
 
   it('bleibt leer, wenn die Antwort nichts Brauchbares trägt', () => {

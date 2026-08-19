@@ -240,10 +240,15 @@ export const EXPORT_STANDARDZEILE = 'Alles als ZIP. Den Link bekommst du per Mai
  * dann nicht, es liege noch ein Archiv bereit, das der Server längst gelöscht
  * hat.
  */
-export function exportZeile(stand: ExportStand | null | undefined, jetzt: Date = new Date()): string {
+export function exportZeile(
+  stand: ExportStand | null | undefined,
+  jetzt: Date = new Date(),
+): string {
   if (!stand) return EXPORT_STANDARDZEILE
-  if (stand.status === 'laeuft') return 'Dein Archiv wird gerade gebaut. Die Mail kommt, sobald es fertig ist.'
-  if (stand.status === 'fehler') return 'Der letzte Versuch ist fehlgeschlagen. Fordere das Archiv noch einmal an.'
+  if (stand.status === 'laeuft')
+    return 'Dein Archiv wird gerade gebaut. Die Mail kommt, sobald es fertig ist.'
+  if (stand.status === 'fehler')
+    return 'Der letzte Versuch ist fehlgeschlagen. Fordere das Archiv noch einmal an.'
   const ablauf = stand.laeuftAbAm ? new Date(stand.laeuftAbAm) : null
   if (!ablauf || ablauf <= jetzt) return 'Dein letztes Archiv ist abgelaufen und wurde gelöscht.'
   const stunden = Math.max(1, Math.round((ablauf.getTime() - jetzt.getTime()) / 3_600_000))

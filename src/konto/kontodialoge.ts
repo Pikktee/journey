@@ -106,7 +106,10 @@ export function oeffneMailDialog(meldung: (text: string) => void): void {
  * (wer wechselt, weil er sich Sorgen macht, meint das Telefon mit), aber sie
  * darf niemanden überraschen.
  */
-export function oeffnePasswortDialog(meldung: (text: string) => void, persoenlich: () => string[]): void {
+export function oeffnePasswortDialog(
+  meldung: (text: string) => void,
+  persoenlich: () => string[],
+): void {
   const { koerper, fuss, schliesse } = oeffneSchicht('Passwort ändern')
   const alt = dialogFeld('k-pw-alt', 'Aktuelles Passwort', 'password')
   const neu = dialogFeld('k-pw-neu', 'Neues Passwort', 'password')

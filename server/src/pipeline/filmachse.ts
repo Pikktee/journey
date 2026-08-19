@@ -22,7 +22,14 @@
 // zwei Schritten, über den Adapter `tS`/`mM`.
 
 import type { MomentArt } from '../schema/edits.js'
-import { HALT_AUSBLEND_S, NAHE_M, RAMPE_M, aufnahmeHaltS, momentHaltS, tempoMs } from './filmtempo.js'
+import {
+  HALT_AUSBLEND_S,
+  NAHE_M,
+  RAMPE_M,
+  aufnahmeHaltS,
+  momentHaltS,
+  tempoMs,
+} from './filmtempo.js'
 import type { Zeitreihe } from './zeit.js'
 
 /** Ein Halt auf der Achse: wann er beginnt (Aufnahmezeit) und was er im Film kostet. */
@@ -171,7 +178,8 @@ export function baueFilmAchse(
       let naechster: number | undefined
       for (const o of halteOrte) {
         const abstand = Math.abs(o - st.abM)
-        if (abstand < rampeM && (naechster === undefined || abstand < Math.abs(naechster - st.abM))) naechster = o
+        if (abstand < rampeM && (naechster === undefined || abstand < Math.abs(naechster - st.abM)))
+          naechster = o
       }
       if (naechster !== undefined) st.abM = naechster
     }
@@ -331,7 +339,11 @@ export function zeitBeiFilm(achse: FilmAchse, filmS: number): number {
  * 30-s-Raster) liegen die Punkte weit auseinander, und ein Halt spränge sonst
  * um mehrere Sekunden. Spiegel von `projiziereAufTrack` (editmodell.ts).
  */
-export function projiziereAufReihe(reihe: Zeitreihe, lng: number, lat: number): { meter: number; offsetS: number } {
+export function projiziereAufReihe(
+  reihe: Zeitreihe,
+  lng: number,
+  lat: number,
+): { meter: number; offsetS: number } {
   const punkte = reihe.punkte
   const erster = punkte[0]
   if (!erster) return { meter: 0, offsetS: 0 }
@@ -352,7 +364,8 @@ export function projiziereAufReihe(reihe: Zeitreihe, lng: number, lat: number): 
     const dx = bx - ax
     const dy = by - ay
     const laenge2 = dx * dx + dy * dy
-    const u = laenge2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / laenge2)) : 0
+    const u =
+      laenge2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / laenge2)) : 0
     const fx = ax + u * dx
     const fy = ay + u * dy
     const d2 = (px - fx) * (px - fx) + (py - fy) * (py - fy)

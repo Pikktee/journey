@@ -47,7 +47,10 @@ function motivSchichten() {
     }).join(' ')
     raus += `<polyline points="${punkte}" fill="none" stroke="currentColor" stroke-width="1.3" opacity="${rund(0.18 + i * 0.13)}"/>`
   }
-  return raus + `<circle cx="150" cy="36" r="4.5" fill="currentColor" opacity="0.9"/><line x1="150" y1="40" x2="150" y2="60" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>`
+  return (
+    raus +
+    `<circle cx="150" cy="36" r="4.5" fill="currentColor" opacity="0.9"/><line x1="150" y1="40" x2="150" y2="60" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>`
+  )
 }
 
 function motivHorizont() {
@@ -79,7 +82,16 @@ function motivRoute() {
   const d = 'M18 92 C 58 92, 50 34, 92 34 S 148 84, 202 30'
   return `<path d="${d}" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" opacity="0.1"/>
     <path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
-    ${[[18, 92], [92, 34], [202, 30]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--bg-tief)" stroke="currentColor" stroke-width="1.8"/>`).join('')}`
+    ${[
+      [18, 92],
+      [92, 34],
+      [202, 30],
+    ]
+      .map(
+        ([x, y]) =>
+          `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--bg-tief)" stroke="currentColor" stroke-width="1.8"/>`,
+      )
+      .join('')}`
 }
 
 function motivSediment() {
@@ -96,7 +108,10 @@ function motivSediment() {
     }).join(' ')
     raus += `<polyline points="${punkte}" fill="none" stroke="currentColor" stroke-width="${i === 2 ? 1.6 : 1}" opacity="${rund(0.34 - i * 0.04)}"/>`
   }
-  return raus + `<line x1="120" y1="18" x2="120" y2="106" stroke="currentColor" stroke-width="0.9" opacity="0.28" stroke-dasharray="3 4"/>`
+  return (
+    raus +
+    `<line x1="120" y1="18" x2="120" y2="106" stroke="currentColor" stroke-width="0.9" opacity="0.28" stroke-dasharray="3 4"/>`
+  )
 }
 
 const MOTIVE = {
@@ -135,10 +150,7 @@ export function titelgrafik() {
     const punkte = Array.from({ length: 41 }, (_, k) => {
       const x = k * 30
       const y =
-        grund -
-        Math.sin(k * 0.19 + i * 0.5) * (30 + i * 4) -
-        Math.sin(k * 0.07 + i) * 18 -
-        z() * 6
+        grund - Math.sin(k * 0.19 + i * 0.5) * (30 + i * 4) - Math.sin(k * 0.07 + i) * 18 - z() * 6
       return `${x},${rund(y)}`
     }).join(' ')
     linien += `<polyline points="${punkte}" fill="none" stroke="var(--linien-ton)" stroke-width="${i % 3 === 0 ? 1.6 : 1}" opacity="${rund(0.08 + i * 0.028)}"/>`
@@ -328,7 +340,11 @@ function verteile(alleKnoten, kanten, bereiche) {
     k.y = feldHoehe + 52 + reihe * 62
   })
 
-  return { BREITE, HOEHE: feldHoehe + (einsam.length ? Math.ceil(einsam.length / proReihe) * 62 + 60 : 0), ABLAGE_Y: feldHoehe }
+  return {
+    BREITE,
+    HOEHE: feldHoehe + (einsam.length ? Math.ceil(einsam.length / proReihe) * 62 + 60 : 0),
+    ABLAGE_Y: feldHoehe,
+  }
 }
 
 export function verweiskarte(dokumente, bereiche) {
@@ -396,7 +412,9 @@ export function verweiskarte(dokumente, bereiche) {
            * kein Nachbar davon — dieselbe Linie wie auf der Roadmap.
            * Gestrichelt, weil eine geschlossene Linie hier „ausgewählt" hieße.
            */
-          k.prototyp ? `<circle class="prototyp-ring" r="${rund(r + 5)}" fill="none" stroke="${k.ton}"/>` : ''
+          k.prototyp
+            ? `<circle class="prototyp-ring" r="${rund(r + 5)}" fill="none" stroke="${k.ton}"/>`
+            : ''
         }
         <circle class="halo" r="${rund(r + 14)}" fill="transparent"/>
         <g class="etikett" transform="translate(0 ${rund(r + 8)})"><text text-anchor="middle" dominant-baseline="hanging">${kurz(kartenName(k.titel), 30)}</text></g>

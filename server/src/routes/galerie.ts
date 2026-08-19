@@ -46,7 +46,9 @@ function alsKarte(z: GalerieZeile) {
   const autor = z.anzeigename
     ? {
         anzeigename: z.anzeigename,
-        avatarUrl: z.avatar ? `/api/benutzer/${z.autor_id}/avatar?v=${encodeURIComponent(z.avatar)}` : null,
+        avatarUrl: z.avatar
+          ? `/api/benutzer/${z.autor_id}/avatar?v=${encodeURIComponent(z.avatar)}`
+          : null,
         // Der Link auf die Profilseite entsteht nur, wenn es sie gibt. Die ID
         // bleibt neben dem Handle stehen: Sie ist der Rückfall für Konten, die
         // aus der Zeit vor den Handles stammen.
@@ -107,8 +109,7 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
     const userId = wen.startsWith('u_') ? wen : app.auth.benutzerIdFuerHandle(wen)
     const person = userId
       ? (db.prepare('SELECT id, created_at FROM users WHERE id = ?').get(userId) as
-          | { id: string; created_at: string }
-          | undefined)
+          { id: string; created_at: string } | undefined)
       : undefined
     const profil = person ? app.auth.profil(person.id) : null
     // Der Besitzer sieht sein eigenes Profil auch, solange es privat ist —

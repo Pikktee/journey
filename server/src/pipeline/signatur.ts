@@ -24,7 +24,9 @@ export interface RoutenSignatur {
  * Punkte da sind oder die Route auf einen Punkt zusammenfällt — dann zeigt die
  * Kachel eben keine Form, statt einen Strich zu erfinden.
  */
-export function baueSignatur(punkte: ReadonlyArray<readonly [number, number]>): RoutenSignatur | null {
+export function baueSignatur(
+  punkte: ReadonlyArray<readonly [number, number]>,
+): RoutenSignatur | null {
   if (punkte.length < 2) return null
 
   // Gleichmäßig ausdünnen; Anfang und Ende bleiben immer erhalten (sie tragen
@@ -58,7 +60,11 @@ export function baueSignatur(punkte: ReadonlyArray<readonly [number, number]>): 
 
   const ecken = roh.map((_, i) => abbilden(i))
   const d = ecken.map((p, i) => `${i ? 'L' : 'M'}${p[0]} ${p[1]}`).join('')
-  return { d, start: ecken[0] as [number, number], ende: ecken[ecken.length - 1] as [number, number] }
+  return {
+    d,
+    start: ecken[0] as [number, number],
+    ende: ecken[ecken.length - 1] as [number, number],
+  }
 }
 
 /** Eine Nachkommastelle genügt bei 100 Einheiten Kantenlänge — spart Bytes je Kachel. */

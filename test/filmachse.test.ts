@@ -86,7 +86,8 @@ describe('Filmachse', () => {
   // (`rampeM: 0`) — sonst stünde in jeder Erwartung noch ein Rampen-Zuschlag,
   // und der Test sagte nicht mehr, worüber er redet. Die Rampe selbst hat ihre
   // eigenen Fälle im Fixture.
-  const walk960 = () => baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 6 }], { rampeM: 0 })
+  const walk960 = () =>
+    baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 6 }], { rampeM: 0 })
   /** Filmsekunden für 480 m zu Fuß — aus der Tabelle, nicht als Zahl im Test. */
   const halbeStrecke = 480 / tempoMs('walk')
 
@@ -109,7 +110,9 @@ describe('Filmachse', () => {
   })
 
   it('überspringt Halte ohne Breite, statt sie als Stufe einzuweben', () => {
-    const achse = baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 0 }], { rampeM: 0 })
+    const achse = baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 0 }], {
+      rampeM: 0,
+    })
     expect(achse.halte).toEqual([])
     expect(achse.gesamtS).toBeCloseTo(2 * halbeStrecke, 6)
   })
@@ -118,7 +121,9 @@ describe('Filmachse', () => {
     // Ein Anker kann hinter dem Tour-Ende landen (Trim, Projektionsfehler). Die
     // Standzeit gehört dann ans Ende — nicht in eine Achse, die dort schon
     // vorbei ist.
-    const achse = baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 5000, breiteS: 6 }], { rampeM: 0 })
+    const achse = baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 5000, breiteS: 6 }], {
+      rampeM: 0,
+    })
     expect(achse.gesamtS).toBeCloseTo(2 * halbeStrecke + 6, 6)
     expect(achse.halte[0]?.filmVon).toBeCloseTo(2 * halbeStrecke, 6)
   })
@@ -179,31 +184,41 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
     { meterM: HALT_M, breiteS: HALT_S },
   ])
   /** Die Achse des EDITORS samt Spielkurve (zeitleiste.ts). */
-  const editor = baueAchse([{ mode: 'walk', aktiv: true, pts: track }], [{ offsetS: HALT_M, breiteS: HALT_S }], {
-    vonS: 0,
-    bisS: METER,
-  })
+  const editor = baueAchse(
+    [{ mode: 'walk', aktiv: true, pts: track }],
+    [{ offsetS: HALT_M, breiteS: HALT_S }],
+    {
+      vonS: 0,
+      bisS: METER,
+    },
+  )
   const spielkurve = baueSpielKurve(editor, [{ aktiv: true, pts: track }])
 
   it('misst dieselbe Filmdauer — Rampen inklusive', () => {
     // DREI Rampen: aus dem Stand los, vor dem Halt bremsen, danach wieder
     // anfahren. Am Tour-ENDE wird nicht gebremst — der Film läuft dort aus, wie
     // er es heute tut. Jede Rampe kostet eine Reisezeit ihrer Strecke (E14).
-    expect(spieler.gesamtS).toBeCloseTo(METER / tempoMs('walk') + HALT_S + (3 * RAMPE_M) / tempoMs('walk'), 6)
+    expect(spieler.gesamtS).toBeCloseTo(
+      METER / tempoMs('walk') + HALT_S + (3 * RAMPE_M) / tempoMs('walk'),
+      6,
+    )
     expect(editor.kurve?.gesamtS).toBeCloseTo(spieler.gesamtS, 6)
   })
 
-  it.each([0, 240, 480, 600, 960])('setzt den Ton bei %i m an derselben Stelle der Datei ein', (meter) => {
-    const imPlayer = filmBeiStrecke(spieler, meter)
-    const imEditor = filmBei(spielkurve, filmZuAnteil(editor, imPlayer))
-    expect(imEditor).toBeCloseTo(imPlayer, 6)
-    // Ein Musikstück ab Filmsekunde 0, Datei 30 s, Loop — beide Bühnen greifen
-    // auf dieselbe Datei-Position zu.
-    expect(musikVersatzS(imPlayer, 30)).toBeCloseTo(
-      musikVersatzS(seitKlipbeginnS(filmZuAnteil(editor, imEditor), 0, spielkurve), 30),
-      6,
-    )
-  })
+  it.each([0, 240, 480, 600, 960])(
+    'setzt den Ton bei %i m an derselben Stelle der Datei ein',
+    (meter) => {
+      const imPlayer = filmBeiStrecke(spieler, meter)
+      const imEditor = filmBei(spielkurve, filmZuAnteil(editor, imPlayer))
+      expect(imEditor).toBeCloseTo(imPlayer, 6)
+      // Ein Musikstück ab Filmsekunde 0, Datei 30 s, Loop — beide Bühnen greifen
+      // auf dieselbe Datei-Position zu.
+      expect(musikVersatzS(imPlayer, 30)).toBeCloseTo(
+        musikVersatzS(seitKlipbeginnS(filmZuAnteil(editor, imEditor), 0, spielkurve), 30),
+        6,
+      )
+    },
+  )
 
   it('hält im HALT die Filmzeit auseinander, obwohl die Strecke steht', () => {
     // Der eigentliche Gewinn: Mitten im Halt gibt es keine Streckenposition, die

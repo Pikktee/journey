@@ -16,7 +16,11 @@ import {
 import { baueTestApp, oeffneRegistrierung, type TestUmgebung } from './helfer.js'
 
 const registriere = (u: TestUmgebung, koerper: Record<string, unknown>) =>
-  u.app.inject({ method: 'POST', url: '/api/auth/register', payload: { passwort: 'geheim123', ...koerper } })
+  u.app.inject({
+    method: 'POST',
+    url: '/api/auth/register',
+    payload: { passwort: 'geheim123', ...koerper },
+  })
 
 describe('Einwilligung bei der Registrierung', () => {
   it('trägt ein, wenn das Kästchen gesetzt war — mit Zeitpunkt, Quelle und Textfassung', async () => {
@@ -129,7 +133,11 @@ describe('Der Schalter im Konto', () => {
 
   it('bleibt Angemeldeten vorbehalten', async () => {
     const u = await baueTestApp()
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/me/newsletter', payload: { an: true } })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/me/newsletter',
+      payload: { an: true },
+    })
     expect(antwort.statusCode).toBe(401)
   })
 })
@@ -188,7 +196,11 @@ describe('Abmelden ohne Anmeldung', () => {
     const token = abmeldeToken(weg.id, u.app.deps.konfig.cookieSecret)
     u.app.auth.loescheBenutzer(weg.id)
 
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/newsletter/abmelden', payload: { token } })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/newsletter/abmelden',
+      payload: { token },
+    })
     expect(antwort.statusCode).toBe(200)
   })
 })
@@ -240,8 +252,12 @@ describe('Signierter Token', () => {
 describe('List-Unsubscribe', () => {
   it('nennt beide Wege und sagt den Ein-Klick zu', () => {
     const kopfzeilen = newsletterKopfzeilen('https://maptale.io/', 'tok')
-    expect(kopfzeilen['List-Unsubscribe']).toContain(`<${einKlickUrl('https://maptale.io', 'tok')}>`)
-    expect(kopfzeilen['List-Unsubscribe']).toContain('<https://maptale.io/konto#newsletter-aus=tok>')
+    expect(kopfzeilen['List-Unsubscribe']).toContain(
+      `<${einKlickUrl('https://maptale.io', 'tok')}>`,
+    )
+    expect(kopfzeilen['List-Unsubscribe']).toContain(
+      '<https://maptale.io/konto#newsletter-aus=tok>',
+    )
     // Ohne diese Zeile ist die URL nur ein Link, den der Client öffnet.
     expect(kopfzeilen['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click')
   })
@@ -254,6 +270,8 @@ describe('List-Unsubscribe', () => {
       text: 'Hallo',
       kopfzeilen: newsletterKopfzeilen('https://maptale.io', 'tok'),
     })
-    expect(u.mail.nachrichten.at(-1)?.kopfzeilen?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click')
+    expect(u.mail.nachrichten.at(-1)?.kopfzeilen?.['List-Unsubscribe-Post']).toBe(
+      'List-Unsubscribe=One-Click',
+    )
   })
 })

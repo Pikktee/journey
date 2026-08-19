@@ -78,14 +78,18 @@
       'div',
       'position:fixed;left:50%;bottom:74px;transform:translateX(-50%);z-index:2147483001;' +
         'padding:10px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.16);' +
-        'background:#161e2c;color:' + (schlimm ? '#e5484d' : '#f2ede3') +
+        'background:#161e2c;color:' +
+        (schlimm ? '#e5484d' : '#f2ede3') +
         ";font:400 13px/1 'Outfit',system-ui,sans-serif",
       text,
     )
     document.body.appendChild(t)
-    setTimeout(function () {
-      t.remove()
-    }, schlimm ? 5000 : 2200)
+    setTimeout(
+      function () {
+        t.remove()
+      },
+      schlimm ? 5000 : 2200,
+    )
   }
 
   ruf('stand', { datei: datei })
@@ -171,7 +175,13 @@
           var alt = (document.title || '').replace(/^Mockup\s*[—–·|-]\s*/i, '')
           var titel = prompt('Titel des Mockups', alt)
           if (titel == null || !titel.trim()) return
-          var name = prompt('Dateiname (ohne .html)', datei.split('/').pop().replace(/\.html$/, ''))
+          var name = prompt(
+            'Dateiname (ohne .html)',
+            datei
+              .split('/')
+              .pop()
+              .replace(/\.html$/, ''),
+          )
           if (name == null) return
           ruf('umbenennen', { datei: datei, titel: titel.trim(), name: name.trim() })
             .then(function (a) {

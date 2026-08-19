@@ -127,7 +127,11 @@ describe('linkChips', () => {
     const chips = linkChips(profil({ website: 'henrikheil.net', instagram: 'henrik.unterwegs' }))
     expect(chips).toEqual([
       { art: 'web', text: 'henrikheil.net', href: 'https://henrikheil.net' },
-      { art: 'instagram', text: '@henrik.unterwegs', href: 'https://instagram.com/henrik.unterwegs' },
+      {
+        art: 'instagram',
+        text: '@henrik.unterwegs',
+        href: 'https://instagram.com/henrik.unterwegs',
+      },
     ])
   })
 

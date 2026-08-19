@@ -123,7 +123,11 @@ export function findePausen(reihe: Zeitreihe): Pause[] {
     }
     const ende = punkte[raster[b] as number] as ZeitPunkt
     if (b > a && ende.tSek - anker.tSek >= PAUSE_MIN_S) {
-      pausen.push({ vonIdx: raster[a] as number, bisIdx: raster[b] as number, dauerS: ende.tSek - anker.tSek })
+      pausen.push({
+        vonIdx: raster[a] as number,
+        bisIdx: raster[b] as number,
+        dauerS: ende.tSek - anker.tSek,
+      })
       a = b
     } else {
       a++
@@ -163,7 +167,8 @@ export function raffePausen(reihe: Zeitreihe, pausen: readonly Pause[]): number[
   // die Uhr liefe an der Nahtstelle rückwärts.
   const fenster: Array<{ a: number; b: number }> = []
   for (const pause of pausen) {
-    const halbeM = meterFuerFilmsekunden(rampeFilmS(pause.dauerS), (punkte[pause.vonIdx] as ZeitPunkt).mode) / 2
+    const halbeM =
+      meterFuerFilmsekunden(rampeFilmS(pause.dauerS), (punkte[pause.vonIdx] as ZeitPunkt).mode) / 2
     const vonM = (punkte[pause.vonIdx] as ZeitPunkt).dist - halbeM
     const bisM = (punkte[pause.bisIdx] as ZeitPunkt).dist + halbeM
     let a = pause.vonIdx
@@ -284,7 +289,11 @@ export function pseudoZeiten(reihe: Zeitreihe): number[] {
  * überlebte: Ein Regen, der während der Pause einsetzte und wieder aufhörte,
  * verschwand spurlos.
  */
-export function anteilZurUhrzeit(reihe: Zeitreihe, pseudo: readonly number[], tSek: number): number {
+export function anteilZurUhrzeit(
+  reihe: Zeitreihe,
+  pseudo: readonly number[],
+  tSek: number,
+): number {
   const { punkte, gesamtM } = reihe
   if (punkte.length < 2 || gesamtM <= 0) return 0
   const anteil = (i: number): number => (punkte[i] as ZeitPunkt).dist / gesamtM
@@ -334,7 +343,8 @@ export function destilliereTimeline(
     behalten = destilliere(f, tKomp, toleranz)
   }
 
-  const iso = (sek: number): string => `${new Date(startMs + sek * 1000).toISOString().split('.')[0]}Z`
+  const iso = (sek: number): string =>
+    `${new Date(startMs + sek * 1000).toISOString().split('.')[0]}Z`
   const timeline: Array<{ f: number; t: string }> = []
   for (const i of behalten) {
     const eintrag = { f: Math.round((f[i] as number) * 1e4) / 1e4, t: iso(tKomp[i] as number) }
@@ -364,7 +374,8 @@ function destilliere(f: readonly number[], t: readonly number[], toleranzS: numb
     let index = -1
     for (let i = von + 1; i < bis; i++) {
       // Senkrechter f-Sprung (Pause): jede Zeitabweichung zählt gegen den Anfang
-      const erwartet = spanne <= 0 ? tVon : tVon + (((f[i] as number) - fVon) / spanne) * (tBis - tVon)
+      const erwartet =
+        spanne <= 0 ? tVon : tVon + (((f[i] as number) - fVon) / spanne) * (tBis - tVon)
       const abstand = Math.abs((t[i] as number) - erwartet)
       if (abstand > maxAbstand) {
         maxAbstand = abstand
@@ -386,7 +397,10 @@ function destilliere(f: readonly number[], t: readonly number[], toleranzS: numb
  * umgebenden Punkten interpoliert, außerhalb geklemmt. Grundlage der
  * Raum-Zeit-Samples des Auto-Wetters („wo war die Tour um 14 Uhr?").
  */
-export function positionZurZeit(reihe: Zeitreihe, tSek: number): { lng: number; lat: number; f: number } {
+export function positionZurZeit(
+  reihe: Zeitreihe,
+  tSek: number,
+): { lng: number; lat: number; f: number } {
   const { punkte, gesamtM } = reihe
   const erster = punkte[0] as ZeitPunkt
   const letzter = punkte[punkte.length - 1] as ZeitPunkt

@@ -14,12 +14,22 @@ import type { UploadManifest } from '../src/schema/upload.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
-  const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: manifest })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: '/api/tours',
+    cookies: u.cookies,
+    payload: manifest,
+  })
   expect(antwort.statusCode).toBe(201)
   return (antwort.json() as { id: string }).id
 }
 
-async function ladeMediumHoch(u: TestUmgebung, tourId: string, mid = 'm1', inhalt = 'fake-jpeg-bytes'): Promise<void> {
+async function ladeMediumHoch(
+  u: TestUmgebung,
+  tourId: string,
+  mid = 'm1',
+  inhalt = 'fake-jpeg-bytes',
+): Promise<void> {
   const antwort = await u.app.inject({
     method: 'PUT',
     url: `/api/tours/${tourId}/media/${mid}`,
@@ -31,7 +41,11 @@ async function ladeMediumHoch(u: TestUmgebung, tourId: string, mid = 'm1', inhal
 }
 
 async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
-  const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${tourId}/finalize`, cookies: u.cookies })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: `/api/tours/${tourId}/finalize`,
+    cookies: u.cookies,
+  })
   expect(antwort.statusCode).toBe(202)
   await u.app.verarbeitungen.get(tourId)
 }
@@ -68,7 +82,11 @@ function gpxManifest(): UploadManifest {
 describe('Auth', () => {
   it('weist Schreibzugriffe ohne Anmeldung ab', async () => {
     const u = await baueTestApp()
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', payload: beispielManifest() })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      payload: beispielManifest(),
+    })
     expect(antwort.statusCode).toBe(401)
   })
 
@@ -91,7 +109,9 @@ describe('Auth', () => {
       headers: { authorization: `Bearer ${u.apiToken}` },
     })
     expect(antwort.statusCode).toBe(200)
-    expect((antwort.json() as { benutzer: { email: string } }).benutzer.email).toBe('test@example.com')
+    expect((antwort.json() as { benutzer: { email: string } }).benutzer.email).toBe(
+      'test@example.com',
+    )
   })
 
   it('beendet Sessions beim Logout (me() antwortet danach mit benutzer null)', async () => {
@@ -101,7 +121,12 @@ describe('Auth', () => {
     expect(antwort.statusCode).toBe(200)
     expect((antwort.json() as { benutzer: unknown }).benutzer).toBeNull()
     // Schreibzugriffe bleiben nach dem Logout gesperrt
-    const schreiben = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+    const schreiben = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: beispielManifest(),
+    })
     expect(schreiben.statusCode).toBe(401)
   })
 
@@ -120,7 +145,11 @@ describe('Tour-Lebenszyklus', () => {
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const tour = antwort.json() as TourJson
     expect(tour.schema).toBe('maptale/tour@1')
@@ -130,14 +159,19 @@ describe('Tour-Lebenszyklus', () => {
 
   it('reichert timeline und Auto-Wetter an (M2)', async () => {
     const wetter = new FesteWetterQuelle(
-      testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ code: 61, regenMm: 1, wolken: 95 }))),
+      testRaster(
+        '2026-07-04T06',
+        Array.from({ length: 7 }, () => ({ code: 61, regenMm: 1, wolken: 95 })),
+      ),
     )
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter)
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.timeline?.[0]).toEqual({ f: 0, t: '2026-07-04T06:12:31Z' })
     expect(tour.timeline?.length).toBeGreaterThanOrEqual(2)
     expect(tour.weather).toEqual([{ f: 0, mode: 'rain', k: 0.6, source: 'openmeteo' }])
@@ -145,15 +179,25 @@ describe('Tour-Lebenszyklus', () => {
 
   it('verfeinert das Auto-Wetter per Bildanalyse, wenn ein Klassifikator konfiguriert ist (M5)', async () => {
     const wetter = new FesteWetterQuelle(
-      testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))), // bewölkt
+      testRaster(
+        '2026-07-04T06',
+        Array.from({ length: 7 }, () => ({ wolken: 80 })),
+      ), // bewölkt
     )
-    const klass = new FesterKlassifikator({ himmel: 'bedeckt', niederschlag: 'gewitter', himmelSichtbar: true, konfidenz: 0.9 })
+    const klass = new FesterKlassifikator({
+      himmel: 'bedeckt',
+      niederschlag: 'gewitter',
+      himmelSichtbar: true,
+      konfidenz: 0.9,
+    })
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter, null, {}, klass)
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id) // m1 (Foto)
     await finalisiere(u, id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.weather?.some((w) => w.source === 'photo' && w.mode === 'storm')).toBe(true)
     expect(klass.aufrufe).toHaveLength(1) // genau das eine Foto klassifiziert
     expect(klass.aufrufe[0]?.medientyp).toBe('image/jpeg')
@@ -178,7 +222,12 @@ describe('Tour-Lebenszyklus', () => {
         maxGleichzeitig = Math.max(maxGleichzeitig, offen)
         await new Promise((r) => setTimeout(r, (5 - nummer) * 12))
         offen--
-        return { himmel: 'bedeckt', niederschlag: 'kein', himmelSichtbar: true, konfidenz: nummer / 10 }
+        return {
+          himmel: 'bedeckt',
+          niederschlag: 'kein',
+          himmelSichtbar: true,
+          konfidenz: nummer / 10,
+        }
       },
     }
     // Bild-Fake, der Fassung UND Bildnummer in die Zieldatei schreibt: nur so
@@ -187,7 +236,10 @@ describe('Tour-Lebenszyklus', () => {
       async skaliere(quellPfad, zielPfad, { kante }) {
         const quelle = await readFile(quellPfad, 'latin1')
         const nummer = quelle.slice(-1)
-        await writeFile(zielPfad, Buffer.from(`\xff\xd8\xff\xda\x00\x02${kante}#${nummer}`, 'latin1'))
+        await writeFile(
+          zielPfad,
+          Buffer.from(`\xff\xd8\xff\xda\x00\x02${kante}#${nummer}`, 'latin1'),
+        )
       },
     }
 
@@ -200,7 +252,15 @@ describe('Tour-Lebenszyklus', () => {
       anchor: [7.9105, 46.59] as [number, number],
       caption: null,
     }))
-    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], null, null, {}, klass, null, bildWerkzeug)
+    const u = await baueTestApp(
+      ['Lauterbrunnen', 'Grindelwald'],
+      null,
+      null,
+      {},
+      klass,
+      null,
+      bildWerkzeug,
+    )
     const id = await legeTourAn(u, manifest)
     for (const i of [1, 2, 3, 4]) await ladeMediumHoch(u, id, `m${i}`, `foto-${i}`)
     await finalisiere(u, id)
@@ -219,14 +279,19 @@ describe('Tour-Lebenszyklus', () => {
 
   it('lässt das Wetter ohne konfigurierten Klassifikator unberührt (M5 No-Op)', async () => {
     const wetter = new FesteWetterQuelle(
-      testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))),
+      testRaster(
+        '2026-07-04T06',
+        Array.from({ length: 7 }, () => ({ wolken: 80 })),
+      ),
     )
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter) // kein Klassifikator
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.weather).toEqual([{ f: 0, mode: 'clouds', k: 0.84, source: 'openmeteo' }])
   })
 
@@ -253,7 +318,9 @@ describe('Tour-Lebenszyklus', () => {
     await ladeMediumHoch(u, id, 'm2', 'fake-hevc-bytes') // Original .mov
     await finalisiere(u, id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     const v = tour.media.find((m) => m.id === 'm2')
     expect(v?.type).toBe('video')
     expect(v?.src).toBe(`/api/media/${id}/m2.web.mp4`) // transkodiert, nicht das Original
@@ -262,14 +329,19 @@ describe('Tour-Lebenszyklus', () => {
     expect(werkzeug.aufrufe).toEqual(['probe', 'poster', 'transkodiere'])
 
     // Poster ausgeliefert (der erweiterte Dateiname-Regex lässt zwei Punkte durch)
-    const poster = await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/m2.poster.jpg` })
+    const poster = await u.app.inject({
+      method: 'GET',
+      cookies: u.cookies,
+      url: `/api/media/${id}/m2.poster.jpg`,
+    })
     expect(poster.statusCode).toBe(200)
     expect(poster.headers['content-type']).toBe('image/jpeg')
 
     // Transkodiertes Video mit Range-Support (Video-Seeking)
     const range = await u.app.inject({
       method: 'GET',
-      cookies: u.cookies, url: `/api/media/${id}/m2.web.mp4`,
+      cookies: u.cookies,
+      url: `/api/media/${id}/m2.web.mp4`,
       headers: { range: 'bytes=0-3' },
     })
     expect(range.statusCode).toBe(206)
@@ -278,13 +350,20 @@ describe('Tour-Lebenszyklus', () => {
 
   it('nimmt ein GPX als trackFile an, parst es serverseitig und rendert die Tour (M6)', async () => {
     const u = await baueTestApp()
-    const anlegen = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: gpxManifest() })
+    const anlegen = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: gpxManifest(),
+    })
     expect(anlegen.statusCode).toBe(201)
     const id = (anlegen.json() as { id: string }).id
     await ladeTrackHoch(u, id, BEISPIEL_GPX)
     await finalisiere(u, id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.segments).toHaveLength(1)
     expect(tour.segments[0]?.mode).toBe('bike') // trackMode durchgereicht
     expect(tour.stats.km).toBeGreaterThan(0)
@@ -293,8 +372,19 @@ describe('Tour-Lebenszyklus', () => {
 
   it('verweigert Finalize, wenn das trackFile fehlt (M6)', async () => {
     const u = await baueTestApp()
-    const id = (await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: gpxManifest() })).json() as { id: string }
-    const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${id.id}/finalize`, cookies: u.cookies })
+    const id = (
+      await u.app.inject({
+        method: 'POST',
+        url: '/api/tours',
+        cookies: u.cookies,
+        payload: gpxManifest(),
+      })
+    ).json() as { id: string }
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: `/api/tours/${id.id}/finalize`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(409)
     expect((antwort.json() as { fehlend: string[] }).fehlend).toEqual(['track.gpx'])
   })
@@ -302,22 +392,42 @@ describe('Tour-Lebenszyklus', () => {
   it('weist ein Manifest mit BEIDEN Track-Quellen ab (segments + trackFile)', async () => {
     const u = await baueTestApp()
     const kaputt = { ...gpxManifest(), segments: beispielManifest().segments }
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: kaputt })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: kaputt,
+    })
     expect(antwort.statusCode).toBe(400)
   })
 
   it('weist ein Manifest OHNE Track-Quelle ab (weder segments noch trackFile)', async () => {
     const u = await baueTestApp()
     const { time, media } = beispielManifest()
-    const ohne = { schema: 'maptale/upload@1', clientTourId: 'ohne-track', title: null, time, media }
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: ohne })
+    const ohne = {
+      schema: 'maptale/upload@1',
+      clientTourId: 'ohne-track',
+      title: null,
+      time,
+      media,
+    }
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: ohne,
+    })
     expect(antwort.statusCode).toBe(400)
   })
 
   it('verweigert Finalize bei fehlenden Medien', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: `/api/tours/${id}/finalize`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(409)
     expect((antwort.json() as { fehlend: string[] }).fehlend).toEqual(['m1'])
   })
@@ -325,7 +435,12 @@ describe('Tour-Lebenszyklus', () => {
   it('legt Touren mit gleicher clientTourId nur einmal an', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    const nochmal = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+    const nochmal = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: beispielManifest(),
+    })
     expect(nochmal.statusCode).toBe(200)
     expect((nochmal.json() as { id: string; wiederverwendet: boolean }).id).toBe(id)
   })
@@ -333,7 +448,12 @@ describe('Tour-Lebenszyklus', () => {
   it('validiert das Manifest strikt', async () => {
     const u = await baueTestApp()
     const kaputt = { ...beispielManifest(), schema: 'luhambo/upload@99' }
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: kaputt })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: kaputt,
+    })
     expect(antwort.statusCode).toBe(400)
   })
 
@@ -341,7 +461,12 @@ describe('Tour-Lebenszyklus', () => {
     const u = await baueTestApp()
     const manifest = beispielManifest()
     manifest.media[0]!.file = 'boese.exe'
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: manifest })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: manifest,
+    })
     expect(antwort.statusCode).toBe(400)
   })
 
@@ -358,7 +483,9 @@ describe('Tour-Lebenszyklus', () => {
       payload: { title: 'Alpenglühen am Morgen' },
     })
     expect(patch.statusCode).toBe(200)
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.brandTitle).toBe('Alpenglühen am Morgen')
   })
 
@@ -391,7 +518,11 @@ describe('Tour-Lebenszyklus', () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id)
-    const del = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}`, cookies: u.cookies })
+    const del = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+    })
     expect(del.statusCode).toBe(200)
     const weg = await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })
     expect(weg.statusCode).toBe(404)
@@ -442,7 +573,9 @@ describe('Titelbild', () => {
     await u.app.verarbeitungen.get(id)
 
     const liste = await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })
-    expect((liste.json() as { tours: Array<{ cover: string | null }> }).tours[0]?.cover).toBe(`/api/media/${id}/m2.jpg`)
+    expect((liste.json() as { tours: Array<{ cover: string | null }> }).tours[0]?.cover).toBe(
+      `/api/media/${id}/m2.jpg`,
+    )
   })
 })
 
@@ -479,7 +612,9 @@ describe('Session aus API-Token (App-Player)', () => {
 
   it('ohne Anmeldung gibt es keine Sitzung', async () => {
     const u = await baueTestApp()
-    expect((await u.app.inject({ method: 'POST', url: '/api/auth/session-aus-token' })).statusCode).toBe(401)
+    expect(
+      (await u.app.inject({ method: 'POST', url: '/api/auth/session-aus-token' })).statusCode,
+    ).toBe(401)
   })
 })
 
@@ -488,7 +623,9 @@ describe('Sichtbarkeit', () => {
     // Geteilt wird bewusst, nicht als Nebenwirkung des Hochladens.
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    const liste = (await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })).json() as {
+    const liste = (
+      await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })
+    ).json() as {
       tours: Array<{ id: string; visibility: string }>
     }
     expect(liste.tours.find((t) => t.id === id)?.visibility).toBe('private')
@@ -509,7 +646,9 @@ describe('Sichtbarkeit', () => {
        VALUES (?, (SELECT id FROM users LIMIT 1), 99, 'bereit', NULL, ?, ?)`,
     ).run('t_alt', jetzt, jetzt)
 
-    const zeile = db.prepare('SELECT visibility FROM tours WHERE id = ?').get('t_alt') as { visibility: string }
+    const zeile = db.prepare('SELECT visibility FROM tours WHERE id = ?').get('t_alt') as {
+      visibility: string
+    }
     expect(zeile.visibility).toBe('unlisted')
   })
 
@@ -519,9 +658,17 @@ describe('Sichtbarkeit', () => {
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     // Neue Touren sind privat — geteilt wird bewusst
-    await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: u.cookies, payload: { visibility: 'unlisted' } })
+    await u.app.inject({
+      method: 'PATCH',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+      payload: { visibility: 'unlisted' },
+    })
     expect((await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).statusCode).toBe(200)
-    expect((await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/m1.jpg` })).statusCode).toBe(200)
+    expect(
+      (await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/m1.jpg` }))
+        .statusCode,
+    ).toBe(200)
   })
 
   it('private: nur der Owner sieht Tour und Medien (anonym = 404)', async () => {
@@ -529,11 +676,21 @@ describe('Sichtbarkeit', () => {
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
-    await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: u.cookies, payload: { visibility: 'private' } })
+    await u.app.inject({
+      method: 'PATCH',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+      payload: { visibility: 'private' },
+    })
 
     expect((await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).statusCode).toBe(404)
-    expect((await u.app.inject({ method: 'GET', url: `/api/media/${id}/m1.jpg` })).statusCode).toBe(404)
-    expect((await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).statusCode).toBe(200)
+    expect((await u.app.inject({ method: 'GET', url: `/api/media/${id}/m1.jpg` })).statusCode).toBe(
+      404,
+    )
+    expect(
+      (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies }))
+        .statusCode,
+    ).toBe(200)
   })
 
   it('fremde Benutzer können fremde Touren nicht ändern oder löschen', async () => {
@@ -545,13 +702,24 @@ describe('Sichtbarkeit', () => {
       url: '/api/auth/login',
       payload: { email: 'andere@example.com', passwort: 'geheim456' },
     })
-    const fremdeCookies = { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
+    const fremdeCookies = {
+      maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '',
+    }
 
     expect(
-      (await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: fremdeCookies, payload: { title: 'Gekapert' } }))
+      (
+        await u.app.inject({
+          method: 'PATCH',
+          url: `/api/tours/${id}`,
+          cookies: fremdeCookies,
+          payload: { title: 'Gekapert' },
+        })
+      ).statusCode,
+    ).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}`, cookies: fremdeCookies }))
         .statusCode,
     ).toBe(404)
-    expect((await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}`, cookies: fremdeCookies })).statusCode).toBe(404)
   })
 })
 
@@ -577,13 +745,22 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
       url: '/api/auth/login',
       payload: { email: 'zweite@example.com', passwort: 'geheim456' },
     })
-    const cookies2 = { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
+    const cookies2 = {
+      maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '',
+    }
     const manifest = beispielManifest()
     delete manifest.clientTourId
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: cookies2, payload: manifest })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: cookies2,
+      payload: manifest,
+    })
     const id2 = (antwort.json() as { id: string }).id
     const liste = await u.app.inject({ method: 'GET', url: '/api/tours', cookies: cookies2 })
-    const eintrag = (liste.json() as { tours: Array<{ id: string; no: string }> }).tours.find((t) => t.id === id2)
+    const eintrag = (liste.json() as { tours: Array<{ id: string; no: string }> }).tours.find(
+      (t) => t.id === id2,
+    )
     expect(eintrag?.no).toBe('N°01') // beginnt bei 1, sieht die fremde Tour nicht
   })
 
@@ -606,11 +783,17 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     u.app.deps.db
-      .prepare(`UPDATE tours SET status = 'fehler', fehler = 'interner Stacktrace', visibility = 'unlisted' WHERE id = ?`)
+      .prepare(
+        `UPDATE tours SET status = 'fehler', fehler = 'interner Stacktrace', visibility = 'unlisted' WHERE id = ?`,
+      )
       .run(id)
-    const anonym = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as { fehler?: string }
+    const anonym = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as {
+      fehler?: string
+    }
     expect(anonym.fehler).toBeUndefined()
-    const owner = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as { fehler?: string }
+    const owner = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as { fehler?: string }
     expect(owner.fehler).toBe('interner Stacktrace')
   })
 
@@ -619,8 +802,17 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
-    await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: u.cookies, payload: { visibility: 'private' } })
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/media/${id}/m1.jpg`, cookies: u.cookies })
+    await u.app.inject({
+      method: 'PATCH',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+      payload: { visibility: 'private' },
+    })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/media/${id}/m1.jpg`,
+      cookies: u.cookies,
+    })
     expect(antwort.headers['cache-control']).toContain('private')
     expect(antwort.headers['cache-control']).not.toContain('public')
   })
@@ -650,7 +842,8 @@ describe('Medien-Auslieferung', () => {
 
     const antwort = await u.app.inject({
       method: 'GET',
-      cookies: u.cookies, url: `/api/media/${id}/m1.jpg`,
+      cookies: u.cookies,
+      url: `/api/media/${id}/m1.jpg`,
       headers: { range: 'bytes=2-5' },
     })
     expect(antwort.statusCode).toBe(206)
@@ -664,7 +857,8 @@ describe('Medien-Auslieferung', () => {
     await ladeMediumHoch(u, id, 'm1', '0123456789')
     const antwort = await u.app.inject({
       method: 'GET',
-      cookies: u.cookies, url: `/api/media/${id}/m1.jpg`,
+      cookies: u.cookies,
+      url: `/api/media/${id}/m1.jpg`,
       headers: { range: 'bytes=99-' },
     })
     expect(antwort.statusCode).toBe(416)
@@ -676,7 +870,8 @@ describe('Medien-Auslieferung', () => {
     await ladeMediumHoch(u, id, 'm1', '0123456789')
     const antwort = await u.app.inject({
       method: 'GET',
-      cookies: u.cookies, url: `/api/media/${id}/m1.jpg`,
+      cookies: u.cookies,
+      url: `/api/media/${id}/m1.jpg`,
       headers: { range: 'bytes=0-2,5-7' },
     })
     expect(antwort.statusCode).toBe(200)
@@ -711,7 +906,11 @@ describe('Edit-Overlay + Editor (M7)', () => {
   it('liefert ein leeres Overlay, solange keins gespeichert ist', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     expect(antwort.json()).toEqual({ schema: 'maptale/edits@1' })
   })
@@ -721,7 +920,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
-    const vorher = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const vorher = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
 
     const put = await u.app.inject({
       method: 'PUT',
@@ -739,7 +940,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.status).toBe('bereit')
     expect(tour.media[0]?.title).toBe('Handgeschrieben')
     expect(tour.media[0]?.placement).toBe('manuell')
@@ -748,7 +951,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(tour.stats.km).toBeLessThan(vorher.stats.km)
 
     // Overlay ist wieder abrufbar (Editor lädt den gespeicherten Stand)
-    const edits = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })).json() as {
+    const edits = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })
+    ).json() as {
       medien: Record<string, { caption?: string }>
     }
     expect(edits.medien['m1']?.caption).toBe('Handgeschrieben')
@@ -767,11 +972,17 @@ describe('Edit-Overlay + Editor (M7)', () => {
     })
     await u.app.verarbeitungen.get(id)
 
-    const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: `/api/tours/${id}/reprocess`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.status).toBe('bereit')
     expect(tour.media[0]?.title).toBe('Bleibt')
   })
@@ -815,12 +1026,21 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
       payload: {
         schema: 'maptale/edits@1',
-        audio: [{ datei: 'amb-hafen.mp3', typ: 'musik', ab: '2026-07-04T08:20:00Z', quelle: 'bibliothek' }],
+        audio: [
+          {
+            datei: 'amb-hafen.mp3',
+            typ: 'musik',
+            ab: '2026-07-04T08:20:00Z',
+            quelle: 'bibliothek',
+          },
+        ],
       },
     })
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.audio?.[0]?.src).toBe('/audio/sfx/amb-hafen.mp3')
 
     // Ungültige Quelle wird abgelehnt (enum)
@@ -830,7 +1050,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
       payload: {
         schema: 'maptale/edits@1',
-        audio: [{ datei: 'amb-hafen.mp3', typ: 'musik', ab: '2026-07-04T08:20:00Z', quelle: 'boese' }],
+        audio: [
+          { datei: 'amb-hafen.mp3', typ: 'musik', ab: '2026-07-04T08:20:00Z', quelle: 'boese' },
+        ],
       },
     })
     expect(boese.statusCode).toBe(400)
@@ -839,7 +1061,11 @@ describe('Edit-Overlay + Editor (M7)', () => {
   it('Reprocess braucht eine finalisierte Tour', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: `/api/tours/${id}/reprocess`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(409)
   })
 
@@ -849,7 +1075,11 @@ describe('Edit-Overlay + Editor (M7)', () => {
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/editor`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const daten = antwort.json() as {
       segmente: Array<{ mode: string; pts: number[][] }>
@@ -861,7 +1091,11 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(daten.segmente.map((s) => s.mode)).toEqual(['walk', 'bike'])
     // Trackpunkte behalten den Zeit-Offset (4. Koordinate) — Trim/Grenzen brauchen ihn
     expect(daten.segmente[0]?.pts[0]).toHaveLength(4)
-    expect(daten.medien[0]).toMatchObject({ id: 'm1', placement: 'gps', src: `/api/media/${id}/m1.jpg` })
+    expect(daten.medien[0]).toMatchObject({
+      id: 'm1',
+      placement: 'gps',
+      src: `/api/media/${id}/m1.jpg`,
+    })
     // Roher Manifest-Anker als gpsAnker (Baukasten: „GPS-Ort verwenden")
     expect(daten.medien[0]?.gpsAnker).toEqual([7.9105, 46.59])
     // Ohne hochgeladene Audio-Dateien ist die Liste leer (Fotos zählen nicht)
@@ -872,9 +1106,18 @@ describe('Edit-Overlay + Editor (M7)', () => {
   it('Editor-Daten lassen gpsAnker weg, wenn das Manifest keinen Anker trägt', async () => {
     const u = await baueTestApp()
     const manifest = beispielManifest()
-    manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T10:00:00+02:00' })
+    manifest.media.push({
+      id: 'm2',
+      type: 'photo',
+      file: 'x.jpg',
+      takenAt: '2026-07-04T10:00:00+02:00',
+    })
     const id = await legeTourAn(u, manifest)
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/editor`,
+      cookies: u.cookies,
+    })
     const daten = antwort.json() as { medien: Array<{ id: string }> }
     const m2 = daten.medien.find((m) => m.id === 'm2')
     expect(m2).toBeDefined()
@@ -883,7 +1126,13 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Editor-Daten: ein Video bringt seine echte Länge mit (dauerS)', async () => {
     // Ohne sie rechnet die Zeitleiste ein 34-s-Video wie ein Foto mit 5,2 s.
-    const werkzeug = new FakeVideoWerkzeug({ codecVideo: 'h264', codecAudio: 'aac', dauerS: 34, breite: 1920, hoehe: 1080 })
+    const werkzeug = new FakeVideoWerkzeug({
+      codecVideo: 'h264',
+      codecAudio: 'aac',
+      dauerS: 34,
+      breite: 1920,
+      hoehe: 1080,
+    })
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], null, werkzeug)
     const manifest = beispielManifest()
     manifest.media.push({
@@ -899,7 +1148,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     await ladeMediumHoch(u, id, 'm2', 'fake-video-bytes')
     await finalisiere(u, id)
 
-    const daten = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+    const daten = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    ).json() as {
       medien: Array<{ id: string; type: string; dauerS?: number }>
     }
     expect(daten.medien.find((m) => m.id === 'm2')?.dauerS).toBe(34)
@@ -910,9 +1161,16 @@ describe('Edit-Overlay + Editor (M7)', () => {
   it('Editor-Daten: ohne bekannte Länge bleibt dauerS weg (unverarbeiteter Altbestand)', async () => {
     const u = await baueTestApp()
     const manifest = beispielManifest()
-    manifest.media.push({ id: 'm2', type: 'video', file: 'clip.mp4', takenAt: '2026-07-04T10:15:00+02:00' })
+    manifest.media.push({
+      id: 'm2',
+      type: 'video',
+      file: 'clip.mp4',
+      takenAt: '2026-07-04T10:15:00+02:00',
+    })
     const id = await legeTourAn(u, manifest)
-    const daten = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+    const daten = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    ).json() as {
       medien: Array<{ id: string }>
     }
     const v = daten.medien.find((m) => m.id === 'm2')
@@ -925,9 +1183,17 @@ describe('Edit-Overlay + Editor (M7)', () => {
     // lange bevor ffprobe gelaufen ist.
     const u = await baueTestApp()
     const manifest = beispielManifest()
-    manifest.media.push({ id: 'm2', type: 'video', file: 'clip.mp4', takenAt: '2026-07-04T10:15:00+02:00', durationS: 21.5 })
+    manifest.media.push({
+      id: 'm2',
+      type: 'video',
+      file: 'clip.mp4',
+      takenAt: '2026-07-04T10:15:00+02:00',
+      durationS: 21.5,
+    })
     const id = await legeTourAn(u, manifest)
-    const daten = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+    const daten = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    ).json() as {
       medien: Array<{ id: string; dauerS?: number }>
     }
     expect(daten.medien.find((m) => m.id === 'm2')?.dauerS).toBe(21.5)
@@ -937,7 +1203,11 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u, gpxManifest())
     await ladeTrackHoch(u, id, BEISPIEL_GPX)
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/editor`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const daten = antwort.json() as { segmente: Array<{ mode: string; pts: number[][] }> }
     expect(daten.segmente).toHaveLength(1)
@@ -960,10 +1230,18 @@ describe('Edit-Overlay + Editor (M7)', () => {
       }
     }
     manifest.segments = [{ mode: 'walk', pts }]
-    manifest.time = { start: '2026-07-04T08:00:00+02:00', end: '2026-07-04T09:30:00+02:00', zone: 'Europe/Zurich' }
+    manifest.time = {
+      start: '2026-07-04T08:00:00+02:00',
+      end: '2026-07-04T09:30:00+02:00',
+      zone: 'Europe/Zurich',
+    }
 
     const id = await legeTourAn(u, manifest)
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/editor`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const daten = antwort.json() as { segmente: Array<{ pts: number[][] }> }
     // Streckensumme der gelieferten Punkte: ohne Kollaps steckte ~1 km
@@ -997,10 +1275,18 @@ describe('Edit-Overlay + Editor (M7)', () => {
       strecke += (kmh / 3.6) * 15
     }
     manifest.segments = [{ mode: 'walk', pts }]
-    manifest.time = { start: '2026-07-04T08:00:00+02:00', end: '2026-07-04T08:45:00+02:00', zone: 'Europe/Zurich' }
+    manifest.time = {
+      start: '2026-07-04T08:00:00+02:00',
+      end: '2026-07-04T08:45:00+02:00',
+      zone: 'Europe/Zurich',
+    }
 
     const id = await legeTourAn(u, manifest)
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/editor`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const daten = antwort.json() as { segmente: Array<{ mode: string }> }
     expect(daten.segmente.map((s) => s.mode)).toEqual(['bike', 'walk', 'bike'])
@@ -1014,10 +1300,18 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const pts: [number, number, number, number][] = []
     for (let i = 0; i < 40; i++) pts.push([7.9 + i * 300 * gradProM, 46.59, 800, i * 420])
     manifest.segments = [{ mode: 'walk', pts }]
-    manifest.time = { start: '2026-07-04T08:00:00+02:00', end: '2026-07-04T12:40:00+02:00', zone: 'Europe/Zurich' }
+    manifest.time = {
+      start: '2026-07-04T08:00:00+02:00',
+      end: '2026-07-04T12:40:00+02:00',
+      zone: 'Europe/Zurich',
+    }
 
     const id = await legeTourAn(u, manifest)
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/editor`,
+      cookies: u.cookies,
+    })
     const daten = antwort.json() as { segmente: Array<{ mode: string }> }
     expect(daten.segmente.map((s) => s.mode)).toEqual(['walk'])
   })
@@ -1027,11 +1321,23 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
-    await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: u.cookies, payload: { description: 'Erst was' } })
+    await u.app.inject({
+      method: 'PATCH',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+      payload: { description: 'Erst was' },
+    })
     await u.app.verarbeitungen.get(id)
-    await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: u.cookies, payload: { description: '' } })
+    await u.app.inject({
+      method: 'PATCH',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+      payload: { description: '' },
+    })
     await u.app.verarbeitungen.get(id)
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.description).toBe('')
   })
 
@@ -1045,7 +1351,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     ).json() as { finale: boolean; finaleZiel: string | null }
     expect(editor.finale).toBe(false)
     expect(editor.finaleZiel).toBeNull()
-    const roh = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const roh = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(roh.showFinale).toBe(false)
 
     await u.app.inject({
@@ -1055,7 +1363,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
       payload: { finale: true, finaleZiel: 'Gletscherschlucht' },
     })
     await u.app.verarbeitungen.get(id)
-    const an = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const an = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(an.showFinale).toBe(true)
     expect(an.finaleTitle).toBe('Gletscherschlucht')
   })
@@ -1063,8 +1373,16 @@ describe('Edit-Overlay + Editor (M7)', () => {
   it('Editor-Daten melden kaputtes GPX als 409 mit Ursache statt 500 (Review-Fund)', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u, gpxManifest())
-    await ladeTrackHoch(u, id, '<gpx><trkpt lat="1" lon="2"><time>2026-07-04T08:00:00Z</time></trkpt></gpx>')
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    await ladeTrackHoch(
+      u,
+      id,
+      '<gpx><trkpt lat="1" lon="2"><time>2026-07-04T08:00:00Z</time></trkpt></gpx>',
+    )
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/editor`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(409)
     expect(antwort.json()).toMatchObject({ fehler: expect.stringContaining('Track nicht lesbar') })
   })
@@ -1073,13 +1391,25 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const u = await baueTestApp()
     const boese = beispielManifest()
     boese.media[0]!.takenAt = '2026-07-04T09:01:12+02:00<img src=x onerror=alert(1)>'
-    expect((await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: boese })).statusCode).toBe(400)
+    expect(
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/tours',
+          cookies: u.cookies,
+          payload: boese,
+        })
+      ).statusCode,
+    ).toBe(400)
     const id = await legeTourAn(u)
     const edits = await u.app.inject({
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', modi: [{ ab: '2026-07-04T09:00:00Z<b>x</b>', mode: 'walk' }] },
+      payload: {
+        schema: 'maptale/edits@1',
+        modi: [{ ab: '2026-07-04T09:00:00Z<b>x</b>', mode: 'walk' }],
+      },
     })
     expect(edits.statusCode).toBe(400)
   })
@@ -1088,8 +1418,14 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     const fremd = await fremdeCookies(u)
-    expect((await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: fremd })).statusCode).toBe(404)
-    expect((await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: fremd })).statusCode).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: fremd }))
+        .statusCode,
+    ).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: fremd }))
+        .statusCode,
+    ).toBe(404)
     expect(
       (
         await u.app.inject({
@@ -1100,7 +1436,10 @@ describe('Edit-Overlay + Editor (M7)', () => {
         })
       ).statusCode,
     ).toBe(404)
-    expect((await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: fremd })).statusCode).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: fremd }))
+        .statusCode,
+    ).toBe(404)
   })
 })
 
@@ -1120,7 +1459,11 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     }
     manifest.segments = [{ mode: 'walk', pts }]
     manifest.media = []
-    manifest.time = { start: '2026-07-31T20:09:00+02:00', end: '2026-07-31T20:54:00+02:00', zone: 'Europe/Berlin' }
+    manifest.time = {
+      start: '2026-07-31T20:09:00+02:00',
+      end: '2026-07-31T20:54:00+02:00',
+      zone: 'Europe/Berlin',
+    }
     return manifest
   }
 
@@ -1132,8 +1475,15 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     ],
   ]
 
-  async function ediereOverlay(u: TestUmgebung, id: string): Promise<{ modi?: Array<{ mode: string }> }> {
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })
+  async function ediereOverlay(
+    u: TestUmgebung,
+    id: string,
+  ): Promise<{ modi?: Array<{ mode: string }> }> {
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+    })
     return antwort.statusCode === 200 ? (antwort.json() as { modi?: Array<{ mode: string }> }) : {}
   }
 
@@ -1214,7 +1564,7 @@ describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
     let strecke = 0
     for (let t = 0; t <= 2700; t += 15) {
       fahrt.push([8.68 + strecke * gradProM, LAT, 110, t])
-      strecke += (t < 420 || t >= 1320 ? 22 : 4.5) / 3.6 * 15
+      strecke += ((t < 420 || t >= 1320 ? 22 : 4.5) / 3.6) * 15
     }
     const bis = (vonS: number, bisS: number) => fahrt.filter((p) => p[3] >= vonS && p[3] <= bisS)
     manifest.segments = [
@@ -1224,12 +1574,19 @@ describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
     ]
     manifest.modiAutomatisch = true
     manifest.media = []
-    manifest.time = { start: '2026-07-31T20:09:00+02:00', end: '2026-07-31T20:54:00+02:00', zone: 'Europe/Berlin' }
+    manifest.time = {
+      start: '2026-07-31T20:09:00+02:00',
+      end: '2026-07-31T20:54:00+02:00',
+      zone: 'Europe/Berlin',
+    }
     return manifest
   }
 
   const gleis = (): Array<Array<readonly [number, number]>> => [
-    [[8.68 - 500 * gradProM, LAT], [8.68 + 20000 * gradProM, LAT]],
+    [
+      [8.68 - 500 * gradProM, LAT],
+      [8.68 + 20000 * gradProM, LAT],
+    ],
   ]
 
   it('verfeinert ein erkanntes Fahrzeug auf der Trasse zur Straßenbahn', async () => {

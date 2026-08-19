@@ -70,7 +70,10 @@ describe('Bereiche', () => {
 
   it('führt keinen Bereich ohne Dokumente', () => {
     for (const b of bereiche)
-      expect(dokumente.some((d) => d.bereich === b.id), `Bereich ${b.id} ist leer`).toBe(true)
+      expect(
+        dokumente.some((d) => d.bereich === b.id),
+        `Bereich ${b.id} ist leer`,
+      ).toBe(true)
   })
 
   it('ordnet jedes Dokument einem Bereich der Liste zu', () => {
@@ -131,9 +134,10 @@ describe('Roadmap-Ansicht', () => {
 
   it('zeigt den Statussatz der laufenden Vorhaben, nicht nur die Ampel', () => {
     const laufend = roadmap.phasen[0]?.eintraege ?? []
-    const mitStand = laufend.filter((e) => e.dok?.kopf.status && !/^(konzept|entwurf)/i.test(e.dok.kopf.status))
-    for (const e of mitStand)
-      expect(html, e.dok.quelle).toContain(e.dok.kopf.status.slice(0, 24))
+    const mitStand = laufend.filter(
+      (e) => e.dok?.kopf.status && !/^(konzept|entwurf)/i.test(e.dok.kopf.status),
+    )
+    for (const e of mitStand) expect(html, e.dok.quelle).toContain(e.dok.kopf.status.slice(0, 24))
   })
 
   it('markiert den Widerspruch zwischen Phase und Stand', () => {
@@ -146,9 +150,10 @@ describe('Roadmap-Ansicht', () => {
     // einer Zeichenkette: Der Eintrag trägt das Attribut, und das Blatt hat die
     // Regel, die daraus den Marker macht. Die alte Fassung prüfte einen
     // `else`-Zweig, der seither nie mehr zutreffen kann.
-    const strittig = (roadmap.phasen[0]?.eintraege ?? []).filter((e) => e.dok?.ampel?.art === 'offen')
-    for (const e of strittig)
-      expect(html).toContain(`data-datei="${e.quelle}" data-ampel="offen"`)
+    const strittig = (roadmap.phasen[0]?.eintraege ?? []).filter(
+      (e) => e.dok?.ampel?.art === 'offen',
+    )
+    for (const e of strittig) expect(html).toContain(`data-datei="${e.quelle}" data-ampel="offen"`)
     const blatt = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8')
     expect(blatt).toMatch(/\.rm-phase\.jetzt li\[data-ampel='offen'\] \.rm-fuss/)
   })
@@ -189,7 +194,11 @@ describe('Archiv', () => {
     expect(bereiche.map((b) => b.id)).not.toContain('archive')
     const archiviert = dokumente.filter((d) => d.archiviert)
     expect(archiviert.length).toBeGreaterThan(0)
-    for (const d of archiviert) expect(bereiche.map((b) => b.id), d.quelle).toContain(d.bereich)
+    for (const d of archiviert)
+      expect(
+        bereiche.map((b) => b.id),
+        d.quelle,
+      ).toContain(d.bereich)
   })
 
   it('taucht nicht in den fünf jüngsten Änderungen der Übersicht auf', () => {
@@ -307,7 +316,8 @@ describe('Systemteile', () => {
   })
 
   it('nimmt die ausdrückliche Angabe, wenn eine dasteht', () => {
-    const text = 'Systemteile: Android-App, Backend\n\nText über src/studio/editor.ts und src/main.ts.'
+    const text =
+      'Systemteile: Android-App, Backend\n\nText über src/studio/editor.ts und src/main.ts.'
     expect(systemteileVon(text)).toEqual(['android', 'backend'])
   })
 
@@ -322,7 +332,6 @@ describe('Systemteile', () => {
     if (app) expect(app.teile).toContain('android')
   })
 })
-
 
 /* ── Der Kopf eines Dokuments ─────────────────────────────────────────────
  * Front Matter ist die strukturierte Fassung dessen, was vorher als Prosa
@@ -366,7 +375,9 @@ describe('Front Matter', () => {
   it('lässt Front Matter die Prosa-Zeile FELDWEISE schlagen', () => {
     // Nicht Block gegen Block: Ein Kopf mit nur `stand:` darf die übrigen
     // Angaben des Dokuments nicht löschen.
-    const kopf = kopfVon('---\nstand: 2026-08-17\n---\n\n# T\n\nStatus: **Entwurf, nichts gebaut**\n')
+    const kopf = kopfVon(
+      '---\nstand: 2026-08-17\n---\n\n# T\n\nStatus: **Entwurf, nichts gebaut**\n',
+    )
     expect(kopf.stand).toBe('2026-08-17')
     expect(kopf.status).toBe('Entwurf, nichts gebaut')
   })
@@ -444,7 +455,9 @@ describe('Ampel aus dem Status', () => {
   })
 
   it('erkennt Gebautes und Angefangenes weiterhin', () => {
-    expect(ampelAus({ status: 'Server und Studio gebaut, App offen' }, 'concepts').art).toBe('unterwegs')
+    expect(ampelAus({ status: 'Server und Studio gebaut, App offen' }, 'concepts').art).toBe(
+      'unterwegs',
+    )
     expect(ampelAus({ status: 'Etappen 1–7 umgesetzt' }, 'architecture').art).toBe('unterwegs')
     expect(ampelAus({ status: 'live seit 2026-08-10' }, 'concepts').art).toBe('fertig')
   })
@@ -466,9 +479,10 @@ describe('Konzept und Mockup kennen sich', () => {
       for (const k of m.konzepte) {
         const dok = dokumente.find((d) => d.quelle === k.quelle)
         expect(dok, k.quelle).toBeTruthy()
-        expect(dok.prototypen.map((p) => p.quelle), `${k.quelle} kennt ${m.quelle} nicht`).toContain(
-          m.quelle,
-        )
+        expect(
+          dok.prototypen.map((p) => p.quelle),
+          `${k.quelle} kennt ${m.quelle} nicht`,
+        ).toContain(m.quelle)
       }
   })
 
@@ -538,8 +552,10 @@ describe('Konzept und Mockup kennen sich', () => {
     // den Hover, fällt zurück — sie zuckt. Bei kurzen Kacheln ständig.
     // KOMMENTARE ZUERST WEG: Die erste Fassung dieses Wächters schlug an ihrem
     // eigenen Begleittext an, der die verworfene Regel zitiert.
-    const blatt = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
+    const blatt = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    )
     const hoverRegeln = blatt.match(/[^}]*:hover[^{]*\{[^}]*\}/g) ?? []
     const bewegend = hoverRegeln.filter((r) => /transform:\s*translate/.test(r))
     expect(bewegend, 'Hover verschiebt ein Element').toEqual([])
@@ -667,7 +683,8 @@ describe('Roadmap als Ablauf', () => {
     // neutrale Blatt und sieht aus, als gehörte sie dorthin. Zwei Wächter:
     // jeder Name muss es geben, und auf der Roadmap muss jeder eins haben.
     for (const d of dokumente)
-      if (d.kopf.icon) expect(Object.keys(ICONS), `${d.quelle}: icon: ${d.kopf.icon}`).toContain(d.kopf.icon)
+      if (d.kopf.icon)
+        expect(Object.keys(ICONS), `${d.quelle}: icon: ${d.kopf.icon}`).toContain(d.kopf.icon)
     for (const e of roadmap.phasen.flatMap((p) => p.eintraege))
       expect(ICONS[e.dok.kopf.icon], `${e.quelle} hat kein Zeichen`).toBeTruthy()
     // Und der Rückfall trägt: ein unbekannter Name kostet keine Karte.
@@ -680,8 +697,21 @@ describe('Roadmap als Ablauf', () => {
     // Spalte, die nicht da ist, kann man nichts ziehen. Räumt man „In Arbeit"
     // leer, wäre die Phase sonst nur noch über die Datei erreichbar — und der
     // Platzhalter sagt, dass die leere Spalte ein Angebot ist und kein Fehler.
-    const leer = { ...roadmap, phasen: [{ name: 'In Arbeit', zeitraum: '', text: '', eintraege: [] }, ...roadmap.phasen.slice(1)] }
-    const seite = uebersichtSeite({ dokumente, bereiche, mockups, bilder: [], roadmap: leer, schriftLokal: false })
+    const leer = {
+      ...roadmap,
+      phasen: [
+        { name: 'In Arbeit', zeitraum: '', text: '', eintraege: [] },
+        ...roadmap.phasen.slice(1),
+      ],
+    }
+    const seite = uebersichtSeite({
+      dokumente,
+      bereiche,
+      mockups,
+      bilder: [],
+      roadmap: leer,
+      schriftLokal: false,
+    })
     expect(seite).toContain('data-phase="In Arbeit"')
     expect(seite).toContain('rm-leer')
     // Und die laufende Phase bleibt die erste: `phasen[0]` ist die Grundlage
@@ -697,7 +727,6 @@ describe('Roadmap als Ablauf', () => {
     expect(roadmap.nurGedacht.every((d) => !roadmap.imCode.includes(d))).toBe(true)
     if (roadmap.imCode.length) expect(html).toContain('in keiner Phase')
   })
-
 })
 
 describe('Karten sind zwischen den Phasen austauschbar', () => {
@@ -772,7 +801,11 @@ describe('Reihenfolge in einer Phase', () => {
   ]
 
   it('ordnet die Zeilen einer Phase neu, samt Schritt und Blockade', () => {
-    const nach = ordnePhase(zeilen(), 'In Arbeit', ['concepts/c.md', 'concepts/b.md', 'concepts/a.md'])
+    const nach = ordnePhase(zeilen(), 'In Arbeit', [
+      'concepts/c.md',
+      'concepts/b.md',
+      'concepts/a.md',
+    ])
     expect(nach[2]).toContain('[C]')
     expect(nach[3]).toContain('[B]')
     expect(nach[3]).toContain('[wartet auf: concepts/a.md]')
@@ -780,7 +813,11 @@ describe('Reihenfolge in einer Phase', () => {
   })
 
   it('lässt die anderen Phasen unberührt', () => {
-    const nach = ordnePhase(zeilen(), 'In Arbeit', ['concepts/c.md', 'concepts/a.md', 'concepts/b.md'])
+    const nach = ordnePhase(zeilen(), 'In Arbeit', [
+      'concepts/c.md',
+      'concepts/a.md',
+      'concepts/b.md',
+    ])
     expect(nach[8]).toContain('[D]')
     expect(nach[6]).toBe('## Beschlossen')
   })
@@ -820,7 +857,9 @@ describe('Reihenfolge in einer Phase', () => {
   })
 
   it('meldet „nichts zu tun", wo sich nichts ändert', () => {
-    expect(ordnePhase(zeilen(), 'In Arbeit', ['concepts/a.md', 'concepts/b.md', 'concepts/c.md'])).toBe(null)
+    expect(
+      ordnePhase(zeilen(), 'In Arbeit', ['concepts/a.md', 'concepts/b.md', 'concepts/c.md']),
+    ).toBe(null)
     expect(ordnePhase(zeilen(), 'Gibt es nicht', ['concepts/a.md'])).toBe(null)
   })
 })
@@ -1032,7 +1071,8 @@ describe('Datei und Editor auf der Seite', () => {
         roadmap: sammleRoadmap(dokumente, mockups),
         schriftLokal: false,
       })
-    const leiste = (html) => html.slice(html.indexOf('<aside class="leiste"'), html.indexOf('</aside>'))
+    const leiste = (html) =>
+      html.slice(html.indexOf('<aside class="leiste"'), html.indexOf('</aside>'))
 
     // Die Leiste ist die Nachbarschaft, in der man weiterliest. Archiviertes
     // beschreibt oft gerade NICHT den heutigen Stand — es steht auf der

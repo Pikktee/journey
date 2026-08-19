@@ -50,7 +50,15 @@ export async function trageBildfassungenNach(
   let gespart = 0
   for (const { id, cover } of offen) {
     try {
-      gespart += await trageEineTourNach(storage, tourJsonPfad, werkzeug, id, cover, setzen, protokoll)
+      gespart += await trageEineTourNach(
+        storage,
+        tourJsonPfad,
+        werkzeug,
+        id,
+        cover,
+        setzen,
+        protokoll,
+      )
       touren++
     } catch (fehler) {
       // Eine Tour, die sich nicht aufbereiten lässt, blockiert den Start nicht.
@@ -115,7 +123,9 @@ async function trageEineTourNach(
   const neuesTitelMedium = titelMedium ? medien.find((m) => m.id === titelMedium.id) : undefined
   const titelbild = neuesTitelMedium
     ? {
-        cover: (neuesTitelMedium.type === 'photo' ? neuesTitelMedium.src : neuesTitelMedium.poster) ?? null,
+        cover:
+          (neuesTitelMedium.type === 'photo' ? neuesTitelMedium.src : neuesTitelMedium.poster) ??
+          null,
         thumb: neuesTitelMedium.thumb ?? null,
       }
     : bestimmeCover(medien)

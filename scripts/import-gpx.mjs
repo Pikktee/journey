@@ -19,7 +19,12 @@ import { liesExif } from './exif-node.mjs'
 // — Argumente —
 
 function parseArgs(argv) {
-  const args = { positional: [], server: 'http://localhost:8787', mode: 'bike', zone: 'Europe/Berlin' }
+  const args = {
+    positional: [],
+    server: 'http://localhost:8787',
+    mode: 'bike',
+    zone: 'Europe/Berlin',
+  }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a.startsWith('--')) args[a.slice(2)] = argv[++i]
@@ -53,11 +58,23 @@ function gpxTrackZeiten(xml) {
 function zonenOffsetMs(utcMs, zone) {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: zone,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
   })
   const teile = Object.fromEntries(fmt.formatToParts(new Date(utcMs)).map((p) => [p.type, p.value]))
-  const lokalAlsUtc = Date.UTC(+teile.year, +teile.month - 1, +teile.day, +(teile.hour % 24), +teile.minute, +teile.second)
+  const lokalAlsUtc = Date.UTC(
+    +teile.year,
+    +teile.month - 1,
+    +teile.day,
+    +(teile.hour % 24),
+    +teile.minute,
+    +teile.second,
+  )
   return lokalAlsUtc - utcMs
 }
 
@@ -91,7 +108,9 @@ async function api(server, pfad, optionen = {}) {
     /* Nicht-JSON-Antwort (z. B. leerer Body) */
   }
   if (!antwort.ok) {
-    throw new Error(`${optionen.method ?? 'GET'} ${pfad} → ${antwort.status}: ${text.slice(0, 300)}`)
+    throw new Error(
+      `${optionen.method ?? 'GET'} ${pfad} → ${antwort.status}: ${text.slice(0, 300)}`,
+    )
   }
   return json
 }
@@ -101,25 +120,33 @@ async function api(server, pfad, optionen = {}) {
 const args = parseArgs(process.argv.slice(2))
 const [gpxPfad, fotoOrdner] = args.positional
 if (!gpxPfad) {
-  console.error('Aufruf: node scripts/import-gpx.mjs <track.gpx> [fotoOrdner] [--mode bike] [--zone Europe/Berlin] …')
+  console.error(
+    'Aufruf: node scripts/import-gpx.mjs <track.gpx> [fotoOrdner] [--mode bike] [--zone Europe/Berlin] …',
+  )
   exit(1)
 }
 const email = args.email ?? process.env.MAPTALE_EMAIL
 const passwort = args.passwort ?? process.env.MAPTALE_PASSWORT
 if (!email || !passwort) {
-  console.error('Zugangsdaten fehlen: --email/--passwort oder MAPTALE_EMAIL/MAPTALE_PASSWORT setzen.')
+  console.error(
+    'Zugangsdaten fehlen: --email/--passwort oder MAPTALE_EMAIL/MAPTALE_PASSWORT setzen.',
+  )
   exit(1)
 }
 
 const gpxText = await readFile(gpxPfad, 'utf8')
 const zeiten = gpxTrackZeiten(gpxText)
 if (zeiten.length < 2) {
-  console.error('GPX ohne (parsebare) <time>-Zeitstempel — für Auto-Wetter/Tag-Nacht werden echte Zeiten benötigt.')
+  console.error(
+    'GPX ohne (parsebare) <time>-Zeitstempel — für Auto-Wetter/Tag-Nacht werden echte Zeiten benötigt.',
+  )
   exit(1)
 }
 const startMs = zeiten[0]
 const endeMs = zeiten[zeiten.length - 1]
-console.log(`Track: ${zeiten.length} Zeitpunkte, ${((endeMs - startMs) / 3600000).toFixed(1)} h, Modus ${args.mode}`)
+console.log(
+  `Track: ${zeiten.length} Zeitpunkte, ${((endeMs - startMs) / 3600000).toFixed(1)} h, Modus ${args.mode}`,
+)
 
 // Fotos einsammeln: EXIF-Zeit (Pflicht) + EXIF-GPS (optional; sonst platziert
 // der Server über die Aufnahmezeit).
@@ -150,7 +177,11 @@ const manifest = {
   clientTourId: `gpx:${basename(gpxPfad)}:${startMs}`,
   title: args.title ?? null,
   description: null,
-  time: { start: isoMitZone(startMs, args.zone), end: isoMitZone(endeMs, args.zone), zone: args.zone },
+  time: {
+    start: isoMitZone(startMs, args.zone),
+    end: isoMitZone(endeMs, args.zone),
+    zone: args.zone,
+  },
   trackFile: 'track.gpx',
   trackMode: args.mode,
   media,
@@ -176,7 +207,9 @@ if (wiederverwendet) {
     console.log(`Abspielen: http://localhost:5173/tour/${id}`)
     process.exit(0)
   }
-  console.log(`Tour ${id} bereits vorhanden (Status ${tour.status}) — Dateien werden erneut geladen`)
+  console.log(
+    `Tour ${id} bereits vorhanden (Status ${tour.status}) — Dateien werden erneut geladen`,
+  )
 } else {
   console.log(`Tour ${id} angelegt`)
 }
@@ -208,7 +241,9 @@ for (;;) {
     exit(1)
   }
   if (tour.schema === 'maptale/tour@1') {
-    console.log(`\nFertig: „${tour.brandTitle}" — ${tour.stats.km} km, ${tour.stats.gainM} hm, ${tour.media.length} Medien`)
+    console.log(
+      `\nFertig: „${tour.brandTitle}" — ${tour.stats.km} km, ${tour.stats.gainM} hm, ${tour.media.length} Medien`,
+    )
     console.log(`Abspielen: http://localhost:5173/tour/${id}`)
     break
   }

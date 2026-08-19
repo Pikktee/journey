@@ -8,12 +8,22 @@ import { STUDIO_PEGEL } from '../src/schema/edits.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
-  const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: manifest })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: '/api/tours',
+    cookies: u.cookies,
+    payload: manifest,
+  })
   expect(antwort.statusCode).toBe(201)
   return (antwort.json() as { id: string }).id
 }
 
-async function ladeMediumHoch(u: TestUmgebung, tourId: string, mid = 'm1', inhalt = 'fake-jpeg-bytes'): Promise<void> {
+async function ladeMediumHoch(
+  u: TestUmgebung,
+  tourId: string,
+  mid = 'm1',
+  inhalt = 'fake-jpeg-bytes',
+): Promise<void> {
   const antwort = await u.app.inject({
     method: 'PUT',
     url: `/api/tours/${tourId}/media/${mid}`,
@@ -25,12 +35,21 @@ async function ladeMediumHoch(u: TestUmgebung, tourId: string, mid = 'm1', inhal
 }
 
 async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
-  const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${tourId}/finalize`, cookies: u.cookies })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: `/api/tours/${tourId}/finalize`,
+    cookies: u.cookies,
+  })
   expect(antwort.statusCode).toBe(202)
   await u.app.verarbeitungen.get(tourId)
 }
 
-function ladeAudioHoch(u: TestUmgebung, tourId: string, datei = 'a1.mp3', inhalt: string | Buffer = 'fake-mp3-bytes') {
+function ladeAudioHoch(
+  u: TestUmgebung,
+  tourId: string,
+  datei = 'a1.mp3',
+  inhalt: string | Buffer = 'fake-mp3-bytes',
+) {
   return u.app.inject({
     method: 'PUT',
     url: `/api/tours/${tourId}/audio/${datei}`,
@@ -58,7 +77,11 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
     expect(put.statusCode).toBe(200)
     expect(put.json()).toEqual({ datei: 'a1.mp3', bytes: 10 })
 
-    const voll = await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/a1.mp3` })
+    const voll = await u.app.inject({
+      method: 'GET',
+      cookies: u.cookies,
+      url: `/api/media/${id}/a1.mp3`,
+    })
     expect(voll.statusCode).toBe(200)
     expect(voll.headers['content-type']).toBe('audio/mpeg')
     expect(voll.headers['accept-ranges']).toBe('bytes')
@@ -66,7 +89,8 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
     const range = await u.app.inject({
       method: 'GET',
-      cookies: u.cookies, url: `/api/media/${id}/a1.mp3`,
+      cookies: u.cookies,
+      url: `/api/media/${id}/a1.mp3`,
       headers: { range: 'bytes=2-5' },
     })
     expect(range.statusCode).toBe(206)
@@ -77,10 +101,18 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
   it('kennt die Content-Types aller Audio-Endungen', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    const erwartet: Record<string, string> = { m4a: 'audio/mp4', ogg: 'audio/ogg', wav: 'audio/wav' }
+    const erwartet: Record<string, string> = {
+      m4a: 'audio/mp4',
+      ogg: 'audio/ogg',
+      wav: 'audio/wav',
+    }
     for (const [endung, typ] of Object.entries(erwartet)) {
       expect((await ladeAudioHoch(u, id, `klang.${endung}`)).statusCode).toBe(200)
-      const antwort = await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/klang.${endung}` })
+      const antwort = await u.app.inject({
+        method: 'GET',
+        cookies: u.cookies,
+        url: `/api/media/${id}/klang.${endung}`,
+      })
       expect(antwort.headers['content-type']).toBe(typ)
     }
   })
@@ -108,7 +140,11 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
     await ladeAudioHoch(u, id, 'alt.mp3')
     u.app.deps.db.prepare(`UPDATE tours SET status = 'verarbeitung' WHERE id = ?`).run(id)
     expect((await ladeAudioHoch(u, id, 'neu.mp3')).statusCode).toBe(409)
-    const del = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/audio/alt.mp3`, cookies: u.cookies })
+    const del = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/audio/alt.mp3`,
+      cookies: u.cookies,
+    })
     expect(del.statusCode).toBe(409)
   })
 
@@ -125,7 +161,11 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
       payload: Buffer.from('x'),
     })
     expect(put.statusCode).toBe(404)
-    const del = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/audio/a1.mp3`, cookies: fremd })
+    const del = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/audio/a1.mp3`,
+      cookies: fremd,
+    })
     expect(del.statusCode).toBe(404)
   })
 
@@ -152,10 +192,21 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     await ladeAudioHoch(u, id)
-    const del = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/audio/a1.mp3`, cookies: u.cookies })
+    const del = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/audio/a1.mp3`,
+      cookies: u.cookies,
+    })
     expect(del.statusCode).toBe(200)
-    expect((await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/a1.mp3` })).statusCode).toBe(404)
-    const nochmal = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/audio/a1.mp3`, cookies: u.cookies })
+    expect(
+      (await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/a1.mp3` }))
+        .statusCode,
+    ).toBe(404)
+    const nochmal = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/audio/a1.mp3`,
+      cookies: u.cookies,
+    })
     expect(nochmal.statusCode).toBe(404)
   })
 
@@ -170,14 +221,24 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00' }] },
+      payload: {
+        schema: 'maptale/edits@1',
+        audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00' }],
+      },
     })
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
     // DELETE muss abgelehnt werden — sonst zeigte das gerenderte tour.json auf 404
-    const del = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/audio/a1.mp3`, cookies: u.cookies })
+    const del = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/tours/${id}/audio/a1.mp3`,
+      cookies: u.cookies,
+    })
     expect(del.statusCode).toBe(409)
-    expect((await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/a1.mp3` })).statusCode).toBe(200)
+    expect(
+      (await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/a1.mp3` }))
+        .statusCode,
+    ).toBe(200)
   })
 })
 
@@ -188,7 +249,11 @@ describe('Editor-Daten mit Audio (Baukasten)', () => {
     await ladeMediumHoch(u, id) // m1.jpg liegt ebenfalls unter media/
     await ladeAudioHoch(u, id, 'a1.mp3', '0123456789')
     await ladeAudioHoch(u, id, 'wind.wav', 'wav-bytes')
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}/editor`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     const daten = antwort.json() as { audio: Array<{ datei: string; groesse: number }> }
     expect(daten.audio).toEqual([
@@ -224,7 +289,9 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.status).toBe('bereit')
     expect(tour.media[0]?.display).toEqual({ holdS: 8, kenBurns: false })
     expect(tour.camera).toHaveLength(1)
@@ -259,7 +326,9 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     })
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as TourJson
     expect(tour.status).toBe('bereit')
     expect(tour.audio).toBeUndefined()
   })
@@ -270,17 +339,31 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     const faelle = [
       { schema: 'maptale/edits@1', kamera: 'quatsch' },
       { schema: 'maptale/edits@1', kamera: [{ ab: '2026-07-04T09:00:00Z', preset: 'ultra' }] },
-      { schema: 'maptale/edits@1', audio: [{ datei: 'boese.exe', typ: 'musik', ab: '2026-07-04T09:00:00Z' }] },
+      {
+        schema: 'maptale/edits@1',
+        audio: [{ datei: 'boese.exe', typ: 'musik', ab: '2026-07-04T09:00:00Z' }],
+      },
       // Achtung: '1' würde Fastifys coerceTypes still zu 1 wandeln — der
       // Ablehnungs-Test braucht einen NICHT koerzierbaren Wert
-      { schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 'laut' }] },
-      { schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 2 }] },
+      {
+        schema: 'maptale/edits@1',
+        audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 'laut' }],
+      },
+      {
+        schema: 'maptale/edits@1',
+        audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 2 }],
+      },
       { schema: 'maptale/edits@1', medien: { m1: { display: { holdS: 1 } } } },
       { schema: 'maptale/edits@1', medien: { m1: { display: { holdS: 90 } } } },
       { schema: 'maptale/edits@1', medien: { m1: { display: { kenBurns: 'nein' } } } },
     ]
     for (const payload of faelle) {
-      const antwort = await u.app.inject({ method: 'PUT', url: `/api/tours/${id}/edits`, cookies: u.cookies, payload })
+      const antwort = await u.app.inject({
+        method: 'PUT',
+        url: `/api/tours/${id}/edits`,
+        cookies: u.cookies,
+        payload,
+      })
       expect(antwort.statusCode, JSON.stringify(payload)).toBe(400)
     }
   })
@@ -290,30 +373,55 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     const id = await legeTourAn(u)
     const faelle: Array<{ payload: Record<string, unknown>; fehler: RegExp }> = [
       {
-        payload: { schema: 'maptale/edits@1', kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }] },
+        payload: {
+          schema: 'maptale/edits@1',
+          kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }],
+        },
         fehler: /Kamera-Grenze/,
       },
       {
         payload: {
           schema: 'maptale/edits@1',
-          audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T10:00:00Z', bis: '2026-07-04T09:00:00Z' }],
+          audio: [
+            {
+              datei: 'a1.mp3',
+              typ: 'musik',
+              ab: '2026-07-04T10:00:00Z',
+              bis: '2026-07-04T09:00:00Z',
+            },
+          ],
         },
         fehler: /Audio-Ende/,
       },
       {
         payload: {
           schema: 'maptale/edits@1',
-          audio: [{ datei: 'a1.mp3', typ: 'sfx', ab: '2026-07-04T09:00:00Z', bis: '2026-07-04T10:00:00Z' }],
+          audio: [
+            {
+              datei: 'a1.mp3',
+              typ: 'sfx',
+              ab: '2026-07-04T09:00:00Z',
+              bis: '2026-07-04T10:00:00Z',
+            },
+          ],
         },
         fehler: /nur bei Musik/,
       },
       {
-        payload: { schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'sfx', ab: '2026-13-99T99:99:99Z' }] },
+        payload: {
+          schema: 'maptale/edits@1',
+          audio: [{ datei: 'a1.mp3', typ: 'sfx', ab: '2026-13-99T99:99:99Z' }],
+        },
         fehler: /Audio-Start/,
       },
     ]
     for (const { payload, fehler } of faelle) {
-      const antwort = await u.app.inject({ method: 'PUT', url: `/api/tours/${id}/edits`, cookies: u.cookies, payload })
+      const antwort = await u.app.inject({
+        method: 'PUT',
+        url: `/api/tours/${id}/edits`,
+        cookies: u.cookies,
+        payload,
+      })
       expect(antwort.statusCode).toBe(400)
       expect((antwort.json() as { fehler: string }).fehler).toMatch(fehler)
     }

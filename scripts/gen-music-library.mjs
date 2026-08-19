@@ -102,11 +102,14 @@ export const MUSIK_CLIPS = [
 ]
 
 // Als Modul importiert (Drift-Test) NICHT generieren — nur bei direktem Aufruf.
-const direktAufruf = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+const direktAufruf =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (direktAufruf) {
   fs.mkdirSync(OUT, { recursive: true })
   const env = fs.readFileSync(path.join(ROOT, '.env'), 'utf8')
-  const KEY = (env.match(/^ELEVEN_LABS_KEY\s*=\s*(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, '')
+  const KEY = (env.match(/^ELEVEN_LABS_KEY\s*=\s*(.+)$/m) || [])[1]
+    ?.trim()
+    .replace(/^["']|["']$/g, '')
   if (!KEY) {
     console.error('ELEVEN_LABS_KEY fehlt in .env')
     process.exit(1)
@@ -122,7 +125,8 @@ if (direktAufruf) {
       headers: { 'xi-api-key': KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: c.text + AUFLAGE, music_length_ms: LAENGE_MS }),
     })
-    if (!res.ok) throw new Error(`${c.name}: HTTP ${res.status} — ${(await res.text()).slice(0, 300)}`)
+    if (!res.ok)
+      throw new Error(`${c.name}: HTTP ${res.status} — ${(await res.text()).slice(0, 300)}`)
     const buf = Buffer.from(await res.arrayBuffer())
     fs.writeFileSync(path.join(OUT, `${c.name}.mp3`), buf)
     console.log(`  ✓ ${c.name}.mp3  (${(buf.length / 1024).toFixed(0)} KB)`)

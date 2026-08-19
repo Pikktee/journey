@@ -13,7 +13,8 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const lies = (datei: string): string => readFileSync(new URL(`../${datei}`, import.meta.url), 'utf8')
+const lies = (datei: string): string =>
+  readFileSync(new URL(`../${datei}`, import.meta.url), 'utf8')
 
 /**
  * Die Sätze aus `EINWILLIGUNGSTEXTE` — aus der Quelle gelesen statt

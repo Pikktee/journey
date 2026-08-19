@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { vollbildMoeglich, vollbildErwuenscht, imVollbild, betreteVollbild, verlasseVollbild } from '../src/vollbild'
+import {
+  vollbildMoeglich,
+  vollbildErwuenscht,
+  imVollbild,
+  betreteVollbild,
+  verlasseVollbild,
+} from '../src/vollbild'
 
 // Die Umgebung ist `node` (vitest.config.js) — es gibt also kein `document`.
 // Das ist hier kein Hindernis, sondern der Punkt: Das Modul fragt nur nach
@@ -102,7 +108,10 @@ describe('betreteVollbild', () => {
 
   it('lässt keine unbehandelte Ablehnung zurück, wenn das Promise scheitert', async () => {
     const abgelehnt = Promise.reject(new TypeError('keine Nutzergeste'))
-    setzeDokument({ fullscreenEnabled: true, documentElement: { requestFullscreen: () => abgelehnt } })
+    setzeDokument({
+      fullscreenEnabled: true,
+      documentElement: { requestFullscreen: () => abgelehnt },
+    })
     expect(() => betreteVollbild()).not.toThrow()
     // Hängt an der Ablehnung noch kein `catch`, meldet Node sie beim nächsten
     // Durchlauf der Warteschlange als unhandledRejection.

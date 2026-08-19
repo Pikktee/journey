@@ -32,7 +32,12 @@ const dateiParamsSchema = {
 } as const
 
 /** Verweist dieser Overlay-/Tour-JSON-Stand auf die Bibliotheksdatei? */
-function referenziert(edits: EditOverlay | null, tourJsonAudio: Array<{ src?: string }> | null, tourId: string, datei: string): boolean {
+function referenziert(
+  edits: EditOverlay | null,
+  tourJsonAudio: Array<{ src?: string }> | null,
+  tourId: string,
+  datei: string,
+): boolean {
   if (edits?.audio?.some((a) => a.quelle === 'benutzer' && a.datei === datei)) return true
   // Auch das GERENDERTE tour.json zählt: zwischen „Eintrag entfernt und
   // gespeichert" und dem fertigen Re-Render zeigt der Player sonst auf eine 404.
@@ -65,16 +70,26 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
         let tourAudio: Array<{ src?: string }> | null = null
         if (await storage.info(tour.id, TOURJSON_PFAD)) {
           tourAudio =
-            (JSON.parse((await storage.lese(tour.id, TOURJSON_PFAD)).toString()) as { audio?: Array<{ src?: string }> })
-              .audio ?? null
+            (
+              JSON.parse((await storage.lese(tour.id, TOURJSON_PFAD)).toString()) as {
+                audio?: Array<{ src?: string }>
+              }
+            ).audio ?? null
         }
-        return { id: tour.id, titel: tour.title ?? `N°${String(tour.no).padStart(2, '0')}`, edits, tourAudio }
+        return {
+          id: tour.id,
+          titel: tour.title ?? `N°${String(tour.no).padStart(2, '0')}`,
+          edits,
+          tourAudio,
+        }
       }),
     )
   }
 
   const nutzerVon = (staende: TourStand[], datei: string): Array<{ id: string; titel: string }> =>
-    staende.filter((s) => referenziert(s.edits, s.tourAudio, s.id, datei)).map(({ id, titel }) => ({ id, titel }))
+    staende
+      .filter((s) => referenziert(s.edits, s.tourAudio, s.id, datei))
+      .map(({ id, titel }) => ({ id, titel }))
 
   // — Liste: alle Dateien der Bibliothek + wo sie im Einsatz sind (die
   // Oberfläche graut den Löschen-Knopf verwendeter Dateien damit aus) —
@@ -103,14 +118,28 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
       if (!benutzer) return
       const relPfad = `${BIBLIOTHEK_ORDNER}/${request.params.datei}`
       if (await benutzerStorage.info(benutzer.id, relPfad)) {
-        return reply.code(409).send({ fehler: 'Audio-Datei existiert bereits, anderen Namen wählen' })
+        return reply
+          .code(409)
+          .send({ fehler: 'Audio-Datei existiert bereits, anderen Namen wählen' })
       }
       const laenge = Number(request.headers['content-length'] ?? 0)
       if (Number.isFinite(laenge) && laenge > 0) {
-        const quotaFehler = await pruefeQuota(db, storage, benutzerStorage, benutzer.id, konfig.maxSpeicherProBenutzer, laenge)
+        const quotaFehler = await pruefeQuota(
+          db,
+          storage,
+          benutzerStorage,
+          benutzer.id,
+          konfig.maxSpeicherProBenutzer,
+          laenge,
+        )
         if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
       }
-      const info = await benutzerStorage.schreibeStream(benutzer.id, relPfad, request.body as Readable, konfig.maxAudioBytes)
+      const info = await benutzerStorage.schreibeStream(
+        benutzer.id,
+        relPfad,
+        request.body as Readable,
+        konfig.maxAudioBytes,
+      )
       return reply.code(200).send({ datei: request.params.datei, bytes: info.groesse })
     },
   )
@@ -162,7 +191,9 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
       const nutzer = nutzerVon(await ladeTourStaende(benutzer.id), request.params.datei)
       if (nutzer.length) {
         const titel = nutzer.map((t) => `„${t.titel}"`).join(', ')
-        return reply.code(409).send({ fehler: `Datei wird noch verwendet in ${titel}, dort erst den Eintrag entfernen` })
+        return reply.code(409).send({
+          fehler: `Datei wird noch verwendet in ${titel}, dort erst den Eintrag entfernen`,
+        })
       }
       await benutzerStorage.loesche(benutzer.id, relPfad)
       return { ok: true }
@@ -175,7 +206,18 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
   // die restliche Bibliothek des Eigentümers abklopfen könnte. —
   app.get<{ Params: { id: string; datei: string } }>(
     '/api/tours/:id/bibliothek-audio/:datei',
-    { schema: { params: { type: 'object', required: ['id', 'datei'], properties: { id: { type: 'string' }, datei: { type: 'string', pattern: AUDIO_DATEI_PATTERN } } } } },
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id', 'datei'],
+          properties: {
+            id: { type: 'string' },
+            datei: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
+          },
+        },
+      },
+    },
     async (request, reply) => {
       const tour = ladeTour(app, request.params.id)
       if (!tour || !darfSehen(tour, request.benutzer?.id ?? null)) {
@@ -189,8 +231,11 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
       let tourAudio: Array<{ src?: string }> | null = null
       if (await storage.info(tour.id, TOURJSON_PFAD)) {
         tourAudio =
-          (JSON.parse((await storage.lese(tour.id, TOURJSON_PFAD)).toString()) as { audio?: Array<{ src?: string }> })
-            .audio ?? null
+          (
+            JSON.parse((await storage.lese(tour.id, TOURJSON_PFAD)).toString()) as {
+              audio?: Array<{ src?: string }>
+            }
+          ).audio ?? null
       }
       if (!referenziert(edits, tourAudio, tour.id, datei)) {
         return reply.code(404).send({ fehler: 'Nicht gefunden' })
@@ -207,7 +252,9 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
       // Dateien dürfen nie in geteilten Caches (Proxy/CDN) landen.
       reply.header(
         'cache-control',
-        tour.visibility === 'private' ? 'private, max-age=3600' : 'public, max-age=31536000, immutable',
+        tour.visibility === 'private'
+          ? 'private, max-age=3600'
+          : 'public, max-age=31536000, immutable',
       )
 
       const range = parseRange(request.headers.range, info.groesse)

@@ -93,7 +93,9 @@ export interface Empfaenger {
  * darauf zeigt die Fehlermeldung.
  */
 export function abmeldeToken(userId: string, geheimnis: string): string {
-  const signatur = createHmac('sha256', geheimnis).update(`newsletter:${userId}`).digest('base64url')
+  const signatur = createHmac('sha256', geheimnis)
+    .update(`newsletter:${userId}`)
+    .digest('base64url')
   return `${Buffer.from(userId, 'utf8').toString('base64url')}.${signatur}`
 }
 
@@ -103,7 +105,9 @@ export function pruefeAbmeldeToken(token: string, geheimnis: string): string | n
   if (!kopf || !signatur) return null
   const userId = Buffer.from(kopf, 'base64url').toString('utf8')
   if (!userId) return null
-  const erwartet = createHmac('sha256', geheimnis).update(`newsletter:${userId}`).digest('base64url')
+  const erwartet = createHmac('sha256', geheimnis)
+    .update(`newsletter:${userId}`)
+    .digest('base64url')
   // Konstante Zeit — die Länge muss vorher stimmen, sonst wirft timingSafeEqual.
   if (signatur.length !== erwartet.length) return null
   if (!timingSafeEqual(Buffer.from(signatur), Buffer.from(erwartet))) return null
@@ -144,8 +148,7 @@ export class NewsletterDienst {
   /** Steht der Schalter an? (Der Wunsch — ob etwas rausgeht, sagt `empfaenger`.) */
   stand(userId: string): boolean {
     const zeile = this.db.prepare('SELECT newsletter FROM users WHERE id = ?').get(userId) as
-      | { newsletter: number }
-      | undefined
+      { newsletter: number } | undefined
     return !!zeile?.newsletter
   }
 
@@ -167,7 +170,14 @@ export class NewsletterDienst {
           `INSERT INTO newsletter_einwilligungen (id, benutzer_id, zeitpunkt, zustand, quelle, textfassung)
            VALUES (?, ?, ?, ?, ?, ?)`,
         )
-        .run(neueSessionId(), userId, new Date().toISOString(), an ? 'an' : 'aus', quelle, textfassung)
+        .run(
+          neueSessionId(),
+          userId,
+          new Date().toISOString(),
+          an ? 'an' : 'aus',
+          quelle,
+          textfassung,
+        )
     })()
   }
 

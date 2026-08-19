@@ -133,10 +133,18 @@ for (const tour of TOUREN) {
     regieAbweichung < 1e-9
   if (!ok) fehler++
   console.log(`${ok ? '✓' : '✗'} ${tour}`)
-  console.log(`    Halt ${halt.von.toFixed(1)}–${halt.bis.toFixed(1)} s · ${imHalt.length} Frames darin`)
-  console.log(`    Kopf wandert ${kopfWeg.toFixed(2)} % (Soll ${kopfSoll.toFixed(2)} %) · längster Stillstand ${laengsterStillstandS.toFixed(2)} s · Strecke wandert ${streckeSpanne.toFixed(2)} m`)
-  console.log(`    Scrub in die Mitte: ${mitte.filmS.toFixed(2)} s (Ziel ${mitte.ziel.toFixed(2)}) · im Halt ${mitte.imHalt} · Karte ${mitte.karteSichtbar} (--karte-zeit ${mitte.kartenZeit || '—'})`)
-  console.log(`    Regie bekommt den Streckenanteil, Abweichung ${regieAbweichung.toExponential(1)} (${regie.length} Takte)`)
+  console.log(
+    `    Halt ${halt.von.toFixed(1)}–${halt.bis.toFixed(1)} s · ${imHalt.length} Frames darin`,
+  )
+  console.log(
+    `    Kopf wandert ${kopfWeg.toFixed(2)} % (Soll ${kopfSoll.toFixed(2)} %) · längster Stillstand ${laengsterStillstandS.toFixed(2)} s · Strecke wandert ${streckeSpanne.toFixed(2)} m`,
+  )
+  console.log(
+    `    Scrub in die Mitte: ${mitte.filmS.toFixed(2)} s (Ziel ${mitte.ziel.toFixed(2)}) · im Halt ${mitte.imHalt} · Karte ${mitte.karteSichtbar} (--karte-zeit ${mitte.kartenZeit || '—'})`,
+  )
+  console.log(
+    `    Regie bekommt den Streckenanteil, Abweichung ${regieAbweichung.toExponential(1)} (${regie.length} Takte)`,
+  )
   await kontext.close()
 }
 

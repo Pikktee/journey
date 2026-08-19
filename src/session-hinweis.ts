@@ -71,8 +71,9 @@ export function vergesseAngemeldet(): void {
 }
 
 /** Ob der Hinweis-Cookie gesetzt ist (synchron, vor Modul-Boot lesbar). */
-export function vermutlichAngemeldet(cookie = typeof document !== 'undefined' ? document.cookie : ''): boolean {
+export function vermutlichAngemeldet(
+  cookie = typeof document !== 'undefined' ? document.cookie : '',
+): boolean {
   const nadel = `${SESSION_HINWEIS_COOKIE}=`
   return cookie.split(';').some((teil) => teil.trim().startsWith(nadel))
 }
-

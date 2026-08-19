@@ -28,7 +28,11 @@ export const KANTE = 140
  *      die Lesekante nie — ohne diesen Fall bliebe die Marke zwei Abschnitte
  *      zurück, gerade dort, wo „Deine Rechte" steht.
  */
-export function aktiverAbschnitt(oberkanten: readonly number[], amEnde = false, kante = KANTE): number {
+export function aktiverAbschnitt(
+  oberkanten: readonly number[],
+  amEnde = false,
+  kante = KANTE,
+): number {
   if (!oberkanten.length) return -1
   if (amEnde) return oberkanten.length - 1
   let treffer = 0

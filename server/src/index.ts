@@ -85,11 +85,13 @@ const raeumeWarteliste = (): void => {
   const weg = app.warteliste.raeumeAuf()
   if (weg > 0) app.log.info(`${weg} abgelaufene Wartelisten-Einträge gelöscht`)
   const alteEinwilligungen = app.newsletter.raeumeAuf()
-  if (alteEinwilligungen > 0) app.log.info(`${alteEinwilligungen} alte Newsletter-Protokollzeilen gelöscht`)
+  if (alteEinwilligungen > 0)
+    app.log.info(`${alteEinwilligungen} alte Newsletter-Protokollzeilen gelöscht`)
   // Rückmeldungen verfallen ebenfalls: erledigte nach einem halben Jahr, offene
   // nach anderthalb. Ein Eingang, den niemand leert, wird sonst zur Sammlung.
   const alteRueckmeldungen = app.rueckmeldungen.raeumeAuf()
-  if (alteRueckmeldungen > 0) app.log.info(`${alteRueckmeldungen} abgelaufene Rückmeldungen gelöscht`)
+  if (alteRueckmeldungen > 0)
+    app.log.info(`${alteRueckmeldungen} abgelaufene Rückmeldungen gelöscht`)
 }
 raeumeWarteliste()
 setInterval(raeumeWarteliste, 24 * 60 * 60 * 1000).unref()
@@ -122,10 +124,14 @@ void trageTitelbilderNach(db, storage, TOURJSON_PFAD, (n) => app.log.warn(n))
   .catch((fehler: unknown) => app.log.error(fehler, 'Titelbild-Nachtrag fehlgeschlagen'))
   // Danach, nicht daneben: Der Bild-Nachtrag liest das Titelbild aus der
   // Datenbank — läuft er zeitgleich, greift er bei Bestandstouren ins Leere.
-  .then(() => trageBildfassungenNach(db, storage, TOURJSON_PFAD, bildWerkzeug, (n) => app.log.warn(n)))
+  .then(() =>
+    trageBildfassungenNach(db, storage, TOURJSON_PFAD, bildWerkzeug, (n) => app.log.warn(n)),
+  )
   .then(({ touren, gespart }) => {
     if (touren > 0) {
-      app.log.info(`Bild-Fassungen nachgetragen für ${touren} Tour(en), ${(gespart / 1048576).toFixed(1)} MB frei`)
+      app.log.info(
+        `Bild-Fassungen nachgetragen für ${touren} Tour(en), ${(gespart / 1048576).toFixed(1)} MB frei`,
+      )
     }
   })
   .catch((fehler: unknown) => app.log.error(fehler, 'Bild-Nachtrag fehlgeschlagen'))

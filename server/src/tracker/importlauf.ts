@@ -10,7 +10,12 @@
 import type { FastifyInstance } from 'fastify'
 import { QuotaFehler, legeTourAusTrackAn } from './touranleger.js'
 import { MAX_VERSUCHE, type ImportZeile, type TrackerDienst, type Verknuepfung } from './tracker.js'
-import { OhneRouteFehler, TokensUngueltigFehler, ZuKleinFehler, type TrackerProvider } from './vertrag.js'
+import {
+  OhneRouteFehler,
+  TokensUngueltigFehler,
+  ZuKleinFehler,
+  type TrackerProvider,
+} from './vertrag.js'
 
 /**
  * Fehler, die eine Aktivität ÜBERSPRINGEN statt scheitern lassen.
@@ -20,7 +25,11 @@ import { OhneRouteFehler, TokensUngueltigFehler, ZuKleinFehler, type TrackerProv
  * rot, und die eine echte Störung ginge darin unter.
  */
 function istUebersprungen(fehler: unknown): boolean {
-  return fehler instanceof OhneRouteFehler || fehler instanceof ZuKleinFehler || fehler instanceof QuotaFehler
+  return (
+    fehler instanceof OhneRouteFehler ||
+    fehler instanceof ZuKleinFehler ||
+    fehler instanceof QuotaFehler
+  )
 }
 
 /**
@@ -87,7 +96,9 @@ export async function fuehreImportAus(
       if (fehler instanceof TokensUngueltigFehler) {
         dienst.setzeStatus(verknuepfung.id, 'abgelaufen', 'Zugang abgelaufen, bitte neu verbinden')
       } else {
-        app.log.warn(`Tracker-Import fehlgeschlagen (${verknuepfung.anbieter}/${externeId}): ${nachricht}`)
+        app.log.warn(
+          `Tracker-Import fehlgeschlagen (${verknuepfung.anbieter}/${externeId}): ${nachricht}`,
+        )
       }
     }
   }

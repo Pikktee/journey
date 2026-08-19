@@ -378,7 +378,8 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
   // ein unendlicher Anker würde erst im Player als NaN explodieren. Deshalb
   // hier Number.isFinite auf ALLEN Zahlfeldern (auch holdS/lautstaerke).
   for (const [id, medium] of Object.entries(edits.medien ?? {})) {
-    if (medium.anchor && !medium.anchor.every(Number.isFinite)) return `Ungültiger Anker für Medium ${id}`
+    if (medium.anchor && !medium.anchor.every(Number.isFinite))
+      return `Ungültiger Anker für Medium ${id}`
     if (medium.display?.holdS !== undefined && !Number.isFinite(medium.display.holdS)) {
       return `Ungültige Standzeit für Medium ${id}`
     }
@@ -398,11 +399,13 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
   }
   for (const grenze of edits.kamera ?? []) {
     if (!Number.isFinite(Date.parse(grenze.ab))) return `Unparsebare Kamera-Grenze: ${grenze.ab}`
-    if (grenze.skala !== undefined && !Number.isFinite(grenze.skala)) return `Ungültige Kamera-Feinjustierung: ${grenze.ab}`
+    if (grenze.skala !== undefined && !Number.isFinite(grenze.skala))
+      return `Ungültige Kamera-Feinjustierung: ${grenze.ab}`
   }
   for (const moment of edits.momente ?? []) {
     if (!Number.isFinite(Date.parse(moment.ab))) return `Unparsebarer Kamera-Moment: ${moment.ab}`
-    if (moment.dauerS !== undefined && !Number.isFinite(moment.dauerS)) return `Ungültige Moment-Dauer: ${moment.ab}`
+    if (moment.dauerS !== undefined && !Number.isFinite(moment.dauerS))
+      return `Ungültige Moment-Dauer: ${moment.ab}`
   }
   for (const spur of edits.audio ?? []) {
     if (!Number.isFinite(Date.parse(spur.ab))) return `Unparsebarer Audio-Start: ${spur.ab}`
@@ -430,7 +433,10 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
     if (spur.versatzFilmS !== undefined && !Number.isFinite(spur.versatzFilmS)) {
       return `Ungültiger Audio-Versatz (${spur.datei})`
     }
-    if (spur.dauerFilmS !== undefined && !(Number.isFinite(spur.dauerFilmS) && spur.dauerFilmS > 0)) {
+    if (
+      spur.dauerFilmS !== undefined &&
+      !(Number.isFinite(spur.dauerFilmS) && spur.dauerFilmS > 0)
+    ) {
       return `Ungültige Audio-Länge (${spur.datei})`
     }
     // Der linke Trim hat den Dateianfang als Anschlag — auch mit Loop, denn vor
@@ -450,8 +456,10 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
     }
   }
   const { start, ende } = edits.trim ?? {}
-  if (start !== undefined && !Number.isFinite(Date.parse(start))) return `Unparsebarer Trim-Start: ${start}`
-  if (ende !== undefined && !Number.isFinite(Date.parse(ende))) return `Unparsebares Trim-Ende: ${ende}`
+  if (start !== undefined && !Number.isFinite(Date.parse(start)))
+    return `Unparsebarer Trim-Start: ${start}`
+  if (ende !== undefined && !Number.isFinite(Date.parse(ende)))
+    return `Unparsebares Trim-Ende: ${ende}`
   if (start !== undefined && ende !== undefined && Date.parse(start) >= Date.parse(ende)) {
     return 'Trim-Start muss vor dem Trim-Ende liegen'
   }

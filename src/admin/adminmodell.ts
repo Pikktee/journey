@@ -14,13 +14,7 @@ export type EinladungsZustand = 'offen' | 'eingeloest' | 'abgelaufen'
 // Reiterleiste UND die Zähler speist, steht sie EINMAL hier.
 
 export type TabId =
-  | 'konten'
-  | 'statistiken'
-  | 'einladungen'
-  | 'warteliste'
-  | 'rueckmeldungen'
-  | 'mails'
-  | 'protokoll'
+  'konten' | 'statistiken' | 'einladungen' | 'warteliste' | 'rueckmeldungen' | 'mails' | 'protokoll'
 
 export interface Tab {
   id: TabId
@@ -168,7 +162,14 @@ export function filtereEinladungen(
   return liste.filter((e) => {
     if (filter !== 'alle' && e.zustand !== filter) return false
     if (!s) return true
-    if (blank && e.code.toLowerCase().replace(/[^a-z0-9]/g, '').includes(blank)) return true
+    if (
+      blank &&
+      e.code
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .includes(blank)
+    )
+      return true
     return enthaelt(e.notiz ?? '', s)
   })
 }
@@ -190,7 +191,9 @@ export function filtereWarteliste(
 }
 
 /** Wie viele Einladungen in welchem Zustand — für die Zeile über der Liste. */
-export function zaehleEinladungen(liste: readonly AdminEinladung[]): Record<EinladungsZustand, number> {
+export function zaehleEinladungen(
+  liste: readonly AdminEinladung[],
+): Record<EinladungsZustand, number> {
   const zaehler: Record<EinladungsZustand, number> = { offen: 0, eingeloest: 0, abgelaufen: 0 }
   for (const e of liste) zaehler[e.zustand]++
   return zaehler
@@ -280,11 +283,7 @@ export function einladungsLink(basisUrl: string, code: string): string {
  * nicht erst anbieten. Ein Formular, das erst nach dem Absenden „geht nicht"
  * sagt, ist die schlechtere Hälfte davon.
  */
-export function rolleGesperrt(
-  ziel: AdminBenutzer,
-  ichId: string,
-  adminZahl: number,
-): string {
+export function rolleGesperrt(ziel: AdminBenutzer, ichId: string, adminZahl: number): string {
   if (ziel.rolle !== 'admin') return ''
   if (ziel.fest) return 'In der Konfiguration als Admin gesetzt'
   if (ziel.id === ichId) return 'Die eigene Admin-Rolle lässt sich nicht ablegen'
@@ -295,7 +294,8 @@ export function rolleGesperrt(
 export function loeschenGesperrt(ziel: AdminBenutzer, ichId: string, adminZahl: number): string {
   if (ziel.id === ichId) return 'Das eigene Konto löschst du im Studio unter „Konto"'
   if (ziel.fest) return 'In der Konfiguration als Admin gesetzt'
-  if (ziel.rolle === 'admin' && adminZahl <= 1) return 'Es muss mindestens einen Administrator geben'
+  if (ziel.rolle === 'admin' && adminZahl <= 1)
+    return 'Es muss mindestens einen Administrator geben'
   return ''
 }
 
@@ -379,7 +379,9 @@ export function filtereProtokoll(
   })
 }
 
-export function zaehleProtokoll(liste: readonly ProtokollEintrag[]): Record<ProtokollStufe, number> {
+export function zaehleProtokoll(
+  liste: readonly ProtokollEintrag[],
+): Record<ProtokollStufe, number> {
   const zaehler: Record<ProtokollStufe, number> = { warnung: 0, fehler: 0 }
   for (const e of liste) zaehler[e.stufe]++
   return zaehler
@@ -397,7 +399,9 @@ export function formatiereZeitpunkt(iso: string, jetzt: Date = new Date()): stri
   const zwei = (n: number): string => String(n).padStart(2, '0')
   const uhr = `${zwei(d.getHours())}:${zwei(d.getMinutes())}:${zwei(d.getSeconds())}`
   const gleicherTag =
-    d.getDate() === jetzt.getDate() && d.getMonth() === jetzt.getMonth() && d.getFullYear() === jetzt.getFullYear()
+    d.getDate() === jetzt.getDate() &&
+    d.getMonth() === jetzt.getMonth() &&
+    d.getFullYear() === jetzt.getFullYear()
   return gleicherTag ? uhr : `${zwei(d.getDate())}.${zwei(d.getMonth() + 1)}. ${uhr}`
 }
 
@@ -406,8 +410,14 @@ export function formatiereZeitpunkt(iso: string, jetzt: Date = new Date()): stri
  * nicht wie ein Fehler aussehen („keine Daten"), sondern sagt, seit wann nichts
  * vorgefallen ist.
  */
-export function beschreibeProtokoll(anzahl: number, fehler: number, gestartet: string | null): string {
-  const seit = gestartet ? ` seit dem Start der API am ${formatiereDatum(gestartet)} um ${formatiereZeitpunkt(gestartet, new Date(gestartet))}` : ''
+export function beschreibeProtokoll(
+  anzahl: number,
+  fehler: number,
+  gestartet: string | null,
+): string {
+  const seit = gestartet
+    ? ` seit dem Start der API am ${formatiereDatum(gestartet)} um ${formatiereZeitpunkt(gestartet, new Date(gestartet))}`
+    : ''
   if (anzahl === 0) return `Nichts vorgefallen${seit}.`
   const teile = [`${anzahl} ${anzahl === 1 ? 'Meldung' : 'Meldungen'}`]
   if (fehler > 0) teile.push(`davon ${fehler} ${fehler === 1 ? 'Fehler' : 'Fehler'}`)
@@ -496,9 +506,6 @@ export function kontextZeile(r: AdminRueckmeldung): string {
  */
 export function istLokal(host: string): boolean {
   return (
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host === '[::1]' ||
-    host.endsWith('.localhost')
+    host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.localhost')
   )
 }

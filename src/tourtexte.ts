@@ -29,7 +29,10 @@ export const BESCHREIBUNG_MAX = 150
  * der Aufrufer die Zeile ganz weglassen kann statt einen leeren Absatz zu
  * setzen.
  */
-export function kuerzeBeschreibung(roh: string | null | undefined, max = BESCHREIBUNG_MAX): string | null {
+export function kuerzeBeschreibung(
+  roh: string | null | undefined,
+  max = BESCHREIBUNG_MAX,
+): string | null {
   const text = roh?.replace(/\s+/g, ' ').trim()
   if (!text) return null
   if (text.length <= max) return text
@@ -86,6 +89,7 @@ export function kennzahlen(werte: {
     aus.push({ art: 'km', text: `${werte.km.toFixed(1).replace('.', ',')} km` })
   if (werte.hoehenmeter != null && werte.hoehenmeter >= 1)
     aus.push({ art: 'hm', text: `${Math.round(werte.hoehenmeter)} hm` })
-  if (werte.fotos > 0) aus.push({ art: 'fotos', text: `${werte.fotos} ${werte.fotos === 1 ? 'Foto' : 'Fotos'}` })
+  if (werte.fotos > 0)
+    aus.push({ art: 'fotos', text: `${werte.fotos} ${werte.fotos === 1 ? 'Foto' : 'Fotos'}` })
   return aus
 }

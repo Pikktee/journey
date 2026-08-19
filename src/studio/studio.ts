@@ -11,7 +11,12 @@ import { schreibeAppFooter, schreibeAppHeader } from '../app-nav.js'
 import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
 import { ROUTEN, pfad, profilPfad, tourPfad } from '../routen.js'
-import { leseProfilCache, merkeAngemeldet, merkeProfilCache, vergesseAngemeldet } from '../session-hinweis.js'
+import {
+  leseProfilCache,
+  merkeAngemeldet,
+  merkeProfilCache,
+  vergesseAngemeldet,
+} from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
   baueFotoSegmente,
@@ -170,7 +175,10 @@ function setzePfad(seite: 'app' | 'anmelden' | 'registrieren'): void {
 /** Für Gäste entscheidet das sichtbare Formular, ob die Adresse Tür oder Aufnahme heißt. */
 function setzeGastPfad(): void {
   const aufDemWegHinein =
-    !els.registerForm.hidden || !els.codeForm.hidden || !els.wartelisteForm.hidden || !els.wartelisteInfo.hidden
+    !els.registerForm.hidden ||
+    !els.codeForm.hidden ||
+    !els.wartelisteForm.hidden ||
+    !els.wartelisteInfo.hidden
   setzePfad(aufDemWegHinein ? 'registrieren' : 'anmelden')
 }
 
@@ -209,8 +217,7 @@ function versteckeBoot(): void {
  */
 function zeigeBenutzer(sitzung: api.Sitzung): void {
   const benutzer = sitzung.benutzer
-  const anzeige =
-    sitzung.profil?.anzeigename?.trim() || benutzer?.name || benutzer?.email || ''
+  const anzeige = sitzung.profil?.anzeigename?.trim() || benutzer?.name || benutzer?.email || ''
   els.benutzerName.textContent = anzeige
   els.kmMail.textContent = benutzer?.email ?? ''
 
@@ -511,9 +518,10 @@ let resetToken: string | null = null
 // Der Absende-Knopf sperrt erst, wenn tatsächlich etwas Schwaches im Feld
 // steht: Ein von Anfang an grauer Knopf sähe aus, als wäre das Formular kaputt,
 // und beim leeren Feld greift ohnehin `required`.
-const bindeAbsenden = (feld: HTMLInputElement, knopf: HTMLButtonElement) => (befund: { reicht: boolean }) => {
-  knopf.disabled = feld.value.length > 0 && !befund.reicht
-}
+const bindeAbsenden =
+  (feld: HTMLInputElement, knopf: HTMLButtonElement) => (befund: { reicht: boolean }) => {
+    knopf.disabled = feld.value.length > 0 && !befund.reicht
+  }
 
 const regPasswortfeld = haengePasswortfeld(els.regPasswort, {
   // Name und Adresse stehen im selben Formular und ändern sich noch, während
@@ -594,9 +602,14 @@ els.registerForm.addEventListener('submit', async (e) => {
   try {
     // Der Haken geht als ausdrückliches `true` mit — und nur dann. Er ist kein
     // Bestandteil der Anmeldung: Fehlt er, entsteht das Konto unverändert.
-    await api.registriere(els.regEmail.value.trim(), els.regPasswort.value, bestaetigterCode || undefined, {
-      newsletter: els.regNewsletter.checked,
-    })
+    await api.registriere(
+      els.regEmail.value.trim(),
+      els.regPasswort.value,
+      bestaetigterCode || undefined,
+      {
+        newsletter: els.regNewsletter.checked,
+      },
+    )
     regPasswortfeld.leere()
     await ladeSitzung() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
   } catch (fehler) {
@@ -657,7 +670,10 @@ async function trageAusWarteliste(token: string): Promise<void> {
   els.wlInfoAktion.disabled = true
   try {
     await api.trageAusWarteliste(token)
-    zeigeWartelistenInfo('Ausgetragen', 'Deine Adresse ist gelöscht. Du bekommst keine Post mehr von uns.')
+    zeigeWartelistenInfo(
+      'Ausgetragen',
+      'Deine Adresse ist gelöscht. Du bekommst keine Post mehr von uns.',
+    )
   } catch (fehler) {
     els.wlInfoFehler.textContent = (fehler as Error).message
   } finally {
@@ -692,7 +708,8 @@ els.resetAnfordernForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   await api.passwortResetAnfordern(els.resetEmail.value.trim())
   // Bewusst neutrale Rückmeldung (keine Existenz-Auskunft)
-  els.resetAnfordernStatus.textContent = 'Wenn es ein Konto mit dieser Adresse gibt, ist die E-Mail unterwegs.'
+  els.resetAnfordernStatus.textContent =
+    'Wenn es ein Konto mit dieser Adresse gibt, ist die E-Mail unterwegs.'
   els.resetAnfordernStatus.className = 'hinweis ok'
 })
 
@@ -748,18 +765,29 @@ function hinweisToast(text: string, fehler = false): void {
 // als Signatur über dem Titelbild — Fotos sehen einander ähnlich, Routen nicht.
 
 let touren: api.TourListe[] = []
-let ansicht: 'raster' | 'liste' = localStorage.getItem('maptale.ansicht') === 'liste' ? 'liste' : 'raster'
+let ansicht: 'raster' | 'liste' =
+  localStorage.getItem('maptale.ansicht') === 'liste' ? 'liste' : 'raster'
 let sortierung: 'neu' | 'alt' | 'km' | 'az' = 'neu'
 let suchtext = ''
 /** Läuft, solange eine Tour noch entsteht — die Kachel soll nicht ewig schimmern. */
 let nachfassen: number | null = null
 
-const SICHT_NAMEN: Record<string, string> = { private: 'Privat', unlisted: 'Per Link', public: 'Öffentlich' }
-const SICHT_ICONS: Record<string, string> = { private: 'schloss', unlisted: 'schloss-offen', public: 'welt' }
+const SICHT_NAMEN: Record<string, string> = {
+  private: 'Privat',
+  unlisted: 'Per Link',
+  public: 'Öffentlich',
+}
+const SICHT_ICONS: Record<string, string> = {
+  private: 'schloss',
+  unlisted: 'schloss-offen',
+  public: 'welt',
+}
 
 function datum(iso: string): string {
   const d = new Date(iso)
-  return Number.isFinite(d.getTime()) ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }) : ''
+  return Number.isFinite(d.getTime())
+    ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })
+    : ''
 }
 
 /** Zeile unter dem Titel: Strecke · Aufnahmen · Datum — nur, was es gibt. */
@@ -774,9 +802,12 @@ function metaZeile(t: api.TourListe): string {
 function sichtbare(): api.TourListe[] {
   const suche = suchtext.trim().toLowerCase()
   const gefiltert = suche
-    ? touren.filter((t) => (t.title ?? '').toLowerCase().includes(suche) || t.no.toLowerCase().includes(suche))
+    ? touren.filter(
+        (t) => (t.title ?? '').toLowerCase().includes(suche) || t.no.toLowerCase().includes(suche),
+      )
     : [...touren]
-  const nachDatum = (a: api.TourListe, b: api.TourListe): number => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+  const nachDatum = (a: api.TourListe, b: api.TourListe): number =>
+    Date.parse(b.createdAt) - Date.parse(a.createdAt)
   if (sortierung === 'alt') return gefiltert.sort((a, b) => -nachDatum(a, b))
   if (sortierung === 'km') return gefiltert.sort((a, b) => (b.stats?.km ?? 0) - (a.stats?.km ?? 0))
   if (sortierung === 'az')
@@ -786,7 +817,8 @@ function sichtbare(): api.TourListe[] {
 
 async function ladeListe(): Promise<void> {
   if (!touren.length) {
-    els.bibliothek.innerHTML = '<div class="skelett"><div></div><div></div><div></div><div></div></div>'
+    els.bibliothek.innerHTML =
+      '<div class="skelett"><div></div><div></div><div></div><div></div></div>'
   }
   try {
     touren = await api.listeTouren()
@@ -932,7 +964,12 @@ function baueKarte(t: api.TourListe): HTMLElement {
     // nicht das einzige Ziel. Nur die Griffe oben rechts machen etwas anderes.
     el.addEventListener('click', (e) => {
       const ziel = e.target as HTMLElement
-      if (ziel.closest('[data-sicht]') || ziel.closest('[data-bearbeiten]') || ziel.closest('[data-film]')) return
+      if (
+        ziel.closest('[data-sicht]') ||
+        ziel.closest('[data-bearbeiten]') ||
+        ziel.closest('[data-film]')
+      )
+        return
       if (t.status === 'fehler') void oeffneEditorFuer(t.id)
       else spielAb(t.id)
     })
@@ -957,7 +994,7 @@ function baueZeile(t: api.TourListe): HTMLElement {
   el.className = 'zeile'
   const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
   el.innerHTML = `
-    <div class="mini">${t.coverThumb ?? t.cover ? `<img src="${escape((t.coverThumb ?? t.cover) as string)}" alt="" loading="lazy" />` : icon('route')}</div>
+    <div class="mini">${(t.coverThumb ?? t.cover) ? `<img src="${escape((t.coverThumb ?? t.cover) as string)}" alt="" loading="lazy" />` : icon('route')}</div>
     <div class="txt">
       <div class="t">${escape(t.title ?? '(ohne Titel)')}</div>
       <div class="m">${arbeitet ? 'entsteht gerade …' : escape(metaZeile(t))}</div>
@@ -974,7 +1011,10 @@ function baueZeile(t: api.TourListe): HTMLElement {
     </div>`
   el.querySelector('[data-spielen]')?.addEventListener('click', () => spielAb(t.id))
   el.querySelector('[data-film]')?.addEventListener('click', () => void oeffneFilmFuer(t))
-  el.querySelector('[data-bearbeiten]')?.addEventListener('click', () => void oeffneEditorFuer(t.id))
+  el.querySelector('[data-bearbeiten]')?.addEventListener(
+    'click',
+    () => void oeffneEditorFuer(t.id),
+  )
   el.querySelector<HTMLButtonElement>('[data-loeschen]')?.addEventListener('click', (e) => {
     void loescheZweistufig(e.currentTarget as HTMLButtonElement, t.id)
   })
@@ -1082,7 +1122,9 @@ function schliesseSichtMenue(): void {
   offenesSichtMenue?.remove()
   offenesSichtMenue = null
   document.querySelectorAll('.karte.menue-offen').forEach((k) => k.classList.remove('menue-offen'))
-  document.querySelectorAll('[data-sicht][aria-expanded="true"]').forEach((k) => k.setAttribute('aria-expanded', 'false'))
+  document
+    .querySelectorAll('[data-sicht][aria-expanded="true"]')
+    .forEach((k) => k.setAttribute('aria-expanded', 'false'))
 }
 
 function oeffneSichtMenue(karte: HTMLElement, t: api.TourListe): void {
@@ -1150,14 +1192,21 @@ els.ansicht.querySelectorAll<HTMLButtonElement>('[data-ansicht]').forEach((b) =>
 })
 // „/" springt in die Suche — wie überall, wo man viel sucht
 document.addEventListener('keydown', (e) => {
-  if (e.key === '/' && !els.appView.hidden && !(e.target as HTMLElement).closest('input, textarea, select')) {
+  if (
+    e.key === '/' &&
+    !els.appView.hidden &&
+    !(e.target as HTMLElement).closest('input, textarea, select')
+  ) {
     e.preventDefault()
     els.suche.focus()
   }
 })
 
 function escape(s: string): string {
-  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+  return s.replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!,
+  )
 }
 
 // ————————————————— Neue Tour —————————————————
@@ -1228,7 +1277,8 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
       gpxText = await datei.text()
     } else if (medientyp(datei.name)) {
       const doppelt = medienDateien.some(
-        (m) => m.name === datei.name && m.size === datei.size && m.lastModified === datei.lastModified,
+        (m) =>
+          m.name === datei.name && m.size === datei.size && m.lastModified === datei.lastModified,
       )
       if (!doppelt) {
         medienDateien.push(datei)
@@ -1239,7 +1289,11 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
     }
   }
   els.neuHinter.hidden = false
-  setzeNeuStatus(ignoriert ? `${ignoriert} Datei${ignoriert > 1 ? 'en' : ''} ignoriert (kein GPX, Foto oder Video).` : '')
+  setzeNeuStatus(
+    ignoriert
+      ? `${ignoriert} Datei${ignoriert > 1 ? 'en' : ''} ignoriert (kein GPX, Foto oder Video).`
+      : '',
+  )
   // EXIF nur für die NEUEN lesen — bei 50 Fotos ist das der Unterschied
   // zwischen „gleich da" und einer Kaffeepause je Nachschlag.
   let gelesen = 0
@@ -1290,7 +1344,10 @@ function zeigeLesen(gelesen: number, gesamt: number): void {
   }
   if (!el) return
   const anteil = gesamt ? gelesen / gesamt : 0
-  el.querySelector<SVGCircleElement>('.voll')?.setAttribute('stroke-dashoffset', (U * (1 - anteil)).toFixed(1))
+  el.querySelector<SVGCircleElement>('.voll')?.setAttribute(
+    'stroke-dashoffset',
+    (U * (1 - anteil)).toFixed(1),
+  )
   const zahl = el.querySelector<HTMLElement>('.zahl')
   if (zahl) zahl.textContent = `${gelesen}/${gesamt}`
 }
@@ -1508,7 +1565,10 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
     bild.style.left = `${g.anteil.toFixed(2)}%`
     bild.style.bottom = '18px'
     if (!erste.ort) bild.classList.add('ohne-ort')
-    if (b.track && (erste.zeitMs < b.track.startMs - 20 * 60000 || erste.zeitMs > b.track.endMs + 20 * 60000)) {
+    if (
+      b.track &&
+      (erste.zeitMs < b.track.startMs - 20 * 60000 || erste.zeitMs > b.track.endMs + 20 * 60000)
+    ) {
       bild.classList.add('ausserhalb')
     }
     if (erste.typ === 'photo' && datei) bild.style.backgroundImage = `url("${vorschauUrl(datei)}")`

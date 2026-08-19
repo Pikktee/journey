@@ -61,7 +61,11 @@ describe('Profil', () => {
 
   it('setzt Anzeigename, Bio und Sichtbarkeit', async () => {
     const u = await baueTestApp()
-    const antwort = await patch(u, { anzeigename: 'Reisende', bio: 'Unterwegs im Oberland', sichtbarkeit: 'public' })
+    const antwort = await patch(u, {
+      anzeigename: 'Reisende',
+      bio: 'Unterwegs im Oberland',
+      sichtbarkeit: 'public',
+    })
     expect(antwort.statusCode).toBe(200)
     expect(await meinProfil(u)).toMatchObject({
       anzeigename: 'Reisende',
@@ -74,7 +78,11 @@ describe('Profil', () => {
     const u = await baueTestApp()
     await patch(u, { anzeigename: 'Reisende', bio: 'Text' })
     await patch(u, { sichtbarkeit: 'public' })
-    expect(await meinProfil(u)).toMatchObject({ anzeigename: 'Reisende', bio: 'Text', sichtbarkeit: 'public' })
+    expect(await meinProfil(u)).toMatchObject({
+      anzeigename: 'Reisende',
+      bio: 'Text',
+      sichtbarkeit: 'public',
+    })
   })
 
   it('leert ein Feld mit leerem Text', async () => {
@@ -99,7 +107,9 @@ describe('Profil', () => {
     // erreichen den Handler also gar nicht — die E-Mail bleibt unberührt.
     const u = await baueTestApp()
     expect((await patch(u, { email: 'neu@example.com', bio: 'Text' })).statusCode).toBe(200)
-    const me = (await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })).json() as {
+    const me = (
+      await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
+    ).json() as {
       benutzer: { email: string }
     }
     expect(me.benutzer.email).toBe('test@example.com')
@@ -107,7 +117,11 @@ describe('Profil', () => {
 
   it('braucht eine Anmeldung', async () => {
     const u = await baueTestApp()
-    const antwort = await u.app.inject({ method: 'PATCH', url: '/api/auth/me/profil', payload: { bio: 'x' } })
+    const antwort = await u.app.inject({
+      method: 'PATCH',
+      url: '/api/auth/me/profil',
+      payload: { bio: 'x' },
+    })
     expect(antwort.statusCode).toBe(401)
   })
 })
@@ -150,14 +164,20 @@ describe('Avatar', () => {
   it('lässt sich entfernen', async () => {
     const u = await baueTestApp()
     const url = ((await ladeAvatarHoch(u)).json() as { avatarUrl: string }).avatarUrl
-    expect((await u.app.inject({ method: 'DELETE', url: '/api/auth/me/avatar', cookies: u.cookies })).statusCode).toBe(200)
+    expect(
+      (await u.app.inject({ method: 'DELETE', url: '/api/auth/me/avatar', cookies: u.cookies }))
+        .statusCode,
+    ).toBe(200)
     expect((await u.app.inject({ method: 'GET', url })).statusCode).toBe(404)
     expect((await meinProfil(u)).avatarUrl).toBeNull()
   })
 
   it('ohne Bild antwortet der Abruf mit 404', async () => {
     const u = await baueTestApp()
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/benutzer/${nutzerId(u)}/avatar` })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/benutzer/${nutzerId(u)}/avatar`,
+    })
     expect(antwort.statusCode).toBe(404)
   })
 
@@ -169,7 +189,10 @@ describe('Avatar', () => {
     const id = nutzerId(u)
     expect(await u.benutzerStorage.listeDateien(id, 'avatar')).toHaveLength(1)
 
-    expect((await u.app.inject({ method: 'DELETE', url: '/api/auth/me', cookies: u.cookies })).statusCode).toBe(200)
+    expect(
+      (await u.app.inject({ method: 'DELETE', url: '/api/auth/me', cookies: u.cookies }))
+        .statusCode,
+    ).toBe(200)
     expect(await u.benutzerStorage.listeDateien(id, 'avatar')).toHaveLength(0)
   })
 })

@@ -15,7 +15,12 @@ import {
   projiziereAufReihe,
   zeitBeiFilm,
 } from '../src/pipeline/filmachse.js'
-import { HALT_AUSBLEND_S, HALT_ENGINE_S, MOMENT_DEFAULT_S, tempoMs } from '../src/pipeline/filmtempo.js'
+import {
+  HALT_AUSBLEND_S,
+  HALT_ENGINE_S,
+  MOMENT_DEFAULT_S,
+  tempoMs,
+} from '../src/pipeline/filmtempo.js'
 import { baueZeitreihe } from '../src/pipeline/zeit.js'
 import type { UploadSegment } from '../src/schema/upload.js'
 
@@ -182,10 +187,14 @@ describe('baueMomentHalte', () => {
 
   it('reiht sich mit den Aufnahme-Halten in EINE Achse', () => {
     const reihe = baueZeitreihe([geradeStrecke(11, 96, 60)])
-    const achse = baueFilmAchse(reihe, [
-      ...baueAchsenHalte([{ type: 'photo', meter: 480, offsetS: 300 }]),
-      ...baueMomentHalte([{ offsetS: 480, art: 'aufstieg' }]),
-    ], 0)!
+    const achse = baueFilmAchse(
+      reihe,
+      [
+        ...baueAchsenHalte([{ type: 'photo', meter: 480, offsetS: 300 }]),
+        ...baueMomentHalte([{ offsetS: 480, art: 'aufstieg' }]),
+      ],
+      0,
+    )!
     // Fahrt + Foto (Standzeit samt Ausblendung) + Moment (nur Dauer)
     expect(achse.gesamtS).toBeCloseTo(
       960 / tempoMs('walk') + HALT_ENGINE_S + HALT_AUSBLEND_S + MOMENT_DEFAULT_S.aufstieg,

@@ -162,21 +162,36 @@ function trenneAufzaehlung(wert) {
   }
   teile.push(sammel)
   return teile
-    .map((s) => saeubere(s).replace(/^und\s+/, '').replace(/[.]$/, ''))
+    .map((s) =>
+      saeubere(s)
+        .replace(/^und\s+/, '')
+        .replace(/[.]$/, ''),
+    )
     .filter(Boolean)
 }
 
 /** ISO ist die eine Schreibweise, die sich sortieren lässt. */
 function normalisiereDatum(roh) {
   const MONATE = [
-    'januar', 'februar', 'märz', 'april', 'mai', 'juni',
-    'juli', 'august', 'september', 'oktober', 'november', 'dezember',
+    'januar',
+    'februar',
+    'märz',
+    'april',
+    'mai',
+    'juni',
+    'juli',
+    'august',
+    'september',
+    'oktober',
+    'november',
+    'dezember',
   ]
   if (/^\d{4}-\d{2}-\d{2}$/.test(roh)) return roh
   const tag = /^(\d{1,2})\.\s*([A-Za-zä]+)\s*(\d{4})$/.exec(roh)
   if (tag) {
     const m = MONATE.indexOf(tag[2].toLowerCase())
-    if (m >= 0) return `${tag[3]}-${String(m + 1).padStart(2, '0')}-${String(tag[1]).padStart(2, '0')}`
+    if (m >= 0)
+      return `${tag[3]}-${String(m + 1).padStart(2, '0')}-${String(tag[1]).padStart(2, '0')}`
   }
   // „August 2026" bleibt „August 2026": Ein erfundener Tag wäre eine Genauigkeit,
   // die das Dokument nie behauptet hat.

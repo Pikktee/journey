@@ -64,7 +64,8 @@ describe('baueSBeiF', () => {
 
     it('bei ungleichen Längen', () => pruefe(baueSBeiF([0, 1], [0, 500, 1000], 1000)))
     it('bei weniger als zwei Punkten', () => pruefe(baueSBeiF([0], [0], 1000)))
-    it('bei nicht monotonem f', () => pruefe(baueSBeiF([0, 0.6, 0.4, 1], [0, 300, 600, 1000], 1000)))
+    it('bei nicht monotonem f', () =>
+      pruefe(baueSBeiF([0, 0.6, 0.4, 1], [0, 300, 600, 1000], 1000)))
     it('bei unendlichen Werten', () => pruefe(baueSBeiF([0, Number.NaN, 1], [0, 300, 1000], 1000)))
 
     it('bei Route ohne Länge — dort ist jedes s null', () => {

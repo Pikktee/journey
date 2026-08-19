@@ -63,9 +63,10 @@ describe('Schichtung der Player-Bühne', () => {
       const regel = new RegExp(`body\\.ui-clean ${sel.replace('.', '\\.')}\\s*\\{([^}]*)\\}`, 'm')
       const treffer = regel.exec(css)
       expect(treffer, `body.ui-clean ${sel} fehlt in style.css`).not.toBeNull()
-      expect(treffer![1], `body.ui-clean ${sel} braucht !important gegen die .reveal-Animation`).toMatch(
-        /opacity:\s*0\s*!important/,
-      )
+      expect(
+        treffer![1],
+        `body.ui-clean ${sel} braucht !important gegen die .reveal-Animation`,
+      ).toMatch(/opacity:\s*0\s*!important/)
     }
   })
 

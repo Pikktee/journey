@@ -18,7 +18,12 @@ export interface Storage {
   /** Datei komplett schreiben (kleine Dateien: Manifest, tour.json) */
   schreibe(tourId: string, relPfad: string, inhalt: Buffer | string): Promise<void>
   /** Datei aus einem Stream schreiben (Medien-Uploads); atomar via Temp-Datei */
-  schreibeStream(tourId: string, relPfad: string, quelle: Readable, maxBytes: number): Promise<DateiInfo>
+  schreibeStream(
+    tourId: string,
+    relPfad: string,
+    quelle: Readable,
+    maxBytes: number,
+  ): Promise<DateiInfo>
   lese(tourId: string, relPfad: string): Promise<Buffer>
   info(tourId: string, relPfad: string): Promise<DateiInfo | null>
   /** Lese-Stream mit optionalem Byte-Bereich (für HTTP-Range/Video-Seeking) */
@@ -26,7 +31,10 @@ export interface Storage {
   /** Einzelne Datei löschen (Audio-Assets, Baukasten); fehlende Datei ist ok */
   loesche(tourId: string, relPfad: string): Promise<void>
   /** Dateien eines Unterordners auflisten (nicht-rekursiv); fehlender Ordner → [] */
-  listeDateien(tourId: string, unterordner: string): Promise<Array<{ name: string; groesse: number }>>
+  listeDateien(
+    tourId: string,
+    unterordner: string,
+  ): Promise<Array<{ name: string; groesse: number }>>
   /**
    * ALLE Dateien rekursiv, mit ihrem Pfad relativ zur Tour (`media/m1.w1920.jpg`).
    *
@@ -54,7 +62,8 @@ export class ZuGrossFehler extends Error {
 function sicherePfad(basis: string, tourId: string, relPfad: string): string {
   const voll = normalize(join(basis, tourId, relPfad))
   const wurzel = normalize(join(basis, tourId))
-  if (voll !== wurzel && !voll.startsWith(wurzel + sep)) throw new Error(`Unzulässiger Pfad: ${relPfad}`)
+  if (voll !== wurzel && !voll.startsWith(wurzel + sep))
+    throw new Error(`Unzulässiger Pfad: ${relPfad}`)
   return voll
 }
 
@@ -75,7 +84,12 @@ export class FsStorage implements Storage {
     await rename(temp, ziel)
   }
 
-  async schreibeStream(tourId: string, relPfad: string, quelle: Readable, maxBytes: number): Promise<DateiInfo> {
+  async schreibeStream(
+    tourId: string,
+    relPfad: string,
+    quelle: Readable,
+    maxBytes: number,
+  ): Promise<DateiInfo> {
     const ziel = this.pfad(tourId, relPfad)
     await mkdir(dirname(ziel), { recursive: true })
     // Erst in Temp-Datei (mit Zufallsnamen: parallele PUTs desselben Mediums
@@ -118,14 +132,19 @@ export class FsStorage implements Storage {
 
   leseStream(tourId: string, relPfad: string, bereich?: { start: number; ende: number }): Readable {
     const pfad = this.pfad(tourId, relPfad)
-    return bereich ? createReadStream(pfad, { start: bereich.start, end: bereich.ende }) : createReadStream(pfad)
+    return bereich
+      ? createReadStream(pfad, { start: bereich.start, end: bereich.ende })
+      : createReadStream(pfad)
   }
 
   async loesche(tourId: string, relPfad: string): Promise<void> {
     await rm(this.pfad(tourId, relPfad), { force: true })
   }
 
-  async listeDateien(tourId: string, unterordner: string): Promise<Array<{ name: string; groesse: number }>> {
+  async listeDateien(
+    tourId: string,
+    unterordner: string,
+  ): Promise<Array<{ name: string; groesse: number }>> {
     const ordner = this.pfad(tourId, unterordner)
     let eintraege
     try {
@@ -188,7 +207,12 @@ export class MemStorage implements Storage {
     this.dateien.set(this.key(tourId, relPfad), Buffer.from(inhalt))
   }
 
-  async schreibeStream(tourId: string, relPfad: string, quelle: Readable, maxBytes: number): Promise<DateiInfo> {
+  async schreibeStream(
+    tourId: string,
+    relPfad: string,
+    quelle: Readable,
+    maxBytes: number,
+  ): Promise<DateiInfo> {
     const teile: Buffer[] = []
     let gross = 0
     for await (const chunk of quelle) {
@@ -223,7 +247,10 @@ export class MemStorage implements Storage {
     this.dateien.delete(this.key(tourId, relPfad))
   }
 
-  async listeDateien(tourId: string, unterordner: string): Promise<Array<{ name: string; groesse: number }>> {
+  async listeDateien(
+    tourId: string,
+    unterordner: string,
+  ): Promise<Array<{ name: string; groesse: number }>> {
     const praefix = `${this.key(tourId, unterordner)}/`
     const dateien: Array<{ name: string; groesse: number }> = []
     for (const [key, inhalt] of this.dateien) {
@@ -239,7 +266,8 @@ export class MemStorage implements Storage {
     const praefix = `${tourId}/`
     const dateien: Array<{ pfad: string; groesse: number }> = []
     for (const [key, inhalt] of this.dateien) {
-      if (key.startsWith(praefix)) dateien.push({ pfad: key.slice(praefix.length), groesse: inhalt.length })
+      if (key.startsWith(praefix))
+        dateien.push({ pfad: key.slice(praefix.length), groesse: inhalt.length })
     }
     return dateien.sort((a, b) => a.pfad.localeCompare(b.pfad))
   }

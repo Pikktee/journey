@@ -31,7 +31,10 @@
 import { bereinigeHoehen, KACHEL } from './demclean-rechnung.js'
 
 /** Antwort des Workers: `data === null` heißt „nichts geändert". */
-interface Antwort { id: number; data: ArrayBuffer | null }
+interface Antwort {
+  id: number
+  data: ArrayBuffer | null
+}
 
 let naechsteId = 1
 const offen = new Map<number, (data: ArrayBuffer | null) => void>()
@@ -66,7 +69,9 @@ function hole(): Worker[] | null {
 // Registriert das demclean://-Protokoll einmalig. DEM-Quelle nutzt dann
 // demclean://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png
 let registered = false
-export function registerDemClean(maplibregl: { addProtocol: typeof import('maplibre-gl').addProtocol }) {
+export function registerDemClean(maplibregl: {
+  addProtocol: typeof import('maplibre-gl').addProtocol
+}) {
   if (registered) return
   registered = true
   maplibregl.addProtocol('demclean', async (params, abort) => {

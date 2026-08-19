@@ -63,14 +63,11 @@ if (!halt) {
 // der Filmzeit, aber gemalt wird sie im Kopfschritt — bei angehaltener Uhr läuft
 // keiner, und `kartenStand()` wäre `null`. Erst danach anhalten, damit der
 // Vergleich auf einer stehenden Filmsekunde rechnet.
-await seite.evaluate(
-  (h) => {
-    document.body.classList.add('ui-clean')
-    window.__j.tour.setPlaying(true)
-    window.__j.tour.seek((h.von + 3) / h.gesamt)
-  },
-  halt,
-)
+await seite.evaluate((h) => {
+  document.body.classList.add('ui-clean')
+  window.__j.tour.setPlaying(true)
+  window.__j.tour.seek((h.von + 3) / h.gesamt)
+}, halt)
 await seite.waitForTimeout(900)
 await seite.evaluate(() => window.__j.tour.setPlaying(false))
 await seite.waitForTimeout(200)
@@ -256,9 +253,13 @@ if (NUR === 'alles' || NUR === 'entwickeln') {
     const mitte = ergebnis.proben.filter((p) => p.t > 0 && p.t < 1)
     const endenOk = enden.every((p) => p.max === 0)
     const maxMitte = Math.max(...mitte.map((p) => p.max))
-    console.log(`${endenOk ? '✓' : '✗'} „Entwickeln" über ${ergebnis.dauerS} s: Anfang und Ende exakt`)
+    console.log(
+      `${endenOk ? '✓' : '✗'} „Entwickeln" über ${ergebnis.dauerS} s: Anfang und Ende exakt`,
+    )
     for (const p of ergebnis.proben) {
-      console.log(`    t=${p.t.toFixed(2)}  max ${String(p.max).padStart(3)}  Mittel ${p.mittel.toFixed(2)}`)
+      console.log(
+        `    t=${p.t.toFixed(2)}  max ${String(p.max).padStart(3)}  Mittel ${p.mittel.toFixed(2)}`,
+      )
     }
     console.log(`    → Toleranz für das Fenster: ${maxMitte} von 255 im Maximum`)
     if (!endenOk) fehler++
@@ -267,13 +268,10 @@ if (NUR === 'alles' || NUR === 'entwickeln') {
 
 // — 3. Leistung über die ganze Standzeit —
 if (NUR === 'alles' || NUR === 'leistung') {
-  await seite.evaluate(
-    (h) => {
-      window.__j.tour.seek(Math.max(0, h.von - 0.6) / h.gesamt)
-      window.__j.tour.setPlaying(true)
-    },
-    halt,
-  )
+  await seite.evaluate((h) => {
+    window.__j.tour.seek(Math.max(0, h.von - 0.6) / h.gesamt)
+    window.__j.tour.setPlaying(true)
+  }, halt)
   const leistung = await seite.evaluate((h) => {
     const dauerMs = (h.bis - h.von + 1.2) * 1000
     return new Promise((fertig) => {
@@ -303,7 +301,9 @@ if (NUR === 'alles' || NUR === 'leistung') {
   console.log(
     `    Mittel ${leistung.mittel.toFixed(2)} ms · Median ${leistung.median.toFixed(2)} ms · p95 ${leistung.p95.toFixed(2)} ms · max ${leistung.max.toFixed(2)} ms`,
   )
-  console.log(`    ≈ ${(1000 / leistung.mittel).toFixed(1)} Bilder/s · verworfene Frames: ${leistung.verworfen}`)
+  console.log(
+    `    ≈ ${(1000 / leistung.mittel).toFixed(1)} Bilder/s · verworfene Frames: ${leistung.verworfen}`,
+  )
 }
 
 await browser.close()

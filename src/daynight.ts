@@ -35,22 +35,95 @@ export type Lichtstimmung = Omit<Keyframe, 'a'>
 // Nacht-Helligkeiten nach User-Feedback gesenkt („Landschaft nachts zu hell"):
 // die Textur bleibt eine Tagesaufnahme, tiefe Nacht drückt sie jetzt auf ~0.19.
 const KEYS: Keyframe[] = [
-  { a: -16, br: 0.19, sat: -0.64, con: 0.07, sky: '#080f1e', hor: '#101a2e', fog: '#0a1020', li: 0.2, lc: '#8ea3d6' },
-  { a: -8, br: 0.26, sat: -0.54, con: 0.06, sky: '#122036', hor: '#2b2f4e', fog: '#1a2036', li: 0.25, lc: '#9aa6cc' },
-  { a: -4, br: 0.36, sat: -0.36, con: 0.03, sky: '#1c3358', hor: '#5b466e', fog: '#33314a', li: 0.3, lc: '#c4a6cf' },
-  { a: 0, br: 0.62, sat: -0.16, con: 0.0, sky: '#3a5680', hor: '#e08a52', fog: '#b5825f', li: 0.36, lc: '#ff9e63' },
-  { a: 4, br: 0.82, sat: -0.05, con: -0.02, sky: '#5487bf', hor: '#eec39a', fog: '#dcc0a0', li: 0.42, lc: '#ffd7a8' },
-  { a: 10, br: 0.95, sat: -0.01, con: -0.01, sky: '#6fa6d8', hor: '#a8c8e6', fog: '#b8d0ea', li: 0.42, lc: '#ffe6cf' },
+  {
+    a: -16,
+    br: 0.19,
+    sat: -0.64,
+    con: 0.07,
+    sky: '#080f1e',
+    hor: '#101a2e',
+    fog: '#0a1020',
+    li: 0.2,
+    lc: '#8ea3d6',
+  },
+  {
+    a: -8,
+    br: 0.26,
+    sat: -0.54,
+    con: 0.06,
+    sky: '#122036',
+    hor: '#2b2f4e',
+    fog: '#1a2036',
+    li: 0.25,
+    lc: '#9aa6cc',
+  },
+  {
+    a: -4,
+    br: 0.36,
+    sat: -0.36,
+    con: 0.03,
+    sky: '#1c3358',
+    hor: '#5b466e',
+    fog: '#33314a',
+    li: 0.3,
+    lc: '#c4a6cf',
+  },
+  {
+    a: 0,
+    br: 0.62,
+    sat: -0.16,
+    con: 0.0,
+    sky: '#3a5680',
+    hor: '#e08a52',
+    fog: '#b5825f',
+    li: 0.36,
+    lc: '#ff9e63',
+  },
+  {
+    a: 4,
+    br: 0.82,
+    sat: -0.05,
+    con: -0.02,
+    sky: '#5487bf',
+    hor: '#eec39a',
+    fog: '#dcc0a0',
+    li: 0.42,
+    lc: '#ffd7a8',
+  },
+  {
+    a: 10,
+    br: 0.95,
+    sat: -0.01,
+    con: -0.01,
+    sky: '#6fa6d8',
+    hor: '#a8c8e6',
+    fog: '#b8d0ea',
+    li: 0.42,
+    lc: '#ffe6cf',
+  },
   // Tag: Horizont UND Fog liegen sehr nah am Himmelblau — die Farb-Deltas sind bewusst
   // winzig, damit der Schleier kein abgesetzter grauer Balken ist, sondern ein kaum
   // sichtbarer, langer Auslauf ins Blau (silhouettenhaft, das ferne Gelände verschwindet
   // allmählich statt an einer Kante). Zusammen mit dem gesenkten fog-ground-blend zieht
   // sich der Verlauf über ein hohes Band nach unten.
-  { a: 24, br: 1, sat: 0, con: 0, sky: '#7ab3e0', hor: '#8dbbe2', fog: '#96c0e3', li: 0.4, lc: '#ffedd6' },
+  {
+    a: 24,
+    br: 1,
+    sat: 0,
+    con: 0,
+    sky: '#7ab3e0',
+    hor: '#8dbbe2',
+    fog: '#96c0e3',
+    li: 0.4,
+    lc: '#ffedd6',
+  },
 ]
 
-const hex = (c: string): [number, number, number] =>
-  [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]
+const hex = (c: string): [number, number, number] => [
+  parseInt(c.slice(1, 3), 16),
+  parseInt(c.slice(3, 5), 16),
+  parseInt(c.slice(5, 7), 16),
+]
 const mixHex = (a: string, b: string, t: number): string => {
   const [ar, ag, ab] = hex(a)
   const [br_, bg, bb] = hex(b)

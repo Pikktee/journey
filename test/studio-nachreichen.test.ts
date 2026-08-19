@@ -16,7 +16,10 @@ import {
   type NeueAufnahme,
 } from '../src/studio/nachreichen.js'
 
-const TOUR = { startMs: Date.parse('2026-07-04T08:00:00Z'), endMs: Date.parse('2026-07-04T14:00:00Z') }
+const TOUR = {
+  startMs: Date.parse('2026-07-04T08:00:00Z'),
+  endMs: Date.parse('2026-07-04T14:00:00Z'),
+}
 
 function aufnahme(teil: Partial<NeueAufnahme> = {}): NeueAufnahme {
   return {
@@ -101,8 +104,16 @@ describe('fasseZusammen', () => {
   it('zählt je Gruppe, summiert die Bytes und sortiert nach Zeit', () => {
     const befund = fasseZusammen(
       [
-        aufnahme({ datei: 'spaet.jpg', zeitMs: Date.parse('2026-07-04T13:00:00Z'), groesse: 2 * 1048576 }),
-        aufnahme({ datei: 'ort.jpg', ort: [18.07, 59.33], zeitMs: Date.parse('2026-07-04T09:00:00Z') }),
+        aufnahme({
+          datei: 'spaet.jpg',
+          zeitMs: Date.parse('2026-07-04T13:00:00Z'),
+          groesse: 2 * 1048576,
+        }),
+        aufnahme({
+          datei: 'ort.jpg',
+          ort: [18.07, 59.33],
+          zeitMs: Date.parse('2026-07-04T09:00:00Z'),
+        }),
         aufnahme({ datei: 'weg.jpg', zeitMs: Date.parse('2019-01-01T00:00:00Z') }),
       ],
       TOUR,
@@ -181,7 +192,9 @@ describe('Endgültiges Löschen im Overlay', () => {
 
   it('meldet nichts, wenn nichts entfernt wurde', () => {
     expect(endgueltigZuLoeschen({ schema: 'maptale/edits@1' })).toEqual([])
-    expect(endgueltigZuLoeschen({ schema: 'maptale/edits@1', medien: { m1: { caption: 'da' } } })).toEqual([])
+    expect(
+      endgueltigZuLoeschen({ schema: 'maptale/edits@1', medien: { m1: { caption: 'da' } } }),
+    ).toEqual([])
   })
 
   it('tilgt Overlay-Spuren gelöschter Medien samt Titelbild-Verweis', () => {
@@ -197,7 +210,9 @@ describe('Endgültiges Löschen im Overlay', () => {
   })
 
   it('räumt den leeren medien-Block weg (das gespeicherte JSON bleibt minimal)', () => {
-    const danach = ohneMedien({ schema: 'maptale/edits@1', medien: { m1: { geloescht: true } } }, ['m1'])
+    const danach = ohneMedien({ schema: 'maptale/edits@1', medien: { m1: { geloescht: true } } }, [
+      'm1',
+    ])
     expect('medien' in danach).toBe(false)
   })
 

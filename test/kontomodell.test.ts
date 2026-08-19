@@ -116,7 +116,13 @@ describe('Speicher', () => {
     benutzt: mb(248),
     limit: mb(2048),
     frei: mb(1800),
-    aufteilung: { fotos: mb(152), videos: mb(63), klaenge: mb(21), aufzeichnungen: mb(12), sonstiges: 0 },
+    aufteilung: {
+      fotos: mb(152),
+      videos: mb(63),
+      klaenge: mb(21),
+      aufzeichnungen: mb(12),
+      sonstiges: 0,
+    },
     ...patch,
   })
 
@@ -178,12 +184,16 @@ describe('exportZeile', () => {
     expect(exportZeile(stand(), jetzt)).toBe(
       'Dein Archiv (640 MB) liegt bereit, der Link aus der Mail gilt noch 46 Stunden.',
     )
-    expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T12:40:00Z' }), jetzt)).toContain('noch eine Stunde')
+    expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T12:40:00Z' }), jetzt)).toContain(
+      'noch eine Stunde',
+    )
   })
 
   it('behauptet nichts über ein Archiv, das es nicht mehr gibt', () => {
     // Abgelaufen heißt gelöscht — die Zeile darf nicht sagen, es liege bereit.
-    expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T09:00:00Z' }), jetzt)).toContain('abgelaufen')
+    expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T09:00:00Z' }), jetzt)).toContain(
+      'abgelaufen',
+    )
     expect(exportZeile(stand({ laeuftAbAm: null }), jetzt)).toContain('abgelaufen')
   })
 

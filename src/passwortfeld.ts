@@ -99,7 +99,10 @@ export interface PasswortfeldOptionen {
  * Das Input wird dabei in eine Hülle gepackt — der Augen-Knopf braucht einen
  * positionierten Vorfahren, und den bringt das nackte Feld nicht mit.
  */
-export function haengePasswortfeld(input: HTMLInputElement, optionen: PasswortfeldOptionen = {}): Passwortfeld {
+export function haengePasswortfeld(
+  input: HTMLInputElement,
+  optionen: PasswortfeldOptionen = {},
+): Passwortfeld {
   sorgeFuerStil()
 
   const huelle = document.createElement('div')

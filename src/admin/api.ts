@@ -32,7 +32,11 @@ async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> 
   } catch {
     /* Nicht-JSON (leerer Body o. Ä.) */
   }
-  if (!res.ok) throw new ApiFehler(res.status, (json as { fehler?: string } | null)?.fehler ?? `HTTP ${res.status}`)
+  if (!res.ok)
+    throw new ApiFehler(
+      res.status,
+      (json as { fehler?: string } | null)?.fehler ?? `HTTP ${res.status}`,
+    )
   return json as T
 }
 
@@ -75,12 +79,22 @@ export interface KontoFelder {
   passwort?: string
 }
 
-export function legeAn(felder: KontoFelder & { email: string; name: string; passwort: string }): Promise<unknown> {
-  return anfrage('/admin/benutzer', { method: 'POST', headers: jsonKopf, body: JSON.stringify(felder) })
+export function legeAn(
+  felder: KontoFelder & { email: string; name: string; passwort: string },
+): Promise<unknown> {
+  return anfrage('/admin/benutzer', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify(felder),
+  })
 }
 
 export function aendere(id: string, felder: KontoFelder): Promise<unknown> {
-  return anfrage(`/admin/benutzer/${id}`, { method: 'PATCH', headers: jsonKopf, body: JSON.stringify(felder) })
+  return anfrage(`/admin/benutzer/${id}`, {
+    method: 'PATCH',
+    headers: jsonKopf,
+    body: JSON.stringify(felder),
+  })
 }
 
 export function loesche(id: string): Promise<unknown> {
@@ -99,8 +113,15 @@ export function einladungen(): Promise<EinladungsStand> {
   return anfrage('/admin/einladungen')
 }
 
-export function ladeEin(notiz: string, gueltigTage: number): Promise<{ einladung: AdminEinladung }> {
-  return anfrage('/admin/einladungen', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ notiz, gueltigTage }) })
+export function ladeEin(
+  notiz: string,
+  gueltigTage: number,
+): Promise<{ einladung: AdminEinladung }> {
+  return anfrage('/admin/einladungen', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ notiz, gueltigTage }),
+  })
 }
 
 export function widerrufe(code: string): Promise<unknown> {
@@ -113,7 +134,11 @@ export interface Einstellungen {
 }
 
 export function setzeEinstellungen(felder: Partial<Einstellungen>): Promise<Einstellungen> {
-  return anfrage('/admin/einstellungen', { method: 'PATCH', headers: jsonKopf, body: JSON.stringify(felder) })
+  return anfrage('/admin/einstellungen', {
+    method: 'PATCH',
+    headers: jsonKopf,
+    body: JSON.stringify(felder),
+  })
 }
 
 export interface WartelistenStand {
@@ -128,8 +153,14 @@ export function warteliste(): Promise<WartelistenStand> {
 }
 
 /** Erzeugt einen Code und schickt ihn — schlägt der Versand fehl, wirft der Aufruf. */
-export function ladeWartendenEin(id: string): Promise<{ eintrag: AdminWartender; einladung: AdminEinladung }> {
-  return anfrage(`/admin/warteliste/${encodeURIComponent(id)}/einladen`, { method: 'POST', headers: jsonKopf, body: '{}' })
+export function ladeWartendenEin(
+  id: string,
+): Promise<{ eintrag: AdminWartender; einladung: AdminEinladung }> {
+  return anfrage(`/admin/warteliste/${encodeURIComponent(id)}/einladen`, {
+    method: 'POST',
+    headers: jsonKopf,
+    body: '{}',
+  })
 }
 
 export function loescheWartenden(id: string): Promise<unknown> {
@@ -173,7 +204,10 @@ export function mailvorlagen(): Promise<VorlagenStand> {
   return anfrage('/admin/mailvorlagen')
 }
 
-export function speichereVorlage(schluessel: string, bausteine: MailBausteine): Promise<{ vorlagen: MailVorlage[] }> {
+export function speichereVorlage(
+  schluessel: string,
+  bausteine: MailBausteine,
+): Promise<{ vorlagen: MailVorlage[] }> {
   return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}`, {
     method: 'PATCH',
     headers: jsonKopf,
@@ -203,7 +237,10 @@ export function vorschau(schluessel: string, bausteine: MailBausteine): Promise<
 }
 
 /** Testmail an die eigene Adresse; ohne Bausteine geht die gespeicherte Fassung raus. */
-export function testeVorlage(schluessel: string, bausteine?: MailBausteine): Promise<{ an: string }> {
+export function testeVorlage(
+  schluessel: string,
+  bausteine?: MailBausteine,
+): Promise<{ an: string }> {
   return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}/test`, {
     method: 'POST',
     headers: jsonKopf,

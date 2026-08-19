@@ -46,7 +46,9 @@ async function legeTourAn(u: TestUmgebung, nr: string, titel: string): Promise<s
     payload: { ...beispielManifest(), clientTourId: `ct-${nr}` },
   })
   const id = (a.json() as { id: string }).id
-  u.app.deps.db.prepare('UPDATE tours SET title = ?, status = ? WHERE id = ?').run(titel, 'bereit', id)
+  u.app.deps.db
+    .prepare('UPDATE tours SET title = ?, status = ? WHERE id = ?')
+    .run(titel, 'bereit', id)
   await u.storage.schreibe(id, 'tour.json', JSON.stringify({ id, titel }))
   await u.storage.schreibe(id, 'media/m1.w1920.jpg', Buffer.from('fake-jpeg'))
   await u.storage.schreibe(id, 'anreicherung.json', JSON.stringify({ intern: true }))
@@ -91,7 +93,9 @@ describe('Auftragsverwaltung', () => {
     const archive = new MemStorage()
     let jetzt = new Date('2026-08-06T10:00:00Z')
     const dienst = new ExportDienst(db, archive, () => jetzt)
-    db.prepare(`INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_9','a@b.c','x','A','2026-01-01','a9')`).run()
+    db.prepare(
+      `INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_9','a@b.c','x','A','2026-01-01','a9')`,
+    ).run()
     const a = dienst.fordereAn('u_9')
     dienst.melde(a.stand.id, 10, 1)
     expect(dienst.abrufbar(a.stand.id)).not.toBeNull()
@@ -106,7 +110,9 @@ describe('Auftragsverwaltung', () => {
     const archive = new MemStorage()
     let jetzt = new Date('2026-08-06T10:00:00Z')
     const dienst = new ExportDienst(db, archive, () => jetzt)
-    db.prepare(`INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_8','c@d.e','x','A','2026-01-01','a8')`).run()
+    db.prepare(
+      `INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_8','c@d.e','x','A','2026-01-01','a8')`,
+    ).run()
     const a = dienst.fordereAn('u_8')
     await archive.schreibe(a.stand.id, 'maptale-export.zip', Buffer.from('inhalt'))
     dienst.melde(a.stand.id, 6, 1)
@@ -122,7 +128,9 @@ describe('Auftragsverwaltung', () => {
     const db = (await baueTestApp()).app.deps.db
     let jetzt = new Date('2026-08-06T10:00:00Z')
     const dienst = new ExportDienst(db, new MemStorage(), () => jetzt)
-    db.prepare(`INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_7','e@f.g','x','A','2026-01-01','a7')`).run()
+    db.prepare(
+      `INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_7','e@f.g','x','A','2026-01-01','a7')`,
+    ).run()
     dienst.fordereAn('u_7')
     jetzt = new Date('2026-08-06T17:00:00Z') // sieben Stunden später
     await dienst.raeumeAuf()
@@ -170,8 +178,10 @@ describe('Inhalt', () => {
   it('erkennt, was schon komprimiert ist', () => {
     // Fotos und Videos noch einmal durch Deflate zu schicken kostet die CPU
     // des ganzen Servers und spart nichts.
-    for (const n of ['a.jpg', 'b.JPEG', 'c.mp4', 'd.m4a', 'e.png']) expect(istGepackt(n), n).toBe(true)
-    for (const n of ['tour.json', 'liesmich.txt', 'edits.json']) expect(istGepackt(n), n).toBe(false)
+    for (const n of ['a.jpg', 'b.JPEG', 'c.mp4', 'd.m4a', 'e.png'])
+      expect(istGepackt(n), n).toBe(true)
+    for (const n of ['tour.json', 'liesmich.txt', 'edits.json'])
+      expect(istGepackt(n), n).toBe(false)
   })
 
   it('sammelt Konto samt Newsletter-Historie', async () => {
@@ -212,7 +222,11 @@ describe('Inhalt', () => {
   it('nennt im Begleittext, was drin ist und was nicht', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
-    const text = liesmich(sammleKonto(u.app.deps.db, id)!, sammleTouren(u.app.deps.db, id), '2026-08-06')
+    const text = liesmich(
+      sammleKonto(u.app.deps.db, id)!,
+      sammleTouren(u.app.deps.db, id),
+      '2026-08-06',
+    )
     expect(text).toContain('konto.json')
     expect(text).toContain('Nicht enthalten sind Zugangsdaten')
   })
@@ -228,7 +242,11 @@ describe('Archiv', () => {
       ]),
     )
     expect(buf.subarray(0, 2).toString()).toBe('PK')
-    expect(zipNamen(buf)).toEqual(['liesmich.txt', 'touren/01-a/tour.json', 'touren/01-a/media/m1.jpg'])
+    expect(zipNamen(buf)).toEqual([
+      'liesmich.txt',
+      'touren/01-a/tour.json',
+      'touren/01-a/media/m1.jpg',
+    ])
   })
 })
 
@@ -248,7 +266,9 @@ describe('Routen', () => {
     ])
     expect(a.statusCode).toBe(200)
     expect(b.statusCode).toBe(200)
-    expect((a.json() as { export: { id: string } }).export.id).toBe((b.json() as { export: { id: string } }).export.id)
+    expect((a.json() as { export: { id: string } }).export.id).toBe(
+      (b.json() as { export: { id: string } }).export.id,
+    )
   })
 
   it('liefert das fertige Archiv aus und schickt genau eine Mail', async () => {
@@ -274,7 +294,9 @@ describe('Routen', () => {
     expect(datei.headers['content-disposition']).toContain('maptale-export.zip')
     // Kein Proxy darf das Archiv einer Person vorhalten.
     expect(datei.headers['cache-control']).toBe('private, no-store')
-    expect(zipNamen(datei.rawPayload)).toContain('touren/01-runde-bei-lauterbrunnen/media/m1.w1920.jpg')
+    expect(zipNamen(datei.rawPayload)).toContain(
+      'touren/01-runde-bei-lauterbrunnen/media/m1.w1920.jpg',
+    )
   })
 
   it('weist einen gefälschten oder abgelaufenen Link ab — mit derselben Antwort', async () => {
@@ -287,7 +309,9 @@ describe('Routen', () => {
 
   it('bleibt ohne Anmeldung verschlossen', async () => {
     const u = await baueTestApp()
-    expect((await u.app.inject({ method: 'POST', url: '/api/auth/me/export' })).statusCode).toBe(401)
+    expect((await u.app.inject({ method: 'POST', url: '/api/auth/me/export' })).statusCode).toBe(
+      401,
+    )
   })
 
   it('meldet den Stand über /auth/me', async () => {

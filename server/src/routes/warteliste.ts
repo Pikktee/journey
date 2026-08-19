@@ -42,7 +42,11 @@ export function registriereWartelistenRouten(app: FastifyInstance): void {
 
   /** Steht das Formular vor der Tür überhaupt? */
   const angeboten = (): boolean =>
-    wartelisteAngeboten(app.warteliste.offen(), app.einladungen.pflicht(), konfig.registrierungOffen)
+    wartelisteAngeboten(
+      app.warteliste.offen(),
+      app.einladungen.pflicht(),
+      konfig.registrierungOffen,
+    )
 
   const bestaetigungsLink = (token: string): string =>
     `${konfig.basisUrl}${WEB_PFADE.registrieren}#warteliste=${token}`
@@ -67,17 +71,25 @@ export function registriereWartelistenRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (!angeboten()) return reply.code(403).send({ fehler: 'Die Warteliste ist zurzeit geschlossen.' })
+      if (!angeboten())
+        return reply.code(403).send({ fehler: 'Die Warteliste ist zurzeit geschlossen.' })
       const email = request.body.email.toLowerCase().trim()
-      if (!EMAIL_FORM.test(email)) return reply.code(400).send({ fehler: 'Diese E-Mail-Adresse stimmt nicht.' })
+      if (!EMAIL_FORM.test(email))
+        return reply.code(400).send({ fehler: 'Diese E-Mail-Adresse stimmt nicht.' })
       if (eintragGebremst(`ip:${request.ip}`, `mail:${email}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
       }
       // Wer schon ein Konto hat, gehört nicht auf die Warteliste — er soll sich
       // anmelden. Auch das bleibt unbeantwortet: Die Route sagt nicht, welche
       // Adressen registriert sind.
       if (!app.auth.emailVergeben(email)) {
-        const { token } = app.warteliste.trageEin(email, request.body.notiz ?? null, request.ip || null)
+        const { token } = app.warteliste.trageEin(
+          email,
+          request.body.notiz ?? null,
+          request.ip || null,
+        )
         if (token) {
           const { betreff, text, html } = app.mailvorlagen.rendere(
             'warteliste',
@@ -98,10 +110,21 @@ export function registriereWartelistenRouten(app: FastifyInstance): void {
   // — Bestätigen (der Klick aus der Mail) —
   app.post<{ Body: { token: string } }>(
     '/api/auth/warteliste/bestaetigen',
-    { schema: { body: { type: 'object', additionalProperties: false, required: ['token'], properties: { token: tokenSchema } } } },
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['token'],
+          properties: { token: tokenSchema },
+        },
+      },
+    },
     async (request, reply) => {
       if (tokenGebremst(`ip:${request.ip}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
       const eintrag = app.warteliste.bestaetige(request.body.token, request.ip || null)
       if (!eintrag) return reply.code(400).send({ fehler: 'Dieser Link gilt nicht mehr.' })
@@ -115,17 +138,31 @@ export function registriereWartelistenRouten(app: FastifyInstance): void {
   // Aufrufers ist, nicht mehr auf der Liste zu stehen — und das ist erreicht.
   app.post<{ Body: { token: string } }>(
     '/api/auth/warteliste/austragen',
-    { schema: { body: { type: 'object', additionalProperties: false, required: ['token'], properties: { token: tokenSchema } } } },
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['token'],
+          properties: { token: tokenSchema },
+        },
+      },
+    },
     async (request, reply) => {
       if (tokenGebremst(`ip:${request.ip}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
       // Mit dem Eintrag geht die Einladung, die noch offen auf diese Adresse
       // wartet: Sie trägt die Adresse als Notiz, und „wir löschen sie sofort"
       // wäre sonst nur halb wahr. Eine EINGELÖSTE Einladung bleibt stehen —
       // dann gibt es ein Konto, und sie ist dessen Herkunftsnachweis.
       const eintrag = app.warteliste.nachToken(request.body.token)
-      if (eintrag?.eingeladenCode && app.einladungen.pruefe(eintrag.eingeladenCode) !== 'verbraucht') {
+      if (
+        eintrag?.eingeladenCode &&
+        app.einladungen.pruefe(eintrag.eingeladenCode) !== 'verbraucht'
+      ) {
         app.einladungen.widerrufe(eintrag.eingeladenCode)
       }
       app.warteliste.trageAus(request.body.token)

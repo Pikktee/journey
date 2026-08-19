@@ -53,7 +53,11 @@ export const NAHE_M = 120
 export const RAMPE_M = 120
 
 /** `MOMENT_DEFAULT_S` in src/tour.ts: Filmzeit eines Kamera-Moments ohne eigene Angabe. */
-export const MOMENT_DEFAULT_S: Record<MomentArt, number> = { umkreisen: 6, aufstieg: 5, innehalten: 4 }
+export const MOMENT_DEFAULT_S: Record<MomentArt, number> = {
+  umkreisen: 6,
+  aufstieg: 5,
+  innehalten: 4,
+}
 
 /** Meter, die der Film in dieser Fortbewegung je Sekunde zurücklegt. */
 export function tempoMs(mode: Modus): number {
@@ -78,7 +82,11 @@ export function filmsekunden(meter: number, mode: Modus): number {
  * `aufnahmeHaltS` in src/studio/zeitleiste.ts; laufen die beiden auseinander,
  * zeigt die Zeitleiste eine andere Filmdauer, als der Film hat.
  */
-export function aufnahmeHaltS(m: { type: 'photo' | 'video'; dauerS?: number; display?: { holdS?: number } }): number {
+export function aufnahmeHaltS(m: {
+  type: 'photo' | 'video'
+  dauerS?: number
+  display?: { holdS?: number }
+}): number {
   if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return m.dauerS
   return m.display?.holdS ?? HALT_ENGINE_S
 }

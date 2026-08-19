@@ -166,11 +166,17 @@ describe('pruefeEditsSemantik', () => {
       pruefeEditsSemantik({ schema: 'maptale/edits@1', trim: { start: iso(600), ende: iso(600) } }),
     ).toMatch(/Trim-Start/)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', modi: [{ ab: '2026-13-99T99:99:99Z', mode: 'walk' }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        modi: [{ ab: '2026-13-99T99:99:99Z', mode: 'walk' }],
+      }),
     ).toMatch(/Modus-Grenze/)
     // JSON.parse('1e999') → Infinity rutscht am Ajv-Typ "number" vorbei
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { anchor: [Infinity, 46.5] } } }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        medien: { m1: { anchor: [Infinity, 46.5] } },
+      }),
     ).toMatch(/Anker/)
   })
 
@@ -179,54 +185,95 @@ describe('pruefeEditsSemantik', () => {
       pruefeEditsSemantik({ schema: 'maptale/edits@1', kamera: [{ ab: iso(0), preset: 'nah' }] }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }],
+      }),
     ).toMatch(/Kamera-Grenze/)
   })
 
   it('prüft Audio-Einträge: Zeiten, Spanne, bis nur bei Musik, Lautstärke endlich', () => {
     const basis = { datei: 'a1.mp3', ab: iso(0) } as const
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'musik', bis: iso(600), lautstaerke: 0.5 }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ ...basis, typ: 'musik', bis: iso(600), lautstaerke: 0.5 }],
+      }),
     ).toBeNull()
     expect(
       pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'sfx' }] }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-13-99T99:99:99Z' }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-13-99T99:99:99Z' }],
+      }),
     ).toMatch(/Audio-Start/)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'musik', bis: '2026-13-99T99:99:99Z' }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ ...basis, typ: 'musik', bis: '2026-13-99T99:99:99Z' }],
+      }),
     ).toMatch(/Audio-Ende/)
     // bis <= ab: leere Spanne
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'musik', bis: iso(0) }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ ...basis, typ: 'musik', bis: iso(0) }],
+      }),
     ).toMatch(/Audio-Ende muss nach/)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'sfx', bis: iso(600) }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ ...basis, typ: 'sfx', bis: iso(600) }],
+      }),
     ).toMatch(/nur bei Musik/)
     // JSON.parse('1e999') → Infinity: minimum/maximum fangen das im Schema,
     // die Semantik bleibt trotzdem wasserdicht (Number.isFinite)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'musik', lautstaerke: Infinity }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ ...basis, typ: 'musik', lautstaerke: Infinity }],
+      }),
     ).toMatch(/Lautstärke/)
   })
 
   it('prüft die Film-Verankerung des Tons (Etappe 4)', () => {
     const basis = { datei: 'a1.mp3' as const, ab: iso(0), typ: 'musik' as const }
-    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, anker: iso(300), versatzFilmS: -2, dauerFilmS: 8, einstiegS: 3, loop: false }] })).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, anker: '2026-13-99T99:99:99Z' }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [
+          { ...basis, anker: iso(300), versatzFilmS: -2, dauerFilmS: 8, einstiegS: 3, loop: false },
+        ],
+      }),
+    ).toBeNull()
+    expect(
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ ...basis, anker: '2026-13-99T99:99:99Z' }],
+      }),
     ).toMatch(/Audio-Anker/)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, versatzFilmS: Infinity }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ ...basis, versatzFilmS: Infinity }],
+      }),
     ).toMatch(/Audio-Versatz/)
     // Ein Klip ohne Länge ist kein Klip
-    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, dauerFilmS: 0 }] })).toMatch(/Audio-Länge/)
-    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, dauerFilmS: -3 }] })).toMatch(/Audio-Länge/)
+    expect(
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, dauerFilmS: 0 }] }),
+    ).toMatch(/Audio-Länge/)
+    expect(
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, dauerFilmS: -3 }] }),
+    ).toMatch(/Audio-Länge/)
     // Der linke Trim hat den Dateianfang als Anschlag — auch mit Loop
-    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, einstiegS: -1, loop: true }] })).toMatch(
-      /Datei-Einstieg/,
-    )
+    expect(
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        audio: [{ ...basis, einstiegS: -1, loop: true }],
+      }),
+    ).toMatch(/Datei-Einstieg/)
   })
 
   it('prüft den Video-Schnitt (Etappe 4)', () => {
@@ -241,32 +288,56 @@ describe('pruefeEditsSemantik', () => {
   })
 
   it('lehnt einen nicht-ganzzahligen Platz im Stopp ab', () => {
-    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: 0 } } })).toBeNull()
-    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: 1.5 } } })).toMatch(/Platz im Stopp/)
-    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: Infinity } } })).toMatch(/Platz im Stopp/)
+    expect(
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: 0 } } }),
+    ).toBeNull()
+    expect(
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: 1.5 } } }),
+    ).toMatch(/Platz im Stopp/)
+    expect(
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: Infinity } } }),
+    ).toMatch(/Platz im Stopp/)
   })
 
   it('prüft display.holdS auf Endlichkeit (Baukasten)', () => {
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { display: { holdS: 8, kenBurns: false } } } }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        medien: { m1: { display: { holdS: 8, kenBurns: false } } },
+      }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { display: { holdS: Infinity } } } }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        medien: { m1: { display: { holdS: Infinity } } },
+      }),
     ).toMatch(/Standzeit/)
   })
 
   it('prüft Wetter-Grenzen: Zeit parsebar, Stärke endlich und in [0,1]', () => {
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.6 }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.6 }],
+      }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', wetter: [{ ab: '2026-13-99T99:99:99Z', mode: 'rain' }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        wetter: [{ ab: '2026-13-99T99:99:99Z', mode: 'rain' }],
+      }),
     ).toMatch(/Wetter-Grenze/)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: Infinity }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        wetter: [{ ab: iso(0), mode: 'rain', staerke: Infinity }],
+      }),
     ).toMatch(/Wetter-Stärke/)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.5 }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@1',
+        wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.5 }],
+      }),
     ).toMatch(/Wetter-Stärke/)
   })
 })
@@ -280,7 +351,14 @@ describe('reichereAn mit Edit-Overlay', () => {
     segments: segmente(),
     media: [
       // GPS-Anker exakt auf dem Trackpunkt bei t=600
-      { id: 'm1', type: 'photo', file: 'a.jpg', takenAt: iso(600), anchor: [7.91, 46.51], caption: 'Alt' },
+      {
+        id: 'm1',
+        type: 'photo',
+        file: 'a.jpg',
+        takenAt: iso(600),
+        anchor: [7.91, 46.51],
+        caption: 'Alt',
+      },
       { id: 'm2', type: 'photo', file: 'b.jpg', takenAt: iso(1200) },
     ],
   })
@@ -431,7 +509,13 @@ describe('reichereAn mit Edit-Overlay', () => {
     // sortiert nach Filmsekunde: Musik (ab 0) vor SFX. Neben `f0`/`f1` stehen
     // seit E10 die Film-Anker — der Bereich läuft bis ans Filmende.
     const musik = tour.audio?.[0]
-    expect(musik).toMatchObject({ type: 'music', src: '/api/media/t1/musik.mp3', f0: 0, f1: 1, gain: 0.7 })
+    expect(musik).toMatchObject({
+      type: 'music',
+      src: '/api/media/t1/musik.mp3',
+      f0: 0,
+      f1: 1,
+      gain: 0.7,
+    })
     expect(musik?.filmS).toBe(0)
     expect(musik?.filmBisS).toBeGreaterThan(0)
     const sfx = tour.audio?.[1]
@@ -500,7 +584,10 @@ describe('reichereAn mit Edit-Overlay', () => {
       'Audio außerhalb des Tracks übersprungen: vorher.mp3',
       'Audio außerhalb des Tracks übersprungen: knall.wav',
     ])
-    expect(tour.audio?.map((a) => a.src)).toEqual(['/api/media/t1/musik.mp3', '/api/media/t1/ping.ogg'])
+    expect(tour.audio?.map((a) => a.src)).toEqual([
+      '/api/media/t1/musik.mp3',
+      '/api/media/t1/ping.ogg',
+    ])
     expect(tour.audio?.[0]).toMatchObject({ f0: 0, f1: 1 })
   })
 
@@ -597,7 +684,16 @@ describe('reichereAn: Ton am Film-Anker', () => {
           beschreibungOverride: null,
           edits: {
             schema: 'maptale/edits@1',
-            audio: [{ datei: 'musik.mp3', typ: 'musik', ab: iso(0), anker: iso(600), versatzFilmS: v, dauerFilmS: 20 }],
+            audio: [
+              {
+                datei: 'musik.mp3',
+                typ: 'musik',
+                ab: iso(0),
+                anker: iso(600),
+                versatzFilmS: v,
+                dauerFilmS: 20,
+              },
+            ],
           },
           geocoder: new FesterGeocoder(['Start', 'Ziel']),
           audioDateien: ['musik.mp3'],
@@ -624,7 +720,16 @@ describe('reichereAn: Ton am Film-Anker', () => {
       beschreibungOverride: null,
       edits: {
         schema: 'maptale/edits@1',
-        audio: [{ datei: 'musik.mp3', typ: 'musik', ab: iso(0), anker: iso(600), versatzFilmS: 1, dauerFilmS: 3 }],
+        audio: [
+          {
+            datei: 'musik.mp3',
+            typ: 'musik',
+            ab: iso(0),
+            anker: iso(600),
+            versatzFilmS: 1,
+            dauerFilmS: 3,
+          },
+        ],
       },
       geocoder: new FesterGeocoder(['Start', 'Ziel']),
       audioDateien: ['musik.mp3'],

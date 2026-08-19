@@ -39,8 +39,15 @@ const benutzerId = (u: TestUmgebung): string =>
   u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
 
 /** App mit Push UND einem Tracker-Anbieter — der Weg, den ein Import nimmt. */
-async function baueMitPush(): Promise<{ u: TestUmgebung; push: SammelPush; provider: TestProvider }> {
-  const provider = new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: { a1: beispielRohTrack() } })
+async function baueMitPush(): Promise<{
+  u: TestUmgebung
+  push: SammelPush
+  provider: TestProvider
+}> {
+  const provider = new TestProvider({
+    webhookGeheimnis: WEBHOOK_GEHEIMNIS,
+    tracks: { a1: beispielRohTrack() },
+  })
   const push = new SammelPush()
   const u = await baueTestApp([], null, null, {}, null, null, null, [provider], push)
   return { u, push, provider }
@@ -56,7 +63,10 @@ async function verknuepfe(u: TestUmgebung): Promise<void> {
   })
   const url = new URL((start.json() as { autorisierungsUrl: string }).autorisierungsUrl)
   const zustand = url.searchParams.get('state') ?? ''
-  await u.app.inject({ method: 'GET', url: `/api/tracker/polar/callback?code=ok&state=${encodeURIComponent(zustand)}` })
+  await u.app.inject({
+    method: 'GET',
+    url: `/api/tracker/polar/callback?code=ok&state=${encodeURIComponent(zustand)}`,
+  })
 }
 
 /** Eine Webhook-Zustellung samt Warten auf Import UND Pipeline. */
@@ -65,7 +75,10 @@ async function melde(u: TestUmgebung, externeId: string): Promise<void> {
   await u.app.inject({
     method: 'POST',
     url: '/api/webhooks/tracker/polar',
-    headers: { 'content-type': 'application/json', 'polar-webhook-signature': testSignatur(rohBody, WEBHOOK_GEHEIMNIS) },
+    headers: {
+      'content-type': 'application/json',
+      'polar-webhook-signature': testSignatur(rohBody, WEBHOOK_GEHEIMNIS),
+    },
     payload: rohBody,
   })
   await Promise.all([...u.app.trackerLaeufe.values()])
@@ -125,7 +138,11 @@ describe('Geräte an- und abmelden', () => {
     // worden. Ohne das CASCADE gingen Meldungen an ein abgemeldetes Telefon.
     const { u } = await baueMitPush()
     await registriere(u)
-    const geraete = await u.app.inject({ method: 'GET', url: '/api/auth/me/geraete', cookies: u.cookies })
+    const geraete = await u.app.inject({
+      method: 'GET',
+      url: '/api/auth/me/geraete',
+      cookies: u.cookies,
+    })
     const appGeraet = (geraete.json() as { geraete: Array<{ id: string }> }).geraete.find((g) =>
       g.id.startsWith('app:'),
     )
@@ -215,8 +232,14 @@ describe('Meldung nach einem Import', () => {
     await verknuepfe(u)
     push.faelltAus = true
     await melde(u, 'a1')
-    const importe = await u.app.inject({ method: 'GET', url: '/api/tracker/imports', cookies: u.cookies })
-    expect((importe.json() as { importe: Array<{ status: string }> }).importe[0]?.status).toBe('fertig')
+    const importe = await u.app.inject({
+      method: 'GET',
+      url: '/api/tracker/imports',
+      cookies: u.cookies,
+    })
+    expect((importe.json() as { importe: Array<{ status: string }> }).importe[0]?.status).toBe(
+      'fertig',
+    )
     await u.app.close()
   })
 
@@ -246,7 +269,9 @@ describe('Datenexport', () => {
     const { u } = await baueMitPush()
     await registriere(u)
     const konto = sammleKonto(u.app.deps.db, benutzerId(u))!
-    expect(konto.pushGeraete).toEqual([expect.objectContaining({ plattform: 'android', token: TOKEN })])
+    expect(konto.pushGeraete).toEqual([
+      expect.objectContaining({ plattform: 'android', token: TOKEN }),
+    ])
     // Die Zeile darüber gilt weiter: Zugangsmittel gehören nicht ins Archiv.
     expect(JSON.stringify(konto)).not.toContain('pw_hash')
     await u.app.close()
@@ -283,7 +308,8 @@ describe('FCM-Versand (ohne Netz)', () => {
     // Sperrbildschirm, obwohl die Nachricht nichts über die Tour verraten soll.
     let gesendet: Record<string, unknown> = {}
     const hol = async (url: string, init?: RequestInit): Promise<Response> => {
-      if (url.includes('oauth2')) return new Response(JSON.stringify({ access_token: 'z' }), { status: 200 })
+      if (url.includes('oauth2'))
+        return new Response(JSON.stringify({ access_token: 'z' }), { status: 200 })
       gesendet = JSON.parse(String(init?.body)) as Record<string, unknown>
       return new Response('{}', { status: 200 })
     }
@@ -319,7 +345,8 @@ describe('FCM-Versand (ohne Netz)', () => {
       gut: [200, '{}'],
     }
     const hol = async (url: string, init?: RequestInit): Promise<Response> => {
-      if (url.includes('oauth2')) return new Response(JSON.stringify({ access_token: 'z' }), { status: 200 })
+      if (url.includes('oauth2'))
+        return new Response(JSON.stringify({ access_token: 'z' }), { status: 200 })
       const token = (JSON.parse(String(init?.body)) as { message: { fid: string } }).message.fid
       const [status, koerper] = antworten[token] ?? [200, '{}']
       return new Response(koerper, { status })
@@ -349,7 +376,9 @@ describe('FCM-Versand (ohne Netz)', () => {
     const hol = async (url: string): Promise<Response> => {
       if (url.includes('oauth2')) {
         anmeldungen.push(`t${anmeldungen.length}`)
-        return new Response(JSON.stringify({ access_token: `zugriff-${anmeldungen.length}` }), { status: 200 })
+        return new Response(JSON.stringify({ access_token: `zugriff-${anmeldungen.length}` }), {
+          status: 200,
+        })
       }
       return new Response('{}', { status: 200 })
     }
@@ -367,7 +396,11 @@ describe('FCM-Versand (ohne Netz)', () => {
   it('wirft mit lesbarem Grund, wenn die Anmeldung scheitert', async () => {
     const hol = async (): Promise<Response> => new Response('invalid_grant', { status: 400 })
     await expect(
-      new FcmPush(DIENSTKONTO, hol).sende(['a'], { typ: 'import-fertig', tourId: 't', importId: 'i' }),
+      new FcmPush(DIENSTKONTO, hol).sende(['a'], {
+        typ: 'import-fertig',
+        tourId: 't',
+        importId: 'i',
+      }),
     ).rejects.toThrow(/FCM-Anmeldung fehlgeschlagen \(400\)/)
   })
 })
@@ -377,7 +410,9 @@ describe('Dienst ohne Versandweg', () => {
     const u = await baueTestApp()
     const dienst = new PushDienst(u.app.deps.db, null)
     expect(dienst.einsatzbereit).toBe(false)
-    expect(await dienst.melde(benutzerId(u), { typ: 'import-fertig', tourId: 't_1', importId: 'i_1' })).toBe(0)
+    expect(
+      await dienst.melde(benutzerId(u), { typ: 'import-fertig', tourId: 't_1', importId: 'i_1' }),
+    ).toBe(0)
     await u.app.close()
   })
 

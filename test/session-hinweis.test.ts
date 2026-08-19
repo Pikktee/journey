@@ -77,8 +77,12 @@ describe('session-hinweis', () => {
     const storage: Record<string, string> = {}
     globalThis.localStorage = {
       getItem: (k: string) => storage[k] ?? null,
-      setItem: (k: string, v: string) => { storage[k] = v },
-      removeItem: (k: string) => { delete storage[k] },
+      setItem: (k: string, v: string) => {
+        storage[k] = v
+      },
+      removeItem: (k: string) => {
+        delete storage[k]
+      },
       clear: () => {},
       length: 0,
       key: () => null,

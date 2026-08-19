@@ -14,7 +14,12 @@ import {
   type EditorSegment,
   type TrackPunkt,
 } from '../src/studio/editmodell'
-import { klemmeGrenze, loeseFokusAuf, parseUhrMinuten, uhrDiffZuOffset } from '../src/studio/zeitleiste'
+import {
+  klemmeGrenze,
+  loeseFokusAuf,
+  parseUhrMinuten,
+  uhrDiffZuOffset,
+} from '../src/studio/zeitleiste'
 
 const START = '2026-03-12T07:10:00Z'
 const iso = (s: number): string => offsetZuIso(START, s)
@@ -22,7 +27,10 @@ const iso = (s: number): string => offsetZuIso(START, s)
 // Eine Stunde Fahrt auf gerader Linie, alle 10 Minuten ein Punkt. Die
 // Zerlegung kann nur AN Trackpunkten trennen — mit zu grobem Track rutschen
 // Grenzen auf den nächsten Punkt und der Test prüft etwas anderes als gemeint.
-const track: TrackPunkt[] = Array.from({ length: 7 }, (_, i) => [9 + i * 0.02, 47, 400, i * 600] as TrackPunkt)
+const track: TrackPunkt[] = Array.from(
+  { length: 7 },
+  (_, i) => [9 + i * 0.02, 47, 400, i * 600] as TrackPunkt,
+)
 const segmente: EditorSegment[] = [{ mode: 'bike', pts: track }]
 const abschnitte = (edits = LEERES_OVERLAY): ReturnType<typeof zerlegeFuerAnzeige> =>
   zerlegeFuerAnzeige(segmente, edits, START)
@@ -32,12 +40,26 @@ describe('loeseFokusAuf', () => {
     expect(loeseFokusAuf(null, LEERES_OVERLAY, abschnitte(), track, START, [])).toBeNull()
     // Moment, den es nicht (mehr) gibt
     expect(
-      loeseFokusAuf({ art: 'moment', ab: iso(600) }, LEERES_OVERLAY, abschnitte(), track, START, []),
+      loeseFokusAuf(
+        { art: 'moment', ab: iso(600) },
+        LEERES_OVERLAY,
+        abschnitte(),
+        track,
+        START,
+        [],
+      ),
     ).toBeNull()
   })
 
   it('löst ein Fortbewegungs-Band auf die Segment-Spanne auf', () => {
-    const ziel = loeseFokusAuf({ art: 'modus', bezugS: 1200 }, LEERES_OVERLAY, abschnitte(), track, START, [])
+    const ziel = loeseFokusAuf(
+      { art: 'modus', bezugS: 1200 },
+      LEERES_OVERLAY,
+      abschnitte(),
+      track,
+      START,
+      [],
+    )
     expect(ziel).toMatchObject({ art: 'modus', vonS: 0, bisS: 3600, mode: 'bike' })
     // Ohne eigene Grenze: aus der Aufzeichnung — weder entfernbar noch verschiebbar
     expect(ziel?.ab).toBeNull()
@@ -55,7 +77,14 @@ describe('loeseFokusAuf', () => {
     const erstes = loeseFokusAuf({ art: 'modus', bezugS: 600 }, LEERES_OVERLAY, a, track, START, [])
     expect(erstes?.ab).toBeNull() // Tour-Anfang bleibt fest
     expect(erstes?.naechsteAb).toBe(iso(1800))
-    const zweites = loeseFokusAuf({ art: 'modus', bezugS: 2400 }, LEERES_OVERLAY, a, track, START, [])
+    const zweites = loeseFokusAuf(
+      { art: 'modus', bezugS: 2400 },
+      LEERES_OVERLAY,
+      a,
+      track,
+      START,
+      [],
+    )
     expect(zweites).toMatchObject({ mode: 'walk', ab: iso(1800), naechsteAb: null })
   })
 
@@ -76,7 +105,14 @@ describe('loeseFokusAuf', () => {
     expect(mitte?.ab).toBe(iso(1200))
     expect(mitte?.naechsteAb).toBe(iso(2400))
     // Das letzte Band endet am Tourende — kein Nachfolger, also kein Ende-Feld
-    const letztes = loeseFokusAuf({ art: 'modus', bezugS: 3000 }, e, abschnitte(e), track, START, [])
+    const letztes = loeseFokusAuf(
+      { art: 'modus', bezugS: 3000 },
+      e,
+      abschnitte(e),
+      track,
+      START,
+      [],
+    )
     expect(letztes?.ab).toBe(iso(2400))
     expect(letztes?.naechsteAb).toBeNull()
   })
@@ -91,7 +127,14 @@ describe('loeseFokusAuf', () => {
   })
 
   it('Wetter: sobald eine Grenze gesetzt ist, gilt davor „klar" statt „automatisch"', () => {
-    const ohne = loeseFokusAuf({ art: 'wetter', bezugS: 600 }, LEERES_OVERLAY, abschnitte(), track, START, [])
+    const ohne = loeseFokusAuf(
+      { art: 'wetter', bezugS: 600 },
+      LEERES_OVERLAY,
+      abschnitte(),
+      track,
+      START,
+      [],
+    )
     expect(ohne?.wetterMode).toBeUndefined() // automatisch
     const e = mitWetterGrenze(LEERES_OVERLAY, iso(1800), 'rain', 0.7)
     const davor = loeseFokusAuf({ art: 'wetter', bezugS: 600 }, e, abschnitte(e), track, START, [])
@@ -103,7 +146,13 @@ describe('loeseFokusAuf', () => {
   it('Moment ist ein Zeitpunkt: Anfang und Ende fallen zusammen', () => {
     const e = mitMoment(LEERES_OVERLAY, iso(900), 'umkreisen', 8)
     const ziel = loeseFokusAuf({ art: 'moment', ab: iso(900) }, e, abschnitte(e), track, START, [])
-    expect(ziel).toMatchObject({ art: 'moment', vonS: 900, bisS: 900, momentArt: 'umkreisen', dauerS: 8 })
+    expect(ziel).toMatchObject({
+      art: 'moment',
+      vonS: 900,
+      bisS: 900,
+      momentArt: 'umkreisen',
+      dauerS: 8,
+    })
   })
 
   it('Audio: Musik hat eine Spanne, ein Klang nur einen Zeitpunkt', () => {
@@ -114,7 +163,9 @@ describe('loeseFokusAuf', () => {
         { datei: 'moewe.mp3', typ: 'sfx', ab: iso(2400), quelle: 'bibliothek' },
       ],
     }
-    expect(loeseFokusAuf({ art: 'audio', index: 0 }, e, abschnitte(e), track, START, [])).toMatchObject({
+    expect(
+      loeseFokusAuf({ art: 'audio', index: 0 }, e, abschnitte(e), track, START, []),
+    ).toMatchObject({
       vonS: 600,
       bisS: 1800,
       index: 0,
@@ -122,20 +173,50 @@ describe('loeseFokusAuf', () => {
     const klang = loeseFokusAuf({ art: 'audio', index: 1 }, e, abschnitte(e), track, START, [])
     expect(klang?.vonS).toBe(klang?.bisS)
     // Musik ohne `bis` läuft bis zum Tourende
-    const offen: typeof LEERES_OVERLAY = { ...LEERES_OVERLAY, audio: [{ datei: 'a.mp3', typ: 'musik', ab: iso(600) }] }
-    expect(loeseFokusAuf({ art: 'audio', index: 0 }, offen, abschnitte(offen), track, START, [])?.bisS).toBe(3600)
+    const offen: typeof LEERES_OVERLAY = {
+      ...LEERES_OVERLAY,
+      audio: [{ datei: 'a.mp3', typ: 'musik', ab: iso(600) }],
+    }
+    expect(
+      loeseFokusAuf({ art: 'audio', index: 0 }, offen, abschnitte(offen), track, START, [])?.bisS,
+    ).toBe(3600)
   })
 
   it('Medium: die Zeit kommt aus dem auf den Track projizierten Anker', () => {
     const medien = [
-      { id: 'm1', type: 'photo' as const, src: '/x', takenAt: iso(0), caption: '', anchor: [9.06, 47.001] as [number, number], placement: 'gps' as const, geloescht: false },
+      {
+        id: 'm1',
+        type: 'photo' as const,
+        src: '/x',
+        takenAt: iso(0),
+        caption: '',
+        anchor: [9.06, 47.001] as [number, number],
+        placement: 'gps' as const,
+        geloescht: false,
+      },
     ]
-    const ziel = loeseFokusAuf({ art: 'medium', id: 'm1' }, LEERES_OVERLAY, abschnitte(), track, START, medien)
+    const ziel = loeseFokusAuf(
+      { art: 'medium', id: 'm1' },
+      LEERES_OVERLAY,
+      abschnitte(),
+      track,
+      START,
+      medien,
+    )
     expect(ziel).toMatchObject({ art: 'medium', id: 'm1' })
     expect(ziel?.vonS).toBeCloseTo(1800, 0)
     // Unplatziert (kein Anker) → nichts zu zeigen
     const ohneAnker = [{ ...medien[0]!, anchor: null }]
-    expect(loeseFokusAuf({ art: 'medium', id: 'm1' }, LEERES_OVERLAY, abschnitte(), track, START, ohneAnker)).toBeNull()
+    expect(
+      loeseFokusAuf(
+        { art: 'medium', id: 'm1' },
+        LEERES_OVERLAY,
+        abschnitte(),
+        track,
+        START,
+        ohneAnker,
+      ),
+    ).toBeNull()
   })
 })
 

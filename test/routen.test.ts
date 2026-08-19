@@ -192,7 +192,9 @@ describe('routen', () => {
     })
 
     it('reicht die dynamischen Sitemaps an die API durch', () => {
-      expect(vhost).toMatch(/location ~ \^\/sitemap-\(profile\|touren\)\\\.xml\$ \{[\s\S]*?proxy_pass/)
+      expect(vhost).toMatch(
+        /location ~ \^\/sitemap-\(profile\|touren\)\\\.xml\$ \{[\s\S]*?proxy_pass/,
+      )
     })
 
     it('reicht /tour/ an die API durch, statt erlebnis.html auszuliefern', () => {
@@ -280,7 +282,9 @@ describe('routen', () => {
       expect(robots).toContain(`Sitemap: ${BASIS}/sitemap-touren.xml`)
       // Beide gehen an die API — ohne den Block antwortet Nginx mit 404 und
       // die Sitemap-Zeile in der robots.txt zeigt ins Leere.
-      expect(lies('deploy/cloudpanel-nginx.conf')).toMatch(/location ~ \^\/sitemap-\(profile\|touren\)/)
+      expect(lies('deploy/cloudpanel-nginx.conf')).toMatch(
+        /location ~ \^\/sitemap-\(profile\|touren\)/,
+      )
     })
 
     it('hält die Meta-Blöcke ersetzbar — und den Titel darin', () => {

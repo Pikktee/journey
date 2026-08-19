@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { berechneStats, distanzM, glaette, vereinfacheIndizes, vereinfacheSegment } from '../src/pipeline/geo.js'
+import {
+  berechneStats,
+  distanzM,
+  glaette,
+  vereinfacheIndizes,
+  vereinfacheSegment,
+} from '../src/pipeline/geo.js'
 import type { UploadPunkt } from '../src/schema/upload.js'
 
 describe('distanzM', () => {
@@ -18,7 +24,12 @@ describe('distanzM', () => {
 describe('vereinfacheSegment', () => {
   it('entfernt kollineare Zwischenpunkte', () => {
     // 11 Punkte auf einer geraden Linie → nur Start und Ende überleben
-    const pts: UploadPunkt[] = Array.from({ length: 11 }, (_, i) => [8 + i * 0.001, 46, 500, i * 10])
+    const pts: UploadPunkt[] = Array.from({ length: 11 }, (_, i) => [
+      8 + i * 0.001,
+      46,
+      500,
+      i * 10,
+    ])
     const ergebnis = vereinfacheSegment(pts, 5)
     expect(ergebnis).toHaveLength(2)
     expect(ergebnis[0]).toEqual(pts[0])
@@ -93,13 +104,23 @@ describe('berechneStats', () => {
 
   it('glättet GPS-Höhenrauschen vor den Höhenmetern', () => {
     // ±3 m Zickzack um 500 m: roh wären das >100 Höhenmeter, geglättet ≈ 0
-    const pts: UploadPunkt[] = Array.from({ length: 60 }, (_, i) => [8 + i * 0.0002, 46, 500 + (i % 2 ? 3 : -3), i * 10])
+    const pts: UploadPunkt[] = Array.from({ length: 60 }, (_, i) => [
+      8 + i * 0.0002,
+      46,
+      500 + (i % 2 ? 3 : -3),
+      i * 10,
+    ])
     const { gainM } = berechneStats([{ mode: 'walk', pts }])
     expect(gainM).toBeLessThan(10)
   })
 
   it('zählt echte Anstiege', () => {
-    const pts: UploadPunkt[] = Array.from({ length: 50 }, (_, i) => [8 + i * 0.0005, 46, 500 + i * 10, i * 30])
+    const pts: UploadPunkt[] = Array.from({ length: 50 }, (_, i) => [
+      8 + i * 0.0005,
+      46,
+      500 + i * 10,
+      i * 30,
+    ])
     const { gainM } = berechneStats([{ mode: 'walk', pts }])
     expect(gainM).toBeGreaterThan(400)
     expect(gainM).toBeLessThan(500)

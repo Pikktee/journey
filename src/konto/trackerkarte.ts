@@ -220,7 +220,9 @@ export async function ladeTracker(melde: (text: string) => void): Promise<void> 
   }
 
   const trenne = async (a: AnbieterStand): Promise<void> => {
-    const antwort = await fetch(`/api/tracker/${encodeURIComponent(a.id)}`, { method: 'DELETE' }).catch(() => null)
+    const antwort = await fetch(`/api/tracker/${encodeURIComponent(a.id)}`, {
+      method: 'DELETE',
+    }).catch(() => null)
     if (!antwort?.ok) {
       melde(`${a.name} ließ sich nicht trennen.`)
       void ladeTracker(melde)

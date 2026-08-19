@@ -39,7 +39,12 @@ export interface Stundenwerte {
 // WMO-Wettercode + Stundenwerte → Maptale-Modus + Stärke k (0..1, stufenlos —
 // genau dafür ist setIntensity stufenlos gebaut). Reihenfolge: Gewitter schlägt
 // Schnee schlägt Regen schlägt Nebel schlägt Bewölkung.
-export function wmoToWeather({ code, cloud, precip, snowfall }: {
+export function wmoToWeather({
+  code,
+  cloud,
+  precip,
+  snowfall,
+}: {
   code: number
   cloud: number
   precip: number
@@ -88,7 +93,12 @@ interface Stuetzstelle {
 
 // Stützstellen der Tour: Foto-Anker (dort gibt es einen echten Zeitpunkt) plus
 // Start/Ende der Route (Wetter vor dem ersten/nach dem letzten Foto).
-async function buildAnchors({ photos, route, time, pointAt }: WetterEingang): Promise<Stuetzstelle[]> {
+async function buildAnchors({
+  photos,
+  route,
+  time,
+  pointAt,
+}: WetterEingang): Promise<Stuetzstelle[]> {
   const t0 = Date.parse(time.start)
   const t1 = Date.parse(time.end)
   const pseudo = (s: number) => new Date(t0 + (s / route.total) * (t1 - t0))
@@ -96,9 +106,23 @@ async function buildAnchors({ photos, route, time, pointAt }: WetterEingang): Pr
   // timezone=<Tour-Zone> befragt, dann passen die Stunden-Indizes
   const inZone = (d: Date): ExifZeitpunkt => {
     const parts: Record<string, string> = new Intl.DateTimeFormat('sv-SE', {
-      timeZone: time.zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(d).reduce<Record<string, string>>((o, x) => ((o[x.type] = x.value), o), {})
-    return { y: +parts.year!, mo: +parts.month!, d: +parts.day!, hh: +parts.hour!, mm: +parts.minute! }
+      timeZone: time.zone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+      .formatToParts(d)
+      .reduce<Record<string, string>>((o, x) => ((o[x.type] = x.value), o), {})
+    return {
+      y: +parts.year!,
+      mo: +parts.month!,
+      d: +parts.day!,
+      hh: +parts.hour!,
+      mm: +parts.minute!,
+    }
   }
   const anchors: Stuetzstelle[] = []
   for (const p of photos) {
@@ -131,7 +155,12 @@ async function buildAnchors({ photos, route, time, pointAt }: WetterEingang): Pr
 
 // Eine Archive-Abfrage je Kalendertag, alle Stützstellen des Tages als
 // Multi-Location-Parameter gebündelt (die API liefert dann ein Array).
-export async function buildWeatherTimeline({ photos, route, time, pointAt }: WetterEingang): Promise<WetterEintrag[]> {
+export async function buildWeatherTimeline({
+  photos,
+  route,
+  time,
+  pointAt,
+}: WetterEingang): Promise<WetterEintrag[]> {
   const anchors = await buildAnchors({ photos, route, time, pointAt })
   const byDay = new Map<string, Stuetzstelle[]>()
   for (const a of anchors) {
@@ -204,7 +233,10 @@ function wxAtHour(hourly: Stundenwerte, hh: number): Wetterlage {
 }
 
 // Timeline-Lookup: Abschnittsgrenzen liegen auf den Mitten zwischen den Stützstellen
-export function weatherAt<T extends { s: number }>(timeline: T[] | null | undefined, s: number): T | null {
+export function weatherAt<T extends { s: number }>(
+  timeline: T[] | null | undefined,
+  s: number,
+): T | null {
   if (!timeline?.length) return null
   let best = timeline[0]!
   for (const e of timeline) {

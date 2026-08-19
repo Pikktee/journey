@@ -20,7 +20,12 @@ describe('parseGpx', () => {
   it('liest Trackpunkte mit lng/lat/ele/time', () => {
     const p = parseGpx(GPX_MIT_ZEIT)
     expect(p).toHaveLength(3)
-    expect(p[0]).toEqual({ lng: 7.9086, lat: 46.5934, ele: 800, timeMs: Date.parse('2026-07-04T08:00:00Z') })
+    expect(p[0]).toEqual({
+      lng: 7.9086,
+      lat: 46.5934,
+      ele: 800,
+      timeMs: Date.parse('2026-07-04T08:00:00Z'),
+    })
     expect(p[2]?.ele).toBe(905)
   })
 
@@ -44,7 +49,9 @@ describe('parseGpx', () => {
   })
 
   it('behandelt kaputtes <ele> als 0 statt NaN', () => {
-    const p = parseGpx('<gpx><trkpt lat="46" lon="7"><ele>abc</ele></trkpt><trkpt lat="47" lon="8"><ele>100</ele></trkpt></gpx>')
+    const p = parseGpx(
+      '<gpx><trkpt lat="46" lon="7"><ele>abc</ele></trkpt><trkpt lat="47" lon="8"><ele>100</ele></trkpt></gpx>',
+    )
     expect(p[0]?.ele).toBe(0)
     expect(p[1]?.ele).toBe(100)
   })
@@ -79,12 +86,16 @@ describe('baueSegmentAusGpx', () => {
   })
 
   it('übernimmt einen vorgegebenen Modus, sonst Tempo-Heuristik', () => {
-    expect(baueSegmentAusGpx(parseGpx(GPX_MIT_ZEIT), { startMs, endMs, modus: 'ferry' }).segment.mode).toBe('ferry')
+    expect(
+      baueSegmentAusGpx(parseGpx(GPX_MIT_ZEIT), { startMs, endMs, modus: 'ferry' }).segment.mode,
+    ).toBe('ferry')
     // ~0,7 km in 30 min = ~1,4 km/h → walk
     expect(baueSegmentAusGpx(parseGpx(GPX_MIT_ZEIT), { startMs, endMs }).segment.mode).toBe('walk')
   })
 
   it('wirft bei zu wenigen Punkten', () => {
-    expect(() => baueSegmentAusGpx([{ lng: 1, lat: 1, ele: 0, timeMs: 0 }], { startMs, endMs })).toThrow(/zu wenige/)
+    expect(() =>
+      baueSegmentAusGpx([{ lng: 1, lat: 1, ele: 0, timeMs: 0 }], { startMs, endMs }),
+    ).toThrow(/zu wenige/)
   })
 })

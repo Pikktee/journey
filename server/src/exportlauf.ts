@@ -65,7 +65,12 @@ export function sammleKonto(db: Db, benutzerId: string): KontoAngaben | null {
       `SELECT zeitpunkt, zustand, quelle, textfassung FROM newsletter_einwilligungen
        WHERE benutzer_id = ? ORDER BY zeitpunkt`,
     )
-    .all(benutzerId) as Array<{ zeitpunkt: string; zustand: string; quelle: string; textfassung: string }>
+    .all(benutzerId) as Array<{
+    zeitpunkt: string
+    zustand: string
+    quelle: string
+    textfassung: string
+  }>
   const pushGeraete = db
     .prepare(
       `SELECT plattform, token, angelegt_am, zuletzt_gesehen_am FROM push_geraete
@@ -199,6 +204,11 @@ export async function baueUndLege(
 ): Promise<{ bytes: number; dateien: number }> {
   const eintraege = await sammleEintraege(deps, benutzerId, erstelltAm)
   const strom = baueArchiv(eintraege)
-  const info = await deps.archive.schreibeStream(auftragId, ARCHIV_DATEI, strom as Readable, deps.maxBytes)
+  const info = await deps.archive.schreibeStream(
+    auftragId,
+    ARCHIV_DATEI,
+    strom as Readable,
+    deps.maxBytes,
+  )
   return { bytes: info.groesse, dateien: eintraege.length }
 }

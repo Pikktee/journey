@@ -120,7 +120,9 @@ describe('Handle ändern', () => {
     const u = await baueTestApp()
     await u.app.auth.legeBenutzerAn('anna@example.com', 'geheim123', 'Anna')
     await patch(u, { handle: 'anna', bio: 'Neue Bio' })
-    const me = (await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })).json() as {
+    const me = (
+      await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
+    ).json() as {
       profil: { bio: string | null }
     }
     expect(me.profil.bio).toBeNull()
@@ -146,7 +148,9 @@ describe('90-Tage-Sperre', () => {
   it('gibt die Adresse frei, sobald die Frist um ist', async () => {
     const u = await baueTestApp()
     await patch(u, { handle: 'henrik' })
-    u.app.deps.db.prepare('UPDATE handles_reserviert SET frei_ab = ?').run('2020-01-01T00:00:00.000Z')
+    u.app.deps.db
+      .prepare('UPDATE handles_reserviert SET frei_ab = ?')
+      .run('2020-01-01T00:00:00.000Z')
     const anna = await u.app.auth.legeBenutzerAn('anna@example.com', 'geheim123', 'Anna')
     expect(u.app.auth.setzeHandle(anna.id, 'test')).toBeNull()
   })
@@ -182,7 +186,9 @@ describe('Profil unter der Adresse', () => {
   it('antwortet auf einen unbekannten Handle mit 404', async () => {
     const u = await baueTestApp()
     await oeffentlichesProfil(u)
-    expect((await u.app.inject({ method: 'GET', url: '/api/benutzer/niemand/profil' })).statusCode).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'GET', url: '/api/benutzer/niemand/profil' })).statusCode,
+    ).toBe(404)
   })
 
   it('verrät ohne freigegebenes Profil nicht einmal, dass es die Adresse gibt', async () => {
@@ -199,7 +205,9 @@ describe('Migration für Bestandskonten', () => {
     // Funktion, die der Migrationsschritt aufruft — `user_version`
     // zurückzudrehen ließe die FOLGENDEN Migrationen ein zweites Mal laufen.
     const db = oeffneDb(':memory:')
-    const anlegen = db.prepare("INSERT INTO users (id, email, pw_hash, name, created_at) VALUES (?, ?, 'x', ?, ?)")
+    const anlegen = db.prepare(
+      "INSERT INTO users (id, email, pw_hash, name, created_at) VALUES (?, ?, 'x', ?, ?)",
+    )
     anlegen.run('u_alt1', 'mira.wolf@example.com', 'Mira', '2026-01-01T00:00:00.000Z')
     anlegen.run('u_alt2', 'mira.wolf@anders.example', 'Mira Zwei', '2026-02-01T00:00:00.000Z')
     anlegen.run('u_alt3', 'admin@example.com', 'Chef', '2026-03-01T00:00:00.000Z')
@@ -207,10 +215,9 @@ describe('Migration für Bestandskonten', () => {
 
     vergibFehlendeHandles(db)
     const handles = Object.fromEntries(
-      (db.prepare('SELECT id, handle FROM users').all() as Array<{ id: string; handle: string }>).map((z) => [
-        z.id,
-        z.handle,
-      ]),
+      (
+        db.prepare('SELECT id, handle FROM users').all() as Array<{ id: string; handle: string }>
+      ).map((z) => [z.id, z.handle]),
     )
     // Wer zuerst da war, bekommt den kurzen Namen; reservierte Wörter fallen aus
     expect(handles).toEqual({ u_alt1: 'mira.wolf', u_alt2: 'mira.wolf2', u_alt3: 'admin2' })
@@ -220,9 +227,13 @@ describe('Migration für Bestandskonten', () => {
   it('fasst einen einmal vergebenen Handle nie wieder an', () => {
     // Er ist dann in der Welt — ein zweiter Lauf darf ihn nicht umbenennen.
     const db = oeffneDb(':memory:')
-    db.prepare("INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_1','mira@x.de','x','M','2026-01-01','eigenwahl')").run()
+    db.prepare(
+      "INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_1','mira@x.de','x','M','2026-01-01','eigenwahl')",
+    ).run()
     vergibFehlendeHandles(db)
-    expect((db.prepare("SELECT handle FROM users WHERE id = 'u_1'").get() as { handle: string }).handle).toBe('eigenwahl')
+    expect(
+      (db.prepare("SELECT handle FROM users WHERE id = 'u_1'").get() as { handle: string }).handle,
+    ).toBe('eigenwahl')
     db.close()
   })
 

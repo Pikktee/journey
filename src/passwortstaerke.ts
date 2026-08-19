@@ -38,24 +38,60 @@ const WORTE = ['Unbrauchbar', 'Schwach', 'Brauchbar', 'Gut', 'Stark'] as const
  * kein Passwort ausdenken wollen.
  */
 const HAEUFIG = [
-  'passwort', 'password', 'passwort1', 'geheim', 'geheim123', 'qwertz', 'qwerty', 'asdfgh',
-  'hallo', 'hallo123', 'test', 'test1234', 'admin', 'administrator', 'willkommen', 'welcome',
-  'sommer', 'winter', 'fussball', 'schatz', 'liebe', 'sonne', 'monkey', 'dragon', 'letmein',
-  'iloveyou', 'starwars', 'maptale',
+  'passwort',
+  'password',
+  'passwort1',
+  'geheim',
+  'geheim123',
+  'qwertz',
+  'qwerty',
+  'asdfgh',
+  'hallo',
+  'hallo123',
+  'test',
+  'test1234',
+  'admin',
+  'administrator',
+  'willkommen',
+  'welcome',
+  'sommer',
+  'winter',
+  'fussball',
+  'schatz',
+  'liebe',
+  'sonne',
+  'monkey',
+  'dragon',
+  'letmein',
+  'iloveyou',
+  'starwars',
+  'maptale',
 ]
 
 /** Tastaturwege und Zählreihen — in beiden Richtungen. */
-const REIHEN = ['qwertzuiop', 'qwertyuiop', 'asdfghjkl', 'yxcvbnm', 'zxcvbnm', '1234567890', 'abcdefghijklmnopqrstuvwxyz']
+const REIHEN = [
+  'qwertzuiop',
+  'qwertyuiop',
+  'asdfghjkl',
+  'yxcvbnm',
+  'zxcvbnm',
+  '1234567890',
+  'abcdefghijklmnopqrstuvwxyz',
+]
 
 const klassen = (pw: string): number =>
-  Number(/[a-zäöüß]/.test(pw)) + Number(/[A-ZÄÖÜ]/.test(pw)) + Number(/[0-9]/.test(pw)) + Number(/[^A-Za-zÄÖÜäöüß0-9]/.test(pw))
+  Number(/[a-zäöüß]/.test(pw)) +
+  Number(/[A-ZÄÖÜ]/.test(pw)) +
+  Number(/[0-9]/.test(pw)) +
+  Number(/[^A-Za-zÄÖÜäöüß0-9]/.test(pw))
 
 /** Steckt eine Reihe von ≥ 4 Zeichen darin — vorwärts oder rückwärts? */
 function enthaeltReihe(klein: string): boolean {
   for (const reihe of REIHEN) {
     const rueck = [...reihe].reverse().join('')
     for (let i = 0; i + 4 <= reihe.length; i++) {
-      if (klein.includes(reihe.slice(i, i + 4)) || klein.includes(rueck.slice(i, i + 4))) return true
+      if (klein.includes(reihe.slice(i, i + 4)) || klein.includes(rueck.slice(i, i + 4)))
+        return true
     }
   }
   return false

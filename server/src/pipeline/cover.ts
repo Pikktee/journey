@@ -26,7 +26,9 @@ export async function trageTitelbilderNach(
   let getan = 0
   for (const { id } of offen) {
     try {
-      const tourJson = JSON.parse((await storage.lese(id, tourJsonPfad)).toString('utf8')) as TourJson
+      const tourJson = JSON.parse(
+        (await storage.lese(id, tourJsonPfad)).toString('utf8'),
+      ) as TourJson
       // Nur die Anzeigegröße: Die Kachel-Fassung entsteht erst im
       // Bild-Nachtrag, der direkt danach läuft und `cover_thumb` füllt.
       const titelbild = bestimmeCover(tourJson.media)

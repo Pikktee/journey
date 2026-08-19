@@ -25,18 +25,27 @@ const HEUTE: Record<string, number> = {
   t_cGuHmm3vMa4ggQ: 15.9,
 }
 
-interface Befund { id: string; ohne: number; je: (l: number) => number }
+interface Befund {
+  id: string
+  ohne: number
+  je: (l: number) => number
+}
 const touren: Befund[] = []
 
 for (const id of readdirSync(WURZEL)) {
   let tour: any
-  try { tour = JSON.parse(readFileSync(`${WURZEL}/${id}/tour.json`, 'utf8')) } catch { continue }
+  try {
+    tour = JSON.parse(readFileSync(`${WURZEL}/${id}/tour.json`, 'utf8'))
+  } catch {
+    continue
+  }
   if (!tour.segments?.length) continue
 
   const wegpunkte = tour.segments.flatMap((s: any, i: number) => (i ? s.pts.slice(1) : s.pts))
   const route = buildRoute(wegpunkte)
   const rohKum: number[] = [0]
-  for (let i = 1; i < wegpunkte.length; i++) rohKum.push(rohKum[i - 1]! + dist(wegpunkte[i - 1], wegpunkte[i]))
+  for (let i = 1; i < wegpunkte.length; i++)
+    rohKum.push(rohKum[i - 1]! + dist(wegpunkte[i - 1], wegpunkte[i]))
   const rohGesamt = rohKum[rohKum.length - 1]!
   const skala = rohGesamt / route.total
   const rohBeiS = (s: number) => s * skala // grob: für die Kalibrierung genügt die Streckung
@@ -55,24 +64,41 @@ for (const id of readdirSync(WURZEL)) {
     ...stopps.map((h: any) => ({
       meterM: rohBeiS(h.s),
       breiteS: h.items.reduce(
-        (s: number, it: any) => s + standzeitS({ ...it, ...(it.durationS !== undefined ? { dauerS: it.durationS } : {}) }) + HOLD_AUSBLEND,
+        (s: number, it: any) =>
+          s +
+          standzeitS({ ...it, ...(it.durationS !== undefined ? { dauerS: it.durationS } : {}) }) +
+          HOLD_AUSBLEND,
         0,
       ),
     })),
-    ...(tour.moments ?? []).map((mo: any) => ({ meterM: rohGesamt * mo.f, breiteS: momentHaltS(mo) })),
+    ...(tour.moments ?? []).map((mo: any) => ({
+      meterM: rohGesamt * mo.f,
+      breiteS: momentHaltS(mo),
+    })),
   ]
   const ohne = baueFilmachse(grenzen, rohGesamt, halte, { rampeM: 0 }).gesamtS
-  touren.push({ id, ohne, je: (l) => baueFilmachse(grenzen, rohGesamt, halte, { rampeM: l }).gesamtS - ohne })
+  touren.push({
+    id,
+    ohne,
+    je: (l) => baueFilmachse(grenzen, rohGesamt, halte, { rampeM: l }).gesamtS - ohne,
+  })
 }
 
-console.log('L (m)   ' + touren.map((t) => t.id.slice(0, 8).padStart(9)).join('') + '     Summe   heute   Abw.')
+console.log(
+  'L (m)   ' +
+    touren.map((t) => t.id.slice(0, 8).padStart(9)).join('') +
+    '     Summe   heute   Abw.',
+)
 const heuteSumme = touren.reduce((s, t) => s + (HEUTE[t.id] ?? 0), 0)
 for (const L of [80, 100, 120, 130, 140, 150, 160, 180, 200]) {
   const werte = touren.map((t) => t.je(L))
   const summe = werte.reduce((a, b) => a + b, 0)
   console.log(
-    String(L).padEnd(8) + werte.map((v) => v.toFixed(1).padStart(9)).join('') +
+    String(L).padEnd(8) +
+      werte.map((v) => v.toFixed(1).padStart(9)).join('') +
       `   ${summe.toFixed(1).padStart(7)}   ${heuteSumme.toFixed(1)}   ${(((summe - heuteSumme) / heuteSumme) * 100).toFixed(1)} %`,
   )
 }
-console.log('\nheute je Tour: ' + touren.map((t) => `${t.id.slice(0, 8)} ${HEUTE[t.id]}`).join(' · '))
+console.log(
+  '\nheute je Tour: ' + touren.map((t) => `${t.id.slice(0, 8)} ${HEUTE[t.id]}`).join(' · '),
+)

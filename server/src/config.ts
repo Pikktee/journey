@@ -109,7 +109,8 @@ export interface AnbieterZugang {
 // LEEREN Strings, nicht zu undefined. `??` fängt die nicht → Number('')===0
 // (Quota 0 = alle Uploads blockiert!) bzw. leere URL/Absender. Diese Helfer
 // behandeln leer wie „nicht gesetzt" und fallen auf den Default zurück.
-const text = (wert: string | undefined, standard: string): string => (wert && wert.trim() ? wert : standard)
+const text = (wert: string | undefined, standard: string): string =>
+  wert && wert.trim() ? wert : standard
 const zahl = (wert: string | undefined, standard: number): number => {
   const n = Number(wert)
   return wert && wert.trim() && Number.isFinite(n) ? n : standard
@@ -159,7 +160,9 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     // Leer (docker-compose ${VAR:-}) wie „nicht gesetzt" behandeln → Feature aus.
     openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,
     visionModell: text(env.MAPTALE_VISION_MODELL, VISION_MODELL_DEFAULT),
-    umamiDbPasswort: env.MAPTALE_UMAMI_DB_PASSWORT?.trim() ? env.MAPTALE_UMAMI_DB_PASSWORT.trim() : null,
+    umamiDbPasswort: env.MAPTALE_UMAMI_DB_PASSWORT?.trim()
+      ? env.MAPTALE_UMAMI_DB_PASSWORT.trim()
+      : null,
     trackerSchluessel: geheim(env.MAPTALE_TRACKER_SECRET),
     polar: {
       clientId: geheim(env.MAPTALE_POLAR_CLIENT_ID),

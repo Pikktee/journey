@@ -101,7 +101,11 @@ async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> 
 const jsonKopf = { 'content-type': 'application/json' }
 
 export function login(email: string, passwort: string): Promise<{ benutzer: Benutzer }> {
-  return anfrage('/auth/login', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ email, passwort }) })
+  return anfrage('/auth/login', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ email, passwort }),
+  })
 }
 
 /** Voller Sitzungs-Zustand (benutzer=null wenn nicht angemeldet). Wirft nie. */
@@ -151,7 +155,11 @@ export function registriere(
  * der Begründung des Servers (unbekannt / verbraucht / abgelaufen).
  */
 export function pruefeEinladung(code: string): Promise<{ ok: boolean; pflicht: boolean }> {
-  return anfrage('/auth/einladung-pruefen', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ code }) })
+  return anfrage('/auth/einladung-pruefen', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ code }),
+  })
 }
 
 // — Warteliste —
@@ -170,23 +178,43 @@ export function trageInWarteliste(email: string, notiz?: string): Promise<{ ok: 
 
 /** Der Klick aus der Bestätigungsmail; gibt die eingetragene Adresse zurück. */
 export function bestaetigeWarteliste(token: string): Promise<{ ok: boolean; email: string }> {
-  return anfrage('/auth/warteliste/bestaetigen', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token }) })
+  return anfrage('/auth/warteliste/bestaetigen', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ token }),
+  })
 }
 
 export function trageAusWarteliste(token: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/warteliste/austragen', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token }) })
+  return anfrage('/auth/warteliste/austragen', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ token }),
+  })
 }
 
 export function verifiziereEmail(token: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/verifiziere', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token }) })
+  return anfrage('/auth/verifiziere', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ token }),
+  })
 }
 
 export function passwortResetAnfordern(email: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/passwort-reset-anfordern', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ email }) })
+  return anfrage('/auth/passwort-reset-anfordern', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ email }),
+  })
 }
 
 export function passwortReset(token: string, passwort: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/passwort-reset', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token, passwort }) })
+  return anfrage('/auth/passwort-reset', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ token, passwort }),
+  })
 }
 
 export function loescheKonto(): Promise<unknown> {
@@ -197,12 +225,18 @@ export async function listeTouren(): Promise<TourListe[]> {
   return (await anfrage<{ tours: TourListe[] }>('/tours')).tours
 }
 
-export function legeTourAn(manifest: UploadManifest): Promise<{ id: string; wiederverwendet?: boolean }> {
+export function legeTourAn(
+  manifest: UploadManifest,
+): Promise<{ id: string; wiederverwendet?: boolean }> {
   return anfrage('/tours', { method: 'POST', headers: jsonKopf, body: JSON.stringify(manifest) })
 }
 
 export function ladeTrack(id: string, gpx: string): Promise<unknown> {
-  return anfrage(`/tours/${id}/track`, { method: 'PUT', headers: { 'content-type': 'application/gpx+xml' }, body: gpx })
+  return anfrage(`/tours/${id}/track`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/gpx+xml' },
+    body: gpx,
+  })
 }
 
 export function ladeMedium(id: string, mid: string, datei: Blob): Promise<unknown> {
@@ -238,7 +272,11 @@ export function reicheMedienNach(
   id: string,
   medien: NachreichEingabe[],
 ): Promise<{ medien: Array<{ id: string; datei: string }> }> {
-  return anfrage(`/tours/${id}/medien`, { method: 'POST', headers: jsonKopf, body: JSON.stringify({ medien }) })
+  return anfrage(`/tours/${id}/medien`, {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify({ medien }),
+  })
 }
 
 /**
@@ -250,7 +288,12 @@ export function loescheMedium(id: string, mid: string): Promise<{ ok: boolean }>
   return anfrage(`/tours/${id}/media/${mid}`, { method: 'DELETE' })
 }
 
-export function tour(id: string): Promise<{ status?: string; fehler?: string | null; schema?: string; media?: Array<{ placement?: string }> }> {
+export function tour(id: string): Promise<{
+  status?: string
+  fehler?: string | null
+  schema?: string
+  media?: Array<{ placement?: string }>
+}> {
   return anfrage(`/tours/${id}`)
 }
 
@@ -314,8 +357,15 @@ export function editorDaten(id: string): Promise<EditorDaten> {
   return anfrage(`/tours/${id}/editor`)
 }
 
-export function speichereEdits(id: string, edits: unknown): Promise<{ ok: boolean; status: string }> {
-  return anfrage(`/tours/${id}/edits`, { method: 'PUT', headers: jsonKopf, body: JSON.stringify(edits) })
+export function speichereEdits(
+  id: string,
+  edits: unknown,
+): Promise<{ ok: boolean; status: string }> {
+  return anfrage(`/tours/${id}/edits`, {
+    method: 'PUT',
+    headers: jsonKopf,
+    body: JSON.stringify(edits),
+  })
 }
 
 export function patchTour(
@@ -329,7 +379,11 @@ export function patchTour(
     visibility?: 'private' | 'unlisted' | 'public'
   },
 ): Promise<unknown> {
-  return anfrage(`/tours/${id}`, { method: 'PATCH', headers: jsonKopf, body: JSON.stringify(felder) })
+  return anfrage(`/tours/${id}`, {
+    method: 'PATCH',
+    headers: jsonKopf,
+    body: JSON.stringify(felder),
+  })
 }
 
 export function reprocess(id: string): Promise<unknown> {
@@ -338,7 +392,11 @@ export function reprocess(id: string): Promise<unknown> {
 
 // — Audio-Assets (Kreativbaukasten) —
 
-export function ladeAudio(id: string, datei: string, daten: Blob): Promise<{ datei: string; bytes: number }> {
+export function ladeAudio(
+  id: string,
+  datei: string,
+  daten: Blob,
+): Promise<{ datei: string; bytes: number }> {
   return anfrage(`/tours/${id}/audio/${encodeURIComponent(datei)}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/octet-stream' },
@@ -363,7 +421,10 @@ export async function listeBibliothek(): Promise<BibliotheksDatei[]> {
   return (await anfrage<{ dateien: BibliotheksDatei[] }>('/audio-bibliothek')).dateien
 }
 
-export function ladeBibliotheksAudio(datei: string, daten: Blob): Promise<{ datei: string; bytes: number }> {
+export function ladeBibliotheksAudio(
+  datei: string,
+  daten: Blob,
+): Promise<{ datei: string; bytes: number }> {
   return anfrage(`/audio-bibliothek/${encodeURIComponent(datei)}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/octet-stream' },

@@ -19,7 +19,14 @@ import {
 } from './filmachse.js'
 import { baueSBeiF } from './streckenanker.js'
 import { kennzahlen, kuerzeBeschreibung, zeigeRoute } from './tourtexte.js'
-import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, KARTE_EXTRA_QUELLEN } from './map.js'
+import {
+  createMap,
+  addRouteLayers,
+  createRider,
+  setRiderIcon,
+  addSpotLayers,
+  KARTE_EXTRA_QUELLEN,
+} from './map.js'
 import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
 import { createAtmosphere, type Atmosphaere } from './atmosphere.js'
@@ -31,7 +38,15 @@ import { createVehicle, type Fahrzeugton } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
 import { UI, $, type PlayerMedium } from './ui.js'
-import { Tour, mischeSkala, skalaFuer, type Filmspur, type KameraMoment, type ModusGrenze, type Spielhalt } from './tour.js'
+import {
+  Tour,
+  mischeSkala,
+  skalaFuer,
+  type Filmspur,
+  type KameraMoment,
+  type ModusGrenze,
+  type Spielhalt,
+} from './tour.js'
 import type { Filmuhr } from './filmuhr.js'
 import type { PinStopp, PinSteuerung } from './photopins.js'
 import { betreteVollbild, verlasseVollbild, vollbildErwuenscht } from './vollbild.js'
@@ -254,7 +269,8 @@ const tourId = remoteCfg ? tourParam : Object.hasOwn(TOURS, tourParam) ? tourPar
 // Wörterbuch; `TOURS` selbst bleibt das Literal (die Typen der Touren hängen
 // daran). Der zweite Fallback ist unerreichbar — tourId kommt aus genau dieser
 // Tabelle —, steht aber, damit der Typ ohne `!` auskommt.
-const cfg: SpielerTour = remoteCfg ?? (TOURS as Record<string, SpielerTour>)[tourId] ?? TOURS.kohphangan
+const cfg: SpielerTour =
+  remoteCfg ?? (TOURS as Record<string, SpielerTour>)[tourId] ?? TOURS.kohphangan
 
 // Wer über die Alt-Adresse `?tour=…` kam, bekommt die Adresszeile auf die
 // heutige Form gezogen — wie die Profilseite mit `?id=…`. Erst HIER, nicht
@@ -288,7 +304,11 @@ const segsSrc: SpielerSegment[] = reverse
   ? cfg.segments
       .slice()
       .reverse()
-      .map((seg) => ({ ...seg, pts: seg.pts.slice().reverse(), ...(seg.f ? { f: seg.f.slice().reverse() } : {}) }))
+      .map((seg) => ({
+        ...seg,
+        pts: seg.pts.slice().reverse(),
+        ...(seg.f ? { f: seg.f.slice().reverse() } : {}),
+      }))
   : cfg.segments
 
 // Segmente zu einer Wegpunktliste verbinden (Nahtpunkte dedupen)
@@ -336,7 +356,11 @@ if (reverse) {
   for (const seg of cfg.segments) fwdWp.push(...(fwdWp.length ? seg.pts.slice(1) : seg.pts))
   const fwdRoute = buildRoute(fwdWp)
   const T = fwdRoute.total
-  const fwd = cfg.segments.map((seg) => ({ s: segmentStart(fwdRoute, seg), mode: seg.mode, label: seg.label ?? seg.mode }))
+  const fwd = cfg.segments.map((seg) => ({
+    s: segmentStart(fwdRoute, seg),
+    mode: seg.mode,
+    label: seg.label ?? seg.mode,
+  }))
   const erst = fwd[0]
   if (erst) erst.s = 0
   const bounds = fwd.map((m) => m.s).concat([T]) // [0, s1, …, T] — Segment-Intervalle
@@ -345,7 +369,11 @@ if (reverse) {
     .map((m, i) => ({ s: (T - (bounds[i + 1] ?? T)) * scale, mode: m.mode, label: m.label }))
     .sort((a, b) => a.s - b.s)
 } else {
-  modes = cfg.segments.map((seg) => ({ s: segmentStart(route, seg), mode: seg.mode, label: seg.label ?? seg.mode }))
+  modes = cfg.segments.map((seg) => ({
+    s: segmentStart(route, seg),
+    mode: seg.mode,
+    label: seg.label ?? seg.mode,
+  }))
 }
 const ersteGrenze = modes[0]
 if (ersteGrenze) ersteGrenze.s = 0
@@ -382,7 +410,9 @@ const moments: KameraMoment[] = (cfg.moments ?? [])
 // f-Ankern, nur mit den rohen Metern statt `f` auf der einen Seite.
 const rohKum: number[] = [0]
 for (let i = 1; i < waypoints.length; i++) {
-  rohKum.push((rohKum[i - 1] as number) + dist(waypoints[i - 1] as Wegpunkt, waypoints[i] as Wegpunkt))
+  rohKum.push(
+    (rohKum[i - 1] as number) + dist(waypoints[i - 1] as Wegpunkt, waypoints[i] as Wegpunkt),
+  )
 }
 const rohGesamt = rohKum[rohKum.length - 1] ?? 0
 /** Wegstand auf der GEBAUTEN Route → roher Wegstand (die Achse rechnet in diesen). */
@@ -412,7 +442,10 @@ const achsenHalte: Array<Streckenhalt & Omit<Spielhalt, 'filmVon' | 'filmBis'>> 
   ...stops.map((halt) => {
     let ab = 0
     const stuecke = halt.items.map((m) => {
-      const standS = standzeitS({ ...m, ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}) })
+      const standS = standzeitS({
+        ...m,
+        ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}),
+      })
       const stueck = { abS: ab, standS }
       ab += klipDauerS(standS)
       return stueck
@@ -570,7 +603,11 @@ const aufnahmeDatum = (() => {
     }).format(ms)
   } catch {
     // Eine unbekannte Zeitzone darf die Zeile nicht kosten, nur ihre Genauigkeit.
-    return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }).format(ms)
+    return new Intl.DateTimeFormat('de-DE', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(ms)
   }
 })()
 if (autor?.anzeigename) {
@@ -602,7 +639,11 @@ if (autor?.anzeigename) {
 // bleiben. Ohne Referrer (direkt geöffneter Link) bleibt es bei der Startseite.
 // Die Wörter sind die der Navigation, nicht die der Pfade: /galerie heißt für
 // Besucher überall „Entdecken".
-const HERKUNFT: Record<string, string> = { '/app': 'Studio', '/galerie': 'Entdecken', '/profil': 'Profil' }
+const HERKUNFT: Record<string, string> = {
+  '/app': 'Studio',
+  '/galerie': 'Entdecken',
+  '/profil': 'Profil',
+}
 if (!appModus) {
   // Wer den Player verlässt, verlässt auch das Vollbild — sonst stünde die
   // Galerie ohne Adressleiste da. Die Browser räumen das bei einer Navigation
@@ -614,7 +655,8 @@ if (!appModus) {
     const r = new URL(document.referrer)
     // Nur echte Zwischenseiten übernehmen; die Landing „/" ist selbst die
     // Startseite und bleibt beim Default-Knopf.
-    if (r.origin === location.origin && r.pathname !== location.pathname && r.pathname !== '/') her = r
+    if (r.origin === location.origin && r.pathname !== location.pathname && r.pathname !== '/')
+      her = r
   } catch {}
   if (her) {
     const wort = HERKUNFT[her.pathname] ?? 'Zurück'
@@ -638,9 +680,7 @@ const map = createMap(
   [start[0], start[1]],
   // 1,5× auf 720p = 1080p-Framebuffer, unter dem 5-MP-Deckel. 1080p bleibt 1×
   // (Konzept §8.7: kein zusätzlicher 2×-Hochzug).
-  exportModus
-    ? { preserveDrawingBuffer: true, pixelRatio: exportPixelRatio(exportFormat) }
-    : {},
+  exportModus ? { preserveDrawingBuffer: true, pixelRatio: exportPixelRatio(exportFormat) } : {},
 )
 Object.assign(window.__j, { map, route, tourAudio })
 
@@ -723,7 +763,10 @@ map.on('load', () => {
   const vehicle = createVehicle('/audio')
   vehicle.setMode(startModus)
   window.__j.vehicle = vehicle
-  ui.onModeChange = (mode) => { setRiderIcon(rider, mode); vehicle.setMode(mode) }
+  ui.onModeChange = (mode) => {
+    setRiderIcon(rider, mode)
+    vehicle.setMode(mode)
+  }
 
   const km = `${(route.total / 1000).toFixed(1)} km`
   const setGain = (hm: number) => {
@@ -811,7 +854,8 @@ map.on('load', () => {
       .sort((a, b) => a.filmS - b.filmS)
     // Vor dem ersten Keyframe gilt der Player-Default — der ist beim Boot der
     // aktive Button (statisch „mittel"). Auch nach Rückwärts-Scrub/Restart.
-    const defaultPreset = document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mittel'
+    const defaultPreset =
+      document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mittel'
     let kamAktiv: string | null = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
     kamFolger = (filmS) => {
       if (exportModus || kamManuell) return
@@ -822,7 +866,13 @@ map.on('load', () => {
       // dem ersten Keyframe": zurück auf die Einstellung des Zuschauers. Ohne
       // diese Zeile fiele er in setPreset auf „mittel" (PRESETS['standard']
       // gibt es nicht) und überschriebe genau die Wahl, die er meint.
-      const preset = k ? (k.preset === 'standard' ? defaultPreset : k.preset) : kamAktiv === null ? null : defaultPreset
+      const preset = k
+        ? k.preset === 'standard'
+          ? defaultPreset
+          : k.preset
+        : kamAktiv === null
+          ? null
+          : defaultPreset
       // Eine Feinjustierung gehört zu einem gewählten Abstand — auf „standard"
       // angewandt verböge sie die Einstellung des Zuschauers.
       const skala = k && k.preset !== 'standard' ? (k.skala ?? 1) : 1
@@ -839,7 +889,12 @@ map.on('load', () => {
     }
   }
 
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeWeather(); $('options-modal').hidden = true } })
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeWeather()
+      $('options-modal').hidden = true
+    }
+  })
 
   // — Wetter-Dropdown (Regen/Gewitter) — live umschaltbar, unabhängig von Tag/Nacht. Das Overlay läuft in eigener Schleife, friert aber über das Gate
   // ein, sobald die Szene pausiert (stehende Kamera = stehender Regen). Kein Reload
@@ -892,8 +947,14 @@ map.on('load', () => {
   let groundSnow: (() => void) | null = null // () => dayNight.setSnow(...), gesetzt sobald die Tag/Nacht-Regie existiert
   const weatherBtn = $('btn-weather')
   const weatherMenu = $('weather-menu')
-  const closeWeather = () => { weatherMenu.hidden = true; weatherBtn.setAttribute('aria-expanded', 'false') }
-  const openWeather = () => { weatherMenu.hidden = false; weatherBtn.setAttribute('aria-expanded', 'true') }
+  const closeWeather = () => {
+    weatherMenu.hidden = true
+    weatherBtn.setAttribute('aria-expanded', 'false')
+  }
+  const openWeather = () => {
+    weatherMenu.hidden = false
+    weatherBtn.setAttribute('aria-expanded', 'true')
+  }
   const syncWeatherUI = (m: string) => {
     weatherBtn.classList.toggle('active', m !== 'off') // aktiver Zustand am Button ablesbar
     weatherMenu.querySelectorAll<HTMLElement>('[data-weather]').forEach((el) => {
@@ -925,7 +986,10 @@ map.on('load', () => {
   }
   const applyAutoNow = () => {
     const e = weatherAt(wxTimeline, tour.s)
-    if (!e) { applyWx('off', stufenStaerke()); return }
+    if (!e) {
+      applyWx('off', stufenStaerke())
+      return
+    }
     if (wxSegment === e) return
     wxSegment = e
     applyWx(e.mode, e.k)
@@ -943,7 +1007,9 @@ map.on('load', () => {
       try {
         localStorage.setItem(WEATHER_KEY, weatherAuto ? 'auto' : weather.mode)
         localStorage.setItem(WEATHER_INT_KEY, weatherInt)
-      } catch { /* Storage evtl. gesperrt */ }
+      } catch {
+        /* Storage evtl. gesperrt */
+      }
     }
   }
   // Beim Fahren die Abschnittsmitten überwachen (die Übergänge blenden weich in
@@ -956,7 +1022,10 @@ map.on('load', () => {
     weather.setSoundEnabled(audioOn && tour.phase !== 'finale')
   }, 800)
   weatherMenu.querySelectorAll<HTMLElement>('[data-weather]').forEach((el) => {
-    el.addEventListener('click', () => { applyWeather(el.dataset.weather ?? 'off'); closeWeather() })
+    el.addEventListener('click', () => {
+      applyWeather(el.dataset.weather ?? 'off')
+      closeWeather()
+    })
   })
   // Stärke-Umschalter (Leicht/Mittel/Stark): wirkt live auf den laufenden Modus,
   // Menü bleibt offen (man will die Wirkung direkt vergleichen)
@@ -969,10 +1038,19 @@ map.on('load', () => {
       applyWeather(weatherAuto ? 'auto' : weather.mode)
     })
   })
-  weatherBtn.addEventListener('click', (e) => { e.stopPropagation(); weatherMenu.hidden ? openWeather() : closeWeather() })
+  weatherBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    weatherMenu.hidden ? openWeather() : closeWeather()
+  })
   document.addEventListener('click', (e) => {
     const ziel = e.target
-    if (!weatherMenu.hidden && ziel instanceof Node && !weatherMenu.contains(ziel) && ziel !== weatherBtn) closeWeather()
+    if (
+      !weatherMenu.hidden &&
+      ziel instanceof Node &&
+      !weatherMenu.contains(ziel) &&
+      ziel !== weatherBtn
+    )
+      closeWeather()
   })
   // Gemerkte Wetter-Wahl + Stärke wiederherstellen. OHNE gemerkte Wahl ist
   // AUTO der Default (echtes Wetter der Reise); „off" bleibt eine bewusste Wahl.
@@ -983,7 +1061,9 @@ map.on('load', () => {
     if (savedW == null || savedW === 'auto') applyWeather('auto', false)
     else if (savedW in WETTER_HIMMEL && savedW !== 'off') applyWeather(savedW, false)
     else syncWeatherUI('off')
-  } catch { syncWeatherUI('off') }
+  } catch {
+    syncWeatherUI('off')
+  }
 
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
   const spotPunkte: PinStopp[] = stops.map((st) => {
@@ -993,15 +1073,10 @@ map.on('load', () => {
     const kopf = st.items[0]
     return { lnglat: [pos[0], pos[1]], s: st.s, ele: pos[2], src: kopf?.thumb ?? kopf?.src }
   })
-  const syncSpots = addSpotLayers(
-    map,
-    spotPunkte,
-    [start[0], start[1]],
-    (s) => {
-      tour.jumpToPhoto(s) // Wegpunkt-Klick öffnet das Foto direkt
-      nachSprung()
-    },
-  )
+  const syncSpots = addSpotLayers(map, spotPunkte, [start[0], start[1]], (s) => {
+    tour.jumpToPhoto(s) // Wegpunkt-Klick öffnet das Foto direkt
+    nachSprung()
+  })
 
   // Foto-Stopps stehen als 3D-PINS über dem Gelände (photopins.ts) — das ist der
   // Normalfall; die flachen Kreise klebten im Bergland am Hang und verschwanden hinter
@@ -1065,7 +1140,9 @@ map.on('load', () => {
   const tempoEins = () => tour.mult === 1 && tour.dir > 0
 
   const music = hatEigeneMusik ? null : createMusic('/audio/ambient.mp3')
-  music?.setGate(() => tour.uhr.laeuft && tempoEins() && tour.phase !== 'intro' && tour.phase !== 'finale')
+  music?.setGate(
+    () => tour.uhr.laeuft && tempoEins() && tour.phase !== 'intro' && tour.phase !== 'finale',
+  )
   window.__j.music = music
 
   // Tour-Audio-Gate: Musik läuft während Fahrt und Halt. Pause stoppt sie
@@ -1106,8 +1183,16 @@ map.on('load', () => {
   const AUDIO_KEY = 'maptale:audio'
   let musicOn = true
   let audioOn = true
-  try { musicOn = localStorage.getItem(MUSIC_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
-  try { audioOn = localStorage.getItem(AUDIO_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
+  try {
+    musicOn = localStorage.getItem(MUSIC_KEY) !== 'off'
+  } catch {
+    /* Storage evtl. gesperrt */
+  }
+  try {
+    audioOn = localStorage.getItem(AUDIO_KEY) !== 'off'
+  } catch {
+    /* Storage evtl. gesperrt */
+  }
   // Im Export ist NICHTS hörbar: Der Ton der Datei wird offline aus `filmS`
   // gemischt (exportfilm.ts). Was hier klänge, wäre der Live-Graph — er liefe
   // auf der Wanduhr, während das Bild in Filmzeit entsteht, gehörte also zu
@@ -1134,13 +1219,21 @@ map.on('load', () => {
     audioOn = !audioOn
     setSwitch(optAudio, audioOn)
     applyAudio()
-    try { localStorage.setItem(AUDIO_KEY, audioOn ? 'on' : 'off') } catch { /* Storage evtl. gesperrt */ }
+    try {
+      localStorage.setItem(AUDIO_KEY, audioOn ? 'on' : 'off')
+    } catch {
+      /* Storage evtl. gesperrt */
+    }
   })
   optMusic.addEventListener('click', () => {
     musicOn = !musicOn
     setSwitch(optMusic, musicOn)
     applyAudio()
-    try { localStorage.setItem(MUSIC_KEY, musicOn ? 'on' : 'off') } catch { /* Storage evtl. gesperrt */ }
+    try {
+      localStorage.setItem(MUSIC_KEY, musicOn ? 'on' : 'off')
+    } catch {
+      /* Storage evtl. gesperrt */
+    }
   })
   // Wetter-Effekte: an = Auto-Wetter (echt), aus = kein Wetter. Steuert dieselbe
   // Wetter-Logik wie das Dev-Menü (das Dev-Menü kann darüber hinaus feiner dosieren).
@@ -1154,29 +1247,47 @@ map.on('load', () => {
   // Optionen-Dialog öffnen/schließen (Wetter-Switch beim Öffnen aktualisieren, falls
   // im Dev-Menü verstellt). Klick auf den abgedunkelten Hintergrund schließt.
   const optModal = $('options-modal')
-  const openOptions = () => { syncWeatherSwitch(); optModal.hidden = false }
-  const closeOptions = () => { optModal.hidden = true }
+  const openOptions = () => {
+    syncWeatherSwitch()
+    optModal.hidden = false
+  }
+  const closeOptions = () => {
+    optModal.hidden = true
+  }
   $('btn-options').addEventListener('click', openOptions)
   $('opt-close').addEventListener('click', closeOptions)
-  optModal.addEventListener('click', (e) => { if (e.target === optModal) closeOptions() })
+  optModal.addEventListener('click', (e) => {
+    if (e.target === optModal) closeOptions()
+  })
 
   // — Entwicklermodus — blendet Dev-Regler (Wetter-Palette, Kameradistanz) ein.
   // Aktivierung: ?dev=1 ODER Tippfolge „dev". Merker in localStorage, damit ein
   // Reload den Modus behält.
   const DEV_KEY = 'maptale:dev'
   let devOn = params.get('dev') === '1'
-  try { devOn = devOn || localStorage.getItem(DEV_KEY) === '1' } catch { /* Storage evtl. gesperrt */ }
+  try {
+    devOn = devOn || localStorage.getItem(DEV_KEY) === '1'
+  } catch {
+    /* Storage evtl. gesperrt */
+  }
   const setDev = (on: boolean) => {
     devOn = on
     document.body.classList.toggle('dev', on)
-    try { localStorage.setItem(DEV_KEY, on ? '1' : '0') } catch { /* Storage evtl. gesperrt */ }
+    try {
+      localStorage.setItem(DEV_KEY, on ? '1' : '0')
+    } catch {
+      /* Storage evtl. gesperrt */
+    }
   }
   setDev(devOn)
   let devSeq = ''
   window.addEventListener('keydown', (e) => {
     if (istTextfeld(e.target)) return
     devSeq = (devSeq + e.key).slice(-3).toLowerCase()
-    if (devSeq === 'dev') { setDev(!devOn); toast(devOn ? 'Entwicklermodus an' : 'Entwicklermodus aus') }
+    if (devSeq === 'dev') {
+      setDev(!devOn)
+      toast(devOn ? 'Entwicklermodus an' : 'Entwicklermodus aus')
+    }
   })
 
   const speedBtn = $('btn-speed')
@@ -1227,7 +1338,11 @@ map.on('load', () => {
       t0,
       t1,
     )
-    const fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: zeit.zone })
+    const fmt = new Intl.DateTimeFormat('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: zeit.zone,
+    })
     const teleTime = $('tele-time')
     $('tele-time-wrap').hidden = false
 
@@ -1274,9 +1389,10 @@ map.on('load', () => {
     )
     // Schneedecke aufs Satellitenbild koppeln (Stärke → Deckungsgrad); den ggf.
     // wiederhergestellten Schnee-Modus nachziehen (Restore lief vor der Regie)
-    groundSnow = () => dayNight.setSnow(
-      weather.mode === 'snow' ? 0.3 + 0.7 * Math.max(0, (weatherK - 0.4) / 0.6) : 0,
-    )
+    groundSnow = () =>
+      dayNight.setSnow(
+        weather.mode === 'snow' ? 0.3 + 0.7 * Math.max(0, (weatherK - 0.4) / 0.6) : 0,
+      )
     groundSnow()
     // Auto-Wetter-Timeline laden (asynchron; braucht die Pseudo-Zeit dieser Tour).
     // Bei Fetch-Fehlern (offline, API weg) bleibt Auto still bei „Kein Wetter".
@@ -1295,9 +1411,14 @@ map.on('load', () => {
       .then((tl) => {
         wxTimeline = tl
         window.__j.wxTimeline = tl
-        if (weatherAuto) { wxSegment = null; applyAutoNow() }
+        if (weatherAuto) {
+          wxSegment = null
+          applyAutoNow()
+        }
       })
-      .catch((err: unknown) => console.info('Auto-Wetter nicht verfügbar:', err instanceof Error ? err.message : err))
+      .catch((err: unknown) =>
+        console.info('Auto-Wetter nicht verfügbar:', err instanceof Error ? err.message : err),
+      )
     ui.onTick = (frac) => {
       const date = new Date(timeAt(frac))
       const pos = pointAt(route, frac * route.total)
@@ -1329,7 +1450,10 @@ map.on('load', () => {
   progress.addEventListener('pointerdown', (e) => {
     scrubMoved = false
     const ziel = e.target
-    scrubDot = ziel instanceof HTMLElement && ziel.classList.contains('photo-dot') ? Number(ziel.dataset.s) : null
+    scrubDot =
+      ziel instanceof HTMLElement && ziel.classList.contains('photo-dot')
+        ? Number(ziel.dataset.s)
+        : null
     scrubDownX = e.clientX
     progress.setPointerCapture(e.pointerId)
     document.body.classList.add('scrubbing') // Scrub-Cursor, auch über den Dots
@@ -1344,7 +1468,8 @@ map.on('load', () => {
   progress.addEventListener('pointerup', (e) => {
     document.body.classList.remove('scrubbing')
     if (!tour.scrubbing) return
-    if (!scrubMoved && scrubDot != null) tour.jumpToPhoto(scrubDot) // Dot-Tap: Foto sofort
+    if (!scrubMoved && scrubDot != null)
+      tour.jumpToPhoto(scrubDot) // Dot-Tap: Foto sofort
     else tour.endScrub(filmAnteilAt(e))
     nachSprung()
   })
@@ -1387,8 +1512,14 @@ map.on('load', () => {
   // Der Ton geht an beiden Schlüssen weich aus statt abrupt: Der Kopf steht am
   // Tour-Ende oft mitten in einem Musik-Bereich, und dort ist ein zugehendes Gate
   // sonst dasselbe wie die Pause-Taste — sofortiger Stopp mit gehaltener Position.
-  const tonVerklingen = () => { tourAudio?.verklinge(); music?.verklinge() }
-  tour.onToMenu = () => { setClean(false); tonVerklingen() }
+  const tonVerklingen = () => {
+    tourAudio?.verklinge()
+    music?.verklinge()
+  }
+  tour.onToMenu = () => {
+    setClean(false)
+    tonVerklingen()
+  }
   tour.onFinale = tonVerklingen
 
   // — Auto-Rückzug der Bedienelemente (jede Zeigerart) —
@@ -1418,7 +1549,8 @@ map.on('load', () => {
       // Normalfall: Sie deckte die Bildunterschrift samt „Weiter" zu. Das ist
       // dieselbe Lehre wie bei E13 — ein Halt ist ein Zustand der Kurve, kein
       // anderer Betriebsmodus: Was zählt, ist, ob der FILM läuft.
-      const ruht = tour.playing && (tour.phase === 'ride' || tour.phase === 'photo' || tour.phase === 'moment')
+      const ruht =
+        tour.playing && (tour.phase === 'ride' || tour.phase === 'photo' || tour.phase === 'moment')
       const festgehalten =
         (hatZeiger && dockEl.matches(':hover')) || document.body.classList.contains('info-offen')
       if (ruht && !festgehalten) setClean(true)

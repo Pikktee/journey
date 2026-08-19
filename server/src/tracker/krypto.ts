@@ -9,7 +9,13 @@
 // sein. Ohne Authentifizierung ließe sich der Geheimtext gezielt kippen, und
 // entschlüsselt käme etwas heraus, das nach einem Token aussieht.
 
-import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto'
 
 const ALGO = 'aes-256-gcm'
 /** 96 Bit — die für GCM vorgesehene IV-Länge (längere werden intern gehasht). */
@@ -43,7 +49,12 @@ export function verschluessele(klartext: string, geheimnis: string): string {
   const iv = randomBytes(IV_BYTES)
   const cipher = createCipheriv(ALGO, schluessel(geheimnis), iv)
   const daten = Buffer.concat([cipher.update(klartext, 'utf8'), cipher.final()])
-  return ['v1', iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), daten.toString('base64url')].join('.')
+  return [
+    'v1',
+    iv.toString('base64url'),
+    cipher.getAuthTag().toString('base64url'),
+    daten.toString('base64url'),
+  ].join('.')
 }
 
 /**
@@ -60,7 +71,10 @@ export function entschluessele(gepackt: string, geheimnis: string): string {
   if (iv.length !== IV_BYTES || tag.length !== TAG_BYTES) throw new Error('Token beschädigt')
   const decipher = createDecipheriv(ALGO, schluessel(geheimnis), iv)
   decipher.setAuthTag(tag)
-  return Buffer.concat([decipher.update(Buffer.from(datenB64, 'base64url')), decipher.final()]).toString('utf8')
+  return Buffer.concat([
+    decipher.update(Buffer.from(datenB64, 'base64url')),
+    decipher.final(),
+  ]).toString('utf8')
 }
 
 /**

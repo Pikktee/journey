@@ -74,7 +74,12 @@ const ergebnis = await seite.evaluate(
       const jetzt = { s: t.s, w: performance.now(), phase: t.phase, speed: t.speed }
       const ziel = 120 * (tempoTab[t.modeAt(t.s).mode] ?? 1)
       // Zieltempo erreicht? (>97 % — schließt beide Rampen aus)
-      if (vorher.phase === 'ride' && jetzt.phase === 'ride' && vorher.speed > ziel * 0.97 && jetzt.speed > ziel * 0.97) {
+      if (
+        vorher.phase === 'ride' &&
+        jetzt.phase === 'ride' &&
+        vorher.speed > ziel * 0.97 &&
+        jetzt.speed > ziel * 0.97
+      ) {
         dsSumme += jetzt.s - vorher.s
         dtSumme += (jetzt.w - vorher.w) / 1000
         zielSumme += ziel * ((jetzt.w - vorher.w) / 1000)
@@ -97,7 +102,9 @@ const ergebnis = await seite.evaluate(
 const anteil = ergebnis.zielSumme > 0 ? ergebnis.dsSumme / ergebnis.zielSumme : Number.NaN
 console.log(`\n— CPU-Drosselung ${DROSSEL}\u00d7 —`)
 console.log(`  Bildrate:                 ${ergebnis.fps.toFixed(1)} fps`)
-console.log(`  gewertete Fahrtzeit:      ${ergebnis.dtSumme.toFixed(1)} s von ${ergebnis.wall.toFixed(1)} s`)
+console.log(
+  `  gewertete Fahrtzeit:      ${ergebnis.dtSumme.toFixed(1)} s von ${ergebnis.wall.toFixed(1)} s`,
+)
 console.log(`  zur\u00fcckgelegt:              ${ergebnis.dsSumme.toFixed(0)} m`)
 console.log(`  bei Zieltempo erwartet:   ${ergebnis.zielSumme.toFixed(0)} m`)
 console.log(`  \u2192 Bilduhr l\u00e4uft mit         ${(anteil * 100).toFixed(1)} % der Echtzeit`)

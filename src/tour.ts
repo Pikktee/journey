@@ -42,7 +42,8 @@ export const PRESETS = {
  * Servers — beides freie Zeichenketten. Unbekanntes fällt auf „mittel", genau
  * wie der Bestand es mit `PRESETS[p] ?? PRESETS.mittel` tat.
  */
-const distanzFuer = (name: string): Kameradistanz => (PRESETS as Record<string, Kameradistanz | undefined>)[name] ?? PRESETS.mittel
+const distanzFuer = (name: string): Kameradistanz =>
+  (PRESETS as Record<string, Kameradistanz | undefined>)[name] ?? PRESETS.mittel
 
 // Standzeit und Ausblendung gehören der Foto-Karte, nicht der Engine — sie
 // stehen in einer Datei, die auch das Studio importieren kann (einblendung.ts).
@@ -191,7 +192,10 @@ const MOMENT_ASCEND_LIFT = 2.4 // Faktor, um den die Kamera-Flughöhe beim Aufst
 const SKY_MIN_DOWN = 3 * (Math.PI / 180) // flachster Blick-nach-unten (Pitch ~87°, von maxPitch gedeckelt)
 const SKY_LIFT_TAU = 3.5 // Einschwingzeit der Anhebung (weich, kein Ruck)
 const _cl = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x)
-const _ss = (a: number, b: number, x: number) => { const t = _cl((x - a) / (b - a)); return t * t * (3 - 2 * t) }
+const _ss = (a: number, b: number, x: number) => {
+  const t = _cl((x - a) / (b - a))
+  return t * t * (3 - 2 * t)
+}
 
 class Smooth {
   v: number
@@ -226,7 +230,8 @@ const MODE_SCALE = {
 // src/remote.ts) — der Fallback des Bestands („?? MODE_SCALE.bike") ist deshalb
 // kein Zierrat, sondern der Umgang mit einem unbekannten Modus. Das TEMPO fragt
 // die Engine gar nicht mehr: Es steckt in der Achse, die ihr `s` liefert.
-export const skalaFuer = (mode: string): Kameradistanz => (MODE_SCALE as Record<string, Kameradistanz | undefined>)[mode] ?? MODE_SCALE.bike
+export const skalaFuer = (mode: string): Kameradistanz =>
+  (MODE_SCALE as Record<string, Kameradistanz | undefined>)[mode] ?? MODE_SCALE.bike
 
 /** Zwei Kameradistanzen mischen — der Übergang an einer Modus-Grenze. */
 export const mischeSkala = (a: Kameradistanz, b: Kameradistanz, t: number): Kameradistanz => ({
@@ -400,12 +405,20 @@ export class Tour {
   }
 
   boundsOf(route: Route): [LngLat2D, LngLat2D] {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
     for (const c of route.coords) {
-      minX = Math.min(minX, c[0]); maxX = Math.max(maxX, c[0])
-      minY = Math.min(minY, c[1]); maxY = Math.max(maxY, c[1])
+      minX = Math.min(minX, c[0])
+      maxX = Math.max(maxX, c[0])
+      minY = Math.min(minY, c[1])
+      maxY = Math.max(maxY, c[1])
     }
-    return [[minX, minY], [maxX, maxY]]
+    return [
+      [minX, minY],
+      [maxX, maxY],
+    ]
   }
 
   // Szenenhöhe (überhöhtes Terrain) an einem Punkt; Fallback: Höhenprofil der Route
@@ -505,7 +518,13 @@ export class Tour {
   // Kamerastand als Signatur (Vergleich für den bedingten Resume-Fade)
   _camNow(): Kamerastand {
     const c = this.map.getCenter()
-    return { lng: c.lng, lat: c.lat, zoom: this.map.getZoom(), bearing: this.map.getBearing(), pitch: this.map.getPitch() }
+    return {
+      lng: c.lng,
+      lat: c.lat,
+      zoom: this.map.getZoom(),
+      bearing: this.map.getBearing(),
+      pitch: this.map.getPitch(),
+    }
   }
 
   _camMoved(): boolean {
@@ -783,9 +802,11 @@ export class Tour {
       const start = pointAt(this.route, 0)
       const b0 = bearingAt(this.route, 0)
       const cg = destination([start[0], start[1]], this.preset.behind, (b0 + 180) % 360)
-      this.cg.lng.set(cg[0]); this.cg.lat.set(cg[1])
+      this.cg.lng.set(cg[0])
+      this.cg.lat.set(cg[1])
       this.alt.set(this.groundAlt([start[0], start[1]], start[2]) + this.preset.hover)
-      this.lt.lng.set(start[0]); this.lt.lat.set(start[1])
+      this.lt.lng.set(start[0])
+      this.lt.lat.set(start[1])
       this.ltAlt.set(this.groundAlt([start[0], start[1]], start[2]))
       if (!this.playing) this.setPlaying(true)
       this.applyCamera()
@@ -862,11 +883,14 @@ export class Tour {
       }
     }
     const cgPos = destination([rider[0], rider[1]], behind * k, backDir)
-    const alt = opt?.gelaendeDeckel === false
-      ? riderG + hover * k
-      : Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110)
+    const alt =
+      opt?.gelaendeDeckel === false
+        ? riderG + hover * k
+        : Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110)
     return {
-      course, sc, k,
+      course,
+      sc,
+      k,
       cg: cgPos,
       alt,
       lt: [rider[0], rider[1]],
@@ -922,8 +946,22 @@ export class Tour {
     this.reposeTween = {
       t: 0,
       dur,
-      from: { cgLng: this.cg.lng.v, cgLat: this.cg.lat.v, alt: this.alt.v, ltLng: this.lt.lng.v, ltLat: this.lt.lat.v, ltAlt: this.ltAlt.v },
-      to: { cgLng: to.cg[0], cgLat: to.cg[1], alt: to.alt, ltLng: to.lt[0], ltLat: to.lt[1], ltAlt: to.ltAlt },
+      from: {
+        cgLng: this.cg.lng.v,
+        cgLat: this.cg.lat.v,
+        alt: this.alt.v,
+        ltLng: this.lt.lng.v,
+        ltLat: this.lt.lat.v,
+        ltAlt: this.ltAlt.v,
+      },
+      to: {
+        cgLng: to.cg[0],
+        cgLat: to.cg[1],
+        alt: to.alt,
+        ltLng: to.lt[0],
+        ltLat: to.lt[1],
+        ltAlt: to.ltAlt,
+      },
     }
     this.repose = true
     this.settled = false
@@ -991,7 +1029,11 @@ export class Tour {
         this.ltAlt.set(L(tw.from.ltAlt, tw.to.ltAlt))
         this.applyCamera()
         this.camSnap = this._camNow()
-        if (f >= 1) { this.settled = true; this.repose = false; this.reposeTween = null }
+        if (f >= 1) {
+          this.settled = true
+          this.repose = false
+          this.reposeTween = null
+        }
       } else {
         // Kameradistanz-Wechsel / Einzelbild: Kamera weich auf die neue Pose
         // ziehen, Einrasten GESCHWINDIGKEITSbasiert (kommt die Bewegung pro Bild
@@ -1006,7 +1048,10 @@ export class Tour {
           Math.abs(cur.zoom - prev.zoom) < 5e-4 &&
           Math.abs(cur.bearing - prev.bearing) < 0.02 &&
           Math.abs(cur.pitch - prev.pitch) < 0.02
-        if (stopped) { this.settled = true; this.repose = false }
+        if (stopped) {
+          this.settled = true
+          this.repose = false
+        }
       }
     }
 
@@ -1045,7 +1090,10 @@ export class Tour {
     const sVorher = this.s
     if (!this.scrubbing && this.playing) {
       this.setzeFilm(this.filmS + this.dir * this.mult * dt)
-      if (this.dir < 0 && this.filmS <= 0) { this.dir = 1; this.setPlaying(false) } // am Anfang angekommen
+      if (this.dir < 0 && this.filmS <= 0) {
+        this.dir = 1
+        this.setPlaying(false)
+      } // am Anfang angekommen
     }
     // Beobachtetes Streckentempo (m/s) — Messwert, kein Antrieb.
     if (dt > 0) this.speed = Math.abs(this.s - sVorher) / dt
@@ -1070,13 +1118,19 @@ export class Tour {
         // Über die FILMzeit gedreht, nicht über die Frame-Zeit: rückwärts dreht
         // der Orbit dadurch zurück, statt weiterzulaufen.
         this.orbitA += MOMENT_ORBIT_SPEED * (this.filmS - vorher)
-        this.updateOrbitCamera(dt, p, this.preset.behind * this.scaleSm.v, this.preset.hover * this.hoverSm.v)
+        this.updateOrbitCamera(
+          dt,
+          p,
+          this.preset.behind * this.scaleSm.v,
+          this.preset.hover * this.hoverSm.v,
+        )
       } else if (m.art === 'aufstieg') {
         // Kamera-Bodenpunkt halten, Flughöhe + Blick über die Dauer anheben
         const t = Math.min(1, imHalt / Math.max(0.001, halt.filmBis - halt.filmVon))
         const ease = t * t * (3 - 2 * t)
         const riderG = this.groundAlt([p[0], p[1]], p[2])
-        const zielAlt = riderG + this.preset.hover * this.hoverSm.v * (1 + (MOMENT_ASCEND_LIFT - 1) * ease)
+        const zielAlt =
+          riderG + this.preset.hover * this.hoverSm.v * (1 + (MOMENT_ASCEND_LIFT - 1) * ease)
         this.smoothTowards(dt, [this.cg.lng.v, this.cg.lat.v], zielAlt, p)
       } // innehalten: kein Kamera-Update → Pose bleibt exakt eingefroren
       this.applyCamera()
@@ -1143,7 +1197,8 @@ export class Tour {
       // stark geglätteten Fahrtrichtung — Spitzkehren werden so zu einem einzigen
       // ruhigen Schwenk statt hektischer Kamerasprünge entlang der Route.
       const rider = pointAt(route, this.s)
-      this.course += angleDelta(this.course, bearingAt(route, this.s)) * (1 - Math.exp(-dt / (2.8 * this.glide)))
+      this.course +=
+        angleDelta(this.course, bearingAt(route, this.s)) * (1 - Math.exp(-dt / (2.8 * this.glide)))
       const backDir = this.yawedBackDir(this.course) // Golden Hour: zur Sonne eindrehen
       const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
       // Kameradistanz an den Fortbewegungsmodus anpassen (zu Fuß nah, Fähre weit).
@@ -1170,7 +1225,13 @@ export class Tour {
       const cg: Wegpunkt = [cgPos[0], cgPos[1], rider[2]]
       const alt = Math.max(riderG + hover * kk, this.groundAlt(cgPos, rider[2]) + 110)
       // Himmel-Moment: Blickwinkel abflachen → Kamera kippt zum Horizont
-      this.smoothTowards(dt, cg, alt, rider, this.liftedLtAlt(cgPos, [rider[0], rider[1]], riderG, alt))
+      this.smoothTowards(
+        dt,
+        cg,
+        alt,
+        rider,
+        this.liftedLtAlt(cgPos, [rider[0], rider[1]], riderG, alt),
+      )
       if (!this.playing && !this.scrubbing) {
         // Pausiert: sobald die Kamera praktisch auf der idealen Fahrt-Pose sitzt,
         // gilt sie als eingeschwungen — ab dann schneidet die Einzelbild-Taste hart.
@@ -1179,7 +1240,11 @@ export class Tour {
           Math.abs(this.cg.lat.v - cg[1]) < 2e-6 &&
           Math.abs(this.alt.v - alt) < 0.5 &&
           Math.abs(angleDelta(this.course, bearingAt(route, this.s))) < 0.15
-        if (near) { this.settled = true; this.repose = false; this.reposeTween = null }
+        if (near) {
+          this.settled = true
+          this.repose = false
+          this.reposeTween = null
+        }
       }
     }
 
@@ -1194,7 +1259,13 @@ export class Tour {
     if (this.phase === 'intro') this.applyCamera()
   }
 
-  smoothTowards(dt: number, cgTarget: LngLat2D | Wegpunkt, altTarget: number, lookTarget: Wegpunkt, ltAltTarget?: number): void {
+  smoothTowards(
+    dt: number,
+    cgTarget: LngLat2D | Wegpunkt,
+    altTarget: number,
+    lookTarget: Wegpunkt,
+    ltAltTarget?: number,
+  ): void {
     // Kameraposition träge (ruhige Fahrt), Blickpunkt straff (Fahrer zentriert)
     const g = this.glide
     this.cg.lng.to(cgTarget[0], dt, 2.2 * g)
@@ -1203,7 +1274,10 @@ export class Tour {
     this.lt.lng.to(lookTarget[0], dt, 0.55 * g)
     this.lt.lat.to(lookTarget[1], dt, 0.55 * g)
     // ltAltTarget explizit (Himmel-Momente heben den Blickpunkt an); sonst Boden
-    const ltA = ltAltTarget != null ? ltAltTarget : this.groundAlt([lookTarget[0], lookTarget[1]], lookTarget[2])
+    const ltA =
+      ltAltTarget != null
+        ? ltAltTarget
+        : this.groundAlt([lookTarget[0], lookTarget[1]], lookTarget[2])
     this.ltAlt.to(ltA, dt, 0.8 * g)
   }
 
@@ -1214,7 +1288,7 @@ export class Tour {
       new maplibregl.LngLat(this.cg.lng.v, this.cg.lat.v),
       this.alt.v,
       new maplibregl.LngLat(this.lt.lng.v, this.lt.lat.v),
-      this.ltAlt.v
+      this.ltAlt.v,
     )
     this.map.jumpTo(opts)
     const pose: KameraPose = {

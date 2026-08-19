@@ -189,7 +189,15 @@ export async function baueTestApp(
   })
   const apiToken = (appLogin.json() as { apiToken: string }).apiToken
 
-  return { app, storage, benutzerStorage, archive, mail, cookies: { maptale_session: sessionCookie?.value ?? '' }, apiToken }
+  return {
+    app,
+    storage,
+    benutzerStorage,
+    archive,
+    mail,
+    cookies: { maptale_session: sessionCookie?.value ?? '' },
+    apiToken,
+  }
 }
 
 /**
@@ -209,11 +217,17 @@ export async function legeAdminAn(
   passwort = 'adminadmin',
 ): Promise<{ id: string; cookies: { maptale_session: string } }> {
   const benutzer = await u.app.auth.legeBenutzerAn(email, passwort, 'Chefin', true, 'admin')
-  const login = await u.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email, passwort } })
+  const login = await u.app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { email, passwort },
+  })
   if (login.statusCode !== 200) throw new Error(`Admin-Login fehlgeschlagen: ${login.body}`)
   return {
     id: benutzer.id,
-    cookies: { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' },
+    cookies: {
+      maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '',
+    },
   }
 }
 
@@ -224,7 +238,11 @@ export function beispielManifest(): UploadManifest {
     clientTourId: 'client-tour-1',
     title: null,
     description: null,
-    time: { start: '2026-07-04T08:12:31+02:00', end: '2026-07-04T14:03:10+02:00', zone: 'Europe/Zurich' },
+    time: {
+      start: '2026-07-04T08:12:31+02:00',
+      end: '2026-07-04T14:03:10+02:00',
+      zone: 'Europe/Zurich',
+    },
     segments: [
       {
         mode: 'walk',

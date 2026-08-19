@@ -174,7 +174,9 @@ export function createMap(
       sources: {
         satellite: {
           type: 'raster',
-          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+          tiles: [
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          ],
           tileSize: 256,
           maxzoom: 18,
           attribution: '© <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
@@ -190,7 +192,8 @@ export function createMap(
           // und war LANGSAMER (Overzoom spart keine Meshes, kostet aber Skalierung).
           maxzoom: 13,
           // Ohne „Terrain:"-Präfix — die Rolle steht im Popup schon in der Zeile
-          attribution: 'Mapzen / <a href="https://registry.opendata.aws/terrain-tiles/">AWS Open Data</a>',
+          attribution:
+            'Mapzen / <a href="https://registry.opendata.aws/terrain-tiles/">AWS Open Data</a>',
         },
       },
       layers: [
@@ -261,12 +264,19 @@ const COMMIT_STRIDE = 8
 /** Zeichnet die Route ein und liefert den Pro-Frame-Updater für die Spitze. */
 export function addRouteLayers(map: MapLibreMap, route: Route): (s: number, pos: LngLat2D) => void {
   const coords2d: LngLat2D[] = route.coords.map((c) => [c[0], c[1]])
-  const line = (coordinates: LngLat2D[]): GeoJSON.Feature =>
-    ({ type: 'Feature', properties: null, geometry: { type: 'LineString', coordinates } })
+  const line = (coordinates: LngLat2D[]): GeoJSON.Feature => ({
+    type: 'Feature',
+    properties: null,
+    geometry: { type: 'LineString', coordinates },
+  })
   const start = coords2d[0]!
 
   map.addSource('route-full', { type: 'geojson', data: line(coords2d) })
-  map.addSource('route-progress', { type: 'geojson', lineMetrics: true, data: line([start, start]) })
+  map.addSource('route-progress', {
+    type: 'geojson',
+    lineMetrics: true,
+    data: line([start, start]),
+  })
   map.addSource('route-tip', { type: 'geojson', data: line([start, start]) })
 
   // Gepunktete Vorschau der Gesamtstrecke
@@ -282,7 +292,12 @@ export function addRouteLayers(map: MapLibreMap, route: Route): (s: number, pos:
     },
   })
   // Weicher Schein unter der Fortschrittslinie
-  const glowPaint = { 'line-color': '#f5a524', 'line-width': 11, 'line-blur': 7, 'line-opacity': 0.45 }
+  const glowPaint = {
+    'line-color': '#f5a524',
+    'line-width': 11,
+    'line-blur': 7,
+    'line-opacity': 0.45,
+  }
   map.addLayer({
     id: 'route-glow',
     type: 'line',
@@ -364,7 +379,11 @@ export function addSpotLayers(
 ): (s: number) => void {
   map.addSource('start-dot', {
     type: 'geojson',
-    data: { type: 'Feature', properties: null, geometry: { type: 'Point', coordinates: startLngLat } },
+    data: {
+      type: 'Feature',
+      properties: null,
+      geometry: { type: 'Point', coordinates: startLngLat },
+    },
   })
   map.addLayer({
     id: 'start-dot',
@@ -504,7 +523,13 @@ export function createRider(map: MapLibreMap, lnglat: LngLatLike, mode = 'bike')
   //   Tiefentest sie „hinter dem Gelände" wähnt. Der bodennahe Fahrer-Marker fällt bei
   //   unserer tief-schrägen Verfolgungskamera (Pitch bis 86°) fast durchgehend in diesen
   //   Test → halbtransparent. Als Navi-Element soll er IMMER voll sichtbar bleiben.
-  return new maplibregl.Marker({ element: el, pitchAlignment: 'viewport', rotationAlignment: 'viewport', subpixelPositioning: true, opacityWhenCovered: '1' })
+  return new maplibregl.Marker({
+    element: el,
+    pitchAlignment: 'viewport',
+    rotationAlignment: 'viewport',
+    subpixelPositioning: true,
+    opacityWhenCovered: '1',
+  })
     .setLngLat(lnglat)
     .addTo(map)
 }

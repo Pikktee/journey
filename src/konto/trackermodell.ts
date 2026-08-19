@@ -60,7 +60,8 @@ export function anbieterSatz(a: AnbieterStand): string {
       ? `Der Zugang gilt nicht mehr: ${a.fehler} Bitte neu verbinden.`
       : 'Der Zugang gilt nicht mehr — bitte neu verbinden.'
   }
-  if (!a.verbunden) return 'Neue Aufzeichnungen landen nach dem Verbinden von selbst in deiner Bibliothek.'
+  if (!a.verbunden)
+    return 'Neue Aufzeichnungen landen nach dem Verbinden von selbst in deiner Bibliothek.'
   const seit = a.verbundenSeit ? ` seit ${kurzesDatum(a.verbundenSeit)}` : ''
   return `Verbunden${seit}. Neue Aufzeichnungen kommen von selbst an.`
 }
@@ -91,7 +92,9 @@ export function letzterAnkunftsSatz(importe: readonly ImportStand[]): string | n
 }
 
 /** Beschriftung des Knopfs rechts — oder null, wenn es nichts zu tun gibt. */
-export function anbieterKnopf(a: AnbieterStand): { text: string; art: 'primaer' | 'gefahr' } | null {
+export function anbieterKnopf(
+  a: AnbieterStand,
+): { text: string; art: 'primaer' | 'gefahr' } | null {
   if (!a.verfuegbar) return null
   if (a.status === 'abgelaufen') return { text: 'Neu verbinden', art: 'primaer' }
   return a.verbunden ? { text: 'Trennen', art: 'gefahr' } : { text: 'Verbinden', art: 'primaer' }
@@ -129,7 +132,8 @@ export function tourSatz(t: TourKurz): string {
   if (t.status !== 'bereit') return 'Angelegt, wird noch verarbeitet …'
   const teile: string[] = []
   if (t.km !== null && t.km > 0) teile.push(`${t.km.toFixed(1).replace('.', ',')} km`)
-  if (t.fotos !== null && t.fotos > 0) teile.push(t.fotos === 1 ? '1 Aufnahme' : `${t.fotos} Aufnahmen`)
+  if (t.fotos !== null && t.fotos > 0)
+    teile.push(t.fotos === 1 ? '1 Aufnahme' : `${t.fotos} Aufnahmen`)
   return teile.length ? `Spielbereit · ${teile.join(' · ')}` : 'Spielbereit'
 }
 
@@ -215,7 +219,8 @@ export function datumMitZeit(iso: string): string {
 export function rueckkehrText(wert: string): string | null {
   if (wert === 'verbunden') return 'Verbunden. Neue Aufzeichnungen kommen ab jetzt von selbst an.'
   if (wert === 'abgebrochen') return 'Abgebrochen — es wurde nichts verknüpft.'
-  if (wert === 'abgelaufen') return 'Der Verbindungsversuch ist abgelaufen. Bitte noch einmal versuchen.'
+  if (wert === 'abgelaufen')
+    return 'Der Verbindungsversuch ist abgelaufen. Bitte noch einmal versuchen.'
   if (wert === 'fehler') return 'Das Verbinden hat nicht geklappt. Bitte noch einmal versuchen.'
   return null
 }

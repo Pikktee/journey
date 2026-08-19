@@ -22,7 +22,10 @@ const befund = (patch: Partial<BildBefund> = {}): BildBefund => ({
 
 describe('bildBefundZuWetter', () => {
   it('bildet Niederschlag/Nebel auf ihren Modus ab (schlägt den Himmel)', () => {
-    expect(bildBefundZuWetter(befund({ niederschlag: 'gewitter' }))).toEqual({ mode: 'storm', k: 0.8 })
+    expect(bildBefundZuWetter(befund({ niederschlag: 'gewitter' }))).toEqual({
+      mode: 'storm',
+      k: 0.8,
+    })
     expect(bildBefundZuWetter(befund({ niederschlag: 'schnee' }))).toEqual({ mode: 'snow', k: 0.7 })
     expect(bildBefundZuWetter(befund({ niederschlag: 'regen' }))).toEqual({ mode: 'rain', k: 0.6 })
     expect(bildBefundZuWetter(befund({ niederschlag: 'nebel' }))).toEqual({ mode: 'fog', k: 0.7 })
@@ -37,11 +40,19 @@ describe('bildBefundZuWetter', () => {
   })
 })
 
-const kf = (f: number, mode: WetterKeyframe['mode'], k = 0.7): WetterKeyframe => ({ f, mode, k, source: 'openmeteo' })
+const kf = (f: number, mode: WetterKeyframe['mode'], k = 0.7): WetterKeyframe => ({
+  f,
+  mode,
+  k,
+  source: 'openmeteo',
+})
 
 describe('verfeinereWetterMitFotos', () => {
   it('übersteuert, wenn ein sicheres Foto MEHR Wetter zeigt (Fenster ±0.03, source photo)', () => {
-    const out = verfeinereWetterMitFotos([kf(0, 'off')], [{ f: 0.5, befund: befund({ niederschlag: 'gewitter' }) }])
+    const out = verfeinereWetterMitFotos(
+      [kf(0, 'off')],
+      [{ f: 0.5, befund: befund({ niederschlag: 'gewitter' }) }],
+    )
     const photo = out.filter((k) => k.source === 'photo')
     expect(photo.map((k) => k.f)).toEqual([0.47, 0.53]) // ±0.03 um den Anker
     expect(photo.every((k) => k.mode === 'storm' && k.k === 0.8)).toBe(true)
@@ -53,7 +64,9 @@ describe('verfeinereWetterMitFotos', () => {
   it('lässt die Basis unangetastet, wenn das Foto NICHT mehr Wetter zeigt', () => {
     const basis = [kf(0, 'rain', 0.6)]
     // Wolken sind weniger als Regen → kein Override
-    expect(verfeinereWetterMitFotos(basis, [{ f: 0.5, befund: befund({ himmel: 'bedeckt' }) }])).toEqual(basis)
+    expect(
+      verfeinereWetterMitFotos(basis, [{ f: 0.5, befund: befund({ himmel: 'bedeckt' }) }]),
+    ).toEqual(basis)
   })
 
   it('lässt API-Niederschlag IMMER gegen ein klar-Foto gewinnen', () => {
@@ -67,15 +80,25 @@ describe('verfeinereWetterMitFotos', () => {
   it('übersteuert nur bei hoher Konfidenz UND sichtbarem Himmel', () => {
     const basis = [kf(0, 'off')]
     const stark = befund({ niederschlag: 'gewitter' })
-    expect(verfeinereWetterMitFotos(basis, [{ f: 0.5, befund: { ...stark, konfidenz: 0.6 } }])).toEqual(basis)
-    expect(verfeinereWetterMitFotos(basis, [{ f: 0.5, befund: { ...stark, himmelSichtbar: false } }])).toEqual(basis)
+    expect(
+      verfeinereWetterMitFotos(basis, [{ f: 0.5, befund: { ...stark, konfidenz: 0.6 } }]),
+    ).toEqual(basis)
+    expect(
+      verfeinereWetterMitFotos(basis, [{ f: 0.5, befund: { ...stark, himmelSichtbar: false } }]),
+    ).toEqual(basis)
   })
 
   it('klemmt das Fenster an den Streckenrändern f∈[0,1]', () => {
-    const anfang = verfeinereWetterMitFotos([kf(0, 'off')], [{ f: 0, befund: befund({ niederschlag: 'regen' }) }])
+    const anfang = verfeinereWetterMitFotos(
+      [kf(0, 'off')],
+      [{ f: 0, befund: befund({ niederschlag: 'regen' }) }],
+    )
     expect(anfang.every((k) => k.f >= 0)).toBe(true)
     expect(anfang.find((k) => k.f === 0)?.source).toBe('photo') // Foto beginnt am Start
-    const ende = verfeinereWetterMitFotos([kf(0, 'off')], [{ f: 1, befund: befund({ niederschlag: 'regen' }) }])
+    const ende = verfeinereWetterMitFotos(
+      [kf(0, 'off')],
+      [{ f: 1, befund: befund({ niederschlag: 'regen' }) }],
+    )
     expect(ende.every((k) => k.f <= 1)).toBe(true)
     expect(ende.at(-1)).toMatchObject({ f: 1, mode: 'rain', source: 'photo' })
   })
@@ -123,12 +146,24 @@ describe('OpenRouterKlassifikator', () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
-        choices: [{ message: { content: 'Ergebnis: {"himmel":"bedeckt","niederschlag":"regen","himmelSichtbar":true,"konfidenz":0.82}' } }],
+        choices: [
+          {
+            message: {
+              content:
+                'Ergebnis: {"himmel":"bedeckt","niederschlag":"regen","himmelSichtbar":true,"konfidenz":0.82}',
+            },
+          },
+        ],
       }),
     }))
     const k = new OpenRouterKlassifikator('sk-test', fetchMock as unknown as typeof fetch)
     const b = await k.klassifiziere(bild)
-    expect(b).toEqual({ himmel: 'bedeckt', niederschlag: 'regen', himmelSichtbar: true, konfidenz: 0.82 })
+    expect(b).toEqual({
+      himmel: 'bedeckt',
+      niederschlag: 'regen',
+      himmelSichtbar: true,
+      konfidenz: 0.82,
+    })
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://openrouter.ai/api/v1/chat/completions')
@@ -139,19 +174,31 @@ describe('OpenRouterKlassifikator', () => {
     }
     expect(body.model).toBe('google/gemini-2.5-flash-lite')
     const bildBlock = body.messages[0]?.content.find((c) => c.type === 'image_url')
-    expect(bildBlock?.image_url?.url).toBe(`data:image/jpeg;base64,${Buffer.from([1, 2, 3]).toString('base64')}`)
+    expect(bildBlock?.image_url?.url).toBe(
+      `data:image/jpeg;base64,${Buffer.from([1, 2, 3]).toString('base64')}`,
+    )
   })
 
   it('nutzt das übergebene Modell-Override', async () => {
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{}' } }] }) }))
-    const k = new OpenRouterKlassifikator('sk', fetchMock as unknown as typeof fetch, 'openai/gpt-4o-mini')
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{}' } }] }),
+    }))
+    const k = new OpenRouterKlassifikator(
+      'sk',
+      fetchMock as unknown as typeof fetch,
+      'openai/gpt-4o-mini',
+    )
     await k.klassifiziere(bild)
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect((JSON.parse(init.body as string) as { model: string }).model).toBe('openai/gpt-4o-mini')
   })
 
   it('liefert einen neutralen Befund (konfidenz 0) bei HTTP-Fehler', async () => {
-    const k = new OpenRouterKlassifikator('sk', (async () => ({ ok: false, status: 500 })) as unknown as typeof fetch)
+    const k = new OpenRouterKlassifikator('sk', (async () => ({
+      ok: false,
+      status: 500,
+    })) as unknown as typeof fetch)
     expect((await k.klassifiziere(bild)).konfidenz).toBe(0)
   })
 
@@ -173,7 +220,16 @@ describe('OpenRouterKlassifikator', () => {
   it('weist unbekannte Enum-Werte als neutral zurück', async () => {
     const k = new OpenRouterKlassifikator('sk', (async () => ({
       ok: true,
-      json: async () => ({ choices: [{ message: { content: '{"himmel":"sonnig","niederschlag":"kein","himmelSichtbar":true,"konfidenz":0.9}' } }] }),
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content:
+                '{"himmel":"sonnig","niederschlag":"kein","himmelSichtbar":true,"konfidenz":0.9}',
+            },
+          },
+        ],
+      }),
     })) as unknown as typeof fetch)
     expect((await k.klassifiziere(bild)).konfidenz).toBe(0)
   })
@@ -186,25 +242,37 @@ describe('OpenRouterKlassifikator', () => {
     const meldungen: string[] = []
     const melde = (n: string): void => void meldungen.push(n)
 
-    const guthaben = new OpenRouterKlassifikator('sk', (async () => ({ ok: false, status: 402 })) as unknown as typeof fetch)
+    const guthaben = new OpenRouterKlassifikator('sk', (async () => ({
+      ok: false,
+      status: 402,
+    })) as unknown as typeof fetch)
     await guthaben.klassifiziere(bild, melde)
     expect(meldungen[0]).toMatch(/HTTP 402.*Guthaben/)
 
-    const limit = new OpenRouterKlassifikator('sk', (async () => ({ ok: false, status: 429 })) as unknown as typeof fetch)
+    const limit = new OpenRouterKlassifikator('sk', (async () => ({
+      ok: false,
+      status: 429,
+    })) as unknown as typeof fetch)
     await limit.klassifiziere(bild, melde)
     expect(meldungen[1]).toMatch(/Rate-Limit/)
 
     // Reasoning-Modelle verbrauchen max_tokens mit Denk-Tokens und antworten leer
-    const leer = new OpenRouterKlassifikator('sk', (async () => ({
-      ok: true,
-      json: async () => ({ choices: [{ message: { content: '' } }] }),
-    })) as unknown as typeof fetch, 'openai/gpt-5-nano')
+    const leer = new OpenRouterKlassifikator(
+      'sk',
+      (async () => ({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: '' } }] }),
+      })) as unknown as typeof fetch,
+      'openai/gpt-5-nano',
+    )
     await leer.klassifiziere(bild, melde)
     expect(meldungen[2]).toMatch(/gpt-5-nano.*Antwort war leer/)
 
     const prosa = new OpenRouterKlassifikator('sk', (async () => ({
       ok: true,
-      json: async () => ({ choices: [{ message: { content: 'Das Bild zeigt einen Wasserfall.' } }] }),
+      json: async () => ({
+        choices: [{ message: { content: 'Das Bild zeigt einen Wasserfall.' } }],
+      }),
     })) as unknown as typeof fetch)
     await prosa.klassifiziere(bild, melde)
     expect(meldungen[3]).toMatch(/Antwort begann mit .Das Bild zeigt/)
@@ -220,7 +288,16 @@ describe('OpenRouterKlassifikator', () => {
     const meldungen: string[] = []
     const k = new OpenRouterKlassifikator('sk', (async () => ({
       ok: true,
-      json: async () => ({ choices: [{ message: { content: '{"himmel":"klar","niederschlag":"kein","himmelSichtbar":true,"konfidenz":0.9}' } }] }),
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content:
+                '{"himmel":"klar","niederschlag":"kein","himmelSichtbar":true,"konfidenz":0.9}',
+            },
+          },
+        ],
+      }),
     })) as unknown as typeof fetch)
     await k.klassifiziere(bild, (n) => void meldungen.push(n))
     expect(meldungen).toEqual([])
@@ -236,10 +313,17 @@ describe('FesterKlassifikator', () => {
   })
 
   it('gibt Befunde einer Liste der Reihe nach zurück (letzter wiederholt)', async () => {
-    const k = new FesterKlassifikator([befund({ niederschlag: 'regen' }), befund({ niederschlag: 'gewitter' })])
+    const k = new FesterKlassifikator([
+      befund({ niederschlag: 'regen' }),
+      befund({ niederschlag: 'gewitter' }),
+    ])
     const eins = await k.klassifiziere({ daten: new Uint8Array(), medientyp: 'image/jpeg' })
     const zwei = await k.klassifiziere({ daten: new Uint8Array(), medientyp: 'image/jpeg' })
     const drei = await k.klassifiziere({ daten: new Uint8Array(), medientyp: 'image/jpeg' })
-    expect([eins.niederschlag, zwei.niederschlag, drei.niederschlag]).toEqual(['regen', 'gewitter', 'gewitter'])
+    expect([eins.niederschlag, zwei.niederschlag, drei.niederschlag]).toEqual([
+      'regen',
+      'gewitter',
+      'gewitter',
+    ])
   })
 })

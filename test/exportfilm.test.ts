@@ -129,7 +129,6 @@ describe('Clip-Zeit', () => {
     expect(clipDauerS(0, true)).toBe(0)
   })
 
-
   it('zählt Frames über die ganze Clip-Dauer', () => {
     expect(frameAnzahl(10, EXPORT_FPS)).toBe(300)
     expect(frameAnzahl(clipDauerS(10, false), EXPORT_FPS)).toBe(
@@ -150,7 +149,9 @@ describe('Clip-Zeit', () => {
 
   it('sagt beim Verdecken Pause, nicht Abbruch', () => {
     expect(pauseText(222, 0, 7200)).toBe('Pausiert. Tab wieder öffnen · 3:42')
-    expect(pauseText(222, 1240, 7200)).toBe('Pausiert. Tab wieder öffnen · 3:42 · Frame 1240 von 7200')
+    expect(pauseText(222, 1240, 7200)).toBe(
+      'Pausiert. Tab wieder öffnen · 3:42 · Frame 1240 von 7200',
+    )
   })
 })
 

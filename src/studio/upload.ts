@@ -60,13 +60,22 @@ export function gpxPunktAnzahl(xml: string): number {
 function zonenOffsetMs(utcMs: number, zone: string): number {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: zone,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
   })
   const teile = Object.fromEntries(fmt.formatToParts(new Date(utcMs)).map((p) => [p.type, p.value]))
   const lokalAlsUtc = Date.UTC(
-    Number(teile.year), Number(teile.month) - 1, Number(teile.day),
-    Number(teile.hour) % 24, Number(teile.minute), Number(teile.second),
+    Number(teile.year),
+    Number(teile.month) - 1,
+    Number(teile.day),
+    Number(teile.hour) % 24,
+    Number(teile.minute),
+    Number(teile.second),
   )
   return lokalAlsUtc - utcMs
 }
@@ -85,7 +94,10 @@ export function isoMitZone(ms: number, zone: string): string {
 }
 
 /** Zonenlose EXIF-Zeit (Y/M/D h:m:s) in der Tour-Zone als Epoche-ms deuten. */
-export function exifDatumZuMs(d: { y: number; mo: number; d: number; hh: number; mm: number; ss: number }, zone: string): number {
+export function exifDatumZuMs(
+  d: { y: number; mo: number; d: number; hh: number; mm: number; ss: number },
+  zone: string,
+): number {
   const naiv = Date.UTC(d.y, d.mo - 1, d.d, d.hh, d.mm, d.ss)
   let ms = naiv - zonenOffsetMs(naiv, zone)
   ms = naiv - zonenOffsetMs(ms, zone) // zweite Iteration fängt DST-Kanten ab

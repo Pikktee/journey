@@ -4,7 +4,12 @@
 // injiziertes fetch.
 
 import { describe, expect, it, vi } from 'vitest'
-import { FesteSchienen, OverpassSchienen, hebeSchienenAbschnitte, umgebungsBox } from '../src/pipeline/schienen.js'
+import {
+  FesteSchienen,
+  OverpassSchienen,
+  hebeSchienenAbschnitte,
+  umgebungsBox,
+} from '../src/pipeline/schienen.js'
 import type { Schienenweg } from '../src/pipeline/schienen.js'
 import type { UploadPunkt, UploadSegment } from '../src/schema/upload.js'
 
@@ -79,7 +84,11 @@ describe('hebeSchienenAbschnitte', () => {
 
   it('hebt nur die betroffenen Abschnitte einer gemischten Tour', () => {
     const erg = hebeSchienenAbschnitte(
-      [segment('bike', fahrt(3000)), segment('walk', fahrt(800, 4.5)), segment('bike', fahrt(3000))],
+      [
+        segment('bike', fahrt(3000)),
+        segment('walk', fahrt(800, 4.5)),
+        segment('bike', fahrt(3000)),
+      ],
       [gleisGerade()],
     )
     expect(erg.map((s) => s.mode)).toEqual(['tram', 'walk', 'tram'])
@@ -108,21 +117,36 @@ describe('umgebungsBox', () => {
 
 describe('OverpassSchienen', () => {
   it('fragt Tram- und Stadtbahngleise ab und liest die Geometrie', async () => {
-    const fetchFn = vi.fn(async (_url: string, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({
-          elements: [
-            { geometry: [{ lat: 50.1, lon: 8.68 }, { lat: 50.101, lon: 8.69 }] },
-            { geometry: [{ lat: 50.1, lon: 8.7 }] }, // zu kurz → fällt weg
-          ],
-        }),
-        { status: 200 },
-      ),
+    const fetchFn = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            elements: [
+              {
+                geometry: [
+                  { lat: 50.1, lon: 8.68 },
+                  { lat: 50.101, lon: 8.69 },
+                ],
+              },
+              { geometry: [{ lat: 50.1, lon: 8.7 }] }, // zu kurz → fällt weg
+            ],
+          }),
+          { status: 200 },
+        ),
     )
-    const quelle = new OverpassSchienen('https://overpass.test/api', 'Test/1', fetchFn as unknown as typeof fetch)
+    const quelle = new OverpassSchienen(
+      'https://overpass.test/api',
+      'Test/1',
+      fetchFn as unknown as typeof fetch,
+    )
     const gleise = await quelle.gleise({ sued: 50, west: 8.6, nord: 50.2, ost: 8.8 })
 
-    expect(gleise).toEqual([[[8.68, 50.1], [8.69, 50.101]]])
+    expect(gleise).toEqual([
+      [
+        [8.68, 50.1],
+        [8.69, 50.101],
+      ],
+    ])
     const koerper = decodeURIComponent(String(fetchFn.mock.calls[0]?.[1]?.body))
     expect(koerper).toContain('railway')
     expect(koerper).toContain('tram|light_rail')
@@ -131,8 +155,14 @@ describe('OverpassSchienen', () => {
 
   it('wirft bei HTTP-Fehlern (der Aufrufer wertet das als „nichts gefunden")', async () => {
     const fetchFn = vi.fn(async () => new Response('rate limited', { status: 429 }))
-    const quelle = new OverpassSchienen('https://overpass.test/api', 'Test/1', fetchFn as unknown as typeof fetch)
-    await expect(quelle.gleise({ sued: 50, west: 8.6, nord: 50.2, ost: 8.8 })).rejects.toThrow(/429/)
+    const quelle = new OverpassSchienen(
+      'https://overpass.test/api',
+      'Test/1',
+      fetchFn as unknown as typeof fetch,
+    )
+    await expect(quelle.gleise({ sued: 50, west: 8.6, nord: 50.2, ost: 8.8 })).rejects.toThrow(
+      /429/,
+    )
   })
 })
 

@@ -80,8 +80,7 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
 
     const name = profil.anzeigename?.trim() || profil.handle || handle
     const zeile = db.prepare('SELECT suchmaschinen FROM users WHERE id = ?').get(userId) as
-      | { suchmaschinen: number }
-      | undefined
+      { suchmaschinen: number } | undefined
     const bild =
       titelbildUrl(userId, profil.titelbild) ?? `/titelbilder/${standardTitelbild(profil.handle)}`
 
@@ -225,7 +224,9 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
    */
   app.get('/sitemap-touren.xml', async (_request, reply) => {
     const zeilen = db
-      .prepare(`SELECT id FROM tours WHERE visibility = 'public' AND status = 'bereit' ORDER BY created_at DESC`)
+      .prepare(
+        `SELECT id FROM tours WHERE visibility = 'public' AND status = 'bereit' ORDER BY created_at DESC`,
+      )
       .all() as Array<{ id: string }>
     return sendeSitemap(
       reply,

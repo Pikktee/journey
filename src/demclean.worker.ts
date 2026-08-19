@@ -5,7 +5,10 @@
 
 import { bereinigeHoehen, KACHEL } from './demclean-rechnung.js'
 
-interface Auftrag { id: number; buf: ArrayBuffer }
+interface Auftrag {
+  id: number
+  buf: ArrayBuffer
+}
 
 self.addEventListener('message', async (ev: MessageEvent<Auftrag>) => {
   const { id, buf } = ev.data
@@ -13,11 +16,17 @@ self.addEventListener('message', async (ev: MessageEvent<Auftrag>) => {
     const bmp = await createImageBitmap(new Blob([buf], { type: 'image/png' }))
     const cv = new OffscreenCanvas(KACHEL, KACHEL)
     const ctx = cv.getContext('2d', { willReadFrequently: true })
-    if (!ctx) { self.postMessage({ id, data: null }); return }
+    if (!ctx) {
+      self.postMessage({ id, data: null })
+      return
+    }
     ctx.drawImage(bmp, 0, 0)
     bmp.close?.()
     const img = ctx.getImageData(0, 0, KACHEL, KACHEL)
-    if (!bereinigeHoehen(img.data)) { self.postMessage({ id, data: null }); return }
+    if (!bereinigeHoehen(img.data)) {
+      self.postMessage({ id, data: null })
+      return
+    }
     ctx.putImageData(img, 0, 0)
     const out = await (await cv.convertToBlob({ type: 'image/png' })).arrayBuffer()
     self.postMessage({ id, data: out }, { transfer: [out] })

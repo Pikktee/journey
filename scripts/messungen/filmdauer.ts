@@ -13,7 +13,13 @@
 // Aufruf: npx tsx scripts/messungen/filmdauer.ts
 import { readFileSync, readdirSync } from 'node:fs'
 import { buildRoute, nearestS, gruppiereStopps, dist } from '../../src/geo.js'
-import { MODUS_TEMPO, baueFilmachse, interpoliere, momentHaltS, type Streckenhalt } from '../../src/filmachse.js'
+import {
+  MODUS_TEMPO,
+  baueFilmachse,
+  interpoliere,
+  momentHaltS,
+  type Streckenhalt,
+} from '../../src/filmachse.js'
 import { HOLD_AUSBLEND, standzeitS } from '../../src/einblendung.js'
 
 const WURZEL = process.env['MAPTALE_DATEN_DIR']
@@ -29,7 +35,11 @@ interface Tourbau {
 
 const touren: Tourbau[] = []
 for (const id of readdirSync(WURZEL)) {
-  let tour: { segments?: Array<{ mode: string; pts: number[][] }>; media?: unknown[]; moments?: unknown[] }
+  let tour: {
+    segments?: Array<{ mode: string; pts: number[][] }>
+    media?: unknown[]
+    moments?: unknown[]
+  }
   try {
     tour = JSON.parse(readFileSync(`${WURZEL}/${id}/tour.json`, 'utf8'))
   } catch {
@@ -43,24 +53,34 @@ for (const id of readdirSync(WURZEL)) {
   const grenzen: Array<{ abM: number; mode: string }> = []
   for (const seg of tour.segments) {
     grenzen.push({ abM: rohGesamt, mode: seg.mode })
-    for (let i = 1; i < seg.pts.length; i++) rohGesamt += dist(seg.pts[i - 1] as never, seg.pts[i] as never)
+    for (let i = 1; i < seg.pts.length; i++)
+      rohGesamt += dist(seg.pts[i - 1] as never, seg.pts[i] as never)
   }
   // Route-Meter → ROH-Meter über dieselbe Tabelle wie der Player (src/main.ts):
   // Catmull-Rom streckt die Route ungleichmäßig, ein einzelner Faktor läge je
   // nach Tour ein bis zwei Sekunden daneben.
   const rohKum: number[] = [0]
-  for (let i = 1; i < wegpunkte.length; i++) rohKum.push((rohKum[i - 1] as number) + dist(wegpunkte[i - 1] as never, wegpunkte[i] as never))
+  for (let i = 1; i < wegpunkte.length; i++)
+    rohKum.push((rohKum[i - 1] as number) + dist(wegpunkte[i - 1] as never, wegpunkte[i] as never))
   const rohBeiS = (x: number): number => interpoliere(route.wpS, rohKum, x)
-  const medien = ((tour.media ?? []) as Array<{ anchor?: number[] }>).filter((m) => Array.isArray(m.anchor))
+  const medien = ((tour.media ?? []) as Array<{ anchor?: number[] }>).filter((m) =>
+    Array.isArray(m.anchor),
+  )
   const verankert = medien.map((m) => ({ ...m, s: nearestS(route, m.anchor as never) }))
-  const stopps = gruppiereStopps(verankert as never) as Array<{ s: number; items: Array<Record<string, unknown>> }>
+  const stopps = gruppiereStopps(verankert as never) as Array<{
+    s: number
+    items: Array<Record<string, unknown>>
+  }>
   const halte: Streckenhalt[] = [
     ...stopps.map((h) => ({
       meterM: rohBeiS(h.s),
       breiteS: h.items.reduce(
         (summe, it) =>
           summe +
-          standzeitS({ ...it, ...(it['durationS'] !== undefined ? { dauerS: it['durationS'] as number } : {}) }) +
+          standzeitS({
+            ...it,
+            ...(it['durationS'] !== undefined ? { dauerS: it['durationS'] as number } : {}),
+          }) +
           HOLD_AUSBLEND,
         0,
       ),
@@ -74,7 +94,8 @@ for (const id of readdirSync(WURZEL)) {
 }
 
 const dauer = (t: Tourbau): number => baueFilmachse(t.grenzen, t.gesamtM, t.halte).gesamtS
-const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
+const mmss = (s: number): string =>
+  `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 
 const walkVorher = 0.4
 const walkJetzt = MODUS_TEMPO.walk

@@ -53,7 +53,9 @@ export class NominatimGeocoder implements Geocoder {
   async ortsname(lng: number, lat: number): Promise<string | null> {
     const a = await this.adresse(lng, lat)
     if (!a) return null
-    return a.village ?? a.town ?? a.city ?? a.municipality ?? a.hamlet ?? a.suburb ?? a.county ?? null
+    return (
+      a.village ?? a.town ?? a.city ?? a.municipality ?? a.hamlet ?? a.suburb ?? a.county ?? null
+    )
   }
 
   async ortsebenen(lng: number, lat: number): Promise<string[]> {
@@ -117,9 +119,18 @@ const datumDeutsch = (iso: string, zone: string): string => {
   const ms = Date.parse(iso)
   if (!Number.isFinite(ms)) return 'unbekanntem Datum' // defensive Rückfallebene (POST validiert bereits)
   try {
-    return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: zone }).format(ms)
+    return new Intl.DateTimeFormat('de-DE', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: zone,
+    }).format(ms)
   } catch {
-    return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }).format(ms)
+    return new Intl.DateTimeFormat('de-DE', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(ms)
   }
 }
 
@@ -203,7 +214,12 @@ export function baueBenennung(args: {
   // den Ort („Runde bei Völklingen"), und die Zeile darüber ordnet ihn ein. Bei
   // A nach B stehen beide Orte bereits im Titel oder in der Stationszeile — ein
   // Startort obendrüber wäre die dritte Nennung derselben Gegend.
-  const kicker = dachzeile === null || dachzeile === undefined ? (rundtour ? (startOrt ?? '') : '') : dachzeile.trim()
+  const kicker =
+    dachzeile === null || dachzeile === undefined
+      ? rundtour
+        ? (startOrt ?? '')
+        : ''
+      : dachzeile.trim()
 
   return {
     title,

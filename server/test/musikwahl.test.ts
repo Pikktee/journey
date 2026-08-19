@@ -2,16 +2,27 @@
 // Pipeline — EINMAL vorschlagen, danach nie wieder hineinreden.
 
 import { describe, expect, it } from 'vitest'
-import { AUTO_MUSIK, nassAnteil, waehleMusik, type MusikEingabe } from '../src/pipeline/musikwahl.js'
+import {
+  AUTO_MUSIK,
+  nassAnteil,
+  waehleMusik,
+  type MusikEingabe,
+} from '../src/pipeline/musikwahl.js'
 import type { UploadSegment } from '../src/schema/upload.js'
 import type { WetterKeyframe } from '../src/pipeline/weather.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 /** Kurzer Alpen-Track auf Meereshöhe; Höhen und Modus je Test überschrieben. */
-function segment(mode: UploadSegment['mode'] = 'bike', hoehen: number[] = [400, 420, 440], lat = 46.6): UploadSegment {
+function segment(
+  mode: UploadSegment['mode'] = 'bike',
+  hoehen: number[] = [400, 420, 440],
+  lat = 46.6,
+): UploadSegment {
   return {
     mode,
-    pts: hoehen.map((h, i) => [7.9 + i * 0.004, lat, h, i * 600] as [number, number, number, number]),
+    pts: hoehen.map(
+      (h, i) => [7.9 + i * 0.004, lat, h, i * 600] as [number, number, number, number],
+    ),
   }
 }
 
@@ -44,7 +55,9 @@ describe('nassAnteil', () => {
   })
 
   it('summiert mehrere nasse Abschnitte und verträgt unsortierte Marken', () => {
-    expect(nassAnteil([kf(0.6, 'rain'), kf(0, 'rain'), kf(0.2, 'off'), kf(0.8, 'off')])).toBeCloseTo(0.4)
+    expect(
+      nassAnteil([kf(0.6, 'rain'), kf(0, 'rain'), kf(0.2, 'off'), kf(0.8, 'off')]),
+    ).toBeCloseTo(0.4)
   })
 
   it('ohne Marken ist nichts nass', () => {
@@ -68,16 +81,23 @@ describe('waehleMusik', () => {
   })
 
   it('eine Tour, die im Hellen beginnt und in die Nacht läuft, ist keine Nachtfahrt', () => {
-    const abends = eingabe({ startIso: '2026-07-04T16:00:00+02:00', endeIso: '2026-07-04T22:30:00+02:00' })
+    const abends = eingabe({
+      startIso: '2026-07-04T16:00:00+02:00',
+      endeIso: '2026-07-04T22:30:00+02:00',
+    })
     expect(waehleMusik(abends)).not.toBe(AUTO_MUSIK.nachtfahrt)
   })
 
   it('nasses Drittel gibt „Regentag"', () => {
-    expect(waehleMusik(eingabe({ wetter: [kf(0, 'rain'), kf(0.4, 'off')] }))).toBe(AUTO_MUSIK.regentag)
+    expect(waehleMusik(eingabe({ wetter: [kf(0, 'rain'), kf(0.4, 'off')] }))).toBe(
+      AUTO_MUSIK.regentag,
+    )
   })
 
   it('ein kurzer Schauer reicht nicht', () => {
-    expect(waehleMusik(eingabe({ wetter: [kf(0, 'off'), kf(0.8, 'rain'), kf(0.9, 'off')] }))).toBe(AUTO_MUSIK.aufbruch)
+    expect(waehleMusik(eingabe({ wetter: [kf(0, 'off'), kf(0.8, 'rain'), kf(0.9, 'off')] }))).toBe(
+      AUTO_MUSIK.aufbruch,
+    )
   })
 
   it('Höhenmeter geben „Bergpass"', () => {
@@ -89,23 +109,34 @@ describe('waehleMusik', () => {
   })
 
   it('auch ohne Anstieg zählt die schiere Höhe', () => {
-    expect(waehleMusik(eingabe({ segmente: [segment('bike', [2000, 2010, 2020])] }))).toBe(AUTO_MUSIK.bergpass)
+    expect(waehleMusik(eingabe({ segmente: [segment('bike', [2000, 2010, 2020])] }))).toBe(
+      AUTO_MUSIK.bergpass,
+    )
   })
 
   it('eine Fähre bedeutet Wasser', () => {
-    expect(waehleMusik(eingabe({ segmente: [segment('bike'), segment('ferry')] }))).toBe(AUTO_MUSIK.kuestenstrasse)
+    expect(waehleMusik(eingabe({ segmente: [segment('bike'), segment('ferry')] }))).toBe(
+      AUTO_MUSIK.kuestenstrasse,
+    )
   })
 
   it('zwischen den Wendekreisen läuft „Tropen"', () => {
-    expect(waehleMusik(eingabe({ segmente: [segment('moped', [10, 20, 30], 9.7)] }))).toBe(AUTO_MUSIK.tropen)
+    expect(waehleMusik(eingabe({ segmente: [segment('moped', [10, 20, 30], 9.7)] }))).toBe(
+      AUTO_MUSIK.tropen,
+    )
   })
 
   it('knapp außerhalb der Wendekreise nicht mehr', () => {
-    expect(waehleMusik(eingabe({ segmente: [segment('moped', [10, 20, 30], 24.2)] }))).not.toBe(AUTO_MUSIK.tropen)
+    expect(waehleMusik(eingabe({ segmente: [segment('moped', [10, 20, 30], 24.2)] }))).not.toBe(
+      AUTO_MUSIK.tropen,
+    )
   })
 
   it('Ankunft im Abendlicht gibt „Goldene Stunde"', () => {
-    const abend = eingabe({ startIso: '2026-07-04T15:00:00+02:00', endeIso: '2026-07-04T18:40:00+02:00' })
+    const abend = eingabe({
+      startIso: '2026-07-04T15:00:00+02:00',
+      endeIso: '2026-07-04T18:40:00+02:00',
+    })
     expect(waehleMusik(abend)).toBe(AUTO_MUSIK.goldeneStunde)
   })
 
@@ -130,7 +161,9 @@ describe('waehleMusik', () => {
   })
 
   it('unbrauchbare Zeitangaben werfen nicht, sondern fallen auf den Standard zurück', () => {
-    expect(waehleMusik(eingabe({ startIso: 'kaputt', endeIso: 'auch kaputt' }))).toBe(AUTO_MUSIK.aufbruch)
+    expect(waehleMusik(eingabe({ startIso: 'kaputt', endeIso: 'auch kaputt' }))).toBe(
+      AUTO_MUSIK.aufbruch,
+    )
     expect(waehleMusik(eingabe({ zone: 'Nirgendwo/Unbekannt' }))).toBe(AUTO_MUSIK.aufbruch)
   })
 
@@ -154,7 +187,12 @@ describe('waehleMusik', () => {
 // — Vertrag der Pipeline —
 
 async function tourBisBereit(u: TestUmgebung): Promise<string> {
-  const angelegt = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+  const angelegt = await u.app.inject({
+    method: 'POST',
+    url: '/api/tours',
+    cookies: u.cookies,
+    payload: beispielManifest(),
+  })
   const id = (angelegt.json() as { id: string }).id
   await u.app.inject({
     method: 'PUT',
@@ -163,14 +201,25 @@ async function tourBisBereit(u: TestUmgebung): Promise<string> {
     headers: { 'content-type': 'application/octet-stream' },
     payload: Buffer.from('fake-jpeg-bytes'),
   })
-  const fin = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies })
+  const fin = await u.app.inject({
+    method: 'POST',
+    url: `/api/tours/${id}/finalize`,
+    cookies: u.cookies,
+  })
   expect(fin.statusCode).toBe(202)
   await u.app.verarbeitungen.get(id)
   return id
 }
 
-async function leseEdits(u: TestUmgebung, id: string): Promise<{ audio?: Array<{ datei: string; typ: string; quelle?: string }> }> {
-  const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })
+async function leseEdits(
+  u: TestUmgebung,
+  id: string,
+): Promise<{ audio?: Array<{ datei: string; typ: string; quelle?: string }> }> {
+  const antwort = await u.app.inject({
+    method: 'GET',
+    url: `/api/tours/${id}/edits`,
+    cookies: u.cookies,
+  })
   return antwort.json() as { audio?: Array<{ datei: string; typ: string; quelle?: string }> }
 }
 
@@ -212,7 +261,11 @@ describe('Musik beim ersten Verarbeiten', () => {
       expect(weg.statusCode).toBe(202)
       await u.app.verarbeitungen.get(id)
 
-      const neu = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: u.cookies })
+      const neu = await u.app.inject({
+        method: 'POST',
+        url: `/api/tours/${id}/reprocess`,
+        cookies: u.cookies,
+      })
       expect(neu.statusCode).toBe(202)
       await u.app.verarbeitungen.get(id)
 
@@ -226,7 +279,12 @@ describe('Musik beim ersten Verarbeiten', () => {
     const u = await baueTestApp()
     try {
       // Overlay VOR dem Finalisieren setzen: die Automatik darf es nicht ersetzen.
-      const angelegt = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+      const angelegt = await u.app.inject({
+        method: 'POST',
+        url: '/api/tours',
+        cookies: u.cookies,
+        payload: beispielManifest(),
+      })
       const id = (angelegt.json() as { id: string }).id
       await u.app.inject({
         method: 'PUT',
@@ -241,10 +299,21 @@ describe('Musik beim ersten Verarbeiten', () => {
         cookies: u.cookies,
         payload: {
           schema: 'maptale/edits@1',
-          audio: [{ datei: 'mus-tropen.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00', quelle: 'bibliothek' }],
+          audio: [
+            {
+              datei: 'mus-tropen.mp3',
+              typ: 'musik',
+              ab: '2026-07-04T08:12:31+02:00',
+              quelle: 'bibliothek',
+            },
+          ],
         },
       })
-      const fin = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies })
+      const fin = await u.app.inject({
+        method: 'POST',
+        url: `/api/tours/${id}/finalize`,
+        cookies: u.cookies,
+      })
       expect(fin.statusCode).toBe(202)
       await u.app.verarbeitungen.get(id)
 

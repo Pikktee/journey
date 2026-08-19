@@ -50,7 +50,12 @@ export type KontoAngaben = {
     historie: Array<{ zeitpunkt: string; zustand: string; quelle: string; textfassung: string }>
   }
   /** Geräte, an die Push-Meldungen gehen (s. Kopf dieser Datei). */
-  pushGeraete: Array<{ plattform: string; token: string; angelegtAm: string; zuletztGesehenAm: string }>
+  pushGeraete: Array<{
+    plattform: string
+    token: string
+    angelegtAm: string
+    zuletztGesehenAm: string
+  }>
 }
 
 /** Eine Tour, wie sie im Export beschrieben wird. */

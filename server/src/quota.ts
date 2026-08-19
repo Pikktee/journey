@@ -78,7 +78,9 @@ export async function benutzteBytes(
   benutzerStorage: Storage,
   userId: string,
 ): Promise<number> {
-  const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{ id: string }>
+  const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{
+    id: string
+  }>
   let summe = 0
   for (const { id } of zeilen) summe += await storage.gesamtGroesse(id)
   for (const datei of await benutzerStorage.listeDateien(userId, 'audio')) summe += datei.groesse
@@ -110,13 +112,16 @@ export async function speicherAufteilung(
   userId: string,
 ): Promise<SpeicherAufteilung> {
   const aufteilung = LEERE_AUFTEILUNG()
-  const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{ id: string }>
+  const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{
+    id: string
+  }>
   for (const { id } of zeilen) {
     for (const datei of await storage.alleDateien(id)) {
       aufteilung[artDerDatei(datei.pfad)] += datei.groesse
     }
   }
-  for (const datei of await benutzerStorage.listeDateien(userId, 'audio')) aufteilung.klaenge += datei.groesse
+  for (const datei of await benutzerStorage.listeDateien(userId, 'audio'))
+    aufteilung.klaenge += datei.groesse
   return aufteilung
 }
 

@@ -76,11 +76,20 @@ export function umgebungsBox(segmente: readonly UploadSegment[]): {
     west = Math.min(west, lng)
     ost = Math.max(ost, lng)
   }
-  return { sued: sued - BOX_RAND, west: west - BOX_RAND, nord: nord + BOX_RAND, ost: ost + BOX_RAND }
+  return {
+    sued: sued - BOX_RAND,
+    west: west - BOX_RAND,
+    nord: nord + BOX_RAND,
+    ost: ost + BOX_RAND,
+  }
 }
 
 /** Abstand eines Punktes zur Strecke a→b (m), über eine lokale Ebene genähert. */
-function abstandZurStrecke(p: readonly number[], a: readonly number[], b: readonly number[]): number {
+function abstandZurStrecke(
+  p: readonly number[],
+  a: readonly number[],
+  b: readonly number[],
+): number {
   const mLng = 111_320 * Math.cos(((a[1] as number) * Math.PI) / 180)
   const mLat = 110_540
   const ax = 0
@@ -134,7 +143,13 @@ function aufGleis(p: UploadPunkt, gleise: readonly GleisMitBox[]): boolean {
   for (const g of gleise) {
     if (lat < g.sued || lat > g.nord || lng < g.west || lng > g.ost) continue
     for (let i = 1; i < g.weg.length; i++) {
-      if (abstandZurStrecke(p, g.weg[i - 1] as readonly [number, number], g.weg[i] as readonly [number, number]) <= KORRIDOR_M) {
+      if (
+        abstandZurStrecke(
+          p,
+          g.weg[i - 1] as readonly [number, number],
+          g.weg[i] as readonly [number, number],
+        ) <= KORRIDOR_M
+      ) {
         return true
       }
     }
@@ -158,7 +173,8 @@ export function hebeSchienenAbschnitte(
   return segmente.map((s) => {
     if (s.mode === 'walk' || s.pts.length < 2) return s
     let strecke = 0
-    for (let i = 1; i < s.pts.length; i++) strecke += distanzM(s.pts[i - 1] as UploadPunkt, s.pts[i] as UploadPunkt)
+    for (let i = 1; i < s.pts.length; i++)
+      strecke += distanzM(s.pts[i - 1] as UploadPunkt, s.pts[i] as UploadPunkt)
     if (strecke < MIN_STRECKE_M) return s
     const treffer = s.pts.filter((p) => aufGleis(p, mitBoxen)).length
     return treffer / s.pts.length >= ANTEIL ? { ...s, mode: 'tram' as Modus } : s
@@ -173,7 +189,12 @@ export class OverpassSchienen implements SchienenQuelle {
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
-  async gleise(box: { sued: number; west: number; nord: number; ost: number }): Promise<Schienenweg[]> {
+  async gleise(box: {
+    sued: number
+    west: number
+    nord: number
+    ost: number
+  }): Promise<Schienenweg[]> {
     const rechteck = `${box.sued},${box.west},${box.nord},${box.ost}`
     // `out geom` liefert die Stützpunkte gleich mit — sonst bräuchte es einen
     // zweiten Durchgang für die Knoten.
@@ -181,11 +202,16 @@ export class OverpassSchienen implements SchienenQuelle {
     const antwort = await this.fetchFn(this.basisUrl, {
       method: 'POST',
       body: `data=${encodeURIComponent(abfrage)}`,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': this.userAgent },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': this.userAgent,
+      },
       signal: AbortSignal.timeout(30_000),
     })
     if (!antwort.ok) throw new Error(`Overpass ${antwort.status}`)
-    const daten = (await antwort.json()) as { elements?: Array<{ geometry?: Array<{ lat: number; lon: number }> }> }
+    const daten = (await antwort.json()) as {
+      elements?: Array<{ geometry?: Array<{ lat: number; lon: number }> }>
+    }
     return (daten.elements ?? [])
       .map((e) => (e.geometry ?? []).map((g): readonly [number, number] => [g.lon, g.lat]))
       .filter((w) => w.length >= 2)
@@ -198,7 +224,12 @@ export class FesteSchienen implements SchienenQuelle {
 
   constructor(private readonly antwort: Schienenweg[] = []) {}
 
-  async gleise(box: { sued: number; west: number; nord: number; ost: number }): Promise<Schienenweg[]> {
+  async gleise(box: {
+    sued: number
+    west: number
+    nord: number
+    ost: number
+  }): Promise<Schienenweg[]> {
     this.abfragen.push(box)
     return this.antwort
   }

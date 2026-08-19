@@ -47,7 +47,8 @@ export function saubereKontext(roh: unknown): RueckmeldungKontext | null {
   const sauber: RueckmeldungKontext = {}
   for (const feld of KONTEXT_FELDER) {
     const wert = quelle[feld]
-    if (typeof wert === 'string' && wert.trim()) sauber[feld] = wert.trim().slice(0, MAX_KONTEXT_WERT)
+    if (typeof wert === 'string' && wert.trim())
+      sauber[feld] = wert.trim().slice(0, MAX_KONTEXT_WERT)
     else if (typeof wert === 'number' && Number.isFinite(wert)) sauber[feld] = wert
     else if (typeof wert === 'boolean') sauber[feld] = wert
   }
@@ -84,7 +85,9 @@ export function registriereRueckmeldungsRouten(app: FastifyInstance): void {
       const text = request.body.text.trim()
       if (!text) return reply.code(400).send({ fehler: 'Bitte schreib kurz, worum es geht.' })
       if (gebremst(`ip:${request.ip}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Meldungen. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Meldungen. Bitte versuche es später erneut.' })
       }
       // Eine unbrauchbare Adresse wird verworfen und nicht bemängelt: Sie ist
       // freiwillig, und die Meldung ist auch ohne sie etwas wert.

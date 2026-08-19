@@ -76,7 +76,11 @@ describe('Warteliste — eintragen und bestätigen', () => {
     await bestaetige(u, token)
     const vorher = u.mail.nachrichten.length
 
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/warteliste', payload: { email: 'anna@example.com' } })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/warteliste',
+      payload: { email: 'anna@example.com' },
+    })
     expect(antwort.statusCode).toBe(200)
     expect(u.mail.nachrichten.length).toBe(vorher)
     expect(u.app.warteliste.alle()).toHaveLength(1)
@@ -100,14 +104,22 @@ describe('Warteliste — eintragen und bestätigen', () => {
   it('bleibt zu, solange die Warteliste nicht angeboten wird', async () => {
     const u = await baueTestApp()
     u.app.warteliste.setzeOffen(false)
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/warteliste', payload: { email: 'anna@example.com' } })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/warteliste',
+      payload: { email: 'anna@example.com' },
+    })
     expect(antwort.statusCode).toBe(403)
   })
 
   it('steht nicht vor der Tür, wenn sich ohnehin jeder anmelden kann', async () => {
     const u = await baueTestApp()
     u.app.einladungen.setzePflicht(false)
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/warteliste', payload: { email: 'anna@example.com' } })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/warteliste',
+      payload: { email: 'anna@example.com' },
+    })
     expect(antwort.statusCode).toBe(403)
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me' })
     expect(me.json().registrierung.warteliste).toBe(false)
@@ -139,7 +151,11 @@ describe('Warteliste — austragen', () => {
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
 
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/warteliste/austragen', payload: { token } })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/warteliste/austragen',
+      payload: { token },
+    })
     expect(antwort.statusCode).toBe(200)
     expect(u.app.warteliste.alle()).toHaveLength(0)
   })
@@ -153,12 +169,23 @@ describe('Warteliste — austragen', () => {
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
     const id = u.app.warteliste.alle()[0]?.id as string
-    await u.app.inject({ method: 'POST', url: `/api/admin/warteliste/${id}/einladen`, cookies: admin.cookies, payload: {} })
+    await u.app.inject({
+      method: 'POST',
+      url: `/api/admin/warteliste/${id}/einladen`,
+      cookies: admin.cookies,
+      payload: {},
+    })
     // NICHT letzterLink(): Der Text trägt zuerst den Einladungs-, dann den
     // Austragen-Link — die Hilfsfunktion greift den ersten.
-    const austragToken = (u.mail.nachrichten.at(-1)?.text ?? '').match(/#warteliste-austragen=(\S+)/)?.[1] as string
+    const austragToken = (u.mail.nachrichten.at(-1)?.text ?? '').match(
+      /#warteliste-austragen=(\S+)/,
+    )?.[1] as string
 
-    await u.app.inject({ method: 'POST', url: '/api/auth/warteliste/austragen', payload: { token: austragToken } })
+    await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/warteliste/austragen',
+      payload: { token: austragToken },
+    })
     expect(u.app.warteliste.alle()).toHaveLength(0)
     expect(u.app.einladungen.alle()).toHaveLength(0)
   })
@@ -177,14 +204,24 @@ describe('Warteliste — austragen', () => {
     })
     // NICHT letzterLink(): Der Text trägt zuerst den Einladungs-, dann den
     // Austragen-Link — die Hilfsfunktion greift den ersten.
-    const austragToken = (u.mail.nachrichten.at(-1)?.text ?? '').match(/#warteliste-austragen=(\S+)/)?.[1] as string
+    const austragToken = (u.mail.nachrichten.at(-1)?.text ?? '').match(
+      /#warteliste-austragen=(\S+)/,
+    )?.[1] as string
     await u.app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'anna@example.com', passwort: 'lampe wolke treppe', code: einladen.json().einladung.code },
+      payload: {
+        email: 'anna@example.com',
+        passwort: 'lampe wolke treppe',
+        code: einladen.json().einladung.code,
+      },
     })
 
-    await u.app.inject({ method: 'POST', url: '/api/auth/warteliste/austragen', payload: { token: austragToken } })
+    await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/warteliste/austragen',
+      payload: { token: austragToken },
+    })
     expect(u.app.warteliste.alle()).toHaveLength(0)
     expect(u.app.einladungen.alle()).toHaveLength(1)
   })
@@ -224,7 +261,10 @@ describe('Warteliste — freischalten', () => {
     expect(mail.text).toContain('#warteliste-austragen=')
 
     // Der Eintrag zeigt den Faden zur Einladung, die Einladung die Adresse
-    expect(u.app.warteliste.alle()[0]).toMatchObject({ zustand: 'eingeladen', eingeladenCode: einladung.code })
+    expect(u.app.warteliste.alle()[0]).toMatchObject({
+      zustand: 'eingeladen',
+      eingeladenCode: einladung.code,
+    })
     expect(u.app.einladungen.alle()[0]?.notiz).toBe('anna@example.com')
 
     // Der Code aus der Mail trägt tatsächlich durch die Registrierung
@@ -303,7 +343,11 @@ describe('Warteliste — freischalten', () => {
 
   it('hält Nicht-Admins von der Liste fern', async () => {
     const u = await baueTestApp()
-    const antwort = await u.app.inject({ method: 'GET', url: '/api/admin/warteliste', cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/warteliste',
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(403)
   })
 
@@ -313,7 +357,11 @@ describe('Warteliste — freischalten', () => {
     await trageEin(u, 'anna@example.com')
     const id = u.app.warteliste.alle()[0]?.id as string
 
-    const antwort = await u.app.inject({ method: 'DELETE', url: `/api/admin/warteliste/${id}`, cookies: admin.cookies })
+    const antwort = await u.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/warteliste/${id}`,
+      cookies: admin.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     expect(u.app.warteliste.alle()).toHaveLength(0)
   })
@@ -342,10 +390,15 @@ describe('Warteliste — Fristen', () => {
 
     // Den alten Eintrag künstlich altern lassen (20 Tage)
     const zwanzigTage = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
-    u.app.deps.db.prepare('UPDATE warteliste SET eingetragen_am = ? WHERE email = ?').run(zwanzigTage, 'alt@example.com')
+    u.app.deps.db
+      .prepare('UPDATE warteliste SET eingetragen_am = ? WHERE email = ?')
+      .run(zwanzigTage, 'alt@example.com')
 
     expect(u.app.warteliste.raeumeAuf()).toBe(1)
-    expect(u.app.warteliste.alle().map((e) => e.email)).toEqual(['frisch@example.com', 'geduldig@example.com'])
+    expect(u.app.warteliste.alle().map((e) => e.email)).toEqual([
+      'frisch@example.com',
+      'geduldig@example.com',
+    ])
   })
 
   it('löscht Eingeladene, sobald ihr Code lange durch ist', async () => {

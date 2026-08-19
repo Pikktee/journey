@@ -50,41 +50,61 @@ async function lauf(altesGate) {
     })
   }
 
-  const ergebnis = await seite.evaluate(
-    async (msImHintergrund) => {
-      const t = window.__j.tour
-      const warte = (ms) => new Promise((r) => setTimeout(r, ms))
-      const tonEl = () => (window.__toene ?? []).find((e) => e.currentSrc)
-      const ton = tonEl()
-      const vorher = { s: t.s, ton: ton ? ton.currentTime : null, quelle: ton?.currentSrc.split('/').pop() ?? null }
+  const ergebnis = await seite.evaluate(async (msImHintergrund) => {
+    const t = window.__j.tour
+    const warte = (ms) => new Promise((r) => setTimeout(r, ms))
+    const tonEl = () => (window.__toene ?? []).find((e) => e.currentSrc)
+    const ton = tonEl()
+    const vorher = {
+      s: t.s,
+      ton: ton ? ton.currentTime : null,
+      quelle: ton?.currentSrc.split('/').pop() ?? null,
+    }
 
-      // 1. rAF-Kette kappen — wie im Hintergrund-Tab.
-      const echtesRaf = window.requestAnimationFrame.bind(window)
-      let frames = 0
-      window.requestAnimationFrame = () => { frames++; return 0 }
-      // 2. Seite als versteckt melden.
-      Object.defineProperty(document, 'visibilityState', { get: () => 'hidden', configurable: true })
-      document.dispatchEvent(new Event('visibilitychange'))
+    // 1. rAF-Kette kappen — wie im Hintergrund-Tab.
+    const echtesRaf = window.requestAnimationFrame.bind(window)
+    let frames = 0
+    window.requestAnimationFrame = () => {
+      frames++
+      return 0
+    }
+    // 2. Seite als versteckt melden.
+    Object.defineProperty(document, 'visibilityState', { get: () => 'hidden', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
 
-      await warte(msImHintergrund)
+    await warte(msImHintergrund)
 
-      const mitten = { s: t.s, ton: ton ? ton.currentTime : null, tonLaeuft: ton ? !ton.paused : null }
+    const mitten = {
+      s: t.s,
+      ton: ton ? ton.currentTime : null,
+      tonLaeuft: ton ? !ton.paused : null,
+    }
 
-      // 3. Zurück in den Vordergrund.
-      Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true })
-      document.dispatchEvent(new Event('visibilitychange'))
-      window.requestAnimationFrame = echtesRaf
-      echtesRaf(window.__j.tour.tick.bind(window.__j.tour)) // Kette wieder anwerfen
-      await warte(500)
+    // 3. Zurück in den Vordergrund.
+    Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+    window.requestAnimationFrame = echtesRaf
+    echtesRaf(window.__j.tour.tick.bind(window.__j.tour)) // Kette wieder anwerfen
+    await warte(500)
 
-      const nachher = { s: t.s, ton: ton ? ton.currentTime : null, tonLaeuft: ton ? !ton.paused : null }
-      return {
-        vorher, mitten, nachher, angefragteFrames: frames,
-        uhr: { pausen: t.uhr.pausen, pausiertS: t.uhr.pausiertS, selbstweiter: t.uhr.selbstweiter, verworfenS: t.uhr.verworfenS },
-      }
-    },
-    HINTERGRUND_MS,
-  )
+    const nachher = {
+      s: t.s,
+      ton: ton ? ton.currentTime : null,
+      tonLaeuft: ton ? !ton.paused : null,
+    }
+    return {
+      vorher,
+      mitten,
+      nachher,
+      angefragteFrames: frames,
+      uhr: {
+        pausen: t.uhr.pausen,
+        pausiertS: t.uhr.pausiertS,
+        selbstweiter: t.uhr.selbstweiter,
+        verworfenS: t.uhr.verworfenS,
+      },
+    }
+  }, HINTERGRUND_MS)
   await browser.close()
   return ergebnis
 }
@@ -96,8 +116,14 @@ for (const altesGate of [true, false]) {
   console.log(`\n— ${altesGate ? 'altes Gate (uhr.laeuft überschrieben)' : 'wie ausgeliefert'} —`)
   console.log(`  Tonquelle:              ${e.vorher.quelle ?? '(keine)'}`)
   console.log(`  Bild im Hintergrund:    ${dS.toFixed(1)} m`)
-  console.log(`  Ton im Hintergrund:     ${dTon === null ? '(kein Element)' : `+${dTon.toFixed(2)} s`} (läuft: ${e.mitten.tonLaeuft})`)
+  console.log(
+    `  Ton im Hintergrund:     ${dTon === null ? '(kein Element)' : `+${dTon.toFixed(2)} s`} (läuft: ${e.mitten.tonLaeuft})`,
+  )
   console.log(`  rAF-Anfragen (gekappt): ${e.angefragteFrames}`)
-  console.log(`  Uhr: pausen=${e.uhr.pausen} pausiertS=${e.uhr.pausiertS.toFixed(2)} selbstweiter=${e.uhr.selbstweiter}`)
-  console.log(`  nach der Rückkehr:      Ton läuft: ${e.nachher.tonLaeuft}, Bild +${(e.nachher.s - e.mitten.s).toFixed(1)} m`)
+  console.log(
+    `  Uhr: pausen=${e.uhr.pausen} pausiertS=${e.uhr.pausiertS.toFixed(2)} selbstweiter=${e.uhr.selbstweiter}`,
+  )
+  console.log(
+    `  nach der Rückkehr:      Ton läuft: ${e.nachher.tonLaeuft}, Bild +${(e.nachher.s - e.mitten.s).toFixed(1)} m`,
+  )
 }

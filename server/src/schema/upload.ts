@@ -97,7 +97,8 @@ export interface UploadManifest {
 // VOLL verankert (^…$): ein unverankertes Präfix-Pattern ließe beliebige
 // Anhängsel durch — Zeitstempel landen in Editor/Doku, HTML hat dort nichts
 // verloren (Review-Fund M7). Erlaubt: Sekundenbruchteile, `Z` oder `±HH:MM`.
-export const ISO_ZEIT_PATTERN = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$'
+export const ISO_ZEIT_PATTERN =
+  '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$'
 export const ISO_ZEIT_MAXLAENGE = 40
 
 // Eigenschaften eines Medien-Eintrags OHNE die ID — geteilt zwischen dem

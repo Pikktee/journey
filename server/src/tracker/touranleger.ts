@@ -78,7 +78,8 @@ export interface AnlageErgebnis {
 /** Länge eines GPX in Metern (grob, für die Mindestgröße — nicht für Statistik). */
 function streckeM(gpx: string): number {
   const punkte: Array<[number, number]> = []
-  const re = /<trkpt\b[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"|<trkpt\b[^>]*lon="([^"]+)"[^>]*lat="([^"]+)"/g
+  const re =
+    /<trkpt\b[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"|<trkpt\b[^>]*lon="([^"]+)"[^>]*lat="([^"]+)"/g
   let m: RegExpExecArray | null
   while ((m = re.exec(gpx))) {
     const lat = Number(m[1] ?? m[4])
@@ -90,7 +91,8 @@ function streckeM(gpx: string): number {
     const [aLat = 0, aLng = 0] = punkte[i - 1] as [number, number]
     const [bLat = 0, bLng = 0] = punkte[i] as [number, number]
     const dLat = ((bLat - aLat) * Math.PI * 6371000) / 180
-    const dLng = (((bLng - aLng) * Math.PI * 6371000) / 180) * Math.cos(((aLat + bLat) / 2) * (Math.PI / 180))
+    const dLng =
+      (((bLng - aLng) * Math.PI * 6371000) / 180) * Math.cos(((aLat + bLat) / 2) * (Math.PI / 180))
     summe += Math.hypot(dLat, dLng)
   }
   return summe

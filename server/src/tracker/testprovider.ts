@@ -72,7 +72,11 @@ export class TestProvider implements TrackerProvider {
       if (!this.opt.istPing) return false
       try {
         const daten = JSON.parse(anfrage.rohBody || '{}') as Record<string, unknown>
-        return daten['event'] === 'PING' && daten['user_id'] === undefined && daten['entity_id'] === undefined
+        return (
+          daten['event'] === 'PING' &&
+          daten['user_id'] === undefined &&
+          daten['entity_id'] === undefined
+        )
       } catch {
         return false
       }

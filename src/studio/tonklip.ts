@@ -84,7 +84,11 @@ export interface TonPatch {
  * innerhalb eines Halts, wo es gar keine unterscheidbare Aufnahmezeit gibt,
  * fielen alle Lagen auf die linke Haltkante zusammen.
  */
-export function verankere(achse: Achse, startIso: string, filmVon: number): { anker: string; versatzFilmS: number } {
+export function verankere(
+  achse: Achse,
+  startIso: string,
+  filmVon: number,
+): { anker: string; versatzFilmS: number } {
   if (!achse.kurve) return { anker: offsetZuIso(startIso, filmVon), versatzFilmS: 0 }
   const offsetS = zeitBeiFilm(achse.kurve, filmVon)
   // Auf ganze Sekunden runden: `offsetZuIso` schreibt einen sekundengenauen
@@ -119,7 +123,8 @@ function loeseLage(
   const gesamtS = achse.kurve?.gesamtS ?? 0
   const neu = a.anker !== undefined || a.versatzFilmS !== undefined || a.dauerFilmS !== undefined
   const basisIso = a.anker ?? a.ab
-  const filmVon = filmZuOffset(achse, isoZuOffset(startIso, basisIso)) + (neu ? (a.versatzFilmS ?? 0) : 0)
+  const filmVon =
+    filmZuOffset(achse, isoZuOffset(startIso, basisIso)) + (neu ? (a.versatzFilmS ?? 0) : 0)
 
   let filmBis: number
   let laengeGesetzt = true
@@ -220,7 +225,12 @@ export interface TrimErgebnis {
  * Anker wandert. Genau das macht ihn zum „connected clip": Er hängt danach an
  * einer anderen Stelle der REISE und rückt mit ihr mit.
  */
-export function verschiebeTon(achse: Achse, startIso: string, klip: TonKlip, neuFilmVon: number): TonPatch {
+export function verschiebeTon(
+  achse: Achse,
+  startIso: string,
+  klip: TonKlip,
+  neuFilmVon: number,
+): TonPatch {
   const gesamtS = achse.kurve?.gesamtS ?? 0
   const laenge = klip.filmBis - klip.filmVon
   // Ein Klip mit fester Länge bleibt ganz in der Tour; einer, der bis zum Ende
@@ -241,7 +251,12 @@ export function verschiebeTon(achse: Achse, startIso: string, klip: TonKlip, neu
  * frei, statt zu verschieben. Anschlag ist der DATEIANFANG, und daran ändert
  * Loop nichts: Vor dem Anfang gibt es nichts zu wiederholen.
  */
-export function trimmeLinks(achse: Achse, startIso: string, klip: TonKlip, neuFilmVon: number): TrimErgebnis {
+export function trimmeLinks(
+  achse: Achse,
+  startIso: string,
+  klip: TonKlip,
+  neuFilmVon: number,
+): TrimErgebnis {
   // Wie weit die Kante nach LINKS darf, sagt der Einstieg: so viel Datei liegt
   // vor dem, was gerade zu hören ist.
   const minVon = klip.filmVon - klip.einstiegS
@@ -267,12 +282,19 @@ export function trimmeLinks(achse: Achse, startIso: string, klip: TonKlip, neuFi
  * Stille, und Stille gehört zwischen die Klips, nicht in einen. MIT Loop fällt
  * genau dieser eine Anschlag weg: die Datei fängt am Ende wieder von vorn an.
  */
-export function trimmeRechts(achse: Achse, startIso: string, klip: TonKlip, neuFilmBis: number): TrimErgebnis {
+export function trimmeRechts(
+  achse: Achse,
+  startIso: string,
+  klip: TonKlip,
+  neuFilmBis: number,
+): TrimErgebnis {
   const minBis = klip.filmVon + TON_MIN_S
   // Rest des Materials hinter dem Einstieg. Unbekannt (noch nicht gemessen) →
   // kein Anschlag: lieber ziehen lassen als eine Kante, die grundlos klemmt.
   const maxBis =
-    !klip.loop && klip.dateiS !== undefined ? klip.filmVon + Math.max(0, klip.dateiS - klip.einstiegS) : Infinity
+    !klip.loop && klip.dateiS !== undefined
+      ? klip.filmVon + Math.max(0, klip.dateiS - klip.einstiegS)
+      : Infinity
   const ziel = Math.max(minBis, Math.min(neuFilmBis, maxBis))
   return {
     // Die linke Kante bewegt sich nicht — sie wird nur mitgeschrieben, damit
@@ -365,7 +387,9 @@ export function wellenLage(
 ): { breiteAnteil: number; versatzAnteil: number; wiederholungen: number } | null {
   if (!(klip.dateiS && klip.dateiS > 0) || !(gesamtFilmS > 0)) return null
   const klipS = klip.filmBis - klip.filmVon
-  const wiederholungen = klip.loop ? Math.max(1, Math.ceil((klip.einstiegS + klipS) / klip.dateiS)) : 1
+  const wiederholungen = klip.loop
+    ? Math.max(1, Math.ceil((klip.einstiegS + klipS) / klip.dateiS))
+    : 1
   return {
     breiteAnteil: klip.dateiS / gesamtFilmS,
     versatzAnteil: -klip.einstiegS / gesamtFilmS,

@@ -19,7 +19,14 @@ import { buildRoute, nearestS, gruppiereStopps } from '../../src/geo.js'
 const WURZEL = process.env['MAPTALE_DATEN_DIR']
   ? `${process.env['MAPTALE_DATEN_DIR']}/tours`
   : new URL('../../server/daten/tours', import.meta.url).pathname
-const TEMPO: Record<string, number> = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
+const TEMPO: Record<string, number> = {
+  walk: 0.4,
+  bike: 1,
+  moped: 1.15,
+  jeep: 1.45,
+  tram: 1.25,
+  ferry: 2.5,
+}
 const BASIS = 120
 const HOLD_HIDE = 5.2
 const HOLD_AUSBLEND = 0.8
@@ -30,7 +37,9 @@ const meter = (a: number[], b: number[]): number => {
   return Math.hypot((b[0]! - a[0]!) * kx, (b[1]! - a[1]!) * 110_540)
 }
 
-console.log('Tour              Stopps  Studio-Film   Player real   Differenz   davon Route   davon Rampen   je Stopp')
+console.log(
+  'Tour              Stopps  Studio-Film   Player real   Differenz   davon Route   davon Rampen   je Stopp',
+)
 for (const id of readdirSync(WURZEL)) {
   let tour: any
   try {
@@ -71,7 +80,9 @@ for (const id of readdirSync(WURZEL)) {
   let filmHalt = 0
   for (const st of stopps)
     for (const it of st.items)
-      filmHalt += (it.type === 'video' ? (it.durationS ?? HOLD_HIDE) : (it.display?.holdS ?? HOLD_HIDE)) + HOLD_AUSBLEND
+      filmHalt +=
+        (it.type === 'video' ? (it.durationS ?? HOLD_HIDE) : (it.display?.holdS ?? HOLD_HIDE)) +
+        HOLD_AUSBLEND
 
   // — Simulation der Engine (tour.ts:916-953) —
   let s = 0
@@ -88,7 +99,8 @@ for (const id of readdirSync(WURZEL)) {
       holdT += DT
       t += DT
       const it: any = stopps[idx - 1]?.items[itemIdx]
-      const dauer = it?.type === 'video' ? (it.durationS ?? HOLD_HIDE) : (it?.display?.holdS ?? HOLD_HIDE)
+      const dauer =
+        it?.type === 'video' ? (it.durationS ?? HOLD_HIDE) : (it?.display?.holdS ?? HOLD_HIDE)
       if (holdT >= dauer) {
         holdT = 0
         if (itemIdx + 1 < (stopps[idx - 1]?.items.length ?? 1)) itemIdx++
@@ -124,7 +136,7 @@ for (const id of readdirSync(WURZEL)) {
 
   const studio = filmFahrtStudio + filmHalt
   const diff = t - studio
-  const routeAnteil = (filmFahrtStudio * skala) - filmFahrtStudio
+  const routeAnteil = filmFahrtStudio * skala - filmFahrtStudio
   const rampen = diff - routeAnteil
   const f = (x: number, n = 1) => x.toFixed(n)
   console.log(

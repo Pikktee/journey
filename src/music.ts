@@ -26,7 +26,10 @@ export interface Hintergrundmusik {
   destroy(): void
 }
 
-export function createMusic(url: string, { volume = 0.16 }: { volume?: number } = {}): Hintergrundmusik {
+export function createMusic(
+  url: string,
+  { volume = 0.16 }: { volume?: number } = {},
+): Hintergrundmusik {
   const loop = new SeamlessLoop(url, { xfade: 1.4 })
   let enabled = true
   let gate = (): boolean => false
@@ -49,17 +52,40 @@ export function createMusic(url: string, { volume = 0.16 }: { volume?: number } 
   }, 60)
 
   // Autoplay-Block nach der ersten User-Geste aufheben (Retry im Timer)
-  window.addEventListener('pointerdown', () => { loop._blocked = false }, { passive: true })
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      loop._blocked = false
+    },
+    { passive: true },
+  )
 
   return {
-    setGate: (fn: () => boolean) => { gate = fn },
-    setEnabled: (on: boolean) => { enabled = on },
+    setGate: (fn: () => boolean) => {
+      gate = fn
+    },
+    setEnabled: (on: boolean) => {
+      enabled = on
+    },
     // Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel.
-    setDucking: (pegel: DuckPegel) => { duckTgt = videoMusikDuck(alsHuelle(pegel)) },
-    verklinge: () => { verklingt = true },
-    get enabled() { return enabled },
-    get playing() { return !loop.paused }, // Debug/Abnahme
-    get level() { return master }, // Debug/Abnahme
-    destroy: () => { clearInterval(timer); loop.pause() },
+    setDucking: (pegel: DuckPegel) => {
+      duckTgt = videoMusikDuck(alsHuelle(pegel))
+    },
+    verklinge: () => {
+      verklingt = true
+    },
+    get enabled() {
+      return enabled
+    },
+    get playing() {
+      return !loop.paused
+    }, // Debug/Abnahme
+    get level() {
+      return master
+    }, // Debug/Abnahme
+    destroy: () => {
+      clearInterval(timer)
+      loop.pause()
+    },
   }
 }

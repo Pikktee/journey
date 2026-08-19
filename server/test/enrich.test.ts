@@ -8,9 +8,20 @@ import { kollabierePausen } from '../src/pipeline/zeit.js'
 import { mediumDateiname, type UploadManifest, type UploadPunkt } from '../src/schema/upload.js'
 import { beispielManifest } from './helfer.js'
 
-const bewoelkt = () => new FesteWetterQuelle(testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))))
+const bewoelkt = () =>
+  new FesteWetterQuelle(
+    testRaster(
+      '2026-07-04T06',
+      Array.from({ length: 7 }, () => ({ wolken: 80 })),
+    ),
+  )
 const regnerisch = () =>
-  new FesteWetterQuelle(testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ code: 61, regenMm: 1, wolken: 95 }))))
+  new FesteWetterQuelle(
+    testRaster(
+      '2026-07-04T06',
+      Array.from({ length: 7 }, () => ({ code: 61, regenMm: 1, wolken: 95 })),
+    ),
+  )
 
 const eingabe = (patch: Partial<Parameters<typeof reichereAn>[0]> = {}) => ({
   tourId: 't_test1234',
@@ -54,7 +65,8 @@ describe('reichereAn', () => {
     // deshalb beide Male denselben Wert.
     expect(alle[0]).toBe(0)
     expect(alle.at(-1)).toBeCloseTo(1, 12)
-    for (let i = 1; i < alle.length; i++) expect(alle[i]).toBeGreaterThanOrEqual(alle[i - 1] as number)
+    for (let i = 1; i < alle.length; i++)
+      expect(alle[i]).toBeGreaterThanOrEqual(alle[i - 1] as number)
     const naht = tour.segments[0]?.f?.at(-1)
     expect(tour.segments[1]?.f?.[0]).toBe(naht)
   })
@@ -76,7 +88,8 @@ describe('reichereAn', () => {
     // f des zweiten gelieferten Punktes = Rohdistanz bis dorthin / Gesamt-Roh
     const rohBis = (bis: number) => {
       let m = 0
-      for (let i = 1; i <= bis; i++) m += distanzM(bogen[i - 1] as UploadPunkt, bogen[i] as UploadPunkt)
+      for (let i = 1; i <= bis; i++)
+        m += distanzM(bogen[i - 1] as UploadPunkt, bogen[i] as UploadPunkt)
       return m
     }
     const zweiter = seg?.pts[1] as [number, number, number]
@@ -154,7 +167,9 @@ describe('reichereAn', () => {
       anchor: [7.9142, 46.5872],
       caption: null,
     })
-    const videoMeta = new Map([['m2', { dauerS: 12.5, videoDatei: 'm2.web.mp4', posterDatei: 'm2.poster.jpg' }]])
+    const videoMeta = new Map([
+      ['m2', { dauerS: 12.5, videoDatei: 'm2.web.mp4', posterDatei: 'm2.poster.jpg' }],
+    ])
     const tour = await reichereAn(eingabe({ manifest, videoMeta }))
     const v = tour.media.find((m) => m.id === 'm2')
     expect(v?.type).toBe('video')
@@ -181,7 +196,12 @@ describe('reichereAn', () => {
 
   it('platziert ein Medium ohne Anker per Zeit-Mapping (M6)', async () => {
     const manifest = beispielManifest()
-    manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T10:00:00+02:00' })
+    manifest.media.push({
+      id: 'm2',
+      type: 'photo',
+      file: 'x.jpg',
+      takenAt: '2026-07-04T10:00:00+02:00',
+    })
     const tour = await reichereAn(eingabe({ manifest }))
     expect(tour.media.map((m) => m.id)).toEqual(['m1', 'm2'])
     const m2 = tour.media.find((m) => m.id === 'm2')
@@ -192,7 +212,12 @@ describe('reichereAn', () => {
   it('lässt ein Medium außerhalb der Tour-Zeit ohne Anker unplatziert (M6)', async () => {
     const manifest = beispielManifest()
     // takenAt VOR time.start (08:12) → keine Track-Zeit, kein GPS → unplatziert
-    manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T06:00:00+02:00' })
+    manifest.media.push({
+      id: 'm2',
+      type: 'photo',
+      file: 'x.jpg',
+      takenAt: '2026-07-04T06:00:00+02:00',
+    })
     const tour = await reichereAn(eingabe({ manifest }))
     const m2 = tour.media.find((m) => m.id === 'm2')
     expect(m2?.placement).toBe('unplatziert')
@@ -206,8 +231,18 @@ describe('reichereAn', () => {
     // angezeigt, aber das entscheidet der Player (`UI.zeitfenster` in
     // src/ui.ts), nicht die Pipeline: `takenAt` bleibt roh im JSON, weil das
     // Auto-Wetter und die Sortierung daran hängen.
-    manifest.media.push({ id: 'vorher', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T06:00:00+02:00' })
-    manifest.media.push({ id: 'nachher', type: 'video', file: 'y.mp4', takenAt: '2026-07-04T20:00:00+02:00' })
+    manifest.media.push({
+      id: 'vorher',
+      type: 'photo',
+      file: 'x.jpg',
+      takenAt: '2026-07-04T06:00:00+02:00',
+    })
+    manifest.media.push({
+      id: 'nachher',
+      type: 'video',
+      file: 'y.mp4',
+      takenAt: '2026-07-04T20:00:00+02:00',
+    })
     const tour = await reichereAn(eingabe({ manifest }))
     expect(tour.media.find((m) => m.id === 'vorher')?.takenAt).toBe('2026-07-04T06:00:00+02:00')
     expect(tour.media.find((m) => m.id === 'nachher')?.takenAt).toBe('2026-07-04T20:00:00+02:00')
@@ -238,7 +273,9 @@ describe('reichereAn', () => {
     expect(aus.showFinale).toBe(false)
     expect(aus.finaleTitle).toBe('Grindelwald')
 
-    const an = await reichereAn(eingabe({ showFinale: true, finaleZielOverride: 'Gletscherschlucht' }))
+    const an = await reichereAn(
+      eingabe({ showFinale: true, finaleZielOverride: 'Gletscherschlucht' }),
+    )
     expect(an.showFinale).toBe(true)
     expect(an.finaleTitle).toBe('Gletscherschlucht')
 
@@ -254,14 +291,19 @@ describe('reichereAn', () => {
     expect(tour.timeline[tour.timeline.length - 1]?.f).toBe(1)
     for (let i = 1; i < tour.timeline.length; i++) {
       expect(tour.timeline[i]?.f).toBeGreaterThanOrEqual(tour.timeline[i - 1]?.f ?? 0)
-      expect(Date.parse(tour.timeline[i]?.t ?? '')).toBeGreaterThanOrEqual(Date.parse(tour.timeline[i - 1]?.t ?? ''))
+      expect(Date.parse(tour.timeline[i]?.t ?? '')).toBeGreaterThanOrEqual(
+        Date.parse(tour.timeline[i - 1]?.t ?? ''),
+      )
     }
   })
 
   it('rendert Auto-Wetter-Keyframes, wenn eine Quelle da ist (M2)', async () => {
     // Tour läuft 06:12–12:02 UTC → 7 Stunden-Raster deckt alle Samples
     const wetter = new FesteWetterQuelle(
-      testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))),
+      testRaster(
+        '2026-07-04T06',
+        Array.from({ length: 7 }, () => ({ wolken: 80 })),
+      ),
     )
     const tour = await reichereAn(eingabe({ wetter }))
     expect(tour.weather).toEqual([{ f: 0, mode: 'clouds', k: 0.84, source: 'openmeteo' }])
@@ -269,7 +311,13 @@ describe('reichereAn', () => {
   })
 
   it('lässt weather bei Quellen-Ausfall weg statt zu scheitern', async () => {
-    const kaputt = new FesteWetterQuelle({ zeiten: [], code: [], wolken: [], regen: [], schnee: [] })
+    const kaputt = new FesteWetterQuelle({
+      zeiten: [],
+      code: [],
+      wolken: [],
+      regen: [],
+      schnee: [],
+    })
     const meldungen: string[] = []
     const tour = await reichereAn(eingabe({ wetter: kaputt, protokoll: (m) => meldungen.push(m) }))
     expect(tour.status).toBe('bereit')
@@ -280,7 +328,12 @@ describe('reichereAn', () => {
 
   // — Wetter-Verfeinerung per Bildanalyse (M5) —
 
-  const gewitterBefund: BildBefund = { himmel: 'bedeckt', niederschlag: 'gewitter', himmelSichtbar: true, konfidenz: 0.9 }
+  const gewitterBefund: BildBefund = {
+    himmel: 'bedeckt',
+    niederschlag: 'gewitter',
+    himmelSichtbar: true,
+    konfidenz: 0.9,
+  }
 
   it('verfeinert das Wetter mit Foto-Befunden: ein source:photo-Keyframe erscheint (M5)', async () => {
     const bildBefunde = new Map<string, BildBefund>([['m1', gewitterBefund]])
@@ -304,7 +357,12 @@ describe('reichereAn', () => {
   it('überspringt unplatzierte Fotos bei der Verfeinerung (M5)', async () => {
     const manifest = beispielManifest()
     // takenAt VOR time.start → unplatziert (kein Anker) → Befund wird ignoriert
-    manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T06:00:00+02:00' })
+    manifest.media.push({
+      id: 'm2',
+      type: 'photo',
+      file: 'x.jpg',
+      takenAt: '2026-07-04T06:00:00+02:00',
+    })
     const bildBefunde = new Map<string, BildBefund>([['m2', gewitterBefund]])
     const tour = await reichereAn(eingabe({ manifest, wetter: bewoelkt(), bildBefunde }))
     expect(tour.weather?.some((w) => w.source === 'photo')).toBeFalsy()
@@ -323,7 +381,10 @@ describe('reichereAn', () => {
   it('edits.wetter ersetzt das Auto-Wetter und ruft die Quelle gar nicht', async () => {
     const wetter = bewoelkt()
     const tour = await reichereAn(
-      eingabe({ wetter, edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(0), mode: 'rain' }] } }),
+      eingabe({
+        wetter,
+        edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(0), mode: 'rain' }] },
+      }),
     )
     expect(tour.weather?.every((w) => w.source === 'studio')).toBe(true)
     expect(tour.weather?.every((w) => w.mode === 'rain')).toBe(true) // Grenze am Start → ganze Tour Regen
@@ -345,13 +406,17 @@ describe('reichereAn', () => {
 
   it('eine Wetter-Grenze in der Mitte schaltet exakt dort um', async () => {
     const tour = await reichereAn(
-      eingabe({ edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(10500), mode: 'storm' }] } }),
+      eingabe({
+        edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(10500), mode: 'storm' }] },
+      }),
     )
     const w = tour.weather ?? []
     expect(w[0]).toMatchObject({ f: 0, mode: 'off' }) // Grund vor der Grenze = klar
     expect(w[w.length - 1]).toMatchObject({ f: 1, mode: 'storm' })
     // Umschalt-Paar: zwei Marken auf demselben f, alter → neuer Modus
-    const paar = w.findIndex((k, i) => i > 0 && w[i - 1]?.f === k.f && w[i - 1]?.mode === 'off' && k.mode === 'storm')
+    const paar = w.findIndex(
+      (k, i) => i > 0 && w[i - 1]?.f === k.f && w[i - 1]?.mode === 'off' && k.mode === 'storm',
+    )
     expect(paar).toBeGreaterThan(0)
   })
 })
@@ -383,9 +448,9 @@ describe('bestimmeCover', () => {
   })
 
   it('gewähltes Video liefert sein Standbild', () => {
-    expect(bestimmeCover([foto('m1'), video('m2', '/api/media/t1/m2.poster.jpg')], 'm2')?.cover).toBe(
-      '/api/media/t1/m2.poster.jpg',
-    )
+    expect(
+      bestimmeCover([foto('m1'), video('m2', '/api/media/t1/m2.poster.jpg')], 'm2')?.cover,
+    ).toBe('/api/media/t1/m2.poster.jpg')
   })
 
   it('zeigt die Wahl ins Leere, wird still das erste Foto genommen', () => {
@@ -407,12 +472,18 @@ describe('bestimmeCover', () => {
 
 describe('mediumDateiname', () => {
   it('normalisiert jpeg → jpg und nutzt die Medien-ID', () => {
-    expect(mediumDateiname({ id: 'abc', type: 'photo', file: 'Foto.JPEG', takenAt: '' })).toBe('abc.jpg')
+    expect(mediumDateiname({ id: 'abc', type: 'photo', file: 'Foto.JPEG', takenAt: '' })).toBe(
+      'abc.jpg',
+    )
   })
 
   it('verweigert unzulässige Endungen', () => {
-    expect(() => mediumDateiname({ id: 'abc', type: 'photo', file: 'boese.exe', takenAt: '' })).toThrow(/Unzulässige/)
-    expect(() => mediumDateiname({ id: 'abc', type: 'video', file: 'clip.jpg', takenAt: '' })).toThrow(/Unzulässige/)
+    expect(() =>
+      mediumDateiname({ id: 'abc', type: 'photo', file: 'boese.exe', takenAt: '' }),
+    ).toThrow(/Unzulässige/)
+    expect(() =>
+      mediumDateiname({ id: 'abc', type: 'video', file: 'clip.jpg', takenAt: '' }),
+    ).toThrow(/Unzulässige/)
   })
 })
 
@@ -441,11 +512,21 @@ describe('Pausen-Kollaps in der Pipeline (Kette wie in verarbeite)', () => {
       clientTourId: 'pause-e2e-1',
       title: null,
       description: null,
-      time: { start: '2026-07-04T08:00:00+02:00', end: '2026-07-04T09:30:00+02:00', zone: 'Europe/Zurich' },
+      time: {
+        start: '2026-07-04T08:00:00+02:00',
+        end: '2026-07-04T09:30:00+02:00',
+        zone: 'Europe/Zurich',
+      },
       segments: [{ mode: 'walk', pts }],
       media: [
         // Mitten in der Pause aufgenommen, OHNE GPS-Anker → Zeit-Mapping
-        { id: 'mp1', type: 'photo', file: 'IMG_1.JPG', takenAt: '2026-07-04T08:40:00+02:00', caption: null },
+        {
+          id: 'mp1',
+          type: 'photo',
+          file: 'IMG_1.JPG',
+          takenAt: '2026-07-04T08:40:00+02:00',
+          caption: null,
+        },
       ],
     }
   }

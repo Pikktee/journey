@@ -178,7 +178,11 @@ describe('Kartengeometrie', () => {
     // 3:1-Panorama wäre breiter als das Fenster, ein 9:19-Handyfoto höher.
     const panorama = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: 4 }, INHALT)
     expect(panorama.bild.breite / panorama.bild.hoehe).toBeCloseTo(AR_MAX, 4)
-    const unbekannt = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: null }, INHALT)
+    const unbekannt = kartenGeometrie(
+      { breite: 1600, hoehe: 900 },
+      { art: 'foto', ar: null },
+      INHALT,
+    )
     expect(unbekannt.bild.breite / unbekannt.bild.hoehe).toBeCloseTo(1.5, 4)
   })
 
@@ -216,7 +220,9 @@ describe('Kartengeometrie', () => {
       6,
     )
     // Ohne Angabe gilt „keine Bedienung" — der Film bekommt sie nie.
-    expect(bei(0).karte.hoehe).toBe(kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT).karte.hoehe)
+    expect(bei(0).karte.hoehe).toBe(
+      kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT).karte.hoehe,
+    )
   })
 
   it('Bild und Beschriftung liegen INNERHALB der Karte', () => {

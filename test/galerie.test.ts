@@ -47,17 +47,23 @@ describe('alsKarte', () => {
     expect(ohneSeite.autorName).toBe('Reisende')
     expect(ohneSeite.autorLink).toBeNull()
 
-    const mitSeite = alsKarte(tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1' } }))
+    const mitSeite = alsKarte(
+      tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1' } }),
+    )
     expect(mitSeite.autorLink).toBe('/profil?id=u_1')
   })
 
   it('verlinkt über den Handle, sobald es einen gibt', () => {
-    const karte = alsKarte(tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1', handle: 'henrik' } }))
+    const karte = alsKarte(
+      tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1', handle: 'henrik' } }),
+    )
     expect(karte.autorLink).toBe('/@henrik')
   })
 
   it('kodiert Kennungen für die Adresse', () => {
-    const karte = alsKarte(tour({ id: 't a/b', autor: { anzeigename: 'X', avatarUrl: null, id: 'u/1' } }))
+    const karte = alsKarte(
+      tour({ id: 't a/b', autor: { anzeigename: 'X', avatarUrl: null, id: 'u/1' } }),
+    )
     expect(karte.spielLink).toBe('/tour/t%20a%2Fb')
     expect(karte.autorLink).toBe('/profil?id=u%2F1')
   })
@@ -128,4 +134,3 @@ describe('wenAusAdresse', () => {
     expect(wenAusAdresse('/profil', '')).toBeNull()
   })
 })
-

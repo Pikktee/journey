@@ -12,7 +12,12 @@ import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 async function legeTourAn(u: TestUmgebung): Promise<string> {
-  const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: '/api/tours',
+    cookies: u.cookies,
+    payload: beispielManifest(),
+  })
   expect(antwort.statusCode).toBe(201)
   return (antwort.json() as { id: string }).id
 }
@@ -29,7 +34,11 @@ async function ladeMediumHoch(u: TestUmgebung, tourId: string): Promise<void> {
 }
 
 async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
-  const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${tourId}/finalize`, cookies: u.cookies })
+  const antwort = await u.app.inject({
+    method: 'POST',
+    url: `/api/tours/${tourId}/finalize`,
+    cookies: u.cookies,
+  })
   expect(antwort.statusCode).toBe(202)
   await u.app.verarbeitungen.get(tourId)
 }
@@ -60,8 +69,18 @@ function stand(u: TestUmgebung, wetter: FesteWetterQuelle, klass: FesterKlassifi
 
 /** App mit Zähl-Spies, eine fertig finalisierte Tour (Cache liegt vor). */
 async function baueUndFinalisiere() {
-  const wetter = new FesteWetterQuelle(testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))))
-  const klass = new FesterKlassifikator({ himmel: 'bedeckt', niederschlag: 'kein', himmelSichtbar: true, konfidenz: 0.9 })
+  const wetter = new FesteWetterQuelle(
+    testRaster(
+      '2026-07-04T06',
+      Array.from({ length: 7 }, () => ({ wolken: 80 })),
+    ),
+  )
+  const klass = new FesterKlassifikator({
+    himmel: 'bedeckt',
+    niederschlag: 'kein',
+    himmelSichtbar: true,
+    konfidenz: 0.9,
+  })
   // Genug Ortsnamen für Finalize + späteres Neu-Geocoding (Trim/Reprocess).
   const u = await baueTestApp(
     ['Lauterbrunnen', 'Grindelwald', 'Wengen', 'Interlaken', 'Mürren', 'Zweilütschinen'],
@@ -93,7 +112,10 @@ describe('Anreicherungs-Cache', () => {
     const { u, wetter, klass, id } = await baueUndFinalisiere()
     const vor = stand(u, wetter, klass)
 
-    await speichereEdits(u, id, { schema: 'maptale/edits@1', medien: { m1: { caption: 'Schön hier' } } })
+    await speichereEdits(u, id, {
+      schema: 'maptale/edits@1',
+      medien: { m1: { caption: 'Schön hier' } },
+    })
 
     // Der teure Teil bleibt komplett aus (Cache trägt alles)
     expect(stand(u, wetter, klass)).toEqual(vor)
@@ -109,7 +131,10 @@ describe('Anreicherungs-Cache', () => {
     // Wetter-Grenze am Tour-Start → ganze Tour „storm". Rein render-seitig: der
     // Cache (Geocoding/Auto-Wetter/Bildanalyse) trägt weiter, nichts wird neu geholt.
     const start = new Date(Date.parse('2026-07-04T08:12:31+02:00')).toISOString()
-    await speichereEdits(u, id, { schema: 'maptale/edits@1', wetter: [{ ab: start, mode: 'storm' }] })
+    await speichereEdits(u, id, {
+      schema: 'maptale/edits@1',
+      wetter: [{ ab: start, mode: 'storm' }],
+    })
 
     expect(stand(u, wetter, klass)).toEqual(vor)
     const weather = (await tourJson(u, id)).weather ?? []
@@ -122,7 +147,10 @@ describe('Anreicherungs-Cache', () => {
     const vor = stand(u, wetter, klass)
 
     // Trim verschiebt den Startpunkt → Ortsnamen + Wetter (trim-abhängig) neu
-    await speichereEdits(u, id, { schema: 'maptale/edits@1', trim: { start: '2026-07-04T08:13:00+02:00' } })
+    await speichereEdits(u, id, {
+      schema: 'maptale/edits@1',
+      trim: { start: '2026-07-04T08:13:00+02:00' },
+    })
 
     const nach = stand(u, wetter, klass)
     expect(nach.geo - vor.geo).toBe(2) // Start + Ziel neu geocodiert
@@ -134,7 +162,11 @@ describe('Anreicherungs-Cache', () => {
     const { u, wetter, klass, id } = await baueUndFinalisiere()
     const vor = stand(u, wetter, klass)
 
-    const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: `/api/tours/${id}/reprocess`,
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
 

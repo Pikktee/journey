@@ -72,7 +72,11 @@ export function vereinfacheIndizes(pts: readonly UploadPunkt[], toleranzM = 5): 
     let maxAbstand = 0
     let index = -1
     for (let i = von + 1; i < bis; i++) {
-      const a = abstandZurStrecke(xy[i] as [number, number], xy[von] as [number, number], xy[bis] as [number, number])
+      const a = abstandZurStrecke(
+        xy[i] as [number, number],
+        xy[von] as [number, number],
+        xy[bis] as [number, number],
+      )
       if (a > maxAbstand) {
         maxAbstand = a
         index = i
@@ -130,7 +134,10 @@ export function berechneStats(segments: readonly UploadSegment[]): TourStats {
     for (let i = 1; i < seg.pts.length; i++) {
       meter += distanzM(seg.pts[i - 1] as UploadPunkt, seg.pts[i] as UploadPunkt)
     }
-    const geglaettet = glaette(seg.pts.map((p) => p[2]), 5)
+    const geglaettet = glaette(
+      seg.pts.map((p) => p[2]),
+      5,
+    )
     let tal = geglaettet[0] ?? 0
     for (const hoehe of geglaettet) {
       if (hoehe < tal) {

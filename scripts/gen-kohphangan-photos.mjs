@@ -14,14 +14,20 @@ const OUT = path.join(ROOT, 'public', 'photos', 'kohphangan')
 
 const env = fs.readFileSync(path.join(ROOT, '.env'), 'utf8')
 const KEY = (env.match(/^FAL_KEY\s*=\s*(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, '')
-if (!KEY) { console.error('FAL_KEY fehlt in .env'); process.exit(1) }
+if (!KEY) {
+  console.error('FAL_KEY fehlt in .env')
+  process.exit(1)
+}
 
-const NIGHT = 'Photorealistic cinematic travel photograph, natural realistic colours, sharp focus, atmospheric low-light night photography.'
+const NIGHT =
+  'Photorealistic cinematic travel photograph, natural realistic colours, sharp focus, atmospheric low-light night photography.'
 // Kein Sonnen-Look: das war der Fehler der alten Bilder (Strahlenkranz + Flare).
-const NO_SUN = 'NO sun, no sunset, no sunrise, no sunburst, no starburst, no star-shaped light rays, no radiating rays, no lens flare, no glare, no bright glowing horizon, no warm orange light. It is the middle of the night.'
+const NO_SUN =
+  'NO sun, no sunset, no sunrise, no sunburst, no starburst, no star-shaped light rays, no radiating rays, no lens flare, no glare, no bright glowing horizon, no warm orange light. It is the middle of the night.'
 // Für Stopp 9+10 wollte der User WEDER Sonne NOCH Mond sichtbar — der diffuse helle
 // Ball wurde als Sonne gelesen. Also kein Himmelskörper im Bild, nur indirektes Mondlicht.
-const NO_ORB = 'Absolutely NO moon and NO sun anywhere in the frame — no bright disc, no glowing orb, no bright spot, no bright patch or glow in the sky or in the clouds, no light break in the clouds, no light beams, no shafts of light, no crepuscular rays, no god rays, no light source at all. The night sky and clouds are UNIFORMLY DARK deep blue. It is a dark moonless-looking tropical night.'
+const NO_ORB =
+  'Absolutely NO moon and NO sun anywhere in the frame — no bright disc, no glowing orb, no bright spot, no bright patch or glow in the sky or in the clouds, no light break in the clouds, no light beams, no shafts of light, no crepuscular rays, no god rays, no light source at all. The night sky and clouds are UNIFORMLY DARK deep blue. It is a dark moonless-looking tropical night.'
 
 const PHOTOS = [
   {
@@ -56,7 +62,8 @@ const gen = async (p) => {
       enable_safety_checker: false,
     }),
   })
-  if (!res.ok) throw new Error(`${p.name}: HTTP ${res.status} — ${(await res.text()).slice(0, 300)}`)
+  if (!res.ok)
+    throw new Error(`${p.name}: HTTP ${res.status} — ${(await res.text()).slice(0, 300)}`)
   const data = await res.json()
   const url = data.images?.[0]?.url
   if (!url) throw new Error(`${p.name}: keine Bild-URL in Antwort`)
@@ -69,6 +76,10 @@ const only = process.argv.slice(2)
 const list = only.length ? PHOTOS.filter((p) => only.includes(p.name)) : PHOTOS
 console.log(`Generiere ${list.length} Foto(s) → ${OUT}`)
 for (const p of list) {
-  try { await gen(p) } catch (e) { console.error('  ✗', e.message) }
+  try {
+    await gen(p)
+  } catch (e) {
+    console.error('  ✗', e.message)
+  }
 }
 console.log('fertig')

@@ -165,8 +165,7 @@ spiegleBeiwerk(DOCS)
  * sie in `assets/` und wird nie wieder geholt; ohne Netz bleibt es beim
  * bisherigen Weg (der Link steht dann weiterhin in der Seite).
  */
-const SCHRIFT_URL =
-  'https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2'
+const SCHRIFT_URL = 'https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2'
 const schriftDatei = join(SITE, 'assets', 'outfit.woff2')
 let schriftLokal = existsSync(schriftDatei)
 if (!schriftLokal) {
@@ -191,7 +190,19 @@ schreibe('assets/marke.svg', markeSvg())
 const index = []
 for (const dok of dokumente) {
   const { html, ueberschriften } = rendere(dok, nachAbs)
-  schreibe(dok.ziel, dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche: BEREICHE, nachAbs, roadmap, schriftLokal }))
+  schreibe(
+    dok.ziel,
+    dokumentSeite({
+      dok,
+      html,
+      ueberschriften,
+      dokumente,
+      bereiche: BEREICHE,
+      nachAbs,
+      roadmap,
+      schriftLokal,
+    }),
+  )
   index.push({
     t: dok.titel,
     z: dok.ziel,
@@ -218,11 +229,17 @@ for (const dok of dokumente) {
 /* Ebene 2: je Bereich eine Seite */
 for (const bereich of BEREICHE) {
   if (!dokumente.some((d) => d.bereich === bereich.id)) continue
-  schreibe(`${bereich.id}/index.html`, bereichSeite({ bereich, dokumente, bereiche: BEREICHE, roadmap, schriftLokal }))
+  schreibe(
+    `${bereich.id}/index.html`,
+    bereichSeite({ bereich, dokumente, bereiche: BEREICHE, roadmap, schriftLokal }),
+  )
 }
 
 /* Übersicht, Mockups, Karte */
-schreibe('index.html', uebersichtSeite({ bereiche: BEREICHE, dokumente, mockups, bilder, roadmap, schriftLokal }))
+schreibe(
+  'index.html',
+  uebersichtSeite({ bereiche: BEREICHE, dokumente, mockups, bilder, roadmap, schriftLokal }),
+)
 schreibe('mockups.html', mockupSeite({ mockups, bereiche: BEREICHE, roadmap, schriftLokal }))
 schreibe('karte.html', kartenSeite({ dokumente, bereiche: BEREICHE, schriftLokal }))
 schreibe('assets/index.js', 'window.DOCS_INDEX = ' + JSON.stringify(index) + ';\n')
@@ -258,7 +275,9 @@ if (ohneTeil.length)
     `  Systemteile: ${ohneTeil.length} Dokumente ohne Zuordnung (${ohneTeil
       .slice(0, 3)
       .map((d) => d.quelle)
-      .join(', ')}${ohneTeil.length > 3 ? ', …' : ''}) — "systemteile: [Studio, Backend]" im Front Matter hilft`,
+      .join(
+        ', ',
+      )}${ohneTeil.length > 3 ? ', …' : ''}) — "systemteile: [Studio, Backend]" im Front Matter hilft`,
   )
 /* Ein Mockup in `roadmap.md` ist kein Tippfehler, sondern eine Regel, die
  * jemand nicht kannte — also wird er benannt statt stumm übergangen. */
@@ -273,7 +292,9 @@ if (ohneKonzept.length)
     `  Mockups: ${ohneKonzept.length} von ${mockups.filter((m) => !m.archiv).length} gehören zu keinem Konzept — kein Fehler (manches wurde gezeichnet und direkt gebaut), aber eine Beziehung, die der Viewer dann nicht zeigen kann`,
   )
 if (roadmap.offen.length)
-  console.log(`  Roadmap: ${roadmap.offen.length} Konzepte ohne Phase (stehen unter „Noch nicht eingeplant")`)
+  console.log(
+    `  Roadmap: ${roadmap.offen.length} Konzepte ohne Phase (stehen unter „Noch nicht eingeplant")`,
+  )
 
 /* Ein Konzept auf der Roadmap ohne `icon:` bekommt das neutrale Blatt — kein
  * Fehler, aber in einer Spalte, in der jede andere Karte ihr eigenes Zeichen
@@ -285,7 +306,9 @@ if (ohneIcon.length)
     `  Zeichen: ${ohneIcon.length} Roadmap-Konzepte ohne gültiges „icon:" (${ohneIcon
       .map((e) => e.quelle.replace('docs/concepts/', ''))
       .slice(0, 3)
-      .join(', ')}${ohneIcon.length > 3 ? ', …' : ''}) — die Namen stehen in scripts/docs-viewer/icons.mjs`,
+      .join(
+        ', ',
+      )}${ohneIcon.length > 3 ? ', …' : ''}) — die Namen stehen in scripts/docs-viewer/icons.mjs`,
   )
 
 /* Der `status`-Satz ist von Hand gepflegt, und sein einziger Feind ist stilles
@@ -306,7 +329,9 @@ console.log(
   `  ${dokumente.length} Dokumente · ${Math.round(worte / 1000)}k Wörter · ${mockups.length} Mockups · ${bilder.length} Bilder`,
 )
 console.log(`  fertig in ${((Date.now() - t0) / 1000).toFixed(1)} s`)
-console.log('  Ansehen: http://maptale.localhost:5123/doku/ (devhub) oder docs/_site/index.html öffnen')
+console.log(
+  '  Ansehen: http://maptale.localhost:5123/doku/ (devhub) oder docs/_site/index.html öffnen',
+)
 
 /*
  * Der Tausch. Zwischen den beiden Umbenennungen liegt der einzige Moment, in

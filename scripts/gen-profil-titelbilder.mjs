@@ -20,7 +20,10 @@ const OUT = path.join(ROOT, 'docs', 'mockups', 'titelbilder')
 
 const env = fs.readFileSync(path.join(ROOT, '.env'), 'utf8')
 const KEY = (env.match(/^FAL_KEY\s*=\s*(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, '')
-if (!KEY) { console.error('FAL_KEY fehlt in .env'); process.exit(1) }
+if (!KEY) {
+  console.error('FAL_KEY fehlt in .env')
+  process.exit(1)
+}
 
 // Gemeinsamer Look wie bei den Tour-Fotos: analoger Film, keine HDR-Postkarte.
 const FILM =
@@ -49,7 +52,10 @@ fs.mkdirSync(OUT, { recursive: true })
 
 for (const bild of BILDER) {
   const ziel = path.join(OUT, bild.name)
-  if (fs.existsSync(ziel)) { console.log(`· ${bild.name} — vorhanden, übersprungen`); continue }
+  if (fs.existsSync(ziel)) {
+    console.log(`· ${bild.name} — vorhanden, übersprungen`)
+    continue
+  }
   process.stdout.write(`… ${bild.name} `)
   const antwort = await fetch('https://fal.run/fal-ai/flux/dev', {
     method: 'POST',
@@ -63,10 +69,16 @@ for (const bild of BILDER) {
       enable_safety_checker: false,
     }),
   })
-  if (!antwort.ok) { console.error(`\nFehler ${antwort.status}: ${await antwort.text()}`); process.exit(1) }
+  if (!antwort.ok) {
+    console.error(`\nFehler ${antwort.status}: ${await antwort.text()}`)
+    process.exit(1)
+  }
   const daten = await antwort.json()
   const url = daten.images?.[0]?.url
-  if (!url) { console.error('\nKeine Bild-URL in der Antwort:', JSON.stringify(daten).slice(0, 400)); process.exit(1) }
+  if (!url) {
+    console.error('\nKeine Bild-URL in der Antwort:', JSON.stringify(daten).slice(0, 400))
+    process.exit(1)
+  }
   const bytes = Buffer.from(await (await fetch(url)).arrayBuffer())
   fs.writeFileSync(ziel, bytes)
   console.log(`→ ${(bytes.length / 1024).toFixed(0)} kB`)

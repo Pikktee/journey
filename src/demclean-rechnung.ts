@@ -46,7 +46,10 @@ function minFenster(quelle: Float32Array, hilf: Float32Array, ziel: Float32Array
       const x0 = x - R < 0 ? 0 : x - R
       const x1 = x + R > SIZE - 1 ? SIZE - 1 : x + R
       let m = Infinity
-      for (let xx = x0; xx <= x1; xx++) { const v = quelle[z + xx]!; if (v < m) m = v }
+      for (let xx = x0; xx <= x1; xx++) {
+        const v = quelle[z + xx]!
+        if (v < m) m = v
+      }
       hilf[z + x] = m
     }
   }
@@ -55,7 +58,10 @@ function minFenster(quelle: Float32Array, hilf: Float32Array, ziel: Float32Array
     const y1 = y + R > SIZE - 1 ? SIZE - 1 : y + R
     for (let x = 0; x < SIZE; x++) {
       let m = Infinity
-      for (let yy = y0; yy <= y1; yy++) { const v = hilf[yy * SIZE + x]!; if (v < m) m = v }
+      for (let yy = y0; yy <= y1; yy++) {
+        const v = hilf[yy * SIZE + x]!
+        if (v < m) m = v
+      }
       ziel[y * SIZE + x] = m
     }
   }
@@ -93,7 +99,8 @@ export function bereinigeHoehen(d: Uint8ClampedArray): boolean {
         const x0 = x - R < 0 ? 0 : x - R
         const x1 = x + R > SIZE - 1 ? SIZE - 1 : x + R
         const win: number[] = []
-        for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) win.push(snap[yy * SIZE + xx]!)
+        for (let yy = y0; yy <= y1; yy++)
+          for (let xx = x0; xx <= x1; xx++) win.push(snap[yy * SIZE + xx]!)
         win.sort((a, b) => a - b)
         const med = win[win.length >> 1]!
         if (e - med > SPIKE && med < LOWLAND) {

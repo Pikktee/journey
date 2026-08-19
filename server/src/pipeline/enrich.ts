@@ -20,13 +20,24 @@ import {
 } from './filmachse.js'
 import { berechneStats, vereinfacheIndizes, type TourStats } from './geo.js'
 import { baueSignatur } from './signatur.js'
-import { baueBenennung, benenneTour, type Benennung, type Endpunkte, type Geocoder } from './naming.js'
+import {
+  baueBenennung,
+  benenneTour,
+  type Benennung,
+  type Endpunkte,
+  type Geocoder,
+} from './naming.js'
 import { platziereMedien, type Platzierung } from './placement.js'
 import type { FotoMeta } from './bild.js'
 import type { VideoMeta } from './video.js'
 import type { BildBefund } from './vision.js'
 import { verfeinereWetterMitFotos } from './vision.js'
-import { berechneWetter, wetterAusOverlay, type WetterKeyframe, type WetterQuelle } from './weather.js'
+import {
+  berechneWetter,
+  wetterAusOverlay,
+  type WetterKeyframe,
+  type WetterQuelle,
+} from './weather.js'
 import { baueZeitreihe, destilliereTimeline, positionZurZeit } from './zeit.js'
 
 export const TOUR_SCHEMA_ID = 'maptale/tour@1'
@@ -163,9 +174,11 @@ export function bestimmeCover(media: TourJson['media'], titelbild?: string): Tit
 
 const uhrzeit = (iso: string, zone: string): string => {
   try {
-    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: zone }).format(
-      new Date(iso),
-    )
+    return new Intl.DateTimeFormat('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: zone,
+    }).format(new Date(iso))
   } catch {
     return ''
   }
@@ -256,7 +269,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   const startMs = Date.parse(manifest.time.start)
   const endeMs = Date.parse(manifest.time.end)
   const rohSegmente = wendeEditsAufSegmenteAn(manifest.segments ?? [], edits, startMs)
-  if (!rohSegmente.length) throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
+  if (!rohSegmente.length)
+    throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
   const erstesSegment = rohSegmente[0]
   const letztesSegment = rohSegmente[rohSegmente.length - 1]
   if (!erstesSegment || !letztesSegment) throw new Error('Manifest ohne Segmente')
@@ -325,7 +339,9 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // den Export der Filmachse ABLEHNT (§12). Acht Nachkommastellen kosten
       // +11,2 % und sind absurd genau: Bei 41,8 km Streckenlänge entspricht
       // 1e-8 einem Weg von 0,4 mm.
-      eintrag.f = indizes.map((i) => Number((((reihe.punkte[basis + i]?.dist ?? 0) / reihe.gesamtM)).toFixed(8)))
+      eintrag.f = indizes.map((i) =>
+        Number(((reihe.punkte[basis + i]?.dist ?? 0) / reihe.gesamtM).toFixed(8)),
+      )
     }
     return eintrag
   })
@@ -439,7 +455,11 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
             media
               .filter((m) => m.anchor)
               .map((m) => {
-                const ort = projiziereAufReihe(reihe, (m.anchor as [number, number])[0], (m.anchor as [number, number])[1])
+                const ort = projiziereAufReihe(
+                  reihe,
+                  (m.anchor as [number, number])[0],
+                  (m.anchor as [number, number])[1],
+                )
                 return {
                   type: m.type,
                   meter: ort.meter,
@@ -562,7 +582,10 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // steht (eine degenerierte Tour hat keine). Sonst der Weg von vorher —
       // Bestands-Overlays laufen dadurch buchstäblich durch denselben Code.
       const filmVerankert =
-        achse !== null && (spur.anker !== undefined || spur.versatzFilmS !== undefined || spur.dauerFilmS !== undefined)
+        achse !== null &&
+        (spur.anker !== undefined ||
+          spur.versatzFilmS !== undefined ||
+          spur.dauerFilmS !== undefined)
       const tAb = (Date.parse(spur.anker ?? spur.ab) - startMs) / 1000
       const tBis = spur.bis !== undefined ? (Date.parse(spur.bis) - startMs) / 1000 : undefined
       let f0: number
@@ -591,7 +614,11 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         filmVonS = achse ? filmBeiZeit(achse, tAb) : undefined
         if (spur.typ === 'musik') {
           f1 = tBis !== undefined ? positionZurZeit(reihe, tBis).f : 1
-          filmBisS = achse ? (tBis !== undefined ? filmBeiZeit(achse, tBis) : achse.gesamtS) : undefined
+          filmBisS = achse
+            ? tBis !== undefined
+              ? filmBeiZeit(achse, tBis)
+              : achse.gesamtS
+            : undefined
         } else {
           // SFX: One-Shot exakt bei f0. Liegt `ab` außerhalb des (getrimmten)
           // Tracks, würde die Klemmung den Knall an den Tour-Start/-Ende legen,
@@ -612,7 +639,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // man muss sie nur in der richtigen Größe messen. Übrig bleibt der Fall,
       // in dem auch der Film keine Zeit dafür hat — etwa eine Spanne, die der
       // Trim vollständig vor den Track-Anfang klemmt.
-      const leer = filmVonS !== undefined && filmBisS !== undefined ? !(filmBisS > filmVonS) : f1 <= f0
+      const leer =
+        filmVonS !== undefined && filmBisS !== undefined ? !(filmBisS > filmVonS) : f1 <= f0
       if (spur.typ === 'musik' && leer) {
         protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
         continue
@@ -708,7 +736,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     titleHtml: benennung.titleHtml,
     stops: benennung.stops,
     showFinale,
-    finaleTitle: (finaleZielOverride?.trim() || benennung.finaleTitle),
+    finaleTitle: finaleZielOverride?.trim() || benennung.finaleTitle,
     description: beschreibungOverride ?? manifest.description ?? null,
     time: manifest.time,
     segments,

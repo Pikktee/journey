@@ -1,11 +1,6 @@
 // Was eine Rückmeldung an technischen Angaben mitnimmt — und was nicht.
 import { describe, expect, it } from 'vitest'
-import {
-  kontextZeilen,
-  sammleKontext,
-  sauberePfadangabe,
-  textTaugt,
-} from '../src/feedbackmodell'
+import { kontextZeilen, sammleKontext, sauberePfadangabe, textTaugt } from '../src/feedbackmodell'
 
 const CHROME_MAC =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'

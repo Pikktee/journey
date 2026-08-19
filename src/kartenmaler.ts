@@ -25,14 +25,7 @@
 //      Der Maler malt ihn nur, wenn `schleier: 'flach'` — das ist die benannte
 //      Bühnen-Variante des Films.
 
-import {
-  AR_MIN,
-  AR_MAX,
-  KARTE,
-  KARTE_BUEHNE,
-  kartenZeiten,
-  balkenAnteil,
-} from './einblendung.js'
+import { AR_MIN, AR_MAX, KARTE, KARTE_BUEHNE, kartenZeiten, balkenAnteil } from './einblendung.js'
 
 /**
  * Höhe, bei der jede Länge im Maler ihren Nennwert hat (CSS-Pixel).
@@ -496,7 +489,9 @@ export function bezier(x1: number, y1: number, x2: number, y2: number): (t: numb
 
 /** `cubic-bezier(a, b, c, d)` aus einem CSS-Text — `KARTE.flugKurve` ist einer. */
 export function kurveAusText(css: string): (t: number) => number {
-  const m = /cubic-bezier\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*,\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/.exec(css)
+  const m = /cubic-bezier\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*,\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/.exec(
+    css,
+  )
   if (!m) return (t) => t
   return bezier(Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]))
 }
@@ -900,7 +895,12 @@ function bildPuffer(
  * genau der Unterschied zwischen „Canvas ist schneller als DOM" und dem
  * Gegenteil (§5A).
  */
-function schattenPuffer(breite: number, hoehe: number, radius: number, mass: number): Puffer | null {
+function schattenPuffer(
+  breite: number,
+  hoehe: number,
+  radius: number,
+  mass: number,
+): Puffer | null {
   const rand = Math.ceil(200 * mass)
   const b = breite + rand * 2
   const h = hoehe + rand * 2
@@ -1214,8 +1214,22 @@ function malFoto(
   bild: Rechteck,
   dichte: number,
 ): boolean {
-  const von = bildPuffer(quelle, bild.breite, bild.hoehe, dichte, filterText(KARTE.entwickelnVon), 'cover')
-  const bis = bildPuffer(quelle, bild.breite, bild.hoehe, dichte, filterText(KARTE.entwickelnBis), 'cover')
+  const von = bildPuffer(
+    quelle,
+    bild.breite,
+    bild.hoehe,
+    dichte,
+    filterText(KARTE.entwickelnVon),
+    'cover',
+  )
+  const bis = bildPuffer(
+    quelle,
+    bild.breite,
+    bild.hoehe,
+    dichte,
+    filterText(KARTE.entwickelnBis),
+    'cover',
+  )
   if (!von || !bis) return false
   // Der Puffer steht auf Ken-Burns-Anfangsgröße; gezeichnet wird der Stand.
   const skala = phasen.kbSkala / KARTE.kenBurnsVon
@@ -1235,7 +1249,11 @@ function malFoto(
 }
 
 /** Breite der Angaben-Zeile, zweistufig gesetzt und deshalb stückweise gemessen. */
-function angabenBreite(ctx: CanvasRenderingContext2D, schriftGrad: number, angaben: string): number {
+function angabenBreite(
+  ctx: CanvasRenderingContext2D,
+  schriftGrad: number,
+  angaben: string,
+): number {
   ctx.save()
   let breite = 0
   for (const t of teileAngaben(angaben)) {

@@ -115,7 +115,8 @@ export function baueMeta(meta: Metablock): string {
   zeilen.push(`<meta property="og:title" content="${alsAttribut(meta.titel)}" />`)
   if (meta.bild) {
     zeilen.push(`<meta property="og:image" content="${alsAttribut(meta.bild)}" />`)
-    if (meta.bildAlt) zeilen.push(`<meta property="og:image:alt" content="${alsAttribut(meta.bildAlt)}" />`)
+    if (meta.bildAlt)
+      zeilen.push(`<meta property="og:image:alt" content="${alsAttribut(meta.bildAlt)}" />`)
     zeilen.push('<meta name="twitter:card" content="summary_large_image" />')
   }
   return zeilen.join('\n  ')

@@ -131,10 +131,7 @@ describe('app-nav', () => {
 
   it('legt auf der Landing Konto vor die Seitenanker und Meine Touren ins Panel', () => {
     const landing = readFileSync(join(wurzel, 'index.html'), 'utf8')
-    const panel = landing.slice(
-      landing.indexOf('id="nav-panel"'),
-      landing.indexOf('</nav>'),
-    )
+    const panel = landing.slice(landing.indexOf('id="nav-panel"'), landing.indexOf('</nav>'))
     expect(panel.indexOf('Konto')).toBeLessThan(panel.indexOf('Auf der Seite'))
     expect(panel).toMatch(/class="nav-panel-cta" data-dabei>Meine Touren/)
     expect(panel).not.toMatch(/nav-nur-xs[^>]*>Meine Touren/)
@@ -179,11 +176,10 @@ describe('app-nav', () => {
     ]
     for (const s of seiten) {
       const html = readFileSync(join(wurzel, s.datei), 'utf8')
-      const erwartet =
-        `<div class="wrap">${appHeaderHtml({
-          aktiv: s.aktiv,
-          ...(s.variante ? { variante: s.variante } : {}),
-        })}</div>`
+      const erwartet = `<div class="wrap">${appHeaderHtml({
+        aktiv: s.aktiv,
+        ...(s.variante ? { variante: s.variante } : {}),
+      })}</div>`
       // Kein Regex auf </nav>: innen steckt schon .top-nav.
       expect(html, s.datei).toContain(`id="app-header"`)
       expect(html, s.datei).toContain(erwartet)

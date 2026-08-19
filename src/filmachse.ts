@@ -442,7 +442,8 @@ export function baueFilmachse<H extends Streckenhalt>(
       let naechster: number | undefined
       for (const o of halteOrte) {
         const abstand = Math.abs(o - st.abM)
-        if (abstand < rampeM && (naechster === undefined || abstand < Math.abs(naechster - st.abM))) naechster = o
+        if (abstand < rampeM && (naechster === undefined || abstand < Math.abs(naechster - st.abM)))
+          naechster = o
       }
       if (naechster !== undefined) st.abM = naechster
     }
@@ -596,7 +597,8 @@ export function baueFilmachse<H extends Streckenhalt>(
     if (k.modeLinks !== k.modeRechts) {
       const vonM = k.halte.length > 0 ? k.ort : k.ort - k.lenL
       const bisM = k.ort + k.lenR
-      if (bisM > vonM) uebergaenge.push({ vonM, bisM, vonMode: k.modeLinks, nachMode: k.modeRechts })
+      if (bisM > vonM)
+        uebergaenge.push({ vonM, bisM, vonMode: k.modeLinks, nachMode: k.modeRechts })
     }
     if (k.halte.length > 0) {
       rampe(pos, k.lenL, k.vLinks, 0)

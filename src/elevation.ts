@@ -16,7 +16,9 @@ function tileCoords(lng: number, lat: number): [number, number] {
 }
 
 async function loadTile(tx: number, ty: number): Promise<Uint8ClampedArray> {
-  const res = await fetch(`https://elevation-tiles-prod.s3.amazonaws.com/terrarium/${Z}/${tx}/${ty}.png`)
+  const res = await fetch(
+    `https://elevation-tiles-prod.s3.amazonaws.com/terrarium/${Z}/${tx}/${ty}.png`,
+  )
   if (!res.ok) throw new Error(`Tile ${tx}/${ty}: ${res.status}`)
   const img = await createImageBitmap(await res.blob())
   const cv = document.createElement('canvas')
@@ -38,7 +40,7 @@ export async function sampleElevations(coords: LngLat[]): Promise<number[]> {
     [...tiles.keys()].map(async (key) => {
       const [tx, ty] = key.split('/').map(Number) as [number, number]
       tiles.set(key, await loadTile(tx, ty))
-    })
+    }),
   )
   return coords.map((c) => {
     const [x, y] = tileCoords(c[0], c[1])

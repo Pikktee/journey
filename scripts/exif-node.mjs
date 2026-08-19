@@ -101,7 +101,11 @@ function liesExifUnsicher(buffer) {
           let lngDez = gpsWert(view, tiff, lng, le)
           if (latRef && asciiWert(view, tiff, latRef, le) === 'S') latDez = -latDez
           if (lngRef && asciiWert(view, tiff, lngRef, le) === 'W') lngDez = -lngDez
-          if (Number.isFinite(latDez) && Number.isFinite(lngDez) && (latDez !== 0 || lngDez !== 0)) {
+          if (
+            Number.isFinite(latDez) &&
+            Number.isFinite(lngDez) &&
+            (latDez !== 0 || lngDez !== 0)
+          ) {
             gps = [lngDez, latDez]
           }
         }

@@ -92,7 +92,10 @@ export async function starteGalerie(): Promise<void> {
       if (!antwort.ok) throw new Error(String(antwort.status))
       const daten = (await antwort.json()) as GalerieAntwort
       if (offset === 0 && daten.touren.length === 0) {
-        zeigeFehler(gitter!, 'Hier ist noch nichts zu sehen. Die erste öffentliche Reise fehlt noch.')
+        zeigeFehler(
+          gitter!,
+          'Hier ist noch nichts zu sehen. Die erste öffentliche Reise fehlt noch.',
+        )
         mehrKnopf!.hidden = true
         return
       }

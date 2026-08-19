@@ -146,7 +146,10 @@ export interface VideoSchnitt {
  * Spanne übrig (oder war gar keine gefordert), ist die Antwort `null` = ganze
  * Datei — ein leerer Schnitt darf kein Video von null Sekunden erzeugen.
  */
-export function klemmeSchnitt(schnitt: VideoSchnitt | undefined, dauerS: number): VideoSchnitt | null {
+export function klemmeSchnitt(
+  schnitt: VideoSchnitt | undefined,
+  dauerS: number,
+): VideoSchnitt | null {
   if (!schnitt || !(dauerS > 0)) return null
   const vonS = Math.min(Math.max(0, schnitt.vonS), dauerS)
   const bisS = schnitt.bisS === undefined ? dauerS : Math.min(Math.max(0, schnitt.bisS), dauerS)
@@ -206,7 +209,13 @@ export class FfmpegWerkzeug implements VideoWerkzeug {
       { maxBuffer: 8 * 1024 * 1024 },
     )
     const daten = JSON.parse(stdout) as {
-      streams?: Array<{ codec_type?: string; codec_name?: string; width?: number; height?: number; duration?: string }>
+      streams?: Array<{
+        codec_type?: string
+        codec_name?: string
+        width?: number
+        height?: number
+        duration?: string
+      }>
       format?: { duration?: string }
     }
     const v = daten.streams?.find((s) => s.codec_type === 'video')
@@ -226,14 +235,25 @@ export class FfmpegWerkzeug implements VideoWerkzeug {
       this.ffmpeg,
       [
         '-y',
-        '-i', quellPfad,
+        '-i',
+        quellPfad,
         // In die 1080p-Box verkleinern (nie hochskalieren: min(iw)/min(ih)),
         // Seitenverhältnis wahren, dann auf gerade Kantenlängen trimmen (libx264
         // verweigert ungerade Dimensionen, u. a. bei Hochformat-Handyvideos).
-        '-vf', "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
-        '-c:a', 'aac', '-b:a', '128k',
-        '-movflags', '+faststart', // Moov-Atom nach vorn → Seeking ohne Voll-Download
+        '-vf',
+        "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-crf',
+        '23',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '128k',
+        '-movflags',
+        '+faststart', // Moov-Atom nach vorn → Seeking ohne Voll-Download
         zielPfad,
       ],
       { maxBuffer: 8 * 1024 * 1024 },
@@ -260,13 +280,25 @@ export class FfmpegWerkzeug implements VideoWerkzeug {
       this.ffmpeg,
       [
         '-y',
-        '-i', quellPfad,
-        '-ss', String(vonS),
+        '-i',
+        quellPfad,
+        '-ss',
+        String(vonS),
         ...(bisS !== undefined ? ['-to', String(bisS)] : []),
-        '-vf', "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
-        '-c:a', 'aac', '-b:a', '128k',
-        '-movflags', '+faststart',
+        '-vf',
+        "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-crf',
+        '23',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '128k',
+        '-movflags',
+        '+faststart',
         zielPfad,
       ],
       { maxBuffer: 8 * 1024 * 1024 },
@@ -427,7 +459,12 @@ async function bereiteEinVideoAuf(
       await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
     }
 
-    return { dauerS: info.dauerS, videoDatei: masterDatei, posterDatei: posterName, quellDauerS: info.dauerS }
+    return {
+      dauerS: info.dauerS,
+      videoDatei: masterDatei,
+      posterDatei: posterName,
+      quellDauerS: info.dauerS,
+    }
   } finally {
     await rm(arbeitsdir, { recursive: true, force: true })
   }

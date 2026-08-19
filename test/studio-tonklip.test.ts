@@ -28,7 +28,12 @@ const START = '2026-07-04T08:00:00.000Z'
 /** Gerade Strecke: 96 m je 60 s, zu Fuß → 2 Filmsekunden je Punkt. */
 function track(punkte = 31): TrackPunkt[] {
   const gradProMeter = 1 / (111_320 * Math.cos((46.6 * Math.PI) / 180))
-  return Array.from({ length: punkte }, (_, i): TrackPunkt => [7.9 + i * 96 * gradProMeter, 46.6, 800, i * 60])
+  return Array.from({ length: punkte }, (_, i): TrackPunkt => [
+    7.9 + i * 96 * gradProMeter,
+    46.6,
+    800,
+    i * 60,
+  ])
 }
 
 /**
@@ -89,7 +94,9 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
   it('gibt einem Effekt die Breite seiner DATEI — die Marke war eine Lüge der Anzeige', () => {
     // Der Player spielt einen One-Shot bis zum Dateiende; als Punkt gezeichnet
     // verschwieg die Leiste nur, wie lange er klingt.
-    const audio: AudioEintrag[] = [{ datei: 'sfx-moewe.mp3', typ: 'sfx', ab: '2026-07-04T08:05:00.000Z' }]
+    const audio: AudioEintrag[] = [
+      { datei: 'sfx-moewe.mp3', typ: 'sfx', ab: '2026-07-04T08:05:00.000Z' },
+    ]
     const ohneMass = klipVon(loeseTonKlips(audio, START, achse))
     expect(ohneMass.filmBis).toBe(ohneMass.filmVon) // ungemessen: bleibt ein Punkt
     expect(ohneMass.loop).toBe(false) // Vorgabe für Effekte
@@ -116,7 +123,11 @@ describe('verankere — Anker in Aufnahmezeit, Feinlage in Filmsekunden', () => 
     const achse = achseOhneHalt()
     for (const filmS of [0, 3.7, 12.25, 41.9]) {
       const { anker, versatzFilmS } = verankere(achse, START, filmS)
-      const klips = loeseTonKlips([{ datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS }], START, achse)
+      const klips = loeseTonKlips(
+        [{ datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS }],
+        START,
+        achse,
+      )
       // Auf die Millisekunde: der Versatz wird auf drei Stellen gerundet, damit
       // das Overlay lesbar bleibt. Bei jedem denkbaren Maßstab liegt das weit
       // unter einem Pixel.
@@ -131,7 +142,11 @@ describe('verankere — Anker in Aufnahmezeit, Feinlage in Filmsekunden', () => 
     const imHalt = achse.halte![0]!.filmVon + 3
     const { anker, versatzFilmS } = verankere(achse, START, imHalt)
     expect(versatzFilmS).toBeGreaterThan(0) // ohne ihn fiele die Lage auf die Haltkante
-    const klips = loeseTonKlips([{ datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS }], START, achse)
+    const klips = loeseTonKlips(
+      [{ datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS }],
+      START,
+      achse,
+    )
     expect(klipVon(klips).filmVon).toBeCloseTo(imHalt, 6)
   })
 })
@@ -254,7 +269,11 @@ describe('verschiebeTon — der Klip hängt danach woanders an der Reise', () =>
     const patch = verschiebeTon(achse, START, basis, 25)
     expect(patch.dauerFilmS).toBeCloseTo(20, 3)
     expect(patch.einstiegS).toBeCloseTo(4, 3)
-    const klips = loeseTonKlips([{ datei: 'a.mp3', typ: 'musik', ab: patch.anker, ...patch }], START, achse)
+    const klips = loeseTonKlips(
+      [{ datei: 'a.mp3', typ: 'musik', ab: patch.anker, ...patch }],
+      START,
+      achse,
+    )
     expect(klipVon(klips).filmVon).toBeCloseTo(25, 3)
   })
 
@@ -270,7 +289,12 @@ describe('schreibeTonFest — die Aufwertung ändert die Lage nicht', () => {
   it('bildet einen Bestands-Eintrag an derselben Filmstelle ab', () => {
     const achse = achseMitHalt()
     const audio: AudioEintrag[] = [
-      { datei: 'a.mp3', typ: 'musik', ab: '2026-07-04T08:05:00.000Z', bis: '2026-07-04T08:15:00.000Z' },
+      {
+        datei: 'a.mp3',
+        typ: 'musik',
+        ab: '2026-07-04T08:05:00.000Z',
+        bis: '2026-07-04T08:15:00.000Z',
+      },
     ]
     const vorher = klipVon(loeseTonKlips(audio, START, achse))
     const patch = schreibeTonFest(achse, START, vorher)
@@ -300,7 +324,10 @@ describe('Ton-Magnetik — eine geänderte Standzeit nimmt den Ton mit', () => {
 
   /** Dieselbe Achse, nur mit anderer Haltbreite. 30 Aufnahmesekunden = 1 Filmsekunde. */
   const achseMitBreite = (breiteS: number): Achse =>
-    baueAchse([{ mode: 'walk', aktiv: true, pts: track() }], [{ offsetS: HALT_S, breiteS }], { vonS: 0, bisS: 1800 })
+    baueAchse([{ mode: 'walk', aktiv: true, pts: track() }], [{ offsetS: HALT_S, breiteS }], {
+      vonS: 0,
+      bisS: 1800,
+    })
 
   /** Ein filmverankerter Klip fester Länge an der Filmstelle `filmS` der Basis-Achse. */
   function verankerterKlip(filmS: number): AudioEintrag {

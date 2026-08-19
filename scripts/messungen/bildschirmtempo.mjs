@@ -25,19 +25,30 @@ const BASIS = process.env['MAPTALE_WEB'] ?? 'http://maptale.localhost:5123'
 const TOUREN = (process.env['TOUREN'] ?? 'stockholm,kohphangan,oberland').split(',')
 
 const browser = await chromium.launch({ channel: 'chromium', args: ['--mute-audio'] })
-console.log('Tour          sichtbar ÷ gemeint (p95 / p99 / max / Anteil > 1,5×)   Bildschirm-Tempo (p50 / p99 / max)')
+console.log(
+  'Tour          sichtbar ÷ gemeint (p95 / p99 / max / Anteil > 1,5×)   Bildschirm-Tempo (p50 / p99 / max)',
+)
 for (const tour of TOUREN) {
-  const seite = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage()
+  const seite = await (
+    await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  ).newPage()
   await seite.goto(`${BASIS}/tour/${tour}`, { waitUntil: 'domcontentloaded' })
   await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 45000 })
   const r = await seite.evaluate(() => {
-    const w = window, t = w.__j.tour, a = w.__j.filmachse
+    const w = window,
+      t = w.__j.tour,
+      a = w.__j.filmachse
     /** lower_bound-Interpolation wie in src/filmachse.ts — die Achse liegt als Rohdaten vor. */
     const ip = (xs, ys, x) => {
       if (x <= xs[0]) return ys[0]
       if (x >= xs[xs.length - 1]) return ys[ys.length - 1]
-      let lo = 0, hi = xs.length - 1
-      while (lo < hi) { const m = (lo + hi) >> 1; if (xs[m] < x) lo = m + 1; else hi = m }
+      let lo = 0,
+        hi = xs.length - 1
+      while (lo < hi) {
+        const m = (lo + hi) >> 1
+        if (xs[m] < x) lo = m + 1
+        else hi = m
+      }
       const sp = xs[lo] - xs[lo - 1]
       return ys[lo - 1] + (sp > 0 ? (x - xs[lo - 1]) / sp : 1) * (ys[lo] - ys[lo - 1])
     }
@@ -53,11 +64,18 @@ for (const tour of TOUREN) {
       const abstand = t.preset.behind * t.film.skalaBeiS(s).behind
       if (abstand > 0 && vRoute > 1) schirm.push(vRoute / abstand)
     }
-    const q = (arr, p) => { const x = [...arr].sort((u, v) => u - v); return x[Math.floor(p * (x.length - 1))] ?? NaN }
+    const q = (arr, p) => {
+      const x = [...arr].sort((u, v) => u - v)
+      return x[Math.floor(p * (x.length - 1))] ?? NaN
+    }
     return {
-      f95: q(fehler, 0.95), f99: q(fehler, 0.99), fmax: q(fehler, 1),
+      f95: q(fehler, 0.95),
+      f99: q(fehler, 0.99),
+      fmax: q(fehler, 1),
       ueber: fehler.filter((x) => x > 1.5).length / Math.max(1, fehler.length),
-      s50: q(schirm, 0.5), s99: q(schirm, 0.99), smax: q(schirm, 1),
+      s50: q(schirm, 0.5),
+      s99: q(schirm, 0.99),
+      smax: q(schirm, 1),
     }
   })
   console.log(

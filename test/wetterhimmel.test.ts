@@ -3,7 +3,13 @@
 // für den flachen Schleier über der Karte.
 
 import { describe, expect, it } from 'vitest'
-import { bildwirkung, himmelBei, schleierFuer, WETTER_HIMMEL, type SzenenWetter } from '../src/wetterhimmel.js'
+import {
+  bildwirkung,
+  himmelBei,
+  schleierFuer,
+  WETTER_HIMMEL,
+  type SzenenWetter,
+} from '../src/wetterhimmel.js'
 // Die Studio-Liste und nicht die des Servers: Sie ist von hier importierbar
 // (server/ hat einen eigenen `rootDir`) und ihrerseits gegen das Server-Schema
 // gewacht — test/studio-baukasten.test.ts vergleicht beide.
@@ -148,12 +154,14 @@ function ueberGrau(m: SzenenWetter, k = 1): number[] {
   const b = bildwirkung(m, k)
   // 1. Grading: Helligkeit als Faktor, Sättigung als Zug zur Luminanz.
   const hell = LAND.map((x) => Math.max(0, Math.min(255, x * b.helligkeit)))
-  const lum = 0.2126 * (hell[0] as number) + 0.7152 * (hell[1] as number) + 0.0722 * (hell[2] as number)
+  const lum =
+    0.2126 * (hell[0] as number) + 0.7152 * (hell[1] as number) + 0.0722 * (hell[2] as number)
   const grau = Math.min(1, Math.abs(b.saettigung))
   const gegradet = hell.map((x) => x + (lum - x) * grau)
   // 2. Schleier darüber, in derselben Reihenfolge wie im CSS.
   const s = schleierFuer(m, k)
-  const zahl = (f: string) => (/rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/.exec(f) ?? []).slice(1).map(Number)
+  const zahl = (f: string) =>
+    (/rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/.exec(f) ?? []).slice(1).map(Number)
   const legen = (unten: number[], oben: number[]): number[] => {
     const al = oben[3] ?? 0
     return unten.map((x, i) => Math.round(x + ((oben[i] ?? 0) - x) * al))
@@ -161,4 +169,5 @@ function ueberGrau(m: SzenenWetter, k = 1): number[] {
   return legen(legen(gegradet, zahl(s.wasch)), zahl(s.schatten))
 }
 
-const abstand = (a: number[], b: number[]): number => a.reduce((s, x, i) => s + Math.abs(x - (b[i] ?? 0)), 0)
+const abstand = (a: number[], b: number[]): number =>
+  a.reduce((s, x, i) => s + Math.abs(x - (b[i] ?? 0)), 0)

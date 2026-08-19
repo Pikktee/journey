@@ -160,7 +160,9 @@ function baueBlatt(): HTMLElement {
   $('button[data-abbruch-ja]', el).addEventListener('click', brichAb)
   $('button[data-speichern]', el).addEventListener('click', speichere)
   el.querySelectorAll<HTMLButtonElement>('[data-lage]').forEach((b) => {
-    b.addEventListener('click', () => setzeFormat({ ...format, lage: b.dataset.lage as ExportLage }))
+    b.addEventListener('click', () =>
+      setzeFormat({ ...format, lage: b.dataset.lage as ExportLage }),
+    )
   })
   el.querySelectorAll<HTMLButtonElement>('[data-groesse]').forEach((b) => {
     b.addEventListener('click', () => {

@@ -36,7 +36,12 @@
 import { paramsAt, rastergrading, type Rastergrading } from '../daynight.js'
 import { sunPosition } from '../sun.js'
 import { createWeather, type Wetteroverlay } from '../weather.js'
-import { bildwirkung, schleierFuer, type SzenenWetter, type Wettergrading } from '../wetterhimmel.js'
+import {
+  bildwirkung,
+  schleierFuer,
+  type SzenenWetter,
+  type Wettergrading,
+} from '../wetterhimmel.js'
 // Bewusst der Studio-Typ und nicht der aus `autoweather.ts`: Was hier ankommt,
 // sind die Grenzen aus dem Edit-Overlay bzw. dem Auto-Wetter des Servers, und
 // die tragen genau diese Liste (`WETTER_MODI`, gewacht gegen das Server-Schema).
@@ -86,7 +91,11 @@ export interface Kartenstimmung {
  * @param layer  Raster-Layer, der gegradet wird (im Editor `sat`, im Player hieße er `satellite`)
  * @param buehne Element, in das der Schleier gehängt wird (die Kartenbühne)
  */
-export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne: HTMLElement): Kartenstimmung {
+export function erzeugeKartenstimmung(
+  karte: MapLibreMap,
+  layer: string,
+  buehne: HTMLElement,
+): Kartenstimmung {
   let tagNacht = false
   let wetterAn = false
   // Zuletzt GESETZTE Werte — der Vergleich hält die Paint-Aufrufe draußen.
@@ -181,7 +190,10 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
       s.nebel > 0
         ? `, radial-gradient(120% 100% at 50% 50%, rgba(226,232,240,${(0.1 * s.nebel).toFixed(3)}) 0%, rgba(226,232,240,${(0.42 * s.nebel).toFixed(3)}) 100%)`
         : ''
-    const bild = modus === 'off' ? '' : `linear-gradient(${s.wasch}, ${s.wasch}), linear-gradient(${s.schatten}, ${s.schatten})${nebel}`
+    const bild =
+      modus === 'off'
+        ? ''
+        : `linear-gradient(${s.wasch}, ${s.wasch}), linear-gradient(${s.schatten}, ${s.schatten})${nebel}`
     if (bild !== letzterSchleier) {
       // Erst bauen, wenn wirklich etwas zu zeigen ist — wer das Wetter nie
       // einschaltet, bekommt auch kein Element in den DOM.

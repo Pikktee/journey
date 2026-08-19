@@ -80,7 +80,12 @@ export const SFX_KANTE_S = NOT_DECKEL_S
 // der Aufrufer die Vorher-Position hart nach, Sprünge „verbrauchen" die Marke also.
 // Sonderfall Filmsekunde 0: „vorher < 0" gibt es nie — die Marke am Tour-Start
 // feuert stattdessen beim ersten echten Vorwärts-Tick aus der Nullposition heraus.
-export function sfxSollFeuern(vorherS: number, nachherS: number, filmVonS: number, istPlayback: boolean): boolean {
+export function sfxSollFeuern(
+  vorherS: number,
+  nachherS: number,
+  filmVonS: number,
+  istPlayback: boolean,
+): boolean {
   if (!istPlayback || nachherS - vorherS >= SFX_KANTE_S) return false
   if (filmVonS === 0) return vorherS === 0 && nachherS > 0
   return vorherS < filmVonS && nachherS >= filmVonS
@@ -161,7 +166,12 @@ const VIDEO_RAMPE_MAX_DT_S = 0.05
  * höchstens `proS` je Sekunde. `dtS ≤ 0` heißt „keine Zeit vergangen" und lässt
  * den Pegel stehen.
  */
-export function gerampterPegel(ist: number, ziel: number, dtS: number, proS = VIDEO_PEGEL_PRO_S): number {
+export function gerampterPegel(
+  ist: number,
+  ziel: number,
+  dtS: number,
+  proS = VIDEO_PEGEL_PRO_S,
+): number {
   const z = Math.max(0, Math.min(1, Number(ziel) || 0))
   const i = Math.max(0, Math.min(1, Number(ist) || 0))
   if (!(dtS > 0)) return i
@@ -322,7 +332,12 @@ export function createAudioTracks(
     if (!el) return
     const dauer = Number.isFinite(el.duration) ? el.duration : 0
     try {
-      el.currentTime = musikVersatzS(filmS - spur.filmVonS, dauer, spur.startS ?? 0, loopAktiv(spur))
+      el.currentTime = musikVersatzS(
+        filmS - spur.filmVonS,
+        dauer,
+        spur.startS ?? 0,
+        loopAktiv(spur),
+      )
     } catch {
       /* Seek vor dem Puffern kann fehlschlagen — dann läuft sie ab 0 */
     }
@@ -358,13 +373,18 @@ export function createAudioTracks(
           // Versatz ungekürzt. Einmalig nachziehen, mit der Filmsekunde VON
           // DAMALS: Beim Laden steht der Film schon weiter, gemeint ist der Eintritt.
           const beiEintritt = jetztS
-          spur.el.addEventListener('loadedmetadata', () => setzeVersatz(spur, beiEintritt), { once: true })
+          spur.el.addEventListener('loadedmetadata', () => setzeVersatz(spur, beiEintritt), {
+            once: true,
+          })
         }
         // Einstieg in die DATEI: linker Trim plus die Filmzeit, die seit dem
         // Bereichsbeginn vergangen ist — wer mitten hineinspringt, hört, was
         // dort im Film liefe (§6C, `musikVersatzS`).
         setzeVersatz(spur, jetztS)
-        if (want) spur.el.play().catch(() => { spur.blocked = true })
+        if (want)
+          spur.el.play().catch(() => {
+            spur.blocked = true
+          })
       }
       spur.drin = drin
       const el = spur.el
@@ -393,13 +413,22 @@ export function createAudioTracks(
       // den Fall aus, den es ohne Loop jetzt gibt: eine durchgelaufene Datei
       // würde von play() wieder bei 0 anfangen — der Klip klänge endlos, obwohl
       // gerade das abgeschaltet wurde.
-      if (want && el.paused && !el.ended && !spur.blocked) el.play().catch(() => { spur.blocked = true })
+      if (want && el.paused && !el.ended && !spur.blocked)
+        el.play().catch(() => {
+          spur.blocked = true
+        })
       if (!want && !el.paused && spur.level < 0.004) el.pause()
     }
   }, 60)
 
   // Autoplay-Block nach der ersten User-Geste aufheben (Retry im Timer)
-  window.addEventListener('pointerdown', () => { for (const s of musik) s.blocked = false }, { passive: true })
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      for (const s of musik) s.blocked = false
+    },
+    { passive: true },
+  )
 
   return {
     // Filmsekunde pro Frame zuführen (updateTrace-Wrapper in main.ts). Musik
@@ -416,19 +445,33 @@ export function createAudioTracks(
       }
       vorherS = filmS // Vorher-Position hart nachziehen — auch nach Sprüngen/Scrubs
     },
-    setGate: (fn: () => boolean) => { gate = fn },
+    setGate: (fn: () => boolean) => {
+      gate = fn
+    },
     richteAus: (beiFilmS?: number) => {
       const filmS = beiFilmS ?? jetztS
       for (const spur of musik) if (istAktiv(spur, filmS)) setzeVersatz(spur, filmS)
     },
-    setMusikEnabled: (on: boolean) => { musikEnabled = on },
-    setSfxEnabled: (on: boolean) => { sfxEnabled = on },
+    setMusikEnabled: (on: boolean) => {
+      musikEnabled = on
+    },
+    setSfxEnabled: (on: boolean) => {
+      sfxEnabled = on
+    },
     // Video-Ton-Hülle 0..1 → Musik ducken (Equal-Power); true/false bleibt kompatibel.
-    setDucking: (pegel: DuckPegel) => { duckTgt = videoMusikDuck(alsHuelle(pegel)) },
+    setDucking: (pegel: DuckPegel) => {
+      duckTgt = videoMusikDuck(alsHuelle(pegel))
+    },
     // Ausklingen statt Stoppen (Endscreen / zurück zum Startscreen).
-    verklinge: () => { verklingt = true },
-    get level() { return musik.reduce((m, s) => Math.max(m, s.level), 0) }, // Debug/E2E
-    get aktiveSpur() { return musik.find((s) => istAktiv(s, jetztS))?.src ?? null }, // Debug/E2E
+    verklinge: () => {
+      verklingt = true
+    },
+    get level() {
+      return musik.reduce((m, s) => Math.max(m, s.level), 0)
+    }, // Debug/E2E
+    get aktiveSpur() {
+      return musik.find((s) => istAktiv(s, jetztS))?.src ?? null
+    }, // Debug/E2E
     get tonStand() {
       return musik
         .filter((s) => s.el)
@@ -443,6 +486,9 @@ export function createAudioTracks(
           pegel: Math.round((s.el?.volume ?? 0) * 1000) / 1000,
         }))
     },
-    destroy: () => { clearInterval(timer); for (const s of musik) s.el?.pause() },
+    destroy: () => {
+      clearInterval(timer)
+      for (const s of musik) s.el?.pause()
+    },
   }
 }

@@ -222,7 +222,11 @@ export interface UndoStapel {
  * `renderNachZug()` (das den Stand NICHT fortschreibt). Erst das abschließende
  * `renderAlles` kommt hier vorbei und legt den EINEN Stand von vor dem Zug ab.
  */
-export function erfasseUndo(stapel: UndoStapel, letzterStand: EditOverlay | null, edits: EditOverlay): void {
+export function erfasseUndo(
+  stapel: UndoStapel,
+  letzterStand: EditOverlay | null,
+  edits: EditOverlay,
+): void {
   if (!letzterStand || letzterStand === edits) return
   stapel.historie.push(letzterStand)
   if (stapel.historie.length > HISTORIE_MAX) stapel.historie.shift()
@@ -257,7 +261,11 @@ export interface TrackProjektion {
  * Stützpunkte kilometerweit auseinander; ein Vertex-Snap versetzte Anker dort
  * um ganze Kilometer (Bughunt-Befund).
  */
-export function projiziereAufTrack(punkte: readonly TrackPunkt[], lng: number, lat: number): TrackProjektion {
+export function projiziereAufTrack(
+  punkte: readonly TrackPunkt[],
+  lng: number,
+  lat: number,
+): TrackProjektion {
   if (punkte.length < 2) {
     const p = punkte[0] ?? [lng, lat, 0, 0]
     return { punkt: [p[0], p[1], p[2], p[3]], index: 0 }
@@ -306,14 +314,23 @@ export function punktZuOffset(punkte: readonly TrackPunkt[], tOffsetS: number): 
     const b = punkte[i] as TrackPunkt
     if (tOffsetS <= b[3]) {
       const t = b[3] === a[3] ? 0 : (tOffsetS - a[3]) / (b[3] - a[3])
-      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, tOffsetS]
+      return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+        tOffsetS,
+      ]
     }
   }
   return [...letzter] as TrackPunkt
 }
 
 /** Index des Trackpunkts, der [lng,lat] am nächsten liegt (lokale Plattkarte). */
-export function naechsterPunktIndex(punkte: readonly TrackPunkt[], lng: number, lat: number): number {
+export function naechsterPunktIndex(
+  punkte: readonly TrackPunkt[],
+  lng: number,
+  lat: number,
+): number {
   const kx = Math.cos(((punkte[0]?.[1] ?? lat) * Math.PI) / 180)
   let best = 0
   let bestD = Infinity
@@ -386,7 +403,9 @@ export function endgueltigZuLoeschen(edits: EditOverlay): string[] {
 export function ohneMedien(edits: EditOverlay, ids: readonly string[]): EditOverlay {
   const weg = new Set(ids)
   const naechste: EditOverlay = { ...edits }
-  const medien = Object.fromEntries(Object.entries(edits.medien ?? {}).filter(([id]) => !weg.has(id)))
+  const medien = Object.fromEntries(
+    Object.entries(edits.medien ?? {}).filter(([id]) => !weg.has(id)),
+  )
   if (Object.keys(medien).length) naechste.medien = medien
   else delete naechste.medien
   if (naechste.titelbild && weg.has(naechste.titelbild)) delete naechste.titelbild
@@ -456,7 +475,11 @@ export function materialisiereModi(
   return modi.length ? { ...edits, modi } : edits
 }
 
-export function mitTrim(edits: EditOverlay, teil: 'start' | 'ende', iso: string | null): EditOverlay {
+export function mitTrim(
+  edits: EditOverlay,
+  teil: 'start' | 'ende',
+  iso: string | null,
+): EditOverlay {
   const trim = { ...(edits.trim ?? {}) }
   if (iso === null) delete trim[teil]
   else trim[teil] = iso
@@ -468,7 +491,12 @@ export function mitTrim(edits: EditOverlay, teil: 'start' | 'ende', iso: string 
 
 /** Grenze setzen/ersetzen (gleicher `ab`-Zeitpunkt = ersetzen), sortiert.
  *  skala 1/undefined wird weggelassen — hält das gespeicherte JSON minimal. */
-export function mitKameraGrenze(edits: EditOverlay, ab: string, preset: KameraPreset, skala?: number): EditOverlay {
+export function mitKameraGrenze(
+  edits: EditOverlay,
+  ab: string,
+  preset: KameraPreset,
+  skala?: number,
+): EditOverlay {
   const kamera = (edits.kamera ?? []).filter((g) => g.ab !== ab)
   kamera.push(skala !== undefined && skala !== 1 ? { ab, preset, skala } : { ab, preset })
   kamera.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
@@ -485,7 +513,12 @@ export function ohneKameraGrenze(edits: EditOverlay, ab: string): EditOverlay {
 
 /** Wetter-Grenze setzen/ersetzen (gleicher `ab` = ersetzen), sortiert.
  *  staerke undefined wird weggelassen — hält das gespeicherte JSON minimal. */
-export function mitWetterGrenze(edits: EditOverlay, ab: string, mode: WetterModus, staerke?: number): EditOverlay {
+export function mitWetterGrenze(
+  edits: EditOverlay,
+  ab: string,
+  mode: WetterModus,
+  staerke?: number,
+): EditOverlay {
   const wetter = (edits.wetter ?? []).filter((g) => g.ab !== ab)
   wetter.push(staerke !== undefined ? { ab, mode, staerke } : { ab, mode })
   wetter.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
@@ -501,7 +534,12 @@ export function ohneWetterGrenze(edits: EditOverlay, ab: string): EditOverlay {
 }
 
 /** Moment setzen/ersetzen (gleicher `ab` = ersetzen), sortiert. */
-export function mitMoment(edits: EditOverlay, ab: string, art: MomentArt, dauerS?: number): EditOverlay {
+export function mitMoment(
+  edits: EditOverlay,
+  ab: string,
+  art: MomentArt,
+  dauerS?: number,
+): EditOverlay {
   const momente = (edits.momente ?? []).filter((m) => m.ab !== ab)
   momente.push(dauerS !== undefined ? { ab, art, dauerS } : { ab, art })
   momente.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
@@ -600,7 +638,10 @@ export function pruefeOverlay(edits: EditOverlay): string | null {
   if ((edits.wetter ?? []).length > 200) return 'Zu viele Wetter-Grenzen (maximal 200)'
   for (const g of edits.wetter ?? []) {
     if (!Number.isFinite(Date.parse(g.ab))) return `Unparsebare Wetter-Grenze: ${g.ab}`
-    if (g.staerke !== undefined && !(Number.isFinite(g.staerke) && g.staerke >= 0 && g.staerke <= 1)) {
+    if (
+      g.staerke !== undefined &&
+      !(Number.isFinite(g.staerke) && g.staerke >= 0 && g.staerke <= 1)
+    ) {
       return `Wetter-Stärke muss zwischen 0 und 1 liegen`
     }
   }
@@ -621,9 +662,13 @@ export function pruefeOverlay(edits: EditOverlay): string | null {
     if (a.bis !== undefined) {
       if (a.typ !== 'musik') return `Audio ${i + 1}: ein Ende gibt es nur für Musik`
       if (!Number.isFinite(Date.parse(a.bis))) return `Audio ${i + 1}: unparsebares Ende`
-      if (Date.parse(a.bis) <= Date.parse(a.ab)) return `Audio ${i + 1}: das Ende muss nach dem Beginn liegen`
+      if (Date.parse(a.bis) <= Date.parse(a.ab))
+        return `Audio ${i + 1}: das Ende muss nach dem Beginn liegen`
     }
-    if (a.lautstaerke !== undefined && !(Number.isFinite(a.lautstaerke) && a.lautstaerke >= 0 && a.lautstaerke <= 1)) {
+    if (
+      a.lautstaerke !== undefined &&
+      !(Number.isFinite(a.lautstaerke) && a.lautstaerke >= 0 && a.lautstaerke <= 1)
+    ) {
       return `Audio ${i + 1}: Lautstärke muss zwischen 0 und 1 liegen`
     }
   }
@@ -668,7 +713,8 @@ export function zerlegeFuerAnzeige(
     .map((g) => ({ abS: (Date.parse(g.ab) - startMs) / 1000, mode: g.mode }))
     .filter((g) => Number.isFinite(g.abS))
     .sort((a, b) => a.abS - b.abS)
-  const trimVon = edits.trim?.start !== undefined ? isoZuOffset(startIso, edits.trim.start) : -Infinity
+  const trimVon =
+    edits.trim?.start !== undefined ? isoZuOffset(startIso, edits.trim.start) : -Infinity
   const trimBis = edits.trim?.ende !== undefined ? isoZuOffset(startIso, edits.trim.ende) : Infinity
 
   const modusZu = (t: number, original: Modus): Modus => {
@@ -796,7 +842,10 @@ export interface MediumAnzeige extends MediumBasis {
 }
 
 /** Overlay auf die Auto-Platzierung legen; Gelöschte bleiben (markiert) drin. */
-export function effektiveMedien(basis: readonly MediumBasis[], edits: EditOverlay): MediumAnzeige[] {
+export function effektiveMedien(
+  basis: readonly MediumBasis[],
+  edits: EditOverlay,
+): MediumAnzeige[] {
   return basis.map((m) => {
     const e = edits.medien?.[m.id]
     return {

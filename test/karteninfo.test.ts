@@ -8,7 +8,11 @@ describe('sammleQuellen', () => {
       dem: { attribution: 'AWS Open Data' },
       neueQuelle: { attribution: '© Irgendwer' },
     })
-    expect(quellen.map((q) => q.rolle)).toEqual(['Satellitenbild', 'Gelände & Höhen', 'Kartendaten'])
+    expect(quellen.map((q) => q.rolle)).toEqual([
+      'Satellitenbild',
+      'Gelände & Höhen',
+      'Kartendaten',
+    ])
     expect(quellen[2]?.html).toBe('© Irgendwer')
   })
 

@@ -131,7 +131,12 @@ export class TrackerDienst {
    * sich einem Angemeldeten ein FREMDES Anbieter-Konto unterschieben (der
    * klassische OAuth-CSRF), und ab da liefen fremde Touren in sein Konto.
    */
-  merkeZustand(benutzerId: string, anbieter: TrackerAnbieter, ziel: 'web' | 'app', redirectUri: string): string {
+  merkeZustand(
+    benutzerId: string,
+    anbieter: TrackerAnbieter,
+    ziel: 'web' | 'app',
+    redirectUri: string,
+  ): string {
     this.raeumeZustaendeAuf()
     const zustand = neueTourId().replace('t_', 'z_')
     this.zustaende.set(zustand, {
@@ -245,7 +250,11 @@ export class TrackerDienst {
     } catch {
       // Falscher Schlüssel (rotiert) oder beschädigte Zeile: Das ist keine
       // Serverstörung, sondern eine tote Verknüpfung — sichtbar machen.
-      this.setzeStatus(verknuepfungId, 'abgelaufen', 'Zugang ließ sich nicht lesen, bitte neu verbinden')
+      this.setzeStatus(
+        verknuepfungId,
+        'abgelaufen',
+        'Zugang ließ sich nicht lesen, bitte neu verbinden',
+      )
       throw new TokensUngueltigFehler()
     }
   }
@@ -258,7 +267,10 @@ export class TrackerDienst {
    * speichert, hat die Verknüpfung verloren. Eine falsche Stelle, ein
    * zerstörter Zustand; deshalb genau eine.
    */
-  async gueltigeTokens(verknuepfung: Verknuepfung, provider: TrackerProvider): Promise<ProviderTokens> {
+  async gueltigeTokens(
+    verknuepfung: Verknuepfung,
+    provider: TrackerProvider,
+  ): Promise<ProviderTokens> {
     const tokens = this.tokens(verknuepfung.id)
     const laeuftAbMs = tokens.laeuftAb ? Date.parse(tokens.laeuftAb) : NaN
     // 60 s Vorlauf: Ein Token, das während des Aufrufs abläuft, ist so
@@ -274,7 +286,10 @@ export class TrackerDienst {
       // Die Anbieter-Nutzerkennung kommt beim Erneuern oft nicht mit — sie
       // aus Versehen auf null zu setzen, kappte den Zuordnungsweg des
       // Webhooks und die Verknüpfung wäre still taub.
-      const zusammen: ProviderTokens = { ...neu, externerNutzer: neu.externerNutzer ?? tokens.externerNutzer ?? null }
+      const zusammen: ProviderTokens = {
+        ...neu,
+        externerNutzer: neu.externerNutzer ?? tokens.externerNutzer ?? null,
+      }
       this.verknuepfe(verknuepfung.benutzerId, verknuepfung.anbieter, zusammen)
       return zusammen
     } catch (fehler) {
@@ -291,7 +306,9 @@ export class TrackerDienst {
 
   merkeSync(verknuepfungId: string): void {
     this.db
-      .prepare('UPDATE tracker_verknuepfungen SET zuletzt_sync_am = ?, letzter_fehler = NULL WHERE id = ?')
+      .prepare(
+        'UPDATE tracker_verknuepfungen SET zuletzt_sync_am = ?, letzter_fehler = NULL WHERE id = ?',
+      )
       .run(this.jetzt().toISOString(), verknuepfungId)
   }
 
@@ -335,7 +352,11 @@ export class TrackerDienst {
    * dauerhaft kaputt ist, geht nicht bei jeder Zustellung erneut durch die
    * Pipeline.
    */
-  beanspruche(benutzerId: string, anbieter: TrackerAnbieter, externeId: string): ImportZeile | null {
+  beanspruche(
+    benutzerId: string,
+    anbieter: TrackerAnbieter,
+    externeId: string,
+  ): ImportZeile | null {
     const id = neueTourId().replace('t_', 'i_')
     const jetztIso = this.jetzt().toISOString()
     const ergebnis = this.db
@@ -362,17 +383,22 @@ export class TrackerDienst {
     return this.importZeileNach(benutzerId, anbieter, externeId)
   }
 
-  private importZeileNach(benutzerId: string, anbieter: TrackerAnbieter, externeId: string): ImportZeile | null {
+  private importZeileNach(
+    benutzerId: string,
+    anbieter: TrackerAnbieter,
+    externeId: string,
+  ): ImportZeile | null {
     const z = this.db
-      .prepare('SELECT id FROM tracker_importe WHERE benutzer_id = ? AND anbieter = ? AND externe_id = ?')
+      .prepare(
+        'SELECT id FROM tracker_importe WHERE benutzer_id = ? AND anbieter = ? AND externe_id = ?',
+      )
       .get(benutzerId, anbieter, externeId) as { id: string } | undefined
     return z ? this.importZeile(z.id) : null
   }
 
   importZeile(id: string): ImportZeile | null {
     const z = this.db.prepare('SELECT * FROM tracker_importe WHERE id = ?').get(id) as
-      | Record<string, string | number | null>
-      | undefined
+      Record<string, string | number | null> | undefined
     if (!z) return null
     return {
       id: z['id'] as string,
@@ -409,12 +435,21 @@ export class TrackerDienst {
       .prepare(
         'UPDATE tracker_importe SET status = ?, tour_id = ?, fertig_am = ?, fehler = ?, wiederholbar = ? WHERE id = ?',
       )
-      .run(status, tourId ?? null, this.jetzt().toISOString(), fehler ?? null, wiederholbar ? 1 : 0, id)
+      .run(
+        status,
+        tourId ?? null,
+        this.jetzt().toISOString(),
+        fehler ?? null,
+        wiederholbar ? 1 : 0,
+        id,
+      )
   }
 
   importe(benutzerId: string, grenze = 30): ImportZeile[] {
     const zeilen = this.db
-      .prepare('SELECT id FROM tracker_importe WHERE benutzer_id = ? ORDER BY gemeldet_am DESC LIMIT ?')
+      .prepare(
+        'SELECT id FROM tracker_importe WHERE benutzer_id = ? ORDER BY gemeldet_am DESC LIMIT ?',
+      )
       .all(benutzerId, grenze) as Array<{ id: string }>
     return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportZeile => z !== null)
   }
@@ -454,7 +489,9 @@ export class TrackerDienst {
       const zeile = this.importZeile(z.id)
       if (!zeile) return []
       if (!z.tour_status) return [{ ...zeile, tour: null }]
-      const stats = z.stats_json ? (JSON.parse(z.stats_json) as { km?: number; fotos?: number }) : null
+      const stats = z.stats_json
+        ? (JSON.parse(z.stats_json) as { km?: number; fotos?: number })
+        : null
       return [
         {
           ...zeile,

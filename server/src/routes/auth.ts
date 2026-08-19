@@ -74,9 +74,10 @@ function alsProfilAntwort(app: FastifyInstance, userId: string) {
     // Entscheidungen (s. server/src/routes/seiten.ts). Steht hier mit, damit
     // der Schalter der Kontoeinstellungen beim Aufbau richtig liegt.
     suchmaschinen:
-      ((app.deps.db.prepare('SELECT suchmaschinen FROM users WHERE id = ?').get(userId) as
-        | { suchmaschinen: number }
-        | undefined)?.suchmaschinen ?? 0) === 1,
+      ((
+        app.deps.db.prepare('SELECT suchmaschinen FROM users WHERE id = ?').get(userId) as
+          { suchmaschinen: number } | undefined
+      )?.suchmaschinen ?? 0) === 1,
   }
 }
 
@@ -150,13 +151,19 @@ export function registriereAuthRouten(app: FastifyInstance): void {
           type: 'object',
           additionalProperties: false,
           required: ['email', 'passwort'],
-          properties: { email: emailSchema, passwort: { type: 'string', maxLength: 1024 }, tokenLabel: { type: 'string', maxLength: 60 } },
+          properties: {
+            email: emailSchema,
+            passwort: { type: 'string', maxLength: 1024 },
+            tokenLabel: { type: 'string', maxLength: 60 },
+          },
         },
       },
     },
     async (request, reply) => {
       if (loginGebremst(`ip:${request.ip}`, `mail:${request.body.email.toLowerCase().trim()}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Anmeldeversuche. Bitte warte einen Moment.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Anmeldeversuche. Bitte warte einen Moment.' })
       }
       const benutzer = await app.auth.login(request.body.email, request.body.passwort)
       if (!benutzer) return reply.code(401).send({ fehler: 'E-Mail oder Passwort stimmt nicht.' })
@@ -199,7 +206,9 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // Registrierung nichts. Wirksam wird die Einwilligung erst mit der
   // Bestätigung der Adresse (Riegel in `NewsletterDienst.empfaenger`), womit
   // der Klick auf den Bestätigungslink das Double-Opt-in gleich miterledigt.
-  app.post<{ Body: { email: string; passwort: string; name?: string; code?: string; newsletter?: boolean } }>(
+  app.post<{
+    Body: { email: string; passwort: string; name?: string; code?: string; newsletter?: boolean }
+  }>(
     '/api/auth/register',
     {
       schema: {
@@ -218,21 +227,29 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (!konfig.registrierungOffen) return reply.code(403).send({ fehler: 'Zurzeit sind keine neuen Konten möglich.' })
+      if (!konfig.registrierungOffen)
+        return reply.code(403).send({ fehler: 'Zurzeit sind keine neuen Konten möglich.' })
       if (registrierGebremst(`ip:${request.ip}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Registrierungen. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Registrierungen. Bitte versuche es später erneut.' })
       }
       const email = request.body.email.toLowerCase().trim()
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply.code(400).send({ fehler: 'Diese E-Mail-Adresse stimmt nicht.' })
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+        return reply.code(400).send({ fehler: 'Diese E-Mail-Adresse stimmt nicht.' })
 
       const codePflicht = app.einladungen.pflicht()
       const code = request.body.code?.trim() ?? ''
       if (codePflicht) {
-        if (!code) return reply.code(403).send({ fehler: 'Für ein neues Konto brauchst du einen Einladungscode.' })
+        if (!code)
+          return reply
+            .code(403)
+            .send({ fehler: 'Für ein neues Konto brauchst du einen Einladungscode.' })
         const grund = app.einladungen.pruefe(code)
         if (grund) return reply.code(403).send({ fehler: CODE_FEHLER[grund] })
       }
-      if (app.auth.emailVergeben(email)) return reply.code(409).send({ fehler: 'Für diese E-Mail gibt es schon ein Konto.' })
+      if (app.auth.emailVergeben(email))
+        return reply.code(409).send({ fehler: 'Für diese E-Mail gibt es schon ein Konto.' })
 
       const name = request.body.name?.trim() || nameAusEmail(email)
       const benutzer = await app.auth.legeBenutzerAn(email, request.body.passwort, name, false)
@@ -289,9 +306,12 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (!konfig.registrierungOffen) return reply.code(403).send({ fehler: 'Zurzeit sind keine neuen Konten möglich.' })
+      if (!konfig.registrierungOffen)
+        return reply.code(403).send({ fehler: 'Zurzeit sind keine neuen Konten möglich.' })
       if (codeGebremst(`ip:${request.ip}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
       // Ohne Einladungspflicht ist jeder Code müßig — die Antwort ist trotzdem
       // „geht", damit ein Formular, das noch fragt, niemanden aussperrt.
@@ -305,10 +325,20 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // — E-Mail bestätigen — Token aus dem Mail-Link einlösen; danach eingeloggt.
   app.post<{ Body: { token: string } }>(
     '/api/auth/verifiziere',
-    { schema: { body: { type: 'object', additionalProperties: false, required: ['token'], properties: { token: { type: 'string', maxLength: 200 } } } } },
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['token'],
+          properties: { token: { type: 'string', maxLength: 200 } },
+        },
+      },
+    },
     async (request, reply) => {
       const userId = app.auth.loeseMailToken(request.body.token, 'verify')
-      if (!userId) return reply.code(400).send({ fehler: 'Dieser Bestätigungslink gilt nicht mehr.' })
+      if (!userId)
+        return reply.code(400).send({ fehler: 'Dieser Bestätigungslink gilt nicht mehr.' })
       app.auth.verifiziereEmail(userId)
       setzeSessionCookie(reply, userId, request)
       return { ok: true }
@@ -319,11 +349,22 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // die Adresse existiert, wird ein Reset-Token verschickt.
   app.post<{ Body: { email: string } }>(
     '/api/auth/passwort-reset-anfordern',
-    { schema: { body: { type: 'object', additionalProperties: false, required: ['email'], properties: { email: emailSchema } } } },
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['email'],
+          properties: { email: emailSchema },
+        },
+      },
+    },
     async (request, reply) => {
       const email = request.body.email.toLowerCase().trim()
       if (resetGebremst(`ip:${request.ip}`, `mail:${email}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
       }
       const userId = app.auth.benutzerIdFuerEmail(email)
       if (userId) {
@@ -352,10 +393,22 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // beenden, den Nutzer frisch einloggen.
   app.post<{ Body: { token: string; passwort: string } }>(
     '/api/auth/passwort-reset',
-    { schema: { body: { type: 'object', additionalProperties: false, required: ['token', 'passwort'], properties: { token: { type: 'string', maxLength: 200 }, passwort: passwortSchema } } } },
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['token', 'passwort'],
+          properties: { token: { type: 'string', maxLength: 200 }, passwort: passwortSchema },
+        },
+      },
+    },
     async (request, reply) => {
       const userId = app.auth.loeseMailToken(request.body.token, 'reset')
-      if (!userId) return reply.code(400).send({ fehler: 'Dieser Link gilt nicht mehr. Fordere einen neuen an.' })
+      if (!userId)
+        return reply
+          .code(400)
+          .send({ fehler: 'Dieser Link gilt nicht mehr. Fordere einen neuen an.' })
       await app.auth.setzePasswort(userId, request.body.passwort)
       setzeSessionCookie(reply, userId, request)
       return { ok: true }
@@ -458,7 +511,9 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
       if (resetGebremst(`mailwechsel:${benutzer.id}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
       }
       const email = request.body.email.toLowerCase().trim()
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -509,12 +564,16 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     async (request, reply) => {
       const eingeloest = app.auth.loeseMailTokenMitNutzlast(request.body.token, 'email')
       if (!eingeloest?.nutzlast) {
-        return reply.code(400).send({ fehler: 'Dieser Link gilt nicht mehr. Stoße den Wechsel erneut an.' })
+        return reply
+          .code(400)
+          .send({ fehler: 'Dieser Link gilt nicht mehr. Stoße den Wechsel erneut an.' })
       }
       if (!app.auth.uebernimmEigeneEmail(eingeloest.userId, eingeloest.nutzlast)) {
         // Zwischen Absenden und Klick können Tage liegen — in denen sich jemand
         // anderes mit genau dieser Adresse registriert haben kann.
-        return reply.code(409).send({ fehler: 'Diese Adresse gehört inzwischen zu einem anderen Konto.' })
+        return reply
+          .code(409)
+          .send({ fehler: 'Diese Adresse gehört inzwischen zu einem anderen Konto.' })
       }
       return { ok: true, email: eingeloest.nutzlast }
     },
@@ -531,7 +590,9 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const eigene = request.cookies[SESSION_COOKIE]
     return {
-      geraete: app.auth.geraete(benutzer.id).map((g) => ({ ...g, dieses: g.id === `sitzung:${eigene}` })),
+      geraete: app.auth
+        .geraete(benutzer.id)
+        .map((g) => ({ ...g, dieses: g.id === `sitzung:${eigene}` })),
     }
   })
 
@@ -543,7 +604,8 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     }
     // Auch die eigene Sitzung darf fallen (etwa vom Telefon aus) — dann müssen
     // die Cookies mit weg, sonst hinge der Browser an einer toten Sitzung.
-    if (request.params.id === `sitzung:${request.cookies[SESSION_COOKIE]}`) loescheSessionCookies(reply)
+    if (request.params.id === `sitzung:${request.cookies[SESSION_COOKIE]}`)
+      loescheSessionCookies(reply)
     return { ok: true }
   })
 
@@ -565,14 +627,23 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     '/api/auth/me/newsletter',
     {
       schema: {
-        body: { type: 'object', additionalProperties: false, required: ['an'], properties: { an: { type: 'boolean' } } },
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['an'],
+          properties: { an: { type: 'boolean' } },
+        },
       },
     },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
       app.newsletter.setze(benutzer.id, request.body.an, 'konto')
-      return { ok: true, newsletter: request.body.an, versandRuht: !app.auth.istVerifiziert(benutzer.id) }
+      return {
+        ok: true,
+        newsletter: request.body.an,
+        versandRuht: !app.auth.istVerifiziert(benutzer.id),
+      }
     },
   )
 
@@ -590,15 +661,27 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     '/api/auth/me/suchmaschinen',
     {
       schema: {
-        body: { type: 'object', additionalProperties: false, required: ['an'], properties: { an: { type: 'boolean' } } },
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['an'],
+          properties: { an: { type: 'boolean' } },
+        },
       },
     },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
-      db.prepare('UPDATE users SET suchmaschinen = ? WHERE id = ?').run(request.body.an ? 1 : 0, benutzer.id)
+      db.prepare('UPDATE users SET suchmaschinen = ? WHERE id = ?').run(
+        request.body.an ? 1 : 0,
+        benutzer.id,
+      )
       const profil = app.auth.profil(benutzer.id)
-      return { ok: true, suchmaschinen: request.body.an, wirktRuht: profil?.sichtbarkeit !== 'public' }
+      return {
+        ok: true,
+        suchmaschinen: request.body.an,
+        wirktRuht: profil?.sichtbarkeit !== 'public',
+      }
     },
   )
 
@@ -669,7 +752,13 @@ export function registriereAuthRouten(app: FastifyInstance): void {
         maxAge: 30 * 24 * 60 * 60,
       })
     }
-    const quota = await quotaStand(db, storage, benutzerStorage, request.benutzer.id, konfig.maxSpeicherProBenutzer)
+    const quota = await quotaStand(
+      db,
+      storage,
+      benutzerStorage,
+      request.benutzer.id,
+      konfig.maxSpeicherProBenutzer,
+    )
     return {
       benutzer: request.benutzer,
       verifiziert: app.auth.istVerifiziert(request.benutzer.id),
@@ -725,7 +814,10 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       const { handle, titelbild, ...rest } = request.body
       if (handle !== undefined) {
         const fehler = app.auth.setzeHandle(benutzer.id, handle)
-        if (fehler) return reply.code(fehler === 'vergeben' ? 409 : 400).send({ fehler: HANDLE_TEXTE[fehler] })
+        if (fehler)
+          return reply
+            .code(fehler === 'vergeben' ? 409 : 400)
+            .send({ fehler: HANDLE_TEXTE[fehler] })
       }
       if (titelbild !== undefined) {
         const wert = titelbild.trim()
@@ -737,7 +829,8 @@ export function registriereAuthRouten(app: FastifyInstance): void {
         // trotzdem auf der Platte.
         const alt = app.auth.profil(benutzer.id)?.titelbild ?? null
         app.auth.setzeTitelbild(benutzer.id, wert || null)
-        if (alt?.includes('/')) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+        if (alt?.includes('/'))
+          await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
       }
       app.auth.setzeProfil(benutzer.id, rest)
       return alsProfilAntwort(app, benutzer.id)
@@ -754,7 +847,12 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const alt = app.auth.profil(benutzer.id)?.avatar ?? null
     const datei = `avatar/${Date.now()}.jpg`
-    await benutzerStorage.schreibeStream(benutzer.id, datei, request.body as Readable, MAX_AVATAR_BYTES)
+    await benutzerStorage.schreibeStream(
+      benutzer.id,
+      datei,
+      request.body as Readable,
+      MAX_AVATAR_BYTES,
+    )
     app.auth.setzeAvatar(benutzer.id, datei)
     // Erst nach dem erfolgreichen Schreiben aufräumen — bricht der Upload ab,
     // bleibt das bisherige Bild bestehen.
@@ -786,11 +884,17 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const alt = app.auth.profil(benutzer.id)?.titelbild ?? null
     const datei = `titelbild/${Date.now()}.jpg`
-    await benutzerStorage.schreibeStream(benutzer.id, datei, request.body as Readable, MAX_TITELBILD_BYTES)
+    await benutzerStorage.schreibeStream(
+      benutzer.id,
+      datei,
+      request.body as Readable,
+      MAX_TITELBILD_BYTES,
+    )
     app.auth.setzeTitelbild(benutzer.id, datei)
     // Nur eigene Dateien aufräumen — ein Vorschlag liegt im Build und gehört
     // allen (er hat keinen Schrägstrich, s. profilfelder.ts).
-    if (alt?.includes('/') && alt !== datei) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+    if (alt?.includes('/') && alt !== datei)
+      await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
     return { titelbildUrl: titelbildUrl(benutzer.id, datei) }
   })
 

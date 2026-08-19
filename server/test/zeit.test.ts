@@ -47,8 +47,20 @@ function marsch({
 describe('baueZeitreihe', () => {
   it('verkettet Segmente mit kumulierter Distanz inkl. Segment-Sprung', () => {
     const reihe = baueZeitreihe([
-      { mode: 'walk', pts: [[8.0, LAT, 500, 0], [8.0 + 100 * GRAD_PRO_M, LAT, 500, 60]] },
-      { mode: 'bike', pts: [[8.0 + 150 * GRAD_PRO_M, LAT, 500, 90], [8.0 + 350 * GRAD_PRO_M, LAT, 500, 150]] },
+      {
+        mode: 'walk',
+        pts: [
+          [8.0, LAT, 500, 0],
+          [8.0 + 100 * GRAD_PRO_M, LAT, 500, 60],
+        ],
+      },
+      {
+        mode: 'bike',
+        pts: [
+          [8.0 + 150 * GRAD_PRO_M, LAT, 500, 90],
+          [8.0 + 350 * GRAD_PRO_M, LAT, 500, 150],
+        ],
+      },
     ])
     expect(reihe.punkte).toHaveLength(4)
     expect(reihe.gesamtM).toBeCloseTo(350, -1)
@@ -57,7 +69,14 @@ describe('baueZeitreihe', () => {
 
   it('klemmt rückwärts laufende Zeit-Offsets monoton', () => {
     const reihe = baueZeitreihe([
-      { mode: 'walk', pts: [[8.0, LAT, 500, 0], [8.001, LAT, 500, 100], [8.002, LAT, 500, 40]] },
+      {
+        mode: 'walk',
+        pts: [
+          [8.0, LAT, 500, 0],
+          [8.001, LAT, 500, 100],
+          [8.002, LAT, 500, 40],
+        ],
+      },
     ])
     expect(reihe.punkte.map((p) => p.tSek)).toEqual([0, 100, 100])
   })
@@ -113,7 +132,8 @@ describe('findePausen', () => {
 })
 
 describe('raffePausen', () => {
-  const mitPause = () => baueZeitreihe([marsch({ dauerS: 7200, pause: { abS: 1800, dauerS: 1500 } })])
+  const mitPause = () =>
+    baueZeitreihe([marsch({ dauerS: 7200, pause: { abS: 1800, dauerS: 1500 } })])
 
   it('lässt die Tour in ihrer echten Länge enden', () => {
     // Der Kern der Umstellung: Früher wurde die Pause auf 2 min gestaucht und
@@ -151,7 +171,8 @@ describe('raffePausen', () => {
     const pause = findePausen(reihe)[0]!
     // Direkt hinter der Pause ist der Rückstand schon aufgeholt …
     const kurzDahinter = reihe.punkte.findIndex(
-      (p, i) => i > pause.bisIdx && p.dist > (reihe.punkte[pause.bisIdx] as { dist: number }).dist + 200,
+      (p, i) =>
+        i > pause.bisIdx && p.dist > (reihe.punkte[pause.bisIdx] as { dist: number }).dist + 200,
     )
     expect(roh[kurzDahinter]).toBe((reihe.punkte[kurzDahinter] as { tSek: number }).tSek)
   })
@@ -168,9 +189,7 @@ describe('raffePausen', () => {
     // Zwei Pausen keine 200 m auseinander: Ohne Verschmelzung zöge die zweite
     // Rampe den von der ersten vorgezogenen Rand wieder zurück — die Uhr liefe
     // an der Nahtstelle rückwärts.
-    const reihe = baueZeitreihe([
-      marsch({ dauerS: 3600, pause: { abS: 900, dauerS: 1200 } }),
-    ])
+    const reihe = baueZeitreihe([marsch({ dauerS: 3600, pause: { abS: 900, dauerS: 1200 } })])
     const pausen = findePausen(reihe)
     const roh = raffePausen(reihe, pausen)
     for (let i = 1; i < roh.length; i++) expect(roh[i]).toBeGreaterThanOrEqual(roh[i - 1] as number)
@@ -190,7 +209,12 @@ describe('kollabierePausen', () => {
     for (let t = 0; t <= dauerS; t += 30) {
       if (t >= abS && t < abS + pauseS) {
         const zickzack = Math.sin(t / 90) * 50
-        pts.push([8.0 + (strecke + zickzack) * GRAD_PRO_M, LAT + Math.cos(t / 70) * 30 * GRAD_PRO_M, 500, t])
+        pts.push([
+          8.0 + (strecke + zickzack) * GRAD_PRO_M,
+          LAT + Math.cos(t / 70) * 30 * GRAD_PRO_M,
+          500,
+          t,
+        ])
       } else {
         pts.push([8.0 + strecke * GRAD_PRO_M, LAT, 500, t])
         if (!(t >= abS && t < abS + pauseS)) strecke += 1.4 * 30
@@ -272,7 +296,9 @@ describe('kollabierePausen', () => {
     if (!timeline) throw new Error('Timeline erwartet')
     for (let i = 1; i < timeline.length; i++) {
       expect(timeline[i]?.f).toBeGreaterThanOrEqual(timeline[i - 1]?.f ?? 0)
-      expect(Date.parse(timeline[i]?.t ?? '')).toBeGreaterThanOrEqual(Date.parse(timeline[i - 1]?.t ?? ''))
+      expect(Date.parse(timeline[i]?.t ?? '')).toBeGreaterThanOrEqual(
+        Date.parse(timeline[i - 1]?.t ?? ''),
+      )
     }
   })
 })
@@ -298,7 +324,9 @@ describe('destilliereTimeline', () => {
     expect(timeline[timeline.length - 1]).toEqual({ f: 1, t: '2026-07-04T08:00:00Z' })
     for (let i = 1; i < timeline.length; i++) {
       expect(timeline[i]?.f).toBeGreaterThanOrEqual(timeline[i - 1]?.f ?? 0)
-      expect(Date.parse(timeline[i]?.t ?? '')).toBeGreaterThanOrEqual(Date.parse(timeline[i - 1]?.t ?? ''))
+      expect(Date.parse(timeline[i]?.t ?? '')).toBeGreaterThanOrEqual(
+        Date.parse(timeline[i - 1]?.t ?? ''),
+      )
     }
   })
 
@@ -333,7 +361,15 @@ describe('destilliereTimeline', () => {
     // keine Strecke
     expect(
       destilliereTimeline(
-        baueZeitreihe([{ mode: 'walk', pts: [[8.0, LAT, 500, 0], [8.0, LAT, 500, 600]] }]),
+        baueZeitreihe([
+          {
+            mode: 'walk',
+            pts: [
+              [8.0, LAT, 500, 0],
+              [8.0, LAT, 500, 600],
+            ],
+          },
+        ]),
         START,
       ),
     ).toBeUndefined()
@@ -342,7 +378,15 @@ describe('destilliereTimeline', () => {
     // keine Zeitspanne
     expect(
       destilliereTimeline(
-        baueZeitreihe([{ mode: 'walk', pts: [[8.0, LAT, 500, 0], [8.01, LAT, 500, 0]] }]),
+        baueZeitreihe([
+          {
+            mode: 'walk',
+            pts: [
+              [8.0, LAT, 500, 0],
+              [8.01, LAT, 500, 0],
+            ],
+          },
+        ]),
         START,
       ),
     ).toBeUndefined()
@@ -366,7 +410,13 @@ describe('positionZurZeit', () => {
 
 describe('zeitZurPosition (Umkehrung)', () => {
   const reihe = baueZeitreihe([
-    { mode: 'walk', pts: [[7.9, 46.5, 0, 0], [7.91, 46.51, 0, 1000]] },
+    {
+      mode: 'walk',
+      pts: [
+        [7.9, 46.5, 0, 0],
+        [7.91, 46.51, 0, 1000],
+      ],
+    },
   ] as UploadSegment[])
 
   it('führt zu genau der Zeit zurück, aus der der Anteil kam', () => {

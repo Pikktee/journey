@@ -80,7 +80,9 @@ describe('mussWebKonvertiert', () => {
   })
 
   it('lässt eine web-taugliche .mp4 unangetastet', () => {
-    expect(mussWebKonvertiert(info({ codecVideo: 'h264', codecAudio: 'aac' }), 'm1.mp4')).toBe(false)
+    expect(mussWebKonvertiert(info({ codecVideo: 'h264', codecAudio: 'aac' }), 'm1.mp4')).toBe(
+      false,
+    )
   })
 
   it('konvertiert nicht web-taugliche Codecs unabhängig vom Container', () => {
@@ -90,13 +92,17 @@ describe('mussWebKonvertiert', () => {
 
 describe('hatFaststart', () => {
   it('erkennt den Index vorn (so schreibt ffmpeg mit +faststart)', () => {
-    expect(hatFaststart(Buffer.concat([atom('ftyp', 16), atom('moov', 200), atom('mdat', 4000)]))).toBe(true)
+    expect(
+      hatFaststart(Buffer.concat([atom('ftyp', 16), atom('moov', 200), atom('mdat', 4000)])),
+    ).toBe(true)
   })
 
   it('erkennt den Index hinten — so schreibt Android jede Aufnahme', () => {
     // Genau die Form, die vom Pixel hochgeladen wird: ftyp, ein leerer
     // free-Platzhalter, die Mediendaten, und der Index erst dahinter.
-    expect(hatFaststart(Buffer.concat([atom('ftyp', 16), atom('free', 3184), atom('mdat', 4000)]))).toBe(false)
+    expect(
+      hatFaststart(Buffer.concat([atom('ftyp', 16), atom('free', 3184), atom('mdat', 4000)])),
+    ).toBe(false)
   })
 
   it('gibt bei einem 64-Bit-mdat auf, statt in die Nutzlast zu laufen', () => {
@@ -139,7 +145,10 @@ describe('abgeleitete Namen + Poster-Zeitpunkt', () => {
 describe('bereiteVideosAuf', () => {
   it('erzeugt nur ein Poster, wenn das Video web-tauglich ist UND den Index vorn hat', async () => {
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.mp4', Buffer.concat([atom('ftyp', 16), atom('moov', 64), atom('mdat', 512)]))
+    sp.dateien.set(
+      'media/m1.mp4',
+      Buffer.concat([atom('ftyp', 16), atom('moov', 64), atom('mdat', 512)]),
+    )
     const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 8.4 }))
 
     const meta = await bereiteVideosAuf({
@@ -149,7 +158,12 @@ describe('bereiteVideosAuf', () => {
     })
 
     expect(werkzeug.aufrufe).toEqual(['probe', 'poster']) // weder Transcode noch Remux
-    expect(meta.get('m1')).toEqual({ dauerS: 8.4, videoDatei: 'm1.mp4', posterDatei: 'm1.poster.jpg', quellDauerS: 8.4 })
+    expect(meta.get('m1')).toEqual({
+      dauerS: 8.4,
+      videoDatei: 'm1.mp4',
+      posterDatei: 'm1.poster.jpg',
+      quellDauerS: 8.4,
+    })
     expect(sp.dateien.has('media/m1.poster.jpg')).toBe(true)
     expect(sp.dateien.has('media/m1.web.mp4')).toBe(false)
     // Hier IST das Original die Auslieferungsdatei — es darf nicht weg
@@ -161,7 +175,10 @@ describe('bereiteVideosAuf', () => {
     // `moov` am Ende geschrieben. Ohne diesen Schritt lud der Player erst die
     // ganze Datei durch, bevor das erste Bild kam.
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.mp4', Buffer.concat([atom('ftyp', 16), atom('mdat', 512), atom('moov', 64)]))
+    sp.dateien.set(
+      'media/m1.mp4',
+      Buffer.concat([atom('ftyp', 16), atom('mdat', 512), atom('moov', 64)]),
+    )
     const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 12.7 }))
 
     const meta = await bereiteVideosAuf({
@@ -180,7 +197,10 @@ describe('bereiteVideosAuf', () => {
 
   it('remuxt nicht doppelt: liegt die web.mp4 schon, bleibt es bei der Probe', async () => {
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.mp4', Buffer.concat([atom('ftyp', 16), atom('mdat', 512), atom('moov', 64)]))
+    sp.dateien.set(
+      'media/m1.mp4',
+      Buffer.concat([atom('ftyp', 16), atom('mdat', 512), atom('moov', 64)]),
+    )
     sp.dateien.set('media/m1.poster.jpg', Buffer.from('ALT-POSTER'))
     sp.dateien.set('media/m1.web.mp4', Buffer.from('ALT-WEB'))
     const werkzeug = new FakeVideoWerkzeug(info())
@@ -232,7 +252,12 @@ describe('bereiteVideosAuf', () => {
     })
 
     expect(werkzeug.aufrufe).toEqual(['probe']) // nichts neu erzeugt
-    expect(meta.get('m1')).toEqual({ dauerS: 9.5, videoDatei: 'm1.web.mp4', posterDatei: 'm1.poster.jpg', quellDauerS: 9.5 })
+    expect(meta.get('m1')).toEqual({
+      dauerS: 9.5,
+      videoDatei: 'm1.web.mp4',
+      posterDatei: 'm1.poster.jpg',
+      quellDauerS: 9.5,
+    })
   })
 
   it('erzeugt beim Wiedereintritt ein fehlendes Poster aus der web.mp4', async () => {
@@ -350,7 +375,10 @@ describe('klemmeSchnitt', () => {
 describe('bereiteVideosAuf mit Schnitt', () => {
   const ganzesVideo = (): ReturnType<typeof memSpeicher> => {
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.mp4', Buffer.concat([atom('ftyp', 16), atom('moov', 64), atom('mdat', 512)]))
+    sp.dateien.set(
+      'media/m1.mp4',
+      Buffer.concat([atom('ftyp', 16), atom('moov', 64), atom('mdat', 512)]),
+    )
     return sp
   }
 

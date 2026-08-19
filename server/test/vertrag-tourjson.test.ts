@@ -36,7 +36,11 @@ function vertragManifest(): UploadManifest {
     clientTourId: 'vertrag-tour-1',
     title: null,
     description: null,
-    time: { start: '2026-07-04T08:12:31+02:00', end: '2026-07-04T14:03:10+02:00', zone: 'Europe/Zurich' },
+    time: {
+      start: '2026-07-04T08:12:31+02:00',
+      end: '2026-07-04T14:03:10+02:00',
+      zone: 'Europe/Zurich',
+    },
     segments: [
       {
         mode: 'walk',
@@ -218,9 +222,19 @@ const FAELLE: Array<[name: string, edits: EditOverlay | null]> = [
           lautstaerke: 0.6,
         },
         // benutzerweite Bibliothek, offenes Ende
-        { datei: 'mein-stueck.mp3', typ: 'musik', ab: '2026-07-04T09:30:00+02:00', quelle: 'benutzer' },
+        {
+          datei: 'mein-stueck.mp3',
+          typ: 'musik',
+          ab: '2026-07-04T09:30:00+02:00',
+          quelle: 'benutzer',
+        },
         // kuratierter Effekt, One-Shot
-        { datei: 'sfx-moewen.mp3', typ: 'sfx', ab: '2026-07-04T10:42:31+02:00', quelle: 'bibliothek' },
+        {
+          datei: 'sfx-moewen.mp3',
+          typ: 'sfx',
+          ab: '2026-07-04T10:42:31+02:00',
+          quelle: 'bibliothek',
+        },
       ],
     },
   ],
@@ -320,8 +334,18 @@ const FAELLE: Array<[name: string, edits: EditOverlay | null]> = [
       kamera: [{ ab: '2026-07-04T08:40:00+02:00', preset: 'nah', skala: 0.8 }],
       momente: [{ ab: '2026-07-04T09:12:31+02:00', art: 'aufstieg', dauerS: 4 }],
       audio: [
-        { datei: 'mein-stueck.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00', quelle: 'benutzer' },
-        { datei: 'sfx-wind.mp3', typ: 'sfx', ab: '2026-07-04T09:12:31+02:00', quelle: 'bibliothek' },
+        {
+          datei: 'mein-stueck.mp3',
+          typ: 'musik',
+          ab: '2026-07-04T08:12:31+02:00',
+          quelle: 'benutzer',
+        },
+        {
+          datei: 'sfx-wind.mp3',
+          typ: 'sfx',
+          ab: '2026-07-04T09:12:31+02:00',
+          quelle: 'bibliothek',
+        },
       ],
       wetter: [{ ab: '2026-07-04T08:12:31+02:00', mode: 'clouds' }],
     },

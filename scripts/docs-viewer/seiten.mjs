@@ -332,7 +332,15 @@ function bilderNachOrdner(bilder) {
  * Das Menü steht im Markup jeder Kachel, wird aber nur mit laufendem Dienst
  * eingeblendet (`body.mit-dienst`).
  */
-function aktionsmenue({ datei, titel, imArchiv, zurueck = '', phasen = [], phase = '', oeffnen = '' }) {
+function aktionsmenue({
+  datei,
+  titel,
+  imArchiv,
+  zurueck = '',
+  phasen = [],
+  phase = '',
+  oeffnen = '',
+}) {
   const roadmap = phasen.length
     ? `<div class="menue-titel">Roadmap</div>
        ${phasen
@@ -739,9 +747,7 @@ function roadmapAbschnitt(roadmap, bereiche) {
         <span class="rm-zahl">${ph.eintraege.length}</span>
       </div>
     </header>
-    <ol class="rm-liste" data-phase="${escape(ph.name)}">${ph.eintraege
-      .map(eintrag)
-      .join('')}</ol>
+    <ol class="rm-liste" data-phase="${escape(ph.name)}">${ph.eintraege.map(eintrag).join('')}</ol>
     <div class="rm-leer">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
@@ -764,7 +770,10 @@ function roadmapAbschnitt(roadmap, bereiche) {
     ? `<p class="rm-fund">
         <b>${imCode.length} ${imCode.length === 1 ? 'Vorhaben ist' : 'Vorhaben sind'} im Code, aber in keiner Phase.</b>
         ${imCode
-          .map((d) => `<a href="${escape(d.ziel)}">${escape(d.titel.replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, ''))}</a>`)
+          .map(
+            (d) =>
+              `<a href="${escape(d.ziel)}">${escape(d.titel.replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, ''))}</a>`,
+          )
           .join('<i>·</i>')}
       </p>`
     : ''
@@ -887,9 +896,14 @@ export function uebersichtSeite({ bereiche, dokumente, mockups, bilder, roadmap,
     <ol class="zeitstrahl">${aktuelle.slice(0, 5).map(zeile).join('')}</ol>
     ${
       rest.length
-        ? falte('Ältere Änderungen', rest.length, `<ol class="zeitstrahl">${rest.map(zeile).join('')}</ol>`, {
-            satz: 'Was davor angefasst wurde, inklusive Archiv.',
-          })
+        ? falte(
+            'Ältere Änderungen',
+            rest.length,
+            `<ol class="zeitstrahl">${rest.map(zeile).join('')}</ol>`,
+            {
+              satz: 'Was davor angefasst wurde, inklusive Archiv.',
+            },
+          )
         : ''
     }
   </section>
@@ -898,7 +912,13 @@ export function uebersichtSeite({ bereiche, dokumente, mockups, bilder, roadmap,
 ${fussleiste()}
 ${suchschicht()}`
 
-  return huelle({ titel: 'Übersicht', ziel: 'index.html', klasse: 'seite-uebersicht', inhalt, schriftLokal })
+  return huelle({
+    titel: 'Übersicht',
+    ziel: 'index.html',
+    klasse: 'seite-uebersicht',
+    inhalt,
+    schriftLokal,
+  })
 }
 
 /**
@@ -913,7 +933,8 @@ ${suchschicht()}`
  */
 function filterleiste(sammlung, { platzhalter = 'Filtern …', mitStatus = false } = {}) {
   const teileZaehler = new Map()
-  for (const x of sammlung) for (const id of x.teile ?? []) teileZaehler.set(id, (teileZaehler.get(id) ?? 0) + 1)
+  for (const x of sammlung)
+    for (const id of x.teile ?? []) teileZaehler.set(id, (teileZaehler.get(id) ?? 0) + 1)
   const teile = SYSTEMTEILE.filter((t) => teileZaehler.has(t.id))
 
   const arten = ['verbindlich', 'fertig', 'unterwegs', 'offen', 'ruht', 'ohne'].filter((a) =>
@@ -934,8 +955,20 @@ function filterleiste(sammlung, { platzhalter = 'Filtern …', mitStatus = false
 
   return `<div class="werkzeugleiste">
     <input type="search" class="filterfeld" placeholder="${escape(platzhalter)}" data-filter-feld autocomplete="off" />
-    ${feld('teilwahl', 'Systemteil', teile.map((t) => ({ wert: t.id, text: `${t.name} (${teileZaehler.get(t.id)})` })))}
-    ${mitStatus ? feld('statuswahl', 'Zustand', arten.map((a) => ({ wert: a, text: `${AMPEL_WORT[a]} (${statusZahl(a)})` }))) : ''}
+    ${feld(
+      'teilwahl',
+      'Systemteil',
+      teile.map((t) => ({ wert: t.id, text: `${t.name} (${teileZaehler.get(t.id)})` })),
+    )}
+    ${
+      mitStatus
+        ? feld(
+            'statuswahl',
+            'Zustand',
+            arten.map((a) => ({ wert: a, text: `${AMPEL_WORT[a]} (${statusZahl(a)})` })),
+          )
+        : ''
+    }
     ${
       // Die Liste kam bisher in DATEINAMEN-Reihenfolge — für den Leser eine
       // zufällige Ordnung (alle „konzept_*" landen beieinander, weil sie so
@@ -963,7 +996,8 @@ function filterleiste(sammlung, { platzhalter = 'Filtern …', mitStatus = false
  */
 function teilFilter(sammlung) {
   const zaehler = new Map()
-  for (const x of sammlung) for (const id of x.teile ?? []) zaehler.set(id, (zaehler.get(id) ?? 0) + 1)
+  for (const x of sammlung)
+    for (const id of x.teile ?? []) zaehler.set(id, (zaehler.get(id) ?? 0) + 1)
   const vorhanden = SYSTEMTEILE.filter((t) => zaehler.has(t.id))
   if (vorhanden.length < 2) return ''
   return `<div class="filterchips teil-filter" data-teilfilter>
@@ -1012,7 +1046,9 @@ export function bereichSeite({ bereich, dokumente, bereiche, roadmap, schriftLok
           `<div class="karten archiv-gitter">${archiv
             .map((d) => dokumentKarte(d, auf, bereich.ton, roadmap))
             .join('\n')}</div>`,
-          { satz: 'Erledigtes und Verworfenes aus diesem Bereich. Nicht als Implementierungsquelle nutzen.' },
+          {
+            satz: 'Erledigtes und Verworfenes aus diesem Bereich. Nicht als Implementierungsquelle nutzen.',
+          },
         )
       : ''
   }
@@ -1082,7 +1118,8 @@ function kopftafel(dok, roadmap) {
   // dazu hat, ist es dieser Satz; wo nicht, das Wort der Ampel („Verbindlich"
   // bei den Handbuch-Dateien). Vorher war es beides an zwei Orten — als Pille
   // über dem Titel und als Satz darunter —, und die Pille sagte weniger.
-  const statusWort = dok.kopf.status || (dok.ampel ? AMPEL_WORT[dok.ampel.art] || dok.ampel.wort : '')
+  const statusWort =
+    dok.kopf.status || (dok.ampel ? AMPEL_WORT[dok.ampel.art] || dok.ampel.wort : '')
   const status = statusWort
     ? `<span class="tafel-status" data-art="${dok.ampel?.art ?? 'ruht'}">${escape(statusWort)}</span>`
     : ''
@@ -1343,7 +1380,16 @@ function seitenleiste(dokumente, bereiche, dok, auf) {
   </aside>`
 }
 
-export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, nachAbs, roadmap, schriftLokal }) {
+export function dokumentSeite({
+  dok,
+  html,
+  ueberschriften,
+  dokumente,
+  bereiche,
+  nachAbs,
+  roadmap,
+  schriftLokal,
+}) {
   const auf = hoch(dok.ziel)
   const bereich = bereiche.find((b) => b.id === dok.bereich)
   /*
@@ -1476,7 +1522,13 @@ export function mockupSeite({ mockups, bereiche, roadmap, schriftLokal }) {
 ${fussleiste()}
 ${suchschicht()}`
 
-  return huelle({ titel: 'Mockups', ziel: 'mockups.html', klasse: 'seite-mockups', inhalt, schriftLokal })
+  return huelle({
+    titel: 'Mockups',
+    ziel: 'mockups.html',
+    klasse: 'seite-mockups',
+    inhalt,
+    schriftLokal,
+  })
 }
 
 /* ── Karte ────────────────────────────────────────────────────────────── */
@@ -1546,5 +1598,11 @@ export function kartenSeite({ dokumente, bereiche, schriftLokal }) {
   </div>
 </main>
 ${suchschicht()}`
-  return huelle({ titel: 'Verweis-Netz', ziel: 'karte.html', klasse: 'seite-karte', inhalt, schriftLokal })
+  return huelle({
+    titel: 'Verweis-Netz',
+    ziel: 'karte.html',
+    klasse: 'seite-karte',
+    inhalt,
+    schriftLokal,
+  })
 }

@@ -17,9 +17,20 @@ function beispielTour(): TourJsonAntwort {
     stops: ['Lauterbrunnen', 'Grindelwald'],
     finaleTitle: 'Grindelwald',
     description: null,
-    time: { start: '2026-07-04T08:12:31+02:00', end: '2026-07-04T14:03:10+02:00', zone: 'Europe/Zurich' },
+    time: {
+      start: '2026-07-04T08:12:31+02:00',
+      end: '2026-07-04T14:03:10+02:00',
+      zone: 'Europe/Zurich',
+    },
     segments: [
-      { mode: 'walk', label: 'Zu Fuß', pts: [[7.9086, 46.5934, 800], [7.9105, 46.59, 830]] },
+      {
+        mode: 'walk',
+        label: 'Zu Fuß',
+        pts: [
+          [7.9086, 46.5934, 800],
+          [7.9105, 46.59, 830],
+        ],
+      },
     ],
     media: [
       {
@@ -147,7 +158,10 @@ describe('adaptiereTour', () => {
 
   it('reicht Kamera-Keyframes und Audio-Spuren roh durch (f-basiert)', () => {
     const tour = beispielTour()
-    tour.camera = [{ f: 0.2, preset: 'nah' }, { f: 0.7, preset: 'weit' }]
+    tour.camera = [
+      { f: 0.2, preset: 'nah' },
+      { f: 0.7, preset: 'weit' },
+    ]
     tour.audio = [
       { type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0.1, f1: 0.9, gain: 0.8 },
       { type: 'sfx', src: '/api/media/t_abc123/knall.mp3', f0: 0.5, f1: 0.5 },
@@ -159,7 +173,13 @@ describe('adaptiereTour', () => {
     // klängen im Player sonst mit 1.0, also lauter als im Schnitt.
     expect(cfg.audio).toEqual([
       { type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0.1, f1: 0.9, gain: 0.8 },
-      { type: 'sfx', src: '/api/media/t_abc123/knall.mp3', f0: 0.5, f1: 0.5, gain: STUDIO_PEGEL_VORGABE },
+      {
+        type: 'sfx',
+        src: '/api/media/t_abc123/knall.mp3',
+        f0: 0.5,
+        f1: 0.5,
+        gain: STUDIO_PEGEL_VORGABE,
+      },
     ])
     // Und der Master steht dann auf 1: `gain` ist bei aufgezeichneten Touren
     // absolut (die 0.22 der kuratierten Touren wären ein zweiter Faktor darüber).
@@ -168,7 +188,10 @@ describe('adaptiereTour', () => {
 
   it('filtert Kamera-/Audio-Einträge mit kaputten f-Werten (Number.isFinite)', () => {
     const tour = beispielTour()
-    tour.camera = [{ f: Number.NaN, preset: 'weit' }, { f: 0.4, preset: 'mittel' }]
+    tour.camera = [
+      { f: Number.NaN, preset: 'weit' },
+      { f: 0.4, preset: 'mittel' },
+    ]
     tour.audio = [{ type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0, f1: Number.NaN }]
     const cfg = adaptiereTour(tour)
     expect(cfg.camera).toEqual([{ f: 0.4, preset: 'mittel' }])
@@ -186,7 +209,13 @@ describe('adaptiereTour', () => {
     const cfg = adaptiereTour(tour)
     expect(cfg.audio).toEqual([
       { type: 'music', src: '/api/media/t_abc123/ok.mp3', f0: 0.2, f1: 0.8, gain: 0.5 },
-      { type: 'sfx', src: '/api/media/t_abc123/ohne-gain.mp3', f0: 0.5, f1: 0.5, gain: STUDIO_PEGEL_VORGABE },
+      {
+        type: 'sfx',
+        src: '/api/media/t_abc123/ohne-gain.mp3',
+        f0: 0.5,
+        f1: 0.5,
+        gain: STUDIO_PEGEL_VORGABE,
+      },
     ])
   })
 
@@ -203,7 +232,11 @@ describe('adaptiereTour', () => {
   })
 
   it('wirft bei fehlgeschlagener Verarbeitung mit Server-Fehlertext', () => {
-    const kaputt = { id: 't_abc123', status: 'fehler', fehler: 'ffmpeg explodiert' } as unknown as TourJsonAntwort
+    const kaputt = {
+      id: 't_abc123',
+      status: 'fehler',
+      fehler: 'ffmpeg explodiert',
+    } as unknown as TourJsonAntwort
     expect(() => adaptiereTour(kaputt)).toThrow(/ffmpeg explodiert/)
   })
 })

@@ -94,7 +94,8 @@ export function rueckZiel(rel, bereich) {
 }
 
 function verschiebe(vonAbs, nachAbs) {
-  if (existsSync(nachAbs)) throw new DienstFehler(`Dort liegt schon etwas: ${relative(WURZEL, nachAbs)}`)
+  if (existsSync(nachAbs))
+    throw new DienstFehler(`Dort liegt schon etwas: ${relative(WURZEL, nachAbs)}`)
   mkdirSync(dirname(nachAbs), { recursive: true })
   try {
     // `git mv` behält die Historie sichtbar; ohne Git-Kenntnis der Datei
@@ -150,7 +151,10 @@ export function holeZurueck(rel, bereich) {
     // Zurückgeholt heißt: nicht mehr archiviert. Blieben die Angaben stehen,
     // stünde das Dokument im Viewer wieder unter „Archiv" — in beiden
     // Schreibweisen, denn beide werden gelesen.
-    writeFileSync(ziel, setzeKopf(text, { archiviert_aus: null }).replace(/^Archiviert aus:.*\n\n?/m, ''))
+    writeFileSync(
+      ziel,
+      setzeKopf(text, { archiviert_aus: null }).replace(/^Archiviert aus:.*\n\n?/m, ''),
+    )
   }
   return neu
 }
@@ -186,7 +190,18 @@ const EDITOREN = [
 ]
 
 /** Editoren, die ein Terminal brauchen. Losgelassen tun sie nichts Sichtbares. */
-const IM_TERMINAL = new Set(['vi', 'vim', 'nvim', 'nano', 'pico', 'ed', 'emacs', 'micro', 'helix', 'hx'])
+const IM_TERMINAL = new Set([
+  'vi',
+  'vim',
+  'nvim',
+  'nano',
+  'pico',
+  'ed',
+  'emacs',
+  'micro',
+  'helix',
+  'hx',
+])
 
 function imPfad(name) {
   try {
@@ -322,17 +337,23 @@ export function ziehVerweiseNach(vonAbs, nachAbs, namen = {}) {
     // Markdown-Links zuerst, weil bei ihnen auch die BESCHRIFTUNG mitgehen
     // kann: In `docs/roadmap.md` steht der Titel im Linktext, im Index oft der
     // Dateiname. Bliebe er stehen, zeigte der Link richtig und läse sich falsch.
-    neu = neu.replace(/\[([^\]\n]*)\]\(([^)\s#]+)(#[^)\s]*)?\)/g, (ganz, text, ziel, anker = '') => {
-      if (/^(https?:|mailto:|#|\/)/.test(ziel)) return ganz
-      if (resolve(dirname(datei), decodeURI(ziel)) !== vonAbs) return ganz
-      return `[${neueBeschriftung(text, namen)}](${relative(dirname(datei), nachAbs)}${anker})`
-    })
+    neu = neu.replace(
+      /\[([^\]\n]*)\]\(([^)\s#]+)(#[^)\s]*)?\)/g,
+      (ganz, text, ziel, anker = '') => {
+        if (/^(https?:|mailto:|#|\/)/.test(ziel)) return ganz
+        if (resolve(dirname(datei), decodeURI(ziel)) !== vonAbs) return ganz
+        return `[${neueBeschriftung(text, namen)}](${relative(dirname(datei), nachAbs)}${anker})`
+      },
+    )
 
-    neu = neu.replace(/(href="|href='|src="|src=')([^"'\s#]+)((?:#[^"'\s]*)?)/g, (ganz, vor, ziel, anker) => {
-      if (/^(https?:|mailto:|#|\/)/.test(ziel)) return ganz
-      if (resolve(dirname(datei), decodeURI(ziel)) !== vonAbs) return ganz
-      return vor + relative(dirname(datei), nachAbs) + anker
-    })
+    neu = neu.replace(
+      /(href="|href='|src="|src=')([^"'\s#]+)((?:#[^"'\s]*)?)/g,
+      (ganz, vor, ziel, anker) => {
+        if (/^(https?:|mailto:|#|\/)/.test(ziel)) return ganz
+        if (resolve(dirname(datei), decodeURI(ziel)) !== vonAbs) return ganz
+        return vor + relative(dirname(datei), nachAbs) + anker
+      },
+    )
 
     if (neu !== alt) {
       writeFileSync(datei, neu)
@@ -352,7 +373,12 @@ function neueBeschriftung(text, { alterTitel, neuerTitel, alteDatei, neueDatei }
   const wieDatei = (name) => name && (roh === name || roh === name.replace(/\.(md|html)$/, ''))
   if (alterTitel && neuerTitel && roh === alterTitel) return text.replace(alterTitel, neuerTitel)
   if (wieDatei(alteDatei) && neueDatei)
-    return text.replace(roh, roh.endsWith('.md') || roh.endsWith('.html') ? neueDatei : neueDatei.replace(/\.(md|html)$/, ''))
+    return text.replace(
+      roh,
+      roh.endsWith('.md') || roh.endsWith('.html')
+        ? neueDatei
+        : neueDatei.replace(/\.(md|html)$/, ''),
+    )
   return text
 }
 

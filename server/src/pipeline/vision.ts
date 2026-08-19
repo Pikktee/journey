@@ -45,7 +45,14 @@ export interface BildKlassifikator {
 // Schweregrad-Rangfolge (Plan M5): „mehr Wetter" = höherer Rang. off < clouds <
 // fog < rain < snow < storm — deckungsgleich mit der Idee, dass ein Foto die API
 // nur dann übersteuern darf, wenn es eine dramatischere Wetterlage zeigt.
-const SCHWERE: Record<WetterModus, number> = { off: 0, clouds: 1, fog: 2, rain: 3, snow: 4, storm: 5 }
+const SCHWERE: Record<WetterModus, number> = {
+  off: 0,
+  clouds: 1,
+  fog: 2,
+  rain: 3,
+  snow: 4,
+  storm: 5,
+}
 
 // Fenster-Halbbreite in f: ein übersteuerndes Foto gilt lokal um seinen Anker.
 const FENSTER_HALB = 0.03
@@ -149,7 +156,10 @@ export function verfeinereWetterMitFotos(
     const letzter = zusammen[zusammen.length - 1]
     if (letzter && w.fL <= letzter.fR) {
       letzter.fR = Math.max(letzter.fR, w.fR)
-      if (SCHWERE[w.mode] > SCHWERE[letzter.mode] || (SCHWERE[w.mode] === SCHWERE[letzter.mode] && w.k > letzter.k)) {
+      if (
+        SCHWERE[w.mode] > SCHWERE[letzter.mode] ||
+        (SCHWERE[w.mode] === SCHWERE[letzter.mode] && w.k > letzter.k)
+      ) {
         letzter.mode = w.mode
         letzter.k = w.k
       }
@@ -180,7 +190,12 @@ export function verfeinereWetterMitFotos(
   roh.sort((a, b) => a.f - b.f)
   const fertig: WetterKeyframe[] = []
   for (const kf of roh) {
-    const eintrag: WetterKeyframe = { f: rund(kf.f, 4), mode: kf.mode, k: rund(kf.k, 2), source: kf.source }
+    const eintrag: WetterKeyframe = {
+      f: rund(kf.f, 4),
+      mode: kf.mode,
+      k: rund(kf.k, 2),
+      source: kf.source,
+    }
     const vorher = fertig[fertig.length - 1]
     // Gleiche Marke → die spätere (Foto vor Basis-Restauration am selben Rand) gewinnt.
     if (vorher && vorher.f === eintrag.f) fertig.pop()
@@ -209,10 +224,21 @@ const PROMPT = [
 ].join('\n')
 
 /** Neutraler Befund: konfidenz 0 → übersteuert nie (Fallback bei Parse-/Netzfehler). */
-const NEUTRAL: BildBefund = { himmel: 'wolkig', niederschlag: 'kein', himmelSichtbar: false, konfidenz: 0 }
+const NEUTRAL: BildBefund = {
+  himmel: 'wolkig',
+  niederschlag: 'kein',
+  himmelSichtbar: false,
+  konfidenz: 0,
+}
 
 const HIMMEL = new Set<BildBefund['himmel']>(['klar', 'wolkig', 'bedeckt'])
-const NIEDERSCHLAG = new Set<BildBefund['niederschlag']>(['kein', 'regen', 'schnee', 'gewitter', 'nebel'])
+const NIEDERSCHLAG = new Set<BildBefund['niederschlag']>([
+  'kein',
+  'regen',
+  'schnee',
+  'gewitter',
+  'nebel',
+])
 
 /**
  * JSON aus einem (evtl. mit Prosa/Code-Zaun umrahmten) Text robust herausziehen.
@@ -281,7 +307,10 @@ export class OpenRouterKlassifikator implements BildKlassifikator {
               role: 'user',
               content: [
                 { type: 'text', text: PROMPT },
-                { type: 'image_url', image_url: { url: `data:${bild.medientyp};base64,${zuBase64(bild.daten)}` } },
+                {
+                  type: 'image_url',
+                  image_url: { url: `data:${bild.medientyp};base64,${zuBase64(bild.daten)}` },
+                },
               ],
             },
           ],
@@ -294,8 +323,15 @@ export class OpenRouterKlassifikator implements BildKlassifikator {
       // JSON liefert (Reasoning-Modelle verbrauchen max_tokens mit Denk-Tokens),
       // kostet Geld, ohne je etwas zu bewirken.
       if (!antwort.ok) {
-        const grund = antwort.status === 402 ? ' (Guthaben aufgebraucht?)' : antwort.status === 429 ? ' (Rate-Limit)' : ''
-        protokoll?.(`Bildanalyse: ${this.modell} antwortete mit HTTP ${antwort.status}${grund}, Foto ohne Wirkung`)
+        const grund =
+          antwort.status === 402
+            ? ' (Guthaben aufgebraucht?)'
+            : antwort.status === 429
+              ? ' (Rate-Limit)'
+              : ''
+        protokoll?.(
+          `Bildanalyse: ${this.modell} antwortete mit HTTP ${antwort.status}${grund}, Foto ohne Wirkung`,
+        )
         return NEUTRAL
       }
       const json = (await antwort.json()) as { choices?: Array<{ message?: { content?: string } }> }
@@ -310,7 +346,9 @@ export class OpenRouterKlassifikator implements BildKlassifikator {
       }
       return befund
     } catch (fehler) {
-      protokoll?.(`Bildanalyse: Aufruf an ${this.modell} fehlgeschlagen: ${(fehler as Error).message}`)
+      protokoll?.(
+        `Bildanalyse: Aufruf an ${this.modell} fehlgeschlagen: ${(fehler as Error).message}`,
+      )
       return NEUTRAL
     }
   }

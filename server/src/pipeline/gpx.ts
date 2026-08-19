@@ -100,11 +100,14 @@ export function baueSegmentAusGpx(
       tOffsetS = Math.round((p.timeMs! - opts.startMs) / 1000)
     } else {
       // gleichmäßig nach Distanz über die Zeitspanne verteilen
-      tOffsetS = Math.round(gesamtM > 0 ? (kumDist[i]! / gesamtM) * spanneS : (i / (punkte.length - 1)) * spanneS)
+      tOffsetS = Math.round(
+        gesamtM > 0 ? (kumDist[i]! / gesamtM) * spanneS : (i / (punkte.length - 1)) * spanneS,
+      )
     }
     return [Number(p.lng.toFixed(6)), Number(p.lat.toFixed(6)), Number(p.ele.toFixed(1)), tOffsetS]
   })
 
-  const modus = opts.modus ?? modusAusTempo(gesamtM, hatZeit ? (opts.endMs - opts.startMs) / 1000 : 0)
+  const modus =
+    opts.modus ?? modusAusTempo(gesamtM, hatZeit ? (opts.endMs - opts.startMs) / 1000 : 0)
   return { segment: { mode: modus, pts }, hatZeit }
 }

@@ -130,7 +130,8 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
   const spanne = gpx ? gpxZeitspanne(gpx) : null
   const punkte = gpx ? gpxPunkte(gpx) : []
   let km = 0
-  for (let i = 1; i < punkte.length; i++) km += distanzM(punkte[i - 1] as GpxPunkt, punkte[i] as GpxPunkt)
+  for (let i = 1; i < punkte.length; i++)
+    km += distanzM(punkte[i - 1] as GpxPunkt, punkte[i] as GpxPunkt)
 
   const track = spanne
     ? { punkte, startMs: spanne.startMs, endMs: spanne.endMs, km: Math.round(km / 100) / 10 }
@@ -160,7 +161,9 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
       })
     }
     const ausserhalb = aufnahmen.filter(
-      (a) => Number.isFinite(a.zeitMs) && (a.zeitMs < track.startMs - TOLERANZ_MS || a.zeitMs > track.endMs + TOLERANZ_MS),
+      (a) =>
+        Number.isFinite(a.zeitMs) &&
+        (a.zeitMs < track.startMs - TOLERANZ_MS || a.zeitMs > track.endMs + TOLERANZ_MS),
     )
     if (ausserhalb.length) {
       const abstand = Math.max(
@@ -199,8 +202,7 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
     meldungen.push({
       art: 'keine-orte',
       ton: 'warnung',
-      text:
-        'Ohne Aufzeichnung braucht es mindestens zwei Fotos mit Ortsangabe, sonst gibt es keine Strecke, über die die Kamera fliegen könnte.',
+      text: 'Ohne Aufzeichnung braucht es mindestens zwei Fotos mit Ortsangabe, sonst gibt es keine Strecke, über die die Kamera fliegen könnte.',
       dateien: [],
     })
   }
@@ -217,7 +219,11 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
     })
   }
 
-  const quelle: Pruefbefund['quelle'] = track ? 'aufzeichnung' : mitOrt.length >= 2 ? 'fotos' : 'keine'
+  const quelle: Pruefbefund['quelle'] = track
+    ? 'aufzeichnung'
+    : mitOrt.length >= 2
+      ? 'fotos'
+      : 'keine'
   return {
     track,
     aufnahmen: [...aufnahmen].sort((a, b) => a.zeitMs - b.zeitMs),
@@ -255,7 +261,12 @@ export function baueFotoSegmente(
   return [
     {
       mode: modus,
-      pts: verortet.map((a): [number, number, number, number] => [a.ort[0], a.ort[1], 0, (a.zeitMs - t0) / 1000]),
+      pts: verortet.map((a): [number, number, number, number] => [
+        a.ort[0],
+        a.ort[1],
+        0,
+        (a.zeitMs - t0) / 1000,
+      ]),
     },
   ]
 }
@@ -270,7 +281,10 @@ export function schaetzeFahrtS(km: number, aufnahmen: number): number {
 }
 
 /** Aus einem Befund die Medien-Einträge fürs Manifest (Reihenfolge = Zeit). */
-export function medienAusBefund(befund: Pruefbefund, isoMitZone: (ms: number) => string): MediumEingabe[] {
+export function medienAusBefund(
+  befund: Pruefbefund,
+  isoMitZone: (ms: number) => string,
+): MediumEingabe[] {
   return befund.aufnahmen.map((a, i) => {
     const eintrag: MediumEingabe = {
       id: `m${i + 1}`,

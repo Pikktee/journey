@@ -9,7 +9,13 @@
 // (Ziehen, Filmstreifen) liegt in editor.ts.
 
 import { reihenfolgeImHalt } from '../einblendung.js'
-import { mitMedienEdit, projiziereAufTrack, type EditOverlay, type MediumAnzeige, type TrackPunkt } from './editmodell.js'
+import {
+  mitMedienEdit,
+  projiziereAufTrack,
+  type EditOverlay,
+  type MediumAnzeige,
+  type TrackPunkt,
+} from './editmodell.js'
 import { meterZuOffset, offsetBeiMeter } from './zeitleiste.js'
 
 /**
@@ -29,7 +35,11 @@ export interface Stopp {
 }
 
 /** Streckenmeter und Zeit-Offset einer Aufnahme (Anker auf die Linie projiziert). */
-function ortVon(m: MediumAnzeige, track: readonly TrackPunkt[], kum: readonly number[]): { meter: number; offsetS: number } | null {
+function ortVon(
+  m: MediumAnzeige,
+  track: readonly TrackPunkt[],
+  kum: readonly number[],
+): { meter: number; offsetS: number } | null {
   if (!m.anchor || m.geloescht) return null
   const p = projiziereAufTrack(track, m.anchor[0], m.anchor[1])
   return { meter: meterZuOffset(kum, track, p.punkt[3]), offsetS: p.punkt[3] }
@@ -49,7 +59,9 @@ export function baueStopps(
 ): Stopp[] {
   const mitOrt = medien
     .map((m) => ({ m, ort: ortVon(m, track, kum) }))
-    .filter((x): x is { m: MediumAnzeige; ort: { meter: number; offsetS: number } } => x.ort !== null)
+    .filter(
+      (x): x is { m: MediumAnzeige; ort: { meter: number; offsetS: number } } => x.ort !== null,
+    )
     .sort((a, b) => a.ort.meter - b.ort.meter)
 
   const gruppen: Array<{ items: MediumAnzeige[]; meter: number[]; offsets: number[] }> = []

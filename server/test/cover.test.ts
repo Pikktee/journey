@@ -29,7 +29,9 @@ describe('trageTitelbilderNach', () => {
     await u.storage.loesche(id, TOURJSON_PFAD)
 
     const gemeldet: string[] = []
-    expect(await trageTitelbilderNach(u.app.deps.db, u.storage, TOURJSON_PFAD, (n) => gemeldet.push(n))).toBe(0)
+    expect(
+      await trageTitelbilderNach(u.app.deps.db, u.storage, TOURJSON_PFAD, (n) => gemeldet.push(n)),
+    ).toBe(0)
     expect(gemeldet).toHaveLength(1)
     expect(cover(u, id)).toBeNull()
   })
@@ -38,7 +40,11 @@ describe('trageTitelbilderNach', () => {
 type Umgebung = Awaited<ReturnType<typeof baueTestApp>>
 
 function cover(u: Umgebung, id: string): string | null {
-  return (u.app.deps.db.prepare('SELECT cover FROM tours WHERE id = ?').get(id) as { cover: string | null }).cover
+  return (
+    u.app.deps.db.prepare('SELECT cover FROM tours WHERE id = ?').get(id) as {
+      cover: string | null
+    }
+  ).cover
 }
 
 async function legeFertigeTourAn(u: Umgebung): Promise<string> {

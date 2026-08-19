@@ -37,7 +37,14 @@ const WURZEL = process.env['MAPTALE_DATEN_DIR']
   : new URL('../../server/daten/tours', import.meta.url).pathname
 // Meter je FILMsekunde, wie die Engine sie fährt (MODE_SPEED × Basistempo) —
 // derselbe Satz wie in rampen-simulation.ts.
-const TEMPO: Record<string, number> = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
+const TEMPO: Record<string, number> = {
+  walk: 0.4,
+  bike: 1,
+  moped: 1.15,
+  jeep: 1.45,
+  tram: 1.25,
+  ferry: 2.5,
+}
 const BASIS_M_PRO_S = 120
 /** Abnahmekriterium aus §12, Etappe 2 */
 const ZIEL_MEDIAN_S = 0.05
@@ -142,7 +149,11 @@ function rohMassStab(pfad: string, waypoints: readonly Wegpunkt[]): number[] | n
   const fs: number[] = []
   let roh = 0
   for (const p of waypoints) {
-    while (roh < pts.length && !((pts[roh] as number[])[0] === p[0] && (pts[roh] as number[])[1] === p[1])) roh++
+    while (
+      roh < pts.length &&
+      !((pts[roh] as number[])[0] === p[0] && (pts[roh] as number[])[1] === p[1])
+    )
+      roh++
     if (roh >= pts.length) return null
     fs.push((kum[roh] as number) / m)
   }
@@ -150,7 +161,9 @@ function rohMassStab(pfad: string, waypoints: readonly Wegpunkt[]): number[] | n
 }
 
 const quantil = (sortiert: number[], q: number): number =>
-  sortiert.length ? (sortiert[Math.min(sortiert.length - 1, Math.floor(q * sortiert.length))] as number) : Number.NaN
+  sortiert.length
+    ? (sortiert[Math.min(sortiert.length - 1, Math.floor(q * sortiert.length))] as number)
+    : Number.NaN
 
 const zahl = (x: number, breite: number, stellen = 2) =>
   (Number.isFinite(x) ? x.toFixed(stellen) : '—').padStart(breite)
@@ -253,11 +266,15 @@ for (const id of readdirSync(WURZEL)) {
     ['Raster', Array.from({ length: 501 }, (_, i) => i / 500)],
   ]
 
-  console.log(`${id}   ${waypoints.length} Wegpunkte · ${(route.total / 1000).toFixed(1)} km · f-Quelle: ${quelle}`)
+  console.log(
+    `${id}   ${waypoints.length} Wegpunkte · ${(route.total / 1000).toFixed(1)} km · f-Quelle: ${quelle}`,
+  )
   console.log('  Klasse       n     Median alt   Median neu      p90 neu      max neu')
   for (const [name, fs] of klassen) {
     if (!fs.length) {
-      console.log(`  ${name.padEnd(11)} ${'0'.padStart(4)}            —            —            —            —`)
+      console.log(
+        `  ${name.padEnd(11)} ${'0'.padStart(4)}            —            —            —            —`,
+      )
       continue
     }
     const alt: number[] = []
@@ -284,4 +301,8 @@ for (const id of readdirSync(WURZEL)) {
   console.log()
 }
 
-console.log(alleBestanden ? '✓ Abnahmekriterium erfüllt.' : '✗ Mindestens eine Ankerklasse liegt über dem Ziel.')
+console.log(
+  alleBestanden
+    ? '✓ Abnahmekriterium erfüllt.'
+    : '✗ Mindestens eine Ankerklasse liegt über dem Ziel.',
+)

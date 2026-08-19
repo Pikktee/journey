@@ -27,7 +27,13 @@ function parseExifDate(s: string): ExifZeitpunkt | null {
 }
 
 // TIFF-IFD durchsuchen: liefert den Wert-Offset eines Tags (oder null)
-function findTag(view: DataView, tiff: number, ifdOff: number, tag: number, le: boolean): number | null {
+function findTag(
+  view: DataView,
+  tiff: number,
+  ifdOff: number,
+  tag: number,
+  le: boolean,
+): number | null {
   const n = view.getUint16(tiff + ifdOff, le)
   for (let i = 0; i < n; i++) {
     const e = tiff + ifdOff + 2 + i * 12

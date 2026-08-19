@@ -20,7 +20,9 @@ async function legeProfilAn(
   u: Awaited<ReturnType<typeof baueTestApp>>,
   opts: { handle: string; name?: string; bio?: string; oeffentlich?: boolean; suche?: boolean },
 ): Promise<string> {
-  const id = (await u.app.auth.legeBenutzerAn(`${opts.handle}@example.com`, 'geheim123', opts.name ?? 'Wer')).id
+  const id = (
+    await u.app.auth.legeBenutzerAn(`${opts.handle}@example.com`, 'geheim123', opts.name ?? 'Wer')
+  ).id
   u.app.auth.setzeHandle(id, opts.handle)
   u.app.auth.setzeProfil(id, {
     // Nur übergeben, was gesetzt werden soll: `setzeProfil` deutet einen
@@ -142,13 +144,20 @@ describe('GET /@handle', () => {
     const u = await baueTestApp()
     await legeProfilAn(u, { handle: 'ohne' })
     await legeProfilAn(u, { handle: 'mit', suche: true })
-    expect((await u.app.inject({ method: 'GET', url: '/@ohne' })).body).toContain('content="noindex"')
+    expect((await u.app.inject({ method: 'GET', url: '/@ohne' })).body).toContain(
+      'content="noindex"',
+    )
     expect((await u.app.inject({ method: 'GET', url: '/@mit' })).body).toContain('content="index"')
   })
 
   it('indexiert ein privates Profil auch mit Schalter nicht — und verrät nichts', async () => {
     const u = await baueTestApp()
-    await legeProfilAn(u, { handle: 'still', name: 'Geheime Person', oeffentlich: false, suche: true })
+    await legeProfilAn(u, {
+      handle: 'still',
+      name: 'Geheime Person',
+      oeffentlich: false,
+      suche: true,
+    })
     const a = await u.app.inject({ method: 'GET', url: '/@still' })
     expect(a.statusCode).toBe(200)
     expect(a.body).toContain('content="noindex"')
@@ -168,7 +177,9 @@ describe('GET /@handle', () => {
   it('fällt auf einen Satz zurück, wenn es keine Bio gibt', async () => {
     const u = await baueTestApp()
     await legeProfilAn(u, { handle: 'karg', name: 'Karg' })
-    expect((await u.app.inject({ method: 'GET', url: '/@karg' })).body).toContain('Die Reisen von Karg')
+    expect((await u.app.inject({ method: 'GET', url: '/@karg' })).body).toContain(
+      'Die Reisen von Karg',
+    )
   })
 
   it('weist einen Handle ab, der keiner sein kann', async () => {
@@ -192,12 +203,23 @@ describe('GET /tour/<kennung>', () => {
       cookies: u.cookies,
       // Eigene clientTourId je Tour: Der Server dedupliziert darüber, sonst
       // wäre die zweite Tour dieselbe wie die erste.
-      payload: { ...beispielManifest(), clientTourId: `ct-${opts.titel ?? 'a'}-${opts.sicht ?? 'p'}` },
+      payload: {
+        ...beispielManifest(),
+        clientTourId: `ct-${opts.titel ?? 'a'}-${opts.sicht ?? 'p'}`,
+      },
     })
     const id = (a.json() as { id: string }).id
     u.app.deps.db
-      .prepare(`UPDATE tours SET visibility = ?, status = 'bereit', title = ?, description = ?, cover = ? WHERE id = ?`)
-      .run(opts.sicht ?? 'public', opts.titel ?? 'Runde bei Lauterbrunnen', opts.text ?? null, `/api/media/${id}/m1.w1920.jpg`, id)
+      .prepare(
+        `UPDATE tours SET visibility = ?, status = 'bereit', title = ?, description = ?, cover = ? WHERE id = ?`,
+      )
+      .run(
+        opts.sicht ?? 'public',
+        opts.titel ?? 'Runde bei Lauterbrunnen',
+        opts.text ?? null,
+        `/api/media/${id}/m1.w1920.jpg`,
+        id,
+      )
     return id
   }
 
@@ -211,7 +233,9 @@ describe('GET /tour/<kennung>', () => {
     expect(a.body).toContain('content="index"')
     expect(a.body).toContain(`og:url" content="http://localhost:5173/tour/${id}"`)
     // Die Anzeigefassung, nicht die 480er Kachel — die Karte wird breit gezeigt.
-    expect(a.body).toContain(`og:image" content="http://localhost:5173/api/media/${id}/m1.w1920.jpg"`)
+    expect(a.body).toContain(
+      `og:image" content="http://localhost:5173/api/media/${id}/m1.w1920.jpg"`,
+    )
   })
 
   it('hält eine ungelistete Tour aus dem Index, gibt ihr aber eine Karte', async () => {
@@ -258,7 +282,9 @@ describe('GET /tour/<kennung>', () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     u.app.deps.db.prepare(`UPDATE tours SET status = 'verarbeitung' WHERE id = ?`).run(id)
-    expect((await u.app.inject({ method: 'GET', url: `/tour/${id}` })).body).toContain('content="noindex"')
+    expect((await u.app.inject({ method: 'GET', url: `/tour/${id}` })).body).toContain(
+      'content="noindex"',
+    )
   })
 })
 
@@ -273,7 +299,9 @@ describe('GET /sitemap-touren.xml', () => {
         payload: { ...beispielManifest(), clientTourId: `ct-${sicht}-${status}` },
       })
       const id = (a.json() as { id: string }).id
-      u.app.deps.db.prepare('UPDATE tours SET visibility = ?, status = ? WHERE id = ?').run(sicht, status, id)
+      u.app.deps.db
+        .prepare('UPDATE tours SET visibility = ?, status = ? WHERE id = ?')
+        .run(sicht, status, id)
       return id
     }
     const oeffentlich = await anlegen('public', 'bereit')
@@ -322,7 +350,9 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
     })
     expect(setzen.statusCode).toBe(200)
     expect((setzen.json() as { wirktRuht: boolean }).wirktRuht).toBe(false)
-    expect((await u.app.inject({ method: 'GET', url: '/@testerin' })).body).toContain('content="index"')
+    expect((await u.app.inject({ method: 'GET', url: '/@testerin' })).body).toContain(
+      'content="index"',
+    )
   })
 
   it('nimmt den Wunsch auch bei privatem Profil an, sagt aber dass er ruht', async () => {
@@ -340,7 +370,13 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
   it('bleibt ohne Anmeldung verschlossen', async () => {
     const u = await baueTestApp()
     expect(
-      (await u.app.inject({ method: 'POST', url: '/api/auth/me/suchmaschinen', payload: { an: true } })).statusCode,
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/auth/me/suchmaschinen',
+          payload: { an: true },
+        })
+      ).statusCode,
     ).toBe(401)
   })
 })

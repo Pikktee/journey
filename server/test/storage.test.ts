@@ -40,9 +40,9 @@ describe('FsStorage', () => {
   })
 
   it('bricht über dem Limit ab und hinterlässt keine halbe Datei', async () => {
-    await expect(storage.schreibeStream('t_1', 'media/m1.jpg', alsStream('0123456789'), 5)).rejects.toBeInstanceOf(
-      ZuGrossFehler,
-    )
+    await expect(
+      storage.schreibeStream('t_1', 'media/m1.jpg', alsStream('0123456789'), 5),
+    ).rejects.toBeInstanceOf(ZuGrossFehler)
     expect(await storage.info('t_1', 'media/m1.jpg')).toBeNull()
   })
 
@@ -56,12 +56,16 @@ describe('FsStorage', () => {
   })
 
   it('verweigert Pfad-Ausbrüche', async () => {
-    await expect(storage.schreibe('t_1', '../../etc/passwd', 'x')).rejects.toThrow(/Unzulässiger Pfad/)
+    await expect(storage.schreibe('t_1', '../../etc/passwd', 'x')).rejects.toThrow(
+      /Unzulässiger Pfad/,
+    )
   })
 
   it('verweigert Ausbrüche in Geschwisterordner mit gleichem Präfix', async () => {
     // "t_1-boese" beginnt mit "t_1" — ohne Separator-Grenze käme das durch
-    await expect(storage.schreibe('t_1', '../t_1-boese/datei.txt', 'x')).rejects.toThrow(/Unzulässiger Pfad/)
+    await expect(storage.schreibe('t_1', '../t_1-boese/datei.txt', 'x')).rejects.toThrow(
+      /Unzulässiger Pfad/,
+    )
   })
 
   it('löscht ganze Touren', async () => {

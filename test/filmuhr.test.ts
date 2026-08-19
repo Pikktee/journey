@@ -126,7 +126,9 @@ describe('Filmuhr', () => {
 // DOM-frei). Für die Anbindung reichen zwei EventTargets und ein Feld —
 // geprüft wird, WELCHE Ereignisse die Uhr anhalten, nicht wie ein Browser sie
 // auslöst.
-function mitFensterAttrappe(pruefe: (doc: EventTarget & { visibilityState: string }) => void): void {
+function mitFensterAttrappe(
+  pruefe: (doc: EventTarget & { visibilityState: string }) => void,
+): void {
   const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' })
   const g = globalThis as unknown as Record<string, unknown>
   g['document'] = doc

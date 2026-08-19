@@ -4,7 +4,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { oeffneDb, type Db } from '../src/db.js'
 import { KonsoleMail } from '../src/mail.js'
-import { findePlatzhalter, rendereMail, setzeWerteEin, type MailBausteine } from '../src/maillayout.js'
+import {
+  findePlatzhalter,
+  rendereMail,
+  setzeWerteEin,
+  type MailBausteine,
+} from '../src/maillayout.js'
 import {
   beispielWerte,
   istVorlagenSchluessel,
@@ -29,7 +34,9 @@ const bausteine = (patch: Partial<MailBausteine> = {}): MailBausteine => ({
 
 describe('Platzhalter', () => {
   it('setzt bekannte Werte ein und lässt unbekannte stehen', () => {
-    expect(setzeWerteEin('Hallo {{name}}, Code {{code}}', { name: 'Mira' })).toBe('Hallo Mira, Code {{code}}')
+    expect(setzeWerteEin('Hallo {{name}}, Code {{code}}', { name: 'Mira' })).toBe(
+      'Hallo Mira, Code {{code}}',
+    )
   })
 
   it('findet jeden Platzhalter genau einmal', () => {
@@ -84,7 +91,11 @@ describe('Mail-Layout', () => {
   })
 
   it('escapt eingesetzte Werte — ein Name ist kein Markup', () => {
-    const mail = rendereMail(bausteine(), { name: '<script>böse</script>' }, { basisUrl: BASIS, link: LINK })
+    const mail = rendereMail(
+      bausteine(),
+      { name: '<script>böse</script>' },
+      { basisUrl: BASIS, link: LINK },
+    )
     expect(mail.html).not.toContain('<script>böse')
     expect(mail.html).toContain('&lt;script&gt;')
   })
@@ -100,7 +111,11 @@ describe('Mail-Layout', () => {
   })
 
   it('trennt Absätze an Leerzeilen und behält einfache Umbrüche', () => {
-    const mail = rendereMail(bausteine({ text: 'Eins\nzwei\n\nDrei' }), {}, { basisUrl: BASIS, link: LINK })
+    const mail = rendereMail(
+      bausteine({ text: 'Eins\nzwei\n\nDrei' }),
+      {},
+      { basisUrl: BASIS, link: LINK },
+    )
     expect(mail.html).toContain('Eins<br />zwei')
     expect((mail.html.match(/<p style="margin:0 0 16px/g) ?? []).length).toBe(2)
   })
@@ -158,14 +173,19 @@ describe('Vorlagen prüfen', () => {
   })
 
   it('meldet einen Platzhalter, den es in dieser Mail nicht gibt', () => {
-    const probleme = pruefeBausteine(eintrag, { ...eintrag.standard, text: 'Hallo {{name}}, {{rechnung}}' })
+    const probleme = pruefeBausteine(eintrag, {
+      ...eintrag.standard,
+      text: 'Hallo {{name}}, {{rechnung}}',
+    })
     expect(probleme.join(' ')).toContain('{{rechnung}}')
   })
 
   it('verlangt den Link im Text, sobald der Knopf leer ist', () => {
     const ohneKnopf = { ...eintrag.standard, knopf: '' }
     expect(pruefeBausteine(eintrag, ohneKnopf).join(' ')).toContain('{{link}}')
-    expect(pruefeBausteine(eintrag, { ...ohneKnopf, text: 'Hallo {{name}}, hier entlang: {{link}}' })).toEqual([])
+    expect(
+      pruefeBausteine(eintrag, { ...ohneKnopf, text: 'Hallo {{name}}, hier entlang: {{link}}' }),
+    ).toEqual([])
   })
 
   it('meldet jede andere fehlende Angabe', () => {

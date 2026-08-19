@@ -116,9 +116,47 @@ const VREF = 1300 // Referenz-Fallgeschwindigkeit: Streak-Neigung = wind/VREF
 const PROFILES: Record<PartikelModus, Profil> = {
   // dark-Werte bewusst niedrig: die Grund-Abdunklung bei bedecktem Himmel macht
   // inzwischen die Atmosphäre (drawOvercast, folgt wxCur.dark) — hier nur der Rest.
-  rain: { density: 0.0005, vmin: 950, vmax: 1600, lmin: 15, lmax: 32, wind: -26, gust: 22, sqAmp: 0.16, aMul: 1, wash: 'rgba(120,138,164,0.06)', dark: 'rgba(12,16,24,0.04)' },
-  storm: { density: 0.001, vmin: 1500, vmax: 2450, lmin: 26, lmax: 58, wind: -240, gust: 215, sqAmp: 0.42, aMul: 1.15, wash: 'rgba(104,122,146,0.09)', dark: 'rgba(8,11,18,0.12)' },
-  snow: { density: 0.0005, vmin: 46, vmax: 130, rmin: 1.1, rmax: 3.4, sway: 30, wind: -10, gust: 8, sqAmp: 0.08, aMul: 1, wash: 'rgba(214,222,233,0.1)', dark: 'rgba(26,30,40,0.04)', flakes: true },
+  rain: {
+    density: 0.0005,
+    vmin: 950,
+    vmax: 1600,
+    lmin: 15,
+    lmax: 32,
+    wind: -26,
+    gust: 22,
+    sqAmp: 0.16,
+    aMul: 1,
+    wash: 'rgba(120,138,164,0.06)',
+    dark: 'rgba(12,16,24,0.04)',
+  },
+  storm: {
+    density: 0.001,
+    vmin: 1500,
+    vmax: 2450,
+    lmin: 26,
+    lmax: 58,
+    wind: -240,
+    gust: 215,
+    sqAmp: 0.42,
+    aMul: 1.15,
+    wash: 'rgba(104,122,146,0.09)',
+    dark: 'rgba(8,11,18,0.12)',
+  },
+  snow: {
+    density: 0.0005,
+    vmin: 46,
+    vmax: 130,
+    rmin: 1.1,
+    rmax: 3.4,
+    sway: 30,
+    wind: -10,
+    gust: 8,
+    sqAmp: 0.08,
+    aMul: 1,
+    wash: 'rgba(214,222,233,0.1)',
+    dark: 'rgba(26,30,40,0.04)',
+    flakes: true,
+  },
 }
 // Die Modi ohne Partikel (off/clouds/fog) haben bewusst KEIN Profil — ihren
 // Himmel zeichnet die Atmosphäre. Der Test gibt darum null statt undefined.
@@ -130,7 +168,11 @@ const RAMP_IN = 4.5
 const RAMP_OUT = 3.2
 
 // Modus → Ambience-Loop (Schnee bekommt leisen Winterwind statt Regenrauschen)
-const LOOP_FOR: Record<PartikelModus, LoopSchluessel> = { rain: 'rain', storm: 'storm', snow: 'wind' }
+const LOOP_FOR: Record<PartikelModus, LoopSchluessel> = {
+  rain: 'rain',
+  storm: 'storm',
+  snow: 'wind',
+}
 const LOOPS: LoopSchluessel[] = ['rain', 'storm', 'wind']
 // Donner-Varianten: naher Schlag, fernes Grollen, scharfer Krachen — zufällig gemischt
 const THUNDERS = ['thunder', 'thunder2', 'thunder3']
@@ -170,17 +212,23 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   // Blitze flackern → bei reduzierter Bewegung abschalten (Barrierefreiheit)
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
-  let w = 0, h = 0
+  let w = 0,
+    h = 0
   let mode: WetterModus = 'off'
   let k = 0.7 // Intensität 0..1 (Leicht/Mittel/Stark — Default Mittel)
   let pAct: Profil | null = null // aktives Partikel-Profil; bleibt beim Ausklingen erhalten (mode ist da schon 'off')
   let level = 0 // 0..1 Einsetz-/Ausklinglevel (Regen fängt langsam an / hört langsam auf)
   let drops: Tropfen[] = []
-  let windPhase = 0, swayT = 0, sqT = 0
-  let flash = 0, strikeIn = 4
-  let bolt: Blitz | null = null, boltLife = 0 // sichtbarer Blitz-Pfad (zusätzlich zum Vollbild-Flash)
+  let windPhase = 0,
+    swayT = 0,
+    sqT = 0
+  let flash = 0,
+    strikeIn = 4
+  let bolt: Blitz | null = null,
+    boltLife = 0 // sichtbarer Blitz-Pfad (zusätzlich zum Vollbild-Flash)
   let flakeSprite: HTMLCanvasElement | null = null // weiches Flocken-Sprite (lazy, s. Schnee-Zeichnung)
-  let raf: number | null = null, lastT = 0
+  let raf: number | null = null,
+    lastT = 0
   let taktExtern = false // Video-Export treibt `step` selbst (s. `externerTakt`)
   let gate: (() => boolean) | null = null // () => true solange die Szene animiert; false ⇒ Overlay friert ein
   let frozen = false
@@ -209,18 +257,27 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     // am Loop-Punkt; das Level koppelt weiter über .volume (get/set) in step().
     for (const key of LOOPS) loops[key] = new SeamlessLoop(`/audio/${key}.mp3`)
     // Donner sind Einzelschüsse (dürfen sich überlappen) → normale Audio-Elemente
-    for (const key of THUNDERS) { const a = new Audio(`/audio/${key}.mp3`); a.preload = 'auto'; donner.push(a) }
+    for (const key of THUNDERS) {
+      const a = new Audio(`/audio/${key}.mp3`)
+      a.preload = 'auto'
+      donner.push(a)
+    }
   }
   // Laufende Lautstärke-Rampen je Loop (früher ein `_ramp`-Feld am Element selbst)
   const rampen = new Map<SeamlessLoop, ReturnType<typeof setInterval>>()
   const rampVol = (a: SeamlessLoop, to: number, dur: number, done?: () => void) => {
     const laufend = rampen.get(a)
     if (laufend != null) clearInterval(laufend)
-    const from = a.volume, t0 = performance.now()
+    const from = a.volume,
+      t0 = performance.now()
     const timer = setInterval(() => {
       const f = Math.min((performance.now() - t0) / dur, 1)
       a.volume = Math.max(0, Math.min(1, from + (to - from) * f))
-      if (f >= 1) { clearInterval(timer); rampen.delete(a); done?.() }
+      if (f >= 1) {
+        clearInterval(timer)
+        rampen.delete(a)
+        done?.()
+      }
     }, 40)
     rampen.set(a, timer)
   }
@@ -233,12 +290,19 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   // Globaler Ton-Gain (0..1), multipliziert auf jede Loop-Lautstärke. Das Visual
   // bleibt unberührt — beim Finale („Ziel erreicht") blendet nur der SOUND weich
   // aus (Rampe in step, ~2,5 s), während die Regen-Partikel im Orbit weiterlaufen.
-  let soundGain = 1, soundGainTgt = 1
+  let soundGain = 1,
+    soundGainTgt = 1
   const tryPlay = (a: SeamlessLoop) => {
     if (!a.paused) return
     // Autoplay-Block merken statt jedes Frame erneut anzuspielen (Promise-Spam);
     // der pointerdown-Handler unten setzt das Flag nach der ersten Geste zurück.
-    a.play().then(() => { a._blocked = false }).catch(() => { a._blocked = true })
+    a.play()
+      .then(() => {
+        a._blocked = false
+      })
+      .catch(() => {
+        a._blocked = true
+      })
   }
   const thunder = () => {
     if (frozen) return // in der Pause donnert nichts nach
@@ -251,7 +315,12 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   }
   // Pause: Loops zügig wegblenden (der lange Ausklang-Fade wäre hier falsch).
   // Das Wieder-Anrauschen bei Wiedergabe übernimmt die Level-Kopplung in step().
-  const freezeAudio = () => { for (const key of LOOPS) { const a = loops[key]; if (a && !a.paused) rampVol(a, 0, 350, () => a.pause()) } }
+  const freezeAudio = () => {
+    for (const key of LOOPS) {
+      const a = loops[key]
+      if (a && !a.paused) rampVol(a, 0, 350, () => a.pause())
+    }
+  }
 
   // Seitwind schiebt den Vorhang nach links (wind < 0) — der Spawn-Bereich reicht
   // entsprechend weiter nach rechts hinaus, sonst dünnt der rechte Rand bei Böen aus
@@ -263,7 +332,10 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
       y: top ? -20 - rand() * h * 0.6 : rand() * h, // top: oberhalb neu einsetzen
       v: (p.vmin + (p.vmax - p.vmin) * z) * kv(),
       b: z < 0.34 ? 0 : z < 0.67 ? 1 : 2, // Tiefen-Band
-      len: 0, r: 0, ph: 0, fq: 0, // je nach Modus gefüllt (das andere bleibt ungenutzt)
+      len: 0,
+      r: 0,
+      ph: 0,
+      fq: 0, // je nach Modus gefüllt (das andere bleibt ungenutzt)
     }
     if (p.flakes) {
       d.r = ((p.rmin ?? 0) + ((p.rmax ?? 0) - (p.rmin ?? 0)) * z) * (0.75 + 0.25 * k)
@@ -309,7 +381,8 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     const f = flaeche()
     w = Math.max(1, Math.round(f.w))
     h = Math.max(1, Math.round(f.h))
-    canvas.width = w * dpr; canvas.height = h * dpr
+    canvas.width = w * dpr
+    canvas.height = h * dpr
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     // Kein Hard-Rebuild: der Bestand bleibt, die Zielanzahl (targetN in step)
     // zieht die Menge über Nachschub/Recycling weich auf die neue Fläche.
@@ -404,7 +477,10 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
         const vTgt = (key === loopAct ? volFor(key) * smooth01(level) : 0) * soundGain
         a.volume = Math.max(0, Math.min(1, a.volume + (vTgt - a.volume) * kA))
         if (vTgt > 0 && a.paused && !a._blocked) tryPlay(a)
-        else if (vTgt === 0 && !a.paused && a.volume < 0.004) { a.pause(); a.volume = 0 }
+        else if (vTgt === 0 && !a.paused && a.volume < 0.004) {
+          a.pause()
+          a.volume = 0
+        }
       }
     }
 
@@ -412,8 +488,10 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     // Overcast: kühle Eintrübung + minimale Abdunklung — macht den Niederschlag
     // glaubhaft; folgt Level und Intensität
     ctx.globalAlpha = fadeA * (0.5 + 0.5 * k)
-    ctx.fillStyle = p.wash; ctx.fillRect(0, 0, w, h)
-    ctx.fillStyle = p.dark; ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = p.wash
+    ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = p.dark
+    ctx.fillRect(0, 0, w, h)
     ctx.globalAlpha = 1
 
     // Böen: zwei überlagerte Frequenzen → unregelmäßiges Reißen statt gleichmäßigem
@@ -431,7 +509,7 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     // Recycling am unteren Rand — nie ein sichtbarer Schnitt im Bestand.
     const targetN = Math.round(w * h * p.density * k * smooth01(level))
     if (drops.length < targetN) {
-      const add = Math.min(targetN - drops.length, Math.max(2, Math.round(targetN * dt / 1.2)))
+      const add = Math.min(targetN - drops.length, Math.max(2, Math.round((targetN * dt) / 1.2)))
       for (let i = 0; i < add; i++) drops.push(spawn(p, true))
     }
 
@@ -443,7 +521,8 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
       d.x += wind * dt * (d.v / (p.flakes ? 160 : VREF))
       if (p.flakes) d.x += Math.sin(swayT * d.fq + d.ph) * (p.sway ?? 0) * dt
       if (d.y > h + 24 || d.x < -140 || d.x > w + 140 + marginR(p)) {
-        if (drops.length > targetN) drops.splice(i, 1) // Ausklingen: raus statt respawnen
+        if (drops.length > targetN)
+          drops.splice(i, 1) // Ausklingen: raus statt respawnen
         else Object.assign(d, spawn(p, true))
       }
     }
@@ -480,7 +559,6 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
         }
         ctx.stroke()
       }
-
     }
 
     // Gewitter: gelegentliche Blitze — heller Vollbild-Flash, meist mit sichtbarem
@@ -494,12 +572,18 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
         const dbl = rand() < 0.4
         strikeIn = dbl ? 0.12 + rand() * 0.1 : (4 + rand() * 8) / (0.45 + 0.55 * k)
         if (!dbl) {
-          if (rand() < 0.65) { bolt = makeBolt(); boltLife = 0.4 }
+          if (rand() < 0.65) {
+            bolt = makeBolt()
+            boltLife = 0.4
+          }
           // Donner folgt dem Blitz mit Verzögerung (Entfernung); ein Donner je Einschlag
           setTimeout(thunder, 200 + rand() * 1100)
         }
       }
-      if (boltLife > 0 && bolt) { drawBolt(bolt, boltLife / 0.4); boltLife -= dt }
+      if (boltLife > 0 && bolt) {
+        drawBolt(bolt, boltLife / 0.4)
+        boltLife -= dt
+      }
       if (flash > 0) {
         ctx.fillStyle = `rgba(212,226,255,${flash * flash * 0.55})`
         ctx.fillRect(0, 0, w, h)
@@ -512,22 +596,43 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   // leerregnen; hier wird wirklich aufgeräumt)
   const shutdown = () => {
     ctx.clearRect(0, 0, w, h)
-    drops = []; bolt = null; boltLife = 0; flash = 0
-    pAct = null; level = 0
-    for (const key of LOOPS) { const a = loops[key]; if (a && !a.paused) { a.pause(); a.volume = 0 } }
+    drops = []
+    bolt = null
+    boltLife = 0
+    flash = 0
+    pAct = null
+    level = 0
+    for (const key of LOOPS) {
+      const a = loops[key]
+      if (a && !a.paused) {
+        a.pause()
+        a.volume = 0
+      }
+    }
     loopAct = null
     if (raf) cancelAnimationFrame(raf)
     raf = null
   }
 
   const frame = (now: number) => {
-    if (!pAct) { raf = null; return }
+    if (!pAct) {
+      raf = null
+      return
+    }
     // Pause-Gate: solange die Szene steht, steht auch das Wetter — letztes Bild
     // bleibt eingefroren stehen, die Loops verstummen; Wiedergabe taut alles auf.
     const animating = gate ? !!gate() : true
-    if (!animating && !frozen) { frozen = true; freezeAudio() }
-    else if (animating && frozen) { frozen = false; lastT = 0 } // Audio raut in step() wieder an (Level-Kopplung)
-    if (frozen) { raf = requestAnimationFrame(frame); return }
+    if (!animating && !frozen) {
+      frozen = true
+      freezeAudio()
+    } else if (animating && frozen) {
+      frozen = false
+      lastT = 0
+    } // Audio raut in step() wieder an (Level-Kopplung)
+    if (frozen) {
+      raf = requestAnimationFrame(frame)
+      return
+    }
     if (!lastT) lastT = now
     let dt = (now - lastT) / 1000
     lastT = now
@@ -542,7 +647,8 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   }
 
   const setMode = (m: string) => {
-    const neu: WetterModus = m === 'clouds' || m === 'fog' || m === 'rain' || m === 'snow' || m === 'storm' ? m : 'off'
+    const neu: WetterModus =
+      m === 'clouds' || m === 'fog' || m === 'rain' || m === 'snow' || m === 'storm' ? m : 'off'
     if (neu === mode) return
     mode = neu
     const pm = partikelModus(mode)
@@ -559,8 +665,13 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     // Kein Hard-Rebuild beim Moduswechsel: Bestand recycelt Tropfen für Tropfen in
     // die neuen Parameter (Regen→Gewitter wird von selbst dichter/schneller).
     pAct = PROFILES[pm]
-    flash = 0; boltLife = 0; strikeIn = 1.5 + rand() * 3
-    if (!raf && !taktExtern) { lastT = 0; raf = requestAnimationFrame(frame) }
+    flash = 0
+    boltLife = 0
+    strikeIn = 1.5 + rand() * 3
+    if (!raf && !taktExtern) {
+      lastT = 0
+      raf = requestAnimationFrame(frame)
+    }
   }
 
   // Intensität 0..1 (UI: Leicht/Mittel/Stark; API bewusst stufenlos — späteres
@@ -595,13 +706,19 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   const beiGeste = (): void => {
     if (frozen || !loopAct) return
     const a = loops[loopAct]
-    if (a) { a._blocked = false; if (a.paused && pAct) tryPlay(a) } // Lautstärke hebt step() (Level-Kopplung)
+    if (a) {
+      a._blocked = false
+      if (a.paused && pAct) tryPlay(a)
+    } // Lautstärke hebt step() (Level-Kopplung)
   }
   window.addEventListener('pointerdown', beiGeste, { passive: true })
 
   // Ton an-/ausblenden ohne das Visual anzutasten (Finale). Beim Einschalten sofort
   // voll (kein Einblend-Lag beim Neustart), beim Ausschalten weiche Rampe in step().
-  const setSoundEnabled = (on: boolean) => { soundGainTgt = on ? 1 : 0; if (on) soundGain = 1 }
+  const setSoundEnabled = (on: boolean) => {
+    soundGainTgt = on ? 1 : 0
+    if (on) soundGain = 1
+  }
   const zerstoere = (): void => {
     // `shutdown` hält Bild und Klang an (rAF weg, Loops pausiert). Was es NICHT
     // tut, ist das Objekt aus der Welt nehmen — deshalb hier die drei Anhänge
@@ -627,7 +744,10 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
       soundGainTgt = 0
       for (const key of LOOPS) {
         const a = loops[key]
-        if (a) { a.volume = 0; if (!a.paused) a.pause() }
+        if (a) {
+          a.volume = 0
+          if (!a.paused) a.pause()
+        }
       }
       if (raf) cancelAnimationFrame(raf)
       raf = null
@@ -647,10 +767,16 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     setIntensity,
     externerTakt,
     schritt,
-    setGate: (fn: () => boolean) => { gate = fn },
+    setGate: (fn: () => boolean) => {
+      gate = fn
+    },
     setSoundEnabled,
     zerstoere,
-    get mode() { return mode },
-    get intensity() { return k },
+    get mode() {
+      return mode
+    },
+    get intensity() {
+      return k
+    },
   }
 }

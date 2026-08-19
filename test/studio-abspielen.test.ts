@@ -35,7 +35,12 @@ const versatz = (
 const LINEAR_100: Filmkurve = { anteile: [0, 1], filmS: [0, 100], gesamtS: 100 }
 /** Spielkurve mit Trim-Plateau: 50 s Film — Plateau — 50 s Film. */
 const MIT_PAUSE: Filmkurve = { anteile: [0, 0.25, 0.75, 1], filmS: [0, 50, 50, 100], gesamtS: 100 }
-const plan = (kurve: Filmkurve = LINEAR_100): Spielplan => ({ marke: 0, kurve, musik: [], klaenge: [] })
+const plan = (kurve: Filmkurve = LINEAR_100): Spielplan => ({
+  marke: 0,
+  kurve,
+  musik: [],
+  klaenge: [],
+})
 const stand = (teil: Partial<SpielStand> = {}): SpielStand => ({ marke: 0, tempo: 1, ...teil })
 
 describe('tick — Fahrt', () => {
@@ -158,7 +163,11 @@ describe('Musik', () => {
 
   it('bleibt für Bestandsdaten bei genau der alten Rechnung', () => {
     // Ohne Einstieg und mit Loop ist der neue Weg Zeichen für Zeichen der alte.
-    for (const [anteil, dauer] of [[0.3, 8], [0.5, 30], [0.9, 12]] as const) {
+    for (const [anteil, dauer] of [
+      [0.3, 8],
+      [0.5, 30],
+      [0.9, 12],
+    ] as const) {
       expect(versatz(anteil, 0.1, LINEAR_100, dauer)).toBeCloseTo(
         versatz(anteil, 0.1, LINEAR_100, dauer, 0, true),
         9,

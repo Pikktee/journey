@@ -54,7 +54,9 @@ export class Protokoll {
 
   /** Neueste zuerst — die Frage ist immer „was ist gerade passiert?". */
   liste(opt: { stufe?: ProtokollStufe; limit?: number } = {}): ProtokollEintrag[] {
-    const gefiltert = opt.stufe ? this.eintraege.filter((e) => e.stufe === opt.stufe) : this.eintraege
+    const gefiltert = opt.stufe
+      ? this.eintraege.filter((e) => e.stufe === opt.stufe)
+      : this.eintraege
     const umgekehrt = [...gefiltert].reverse()
     return opt.limit ? umgekehrt.slice(0, opt.limit) : umgekehrt
   }

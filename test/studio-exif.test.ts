@@ -79,7 +79,9 @@ describe('beschreibeAufnahme', () => {
   })
 
   it('zeigt lange Belichtungen in Sekunden und lässt Fehlendes weg', () => {
-    expect(beschreibeAufnahme({ belichtungS: 1.3, blende: 1.8 })).toEqual([['Belichtung', '1,3 s · f/1,8']])
+    expect(beschreibeAufnahme({ belichtungS: 1.3, blende: 1.8 })).toEqual([
+      ['Belichtung', '1,3 s · f/1,8'],
+    ])
     // Nichts bekannt = keine Zeilen (der Bereich sagt das dann in Worten)
     expect(beschreibeAufnahme({})).toEqual([])
     // Korrektur 0 ist keine Angabe wert, Maße unter 0,5 MP tragen kein „MP"

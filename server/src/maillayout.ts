@@ -66,7 +66,7 @@ const SCHRIFT = "'Outfit','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif"
 /** Platzhalter der Form `{{name}}` durch Werte ersetzen; Unbekanntes bleibt stehen. */
 export function setzeWerteEin(text: string, werte: Record<string, string>): string {
   return text.replace(/\{\{\s*([a-zA-Z]+)\s*\}\}/g, (treffer, name: string) =>
-    Object.prototype.hasOwnProperty.call(werte, name) ? werte[name] ?? '' : treffer,
+    Object.prototype.hasOwnProperty.call(werte, name) ? (werte[name] ?? '') : treffer,
   )
 }
 

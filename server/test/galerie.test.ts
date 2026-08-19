@@ -13,7 +13,12 @@ interface Karte {
 
 async function legeTourAn(u: TestUmgebung, clientId = 'client-1'): Promise<string> {
   const manifest = { ...beispielManifest(), clientTourId: clientId }
-  const angelegt = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: manifest })
+  const angelegt = await u.app.inject({
+    method: 'POST',
+    url: '/api/tours',
+    cookies: u.cookies,
+    payload: manifest,
+  })
   const id = (angelegt.json() as { id: string }).id
   await u.app.inject({
     method: 'PUT',
@@ -133,7 +138,10 @@ describe('Öffentliche Profilseite', () => {
       payload: { anzeigename: 'Reisende', bio: 'Unterwegs', sichtbarkeit: 'public' },
     })
 
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/benutzer/${nutzerId(u)}/profil` })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/benutzer/${nutzerId(u)}/profil`,
+    })
     expect(antwort.statusCode).toBe(200)
     const profil = antwort.json() as { anzeigename: string; bio: string; touren: Karte[] }
     expect(profil.anzeigename).toBe('Reisende')
@@ -144,12 +152,17 @@ describe('Öffentliche Profilseite', () => {
   it('ein nicht freigegebenes Profil sieht aus wie keins', async () => {
     // 404 statt 403 — die Antwort verrät nicht, dass es das Konto gibt
     const u = await baueTestApp()
-    const antwort = await u.app.inject({ method: 'GET', url: `/api/benutzer/${nutzerId(u)}/profil` })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: `/api/benutzer/${nutzerId(u)}/profil`,
+    })
     expect(antwort.statusCode).toBe(404)
   })
 
   it('unbekannte Person: ebenfalls 404', async () => {
     const u = await baueTestApp()
-    expect((await u.app.inject({ method: 'GET', url: '/api/benutzer/u_gibtsnicht/profil' })).statusCode).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'GET', url: '/api/benutzer/u_gibtsnicht/profil' })).statusCode,
+    ).toBe(404)
   })
 })

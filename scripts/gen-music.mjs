@@ -12,8 +12,13 @@ const OUT = path.join(ROOT, 'public', 'audio')
 fs.mkdirSync(OUT, { recursive: true })
 
 const env = fs.readFileSync(path.join(ROOT, '.env'), 'utf8')
-const KEY = (env.match(/^ELEVEN_LABS_KEY\s*=\s*(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, '')
-if (!KEY) { console.error('ELEVEN_LABS_KEY fehlt in .env'); process.exit(1) }
+const KEY = (env.match(/^ELEVEN_LABS_KEY\s*=\s*(.+)$/m) || [])[1]
+  ?.trim()
+  .replace(/^["']|["']$/g, '')
+if (!KEY) {
+  console.error('ELEVEN_LABS_KEY fehlt in .env')
+  process.exit(1)
+}
 
 const CLIP = {
   name: 'ambient',
@@ -30,14 +35,20 @@ const CLIP = {
 }
 
 const file = path.join(OUT, `${CLIP.name}.mp3`)
-if (fs.existsSync(file)) { console.log(`${CLIP.name}.mp3 existiert bereits — nichts zu tun`); process.exit(0) }
+if (fs.existsSync(file)) {
+  console.log(`${CLIP.name}.mp3 existiert bereits — nichts zu tun`)
+  process.exit(0)
+}
 
 const res = await fetch('https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128', {
   method: 'POST',
   headers: { 'xi-api-key': KEY, 'Content-Type': 'application/json' },
   body: JSON.stringify({ prompt: CLIP.prompt, music_length_ms: CLIP.ms }),
 })
-if (!res.ok) { console.error(`HTTP ${res.status} — ${(await res.text()).slice(0, 300)}`); process.exit(1) }
+if (!res.ok) {
+  console.error(`HTTP ${res.status} — ${(await res.text()).slice(0, 300)}`)
+  process.exit(1)
+}
 const buf = Buffer.from(await res.arrayBuffer())
 fs.writeFileSync(file, buf)
 console.log(`  ✓ ${CLIP.name}.mp3  (${(buf.length / 1024).toFixed(0)} KB)  →`, OUT)

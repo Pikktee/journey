@@ -19,16 +19,28 @@ import type { UploadSegment } from '../src/schema/upload.js'
 
 describe('wmoZuWetter', () => {
   it('bildet WMO-Codes wie der Client-Fallback ab', () => {
-    expect(wmoZuWetter({ code: 95, wolken: 100, regenMm: 4, schneeCm: 0 })).toEqual({ mode: 'storm', k: 1 })
+    expect(wmoZuWetter({ code: 95, wolken: 100, regenMm: 4, schneeCm: 0 })).toEqual({
+      mode: 'storm',
+      k: 1,
+    })
     expect(wmoZuWetter({ code: 71, wolken: 100, regenMm: 0, schneeCm: 1 }).mode).toBe('snow')
     expect(wmoZuWetter({ code: 0, wolken: 0, regenMm: 0, schneeCm: 0.1 }).mode).toBe('snow')
     const regen = wmoZuWetter({ code: 61, wolken: 90, regenMm: 1, schneeCm: 0 })
     expect(regen.mode).toBe('rain')
     expect(regen.k).toBeCloseTo(0.6, 10)
-    expect(wmoZuWetter({ code: 45, wolken: 10, regenMm: 0, schneeCm: 0 })).toEqual({ mode: 'fog', k: 0.7 })
+    expect(wmoZuWetter({ code: 45, wolken: 10, regenMm: 0, schneeCm: 0 })).toEqual({
+      mode: 'fog',
+      k: 0.7,
+    })
     // Bewölkung 62,5 % → k = 0.4 + 0.6·(37,5/75) = 0.7 (Paritäts-Zahl zum Client)
-    expect(wmoZuWetter({ code: 3, wolken: 62.5, regenMm: 0, schneeCm: 0 })).toEqual({ mode: 'clouds', k: 0.7 })
-    expect(wmoZuWetter({ code: 0, wolken: 10, regenMm: 0, schneeCm: 0 })).toEqual({ mode: 'off', k: 0.7 })
+    expect(wmoZuWetter({ code: 3, wolken: 62.5, regenMm: 0, schneeCm: 0 })).toEqual({
+      mode: 'clouds',
+      k: 0.7,
+    })
+    expect(wmoZuWetter({ code: 0, wolken: 10, regenMm: 0, schneeCm: 0 })).toEqual({
+      mode: 'off',
+      k: 0.7,
+    })
   })
 
   it('lässt Gewitter über Schnee über Regen gewinnen', () => {
@@ -48,9 +60,17 @@ describe('glaetteSamples', () => {
 
   it('lässt echte Übergänge und Ränder stehen', () => {
     // Übergang wolkig→regen→klar: das mittlere Sample ist echtes Wetter
-    expect(glaetteSamples([s('clouds'), s('rain'), s('off')]).map((x) => x.mode)).toEqual(['clouds', 'rain', 'off'])
+    expect(glaetteSamples([s('clouds'), s('rain'), s('off')]).map((x) => x.mode)).toEqual([
+      'clouds',
+      'rain',
+      'off',
+    ])
     // Aufklaren im letzten Sample (kurz vor Tour-Ende) bleibt erhalten
-    expect(glaetteSamples([s('rain'), s('rain'), s('off')]).map((x) => x.mode)).toEqual(['rain', 'rain', 'off'])
+    expect(glaetteSamples([s('rain'), s('rain'), s('off')]).map((x) => x.mode)).toEqual([
+      'rain',
+      'rain',
+      'off',
+    ])
   })
 })
 
@@ -78,7 +98,11 @@ describe('berechneWetter', () => {
         { wolken: 5 },
       ]),
     )
-    const keyframes = await berechneWetter({ reihe: baueZeitreihe([vierStundenMarsch()]), startIso: START, quelle })
+    const keyframes = await berechneWetter({
+      reihe: baueZeitreihe([vierStundenMarsch()]),
+      startIso: START,
+      quelle,
+    })
     expect(keyframes.map((k) => k.mode)).toEqual(['off', 'off', 'rain', 'rain', 'off'])
     // Marken sitzen auf den Sample-Positionen (0, 07:00→0.25, 08:00→0.5, …)
     expect(keyframes.map((k) => k.f)).toEqual([0, 0.25, 0.5, 0.75, 1])
@@ -100,7 +124,11 @@ describe('berechneWetter', () => {
         { wolken: 5 },
       ]),
     )
-    const keyframes = await berechneWetter({ reihe: baueZeitreihe([vierStundenMarsch()]), startIso: START, quelle })
+    const keyframes = await berechneWetter({
+      reihe: baueZeitreihe([vierStundenMarsch()]),
+      startIso: START,
+      quelle,
+    })
     expect(keyframes).toEqual([{ f: 0, mode: 'off', k: 0.7, source: 'openmeteo' }])
   })
 
@@ -114,7 +142,11 @@ describe('berechneWetter', () => {
         { code: 63, regenMm: 3, wolken: 100 },
       ]),
     )
-    const keyframes = await berechneWetter({ reihe: baueZeitreihe([vierStundenMarsch()]), startIso: START, quelle })
+    const keyframes = await berechneWetter({
+      reihe: baueZeitreihe([vierStundenMarsch()]),
+      startIso: START,
+      quelle,
+    })
     expect(keyframes.map((k) => [k.mode, k.k])).toEqual([
       ['rain', 0.5],
       ['rain', 1],
@@ -142,7 +174,11 @@ describe('berechneWetter', () => {
         { wolken: 5 }, // 10 klar (nach der Pause)
       ]),
     )
-    const keyframes = await berechneWetter({ reihe: baueZeitreihe([{ mode: 'walk', pts }]), startIso: START, quelle })
+    const keyframes = await berechneWetter({
+      reihe: baueZeitreihe([{ mode: 'walk', pts }]),
+      startIso: START,
+      quelle,
+    })
 
     // Der Regen ist da — mit Anfang UND Ende, nicht auf einen Punkt geschrumpft
     expect(keyframes.map((k) => k.mode)).toEqual(['off', 'off', 'rain', 'rain', 'off'])
@@ -154,7 +190,13 @@ describe('berechneWetter', () => {
   })
 
   it('wirft bei leerer Quelle (enrich lässt weather dann weg)', async () => {
-    const quelle = new FesteWetterQuelle({ zeiten: [], code: [], wolken: [], regen: [], schnee: [] })
+    const quelle = new FesteWetterQuelle({
+      zeiten: [],
+      code: [],
+      wolken: [],
+      regen: [],
+      schnee: [],
+    })
     await expect(
       berechneWetter({ reihe: baueZeitreihe([vierStundenMarsch()]), startIso: START, quelle }),
     ).rejects.toThrow(/Stundenwerte/)
@@ -180,7 +222,14 @@ describe('OpenMeteoQuelle', () => {
     const fetchMock = vi.fn(async (_url: string) => antwort(2))
     vi.stubGlobal('fetch', fetchMock)
     const quelle = new OpenMeteoQuelle(() => new Date('2026-07-08T12:00:00Z'))
-    const raster = await quelle.stunden([{ lat: 46.59, lng: 8.0 }, { lat: 46.6, lng: 8.1 }], '2026-07-04', '2026-07-04')
+    const raster = await quelle.stunden(
+      [
+        { lat: 46.59, lng: 8.0 },
+        { lat: 46.6, lng: 8.1 },
+      ],
+      '2026-07-04',
+      '2026-07-04',
+    )
     expect(raster).toHaveLength(2)
     const url = String(fetchMock.mock.calls[0]?.[0])
     expect(url).toContain('api.open-meteo.com/v1/forecast')
@@ -198,16 +247,27 @@ describe('OpenMeteoQuelle', () => {
   })
 
   it('meldet HTTP-Fehler als Exception', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 429 }) as Response))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 429 }) as Response),
+    )
     const quelle = new OpenMeteoQuelle(() => new Date('2026-07-08T12:00:00Z'))
-    await expect(quelle.stunden([{ lat: 46.59, lng: 8.0 }], '2026-06-01', '2026-06-01')).rejects.toThrow(/429/)
+    await expect(
+      quelle.stunden([{ lat: 46.59, lng: 8.0 }], '2026-06-01', '2026-06-01'),
+    ).rejects.toThrow(/429/)
   })
 })
 
 describe('wetterAusOverlay (Studio-Wetter)', () => {
   // Gerade Strecke, Zeit linear zur Distanz → tOffset/1000 = f (bequeme Marken).
   const reihe = baueZeitreihe([
-    { mode: 'walk', pts: [[7.9, 46.5, 0, 0], [7.91, 46.51, 0, 1000]] },
+    {
+      mode: 'walk',
+      pts: [
+        [7.9, 46.5, 0, 0],
+        [7.91, 46.51, 0, 1000],
+      ],
+    },
   ] as UploadSegment[])
   const START = Date.parse('2026-01-01T00:00:00Z')
   const ab = (s: number): string => new Date(START + s * 1000).toISOString()
@@ -238,7 +298,10 @@ describe('wetterAusOverlay (Studio-Wetter)', () => {
 
   it('mehrere Grenzen ergeben lückenlose Bänder mit exakten Umschaltungen', () => {
     const kf = wetterAusOverlay(
-      [{ ab: ab(300), mode: 'rain' }, { ab: ab(700), mode: 'snow' }],
+      [
+        { ab: ab(300), mode: 'rain' },
+        { ab: ab(700), mode: 'snow' },
+      ],
       reihe,
       START,
     )
@@ -256,7 +319,13 @@ describe('wetterAusOverlay (Studio-Wetter)', () => {
 describe('wetterZuGrenzen (Auto-Wetter fürs Studio)', () => {
   // Gerade Strecke, Zeit linear zur Distanz → f · 1000 s = tOffset.
   const reihe = baueZeitreihe([
-    { mode: 'walk', pts: [[7.9, 46.5, 0, 0], [7.91, 46.51, 0, 1000]] },
+    {
+      mode: 'walk',
+      pts: [
+        [7.9, 46.5, 0, 0],
+        [7.91, 46.51, 0, 1000],
+      ],
+    },
   ] as UploadSegment[])
   const START = Date.parse('2026-01-01T00:00:00Z')
   const bei = (s: number): string => new Date(START + s * 1000).toISOString()

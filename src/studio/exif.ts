@@ -48,7 +48,13 @@ function parseExifDate(s: string): ExifDatum | null {
   return { y: +m[1]!, mo: +m[2]!, d: +m[3]!, hh: +m[4]!, mm: +m[5]!, ss: +m[6]! }
 }
 
-function findTag(view: DataView, tiff: number, ifdOff: number, tag: number, le: boolean): number | null {
+function findTag(
+  view: DataView,
+  tiff: number,
+  ifdOff: number,
+  tag: number,
+  le: boolean,
+): number | null {
   if (tiff + ifdOff + 2 > view.byteLength) return null
   const n = view.getUint16(tiff + ifdOff, le)
   for (let i = 0; i < n; i++) {
@@ -110,10 +116,17 @@ function gpsWinkel(view: DataView, tiff: number, entry: number, le: boolean): nu
   if (count < 3) return null
   const off = tiff + view.getUint32(entry + 8, le) // 3×RATIONAL = 24 B > 4 → immer Offset
   if (off + 24 > view.byteLength) return null
-  return rational(view, off, le) + rational(view, off + 8, le) / 60 + rational(view, off + 16, le) / 3600
+  return (
+    rational(view, off, le) + rational(view, off + 8, le) / 60 + rational(view, off + 16, le) / 3600
+  )
 }
 
-function liesGps(view: DataView, tiff: number, gpsIfd: number, le: boolean): [number, number] | null {
+function liesGps(
+  view: DataView,
+  tiff: number,
+  gpsIfd: number,
+  le: boolean,
+): [number, number] | null {
   const latRefE = findTag(view, tiff, gpsIfd, 0x0001, le)
   const latE = findTag(view, tiff, gpsIfd, 0x0002, le)
   const lngRefE = findTag(view, tiff, gpsIfd, 0x0003, le)
@@ -154,7 +167,10 @@ export function liesAufnahme(buf: ArrayBuffer): ExifAufnahme {
 
 /** Zahl mit deutschem Komma, ohne unnötige Nullen („2,8" statt „2.80"). */
 function komma(n: number, stellen = 1): string {
-  return n.toFixed(stellen).replace(/[.,]?0+$/, '').replace('.', ',')
+  return n
+    .toFixed(stellen)
+    .replace(/[.,]?0+$/, '')
+    .replace('.', ',')
 }
 
 /**
@@ -170,12 +186,15 @@ export function beschreibeAufnahme(a: ExifAufnahme): Array<[string, string]> {
   // Belichtung als eine Zeile, wie sie auf jedem Kameradisplay steht.
   const teile: string[] = []
   if (a.belichtungS !== undefined && a.belichtungS > 0) {
-    teile.push(a.belichtungS < 1 ? `1/${Math.round(1 / a.belichtungS)} s` : `${komma(a.belichtungS)} s`)
+    teile.push(
+      a.belichtungS < 1 ? `1/${Math.round(1 / a.belichtungS)} s` : `${komma(a.belichtungS)} s`,
+    )
   }
   if (a.blende !== undefined) teile.push(`f/${komma(a.blende)}`)
   if (a.iso !== undefined) teile.push(`ISO ${a.iso}`)
   if (a.brennweiteMm !== undefined) teile.push(`${komma(a.brennweiteMm, 0)} mm`)
-  if (a.korrekturEv) teile.push(`${a.korrekturEv > 0 ? '+' : '−'}${komma(Math.abs(a.korrekturEv))} EV`)
+  if (a.korrekturEv)
+    teile.push(`${a.korrekturEv > 0 ? '+' : '−'}${komma(Math.abs(a.korrekturEv))} EV`)
   if (teile.length) zeilen.push(['Belichtung', teile.join(' · ')])
 
   if (a.breite && a.hoehe) {
@@ -219,7 +238,8 @@ function liesAufnahmeIntern(buf: ArrayBuffer): ExifAufnahme {
   const modelE = findTag(view, tiff, ifd0, 0x0110, le)
   const make = makeE ? textTag(view, tiff, makeE, le) : undefined
   const model = modelE ? textTag(view, tiff, modelE, le) : undefined
-  if (make && model) a.kamera = model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`
+  if (make && model)
+    a.kamera = model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`
   else {
     const einzeln = model ?? make
     if (einzeln !== undefined) a.kamera = einzeln
@@ -233,7 +253,10 @@ function liesAufnahmeIntern(buf: ArrayBuffer): ExifAufnahme {
       const wert = e ? textTag(view, tiff, e, le) : undefined
       if (wert !== undefined) a[feld] = wert
     }
-    const setzeRational = (tag: number, feld: 'belichtungS' | 'blende' | 'brennweiteMm' | 'korrekturEv'): void => {
+    const setzeRational = (
+      tag: number,
+      feld: 'belichtungS' | 'blende' | 'brennweiteMm' | 'korrekturEv',
+    ): void => {
       const e = findTag(view, tiff, sub, tag, le)
       const wert = e ? rationalTag(view, tiff, e, le) : undefined
       if (wert !== undefined) a[feld] = wert

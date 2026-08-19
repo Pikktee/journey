@@ -17,7 +17,10 @@ export const MAX_PUNKTE = 200_000
 
 /** XML-Sonderzeichen im Titel — er kommt vom Anbieter und landet in `<name>`. */
 function escape(text: string): string {
-  return text.replace(/[<>&'"]/g, (c) => `&${{ '<': 'lt', '>': 'gt', '&': 'amp', "'": 'apos', '"': 'quot' }[c]};`)
+  return text.replace(
+    /[<>&'"]/g,
+    (c) => `&${{ '<': 'lt', '>': 'gt', '&': 'amp', "'": 'apos', '"': 'quot' }[c]};`,
+  )
 }
 
 /** Zahl mit sinnvoller Genauigkeit: 7 Nachkommastellen sind ~1 cm. */
@@ -32,7 +35,13 @@ function koord(n: number): string {
  */
 export function punkteZuGpx(punkte: readonly RohPunkt[], titel?: string | null): string {
   const gute = punkte
-    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180)
+    .filter(
+      (p) =>
+        Number.isFinite(p.lat) &&
+        Number.isFinite(p.lng) &&
+        Math.abs(p.lat) <= 90 &&
+        Math.abs(p.lng) <= 180,
+    )
     .slice(0, MAX_PUNKTE)
   if (gute.length < 2) throw new OhneRouteFehler()
   const zeilen = gute.map((p) => {

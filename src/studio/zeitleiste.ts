@@ -148,7 +148,8 @@ export function audioWirdVerworfen(
   startIso: string,
   skala: ZeitSkala,
 ): boolean {
-  const vonS = edits.trim?.start !== undefined ? isoZuOffset(startIso, edits.trim.start) : skala.vonS
+  const vonS =
+    edits.trim?.start !== undefined ? isoZuOffset(startIso, edits.trim.start) : skala.vonS
   const bisS = edits.trim?.ende !== undefined ? isoZuOffset(startIso, edits.trim.ende) : skala.bisS
   const abS = isoZuOffset(startIso, a.ab)
   if (a.typ === 'sfx') return abS < vonS || abS > bisS
@@ -171,7 +172,12 @@ export function baueBaender(abschnitte: readonly AnzeigeAbschnitt[], skala: Zeit
     .map((a) => {
       const erster = a.pts[0] as TrackPunkt
       const letzter = a.pts[a.pts.length - 1] as TrackPunkt
-      return { von: offsetZuAnteil(skala, erster[3]), bis: offsetZuAnteil(skala, letzter[3]), mode: a.mode, aktiv: a.aktiv }
+      return {
+        von: offsetZuAnteil(skala, erster[3]),
+        bis: offsetZuAnteil(skala, letzter[3]),
+        mode: a.mode,
+        aktiv: a.aktiv,
+      }
     })
     .filter((b) => b.bis > b.von)
 }
@@ -197,7 +203,12 @@ export function baueMedienDots(
   for (const m of medien) {
     if (!m.anchor || m.geloescht) continue
     const projektion = projiziereAufTrack(track, m.anchor[0], m.anchor[1])
-    dots.push({ id: m.id, anteil: offsetZuAnteil(skala, projektion.punkt[3]), type: m.type, geloescht: m.geloescht })
+    dots.push({
+      id: m.id,
+      anteil: offsetZuAnteil(skala, projektion.punkt[3]),
+      type: m.type,
+      geloescht: m.geloescht,
+    })
   }
   return dots.sort((a, b) => a.anteil - b.anteil)
 }
@@ -229,7 +240,11 @@ export function baueZustandsBaender<T>(
   grund: T,
 ): Array<ZustandsBand<T>> {
   const sortiert = grenzen
-    .map((g) => ({ ab: g.ab, wert: g.wert, anteil: offsetZuAnteil(skala, isoZuOffset(startIso, g.ab)) }))
+    .map((g) => ({
+      ab: g.ab,
+      wert: g.wert,
+      anteil: offsetZuAnteil(skala, isoZuOffset(startIso, g.ab)),
+    }))
     .filter((g) => Number.isFinite(g.anteil))
     .sort((a, b) => a.anteil - b.anteil)
 
@@ -270,7 +285,11 @@ export interface AudioBalken {
   lane: number
 }
 
-export function baueAudioBalken(audio: readonly AudioEintrag[], startIso: string, skala: ZeitSkala): AudioBalken[] {
+export function baueAudioBalken(
+  audio: readonly AudioEintrag[],
+  startIso: string,
+  skala: ZeitSkala,
+): AudioBalken[] {
   const balken: AudioBalken[] = []
   audio.forEach((a, index) => {
     const von = isoZuOffset(startIso, a.ab)
@@ -287,7 +306,9 @@ export function baueAudioBalken(audio: readonly AudioEintrag[], startIso: string
   // nach Beginn sortiert bekommt jeder Klip die oberste Zeile, deren letzter
   // Klip vor ihm endet. Die Zuordnung ist stabil gegenüber dem Overlay-Index
   // (Sortierung nur fürs Färben; zurück kommt die Original-Reihenfolge).
-  const musik = balken.filter((b) => b.typ === 'musik').sort((a, b) => a.von - b.von || a.index - b.index)
+  const musik = balken
+    .filter((b) => b.typ === 'musik')
+    .sort((a, b) => a.von - b.von || a.index - b.index)
   const laneEnden: number[] = []
   for (const b of musik) {
     let lane = laneEnden.findIndex((ende) => ende <= b.von)
@@ -330,7 +351,11 @@ export function parseUhrMinuten(text: string): number | null {
  * bisher angezeigten Zeit; „00:05" nach „23:50" heißt deshalb +15 Minuten und
  * nicht ein Sprung um fast einen ganzen Tag zurück.
  */
-export function uhrDiffZuOffset(altOffsetS: number, altText: string, neuText: string): number | null {
+export function uhrDiffZuOffset(
+  altOffsetS: number,
+  altText: string,
+  neuText: string,
+): number | null {
   const alt = parseUhrMinuten(altText)
   const neu = parseUhrMinuten(neuText)
   if (alt === null || neu === null) return null
@@ -386,7 +411,8 @@ const grenzeBei = (
   grenzen: ReadonlyArray<{ ab: string }>,
   startIso: string,
   offsetS: number,
-): string | null => grenzen.find((g) => Math.abs(isoZuOffset(startIso, g.ab) - offsetS) < 1)?.ab ?? null
+): string | null =>
+  grenzen.find((g) => Math.abs(isoZuOffset(startIso, g.ab) - offsetS) < 1)?.ab ?? null
 
 /**
  * Eine Zustands-Grenze bleibt zwischen ihren Nachbarn. Ohne diese Klemme
@@ -418,7 +444,8 @@ export function klemmeGrenze(
   /** Späteste Zeit, die den Abschnitt bis `grenzeS` noch mit einem Punkt füllt. */
   const letzterPunktVor = (grenzeS: number): number =>
     punkteS?.filter((p) => p < grenzeS).pop() ?? grenzeS - 1
-  const ersterPunktNach = (grenzeS: number): number => punkteS?.find((p) => p > grenzeS) ?? grenzeS + 1
+  const ersterPunktNach = (grenzeS: number): number =>
+    punkteS?.find((p) => p > grenzeS) ?? grenzeS + 1
 
   let wert = offsetS
   if (vorher !== undefined) wert = Math.max(wert, ersterPunktNach(vorher))
@@ -479,7 +506,8 @@ export function loeseFokusAuf(
       vonS,
       bisS,
       ab: ab ?? wechselBei(abschnitte[i - 1], vonS),
-      naechsteAb: grenzeBei(edits.modi ?? [], startIso, bisS) ?? wechselBei(abschnitte[i + 1], bisS),
+      naechsteAb:
+        grenzeBei(edits.modi ?? [], startIso, bisS) ?? wechselBei(abschnitte[i + 1], bisS),
       mode: treffer.mode,
     }
   }
@@ -490,11 +518,16 @@ export function loeseFokusAuf(
     // ersetzt das Overlay das Auto-Wetter vollständig; sonst „automatisch".
     const grenzen = istWetter
       ? (edits.wetter ?? []).map((g) => ({ ab: g.ab, wert: g.mode as KameraPreset | WetterModus }))
-      : (edits.kamera ?? []).map((g) => ({ ab: g.ab, wert: g.preset as KameraPreset | WetterModus }))
+      : (edits.kamera ?? []).map((g) => ({
+          ab: g.ab,
+          wert: g.preset as KameraPreset | WetterModus,
+        }))
     const grund: KameraPreset | WetterModus | null = istWetter && grenzen.length > 0 ? 'off' : null
     const baender = baueZustandsBaender(grenzen, startIso, skala, grund)
     const i = baender.findIndex(
-      (b) => fokus.bezugS >= anteilZuOffset(skala, b.von) && fokus.bezugS <= anteilZuOffset(skala, b.bis),
+      (b) =>
+        fokus.bezugS >= anteilZuOffset(skala, b.von) &&
+        fokus.bezugS <= anteilZuOffset(skala, b.bis),
     )
     const treffer = baender[i]
     if (!treffer) return null
@@ -557,9 +590,19 @@ export function loeseFokusAuf(
 }
 
 /** Trim-Griffe als Anteile (Default 0/1, wenn kein Trim gesetzt). */
-export function baueTrimGriffe(edits: EditOverlay, startIso: string, skala: ZeitSkala): { start: number; ende: number } {
-  const start = edits.trim?.start !== undefined ? offsetZuAnteil(skala, isoZuOffset(startIso, edits.trim.start)) : 0
-  const ende = edits.trim?.ende !== undefined ? offsetZuAnteil(skala, isoZuOffset(startIso, edits.trim.ende)) : 1
+export function baueTrimGriffe(
+  edits: EditOverlay,
+  startIso: string,
+  skala: ZeitSkala,
+): { start: number; ende: number } {
+  const start =
+    edits.trim?.start !== undefined
+      ? offsetZuAnteil(skala, isoZuOffset(startIso, edits.trim.start))
+      : 0
+  const ende =
+    edits.trim?.ende !== undefined
+      ? offsetZuAnteil(skala, isoZuOffset(startIso, edits.trim.ende))
+      : 1
   return { start, ende }
 }
 
@@ -636,7 +679,8 @@ export function aufnahmeHaltS(m: {
   display?: { holdS?: number }
   trim?: { vonS: number; bisS?: number }
 }): number {
-  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return videoFilmS(m.dauerS, m.trim)
+  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0)
+    return videoFilmS(m.dauerS, m.trim)
   // Ohne Schnitt ist es dieselbe Regel wie im Player (`standzeitS`) — der
   // Video-Trim ist der eine Zusatz, den nur der Editor kennt.
   return standzeitS(m)
@@ -900,7 +944,14 @@ export function baueSzenenKlips(achse: Achse): SzenenKlip[] {
     if (!stuecke?.length) continue
     let film = halt.filmVon
     for (const [platz, s] of stuecke.entries()) {
-      klips.push({ id: s.id, haltIndex, platz, anzahl: stuecke.length, filmVon: film, filmBis: film + s.dauerS })
+      klips.push({
+        id: s.id,
+        haltIndex,
+        platz,
+        anzahl: stuecke.length,
+        filmVon: film,
+        filmBis: film + s.dauerS,
+      })
       film += s.dauerS
     }
   }
@@ -1176,9 +1227,14 @@ export function baueGrenzKurve(
   // Mit welchem Tempo betritt der Film das Fenster? Am Tour-Anfang aus dem
   // Stand (0), sonst mit dem Tempo des Abschnitts davor — daraus baut die Achse
   // die Rampe an der linken Fensterkante selbst.
-  const kern = baueFilmachse(adapter.grenzen, adapter.gesamtM, halteAufStrecke(adapter, imFenster), {
-    startTempoMs: filmBeiVon <= 0 ? 0 : davor === null ? null : tempoMs(davor),
-  })
+  const kern = baueFilmachse(
+    adapter.grenzen,
+    adapter.gesamtM,
+    halteAufStrecke(adapter, imFenster),
+    {
+      startTempoMs: filmBeiVon <= 0 ? 0 : davor === null ? null : tempoMs(davor),
+    },
+  )
   const versatzS = filmBeiVon + rampenVersatzS(tempoMs(links), tempoMs(rechts))
   return {
     tS: adapter.tS,
@@ -1310,7 +1366,12 @@ export function rasteAnHalt(
  */
 export const BAND_MIN_PX = 14
 
-export function klemmeFilmS(filmS: number, minFilmS: number, maxFilmS: number, pxProFilmS: number): number {
+export function klemmeFilmS(
+  filmS: number,
+  minFilmS: number,
+  maxFilmS: number,
+  pxProFilmS: number,
+): number {
   const luft = pxProFilmS > 0 ? BAND_MIN_PX / pxProFilmS : 0
   const min = minFilmS + luft
   const max = maxFilmS - luft
@@ -1347,7 +1408,9 @@ export function baueSpielKurve(
   }
   anteile.push(1)
   filmS.push(film)
-  return film >= 1 ? { anteile, filmS, gesamtS: film } : { anteile: [0, 1], filmS: [0, 1], gesamtS: 1 }
+  return film >= 1
+    ? { anteile, filmS, gesamtS: film }
+    : { anteile: [0, 1], filmS: [0, 1], gesamtS: 1 }
 }
 
 // — Maßband —
@@ -1417,7 +1480,6 @@ export function baueFilmMassband(achse: Achse, pxProS: number): Massbandmarke[] 
   return marken
 }
 
-
 // — Streckenmeter —
 //
 // Die Leiste zeigt Zeit, die Kopf-Uhr daneben aber „19,2 km / 41,8 km": wo auf
@@ -1429,13 +1491,18 @@ export function kumMeter(track: readonly TrackPunkt[]): number[] {
   const kum: number[] = new Array(track.length)
   kum[0] = 0
   for (let i = 1; i < track.length; i++) {
-    kum[i] = (kum[i - 1] as number) + meterZwischen(track[i - 1] as TrackPunkt, track[i] as TrackPunkt)
+    kum[i] =
+      (kum[i - 1] as number) + meterZwischen(track[i - 1] as TrackPunkt, track[i] as TrackPunkt)
   }
   return kum
 }
 
 /** Zurückgelegte Meter zum Zeit-Offset (s), zwischen den Punkten interpoliert. */
-export function meterZuOffset(kum: readonly number[], track: readonly TrackPunkt[], tOffsetS: number): number {
+export function meterZuOffset(
+  kum: readonly number[],
+  track: readonly TrackPunkt[],
+  tOffsetS: number,
+): number {
   if (track.length === 0) return 0
   const erster = track[0] as TrackPunkt
   const letzter = track[track.length - 1] as TrackPunkt
@@ -1451,7 +1518,11 @@ export function meterZuOffset(kum: readonly number[], track: readonly TrackPunkt
 }
 
 /** Zeit-Offset (s) zu zurückgelegten Metern — Umkehrung von `meterZuOffset`. */
-export function offsetBeiMeter(kum: readonly number[], track: readonly TrackPunkt[], meter: number): number {
+export function offsetBeiMeter(
+  kum: readonly number[],
+  track: readonly TrackPunkt[],
+  meter: number,
+): number {
   if (track.length === 0) return 0
   const erster = track[0] as TrackPunkt
   const letzter = track[track.length - 1] as TrackPunkt
@@ -1474,6 +1545,11 @@ export function offsetBeiMeter(kum: readonly number[], track: readonly TrackPunk
  * an derselben Stelle im Fenster steht — sonst springt der Blick beim Zoomen
  * irgendwohin. `spurXpx` ist die feste Breite der Namensspalte links.
  */
-export function ankerScroll(ankerAnteil: number, zeitBreitePx: number, zielVx: number, spurXpx: number): number {
+export function ankerScroll(
+  ankerAnteil: number,
+  zeitBreitePx: number,
+  zielVx: number,
+  spurXpx: number,
+): number {
   return Math.max(0, spurXpx + ankerAnteil * zeitBreitePx - zielVx)
 }

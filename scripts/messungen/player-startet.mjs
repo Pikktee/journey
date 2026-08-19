@@ -32,7 +32,9 @@ for (const tour of TOUREN) {
   const kontext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const seite = await kontext.newPage()
   const meldungen = []
-  seite.on('console', (m) => { if (m.type() === 'error') meldungen.push(m.text()) })
+  seite.on('console', (m) => {
+    if (m.type() === 'error') meldungen.push(m.text())
+  })
   seite.on('pageerror', (e) => meldungen.push(`pageerror: ${e.message}`))
 
   let stand = { ok: false, grund: 'unbekannt' }
@@ -64,7 +66,9 @@ for (const tour of TOUREN) {
   if (!gut) fehlgeschlagen++
   console.log(`${gut ? '✓' : '✗'} ${tour}`)
   if (stand.ok) {
-    console.log(`    Phase ${stand.phase} · km ${(stand.s / 1000).toFixed(1)} · Anker ${stand.anker} · Achse ${stand.achse}`)
+    console.log(
+      `    Phase ${stand.phase} · km ${(stand.s / 1000).toFixed(1)} · Anker ${stand.anker} · Achse ${stand.achse}`,
+    )
   } else {
     console.log(`    startet nicht: ${stand.grund}`)
   }

@@ -43,7 +43,9 @@ export interface MailVersand {
 export class KonsoleMail implements MailVersand {
   constructor(private readonly log: (zeile: string) => void = console.log) {}
   async sende(nachricht: MailNachricht): Promise<void> {
-    this.log(`\n📧 Mail an ${nachricht.an}\n   Betreff: ${nachricht.betreff}\n   ${nachricht.text.replace(/\n/g, '\n   ')}\n`)
+    this.log(
+      `\n📧 Mail an ${nachricht.an}\n   Betreff: ${nachricht.betreff}\n   ${nachricht.text.replace(/\n/g, '\n   ')}\n`,
+    )
   }
 }
 

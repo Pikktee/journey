@@ -10,7 +10,9 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const gradle = readFileSync(new URL('../android/app/build.gradle.kts', import.meta.url), 'utf8')
-const paket = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
+const paket = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+  version: string
+}
 
 /** Spiegel der Rechnung in build.gradle.kts — 0.33.0 → 3300. */
 function versionsZahl(version: string): number {

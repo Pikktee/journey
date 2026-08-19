@@ -53,7 +53,11 @@ export interface Atmosphaere {
 }
 
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+const cross = (a: Vec3, b: Vec3): Vec3 => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+]
 const norm = (v: Vec3): Vec3 | null => {
   const l = Math.hypot(v[0], v[1], v[2])
   return l < 1e-9 ? null : [v[0] / l, v[1] / l, v[2] / l]
@@ -66,7 +70,8 @@ const smoothstep = (a: number, b: number, x: number) => {
 }
 // Sonnenrichtung als ENU-Einheitsvektor (Ost, Nord, Oben)
 const sunDirENU = (altDeg: number, azDeg: number): Vec3 => {
-  const a = altDeg * DEG, z = azDeg * DEG
+  const a = altDeg * DEG,
+    z = azDeg * DEG
   return [Math.sin(z) * Math.cos(a), Math.cos(z) * Math.cos(a), Math.sin(a)]
 }
 
@@ -76,12 +81,20 @@ const enuOffset = (from: Vec3, to: Vec3): Vec3 => {
   return [(to[0] - from[0]) * mPerLng, (to[1] - from[1]) * 110540, to[2] - from[2]]
 }
 
-const hex = (c: string): Vec3 => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]
+const hex = (c: string): Vec3 => [
+  parseInt(c.slice(1, 3), 16),
+  parseInt(c.slice(3, 5), 16),
+  parseInt(c.slice(5, 7), 16),
+]
 
 // Ohne 2D-Kontext gibt es kein Overlay — das ist kein Zustand, in dem hier
 // irgendetwas sinnvoll weiterläuft. Abbruch mit Adresse statt später ein `null`
 // am Aufrufer (dieselbe Linie wie die Element-Helfer in ui.ts).
-function kontext2d(c: HTMLCanvasElement, wofuer: string, opts?: CanvasRenderingContext2DSettings): CanvasRenderingContext2D {
+function kontext2d(
+  c: HTMLCanvasElement,
+  wofuer: string,
+  opts?: CanvasRenderingContext2DSettings,
+): CanvasRenderingContext2D {
   const g = c.getContext('2d', opts)
   if (!g) throw new Error(`Atmosphäre: kein 2D-Kontext (${wofuer})`)
   return g
@@ -174,7 +187,10 @@ function makeCloudNoise(seed: number): Float32Array {
         const sy = ty * ty * (3 - 2 * ty)
         const x1 = (x0 + 1) % n
         const y1 = (y0 + 1) % n
-        const v00 = g[y0 * n + x0]!, v10 = g[y0 * n + x1]!, v01 = g[y1 * n + x0]!, v11 = g[y1 * n + x1]!
+        const v00 = g[y0 * n + x0]!,
+          v10 = g[y0 * n + x1]!,
+          v01 = g[y1 * n + x0]!,
+          v11 = g[y1 * n + x1]!
         v += ((v00 + (v10 - v00) * sx) * (1 - sy) + (v01 + (v11 - v01) * sx) * sy) * amp
         amp *= 0.5
       }
@@ -189,7 +205,11 @@ function makeCloudNoise(seed: number): Float32Array {
 // (locker/aufgerissen/geschlossen) sind die FORM-Seite der Wolkendeckung —
 // drawClouds blendet zwischen ihnen, statt dieselben Wolken nur transparenter
 // zu machen (halbtransparente „Geisterwolken" sahen nie nach wenig Wolken aus).
-const CLOUD_TIERS: Array<[number, number]> = [[0.6, 0.84], [0.44, 0.72], [0.15, 0.52]]
+const CLOUD_TIERS: Array<[number, number]> = [
+  [0.6, 0.84],
+  [0.44, 0.72],
+  [0.15, 0.52],
+]
 function cloudTileFrom(field: Float32Array, lo: number, hi: number): HTMLCanvasElement {
   const S = CLOUD_S
   const cv = document.createElement('canvas')
@@ -228,9 +248,15 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
 
   let sun: Sonnenstand | null = null // { altitude, azimuth } in Grad
   // Horizont-/Himmel-/Fog-Farbe (RGB), von daynight
-  let sky: { hor: Vec3; skyc: Vec3; fogc: Vec3 } = { hor: [170, 205, 235], skyc: [119, 176, 223], fogc: [150, 192, 227] }
+  let sky: { hor: Vec3; skyc: Vec3; fogc: Vec3 } = {
+    hor: [170, 205, 235],
+    skyc: [119, 176, 223],
+    fogc: [150, 192, 227],
+  }
   let fovDeg = 36.87
-  let w = 0, h = 0, aspect = 1
+  let w = 0,
+    h = 0,
+    aspect = 1
   // Backing-Auflösung des Overlays über dasselbe Pixelbudget wie die Karte kappen
   // (overlayPixelRatio, map.ts): der vollflächige Canvas wird pro Frame als GPU-Textur
   // neu hochgeladen — auf großen Displays/Handys ist das messbar (Pixel-9: sauberer
@@ -253,14 +279,19 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   let wx = { cover: 0, dark: 0, fog: 0 }
   const wxCur = { cover: 0, dark: 0, fog: 0 }
   let cloudTiers: HTMLCanvasElement[][] | null = null // 2 Rauschlagen × 3 Formstufen (lazy)
-  let cloudCv: HTMLCanvasElement | null = null, cloudCtx: CanvasRenderingContext2D | null = null // Offscreen für Formung + Einfärbung
+  let cloudCv: HTMLCanvasElement | null = null,
+    cloudCtx: CanvasRenderingContext2D | null = null // Offscreen für Formung + Einfärbung
   let cloudT = 0 // Drift-Zeit (nicht an die Tour-Zeit gekoppelt — Wolken ziehen einfach)
-  let sunOcc = 0, sunOccTgt = 0 // Wolken-Alpha AN der Sonnenposition (0..1) — steuert das Direktlicht
+  let sunOcc = 0,
+    sunOccTgt = 0 // Wolken-Alpha AN der Sonnenposition (0..1) — steuert das Direktlicht
   let animGate: (() => boolean) | null = null // () => true solange die Szene animiert; false ⇒ Wolken-Drift friert ein (Pause)
-  let lastPose: KameraPose | null = null, lastRenderAt = 0 // fürs Idle-Nachrendern in der Pause
+  let lastPose: KameraPose | null = null,
+    lastRenderAt = 0 // fürs Idle-Nachrendern in der Pause
   let camAlt = 0 // Kamerahöhe über NN — bestimmt, wie weit der Blick unter den Horizont reicht
   let terrainQ: ((lng: number, lat: number) => number | null | undefined) | null = null // Szenenhöhe (überhöht, wie pose.alt) — von main.ts
-  let horVis = 1, horVisTgt = 1, lastProbe = 0 // 0..1: ist die flache Horizontlinie wirklich sichtbar? (Mittel des Fächers)
+  let horVis = 1,
+    horVisTgt = 1,
+    lastProbe = 0 // 0..1: ist die flache Horizontlinie wirklich sichtbar? (Mittel des Fächers)
   // Sichtbarkeits-FÄCHER über das Sichtfeld: je ein Sonden-Strahl pro Azimut-Offset.
   // Drei Strahlen ±10° reichten nicht — im Gebirge stand seitlich Fels über der
   // Linie, während die Bildmitte frei war, und das (vollbreite) Band lag quer auf
@@ -272,8 +303,10 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   let horFanTgt = FAN_OFF.map(() => 1)
   let fanBereit = false // erster Durchlauf misst den ganzen Fächer, danach reihum
   let fanNaechster = 0
-  let hazeCv: HTMLCanvasElement | null = null, hazeCtx: CanvasRenderingContext2D | null = null // Offscreen für die horizontale Maskierung (lazy)
-  let occRise = 0, occRiseTgt = 0 // Silhouetten-Überstand (ndc) am SONNEN-Azimut — dort versinkt die Scheibe
+  let hazeCv: HTMLCanvasElement | null = null,
+    hazeCtx: CanvasRenderingContext2D | null = null // Offscreen für die horizontale Maskierung (lazy)
+  let occRise = 0,
+    occRiseTgt = 0 // Silhouetten-Überstand (ndc) am SONNEN-Azimut — dort versinkt die Scheibe
 
   const flaeche = (): { w: number; h: number } => {
     if (getComputedStyle(canvas).position === 'fixed') {
@@ -348,10 +381,13 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     const cam = getCam?.()
     let fwd: Vec3 | null
     if (cam) {
-      const be = cam.bearing * DEG, pi = cam.pitch * DEG
+      const be = cam.bearing * DEG,
+        pi = cam.pitch * DEG
       fwd = [Math.sin(be) * Math.sin(pi), Math.cos(be) * Math.sin(pi), -Math.cos(pi)]
     } else {
-      fwd = norm(enuOffset([pose.cg[0], pose.cg[1], pose.alt], [pose.lt[0], pose.lt[1], pose.ltAlt]))
+      fwd = norm(
+        enuOffset([pose.cg[0], pose.cg[1], pose.alt], [pose.lt[0], pose.lt[1], pose.ltAlt]),
+      )
     }
     if (!fwd) return null
     let right = norm(cross(fwd, [0, 0, 1]))
@@ -362,7 +398,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     // Astronomischer Horizont = horizontale Blickrichtung (fwd ohne Vertikalanteil)
     const fh = norm([fwd[0], fwd[1], 0]) || fwd
     const zh = dot(fh, fwd)
-    const horizonNdcY = zh > 0.02 ? (dot(fh, up) / zh) / tanY : -2
+    const horizonNdcY = zh > 0.02 ? dot(fh, up) / zh / tanY : -2
     // GERENDERTE Boden-Himmel-Linie: MapLibre zieht seinen Mercator-Horizont mit
     // Faktor 0.85 UNTER den wahren Fluchtpunkt (getMercatorHorizon, mercator_utils.ts)
     // — dort endet die Karte wirklich (per Pixel-Scan verifiziert, ±3 px). An DIESER
@@ -381,14 +417,19 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   }
 
   /** Bildschirmpunkt einer Weltrichtung: NDC plus CSS-Pixel. */
-  interface Bildpunkt { ndcX: number; ndcY: number; sx: number; sy: number }
+  interface Bildpunkt {
+    ndcX: number
+    ndcY: number
+    sx: number
+    sy: number
+  }
 
   // Weltrichtung → Bildschirm. Gibt null zurück, wenn hinter der Kamera.
   function project(dir: Vec3, b: Basis): Bildpunkt | null {
     const z = dot(dir, b.fwd)
     if (z <= 0.02) return null
-    const ndcX = (dot(dir, b.right) / z) / (b.tanY * aspect)
-    const ndcY = (dot(dir, b.up) / z) / b.tanY
+    const ndcX = dot(dir, b.right) / z / (b.tanY * aspect)
+    const ndcY = dot(dir, b.up) / z / b.tanY
     return { ndcX, ndcY, sx: (ndcX * 0.5 + 0.5) * w, sy: (0.5 - ndcY * 0.5) * h }
   }
 
@@ -402,7 +443,10 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   // Horizont → Band bleibt; die Luftperspektive auf dem Gelände selbst kommt dort
   // von MapLibres Terrain-Fog (daynight.ts), der echte Distanzen kennt.
   /** Höchster Silhouetten-Punkt eines Sonden-Strahls: Bildhöhe (ndc) und Distanz. */
-  interface Sondenwert { ndcY: number; dist: number }
+  interface Sondenwert {
+    ndcY: number
+    dist: number
+  }
 
   // Ein DEM-Strahl: höchster abgetasteter Silhouetten-Punkt entlang eines Azimuts,
   // als ndcY + Distanz (null, wenn nichts abtastbar). Genutzt für den Blick-Bearing
@@ -416,13 +460,18 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       const ang = d / 6371000
       const sinLa2 = Math.sin(la0) * Math.cos(ang) + Math.cos(la0) * Math.sin(ang) * Math.cos(be)
       const la2 = Math.asin(sinLa2)
-      const ln2 = ln0 + Math.atan2(Math.sin(be) * Math.sin(ang) * Math.cos(la0), Math.cos(ang) - Math.sin(la0) * sinLa2)
+      const ln2 =
+        ln0 +
+        Math.atan2(
+          Math.sin(be) * Math.sin(ang) * Math.cos(la0),
+          Math.cos(ang) - Math.sin(la0) * sinLa2,
+        )
       const ele = abfrage(ln2 / DEG, la2 / DEG)
       if (ele == null || !Number.isFinite(ele)) return null // Kachel nicht geladen/Wasser-Fallback
       const dir = norm([Math.sin(be) * d, Math.cos(be) * d, ele - (pose.alt || 0)])
       const z = dir ? dot(dir, b.fwd) : 0
       if (!dir || z <= 0.02) return null
-      return { ndcY: (dot(dir, b.up) / z) / b.tanY, dist: d }
+      return { ndcY: dot(dir, b.up) / z / b.tanY, dist: d }
     }
     // DICHTES log-Raster statt Oktav-Schritten: mit [1.5,3,6,12,24,48] km fiel die
     // Grat-SILHOUETTE zwischen die Stützstellen (Oberland: 6 km = Grindelwald-
@@ -534,7 +583,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     // Orange über Braun) war die Bandkante als Schicht sichtbar.
     const [r, g, bl] = sky.fogc
     const [hr, hg, hbl] = sky.hor
-    const pxPerRad = (h / 2) / b.tanY
+    const pxPerRad = h / 2 / b.tanY
     // Sichtweite: klarer Tag ~42 km; Bewölkung drückt sie, Nebel-Anteil stark
     const L = 42000 * (1 - 0.45 * wxCur.cover) * (1 - 0.75 * wxCur.fog)
     // Dunst ist ein GRENZSCHICHT-Phänomen (unterste ~750 m Luft): aus großer Höhe
@@ -601,7 +650,8 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     const up = h * 0.045
     const s0 = Math.max(hy - up, 0)
     if (hy > 0 && hy > s0) {
-      const mix = (t: number) => `${Math.round(hr + (r - hr) * t)},${Math.round(hg + (g - hg) * t)},${Math.round(hbl + (bl - hbl) * t)}`
+      const mix = (t: number) =>
+        `${Math.round(hr + (r - hr) * t)},${Math.round(hg + (g - hg) * t)},${Math.round(hbl + (bl - hbl) * t)}`
       const g2 = tc.createLinearGradient(0, hy - up, 0, hy)
       g2.addColorStop(0, `rgba(${mix(0)},0)`)
       g2.addColorStop(0.55, `rgba(${mix(0.35)},${(0.1 * Af).toFixed(3)})`)
@@ -622,7 +672,10 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       const seam = Math.max(3, Math.round(h * 0.006))
       const gS = tc.createLinearGradient(0, hy - seam, 0, hy + seam)
       gS.addColorStop(0, `rgba(${hr},${hg},${hbl},0)`)
-      gS.addColorStop(0.5, `rgba(${Math.round((hr + r) / 2)},${Math.round((hg + g) / 2)},${Math.round((hbl + bl) / 2)},${(edgeFade * fUni).toFixed(3)})`)
+      gS.addColorStop(
+        0.5,
+        `rgba(${Math.round((hr + r) / 2)},${Math.round((hg + g) / 2)},${Math.round((hbl + bl) / 2)},${(edgeFade * fUni).toFixed(3)})`,
+      )
       gS.addColorStop(1, `rgba(${r},${g},${bl},0)`)
       tc.fillStyle = gS
       tc.fillRect(0, Math.round(hy - seam), w, 2 * seam)
@@ -651,8 +704,10 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   // Blick, kleben nicht am Screen. Erscheinen erst in tiefer Dämmerung.
   function drawStars(b: Basis) {
     // Dichte Bewölkung/Nebel verdecken die Sterne; einzelne lockere Wolken kaum
-    const nightFactor = (sun ? smoothstep(-6, -14, sun.altitude) : 0) *
-      (1 - smoothstep(0.25, 0.85, wxCur.cover) * 0.97) * (1 - wxCur.fog * 0.95)
+    const nightFactor =
+      (sun ? smoothstep(-6, -14, sun.altitude) : 0) *
+      (1 - smoothstep(0.25, 0.85, wxCur.cover) * 0.97) *
+      (1 - wxCur.fog * 0.95)
     if (nightFactor < 0.02) return
     ctx.save()
     for (const st of stars) {
@@ -669,11 +724,15 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       const r = 0.55 + 1.05 * st.mag // klein und rund (keine kastigen Quadrate)
       ctx.globalAlpha = Math.min(1, a)
       ctx.fillStyle = st.warm ? '#fff2e0' : st.mag > 0.72 ? '#eef2ff' : '#dbe3f0'
-      ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath()
+      ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2)
+      ctx.fill()
       if (st.mag > 0.9) {
         // nur die ganz wenigen hellsten: sehr zarter, kleiner Schein
         ctx.globalAlpha = Math.min(1, a) * 0.28
-        ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 2.6, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath()
+        ctx.arc(p.sx, p.sy, r * 2.6, 0, Math.PI * 2)
+        ctx.fill()
       }
     }
     ctx.restore()
@@ -721,7 +780,14 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   //    grafik"), Blendenreflexe nur noch als leise Andeutung.
   const MAX_EDGE = 2.6
   // Radialer Verlauf aus einer Profilfunktion (N Stops, letzter exakt 0 — kein Ring)
-  function glareGradient(x: number, y: number, r: number, rgb: string, aPeak: number, profile: (t: number) => number) {
+  function glareGradient(
+    x: number,
+    y: number,
+    r: number,
+    rgb: string,
+    aPeak: number,
+    profile: (t: number) => number,
+  ) {
     const g = ctx.createRadialGradient(x, y, 0, x, y, r)
     const N = 10
     for (let i = 0; i <= N; i++) {
@@ -746,7 +812,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
 
     const col = sunColor(alt)
     const D = Math.min(w, h)
-    const pxPerRad = (h / 2) / b.tanY
+    const pxPerRad = h / 2 / b.tanY
     const lowSun = 1 - clamp01((alt - 1) / 18) // 1 am/unter Horizont → 0 hoch oben
     const nearSet = smoothstep(6, 0.5, alt) // erst kurz vor dem Untergang (Säule, Streak, Abflachung)
     const outFade = 1 - smoothstep(1.9, MAX_EDGE, edge) // weit außerhalb des Bildes sanft ausblenden
@@ -775,8 +841,11 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     // über die Deckung gerechnet war beides falsch — „wolkig" hat meist freie Sonne.
     const wxDim = (1 - 0.6 * sunOcc) * (1 - wxCur.fog * 0.85)
     const direct = (1 - smoothstep(0.12, 0.7, sunOcc)) * (1 - smoothstep(0.15, 0.7, wxCur.fog))
-    const glow = smoothstep(5, -0.5, alt) * (1 - smoothstep(-3, -11, alt)) *
-      (1 - 0.9 * smoothstep(0.35, 0.9, sunOcc)) * (1 - wxCur.fog * 0.7) // Glut/Afterglow ums Untergehen (sitzt auf der Silhouette)
+    const glow =
+      smoothstep(5, -0.5, alt) *
+      (1 - smoothstep(-3, -11, alt)) *
+      (1 - 0.9 * smoothstep(0.35, 0.9, sunOcc)) *
+      (1 - wxCur.fog * 0.7) // Glut/Afterglow ums Untergehen (sitzt auf der Silhouette)
     // Auf der Bergflanke UNTER dem Grat gibt es kein Wasser: Reflexion dort ausblenden
     const reflVis = 1 - smoothstep(0.015, 0.08, occRise)
     const a = discVis * outFade * wxDim // Leitwert: wie präsent ist die Scheibe gerade
@@ -791,9 +860,13 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       const gx = clamp(sx, -w * 0.3, w * 1.3)
       const gr = D * (0.95 + 0.55 * glow)
       ctx.save()
-      ctx.translate(gx, hy); ctx.scale(1, 0.3); ctx.translate(-gx, -hy) // vertikal stauchen → Band
+      ctx.translate(gx, hy)
+      ctx.scale(1, 0.3)
+      ctx.translate(-gx, -hy) // vertikal stauchen → Band
       ctx.fillStyle = glareGradient(gx, hy, gr, col, 0.34 * glow * outFade, (t) => Math.exp(-4 * t))
-      ctx.beginPath(); ctx.arc(gx, hy, gr, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath()
+      ctx.arc(gx, hy, gr, 0, Math.PI * 2)
+      ctx.fill()
       ctx.restore()
     }
 
@@ -808,7 +881,9 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
         ctx.translate(gx, cy)
         ctx.scale(rx / ry, 1)
         ctx.fillStyle = glareGradient(0, 0, ry, col, aa, (t) => Math.exp(-3.4 * t))
-        ctx.beginPath(); ctx.arc(0, 0, ry, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath()
+        ctx.arc(0, 0, ry, 0, Math.PI * 2)
+        ctx.fill()
         ctx.restore()
       }
       if (nearSet > 0.02 && hy > sy + discR * 0.5)
@@ -823,44 +898,72 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       //    sehr flacher Schleier (gestreutes Licht, kommt teilweise durch die Decke).
       const aurR = discR * (7 + 5 * lowSun)
       const aurA = a * (0.2 + 0.32 * lowSun) * (0.2 + 0.8 * direct)
-      ctx.fillStyle = glareGradient(sx, sy, aurR, col, aurA, (t) => Math.exp(-5 * Math.pow(t, 1.15)))
-      ctx.beginPath(); ctx.arc(sx, sy, aurR, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = glareGradient(sx, sy, aurR, col, aurA, (t) =>
+        Math.exp(-5 * Math.pow(t, 1.15)),
+      )
+      ctx.beginPath()
+      ctx.arc(sx, sy, aurR, 0, Math.PI * 2)
+      ctx.fill()
 
       const veilR = D * (0.24 + 0.22 * lowSun)
       const veilA = a * 0.08 * (0.4 + 0.6 * direct)
-      ctx.fillStyle = glareGradient(sx, sy, veilR, col, veilA, (t) => Math.exp(-3 * Math.pow(t, 0.85)) * (1 - t))
-      ctx.beginPath(); ctx.arc(sx, sy, veilR, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = glareGradient(
+        sx,
+        sy,
+        veilR,
+        col,
+        veilA,
+        (t) => Math.exp(-3 * Math.pow(t, 0.85)) * (1 - t),
+      )
+      ctx.beginPath()
+      ctx.arc(sx, sy, veilR, 0, Math.PI * 2)
+      ctx.fill()
 
       // 2) Scheibe: das EINZIGE an der sichtbaren Kante geclippte Element (sie
       //    versinkt wirklich, ihr Licht nicht). Winzig-weiche Kante (~12 % des
       //    Radius), ausgebrannter Kern, zum Untergang warm und leicht oval
       //    (Refraktion staucht die Scheibe vertikal).
       ctx.save()
-      ctx.beginPath(); ctx.rect(0, 0, w, clipTop); ctx.clip()
+      ctx.beginPath()
+      ctx.rect(0, 0, w, clipTop)
+      ctx.clip()
       const dA = a * direct
       if (dA > 0.01) {
         const core = `255,${Math.round(255 - 35 * nearSet)},${Math.round(252 - 74 * nearSet)}`
         ctx.save()
-        ctx.translate(sx, sy); ctx.scale(1, 1 - 0.18 * nearSet); ctx.translate(-sx, -sy)
+        ctx.translate(sx, sy)
+        ctx.scale(1, 1 - 0.18 * nearSet)
+        ctx.translate(-sx, -sy)
         const disc = ctx.createRadialGradient(sx, sy, 0, sx, sy, discR)
         disc.addColorStop(0, `rgba(${core},${dA})`)
         disc.addColorStop(0.72, `rgba(${core},${dA})`)
         disc.addColorStop(0.88, `rgba(${col},${0.88 * dA})`)
         disc.addColorStop(1, `rgba(${col},0)`)
         ctx.fillStyle = disc
-        ctx.beginPath(); ctx.arc(sx, sy, discR, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath()
+        ctx.arc(sx, sy, discR, 0, Math.PI * 2)
+        ctx.fill()
         ctx.restore()
       }
 
       // Diffuser Lichtfleck HINTER der Wolkendecke: die Decke leuchtet dort durch,
       // wo die Sonne steht — breit, konturlos, kaum gefärbt (Streuung frisst die
       // Röte). Bei GANZ geschlossener Decke (cover→1) verschwindet auch er.
-      const diffuse = (1 - direct) * discVis * outFade * (1 - wxCur.dark * 0.6) *
-        smoothstep(-4, 1, alt) * (1 - smoothstep(0.9, 1, wxCur.cover))
+      const diffuse =
+        (1 - direct) *
+        discVis *
+        outFade *
+        (1 - wxCur.dark * 0.6) *
+        smoothstep(-4, 1, alt) *
+        (1 - smoothstep(0.9, 1, wxCur.cover))
       if (diffuse > 0.02) {
         const dr = discR * (9 + 7 * (1 - direct))
-        ctx.fillStyle = glareGradient(sx, sy, dr, '255,250,240', 0.18 * diffuse, (t) => Math.exp(-2.6 * t))
-        ctx.beginPath(); ctx.arc(sx, sy, dr, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = glareGradient(sx, sy, dr, '255,250,240', 0.18 * diffuse, (t) =>
+          Math.exp(-2.6 * t),
+        )
+        ctx.beginPath()
+        ctx.arc(sx, sy, dr, 0, Math.PI * 2)
+        ctx.fill()
       }
       ctx.restore() // Clip-Ende
 
@@ -869,9 +972,12 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       if (streakA > 0.01) {
         const sw = D * (0.45 + 0.35 * nearSet)
         ctx.save()
-        ctx.translate(sx, sy); ctx.scale(1, 0.035)
+        ctx.translate(sx, sy)
+        ctx.scale(1, 0.035)
         ctx.fillStyle = glareGradient(0, 0, sw, col, streakA, (t) => Math.exp(-3 * t))
-        ctx.beginPath(); ctx.arc(0, 0, sw, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath()
+        ctx.arc(0, 0, sw, 0, Math.PI * 2)
+        ctx.fill()
         ctx.restore()
       }
 
@@ -879,14 +985,16 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       //    der Achse Sonne→Bildmitte) — kräftige bunte Reflexe schrien „Filter".
       const ghostFade = (1 - smoothstep(0.75, 1.02, edge)) * a * direct * 0.5
       if (ghostFade > 0.02) {
-        const dx = w / 2 - sx, dy = h / 2 - sy
+        const dx = w / 2 - sx,
+          dy = h / 2 - sy
         const ghosts = [
           { t: 0.45, r: 0.016, ga: 0.055, tint: '255,222,185' },
           { t: 0.95, r: 0.034, ga: 0.04, tint: '195,215,250' },
           { t: 1.4, r: 0.05, ga: 0.045, tint: '255,208,170', ring: true },
         ]
         for (const gh of ghosts) {
-          const gx = sx + dx * gh.t, gy = sy + dy * gh.t
+          const gx = sx + dx * gh.t,
+            gy = sy + dy * gh.t
           const gr = D * gh.r
           const ga = gh.ga * ghostFade
           const grad = gh.ring
@@ -902,7 +1010,9 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
             grad.addColorStop(1, `rgba(${gh.tint},0)`)
           }
           ctx.fillStyle = grad
-          ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI * 2); ctx.fill()
+          ctx.beginPath()
+          ctx.arc(gx, gy, gr, 0, Math.PI * 2)
+          ctx.fill()
         }
       }
     }
@@ -923,10 +1033,16 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   function drawClouds(b: Basis, dt: number) {
     cloudT += dt
     const cover = wxCur.cover
-    if (cover < 0.02) { sunOccTgt = 0; return }
+    if (cover < 0.02) {
+      sunOccTgt = 0
+      return
+    }
     const hy = (0.5 - b.horizonRenderNdcY * 0.5) * h
     const hyV = Math.min(hy, h) // sichtbare Band-Unterkante
-    if (hyV < 14) { sunOccTgt = cover * 0.9; return } // Kamera schaut nach unten — kein Himmel im Bild, Deckung als Näherung
+    if (hyV < 14) {
+      sunOccTgt = cover * 0.9
+      return
+    } // Kamera schaut nach unten — kein Himmel im Bild, Deckung als Näherung
     if (!cloudTiers) {
       // 2 Rauschlagen × 3 Formstufen: das teure Rauschfeld wird je Lage nur EINMAL
       // gerechnet, die Stufen sind billige Schwellwert-Bakes daraus
@@ -937,12 +1053,15 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     }
     const cc = cloudKontext()
     // Feste Winkelhöhe: tan(35°)·pxPerRad — unabhängig von der Himmelshöhe im Bild
-    const pxPerRad = (h / 2) / b.tanY
+    const pxPerRad = h / 2 / b.tanY
     const bandH = Math.ceil(pxPerRad * Math.tan(35 * DEG))
     const bandTop = Math.round(hy) - bandH
     const fy0 = Math.max(bandTop, 0) // sichtbarer Band-Ausschnitt für die Füll-Pässe
     const fH = Math.min(hyV + 2, h) - fy0
-    if (fH <= 0) { sunOccTgt = cover * 0.9; return }
+    if (fH <= 0) {
+      sunOccTgt = cover * 0.9
+      return
+    }
     cc.clearRect(0, 0, w, h)
     // Bearing-Anker: Grad → Pixel über das horizontale Sichtfeld
     const cam = getCam?.()
@@ -1105,28 +1224,49 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   }
 
   const api: Atmosphaere = {
-    setSun: (s) => { sun = s },
+    setSun: (s) => {
+      sun = s
+    },
     // Debug-Einblick (window.__j-Konvention): innere Zustände + aktuelle Projektion
     _dbg: () => {
       const b = lastPose ? basisFrom(lastPose) : null
       const p = b && sun ? project(sunDirENU(sun.altitude, sun.azimuth), b) : null
       return {
-        sun, camAlt, horVis, horVisTgt, occRise, occRiseTgt, sunOcc, sunOccTgt,
+        sun,
+        camAlt,
+        horVis,
+        horVisTgt,
+        occRise,
+        occRiseTgt,
+        sunOcc,
+        sunOccTgt,
         horFan: horFan.map((v) => +v.toFixed(2)),
         wxCur: { ...wxCur },
-        horizonRenderNdcY: b?.horizonRenderNdcY, sunNdcY: p?.ndcY, sunEdge: p ? Math.max(Math.abs(p.ndcX), Math.abs(p.ndcY)) : null,
+        horizonRenderNdcY: b?.horizonRenderNdcY,
+        sunNdcY: p?.ndcY,
+        sunEdge: p ? Math.max(Math.abs(p.ndcX), Math.abs(p.ndcY)) : null,
       }
     },
-    setFov: (deg) => { fovDeg = deg },
+    setFov: (deg) => {
+      fovDeg = deg
+    },
     // Wetter-Himmel vom Umschalter: { cover, dark, fog } je 0..1 — wirkt weich (wxCur)
-    setWeather: (o) => { wx = { cover: o?.cover ?? 0, dark: o?.dark ?? 0, fog: o?.fog ?? 0 } },
+    setWeather: (o) => {
+      wx = { cover: o?.cover ?? 0, dark: o?.dark ?? 0, fog: o?.fog ?? 0 }
+    },
     // Pause-Gate (geteilt mit weather.ts): friert die Wolken-Drift ein
-    setGate: (fn) => { animGate = fn },
+    setGate: (fn) => {
+      animGate = fn
+    },
     // DEM-Sonde für die Horizont-Sichtbarkeit: (lng, lat) => Szenenhöhe (überhöht) | null
-    setTerrain: (fn) => { terrainQ = fn },
+    setTerrain: (fn) => {
+      terrainQ = fn
+    },
     // Zugriff auf die echte Render-Kamera (MapLibre getPitch/getBearing) — Pflicht für
     // eine korrekte Basis, weil MapLibre den Pitch clampt (s. basisFrom).
-    setCamera: (fn) => { getCam = fn },
+    setCamera: (fn) => {
+      getCam = fn
+    },
     // Himmelfarben aus der Tag/Nacht-Regie (daynight paramsAt): Horizont-/Himmel-
     // farbe treiben Saum/Grade, die FOG-Farbe die Boden-Seite des Dunsts (muss zum
     // Terrain-Fog passen, sonst ist die Bandkante als Schicht sichtbar). Erwartet
@@ -1195,7 +1335,8 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
         }
       }
       horVis += (horVisTgt - horVis) * (1 - Math.exp(-dt / 0.55))
-      for (let i = 0; i < horFan.length; i++) horFan[i] = fanAt(i) + ((horFanTgt[i] ?? 1) - fanAt(i)) * (1 - Math.exp(-dt / 0.55))
+      for (let i = 0; i < horFan.length; i++)
+        horFan[i] = fanAt(i) + ((horFanTgt[i] ?? 1) - fanAt(i)) * (1 - Math.exp(-dt / 0.55))
       occRise += (occRiseTgt - occRise) * (1 - Math.exp(-dt / 0.35))
       // Direktlicht weich nachziehen: Wolken ziehen gemächlich — das Aufbrechen/
       // Verschwinden der Sonne hinter einem Ballen ist ein weiches Ereignis

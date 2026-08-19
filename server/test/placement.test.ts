@@ -29,7 +29,11 @@ describe('platziereMedien', () => {
 
   it('mappt einen fernen GPS-Anker über die Zeit auf den Track (zeit)', () => {
     // Anker ~150 km weg → > 500 m → Zeit-Mapping greift (takenAt 08:10 = Offset 600)
-    const [p] = platziereMedien([medium({ anchor: [9.5, 47.5], takenAt: '2026-07-04T08:10:00Z' })], TRACK, START_MS)
+    const [p] = platziereMedien(
+      [medium({ anchor: [9.5, 47.5], takenAt: '2026-07-04T08:10:00Z' })],
+      TRACK,
+      START_MS,
+    )
     expect(p?.placement).toBe('zeit')
     expect(p?.anchor?.[0]).toBeCloseTo(7.9105, 4) // Trackpunkt bei Offset 600
   })

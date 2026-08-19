@@ -103,7 +103,11 @@ describe('E-Mail-Adresse wechseln', () => {
     })
     const token = tokenAus(u.mail.letzterLink())
     await u.app.inject({ method: 'POST', url: '/api/auth/email-bestaetigen', payload: { token } })
-    const nochmal = await u.app.inject({ method: 'POST', url: '/api/auth/email-bestaetigen', payload: { token } })
+    const nochmal = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/email-bestaetigen',
+      payload: { token },
+    })
     expect(nochmal.statusCode).toBe(400)
   })
 
@@ -155,9 +159,19 @@ describe('Angemeldete Geräte', () => {
     const u = await baueTestApp()
     await zweiteSitzung(u, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/605')
 
-    const antwort = await u.app.inject({ method: 'GET', url: '/api/auth/me/geraete', cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: '/api/auth/me/geraete',
+      cookies: u.cookies,
+    })
     const { geraete } = antwort.json() as {
-      geraete: Array<{ id: string; art: string; kennung: string | null; ipPraefix: string | null; dieses: boolean }>
+      geraete: Array<{
+        id: string
+        art: string
+        kennung: string | null
+        ipPraefix: string | null
+        dieses: boolean
+      }>
     }
     expect(geraete.filter((g) => g.art === 'sitzung')).toHaveLength(2)
     expect(geraete.filter((g) => g.art === 'app')).toHaveLength(1)
@@ -191,8 +205,16 @@ describe('Angemeldete Geräte', () => {
     const u = await baueTestApp()
     const kopf = { authorization: `Bearer ${u.apiToken}` }
 
-    const erste = await u.app.inject({ method: 'POST', url: '/api/auth/session-aus-token', headers: kopf })
-    const zweite = await u.app.inject({ method: 'POST', url: '/api/auth/session-aus-token', headers: kopf })
+    const erste = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/session-aus-token',
+      headers: kopf,
+    })
+    const zweite = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/session-aus-token',
+      headers: kopf,
+    })
     const sitzungsId = (erste.json() as { sessionId: string }).sessionId
     // Derselbe Ausweis, nicht der nächste.
     expect((zweite.json() as { sessionId: string }).sessionId).toBe(sitzungsId)
@@ -228,7 +250,11 @@ describe('Angemeldete Geräte', () => {
     ).json() as { geraete: Array<{ id: string; art: string }> }
     const appGeraet = geraete.find((g) => g.art === 'app')
 
-    await u.app.inject({ method: 'DELETE', url: `/api/auth/me/geraete/${appGeraet?.id}`, cookies: u.cookies })
+    await u.app.inject({
+      method: 'DELETE',
+      url: `/api/auth/me/geraete/${appGeraet?.id}`,
+      cookies: u.cookies,
+    })
 
     const nachher = await u.app.inject({
       method: 'GET',
@@ -280,7 +306,11 @@ describe('Speicher', () => {
     await u.storage.schreibe('t_konto', 'original/manifest.json', Buffer.alloc(70))
     await u.benutzerStorage.schreibe(benutzer, 'audio/eigenes.mp3', Buffer.alloc(500))
 
-    const antwort = await u.app.inject({ method: 'GET', url: '/api/auth/me/speicher', cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: '/api/auth/me/speicher',
+      cookies: u.cookies,
+    })
     const stand = antwort.json() as {
       benutzt: number
       limit: number

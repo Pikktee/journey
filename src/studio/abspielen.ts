@@ -28,7 +28,13 @@
 // Modul wird erst beim ersten Play geladen (editor.ts), damit die Audio-Elemente
 // niemanden belasten, der nur schneidet.
 
-import { alsHuelle, musikVersatzS, sfxSollFeuern, videoMusikDuck, type DuckPegel } from '../audiotracks.js'
+import {
+  alsHuelle,
+  musikVersatzS,
+  sfxSollFeuern,
+  videoMusikDuck,
+  type DuckPegel,
+} from '../audiotracks.js'
 import { anteilBei, filmBei, type Filmkurve } from './zeitleiste.js'
 
 /** Musik-Bereich auf der Zeitachse. */
@@ -386,7 +392,11 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     tempo: () => stand.tempo,
     tonStand: () => {
       const laufende = [...musikElemente.values()].filter((el) => !el.paused)
-      return { url: laufende[0]?.src ?? null, laeuft: laufende.length > 0, urls: laufende.map((el) => el.src) }
+      return {
+        url: laufende[0]?.src ?? null,
+        laeuft: laufende.length > 0,
+        urls: laufende.map((el) => el.src),
+      }
     },
     setzeDucking: (p: DuckPegel) => {
       const neu = videoMusikDuck(alsHuelle(p))

@@ -47,16 +47,18 @@ function uebung(teil: Record<string, unknown> = {}): Record<string, unknown> {
  * Ein Netz-Fake: Antworten je URL-Muster, dazu eine Mitschrift der Aufrufe.
  * Dasselbe Muster wie `FesterGeocoder` — Produktion reicht `fetch` herein.
  */
-function baueHol(
-  antworten: Array<[RegExp, { status?: number; json?: unknown; text?: string }]>,
-): { hol: (url: string, init?: RequestInit) => Promise<Response>; aufrufe: Array<{ url: string; init?: RequestInit }> } {
+function baueHol(antworten: Array<[RegExp, { status?: number; json?: unknown; text?: string }]>): {
+  hol: (url: string, init?: RequestInit) => Promise<Response>
+  aufrufe: Array<{ url: string; init?: RequestInit }>
+} {
   const aufrufe: Array<{ url: string; init?: RequestInit }> = []
   const hol = async (url: string, init?: RequestInit): Promise<Response> => {
     aufrufe.push({ url, ...(init ? { init } : {}) })
     for (const [muster, antwort] of antworten) {
       if (!muster.test(url)) continue
       const status = antwort.status ?? 200
-      const koerper = antwort.text ?? (antwort.json !== undefined ? JSON.stringify(antwort.json) : '')
+      const koerper =
+        antwort.text ?? (antwort.json !== undefined ? JSON.stringify(antwort.json) : '')
       return new Response(status === 204 ? null : koerper, { status })
     }
     return new Response('', { status: 404 })
@@ -112,23 +114,32 @@ describe('Konfiguration', () => {
 describe('OAuth', () => {
   it('baut die Autorisierungs-URL mit state und redirect_uri', () => {
     const provider = new PolarProvider(ZUGANG)
-    const url = new URL(provider.autorisierungsUrl('z-123', 'https://maptale.io/api/tracker/polar/callback'))
+    const url = new URL(
+      provider.autorisierungsUrl('z-123', 'https://maptale.io/api/tracker/polar/callback'),
+    )
     expect(url.origin + url.pathname).toBe('https://flow.polar.com/oauth2/authorization')
     expect(url.searchParams.get('response_type')).toBe('code')
     expect(url.searchParams.get('client_id')).toBe('klient-1')
     expect(url.searchParams.get('state')).toBe('z-123')
-    expect(url.searchParams.get('redirect_uri')).toBe('https://maptale.io/api/tracker/polar/callback')
+    expect(url.searchParams.get('redirect_uri')).toBe(
+      'https://maptale.io/api/tracker/polar/callback',
+    )
   })
 
   it('tauscht den Code mit Basic-Auth und formkodiertem Körper', async () => {
     const { hol, aufrufe } = baueHol([
-      [/polarremote\.com/, { json: { access_token: 'tok-1', token_type: 'bearer', x_user_id: 4711 } }],
+      [
+        /polarremote\.com/,
+        { json: { access_token: 'tok-1', token_type: 'bearer', x_user_id: 4711 } },
+      ],
     ])
     const provider = new PolarProvider(ZUGANG, hol)
     const tokens = await provider.tauscheCode('code-xyz', 'https://maptale.io/cb')
 
     const kopf = (aufrufe[0]?.init?.headers ?? {}) as Record<string, string>
-    expect(kopf['authorization']).toBe(`Basic ${Buffer.from('klient-1:geheim-1').toString('base64')}`)
+    expect(kopf['authorization']).toBe(
+      `Basic ${Buffer.from('klient-1:geheim-1').toString('base64')}`,
+    )
     expect(kopf['content-type']).toBe('application/x-www-form-urlencoded')
     const koerper = new URLSearchParams(String(aufrufe[0]?.init?.body))
     expect(koerper.get('grant_type')).toBe('authorization_code')
@@ -147,7 +158,10 @@ describe('OAuth', () => {
   it('meldet eine abgelehnte oder unvollständige Token-Antwort als Fehler', async () => {
     const abgelehnt = new PolarProvider(ZUGANG, baueHol([[/polarremote/, { status: 400 }]]).hol)
     await expect(abgelehnt.tauscheCode('x', 'y')).rejects.toThrow(/400/)
-    const ohneKennung = new PolarProvider(ZUGANG, baueHol([[/polarremote/, { json: { access_token: 'a' } }]]).hol)
+    const ohneKennung = new PolarProvider(
+      ZUGANG,
+      baueHol([[/polarremote/, { json: { access_token: 'a' } }]]).hol,
+    )
     await expect(ohneKennung.tauscheCode('x', 'y')).rejects.toThrow(/Nutzerkennung/)
   })
 })
@@ -166,7 +180,9 @@ describe('Registrierung (der Pflichtschritt)', () => {
 
   it('nimmt 409 „schon registriert" als Erfolg — sonst scheiterte jedes Neuverbinden', async () => {
     const provider = new PolarProvider(ZUGANG, baueHol([[/\/v3\/users$/, { status: 409 }]]).hol)
-    await expect(provider.nachVerknuepfung(TOKENS)).resolves.toMatchObject({ zugriff: 'zugriff-abc' })
+    await expect(provider.nachVerknuepfung(TOKENS)).resolves.toMatchObject({
+      zugriff: 'zugriff-abc',
+    })
   })
 
   it('meldet echte Fehler weiter', async () => {
@@ -214,7 +230,11 @@ describe('Webhook', () => {
   it('weist falsche Signatur, fremdes Geheimnis und veränderten Körper ab', () => {
     const provider = new PolarProvider(ZUGANG)
     const pruefe = (rohBody: string, sig: string): boolean =>
-      provider.webhook.verifiziere({ rohBody, kopfzeilen: { 'polar-webhook-signature': sig }, query: {} })
+      provider.webhook.verifiziere({
+        rohBody,
+        kopfzeilen: { 'polar-webhook-signature': sig },
+        query: {},
+      })
     expect(pruefe(nutzlast, 'abc')).toBe(false)
     expect(pruefe(nutzlast, signiere(nutzlast, 'anderes-geheimnis'))).toBe(false)
     // Signatur über den ROHEN Körper: ein verändertes Byte muss auffallen
@@ -226,7 +246,11 @@ describe('Webhook', () => {
     // die Einrichtung vergisst.
     const ohne = new PolarProvider({ ...ZUGANG, webhookGeheimnis: null })
     expect(
-      ohne.webhook.verifiziere({ rohBody: nutzlast, kopfzeilen: { 'polar-webhook-signature': signiere(nutzlast) }, query: {} }),
+      ohne.webhook.verifiziere({
+        rohBody: nutzlast,
+        kopfzeilen: { 'polar-webhook-signature': signiere(nutzlast) },
+        query: {},
+      }),
     ).toBe(false)
   })
 
@@ -249,14 +273,15 @@ describe('Webhook', () => {
 
   it('liest ein EXERCISE-Ereignis', () => {
     const provider = new PolarProvider(ZUGANG)
-    expect(provider.webhook.parseEreignisse({ rohBody: nutzlast, kopfzeilen: {}, query: {} })).toEqual([
-      { externerNutzer: '4711', externeId: 'aQlC83', art: 'aktivitaet' },
-    ])
+    expect(
+      provider.webhook.parseEreignisse({ rohBody: nutzlast, kopfzeilen: {}, query: {} }),
+    ).toEqual([{ externerNutzer: '4711', externeId: 'aQlC83', art: 'aktivitaet' }])
   })
 
   it('übergeht PING, SLEEP und kaputtes JSON, ohne zu werfen', () => {
     const provider = new PolarProvider(ZUGANG)
-    const leer = (rohBody: string): unknown[] => provider.webhook.parseEreignisse({ rohBody, kopfzeilen: {}, query: {} })
+    const leer = (rohBody: string): unknown[] =>
+      provider.webhook.parseEreignisse({ rohBody, kopfzeilen: {}, query: {} })
     // Nicht-Übungen gehen uns nichts an — die Antwort bleibt trotzdem 200,
     // sonst hält Polar die Zustellung für gescheitert und wiederholt sie.
     expect(leer(JSON.stringify({ event: 'PING' }))).toEqual([])
@@ -266,7 +291,10 @@ describe('Webhook', () => {
 })
 
 describe('Track holen', () => {
-  const holeMit = (uebungsDaten: Record<string, unknown>, gpxAntwort: { status?: number; text?: string } = { text: BEISPIEL_GPX }) =>
+  const holeMit = (
+    uebungsDaten: Record<string, unknown>,
+    gpxAntwort: { status?: number; text?: string } = { text: BEISPIEL_GPX },
+  ) =>
     baueHol([
       [/\/v3\/exercises\/[^/]+\/gpx$/, gpxAntwort],
       [/\/v3\/exercises\/[^/]+$/, { json: uebungsDaten }],
@@ -285,7 +313,9 @@ describe('Track holen', () => {
     expect(track.sportart).toBe('ROAD_BIKING')
     // GPX wird mit dem passenden Accept-Kopf geholt
     const gpxAufruf = aufrufe.find((a) => a.url.endsWith('/gpx'))
-    expect((gpxAufruf?.init?.headers as Record<string, string>)['accept']).toBe('application/gpx+xml')
+    expect((gpxAufruf?.init?.headers as Record<string, string>)['accept']).toBe(
+      'application/gpx+xml',
+    )
   })
 
   it('liest auch die Unterstrich-Schreibweise der Felder', async () => {
@@ -306,7 +336,9 @@ describe('Track holen', () => {
 
   it('meldet eine Aktivität ohne Route, BEVOR es die Datei holt', async () => {
     const { hol, aufrufe } = holeMit(uebung({ 'has-route': false }))
-    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(OhneRouteFehler)
+    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
+      OhneRouteFehler,
+    )
     // Eine Krafteinheit hat keine Route — sie trotzdem herunterzuladen wäre
     // ein Aufruf für nichts.
     expect(aufrufe.some((a) => a.url.endsWith('/gpx'))).toBe(false)
@@ -315,17 +347,23 @@ describe('Track holen', () => {
   it('nimmt auch ein 404 auf die GPX-Datei als „ohne Route"', async () => {
     // Die Doku sagt zu diesem Fall nichts, also fangen wir beide Wege ab.
     const { hol } = holeMit(uebung(), { status: 404 })
-    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(OhneRouteFehler)
+    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
+      OhneRouteFehler,
+    )
   })
 
   it('meldet abgelaufene Tokens als solche, damit der Kern die Verknüpfung stilllegt', async () => {
     const { hol } = baueHol([[/\/v3\/exercises/, { status: 401 }]])
-    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(TokensUngueltigFehler)
+    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
+      TokensUngueltigFehler,
+    )
   })
 
   it('verweigert eine Übung ohne brauchbare Zeitangaben', async () => {
     const { hol } = holeMit(uebung({ duration: 'PT' }))
-    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(/Start- oder Dauerangabe/)
+    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
+      /Start- oder Dauerangabe/,
+    )
   })
 })
 
@@ -348,7 +386,9 @@ describe('Nachziehen (Rückfall, wenn eine Zustellung verloren ging)', () => {
   })
 
   it('nimmt ohne Zeitpunkt alles und kommt mit der Objekt-Form zurecht', async () => {
-    const { hol } = baueHol([[/\/v3\/exercises$/, { json: { exercises: [uebung({ id: 'a' }), uebung({ id: 'b' })] } }]])
+    const { hol } = baueHol([
+      [/\/v3\/exercises$/, { json: { exercises: [uebung({ id: 'a' }), uebung({ id: 'b' })] } }],
+    ])
     const ereignisse = await new PolarProvider(ZUGANG, hol).listeNeue(TOKENS, null)
     expect(ereignisse.map((e) => e.externeId)).toEqual(['a', 'b'])
   })

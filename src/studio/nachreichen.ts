@@ -74,7 +74,10 @@ export interface NachreichZiel {
  * Ablage: Bei Dateien, die direkt von der Kamera kommen, ist sie meist richtig
  * — sie muss nur im Zeitfenster liegen.
  */
-export function ordneEin(aufnahmen: readonly NeueAufnahme[], tour: NachreichZiel): EingeordneteAufnahme[] {
+export function ordneEin(
+  aufnahmen: readonly NeueAufnahme[],
+  tour: NachreichZiel,
+): EingeordneteAufnahme[] {
   return aufnahmen.map((a) => {
     if (a.ort && (!tour.abstandZurStrecke || tour.abstandZurStrecke(a.ort) <= MAX_ABSTAND_M)) {
       return { ...a, einordnung: 'ort' as const }
@@ -100,7 +103,10 @@ export interface NachreichBefund {
   bisMs: number
 }
 
-export function fasseZusammen(aufnahmen: readonly NeueAufnahme[], tour: NachreichZiel): NachreichBefund {
+export function fasseZusammen(
+  aufnahmen: readonly NeueAufnahme[],
+  tour: NachreichZiel,
+): NachreichBefund {
   const eingeordnet = ordneEin(aufnahmen, tour).sort((a, b) => a.zeitMs - b.zeitMs)
   const zeiten = eingeordnet.map((a) => a.zeitMs).filter((t) => Number.isFinite(t))
   return {

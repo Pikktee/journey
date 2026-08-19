@@ -42,9 +42,7 @@ function haversineM(a, b) {
   const dLng = toRad(b[0] - a[0])
   const lat1 = toRad(a[1])
   const lat2 = toRad(b[1])
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
@@ -57,7 +55,9 @@ function mitZeitOffsets(segments, dauerS) {
   if (flat.length < 2) {
     return segments.map((seg) => ({
       ...seg,
-      pts: seg.pts.map((p) => /** @type {[number,number,number,number]} */ ([p[0], p[1], p[2] ?? 0, 0])),
+      pts: seg.pts.map(
+        (p) => /** @type {[number,number,number,number]} */ ([p[0], p[1], p[2] ?? 0, 0]),
+      ),
     }))
   }
   const cum = [0]
@@ -72,7 +72,12 @@ function mitZeitOffsets(segments, dauerS) {
     pts: seg.pts.map((p) => {
       const t = (cum[k] / total) * dauerS
       k++
-      return /** @type {[number,number,number,number]} */ ([p[0], p[1], p[2] ?? 0, Math.round(t * 10) / 10])
+      return /** @type {[number,number,number,number]} */ ([
+        p[0],
+        p[1],
+        p[2] ?? 0,
+        Math.round(t * 10) / 10,
+      ])
     }),
   }))
 }

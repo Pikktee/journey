@@ -145,7 +145,8 @@ export function waehleMusik(eingabe: MusikEingabe): string {
   if (breite !== null && Math.abs(breite) <= TROPEN_BREITE) return AUTO_MUSIK.tropen
 
   // 6. Ankunft im Abendlicht.
-  if (Number.isFinite(ende) && ende >= ABEND_VON && ende <= ABEND_BIS) return AUTO_MUSIK.goldeneStunde
+  if (Number.isFinite(ende) && ende >= ABEND_VON && ende <= ABEND_BIS)
+    return AUTO_MUSIK.goldeneStunde
 
   // 7. Weite Strecke.
   if (stats.km >= FERN_KM) return AUTO_MUSIK.fernweh

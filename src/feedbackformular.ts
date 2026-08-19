@@ -256,7 +256,10 @@ export function montiereFeedbackFormular(
           return
         }
         const daten = (await antwort.json().catch(() => ({}))) as { fehler?: string }
-        sage(daten.fehler ?? 'Das hat nicht geklappt. Bitte versuch es später noch einmal.', 'fehler')
+        sage(
+          daten.fehler ?? 'Das hat nicht geklappt. Bitte versuch es später noch einmal.',
+          'fehler',
+        )
       })
       .catch(() => {
         // Offline ist der wahrscheinlichste Fall — und ausgerechnet dann will

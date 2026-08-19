@@ -148,10 +148,15 @@ describe('Markdown-Links zeigen auf existierende Dateien', () => {
         // Auflösbar von der Wurzel, aber nicht vom eigenen Ordner? Dann ist es
         // ein wurzel-relativer Pfad an der falschen Stelle.
         if (pfad && existsSync(join(wurzel, pfad)) && !existsSync(resolve(wurzel, basis, pfad))) {
-          verdaechtig.push(`${datei} → ${ziel}  (wurzel-relativ; gemeint ist wohl ${relative(basis, pfad).split(sep).join('/')})`)
+          verdaechtig.push(
+            `${datei} → ${ziel}  (wurzel-relativ; gemeint ist wohl ${relative(basis, pfad).split(sep).join('/')})`,
+          )
         }
       }
     }
-    expect(verdaechtig, `Wurzel-relative Links außerhalb der Repo-Wurzel:\n  ${verdaechtig.join('\n  ')}`).toEqual([])
+    expect(
+      verdaechtig,
+      `Wurzel-relative Links außerhalb der Repo-Wurzel:\n  ${verdaechtig.join('\n  ')}`,
+    ).toEqual([])
   })
 })

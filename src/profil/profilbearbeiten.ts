@@ -65,7 +65,9 @@ function feld(
   return { huelle, eingabe }
 }
 
-async function sendeProfil(daten: Record<string, unknown>): Promise<{ ok: true } | { ok: false; fehler: string }> {
+async function sendeProfil(
+  daten: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; fehler: string }> {
   try {
     const antwort = await fetch('/api/auth/me/profil', {
       method: 'PATCH',
@@ -89,9 +91,7 @@ async function sendeProfil(daten: Record<string, unknown>): Promise<{ ok: true }
  */
 function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
   const { koerper, fuss, schliesse } = oeffneSchicht('Titelbild')
-  koerper.appendChild(
-    el('p', 'sp-hinweis', 'Quer, breit und am besten aus einer deiner Touren.'),
-  )
+  koerper.appendChild(el('p', 'sp-hinweis', 'Quer, breit und am besten aus einer deiner Touren.'))
 
   const datei = el('input')
   datei.type = 'file'
@@ -129,10 +129,7 @@ function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
     // eine Auskunft über den Knopf, und die Vorlesehilfe bekommt sie mit. Was
     // heute im Banner steht, ist von Anfang an markiert — sonst sieht der
     // Dialog aus, als stünde dort noch nichts.
-    knopf.setAttribute(
-      'aria-pressed',
-      String(profil.titelbildUrl === titelbildPfad(bild.datei)),
-    )
+    knopf.setAttribute('aria-pressed', String(profil.titelbildUrl === titelbildPfad(bild.datei)))
     knopf.setAttribute('aria-label', bild.wort)
     const probe = el('span', 'probe')
     probe.style.backgroundImage = `url("${titelbildPfad(bild.datei)}")`
@@ -231,10 +228,7 @@ function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
  * dabei offen: Ein `fertig()` lüde die Seite neu und würfe alles weg, was
  * daneben schon getippt war.
  */
-function avatarFeld(
-  profil: ProfilAntwort,
-  scheitere: (text: string) => void,
-): HTMLElement {
+function avatarFeld(profil: ProfilAntwort, scheitere: (text: string) => void): HTMLElement {
   const spalte = el('div', 'sp-avatar-spalte')
   const knopf = el('button', 'sp-avatar-box')
   knopf.type = 'button'
@@ -332,7 +326,12 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
   kopfreihe.append(avatarFeld(profil, scheitere), paar)
   koerper.appendChild(kopfreihe)
 
-  const handle = feld('e-handle', 'Profil-Adresse', profil.handle ?? '', `${window.location.host}/@`)
+  const handle = feld(
+    'e-handle',
+    'Profil-Adresse',
+    profil.handle ?? '',
+    `${window.location.host}/@`,
+  )
   handle.eingabe.maxLength = 30
   handle.eingabe.spellcheck = false
   const handleStand = el('div', 'handle-stand')

@@ -12,15 +12,26 @@ function tokenAusMail(u: TestUmgebung): string {
   return link.split('=').pop() ?? ''
 }
 
-async function registriere(u: TestUmgebung, email = 'neu@example.com', passwort = 'geheim12345', name = 'Neu') {
+async function registriere(
+  u: TestUmgebung,
+  email = 'neu@example.com',
+  passwort = 'geheim12345',
+  name = 'Neu',
+) {
   // Diese Tests prüfen den OFFENEN Fluss; die Einladungspflicht hat eigene
   // Tests in admin.test.ts.
   oeffneRegistrierung(u)
-  return u.app.inject({ method: 'POST', url: '/api/auth/register', payload: { email, passwort, name } })
+  return u.app.inject({
+    method: 'POST',
+    url: '/api/auth/register',
+    payload: { email, passwort, name },
+  })
 }
 
 /** Session-Cookie aus einer inject-Antwort (Register/Login setzen es). */
-function sessionAus(antwort: Awaited<ReturnType<TestUmgebung['app']['inject']>>): { maptale_session: string } {
+function sessionAus(antwort: Awaited<ReturnType<TestUmgebung['app']['inject']>>): {
+  maptale_session: string
+} {
   return { maptale_session: antwort.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
 }
 
@@ -102,10 +113,19 @@ describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
     const reg = await registriere(u)
     const cookies = sessionAus(reg)
     // Vor der Bestätigung: Tour anlegen wird abgewiesen
-    const vorher = await u.app.inject({ method: 'POST', url: '/api/tours', cookies, payload: beispielManifest() })
+    const vorher = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies,
+      payload: beispielManifest(),
+    })
     expect(vorher.statusCode).toBe(403)
     // Bestätigen …
-    const verify = await u.app.inject({ method: 'POST', url: '/api/auth/verifiziere', payload: { token: tokenAusMail(u) } })
+    const verify = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/verifiziere',
+      payload: { token: tokenAusMail(u) },
+    })
     expect(verify.statusCode).toBe(200)
     // … danach geht es (frische clientTourId, damit keine Idempotenz greift)
     const nachher = await u.app.inject({
@@ -126,7 +146,11 @@ describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
 
   it('weist ein ungültiges/abgelaufenes Bestätigungs-Token ab (400)', async () => {
     const u = await baueTestApp()
-    const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/verifiziere', payload: { token: 'quatsch' } })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/verifiziere',
+      payload: { token: 'quatsch' },
+    })
     expect(antwort.statusCode).toBe(400)
   })
 
@@ -159,9 +183,17 @@ describe('Passwort-Reset (M9)', () => {
     })
     expect(reset.statusCode).toBe(200)
     // Altes Passwort abgelehnt, neues akzeptiert
-    const alt = await u.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'test@example.com', passwort: 'geheim123' } })
+    const alt = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'test@example.com', passwort: 'geheim123' },
+    })
     expect(alt.statusCode).toBe(401)
-    const neu = await u.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'test@example.com', passwort: 'ganzneu12345' } })
+    const neu = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'test@example.com', passwort: 'ganzneu12345' },
+    })
     expect(neu.statusCode).toBe(200)
   })
 
@@ -178,10 +210,30 @@ describe('Passwort-Reset (M9)', () => {
 
   it('verbraucht das Reset-Token (zweite Einlösung scheitert)', async () => {
     const u = await baueTestApp()
-    await u.app.inject({ method: 'POST', url: '/api/auth/passwort-reset-anfordern', payload: { email: 'test@example.com' } })
+    await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/passwort-reset-anfordern',
+      payload: { email: 'test@example.com' },
+    })
     const token = tokenAusMail(u)
-    expect((await u.app.inject({ method: 'POST', url: '/api/auth/passwort-reset', payload: { token, passwort: 'ersteinmal12' } })).statusCode).toBe(200)
-    expect((await u.app.inject({ method: 'POST', url: '/api/auth/passwort-reset', payload: { token, passwort: 'nochmal12345' } })).statusCode).toBe(400)
+    expect(
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/auth/passwort-reset',
+          payload: { token, passwort: 'ersteinmal12' },
+        })
+      ).statusCode,
+    ).toBe(200)
+    expect(
+      (
+        await u.app.inject({
+          method: 'POST',
+          url: '/api/auth/passwort-reset',
+          payload: { token, passwort: 'nochmal12345' },
+        })
+      ).statusCode,
+    ).toBe(400)
   })
 })
 
@@ -189,14 +241,23 @@ describe('Konto-Löschung (M9, DSGVO)', () => {
   it('löscht Benutzer, Touren (DB) und Storage-Dateien; Login danach unmöglich', async () => {
     const u = await baueTestApp()
     // Eine Tour mit Datei anlegen
-    const tour = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+    const tour = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: beispielManifest(),
+    })
     const id = (tour.json() as { id: string }).id
     expect(await u.storage.gesamtGroesse(id)).toBeGreaterThan(0)
 
     const del = await u.app.inject({ method: 'DELETE', url: '/api/auth/me', cookies: u.cookies })
     expect(del.statusCode).toBe(200)
     expect(await u.storage.gesamtGroesse(id)).toBe(0)
-    const login = await u.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'test@example.com', passwort: 'geheim123' } })
+    const login = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'test@example.com', passwort: 'geheim123' },
+    })
     expect(login.statusCode).toBe(401)
   })
 
@@ -208,15 +269,24 @@ describe('Konto-Löschung (M9, DSGVO)', () => {
 
 describe('Speicher-Quota (M9)', () => {
   it('meldet Nutzung/Limit über GET /me', async () => {
-    const u = await baueTestApp(undefined, undefined, undefined, { maxSpeicherProBenutzer: 10 * 1024 * 1024 })
+    const u = await baueTestApp(undefined, undefined, undefined, {
+      maxSpeicherProBenutzer: 10 * 1024 * 1024,
+    })
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    expect(me.json()).toMatchObject({ quota: { limit: 10 * 1024 * 1024, benutzt: expect.any(Number), frei: expect.any(Number) } })
+    expect(me.json()).toMatchObject({
+      quota: { limit: 10 * 1024 * 1024, benutzt: expect.any(Number), frei: expect.any(Number) },
+    })
   })
 
   it('lehnt einen Upload ab, der die Quota sprengt (413)', async () => {
     // Winziges Limit: schon das Manifest-freie Medium überschreitet es
     const u = await baueTestApp(undefined, undefined, undefined, { maxSpeicherProBenutzer: 100 })
-    const tour = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+    const tour = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      payload: beispielManifest(),
+    })
     const id = (tour.json() as { id: string }).id
     const put = await u.app.inject({
       method: 'PUT',

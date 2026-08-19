@@ -187,8 +187,7 @@ export function ampelAus(kopf, bereichId, archiviert = false) {
     return { art: 'offen', wort: 'Entwurf' }
   if (/teilweise|etappe|paket|offen|steht aus|rest/.test(s))
     return { art: 'unterwegs', wort: 'Unterwegs' }
-  if (/gebaut|live|erledigt|abgeschlossen|fertig/.test(s))
-    return { art: 'fertig', wort: 'Gebaut' }
+  if (/gebaut|live|erledigt|abgeschlossen|fertig/.test(s)) return { art: 'fertig', wort: 'Gebaut' }
   return { art: 'unterwegs', wort: 'Unterwegs' }
 }
 
@@ -467,13 +466,41 @@ function klappentexteAusIndex() {
 const HANDBUCH_WURZELN = ['src', 'server', 'android', 'scripts', 'test']
 
 const HANDBUCH = [
-  ['CLAUDE.md', 'Projekt-Handbuch', 'Das Buch zum Repo: Aufbau, Player-Engine, Routen, Konventionen. Wer eines der anderen Dokumente liest, hat meist hier angefangen.'],
-  ['DESIGN.md', 'Design System', 'Marke, Farben, Typografie und die UI-Regeln. Verbindliche Quelle; basis.css und Theme.kt sind Ableitungen davon.'],
-  ['README.md', 'Repo-Anleitung', 'Was Maptale ist und wie man es startet. Der Einstieg für alle, die das Repo zum ersten Mal öffnen.'],
-  ['src/studio/CLAUDE.md', 'Handbuch: Studio', 'Zeitleiste, Editor, Upload-Befund, Ton-Klips. Lädt automatisch, sobald unter src/studio/ gearbeitet wird.'],
-  ['server/CLAUDE.md', 'Handbuch: Backend', 'Anreicherungs-Pipeline, Konten, Mails, Quota. Was der Server aus Rohdaten und Overlay macht.'],
-  ['src/admin/CLAUDE.md', 'Handbuch: Verwaltung', 'Die Reiter der Benutzerverwaltung, das Protokoll und die Fallen ihrer Dialoge.'],
-  ['android/CLAUDE.md', 'Handbuch: Android', 'Aufnahme-App: Architektur, Upload-Fluss, Room-Migrationen, WebView-Sitzung.'],
+  [
+    'CLAUDE.md',
+    'Projekt-Handbuch',
+    'Das Buch zum Repo: Aufbau, Player-Engine, Routen, Konventionen. Wer eines der anderen Dokumente liest, hat meist hier angefangen.',
+  ],
+  [
+    'DESIGN.md',
+    'Design System',
+    'Marke, Farben, Typografie und die UI-Regeln. Verbindliche Quelle; basis.css und Theme.kt sind Ableitungen davon.',
+  ],
+  [
+    'README.md',
+    'Repo-Anleitung',
+    'Was Maptale ist und wie man es startet. Der Einstieg für alle, die das Repo zum ersten Mal öffnen.',
+  ],
+  [
+    'src/studio/CLAUDE.md',
+    'Handbuch: Studio',
+    'Zeitleiste, Editor, Upload-Befund, Ton-Klips. Lädt automatisch, sobald unter src/studio/ gearbeitet wird.',
+  ],
+  [
+    'server/CLAUDE.md',
+    'Handbuch: Backend',
+    'Anreicherungs-Pipeline, Konten, Mails, Quota. Was der Server aus Rohdaten und Overlay macht.',
+  ],
+  [
+    'src/admin/CLAUDE.md',
+    'Handbuch: Verwaltung',
+    'Die Reiter der Benutzerverwaltung, das Protokoll und die Fallen ihrer Dialoge.',
+  ],
+  [
+    'android/CLAUDE.md',
+    'Handbuch: Android',
+    'Aufnahme-App: Architektur, Upload-Fluss, Room-Migrationen, WebView-Sitzung.',
+  ],
 ]
 
 /**
@@ -575,8 +602,7 @@ export function sammleDokumente() {
 
   // Rückverweise: erst wenn alle da sind, kann man sie eintragen.
   const nachAbs = new Map(dokumente.map((d) => [d.abs, d]))
-  for (const d of dokumente)
-    for (const v of d.verweise) nachAbs.get(v)?.rueckverweise.push(d.abs)
+  for (const d of dokumente) for (const v of d.verweise) nachAbs.get(v)?.rueckverweise.push(d.abs)
 
   return dokumente
 }
@@ -686,7 +712,9 @@ export function sammleRoadmap(dokumente, mockups = []) {
   for (const zeile of readFileSync(datei, 'utf8').split('\n')) {
     const ueberschrift = zeile.match(/^##\s+(.+)$/)
     if (ueberschrift) {
-      const [name, zeitraum = ''] = saeubere(ueberschrift[1]).split('·').map((t) => t.trim())
+      const [name, zeitraum = ''] = saeubere(ueberschrift[1])
+        .split('·')
+        .map((t) => t.trim())
       aktuell = { name, zeitraum, text: '', eintraege: [] }
       phasen.push(aktuell)
       continue
@@ -740,7 +768,10 @@ export function sammleRoadmap(dokumente, mockups = []) {
   const imCode = offen.filter((d) => ['unterwegs', 'fertig'].includes(d.ampel?.art))
   const nurGedacht = offen.filter((d) => !imCode.includes(d))
 
-  verketteBlockaden(phasen.flatMap((p) => p.eintraege), nachAbs)
+  verketteBlockaden(
+    phasen.flatMap((p) => p.eintraege),
+    nachAbs,
+  )
 
   return {
     // ALLE Phasen, auch die leeren. Eine leere Spalte wegzulassen kostet genau
@@ -937,11 +968,22 @@ export const SYSTEMTEILE = [
   {
     id: 'oeffentlich',
     name: 'Öffentliche Seiten',
-    regeln: ['src/galerie/', 'src/profil/', 'src/konto/', 'galerie.html', 'profil.html', 'konto.html'],
+    regeln: [
+      'src/galerie/',
+      'src/profil/',
+      'src/konto/',
+      'galerie.html',
+      'profil.html',
+      'konto.html',
+    ],
   },
   { id: 'landing', name: 'Landing', regeln: ['index.html'] },
   { id: 'player', name: 'Player', regeln: ['src/', 'erlebnis.html'] },
-  { id: 'betrieb', name: 'Betrieb', regeln: ['deploy/', '.github/', 'docker', 'scripts/', 'Caddyfile'] },
+  {
+    id: 'betrieb',
+    name: 'Betrieb',
+    regeln: ['deploy/', '.github/', 'docker', 'scripts/', 'Caddyfile'],
+  },
 ]
 
 const TEIL_NACH_NAME = new Map(

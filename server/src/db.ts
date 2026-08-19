@@ -578,9 +578,11 @@ export function vergibFehlendeHandles(db: Db): void {
     .prepare('SELECT id, email FROM users WHERE handle IS NULL ORDER BY created_at ASC, id ASC')
     .all() as Array<{ id: string; email: string }>
   const belegt = new Set(
-    (db.prepare('SELECT handle FROM users WHERE handle IS NOT NULL').all() as Array<{ handle: string }>).map((z) =>
-      z.handle.toLowerCase(),
-    ),
+    (
+      db.prepare('SELECT handle FROM users WHERE handle IS NOT NULL').all() as Array<{
+        handle: string
+      }>
+    ).map((z) => z.handle.toLowerCase()),
   )
   const setze = db.prepare('UPDATE users SET handle = ? WHERE id = ?')
   for (const zeile of zeilen) {

@@ -47,7 +47,9 @@ export function baueSBeiF(
   total: number,
 ): SBeiF {
   const klemme = (f: number) => (Number.isFinite(f) ? Math.max(0, Math.min(1, f)) : 0)
-  const rueckfall: SBeiF = Object.assign((f: number) => klemme(f) * total, { quelle: 'rueckfall' as const })
+  const rueckfall: SBeiF = Object.assign((f: number) => klemme(f) * total, {
+    quelle: 'rueckfall' as const,
+  })
 
   if (!wegpunktF || wegpunktF.length < 2 || wegpunktF.length !== wegpunktS.length) return rueckfall
   if (!(total > 0)) return rueckfall
@@ -78,23 +80,26 @@ export function baueSBeiF(
   }
   if (kf.length < 2) return rueckfall
 
-  return Object.assign((f: number) => {
-    const ziel = klemme(f)
-    if (ziel <= (kf[0] as number)) return ks[0] as number
-    if (ziel >= (kf[kf.length - 1] as number)) return ks[ks.length - 1] as number
-    // Binärsuche: erste Stützstelle mit kf[hi] >= ziel
-    let lo = 0
-    let hi = kf.length - 1
-    while (lo < hi) {
-      const mitte = (lo + hi) >> 1
-      if ((kf[mitte] as number) < ziel) lo = mitte + 1
-      else hi = mitte
-    }
-    const f1 = kf[hi] as number
-    const f0 = kf[hi - 1] as number
-    const s1 = ks[hi] as number
-    const s0 = ks[hi - 1] as number
-    const spanne = f1 - f0
-    return spanne <= 0 ? s1 : s0 + ((ziel - f0) / spanne) * (s1 - s0)
-  }, { quelle: 'tabelle' as const })
+  return Object.assign(
+    (f: number) => {
+      const ziel = klemme(f)
+      if (ziel <= (kf[0] as number)) return ks[0] as number
+      if (ziel >= (kf[kf.length - 1] as number)) return ks[ks.length - 1] as number
+      // Binärsuche: erste Stützstelle mit kf[hi] >= ziel
+      let lo = 0
+      let hi = kf.length - 1
+      while (lo < hi) {
+        const mitte = (lo + hi) >> 1
+        if ((kf[mitte] as number) < ziel) lo = mitte + 1
+        else hi = mitte
+      }
+      const f1 = kf[hi] as number
+      const f0 = kf[hi - 1] as number
+      const s1 = ks[hi] as number
+      const s0 = ks[hi - 1] as number
+      const spanne = f1 - f0
+      return spanne <= 0 ? s1 : s0 + ((ziel - f0) / spanne) * (s1 - s0)
+    },
+    { quelle: 'tabelle' as const },
+  )
 }

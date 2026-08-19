@@ -31,7 +31,12 @@ const track = gpx([
   [100.1, 9.8, 120],
 ])
 
-const foto = (datei: string, m: number, ort: [number, number] | null = null, zeitGeraten = false): AufnahmeBefund => ({
+const foto = (
+  datei: string,
+  m: number,
+  ort: [number, number] | null = null,
+  zeitGeraten = false,
+): AufnahmeBefund => ({
   datei,
   typ: 'photo',
   zeitMs: min(m),
@@ -158,7 +163,11 @@ describe('pruefe — ohne Aufzeichnung', () => {
 
   it('ohne Aufzeichnung wiegt eine fehlende Ortsangabe schwerer', () => {
     // Mit Track ist das ein Hinweis; ohne Track fehlt dem Foto sein Platz.
-    const b = pruefe(null, [foto('a.jpg', 0, [100, 9.7]), foto('b.jpg', 30, [100.1, 9.8]), foto('c.jpg', 60)])
+    const b = pruefe(null, [
+      foto('a.jpg', 0, [100, 9.7]),
+      foto('b.jpg', 30, [100.1, 9.8]),
+      foto('c.jpg', 60),
+    ])
     expect(b.meldungen.find((m) => m.art === 'ohne-ort')?.ton).toBe('warnung')
   })
 
@@ -172,7 +181,10 @@ describe('pruefe — ohne Aufzeichnung', () => {
 
 describe('baueFotoSegmente', () => {
   it('reiht die verorteten Fotos zeitlich auf', () => {
-    const seg = baueFotoSegmente([foto('b.jpg', 30, [100.1, 9.8]), foto('a.jpg', 0, [100, 9.7]), foto('x.jpg', 5)], 'walk')
+    const seg = baueFotoSegmente(
+      [foto('b.jpg', 30, [100.1, 9.8]), foto('a.jpg', 0, [100, 9.7]), foto('x.jpg', 5)],
+      'walk',
+    )
     expect(seg).toHaveLength(1)
     expect(seg[0]!.mode).toBe('walk')
     expect(seg[0]!.pts).toEqual([

@@ -252,10 +252,13 @@ function flash(text: string, art: 'ok' | 'fehler' = 'ok'): void {
   flashEl = el
   requestAnimationFrame(() => el.classList.add('zeigt'))
   clearTimeout(flashTimer)
-  flashTimer = window.setTimeout(() => {
-    el.classList.remove('zeigt')
-    window.setTimeout(() => el.remove(), 240)
-  }, art === 'fehler' ? 7000 : 4200)
+  flashTimer = window.setTimeout(
+    () => {
+      el.classList.remove('zeigt')
+      window.setTimeout(() => el.remove(), 240)
+    },
+    art === 'fehler' ? 7000 : 4200,
+  )
 }
 
 const fehlerText = (fehler: unknown): string =>
@@ -323,22 +326,23 @@ for (const art of ['close', 'cancel']) {
 async function lade(): Promise<void> {
   z.fehler = ''
   try {
-    const [konten, einladungen, warteliste, rueckmeldungen, mails, protokoll, stats] = await Promise.all([
-      api.benutzer(),
-      api.einladungen(),
-      api.warteliste(),
-      api.rueckmeldungen(),
-      api.mailvorlagen(),
-      api.protokoll(),
-      api.statistiken().catch(() => ({
-        echtzeit: 0,
-        heute: { aufrufe: 0, besucher: 0 },
-        letzte7Tage: { aufrufe: 0, besucher: 0 },
-        gesamt: 0,
-        referrer: [],
-        seiten: [],
-      })),
-    ])
+    const [konten, einladungen, warteliste, rueckmeldungen, mails, protokoll, stats] =
+      await Promise.all([
+        api.benutzer(),
+        api.einladungen(),
+        api.warteliste(),
+        api.rueckmeldungen(),
+        api.mailvorlagen(),
+        api.protokoll(),
+        api.statistiken().catch(() => ({
+          echtzeit: 0,
+          heute: { aufrufe: 0, besucher: 0 },
+          letzte7Tage: { aufrufe: 0, besucher: 0 },
+          gesamt: 0,
+          referrer: [],
+          seiten: [],
+        })),
+      ])
     z.benutzer = konten.benutzer
     z.einladungen = einladungen.einladungen
     z.einladungPflicht = einladungen.einladungPflicht
@@ -379,10 +383,14 @@ function rendereStatistiken(s: api.AdminStatistiken): void {
   const refListe = $('stat-referrer-liste')
   if (refListe) {
     if (!s.referrer.length) {
-      refListe.innerHTML = '<div style="color: var(--text-3); font-size: 13px; padding: 6px 0;">Noch keine Daten erfasst.</div>'
+      refListe.innerHTML =
+        '<div style="color: var(--text-3); font-size: 13px; padding: 6px 0;">Noch keine Daten erfasst.</div>'
     } else {
       refListe.innerHTML = s.referrer
-        .map((r) => `<div class="stat-zeile"><span class="name">${r.quelle}</span><span class="anzahl">${format(r.anzahl)}</span></div>`)
+        .map(
+          (r) =>
+            `<div class="stat-zeile"><span class="name">${r.quelle}</span><span class="anzahl">${format(r.anzahl)}</span></div>`,
+        )
         .join('')
     }
   }
@@ -390,10 +398,14 @@ function rendereStatistiken(s: api.AdminStatistiken): void {
   const seitenListe = $('stat-seiten-liste')
   if (seitenListe) {
     if (!s.seiten.length) {
-      seitenListe.innerHTML = '<div style="color: var(--text-3); font-size: 13px; padding: 6px 0;">Noch keine Daten erfasst.</div>'
+      seitenListe.innerHTML =
+        '<div style="color: var(--text-3); font-size: 13px; padding: 6px 0;">Noch keine Daten erfasst.</div>'
     } else {
       seitenListe.innerHTML = s.seiten
-        .map((p) => `<div class="stat-zeile"><span class="name">${p.pfad}</span><span class="anzahl">${format(p.anzahl)}</span></div>`)
+        .map(
+          (p) =>
+            `<div class="stat-zeile"><span class="name">${p.pfad}</span><span class="anzahl">${format(p.anzahl)}</span></div>`,
+        )
         .join('')
     }
   }
@@ -610,7 +622,11 @@ function skelett(anzahl: number): HTMLElement[] {
   })
 }
 
-function leerZustand(titel: string, text: string, aktion?: { name: string; tu: () => void }): HTMLElement {
+function leerZustand(
+  titel: string,
+  text: string,
+  aktion?: { name: string; tu: () => void },
+): HTMLElement {
   const leer = document.createElement('div')
   leer.className = 'leer'
   const b = document.createElement('b')
@@ -656,7 +672,11 @@ function fuelleListe(el: HTMLElement, zeilen: HTMLElement[], leer: () => HTMLEle
 }
 
 /** Kopf einer Zeile: Punkt, fette Zeile mit Plaketten, graue Zeile darunter. */
-function haupt(punkt: string | null): { wurzel: HTMLElement; oben: HTMLElement; text: HTMLElement } {
+function haupt(punkt: string | null): {
+  wurzel: HTMLElement
+  oben: HTMLElement
+  text: HTMLElement
+} {
   const wurzel = document.createElement('div')
   wurzel.className = 'haupt'
   if (punkt !== null) {
@@ -752,7 +772,8 @@ function rendereRegistrierung(): void {
   // vergeblich vor der Tür. Und weil die Ursache im anderen Reiter liegt,
   // steht daneben der Weg dorthin.
   const wirkungslos =
-    z.wartelisteOffen && !wartelisteAngeboten(z.wartelisteOffen, z.einladungPflicht, z.registrierungOffen)
+    z.wartelisteOffen &&
+    !wartelisteAngeboten(z.wartelisteOffen, z.einladungPflicht, z.registrierungOffen)
   els.wlSchalterText.textContent = wirkungslos
     ? 'Angeschaltet, aber ohne Wirkung: Solange sich jeder selbst anmelden kann, braucht niemand eine Warteliste.'
     : z.wartelisteOffen
@@ -770,8 +791,16 @@ function rendereKonten(): void {
     els.kontenFilter,
     [
       { wert: 'alle', name: 'Alle', zahl: gesucht.length },
-      { wert: 'admins', name: 'Administratoren', zahl: gesucht.filter((b) => b.rolle === 'admin').length },
-      { wert: 'unbestaetigt', name: 'Unbestätigt', zahl: gesucht.filter((b) => !b.verifiziert).length },
+      {
+        wert: 'admins',
+        name: 'Administratoren',
+        zahl: gesucht.filter((b) => b.rolle === 'admin').length,
+      },
+      {
+        wert: 'unbestaetigt',
+        name: 'Unbestätigt',
+        zahl: gesucht.filter((b) => !b.verifiziert).length,
+      },
     ] satisfies Chip<KontenFilter>[],
     z.kontenFilter,
     (wert) => {
@@ -797,7 +826,11 @@ function rendereKonten(): void {
     }
     if (!b.verifiziert) {
       kopf.oben.append(
-        plakette('unbestaetigt', 'Unbestätigt', 'E-Mail noch nicht bestätigt. Hochladen ist gesperrt'),
+        plakette(
+          'unbestaetigt',
+          'Unbestätigt',
+          'E-Mail noch nicht bestätigt. Hochladen ist gesperrt',
+        ),
       )
     }
     const unten = document.createElement('div')
@@ -822,19 +855,27 @@ function rendereKonten(): void {
 
   fuelleListe(els.kontenListe, zeilen, () =>
     z.benutzer.length
-      ? leerZustand('Kein Konto passt', 'Weder Name noch E-Mail treffen die Suche, oder der Filter blendet sie aus.', {
-          name: 'Suche und Filter zurücksetzen',
-          tu: () => {
-            z.kontenSuche = ''
-            z.kontenFilter = 'alle'
-            els.kontenSuche.value = ''
-            rendereKonten()
+      ? leerZustand(
+          'Kein Konto passt',
+          'Weder Name noch E-Mail treffen die Suche, oder der Filter blendet sie aus.',
+          {
+            name: 'Suche und Filter zurücksetzen',
+            tu: () => {
+              z.kontenSuche = ''
+              z.kontenFilter = 'alle'
+              els.kontenSuche.value = ''
+              rendereKonten()
+            },
           },
-        })
-      : leerZustand('Noch keine Konten', 'Hier stehen alle, die sich angemeldet haben, samt Touren und belegtem Speicher.', {
-          name: 'Konto anlegen',
-          tu: () => oeffneKonto(null),
-        }),
+        )
+      : leerZustand(
+          'Noch keine Konten',
+          'Hier stehen alle, die sich angemeldet haben, samt Touren und belegtem Speicher.',
+          {
+            name: 'Konto anlegen',
+            tu: () => oeffneKonto(null),
+          },
+        ),
   )
 }
 
@@ -867,7 +908,10 @@ function rendereEinladungen(): void {
     code.textContent = e.code
     kopf.oben.append(
       code,
-      plakette(e.zustand, { offen: 'Offen', eingeloest: 'Eingelöst', abgelaufen: 'Abgelaufen' }[e.zustand]),
+      plakette(
+        e.zustand,
+        { offen: 'Offen', eingeloest: 'Eingelöst', abgelaufen: 'Abgelaufen' }[e.zustand],
+      ),
     )
     if (e.notiz) {
       const notiz = document.createElement('span')
@@ -884,28 +928,42 @@ function rendereEinladungen(): void {
     const knoepfe: HTMLElement[] = []
     if (e.zustand === 'offen') knoepfe.push(griff('Link kopieren', () => void kopiereLink(e.code)))
     knoepfe.push(
-      griff(e.zustand === 'offen' ? 'Widerrufen' : 'Entfernen', () => void widerrufe(e), { gefahr: true }),
+      griff(e.zustand === 'offen' ? 'Widerrufen' : 'Entfernen', () => void widerrufe(e), {
+        gefahr: true,
+      }),
     )
 
-    zeile.append(kopf.wurzel, kennzahl(formatiereDatum(e.erstelltAm), 'erstellt'), griffe(...knoepfe))
+    zeile.append(
+      kopf.wurzel,
+      kennzahl(formatiereDatum(e.erstelltAm), 'erstellt'),
+      griffe(...knoepfe),
+    )
     return zeile
   })
 
   fuelleListe(els.einladungenListe, zeilen, () =>
     z.einladungen.length
-      ? leerZustand('Keine passende Einladung', 'Kein Code und keine Notiz trifft die Suche, oder der Filter blendet sie aus.', {
-          name: 'Suche und Filter zurücksetzen',
-          tu: () => {
-            z.einladungenSuche = ''
-            z.einladungenFilter = 'alle'
-            els.einladungenSuche.value = ''
-            rendereEinladungen()
+      ? leerZustand(
+          'Keine passende Einladung',
+          'Kein Code und keine Notiz trifft die Suche, oder der Filter blendet sie aus.',
+          {
+            name: 'Suche und Filter zurücksetzen',
+            tu: () => {
+              z.einladungenSuche = ''
+              z.einladungenFilter = 'alle'
+              els.einladungenSuche.value = ''
+              rendereEinladungen()
+            },
           },
-        })
-      : leerZustand('Noch keine Einladung', 'Wer eingeladen wird, bekommt einen Code und einen Link dazu, einmal einlösbar.', {
-          name: 'Einladung erstellen',
-          tu: () => oeffneEinladung(),
-        }),
+        )
+      : leerZustand(
+          'Noch keine Einladung',
+          'Wer eingeladen wird, bekommt einen Code und einen Link dazu, einmal einlösbar.',
+          {
+            name: 'Einladung erstellen',
+            tu: () => oeffneEinladung(),
+          },
+        ),
   )
 }
 
@@ -968,22 +1026,29 @@ function rendereWarteliste(): void {
     zeile.append(
       kopf.wurzel,
       kennzahl(formatiereDatum(e.eingetragenAm), 'eingetragen'),
-      griffe(einladen, griff('Entfernen', () => void entferneWartenden(e), { gefahr: true })),
+      griffe(
+        einladen,
+        griff('Entfernen', () => void entferneWartenden(e), { gefahr: true }),
+      ),
     )
     return zeile
   })
 
   fuelleListe(els.wartelisteListe, zeilen, () =>
     z.warteliste.length
-      ? leerZustand('Kein passender Eintrag', 'Weder Adresse noch Notiz trifft die Suche, oder der Filter blendet sie aus.', {
-          name: 'Suche und Filter zurücksetzen',
-          tu: () => {
-            z.wartelisteSuche = ''
-            z.wartelisteFilter = 'alle'
-            els.wartelisteSuche.value = ''
-            rendereWarteliste()
+      ? leerZustand(
+          'Kein passender Eintrag',
+          'Weder Adresse noch Notiz trifft die Suche, oder der Filter blendet sie aus.',
+          {
+            name: 'Suche und Filter zurücksetzen',
+            tu: () => {
+              z.wartelisteSuche = ''
+              z.wartelisteFilter = 'alle'
+              els.wartelisteSuche.value = ''
+              rendereWarteliste()
+            },
           },
-        })
+        )
       : leerZustand(
           'Noch niemand trägt sich ein',
           'Wer keinen Code hat, hinterlässt hier seine Adresse. Nach der Bestätigung per Mail steht sie in dieser Liste.',
@@ -1020,7 +1085,10 @@ function rendereMailvorlagen(): void {
       const name = document.createElement('span')
       name.className = 'name'
       name.textContent = v.name
-      oben.append(name, plakette(v.angepasst ? 'angepasst' : 'standard', v.angepasst ? 'Angepasst' : 'Standard'))
+      oben.append(
+        name,
+        plakette(v.angepasst ? 'angepasst' : 'standard', v.angepasst ? 'Angepasst' : 'Standard'),
+      )
 
       const betreff = document.createElement('div')
       betreff.className = 'betreff'
@@ -1036,7 +1104,10 @@ function rendereMailvorlagen(): void {
         oben,
         betreff,
         unten,
-        griffe(griff('Bearbeiten', () => oeffneMail(v)), test),
+        griffe(
+          griff('Bearbeiten', () => oeffneMail(v)),
+          test,
+        ),
       )
       return karte
     }),
@@ -1142,15 +1213,19 @@ function rendereRueckmeldungen(): void {
 
   fuelleListe(els.rueckmeldungenListe, zeilen, () =>
     z.rueckmeldungen.length
-      ? leerZustand('Keine passende Rückmeldung', 'Weder Text noch Absender trifft die Suche, oder der Filter blendet sie aus.', {
-          name: 'Suche und Filter zurücksetzen',
-          tu: () => {
-            z.rueckmeldungenSuche = ''
-            z.rueckmeldungenFilter = 'alle'
-            els.rueckmeldungenSuche.value = ''
-            rendereRueckmeldungen()
+      ? leerZustand(
+          'Keine passende Rückmeldung',
+          'Weder Text noch Absender trifft die Suche, oder der Filter blendet sie aus.',
+          {
+            name: 'Suche und Filter zurücksetzen',
+            tu: () => {
+              z.rueckmeldungenSuche = ''
+              z.rueckmeldungenFilter = 'alle'
+              els.rueckmeldungenSuche.value = ''
+              rendereRueckmeldungen()
+            },
           },
-        })
+        )
       : leerZustand(
           'Noch nichts gemeldet',
           'Hier landet, was Besucher über den Alpha-Hinweis oder /feedback schreiben.',
@@ -1280,7 +1355,10 @@ function rendereProtokoll(): void {
               rendereProtokoll()
             },
           })
-        : leerZustand('Nichts vorgefallen', 'Seit dem Start der API gab es weder Warnung noch Fehler.'),
+        : leerZustand(
+            'Nichts vorgefallen',
+            'Seit dem Start der API gab es weder Warnung noch Fehler.',
+          ),
   )
 
   // Was WÄHREND des Lesens eintraf, rutscht nicht von selbst in die Liste —
@@ -1310,7 +1388,11 @@ function rendereProtokoll(): void {
  */
 async function holeNeueMeldungen(): Promise<void> {
   if (z.tab !== 'protokoll' || document.hidden || z.laedt || z.fehler) return
-  const hoechste = Math.max(0, ...z.protokoll.map((e) => e.nr), ...z.protokollWartend.map((e) => e.nr))
+  const hoechste = Math.max(
+    0,
+    ...z.protokoll.map((e) => e.nr),
+    ...z.protokollWartend.map((e) => e.nr),
+  )
   try {
     const antwort = await api.protokoll(hoechste)
     if (antwort.gestartet !== z.protokollGestartet) {
@@ -1460,7 +1542,9 @@ els.wlSchalter.addEventListener('click', async () => {
     z.einladungPflicht = antwort.einladungPflicht
     z.wartelisteOffen = antwort.wartelisteOffen
     rendereRegistrierung()
-    flash(neu ? 'Die Warteliste steht wieder vor der Tür' : 'Die Warteliste wird nicht mehr angeboten')
+    flash(
+      neu ? 'Die Warteliste steht wieder vor der Tür' : 'Die Warteliste wird nicht mehr angeboten',
+    )
   } catch (fehler) {
     flash(fehlerText(fehler), 'fehler')
   } finally {

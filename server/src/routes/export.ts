@@ -51,7 +51,9 @@ export function registriereExportRouten(app: FastifyInstance): void {
     const benutzer = erfordereBenutzer(request, reply)
     if (!benutzer) return
     if (exportGebremst(benutzer.id)) {
-      return reply.code(429).send({ fehler: 'Zu viele Anforderungen. Versuch es später noch einmal.' })
+      return reply
+        .code(429)
+        .send({ fehler: 'Zu viele Anforderungen. Versuch es später noch einmal.' })
     }
 
     const { stand, neu } = app.exporte.fordereAn(benutzer.id)

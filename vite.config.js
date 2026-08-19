@@ -98,7 +98,9 @@ function dokuAusliefern() {
   const mitDevClient = (inhalt, dev) => {
     if (!dev) return inhalt
     const marke = '<script type="module" src="/@vite/client"></script>'
-    return inhalt.includes('</body>') ? inhalt.replace('</body>', marke + '</body>') : inhalt + marke
+    return inhalt.includes('</body>')
+      ? inhalt.replace('</body>', marke + '</body>')
+      : inhalt + marke
   }
 
   const middleware = (server, dev) => {
@@ -395,7 +397,9 @@ export function basisZuerst() {
         const stelle = ohneKommentare.search(/[ \t]*<style[\s>]/)
         if (stelle === -1) return html
         return (
-          ohne.slice(0, stelle) + sortiert.map((v) => `  ${v.trim()}\n`).join('') + ohne.slice(stelle)
+          ohne.slice(0, stelle) +
+          sortiert.map((v) => `  ${v.trim()}\n`).join('') +
+          ohne.slice(stelle)
         )
       },
     },

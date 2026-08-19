@@ -208,7 +208,9 @@ export class AuthDienst {
     if (!emails.length) return 0
     const platzhalter = emails.map(() => '?').join(', ')
     const erg = this.db
-      .prepare(`UPDATE users SET rolle = 'admin' WHERE rolle != 'admin' AND email IN (${platzhalter})`)
+      .prepare(
+        `UPDATE users SET rolle = 'admin' WHERE rolle != 'admin' AND email IN (${platzhalter})`,
+      )
       .run(...emails.map((e) => e.toLowerCase().trim()))
     return erg.changes
   }
@@ -236,7 +238,16 @@ export class AuthDienst {
         .prepare(
           'INSERT INTO users (id, email, pw_hash, name, created_at, email_verified, rolle, handle) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         )
-        .run(benutzer.id, benutzer.email, pwHash, benutzer.name, new Date().toISOString(), verifiziert ? 1 : 0, rolle, handle)
+        .run(
+          benutzer.id,
+          benutzer.email,
+          pwHash,
+          benutzer.name,
+          new Date().toISOString(),
+          verifiziert ? 1 : 0,
+          rolle,
+          handle,
+        )
     } catch (fehler) {
       // Die UNIQUE-Verletzung ist der einzige erwartbare Fall — als eigener
       // Fehlertyp, damit die Route 409 statt 500 antworten kann.
@@ -253,8 +264,7 @@ export class AuthDienst {
 
   istVerifiziert(userId: string): boolean {
     const zeile = this.db.prepare('SELECT email_verified FROM users WHERE id = ?').get(userId) as
-      | { email_verified: number }
-      | undefined
+      { email_verified: number } | undefined
     return !!zeile?.email_verified
   }
 
@@ -263,20 +273,27 @@ export class AuthDienst {
     const zeile = this.db
       .prepare('SELECT id, email, pw_hash, name, rolle FROM users WHERE email = ?')
       .get(email.toLowerCase().trim()) as
-      | { id: string; email: string; pw_hash: string; name: string; rolle: string }
-      | undefined
+      { id: string; email: string; pw_hash: string; name: string; rolle: string } | undefined
     if (!zeile) {
       // Dummy-Prüfung gegen Timing-Unterschied „Benutzer existiert (nicht)"
-      await pruefePasswort('$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', passwort)
+      await pruefePasswort(
+        '$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        passwort,
+      )
       return null
     }
     const ok = await pruefePasswort(zeile.pw_hash, passwort)
-    return ok ? { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) } : null
+    return ok
+      ? { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) }
+      : null
   }
 
   // — Sessions (Web) —
 
-  erzeugeSession(userId: string, kennzeichen: SitzungsKennzeichen = {}): { id: string; ablauf: Date } {
+  erzeugeSession(
+    userId: string,
+    kennzeichen: SitzungsKennzeichen = {},
+  ): { id: string; ablauf: Date } {
     const id = neueSessionId()
     const jetzt = Date.now()
     const ablauf = new Date(jetzt + SESSION_DAUER_MS)
@@ -327,7 +344,14 @@ export class AuthDienst {
          JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
       )
       .get(sessionId) as
-      | { id: string; email: string; name: string; rolle: string; expires_at: string; zuletzt_gesehen: string | null }
+      | {
+          id: string
+          email: string
+          name: string
+          rolle: string
+          expires_at: string
+          zuletzt_gesehen: string | null
+        }
       | undefined
     if (!zeile) return null
     if (Date.parse(zeile.expires_at) < Date.now()) {
@@ -338,7 +362,9 @@ export class AuthDienst {
     // Millisekunden, ein Schreibvorgang je Anfrage aber sehr wohl eine Platte.
     const zuletzt = zeile.zuletzt_gesehen ? Date.parse(zeile.zuletzt_gesehen) : 0
     if (Date.now() - zuletzt > GESEHEN_TAKT_MS) {
-      this.db.prepare('UPDATE sessions SET zuletzt_gesehen = ? WHERE id = ?').run(new Date().toISOString(), sessionId)
+      this.db
+        .prepare('UPDATE sessions SET zuletzt_gesehen = ? WHERE id = ?')
+        .run(new Date().toISOString(), sessionId)
     }
     return { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) }
   }
@@ -381,8 +407,15 @@ export class AuthDienst {
       zuletzt_gesehen: string | null
     }>
     const tokens = this.db
-      .prepare('SELECT id, label, created_at, last_used_at FROM tokens WHERE user_id = ? ORDER BY created_at DESC')
-      .all(userId) as Array<{ id: string; label: string; created_at: string; last_used_at: string | null }>
+      .prepare(
+        'SELECT id, label, created_at, last_used_at FROM tokens WHERE user_id = ? ORDER BY created_at DESC',
+      )
+      .all(userId) as Array<{
+      id: string
+      label: string
+      created_at: string
+      last_used_at: string | null
+    }>
     return [
       ...sitzungen.map((s) => ({
         id: `sitzung:${s.id}`,
@@ -409,13 +442,22 @@ export class AuthDienst {
    * und eine fremde ID ließe sich mit genügend Versuchen finden.
    */
   meldeGeraetAb(userId: string, geraetId: string): boolean {
-    const [art, id] = [geraetId.slice(0, geraetId.indexOf(':')), geraetId.slice(geraetId.indexOf(':') + 1)]
+    const [art, id] = [
+      geraetId.slice(0, geraetId.indexOf(':')),
+      geraetId.slice(geraetId.indexOf(':') + 1),
+    ]
     if (!id) return false
     if (art === 'sitzung') {
-      return this.db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').run(id, userId).changes > 0
+      return (
+        this.db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').run(id, userId)
+          .changes > 0
+      )
     }
     if (art === 'app') {
-      return this.db.prepare('DELETE FROM tokens WHERE id = ? AND user_id = ?').run(id, userId).changes > 0
+      return (
+        this.db.prepare('DELETE FROM tokens WHERE id = ? AND user_id = ?').run(id, userId).changes >
+        0
+      )
     }
     return false
   }
@@ -452,9 +494,16 @@ export class AuthDienst {
     if (!zeile) return null
     // Vergleich in konstanter Zeit (Hash-Lookup wäre theoretisch genug, kostet nichts)
     if (!timingSafeEqual(Buffer.from(zeile.hash), Buffer.from(hash))) return null
-    this.db.prepare('UPDATE tokens SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), zeile.token_id)
+    this.db
+      .prepare('UPDATE tokens SET last_used_at = ? WHERE id = ?')
+      .run(new Date().toISOString(), zeile.token_id)
     return {
-      benutzer: { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) },
+      benutzer: {
+        id: zeile.id,
+        email: zeile.email,
+        name: zeile.name,
+        rolle: alsRolle(zeile.rolle),
+      },
       tokenId: zeile.token_id,
     }
   }
@@ -475,7 +524,9 @@ export class AuthDienst {
    * werden verworfen (ein angefordertes Reset entwertet das vorige).
    */
   erzeugeMailToken(userId: string, zweck: MailZweck, nutzlast: string | null = null): string {
-    this.db.prepare('DELETE FROM mail_tokens WHERE user_id = ? AND zweck = ? AND used_at IS NULL').run(userId, zweck)
+    this.db
+      .prepare('DELETE FROM mail_tokens WHERE user_id = ? AND zweck = ? AND used_at IS NULL')
+      .run(userId, zweck)
     const klartext = neuesTokenSecret()
     const jetzt = Date.now()
     this.db
@@ -517,12 +568,22 @@ export class AuthDienst {
     const hash = sha256(klartext)
     return this.db.transaction(() => {
       const zeile = this.db
-        .prepare('SELECT id, user_id, nutzlast, expires_at, used_at FROM mail_tokens WHERE hash = ? AND zweck = ?')
+        .prepare(
+          'SELECT id, user_id, nutzlast, expires_at, used_at FROM mail_tokens WHERE hash = ? AND zweck = ?',
+        )
         .get(hash, zweck) as
-        | { id: string; user_id: string; nutzlast: string | null; expires_at: string; used_at: string | null }
+        | {
+            id: string
+            user_id: string
+            nutzlast: string | null
+            expires_at: string
+            used_at: string | null
+          }
         | undefined
       if (!zeile || zeile.used_at || Date.parse(zeile.expires_at) < Date.now()) return null
-      this.db.prepare('UPDATE mail_tokens SET used_at = ? WHERE id = ?').run(new Date().toISOString(), zeile.id)
+      this.db
+        .prepare('UPDATE mail_tokens SET used_at = ? WHERE id = ?')
+        .run(new Date().toISOString(), zeile.id)
       return { userId: zeile.user_id, nutzlast: zeile.nutzlast }
     })()
   }
@@ -533,9 +594,9 @@ export class AuthDienst {
 
   /** E-Mail → user_id (für den Reset-Anstoß); null, ohne die Existenz zu verraten. */
   benutzerIdFuerEmail(email: string): string | null {
-    const zeile = this.db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim()) as
-      | { id: string }
-      | undefined
+    const zeile = this.db
+      .prepare('SELECT id FROM users WHERE email = ?')
+      .get(email.toLowerCase().trim()) as { id: string } | undefined
     return zeile?.id ?? null
   }
 
@@ -553,7 +614,9 @@ export class AuthDienst {
     const pwHash = await hashePasswort(passwort)
     this.db.prepare('UPDATE users SET pw_hash = ? WHERE id = ?').run(pwHash, userId)
     if (behalteSession) {
-      this.db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(userId, behalteSession)
+      this.db
+        .prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?')
+        .run(userId, behalteSession)
     } else {
       this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
     }
@@ -592,7 +655,9 @@ export class AuthDienst {
    * fragt — nicht erst beim nächsten Neustart.
    */
   private raeumeHandleReservierungen(): void {
-    this.db.prepare('DELETE FROM handles_reserviert WHERE frei_ab <= ?').run(new Date().toISOString())
+    this.db
+      .prepare('DELETE FROM handles_reserviert WHERE frei_ab <= ?')
+      .run(new Date().toISOString())
   }
 
   /**
@@ -602,9 +667,9 @@ export class AuthDienst {
    */
   handleFrei(handle: string, fuerUserId: string | null): boolean {
     this.raeumeHandleReservierungen()
-    const belegtVon = this.db.prepare('SELECT id FROM users WHERE handle = ? COLLATE NOCASE').get(handle) as
-      | { id: string }
-      | undefined
+    const belegtVon = this.db
+      .prepare('SELECT id FROM users WHERE handle = ? COLLATE NOCASE')
+      .get(handle) as { id: string } | undefined
     if (belegtVon && belegtVon.id !== fuerUserId) return false
     const gesperrtFuer = this.db
       .prepare('SELECT user_id FROM handles_reserviert WHERE handle = ? COLLATE NOCASE')
@@ -619,9 +684,9 @@ export class AuthDienst {
    */
   benutzerIdFuerHandle(handle: string): string | null {
     this.raeumeHandleReservierungen()
-    const zeile = this.db.prepare('SELECT id FROM users WHERE handle = ? COLLATE NOCASE').get(handle) as
-      | { id: string }
-      | undefined
+    const zeile = this.db
+      .prepare('SELECT id FROM users WHERE handle = ? COLLATE NOCASE')
+      .get(handle) as { id: string } | undefined
     if (zeile) return zeile.id
     const alt = this.db
       .prepare('SELECT user_id FROM handles_reserviert WHERE handle = ? COLLATE NOCASE')
@@ -650,7 +715,9 @@ export class AuthDienst {
     this.db.transaction(() => {
       if (alt) {
         this.db
-          .prepare('INSERT OR REPLACE INTO handles_reserviert (handle, user_id, frei_ab) VALUES (?, ?, ?)')
+          .prepare(
+            'INSERT OR REPLACE INTO handles_reserviert (handle, user_id, frei_ab) VALUES (?, ?, ?)',
+          )
           .run(alt, userId, freiAb)
       }
       // Die eigene alte Reservierung geht weg — sonst zeigte der Handle
@@ -666,8 +733,7 @@ export class AuthDienst {
   /** Der aktuelle Handle eines Kontos; null nur bei unbekannter ID. */
   handleVon(userId: string): string | null {
     const zeile = this.db.prepare('SELECT handle FROM users WHERE id = ?').get(userId) as
-      | { handle: string | null }
-      | undefined
+      { handle: string | null } | undefined
     return zeile?.handle ?? null
   }
 
@@ -831,7 +897,11 @@ export class AuthDienst {
 
   /** Wie viele Konten haben die Admin-Rolle? (Schutz vor dem letzten Abgang.) */
   anzahlAdmins(): number {
-    return (this.db.prepare(`SELECT COUNT(*) AS n FROM users WHERE rolle = 'admin'`).get() as { n: number }).n
+    return (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM users WHERE rolle = 'admin'`).get() as {
+        n: number
+      }
+    ).n
   }
 
   /**
@@ -864,7 +934,9 @@ export class AuthDienst {
     }
     if (!zuweisungen.length) return
     try {
-      this.db.prepare(`UPDATE users SET ${zuweisungen.join(', ')} WHERE id = ?`).run(...werte, userId)
+      this.db
+        .prepare(`UPDATE users SET ${zuweisungen.join(', ')} WHERE id = ?`)
+        .run(...werte, userId)
     } catch (fehler) {
       if (String(fehler).includes('UNIQUE')) throw new EmailVergebenFehler()
       throw fehler
@@ -873,9 +945,11 @@ export class AuthDienst {
 
   /** IDs aller Touren des Benutzers (für die Storage-Aufräumung vor dem Löschen). */
   tourIds(userId: string): string[] {
-    return (this.db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{ id: string }>).map(
-      (z) => z.id,
-    )
+    return (
+      this.db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{
+        id: string
+      }>
+    ).map((z) => z.id)
   }
 
   /**

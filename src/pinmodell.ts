@@ -24,7 +24,9 @@ export function naechsterIndex(sWerte: readonly number[], s: number, vorlauf = 2
 /** Zustand je Stopp: alles bis `s` besucht, der erste offene ist der nächste. */
 export function zustaende(sWerte: readonly number[], s: number, vorlauf = 20): PinZustand[] {
   const naechster = naechsterIndex(sWerte, s, vorlauf)
-  return sWerte.map((_, i) => (i < naechster ? 'besucht' : i === naechster ? 'naechster' : 'kommend'))
+  return sWerte.map((_, i) =>
+    i < naechster ? 'besucht' : i === naechster ? 'naechster' : 'kommend',
+  )
 }
 
 /**

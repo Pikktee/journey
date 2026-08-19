@@ -36,7 +36,16 @@
 import * as THREE from 'three'
 import maplibregl, { type CustomLayerInterface, type Map as MapLibreKarte } from 'maplibre-gl'
 import { EXAGGERATION, type LngLat2D } from './map.js'
-import { naechsterIndex, zustaende, stufenZiele, blendeSchritt, weltGroesse, imBild, type Fenster, type PinZustand } from './pinmodell.js'
+import {
+  naechsterIndex,
+  zustaende,
+  stufenZiele,
+  blendeSchritt,
+  weltGroesse,
+  imBild,
+  type Fenster,
+  type PinZustand,
+} from './pinmodell.js'
 import type { Lichtstimmung } from './daynight.js'
 
 const DEG = Math.PI / 180
@@ -79,7 +88,13 @@ interface ZustandStil {
 //   naechster = creme gefüllt + Amber-Ring (Ziel)
 //   besucht  = amber gefüllt + weißer Ring
 const ZUSTAND: Record<PinZustand, ZustandStil> = {
-  kommend: { fuellung: '#f6f1e7', ring: 'rgba(23,17,6,0.42)', ringPx: 5, mast: 0xf1ece2, ziffer: '#1c1712' },
+  kommend: {
+    fuellung: '#f6f1e7',
+    ring: 'rgba(23,17,6,0.42)',
+    ringPx: 5,
+    mast: 0xf1ece2,
+    ziffer: '#1c1712',
+  },
   naechster: { fuellung: '#f6f1e7', ring: '#f5a524', ringPx: 9, mast: 0xf5a524, ziffer: '#1c1712' },
   besucht: { fuellung: '#f5a524', ring: '#ffffff', ringPx: 7, mast: 0xf5a524, ziffer: '#231a08' },
 }
@@ -119,14 +134,23 @@ const BLENDE = 0.12 // Anteil pro Frame, mit dem sich stufe ihrem Ziel nähert (
 function mat4mul(a: ArrayLike<number>, b: ArrayLike<number>, o: number[]): number[] {
   for (let c = 0; c < 4; c++)
     for (let r = 0; r < 4; r++) {
-      o[c * 4 + r] = a[r]! * b[c * 4]! + a[4 + r]! * b[c * 4 + 1]! + a[8 + r]! * b[c * 4 + 2]! + a[12 + r]! * b[c * 4 + 3]!
+      o[c * 4 + r] =
+        a[r]! * b[c * 4]! +
+        a[4 + r]! * b[c * 4 + 1]! +
+        a[8 + r]! * b[c * 4 + 2]! +
+        a[12 + r]! * b[c * 4 + 3]!
     }
   return o
 }
 
 // — Kopfscheibe als Canvas-Textur: Füllung/Ring aus dem Zustand, darin die Nummer oder
 //   das runde Foto. Wird NUR bei Zustandswechsel neu gezeichnet, nicht pro Frame.
-function zeichneKopf(canvas: HTMLCanvasElement, nummer: number, zustand: PinZustand, bild: HTMLImageElement | null) {
+function zeichneKopf(
+  canvas: HTMLCanvasElement,
+  nummer: number,
+  zustand: PinZustand,
+  bild: HTMLImageElement | null,
+) {
   const S = 192
   canvas.width = canvas.height = S
   const g = canvas.getContext('2d')
@@ -286,7 +310,10 @@ interface Pin {
 export function installPhotoPins(
   map: MapLibreKarte,
   spots: PinStopp[],
-  { onSelect, variante = 'nummer' }: { onSelect?: (s: number) => void; variante?: 'nummer' | 'foto' } = {},
+  {
+    onSelect,
+    variante = 'nummer',
+  }: { onSelect?: (s: number) => void; variante?: 'nummer' | 'foto' } = {},
 ): PinSteuerung {
   if (COARSE) {
     MASSE.kopf = 14
@@ -332,9 +359,37 @@ export function installPhotoPins(
     // ENU an der y-Achse gespiegelt (y zeigt nach Süden), damit kippt die Winding-Order
     // — die flach liegende Bodenscheibe wurde mit dem Default FrontSide komplett
     // weggecullt (sie war schlicht unsichtbar, unabhängig von Größe und Tiefentest).
-    const kopf = new THREE.Mesh(quad, new THREE.MeshBasicMaterial({ map: texKopf, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }))
-    const mast = new THREE.Mesh(quad, new THREE.MeshBasicMaterial({ map: texMast, color: ZUSTAND.kommend.mast, transparent: true, depthWrite: false, opacity: 0.92, side: THREE.DoubleSide }))
-    const fuss = new THREE.Mesh(quad, new THREE.MeshBasicMaterial({ map: texFuss, color: ZUSTAND.kommend.mast, transparent: true, depthWrite: false, side: THREE.DoubleSide }))
+    const kopf = new THREE.Mesh(
+      quad,
+      new THREE.MeshBasicMaterial({
+        map: texKopf,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    )
+    const mast = new THREE.Mesh(
+      quad,
+      new THREE.MeshBasicMaterial({
+        map: texMast,
+        color: ZUSTAND.kommend.mast,
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.92,
+        side: THREE.DoubleSide,
+      }),
+    )
+    const fuss = new THREE.Mesh(
+      quad,
+      new THREE.MeshBasicMaterial({
+        map: texFuss,
+        color: ZUSTAND.kommend.mast,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    )
     for (const o of [kopf, mast, fuss]) {
       o.matrixAutoUpdate = false
       o.frustumCulled = false
@@ -410,14 +465,22 @@ export function installPhotoPins(
     const tr = map.transform
     const hPx = tr?.height || map.getCanvas().clientHeight || 800
     const fov = (tr?.fov ?? 36.87) * DEG
-    return { k: (2 * Math.tan(fov / 2)) / hPx, hPx, wPx: tr?.width || map.getCanvas().clientWidth || 1200 }
+    return {
+      k: (2 * Math.tan(fov / 2)) / hPx,
+      hPx,
+      wPx: tr?.width || map.getCanvas().clientWidth || 1200,
+    }
   }
 
   const mvp: number[] = new Array<number>(16).fill(0)
   const mainBuf: number[] = new Array<number>(16).fill(0)
 
   /** Projizierter Punkt: NDC-x/y plus Clip-w (Tiefe). */
-  interface Projektion { x: number; y: number; w: number }
+  interface Projektion {
+    x: number
+    y: number
+    w: number
+  }
 
   // Punkt (Mercator, ursprungsrelativ) durch die MVP-Matrix → NDC + Clip-w.
   // Die `!` wie in mat4mul: m ist immer die gefüllte 16er-Matrix.
@@ -445,7 +508,8 @@ export function installPhotoPins(
 
     // Maßstab bei Referenzdistanz (Pixel je Meter) — Bezug der weltfesten Größe.
     const pxRef = 1 / (k * D_REF)
-    const groesse = (px: number, pxProM: number) => weltGroesse(px, pxProM, pxRef, MASSE.perspektive, PX_MIN, PX_MAX)
+    const groesse = (px: number, pxProM: number) =>
+      weltGroesse(px, pxProM, pxRef, MASSE.perspektive, PX_MIN, PX_MAX)
 
     for (const pin of pins) {
       if (pin.eleZiel != null) pin.ele += (pin.eleZiel - pin.ele) * 0.18 // weich nachziehen
@@ -494,7 +558,9 @@ export function installPhotoPins(
       // Masthöhe, nicht an der geblendeten: sonst versinkt der reine Bodenpunkt (stufe 0).
       pin.fuss.matrix.makeBasis(vX, vY, vZ)
       pin.fuss.matrix.scale(vSkala.set(rFuss * 2 * mpu, rFuss * 2 * mpu, 1))
-      pin.fuss.matrix.setPosition(vPos.set(pin.mx, pin.my, zFuss + groesse(MASSE.mast, pxProM) * 0.03 * mpu))
+      pin.fuss.matrix.setPosition(
+        vPos.set(pin.mx, pin.my, zFuss + groesse(MASSE.mast, pxProM) * 0.03 * mpu),
+      )
       pin.fuss.renderOrder = 1e4 - d
 
       if (voll) {
@@ -536,7 +602,11 @@ export function installPhotoPins(
         pin.schirm = null
         continue
       }
-      pin.schirm = { x: (pA.x * 0.5 + 0.5) * pin.wPx, y: (0.5 - pA.y * 0.5) * pin.hPx, r: pin.pxKlick }
+      pin.schirm = {
+        x: (pA.x * 0.5 + 0.5) * pin.wPx,
+        y: (0.5 - pA.y * 0.5) * pin.hPx,
+        r: pin.pxKlick,
+      }
     }
   }
 
@@ -571,7 +641,8 @@ export function installPhotoPins(
       hoehenPruefen(performance.now())
       // Ältere MapLibre-Fassungen reichten die Matrix direkt statt im Options-Objekt
       // durch — der Fallback bleibt, die Typen kennen nur die heutige Form.
-      const main: ArrayLike<number> = opts?.defaultProjectionData?.mainMatrix ?? (opts as unknown as ArrayLike<number>)
+      const main: ArrayLike<number> =
+        opts?.defaultProjectionData?.mainMatrix ?? (opts as unknown as ArrayLike<number>)
       for (let i = 0; i < 16; i++) mainBuf[i] = main[i] ?? 0
       mat4mul(mainBuf, originMat, mvp)
       aktualisiere(mvp) // Maßstab kommt aus DIESER Matrix (s. projiziere)
@@ -669,7 +740,11 @@ export function installPhotoPins(
       pins: pins.length,
       hoehen: pins.map((p) => Math.round(p.ele)),
       stufen: pins.map((p) => Number(p.stufe.toFixed(2))), // Detailstufe je Pin
-      schirm: pins.map((p) => (p.schirm ? { x: Math.round(p.schirm.x), y: Math.round(p.schirm.y), r: Math.round(p.schirm.r) } : null)),
+      schirm: pins.map((p) =>
+        p.schirm
+          ? { x: Math.round(p.schirm.x), y: Math.round(p.schirm.y), r: Math.round(p.schirm.r) }
+          : null,
+      ),
     }),
     remove() {
       if (map.getLayer('photopins-3d')) map.removeLayer('photopins-3d')

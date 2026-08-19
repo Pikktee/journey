@@ -25,7 +25,10 @@ export type SzenenWetter = 'off' | 'clouds' | 'fog' | 'rain' | 'snow' | 'storm'
  * leichter Regen fällt nicht aus heiterem Himmel. `clouds` beginnt dagegen bei
  * 0,28 — eine leichte Bewölkung lässt die Sonne stehen.
  */
-export const WETTER_HIMMEL: Record<SzenenWetter, { c0: number; c1: number; dark: number; fog: number }> = {
+export const WETTER_HIMMEL: Record<
+  SzenenWetter,
+  { c0: number; c1: number; dark: number; fog: number }
+> = {
   off: { c0: 0, c1: 0, dark: 0, fog: 0 },
   clouds: { c0: 0.28, c1: 0.98, dark: 0.34, fog: 0 },
   fog: { c0: 0.22, c1: 0.45, dark: 0.2, fog: 1 },
@@ -41,7 +44,10 @@ export const WETTER_HIMMEL: Record<SzenenWetter, { c0: number; c1: number; dark:
  * darunter — beim stufenlosen Echtwetter — bleibt die Deckung am unteren Ende
  * der Spanne, statt unter sie zu fallen.
  */
-export function himmelBei(modus: SzenenWetter, k: number): { cover: number; dark: number; fog: number } {
+export function himmelBei(
+  modus: SzenenWetter,
+  k: number,
+): { cover: number; dark: number; fog: number } {
   const b = WETTER_HIMMEL[modus] ?? WETTER_HIMMEL.off
   const t = Math.max(0, Math.min(1, (k - 0.4) / 0.6))
   return {
@@ -73,7 +79,15 @@ export function himmelBei(modus: SzenenWetter, k: number): { cover: number; dark
  * HELLT AUF** (dazu die weiße Decke am Boden), **Gewitter VERDUNKELT** (der
  * Himmel steht tief).
  */
-const CHARAKTER: Record<SzenenWetter, { wasch: [number, number, number]; waschMax: number; schatten: [number, number, number]; schattenMax: number }> = {
+const CHARAKTER: Record<
+  SzenenWetter,
+  {
+    wasch: [number, number, number]
+    waschMax: number
+    schatten: [number, number, number]
+    schattenMax: number
+  }
+> = {
   off: { wasch: [0, 0, 0], waschMax: 0, schatten: [0, 0, 0], schattenMax: 0 },
   // Dünn: die Dämpfung macht das Grading, hier nur ein Hauch Grau.
   clouds: { wasch: [152, 160, 172], waschMax: 0.1, schatten: [18, 22, 32], schattenMax: 0.04 },

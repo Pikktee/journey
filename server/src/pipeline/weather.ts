@@ -8,7 +8,13 @@
 // Das WMO-Mapping ist der Zwilling von wmoToWeather in src/autoweather.ts —
 // Server-Keyframes und Client-Fallback müssen dieselbe Wetterwelt erzählen.
 
-import { anteilZurUhrzeit, positionZurZeit, pseudoZeiten, zeitZurPosition, type Zeitreihe } from './zeit.js'
+import {
+  anteilZurUhrzeit,
+  positionZurZeit,
+  pseudoZeiten,
+  zeitZurPosition,
+  type Zeitreihe,
+} from './zeit.js'
 
 /**
  * Die Wetterwelt des Players (src/weather.js) als Liste — Einzelquelle für den
@@ -64,7 +70,8 @@ export function wmoZuWetter(w: WetterStunde): { mode: WetterModus; k: number } {
     return { mode: 'rain', k: clamp(0.4 + w.regenMm / 5, 0.4, 1) }
   }
   if (w.code === 45 || w.code === 48) return { mode: 'fog', k: 0.7 }
-  if (w.wolken >= 25) return { mode: 'clouds', k: clamp(0.4 + 0.6 * ((w.wolken - 25) / 75), 0.4, 1) }
+  if (w.wolken >= 25)
+    return { mode: 'clouds', k: clamp(0.4 + 0.6 * ((w.wolken - 25) / 75), 0.4, 1) }
   return { mode: 'off', k: 0.7 }
 }
 
@@ -75,7 +82,9 @@ export function wmoZuWetter(w: WetterStunde): { mode: WetterModus; k: number } {
  * Übergänge ([wolkig, regen, klar]) und die Ränder bleiben unangetastet:
  * gerade das letzte Sample trägt oft ein echtes Aufklaren vorm Tour-Ende.
  */
-export function glaetteSamples<T extends { mode: WetterModus; k: number }>(samples: readonly T[]): T[] {
+export function glaetteSamples<T extends { mode: WetterModus; k: number }>(
+  samples: readonly T[],
+): T[] {
   return samples.map((s, i) => {
     const vorher = samples[i - 1]
     const nachher = samples[i + 1]
@@ -132,7 +141,11 @@ export async function berechneWetter(eingabe: {
   const zeiten: number[] = [vonMs]
   const stunden = Math.floor((bisMs - vonMs) / stundeMs)
   const schritt = Math.max(1, Math.ceil(stunden / MAX_SAMPLES))
-  for (let ms = (Math.floor(vonMs / stundeMs) + 1) * stundeMs; ms < bisMs; ms += schritt * stundeMs) {
+  for (
+    let ms = (Math.floor(vonMs / stundeMs) + 1) * stundeMs;
+    ms < bisMs;
+    ms += schritt * stundeMs
+  ) {
     zeiten.push(ms)
   }
   if (bisMs > vonMs) zeiten.push(bisMs)
@@ -189,7 +202,12 @@ export async function berechneWetter(eingabe: {
   for (let i = 0; i < geglaettet.length; i++) {
     if (!behalten[i]) continue
     const s = geglaettet[i] as { f: number; mode: WetterModus; k: number }
-    const eintrag: WetterKeyframe = { f: rund(s.f, 4), mode: s.mode, k: rund(s.k, 2), source: 'openmeteo' }
+    const eintrag: WetterKeyframe = {
+      f: rund(s.f, 4),
+      mode: s.mode,
+      k: rund(s.k, 2),
+      source: 'openmeteo',
+    }
     const vorher = keyframes[keyframes.length - 1]
     // Gleiche Marke (Pause: mehrere Stunden auf demselben f) → die spätere gewinnt.
     // Gleiche ZUSTÄNDE in Folge bleiben dagegen absichtlich stehen: die Marke vor
@@ -288,7 +306,8 @@ export function wetterZuGrenzen(
   const erster = sortiert[0]
   if (!erster) return []
   const grenzen: Array<{ ab: string; mode: WetterModus; staerke: number }> = []
-  const zeitBei = (f: number): string => new Date(startMs + zeitZurPosition(reihe, f) * 1000).toISOString()
+  const zeitBei = (f: number): string =>
+    new Date(startMs + zeitZurPosition(reihe, f) * 1000).toISOString()
 
   let letzter: { mode: WetterModus; k: number } = { mode: erster.mode, k: erster.k }
   grenzen.push({ ab: zeitBei(erster.f), mode: erster.mode, staerke: erster.k })
@@ -359,7 +378,8 @@ export class OpenMeteoQuelle implements WetterQuelle {
       const saetze = Array.isArray(json) ? json : [json]
       for (let i = 0; i < gruppe.length; i++) {
         const hourly = (saetze[i] ?? saetze[0])?.hourly
-        if (!hourly?.time?.length || !hourly.weather_code) throw new Error('Open-Meteo: keine Stundenwerte')
+        if (!hourly?.time?.length || !hourly.weather_code)
+          throw new Error('Open-Meteo: keine Stundenwerte')
         ergebnisse.push({
           zeiten: hourly.time,
           code: hourly.weather_code,
@@ -376,7 +396,11 @@ export class OpenMeteoQuelle implements WetterQuelle {
 /** Test-Fake: liefert allen Positionen dasselbe vorgegebene Stundenraster. */
 export class FesteWetterQuelle implements WetterQuelle {
   /** Mitschnitt der Abfragen — Tests prüfen damit den Sample-Plan. */
-  public abfragen: Array<{ punkte: Array<{ lat: number; lng: number }>; startTag: string; endeTag: string }> = []
+  public abfragen: Array<{
+    punkte: Array<{ lat: number; lng: number }>
+    startTag: string
+    endeTag: string
+  }> = []
 
   constructor(private readonly raster: StundenRaster) {}
 

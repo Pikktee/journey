@@ -80,8 +80,9 @@ function faerbe(code, sprache) {
     s = s.replace(SCHLUESSEL, (m) => merke('schl', m))
   }
   s = s.replace(/\b\d+(?:[.,]\d+)?\b/g, (m) => merke('num', m))
-  return s.replace(/\u0001([A-J]+)\u0002/g, (_, m) =>
-    marken[Number(m.replace(/[A-J]/g, (c) => String(ZIFFERN.indexOf(c))))],
+  return s.replace(
+    /\u0001([A-J]+)\u0002/g,
+    (_, m) => marken[Number(m.replace(/[A-J]/g, (c) => String(ZIFFERN.indexOf(c))))],
   )
 }
 
@@ -156,7 +157,8 @@ export function rendere(dok, nachAbs) {
           return `<a href="${escape(ziel)}" class="link-extern" target="_blank" rel="noopener"${titelAttr}>${inhalt}</a>`
         if (art === 'datei')
           return `<a href="${escape(ziel)}" class="link-datei"${titelAttr}>${inhalt}</a>`
-        if (art === 'tot') return `<span class="link-tot" title="Ziel nicht gefunden">${inhalt}</span>`
+        if (art === 'tot')
+          return `<span class="link-tot" title="Ziel nicht gefunden">${inhalt}</span>`
         return `<a href="${escape(ziel)}"${titelAttr}>${inhalt}</a>`
       },
       image({ href, title, text }) {

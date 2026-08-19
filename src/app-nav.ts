@@ -69,10 +69,7 @@ export type AppHeaderVariante = 'oeffentlich' | 'studio' | 'admin'
  * Profil, Konto und Verwaltung. Die Seiten tragen dasselbe Markup schon im
  * HTML (erster Paint / View Transition); `schreibeAppHeader` hält es deckungsgleich.
  */
-export function appHeaderHtml(opts: {
-  aktiv: AppNavSeite
-  variante?: AppHeaderVariante
-}): string {
+export function appHeaderHtml(opts: { aktiv: AppNavSeite; variante?: AppHeaderVariante }): string {
   const variante = opts.variante ?? 'oeffentlich'
   // Wortmarke und Stand-Chip stehen in einer eigenen Gruppe: Der Chip gehört
   // an die Marke, nicht in den Nav-Abstand dahinter (`--nav-marken-gap`).
@@ -83,8 +80,7 @@ export function appHeaderHtml(opts: {
     `<span>Maptale</span></a>` +
     standChipHtml() +
     `</span>`
-  const mitte =
-    `<nav class="top-nav" aria-label="Hauptnavigation">${topNavHtml(opts.aktiv)}</nav>`
+  const mitte = `<nav class="top-nav" aria-label="Hauptnavigation">${topNavHtml(opts.aktiv)}</nav>`
 
   let rechts: string
   if (variante === 'studio') {
@@ -278,9 +274,10 @@ export async function montiereNavRechts(
     merkeProfilCache({ name, initial, avatarUrl: avatar })
     wendeProfilDatenAn(container, { name, initial, avatarUrl: avatar })
 
-    const adminLink = daten.benutzer.rolle === 'admin'
-      ? `<a href="${pfad('verwaltung')}" class="km-eintrag">${ICON_ADMIN}Administration</a>`
-      : ''
+    const adminLink =
+      daten.benutzer.rolle === 'admin'
+        ? `<a href="${pfad('verwaltung')}" class="km-eintrag">${ICON_ADMIN}Administration</a>`
+        : ''
 
     const profilLink = daten.profil?.handle
       ? `<a href="${profilPfad(daten.profil.handle)}" class="km-eintrag">${ICON_PROFIL}Mein Profil</a>`

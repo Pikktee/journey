@@ -126,6 +126,8 @@ export function wendeMedienEditsAn(
       const e = medien[p.medium.id]
       if (!e) return p
       const medium = e.caption !== undefined ? { ...p.medium, caption: e.caption } : p.medium
-      return e.anchor ? { medium, anchor: e.anchor, placement: 'manuell' as const } : { ...p, medium }
+      return e.anchor
+        ? { medium, anchor: e.anchor, placement: 'manuell' as const }
+        : { ...p, medium }
     })
 }

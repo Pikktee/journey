@@ -42,7 +42,9 @@ describe('kuerzeBeschreibung', () => {
   })
 
   it('zieht Zeilenumbrüche zu einem Absatz zusammen', () => {
-    expect(kuerzeBeschreibung('Erste Zeile.\n\n  Zweite   Zeile.')).toBe('Erste Zeile. Zweite Zeile.')
+    expect(kuerzeBeschreibung('Erste Zeile.\n\n  Zweite   Zeile.')).toBe(
+      'Erste Zeile. Zweite Zeile.',
+    )
   })
 })
 
@@ -104,7 +106,9 @@ describe('kennzahlen', () => {
 
   it('rundet Höhenmeter und lässt sie unter einem Meter weg', () => {
     expect(kennzahlen({ hoehenmeter: 0.4, fotos: 1 }).some((w) => w.art === 'hm')).toBe(false)
-    expect(kennzahlen({ hoehenmeter: 611.6, fotos: 1 }).find((w) => w.art === 'hm')?.text).toBe('612 hm')
+    expect(kennzahlen({ hoehenmeter: 611.6, fotos: 1 }).find((w) => w.art === 'hm')?.text).toBe(
+      '612 hm',
+    )
   })
 
   it('setzt den Singular bei genau einem Foto', () => {
@@ -112,6 +116,8 @@ describe('kennzahlen', () => {
   })
 
   it('zeigt keine Dauer, solange keine bekannt ist', () => {
-    expect(kennzahlen({ filmDauerS: null, km: 3, fotos: 2 }).some((w) => w.art === 'dauer')).toBe(false)
+    expect(kennzahlen({ filmDauerS: null, km: 3, fotos: 2 }).some((w) => w.art === 'dauer')).toBe(
+      false,
+    )
   })
 })

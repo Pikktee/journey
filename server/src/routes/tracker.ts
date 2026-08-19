@@ -8,7 +8,12 @@ import type { FastifyInstance } from 'fastify'
 import { erfordereBenutzer } from '../app.js'
 import { baueBremse } from '../bremse.js'
 import { fuehreImporteAus } from '../tracker/importlauf.js'
-import { ANBIETER_NAMEN, TokensUngueltigFehler, type TrackerAnbieter, type TrackerProvider } from '../tracker/vertrag.js'
+import {
+  ANBIETER_NAMEN,
+  TokensUngueltigFehler,
+  type TrackerAnbieter,
+  type TrackerProvider,
+} from '../tracker/vertrag.js'
 
 /**
  * Wie viele Aktivitäten ein „Jetzt abrufen" abwartet, bevor der Rest in den
@@ -32,7 +37,10 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
   const { konfig } = app.deps
 
   /** Ein Anbieter für die Oberfläche: was er ist, ob er kann, wie es steht. */
-  const zeigeAnbieter = (provider: TrackerProvider, benutzerId: string | null): Record<string, unknown> => {
+  const zeigeAnbieter = (
+    provider: TrackerProvider,
+    benutzerId: string | null,
+  ): Record<string, unknown> => {
     const verknuepfung = benutzerId ? app.tracker.verknuepfung(benutzerId, provider.id) : null
     return {
       id: provider.id,
@@ -70,44 +78,53 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
       const redirectUri = rueckkehrUrl(konfig.basisUrl, provider.id)
       // Der `state` ist Pflicht und wird SERVERSEITIG gehalten: Ohne ihn ließe
       // sich einem Angemeldeten ein fremdes Anbieter-Konto unterschieben.
-      const zustand = app.tracker.merkeZustand(benutzer.id, provider.id, request.body?.ziel ?? 'web', redirectUri)
+      const zustand = app.tracker.merkeZustand(
+        benutzer.id,
+        provider.id,
+        request.body?.ziel ?? 'web',
+        redirectUri,
+      )
       return { autorisierungsUrl: provider.autorisierungsUrl(zustand, redirectUri) }
     },
   )
 
   // — Rückkehr vom Anbieter: Code tauschen, Verknüpfung anlegen —
-  app.get<{ Params: { provider: string }; Querystring: { code?: string; state?: string; error?: string } }>(
-    '/api/tracker/:provider/callback',
-    async (request, reply) => {
-      const { code, state, error } = request.query
-      const provider = app.trackerRegistry.hole(request.params.provider)
-      // Abbruch beim Anbieter ist kein Fehlerfall, sondern eine Entscheidung —
-      // zurück auf die Kontoseite, mit einem Wort dazu.
-      if (error || !code || !state || !provider) {
-        return reply.redirect(`${konfig.basisUrl}/konto#tracker=abgebrochen`)
-      }
-      const zustand = app.tracker.loeseZustandEin(state)
-      if (!zustand || zustand.anbieter !== provider.id) {
-        return reply.redirect(`${konfig.basisUrl}/konto#tracker=abgelaufen`)
-      }
-      try {
-        let tokens = await provider.tauscheCode(code, zustand.redirectUri)
-        // Pflichtschritte des Anbieters (Polar: `POST /v3/users`) — ohne sie
-        // liefert die API still nichts, und der Fehler ist beim Debuggen ein
-        // stilles Nichts. Was dabei herauskommt (die Nutzerkennung), ist der
-        // Zuordnungsweg jedes späteren Webhooks.
-        if (provider.nachVerknuepfung) tokens = (await provider.nachVerknuepfung(tokens)) || tokens
-        app.tracker.verknuepfe(zustand.benutzerId, provider.id, tokens)
-      } catch (fehler) {
-        app.log.warn(`Tracker-Verknüpfung fehlgeschlagen (${provider.id}): ${(fehler as Error).message}`)
-        return reply.redirect(`${konfig.basisUrl}/konto#tracker=fehler`)
-      }
-      // Die App bekommt einen Deep Link zurück; im Web genügt die Kontoseite.
-      return reply.redirect(
-        zustand.ziel === 'app' ? `maptale://tracker/${provider.id}?ok=1` : `${konfig.basisUrl}/konto#tracker=verbunden`,
+  app.get<{
+    Params: { provider: string }
+    Querystring: { code?: string; state?: string; error?: string }
+  }>('/api/tracker/:provider/callback', async (request, reply) => {
+    const { code, state, error } = request.query
+    const provider = app.trackerRegistry.hole(request.params.provider)
+    // Abbruch beim Anbieter ist kein Fehlerfall, sondern eine Entscheidung —
+    // zurück auf die Kontoseite, mit einem Wort dazu.
+    if (error || !code || !state || !provider) {
+      return reply.redirect(`${konfig.basisUrl}/konto#tracker=abgebrochen`)
+    }
+    const zustand = app.tracker.loeseZustandEin(state)
+    if (!zustand || zustand.anbieter !== provider.id) {
+      return reply.redirect(`${konfig.basisUrl}/konto#tracker=abgelaufen`)
+    }
+    try {
+      let tokens = await provider.tauscheCode(code, zustand.redirectUri)
+      // Pflichtschritte des Anbieters (Polar: `POST /v3/users`) — ohne sie
+      // liefert die API still nichts, und der Fehler ist beim Debuggen ein
+      // stilles Nichts. Was dabei herauskommt (die Nutzerkennung), ist der
+      // Zuordnungsweg jedes späteren Webhooks.
+      if (provider.nachVerknuepfung) tokens = (await provider.nachVerknuepfung(tokens)) || tokens
+      app.tracker.verknuepfe(zustand.benutzerId, provider.id, tokens)
+    } catch (fehler) {
+      app.log.warn(
+        `Tracker-Verknüpfung fehlgeschlagen (${provider.id}): ${(fehler as Error).message}`,
       )
-    },
-  )
+      return reply.redirect(`${konfig.basisUrl}/konto#tracker=fehler`)
+    }
+    // Die App bekommt einen Deep Link zurück; im Web genügt die Kontoseite.
+    return reply.redirect(
+      zustand.ziel === 'app'
+        ? `maptale://tracker/${provider.id}?ok=1`
+        : `${konfig.basisUrl}/konto#tracker=verbunden`,
+    )
+  })
 
   // — Trennen —
   app.delete<{ Params: { provider: string } }>('/api/tracker/:provider', async (request, reply) => {
@@ -126,7 +143,9 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
       try {
         await provider.trenne(app.tracker.tokens(verknuepfung.id))
       } catch (fehler) {
-        app.log.warn(`Abmelden beim Anbieter fehlgeschlagen (${anbieter}): ${(fehler as Error).message}`)
+        app.log.warn(
+          `Abmelden beim Anbieter fehlgeschlagen (${anbieter}): ${(fehler as Error).message}`,
+        )
       }
     }
     app.tracker.trenne(benutzer.id, anbieter)
@@ -140,62 +159,72 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
   // Pipeline-Lauf (Geocoding, Wetter, Video) — dieselbe Sorte Last wie ein
   // Datenexport, und der hat aus demselben Grund eine Bremse.
   const syncGebremst = baueBremse(6, 10 * 60_000) // 6 pro 10 min je Konto
-  app.post<{ Params: { provider: string } }>('/api/tracker/:provider/sync', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
-    if (!benutzer) return
-    if (syncGebremst(benutzer.id)) {
-      return reply.code(429).send({ fehler: 'Zu viele Abrufe. Versuch es in ein paar Minuten noch einmal.' })
-    }
-    const provider = app.trackerRegistry.hole(request.params.provider)
-    const verknuepfung = provider ? app.tracker.verknuepfung(benutzer.id, provider.id) : null
-    if (!provider || !verknuepfung) return reply.code(404).send({ fehler: 'Nicht verbunden' })
-    if (!provider.listeNeue) return reply.code(409).send({ fehler: 'Dieser Anbieter meldet sich von selbst' })
-    if (verknuepfung.status !== 'aktiv') {
-      return reply.code(409).send({ fehler: 'Verknüpfung ist nicht aktiv, bitte neu verbinden' })
-    }
-
-    // Abgelaufener Zugang und ein stummer Anbieter sind erwartete Zustände,
-    // keine Serverstörungen: Ungefangen liefen beide in den allgemeinen
-    // Handler und der Nutzer läse „Interner Fehler" statt dessen, was zu tun
-    // ist. `TokensUngueltigFehler` hat die Verknüpfung dabei schon auf
-    // `abgelaufen` gesetzt — die Oberfläche zeigt danach „neu verbinden".
-    let ereignisse
-    let tokens
-    try {
-      tokens = await app.tracker.gueltigeTokens(verknuepfung, provider)
-      ereignisse = await provider.listeNeue(tokens, verknuepfung.zuletztSyncAm)
-    } catch (fehler) {
-      if (fehler instanceof TokensUngueltigFehler) {
-        return reply.code(409).send({ fehler: 'Zugang abgelaufen, bitte neu verbinden' })
+  app.post<{ Params: { provider: string } }>(
+    '/api/tracker/:provider/sync',
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      if (syncGebremst(benutzer.id)) {
+        return reply
+          .code(429)
+          .send({ fehler: 'Zu viele Abrufe. Versuch es in ein paar Minuten noch einmal.' })
       }
-      app.log.warn(`Tracker-Abruf fehlgeschlagen (${provider.id}): ${(fehler as Error).message}`)
-      return reply.code(502).send({ fehler: 'Der Anbieter antwortet gerade nicht. Später noch einmal versuchen.' })
-    }
+      const provider = app.trackerRegistry.hole(request.params.provider)
+      const verknuepfung = provider ? app.tracker.verknuepfung(benutzer.id, provider.id) : null
+      if (!provider || !verknuepfung) return reply.code(404).send({ fehler: 'Nicht verbunden' })
+      if (!provider.listeNeue)
+        return reply.code(409).send({ fehler: 'Dieser Anbieter meldet sich von selbst' })
+      if (verknuepfung.status !== 'aktiv') {
+        return reply.code(409).send({ fehler: 'Verknüpfung ist nicht aktiv, bitte neu verbinden' })
+      }
 
-    const auftraege = ereignisse
-      .filter((e) => e.art === 'aktivitaet')
-      .map((e) => ({ verknuepfung, provider, externeId: e.externeId }))
-    // Anders als beim Webhook wird hier GEWARTET: Wer den Knopf drückt, will
-    // das Ergebnis sehen. Aber nur auf die ersten paar — nach einer Woche
-    // Funkstille kämen zwanzig Aktivitäten, und die Anfrage stünde minutenlang
-    // offen, bis der Reverse-Proxy sie abschneidet (der Lauf ginge weiter, der
-    // Nutzer sähe 504). Der Rest läuft im Hintergrund weiter, wie beim Webhook.
-    const sofort = auftraege.slice(0, SYNC_SOFORT)
-    const rest = auftraege.slice(SYNC_SOFORT)
-    const ergebnisse = await fuehreImporteAus(app, app.tracker, sofort)
-    if (rest.length) {
-      const schluessel = `sync:${verknuepfung.id}`
-      app.trackerLaeufe.set(
-        schluessel,
-        fuehreImporteAus(app, app.tracker, rest).finally(() => app.trackerLaeufe.delete(schluessel)),
-      )
-    }
-    // Der Sync-Zeitpunkt kommt aus `fuehreImporteAus` (nur wenn nichts offen
-    // blieb — er ist der Cursor des nächsten Abrufs). Ohne Aufträge gibt es
-    // dort nichts zu entscheiden, und „nichts Neues" ist ein Erfolg.
-    if (!auftraege.length) app.tracker.merkeSync(verknuepfung.id)
-    return { gefunden: auftraege.length, neu: ergebnisse.length, imHintergrund: rest.length }
-  })
+      // Abgelaufener Zugang und ein stummer Anbieter sind erwartete Zustände,
+      // keine Serverstörungen: Ungefangen liefen beide in den allgemeinen
+      // Handler und der Nutzer läse „Interner Fehler" statt dessen, was zu tun
+      // ist. `TokensUngueltigFehler` hat die Verknüpfung dabei schon auf
+      // `abgelaufen` gesetzt — die Oberfläche zeigt danach „neu verbinden".
+      let ereignisse
+      let tokens
+      try {
+        tokens = await app.tracker.gueltigeTokens(verknuepfung, provider)
+        ereignisse = await provider.listeNeue(tokens, verknuepfung.zuletztSyncAm)
+      } catch (fehler) {
+        if (fehler instanceof TokensUngueltigFehler) {
+          return reply.code(409).send({ fehler: 'Zugang abgelaufen, bitte neu verbinden' })
+        }
+        app.log.warn(`Tracker-Abruf fehlgeschlagen (${provider.id}): ${(fehler as Error).message}`)
+        return reply
+          .code(502)
+          .send({ fehler: 'Der Anbieter antwortet gerade nicht. Später noch einmal versuchen.' })
+      }
+
+      const auftraege = ereignisse
+        .filter((e) => e.art === 'aktivitaet')
+        .map((e) => ({ verknuepfung, provider, externeId: e.externeId }))
+      // Anders als beim Webhook wird hier GEWARTET: Wer den Knopf drückt, will
+      // das Ergebnis sehen. Aber nur auf die ersten paar — nach einer Woche
+      // Funkstille kämen zwanzig Aktivitäten, und die Anfrage stünde minutenlang
+      // offen, bis der Reverse-Proxy sie abschneidet (der Lauf ginge weiter, der
+      // Nutzer sähe 504). Der Rest läuft im Hintergrund weiter, wie beim Webhook.
+      const sofort = auftraege.slice(0, SYNC_SOFORT)
+      const rest = auftraege.slice(SYNC_SOFORT)
+      const ergebnisse = await fuehreImporteAus(app, app.tracker, sofort)
+      if (rest.length) {
+        const schluessel = `sync:${verknuepfung.id}`
+        app.trackerLaeufe.set(
+          schluessel,
+          fuehreImporteAus(app, app.tracker, rest).finally(() =>
+            app.trackerLaeufe.delete(schluessel),
+          ),
+        )
+      }
+      // Der Sync-Zeitpunkt kommt aus `fuehreImporteAus` (nur wenn nichts offen
+      // blieb — er ist der Cursor des nächsten Abrufs). Ohne Aufträge gibt es
+      // dort nichts zu entscheiden, und „nichts Neues" ist ein Erfolg.
+      if (!auftraege.length) app.tracker.merkeSync(verknuepfung.id)
+      return { gefunden: auftraege.length, neu: ergebnisse.length, imHintergrund: rest.length }
+    },
+  )
 
   // — Importe: die Chronik im Konto —
   //
@@ -211,20 +240,27 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
   })
 
   // — Was der Client noch nicht gesehen hat (Grundlage der Benachrichtigung) —
-  app.get<{ Querystring: { gesehen?: string } }>('/api/tracker/imports/pending', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
-    if (!benutzer) return
-    const offen = app.tracker.offeneImporte(benutzer.id)
-    // Erst mit `?gesehen=1` gelten sie als abgeholt. Ohne diesen Schritt
-    // verschwände eine Meldung schon dadurch, dass ein Hintergrundlauf sie
-    // gelesen hat — der Nutzer hätte sie nie zu Gesicht bekommen.
-    //
-    // Wer wirklich sicher gehen will, quittiert HINTERHER und namentlich
-    // (POST …/gesehen): `?gesehen=1` quittiert alles, was gerade offen ist —
-    // auch das, was der Aufrufer am Ende gar nicht anzeigt.
-    if (request.query.gesehen === '1') app.tracker.markiereGesehen(benutzer.id, offen.map((i) => i.id))
-    return { importe: offen }
-  })
+  app.get<{ Querystring: { gesehen?: string } }>(
+    '/api/tracker/imports/pending',
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      const offen = app.tracker.offeneImporte(benutzer.id)
+      // Erst mit `?gesehen=1` gelten sie als abgeholt. Ohne diesen Schritt
+      // verschwände eine Meldung schon dadurch, dass ein Hintergrundlauf sie
+      // gelesen hat — der Nutzer hätte sie nie zu Gesicht bekommen.
+      //
+      // Wer wirklich sicher gehen will, quittiert HINTERHER und namentlich
+      // (POST …/gesehen): `?gesehen=1` quittiert alles, was gerade offen ist —
+      // auch das, was der Aufrufer am Ende gar nicht anzeigt.
+      if (request.query.gesehen === '1')
+        app.tracker.markiereGesehen(
+          benutzer.id,
+          offen.map((i) => i.id),
+        )
+      return { importe: offen }
+    },
+  )
 
   // — Gezielt quittieren: genau das, was auch angezeigt wurde —
   //
@@ -240,7 +276,9 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
           type: 'object',
           required: ['ids'],
           additionalProperties: false,
-          properties: { ids: { type: 'array', maxItems: 200, items: { type: 'string', maxLength: 64 } } },
+          properties: {
+            ids: { type: 'array', maxItems: 200, items: { type: 'string', maxLength: 64 } },
+          },
         },
       },
     },

@@ -244,9 +244,7 @@ describe('Ein Namenssystem', () => {
       const regeln = datei.endsWith('.css')
         ? inhalt
         : [...inhalt.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1] ?? '').join('\n')
-      const ohne = regeln
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/url\("data:[^"]*"\)/g, '')
+      const ohne = regeln.replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\("data:[^"]*"\)/g, '')
       const treffer = new Set<string>()
       for (const [ganz, hex] of ohne.matchAll(/#([0-9a-fA-F]{6})\b/g)) {
         const r = Number.parseInt((hex ?? '').slice(0, 2), 16)
@@ -260,7 +258,13 @@ describe('Ein Namenssystem', () => {
     }
 
     // Der Player ist bereinigt und bleibt es.
-    for (const datei of ['src/style.css', 'src/grundelemente.css', 'src/rechtstext.css', 'src/werkzeug.css', 'erlebnis.html'])
+    for (const datei of [
+      'src/style.css',
+      'src/grundelemente.css',
+      'src/rechtstext.css',
+      'src/werkzeug.css',
+      'erlebnis.html',
+    ])
       expect(
         funde(datei),
         `${datei} schreibt eine Akzentfarbe roh hin — var(--akzent)/var(--akzent-2) oder color-mix nehmen`,
@@ -341,7 +345,8 @@ describe('Ein Namenssystem', () => {
       [...quelle.matchAll(muster)].map((m) => m[1]).filter((n): n is string => Boolean(n))
 
     const definiert = new Set<string>()
-    for (const datei of quellen) for (const n of namen(lies(datei), /(--[\w-]+)\s*:/g)) definiert.add(n)
+    for (const datei of quellen)
+      for (const n of namen(lies(datei), /(--[\w-]+)\s*:/g)) definiert.add(n)
     // Vom Skript gesetzte Variablen (Zoom der Zeitleiste, Fortschrittsbalken,
     // Tastaturhöhe der App): Sie stehen im TS/JS, nicht im CSS — mal als
     // `setProperty('--x', …)`, mal als `style="--x: …"` in einem Template.
@@ -403,8 +408,14 @@ describe('Die geteilten Blätter erreichen die Seiten', () => {
     for (const datei of ['studio.html', 'admin.html']) {
       const inhalt = lies(datei)
       const stellen = GETEILTE_BLAETTER.map((b: string) => inhalt.indexOf(`/src/${b}.css`))
-      expect(stellen.every((s: number) => s > -1), `${datei} bindet nicht alle drei Blätter ein`).toBe(true)
-      expect([...stellen].sort((a: number, b: number) => a - b), `${datei}`).toEqual(stellen)
+      expect(
+        stellen.every((s: number) => s > -1),
+        `${datei} bindet nicht alle drei Blätter ein`,
+      ).toBe(true)
+      expect(
+        [...stellen].sort((a: number, b: number) => a - b),
+        `${datei}`,
+      ).toEqual(stellen)
       // Und alle vor dem Stilblock der Seite.
       expect(Math.max(...stellen)).toBeLessThan(inhalt.indexOf('<style>'))
     }

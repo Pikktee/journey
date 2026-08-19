@@ -4,7 +4,12 @@
 // Eine Zahl, die private Fahrten mitsummiert, verrät sie — „12 Touren" neben
 // drei sichtbaren Karten ist eine Auskunft über die anderen neun.
 import { describe, expect, it } from 'vitest'
-import { istTitelbildVorschlag, nacktesInstagram, nacktesWeb, titelbildUrl } from '../src/profilfelder.js'
+import {
+  istTitelbildVorschlag,
+  nacktesInstagram,
+  nacktesWeb,
+  titelbildUrl,
+} from '../src/profilfelder.js'
 import { baueTestApp, type TestUmgebung } from './helfer.js'
 
 async function patch(u: TestUmgebung, payload: Record<string, unknown>) {
@@ -21,7 +26,13 @@ function nutzerId(u: TestUmgebung): string {
 }
 
 /** Fertige Tour mit gesetzten Kennzahlen — die Pipeline läuft dafür nicht. */
-function legeFertigeTourAn(u: TestUmgebung, id: string, km: number, hm: number, sichtbarkeit = 'public'): void {
+function legeFertigeTourAn(
+  u: TestUmgebung,
+  id: string,
+  km: number,
+  hm: number,
+  sichtbarkeit = 'public',
+): void {
   u.app.deps.db
     .prepare(
       `INSERT INTO tours (id, owner_id, no, status, visibility, stats_json, created_at, updated_at)
@@ -66,7 +77,9 @@ describe('nacktesInstagram', () => {
 describe('titelbildUrl', () => {
   it('unterscheidet Vorschlag und eigenes Bild am Schrägstrich', () => {
     expect(titelbildUrl('u_1', 'serpentinen.jpg')).toBe('/titelbilder/serpentinen.jpg')
-    expect(titelbildUrl('u_1', 'titelbild/123.jpg')).toBe('/api/benutzer/u_1/titelbild?v=titelbild%2F123.jpg')
+    expect(titelbildUrl('u_1', 'titelbild/123.jpg')).toBe(
+      '/api/benutzer/u_1/titelbild?v=titelbild%2F123.jpg',
+    )
     expect(titelbildUrl('u_1', null)).toBeNull()
   })
 
@@ -82,7 +95,11 @@ describe('titelbildUrl', () => {
 describe('Profilfelder über die API', () => {
   it('speichert Ort, Website und Instagram in nackter Form', async () => {
     const u = await baueTestApp()
-    await patch(u, { ort: 'Frankfurt am Main', website: 'https://henrikheil.net/', instagram: '@henrik.unterwegs' })
+    await patch(u, {
+      ort: 'Frankfurt am Main',
+      website: 'https://henrikheil.net/',
+      instagram: '@henrik.unterwegs',
+    })
     expect(await meinProfil(u)).toMatchObject({
       ort: 'Frankfurt am Main',
       website: 'henrikheil.net',
@@ -151,14 +168,20 @@ describe('Eigenes Titelbild', () => {
     // Der liegt als statische Datei im Build und geht nie durch den Server
     const u = await baueTestApp()
     await patch(u, { titelbild: 'kueste.jpg' })
-    const abruf = await u.app.inject({ method: 'GET', url: `/api/benutzer/${nutzerId(u)}/titelbild` })
+    const abruf = await u.app.inject({
+      method: 'GET',
+      url: `/api/benutzer/${nutzerId(u)}/titelbild`,
+    })
     expect(abruf.statusCode).toBe(404)
   })
 
   it('lässt sich entfernen', async () => {
     const u = await baueTestApp()
     await ladeHoch(u)
-    expect((await u.app.inject({ method: 'DELETE', url: '/api/auth/me/titelbild', cookies: u.cookies })).statusCode).toBe(200)
+    expect(
+      (await u.app.inject({ method: 'DELETE', url: '/api/auth/me/titelbild', cookies: u.cookies }))
+        .statusCode,
+    ).toBe(200)
     expect(await meinProfil(u)).toMatchObject({ titelbildUrl: null })
   })
 })
@@ -195,7 +218,11 @@ describe('Kennzahlen', () => {
     legeFertigeTourAn(u, 't_1', 10, 100)
     legeFertigeTourAn(u, 't_2', 5, 50, 'private')
     const antwort = await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil' })
-    expect((antwort.json() as { kennzahlen: unknown }).kennzahlen).toEqual({ touren: 1, km: 10, hm: 100 })
+    expect((antwort.json() as { kennzahlen: unknown }).kennzahlen).toEqual({
+      touren: 1,
+      km: 10,
+      hm: 100,
+    })
   })
 })
 
@@ -203,7 +230,11 @@ describe('Eigenes Profil, solange es privat ist', () => {
   it('bleibt für den Besitzer erreichbar — sonst führte der Weg zum Schalter durch eine 404', async () => {
     const u = await baueTestApp()
     await patch(u, { anzeigename: 'Reisende' })
-    const antwort = await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil', cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: '/api/benutzer/test/profil',
+      cookies: u.cookies,
+    })
     expect(antwort.statusCode).toBe(200)
     expect((antwort.json() as { nurFuerDich: boolean }).nurFuerDich).toBe(true)
   })
@@ -211,13 +242,19 @@ describe('Eigenes Profil, solange es privat ist', () => {
   it('bleibt für alle anderen ein 404', async () => {
     const u = await baueTestApp()
     await patch(u, { anzeigename: 'Reisende' })
-    expect((await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil' })).statusCode).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil' })).statusCode,
+    ).toBe(404)
   })
 
   it('meldet beim öffentlichen Profil nurFuerDich falsch', async () => {
     const u = await baueTestApp()
     await patch(u, { anzeigename: 'Reisende', sichtbarkeit: 'public' })
-    const antwort = await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil', cookies: u.cookies })
+    const antwort = await u.app.inject({
+      method: 'GET',
+      url: '/api/benutzer/test/profil',
+      cookies: u.cookies,
+    })
     expect((antwort.json() as { nurFuerDich: boolean }).nurFuerDich).toBe(false)
   })
 })
@@ -233,7 +270,9 @@ describe('Profilantwort', () => {
       instagram: 'henrik.unterwegs',
       titelbild: 'wueste.jpg',
     })
-    const daten = (await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil' })).json() as Record<string, unknown>
+    const daten = (
+      await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil' })
+    ).json() as Record<string, unknown>
     expect(daten).toMatchObject({
       handle: 'test',
       anzeigename: 'Reisende',

@@ -20,7 +20,7 @@ export const BRAND_COLORS = {
   line: 'rgba(255, 255, 255, 0.08)',
   /** Text auf Amber/Coral-CTAs */
   onCta: '#1a1206',
-} as const;
+} as const
 
 export const BRAND_FONTS = {
   /** Titel, Wortmarke, Display, UI — eine Schrift (Fallback: s. basis.css) */
@@ -32,15 +32,15 @@ export const BRAND_FONTS = {
    * Nicht für Kennzahlen — dort Outfit + `font-variant-numeric: tabular-nums`.
    */
   mono: "'IBM Plex Mono', monospace",
-} as const;
+} as const
 
 /** CSS-Snippet für gleichbreite Ziffern in Outfit (Anti-Zucken ohne Mono). */
-export const BRAND_TABULAR_NUMS = 'font-variant-numeric: tabular-nums' as const;
+export const BRAND_TABULAR_NUMS = 'font-variant-numeric: tabular-nums' as const
 
 export interface LogoOptions {
-  height?: number; // Standard 44px
-  showText?: boolean;
-  textColor?: string;
+  height?: number // Standard 44px
+  showText?: boolean
+  textColor?: string
 }
 
 /**
@@ -58,32 +58,34 @@ const MARKE = `<g fill="none" stroke="${BRAND_COLORS.amber}" stroke-width="1.25"
   <path d="M 4.4 23.4 C 12.4 13.4, 27.2 26.6, 35.6 15.8"
     fill="none" stroke="url(#maptale-route)" stroke-width="2.5" stroke-linecap="round"/>
   <circle cx="4.4" cy="23.4" r="1.6" fill="${BRAND_COLORS.amber}"/>
-  <circle cx="35.6" cy="15.8" r="1.9" fill="${BRAND_COLORS.text}"/>`;
+  <circle cx="35.6" cy="15.8" r="1.9" fill="${BRAND_COLORS.text}"/>`
 
 /** Der Routen-Verlauf braucht Nutzer-Koordinaten, weil er über zwei Pfade hinweg gleich liegt. */
-const verlauf = (versatz: number) => `<linearGradient id="maptale-route" gradientUnits="userSpaceOnUse"
+const verlauf = (
+  versatz: number,
+) => `<linearGradient id="maptale-route" gradientUnits="userSpaceOnUse"
     x1="${4.4 + versatz}" y1="${23.4 + versatz}" x2="${35.6 + versatz}" y2="${15.8 + versatz}">
     <stop offset="0" stop-color="#F0940A"/><stop offset="1" stop-color="#FF8A5C"/>
-  </linearGradient>`;
+  </linearGradient>`
 
 /**
  * Generiert das freigegebene Maptale Logo-SVG (Mark + optional Wortmarke).
  * In der Nav bevorzugt: `/logo-mark.svg` (28px) + Text „Maptale“ — siehe DESIGN.md.
  */
 export function getBrandLogoSvg(options: LogoOptions = {}): string {
-  const height = options.height ?? 44;
-  const showText = options.showText ?? true;
-  const textColor = options.textColor ?? '#FFFFFF';
+  const height = options.height ?? 44
+  const showText = options.showText ?? true
+  const textColor = options.textColor ?? '#FFFFFF'
 
-  const viewBoxWidth = showText ? 152 : 46;
-  const svgWidth = Math.round(height * (viewBoxWidth / 46));
+  const viewBoxWidth = showText ? 152 : 46
+  const svgWidth = Math.round(height * (viewBoxWidth / 46))
 
   const textMarkup = showText
     ? `<text x="53.5" y="30.5" font-family="${BRAND_FONTS.display}" font-weight="700" font-size="23" fill="${textColor}" letter-spacing="-0.01em">Maptale</text>`
-    : '';
+    : ''
 
   // Versatz 3 zentriert das Zeichen in 46×46 — die ausbrechende Route braucht den Rand.
-  const versatz = 3;
+  const versatz = 3
 
   return `<svg width="${svgWidth}" height="${height}" viewBox="0 0 ${viewBoxWidth} 46" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>${verlauf(versatz)}</defs>
@@ -91,5 +93,5 @@ export function getBrandLogoSvg(options: LogoOptions = {}): string {
     ${MARKE}
   </g>
   ${textMarkup}
-</svg>`;
+</svg>`
 }

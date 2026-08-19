@@ -59,9 +59,9 @@ export class EinladungsDienst {
    * nicht offen im Netz stehen, bis jemand daran denkt, sie zu schließen.
    */
   pflicht(): boolean {
-    const zeile = this.db.prepare('SELECT wert FROM einstellungen WHERE schluessel = ?').get(SCHLUESSEL_PFLICHT) as
-      | { wert: string }
-      | undefined
+    const zeile = this.db
+      .prepare('SELECT wert FROM einstellungen WHERE schluessel = ?')
+      .get(SCHLUESSEL_PFLICHT) as { wert: string } | undefined
     return zeile ? zeile.wert === '1' : true
   }
 
@@ -76,13 +76,21 @@ export class EinladungsDienst {
 
   // — Einladungen —
 
-  erstelle(erstellerId: string, notiz: string | null, gueltigTage: number | null = GUELTIG_TAGE_STANDARD): Einladung {
+  erstelle(
+    erstellerId: string,
+    notiz: string | null,
+    gueltigTage: number | null = GUELTIG_TAGE_STANDARD,
+  ): Einladung {
     const code = neuerEinladungsCode()
     const jetzt = new Date()
     const ablauf =
-      gueltigTage && gueltigTage > 0 ? new Date(jetzt.getTime() + gueltigTage * 24 * 60 * 60 * 1000).toISOString() : null
+      gueltigTage && gueltigTage > 0
+        ? new Date(jetzt.getTime() + gueltigTage * 24 * 60 * 60 * 1000).toISOString()
+        : null
     this.db
-      .prepare('INSERT INTO einladungen (code, notiz, erstellt_von, erstellt_am, ablauf) VALUES (?, ?, ?, ?, ?)')
+      .prepare(
+        'INSERT INTO einladungen (code, notiz, erstellt_von, erstellt_am, ablauf) VALUES (?, ?, ?, ?, ?)',
+      )
       .run(code, notiz?.trim() || null, erstellerId, jetzt.toISOString(), ablauf)
     return this.alle().find((e) => e.code === code) as Einladung
   }
@@ -125,9 +133,9 @@ export class EinladungsDienst {
    * des Kontos. Null heißt: geht.
    */
   pruefe(code: string): EinladungsFehler | null {
-    const zeile = this.db.prepare('SELECT ablauf, eingeloest_am FROM einladungen WHERE code = ?').get(normiere(code)) as
-      | { ablauf: string | null; eingeloest_am: string | null }
-      | undefined
+    const zeile = this.db
+      .prepare('SELECT ablauf, eingeloest_am FROM einladungen WHERE code = ?')
+      .get(normiere(code)) as { ablauf: string | null; eingeloest_am: string | null } | undefined
     if (!zeile) return 'unbekannt'
     if (zeile.eingeloest_am) return 'verbraucht'
     if (zeile.ablauf && Date.parse(zeile.ablauf) < Date.now()) return 'abgelaufen'

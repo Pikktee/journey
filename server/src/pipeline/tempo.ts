@@ -150,7 +150,8 @@ function schaerfeGrenzen(abschnitte: Abschnitt[], roh: readonly number[]): Absch
   for (let i = 1; i < abschnitte.length; i++) {
     const vor = abschnitte[i - 1]!
     const nach = abschnitte[i]!
-    const gehoertSchonDazu = (tempo: number): boolean => (nach.gehen ? tempo < GEHEN_EIN : tempo > GEHEN_AUS)
+    const gehoertSchonDazu = (tempo: number): boolean =>
+      nach.gehen ? tempo < GEHEN_EIN : tempo > GEHEN_AUS
     let grenze = nach.vonIndex
     while (grenze > vor.vonIndex + 1 && gehoertSchonDazu(roh[grenze - 1]!)) grenze--
     vor.bisIndex = grenze
@@ -258,7 +259,10 @@ export function trenneGehabschnitte(segment: UploadSegment): UploadSegment[] {
   // Ohne erkennbare Fahrt bleibt alles, wie es ist
   if (primaer === 'walk') return [segment]
 
-  const abschnitte = verschmelzeKurze(schaerfeGrenzen(teileNachTempo(tempo), rohTempoKmh(segment.pts)), segment.pts)
+  const abschnitte = verschmelzeKurze(
+    schaerfeGrenzen(teileNachTempo(tempo), rohTempoKmh(segment.pts)),
+    segment.pts,
+  )
   if (abschnitte.length < 2) {
     // Ein einziger Abschnitt: nur der Modus kann sich noch geändert haben.
     // Das Label des Originals fällt dabei weg — es beschrieb den alten Modus.
@@ -280,7 +284,9 @@ export function trenneGehabschnitte(segment: UploadSegment): UploadSegment[] {
  * Chip-Reihe, oder ein GPX-Import mit Vorgabe) — diese Entscheidung wird nicht
  * überschrieben.
  */
-export function trenneGehabschnitteInSegmenten(segmente: readonly UploadSegment[]): UploadSegment[] {
+export function trenneGehabschnitteInSegmenten(
+  segmente: readonly UploadSegment[],
+): UploadSegment[] {
   if (segmente.length !== 1) return [...segmente]
   return trenneGehabschnitte(segmente[0]!)
 }

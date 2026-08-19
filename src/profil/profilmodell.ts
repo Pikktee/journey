@@ -111,8 +111,10 @@ export function kennzahlChips(kennzahlen: Kennzahlen | null): KennzahlChip[] {
       wort: kennzahlen.touren === 1 ? 'Tour' : 'Touren',
     })
   }
-  if (kennzahlen.km >= 1) chips.push({ art: 'km', zahl: zahl(Math.round(kennzahlen.km)), wort: 'km unterwegs' })
-  if (kennzahlen.hm >= 1) chips.push({ art: 'hm', zahl: zahl(Math.round(kennzahlen.hm)), wort: 'Höhenmeter' })
+  if (kennzahlen.km >= 1)
+    chips.push({ art: 'km', zahl: zahl(Math.round(kennzahlen.km)), wort: 'km unterwegs' })
+  if (kennzahlen.hm >= 1)
+    chips.push({ art: 'hm', zahl: zahl(Math.round(kennzahlen.hm)), wort: 'Höhenmeter' })
   return chips
 }
 
@@ -143,7 +145,11 @@ export function linkChips(profil: ProfilAntwort): LinkChip[] {
   if (web) chips.push({ art: 'web', text: web, href: `https://${web}` })
   const insta = profil.instagram?.trim().replace(/^@/, '')
   if (insta) {
-    chips.push({ art: 'instagram', text: `@${insta}`, href: `https://instagram.com/${encodeURIComponent(insta)}` })
+    chips.push({
+      art: 'instagram',
+      text: `@${insta}`,
+      href: `https://instagram.com/${encodeURIComponent(insta)}`,
+    })
   }
   return chips
 }
@@ -157,7 +163,10 @@ export function linkChips(profil: ProfilAntwort): LinkChip[] {
  * Handle auf einer der beiden Seiten ist die Antwort nein — ein „vielleicht"
  * gäbe es sonst als angebotenen Bearbeiten-Knopf, der nicht funktioniert.
  */
-export function istEigenes(profil: ProfilAntwort, eigenerHandle: string | null | undefined): boolean {
+export function istEigenes(
+  profil: ProfilAntwort,
+  eigenerHandle: string | null | undefined,
+): boolean {
   if (!profil.handle || !eigenerHandle) return false
   return profil.handle.toLowerCase() === eigenerHandle.toLowerCase()
 }

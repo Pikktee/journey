@@ -17,13 +17,17 @@
 //   PLAYWRIGHT=/pfad/zu/node_modules/playwright/index.mjs node scripts/messungen/durchlauf-gegen-achse.mjs
 const { chromium } = await import(process.env['PLAYWRIGHT'] ?? 'playwright')
 const BASIS = 'http://maptale.localhost:5123'
-const TOUREN = (process.env['TOUREN'] ?? 't_av6FvtBXV2eFEx,t_cGuHmm3vMa4ggQ,t_TeH5rXaXkTKxZm,t_MpDncFJcwYupqG').split(',')
+const TOUREN = (
+  process.env['TOUREN'] ?? 't_av6FvtBXV2eFEx,t_cGuHmm3vMa4ggQ,t_TeH5rXaXkTKxZm,t_MpDncFJcwYupqG'
+).split(',')
 /** Rund 30 s Wanduhr je Lauf: kurze Touren langsamer, lange schneller. */
 const tempoFuer = (gesamtS) => Math.max(1, Math.min(8, Math.round(gesamtS / 30)))
 
 const browser = await chromium.launch({ channel: 'chromium', args: ['--mute-audio'] })
 for (const tour of TOUREN) {
-  const seite = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage()
+  const seite = await (
+    await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  ).newPage()
   await seite.goto(`${BASIS}/tour/${tour}`, { waitUntil: 'domcontentloaded' })
   await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 45000 })
   const gesamt = await seite.evaluate(() => window.__j.filmachse.gesamtS)
@@ -34,7 +38,11 @@ for (const tour of TOUREN) {
     window.__messung = { start: performance.now(), ende: null }
     const beobachte = () => {
       const tr = window.__j.tour
-      if (tr.filmS >= window.__j.filmachse.gesamtS - 0.05 || tr.phase === 'intro' || tr.phase === 'finale') {
+      if (
+        tr.filmS >= window.__j.filmachse.gesamtS - 0.05 ||
+        tr.phase === 'intro' ||
+        tr.phase === 'finale'
+      ) {
         if (!window.__messung.ende) window.__messung.ende = performance.now()
         return
       }
@@ -42,7 +50,9 @@ for (const tour of TOUREN) {
     }
     requestAnimationFrame(beobachte)
   }, TEMPO)
-  await seite.waitForFunction(() => window.__messung?.ende, null, { timeout: 180000 }).catch(() => {})
+  await seite
+    .waitForFunction(() => window.__messung?.ende, null, { timeout: 180000 })
+    .catch(() => {})
   const m = await seite.evaluate(() => ({
     wand: window.__messung.ende ? (window.__messung.ende - window.__messung.start) / 1000 : null,
     verworfen: window.__j.uhr.verworfenS,

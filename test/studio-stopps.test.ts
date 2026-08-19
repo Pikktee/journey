@@ -13,7 +13,16 @@ import {
   type MediumBasis,
   type TrackPunkt,
 } from '../src/studio/editmodell'
-import { baueStopps, dOffsetOhneCluster, meterOhneCluster, NAHE_M, reiheVergeben, snapZiel, stoppSignatur, stoppVon } from '../src/studio/stopps'
+import {
+  baueStopps,
+  dOffsetOhneCluster,
+  meterOhneCluster,
+  NAHE_M,
+  reiheVergeben,
+  snapZiel,
+  stoppSignatur,
+  stoppVon,
+} from '../src/studio/stopps'
 import { kumMeter, meterZuOffset, offsetBeiMeter } from '../src/studio/zeitleiste'
 import { NAHE_M as PLAYER_NAHE_M } from '../src/geo.js'
 import { reihenfolgeImHalt } from '../src/einblendung.js'
@@ -23,7 +32,10 @@ const iso = (s: number): string => offsetZuIso(START, s)
 
 // Gerade Ost-West-Linie auf 47° Breite: 0,01° ≈ 759 m. 11 Punkte = ~7,6 km.
 const GRAD_JE_METER = 1 / (111_320 * Math.cos((47 * Math.PI) / 180))
-const track: TrackPunkt[] = Array.from({ length: 11 }, (_, i) => [9 + i * 0.01, 47, 0, i * 360] as TrackPunkt)
+const track: TrackPunkt[] = Array.from(
+  { length: 11 },
+  (_, i) => [9 + i * 0.01, 47, 0, i * 360] as TrackPunkt,
+)
 const kum = kumMeter(track)
 
 /** Ein Foto, dessen Anker `meter` weit auf der Strecke liegt. */
@@ -64,7 +76,10 @@ describe('baueStopps', () => {
 
   it('überspringt Unplatzierte und Gelöschte', () => {
     const basis = [foto('a', 1000), foto('b', 3000)]
-    const ohneAnker: MediumBasis[] = [...basis, { ...foto('c', 0), anchor: null, placement: 'unplatziert' }]
+    const ohneAnker: MediumBasis[] = [
+      ...basis,
+      { ...foto('c', 0), anchor: null, placement: 'unplatziert' },
+    ]
     expect(stopps(ohneAnker)).toHaveLength(2)
     const geloescht = mitMedienEdit(LEERES_OVERLAY, 'b', { geloescht: true })
     expect(stopps(basis, geloescht)).toHaveLength(1)
@@ -149,11 +164,9 @@ describe('meterOhneCluster / dOffsetOhneCluster', () => {
     const d = dOffsetOhneCluster([0], zielOffset, [fremdBei0], kum, track)
     const meter = meterZuOffset(kum, track, 0 + d)
     expect(meter).toBeGreaterThanOrEqual(NAHE_M)
-    expect(baueStopps(
-      effektiveMedien([foto('a', meter), foto('b', 0)], LEERES_OVERLAY),
-      track,
-      kum,
-    )).toHaveLength(2)
+    expect(
+      baueStopps(effektiveMedien([foto('a', meter), foto('b', 0)], LEERES_OVERLAY), track, kum),
+    ).toHaveLength(2)
   })
 })
 
@@ -216,7 +229,9 @@ describe('Drift-Wächter: Editor und Player gruppieren gleich', () => {
   it('ohne `reihe` steht eine Aufnahme HINTEN, nicht vorn', () => {
     // Sonst schöbe sich ein unbenanntes Bild vor eines, das der Autor
     // ausdrücklich an den Anfang gestellt hat.
-    expect(reihenfolgeImHalt([auf(100, 0), auf(900, 5, 5)], nachOrt).map(nachOrt)).toEqual([900, 100])
+    expect(reihenfolgeImHalt([auf(100, 0), auf(900, 5, 5)], nachOrt).map(nachOrt)).toEqual([
+      900, 100,
+    ])
   })
 
   it('lässt die Eingabe unangetastet', () => {

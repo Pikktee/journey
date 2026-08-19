@@ -16,10 +16,14 @@ const OUT = path.join(ROOT, 'public', 'photos', 'stockholm')
 
 const env = fs.readFileSync(path.join(ROOT, '.env'), 'utf8')
 const KEY = (env.match(/^FAL_KEY\s*=\s*(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, '')
-if (!KEY) { console.error('FAL_KEY fehlt in .env'); process.exit(1) }
+if (!KEY) {
+  console.error('FAL_KEY fehlt in .env')
+  process.exit(1)
+}
 
 // Gemeinsamer Look, damit die neuen Bilder zu den vorhandenen (analoger Film) passen.
-const FILM = 'Photorealistic 35mm analog film photograph, Kodak Portra, subtle film grain, natural realistic colors, candid documentary travel snapshot, sharp focus.'
+const FILM =
+  'Photorealistic 35mm analog film photograph, Kodak Portra, subtle film grain, natural realistic colors, candid documentary travel snapshot, sharp focus.'
 
 const PHOTOS = [
   {
@@ -78,7 +82,8 @@ const gen = async (p) => {
       enable_safety_checker: false,
     }),
   })
-  if (!res.ok) throw new Error(`${p.name}: HTTP ${res.status} — ${(await res.text()).slice(0, 300)}`)
+  if (!res.ok)
+    throw new Error(`${p.name}: HTTP ${res.status} — ${(await res.text()).slice(0, 300)}`)
   const data = await res.json()
   const url = data.images?.[0]?.url
   if (!url) throw new Error(`${p.name}: keine Bild-URL in Antwort`)
@@ -92,6 +97,10 @@ const only = process.argv.slice(2) // optional: nur bestimmte Dateinamen neu erz
 const list = only.length ? PHOTOS.filter((p) => only.includes(p.name)) : PHOTOS
 console.log(`Generiere ${list.length} Foto(s) → ${OUT}`)
 for (const p of list) {
-  try { await gen(p) } catch (e) { console.error('  ✗', e.message) }
+  try {
+    await gen(p)
+  } catch (e) {
+    console.error('  ✗', e.message)
+  }
 }
 console.log('fertig')

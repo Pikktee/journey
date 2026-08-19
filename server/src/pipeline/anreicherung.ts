@@ -51,7 +51,8 @@ export interface AnreicherungsCache {
  * Zeitreihe und macht damit `orte`/`wetterRoh` ungültig. Alle anderen Edits
  * (Caption, Modus, Kamera, Audio, Momente, Titel) lassen sie unberührt.
  */
-export const trimSignatur = (edits?: EditOverlay | null): string => JSON.stringify(edits?.trim ?? null)
+export const trimSignatur = (edits?: EditOverlay | null): string =>
+  JSON.stringify(edits?.trim ?? null)
 
 /**
  * Signatur der Video-Schnitte: nur sie machen `videoMeta` ungültig.
@@ -70,9 +71,11 @@ export const videoSchnittSignatur = (edits?: EditOverlay | null): string =>
   )
 
 /** Map → JSON-serialisierbares Record (Cache schreiben). */
-export const mapZuRecord = <V>(m: Map<string, V> | undefined): Record<string, V> => Object.fromEntries(m ?? [])
+export const mapZuRecord = <V>(m: Map<string, V> | undefined): Record<string, V> =>
+  Object.fromEntries(m ?? [])
 /** Record → Map (Cache lesen). */
-export const recordZuMap = <V>(r: Record<string, V> | undefined): Map<string, V> => new Map(Object.entries(r ?? {}))
+export const recordZuMap = <V>(r: Record<string, V> | undefined): Map<string, V> =>
+  new Map(Object.entries(r ?? {}))
 
 /**
  * Die trim-abhängigen Roh-Ergebnisse frisch beschaffen: Endpunkte geocodieren
@@ -92,16 +95,25 @@ export async function berechneRohAnreicherung(e: {
   const rohSegmente = wendeEditsAufSegmenteAn(e.manifest.segments ?? [], e.edits ?? null, startMs)
   const erstes = rohSegmente[0]
   const letztes = rohSegmente[rohSegmente.length - 1]
-  if (!erstes || !letztes) throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
+  if (!erstes || !letztes)
+    throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
   const startPunkt = erstes.pts[0] as UploadPunkt
   const zielPunkt = letztes.pts[letztes.pts.length - 1] as UploadPunkt
 
-  const orte = await geocodiereEndpunkte(e.geocoder, [startPunkt[0], startPunkt[1]], [zielPunkt[0], zielPunkt[1]])
+  const orte = await geocodiereEndpunkte(
+    e.geocoder,
+    [startPunkt[0], startPunkt[1]],
+    [zielPunkt[0], zielPunkt[1]],
+  )
 
   let wetterRoh: WetterKeyframe[] | null = null
   if (e.wetter) {
     try {
-      wetterRoh = await berechneWetter({ reihe: baueZeitreihe(rohSegmente), startIso: e.manifest.time.start, quelle: e.wetter })
+      wetterRoh = await berechneWetter({
+        reihe: baueZeitreihe(rohSegmente),
+        startIso: e.manifest.time.start,
+        quelle: e.wetter,
+      })
     } catch (fehler) {
       e.protokoll?.(`Auto-Wetter nicht verfügbar: ${(fehler as Error).message}`)
     }

@@ -80,5 +80,5 @@ export default tseslint.config(
       '@typescript-eslint/ban-ts-comment': 'off', // 1
       '@typescript-eslint/no-non-null-asserted-optional-chain': 'off', // 1
     },
-  }
+  },
 )

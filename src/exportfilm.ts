@@ -317,7 +317,12 @@ function zeichneAttribution(
   ctx.restore()
 }
 
-function zeichneOverlay(ctx: CanvasRenderingContext2D, id: string, breite: number, hoehe: number): void {
+function zeichneOverlay(
+  ctx: CanvasRenderingContext2D,
+  id: string,
+  breite: number,
+  hoehe: number,
+): void {
   const el = document.getElementById(id)
   if (!(el instanceof HTMLCanvasElement) || el.width < 2 || el.height < 2) return
   ctx.drawImage(el, 0, 0, breite, hoehe)
@@ -1090,7 +1095,12 @@ export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
     const warten = new Kachelwarten()
     const uhr = new Frameuhr()
     Object.assign((window as unknown as { __j?: Record<string, unknown> }).__j ?? {}, {
-      exportMess: () => ({ ...uhr.jeBild(), frames: uhr.frames, pauseMs: warten.pauseMs, nachgeladen: warten.nachgeladen }),
+      exportMess: () => ({
+        ...uhr.jeBild(),
+        frames: uhr.frames,
+        pauseMs: warten.pauseMs,
+        nachgeladen: warten.nachgeladen,
+      }),
     })
     await warten.frame(lauf.map)
 
@@ -1146,7 +1156,12 @@ export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
       uhr.buche('encode')
       uhr.frames++
     }
-    console.info('Video-Export, Wandzeit je Bild (ms):', uhr.jeBild(), 'Nachladen:', warten.nachgeladen)
+    console.info(
+      'Video-Export, Wandzeit je Bild (ms):',
+      uhr.jeBild(),
+      'Nachladen:',
+      warten.nachgeladen,
+    )
     video.close()
     await output.finalize()
     const buffer = target.buffer
@@ -1160,7 +1175,15 @@ export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
       // Studio soll auch dann noch gehen, wenn die Download-Leiste des
       // Browsers längst weg ist. Der Puffer wandert übergeben, nicht kopiert.
       lauf.melde(
-        { typ: EXPORT_NACHRICHT, stand: 'fertig', frame: n, frames: n, clipS: dauerS, dateiname: name, daten: buffer },
+        {
+          typ: EXPORT_NACHRICHT,
+          stand: 'fertig',
+          frame: n,
+          frames: n,
+          clipS: dauerS,
+          dateiname: name,
+          daten: buffer,
+        },
         [buffer],
       )
     } else {
@@ -1194,4 +1217,3 @@ export function baueExportStand(): HTMLElement {
   document.body.appendChild(el)
   return el
 }
-

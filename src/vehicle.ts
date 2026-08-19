@@ -11,7 +11,11 @@ import type { Modus } from './tours.js'
 // Boot (thailändisches Longtail auf dem Golf). Modi ohne Motor (walk/bike/tram) ⇒ Stille.
 // Partial, weil nur drei der sechs Modi einen Motor haben — die anderen fehlen
 // hier absichtlich und liefern beim Nachschlagen `undefined` ⇒ Stille.
-const MODE_SOUND: Partial<Record<Modus, string>> = { moped: 'eng-moped', jeep: 'eng-jeep', ferry: 'eng-boat' }
+const MODE_SOUND: Partial<Record<Modus, string>> = {
+  moped: 'eng-moped',
+  jeep: 'eng-jeep',
+  ferry: 'eng-boat',
+}
 
 export interface Fahrzeugton {
   /** Aktiven Modus setzen (aus ui.onModeChange). Unbekannte/motorlose Modi ⇒ Stille. */
@@ -25,14 +29,18 @@ export interface Fahrzeugton {
   destroy(): void
 }
 
-export function createVehicle(base = '/audio', { volume = 0.2 }: { volume?: number } = {}): Fahrzeugton {
+export function createVehicle(
+  base = '/audio',
+  { volume = 0.2 }: { volume?: number } = {},
+): Fahrzeugton {
   const loops: Record<string, SeamlessLoop> = {} // Sound-Name → SeamlessLoop (lazy: erst beim ersten Gebrauch geladen)
   const level: Record<string, number> = {} // Sound-Name → aktuelle Lautstärke (für den Crossfade)
   let curSnd: string | null = null // gewünschter Sound aus dem aktiven Modus (null = Stille)
   let gate = (): boolean => false
   let enabled = true
 
-  const getLoop = (snd: string) => (loops[snd] ||= new SeamlessLoop(`${base}/${snd}.mp3`, { xfade: 0.6 }))
+  const getLoop = (snd: string) =>
+    (loops[snd] ||= new SeamlessLoop(`${base}/${snd}.mp3`, { xfade: 0.6 }))
 
   // Eigener Timer: blendet jeden angelegten Loop Richtung Ziel (nur der gewünschte
   // Sound bekommt volume, alle anderen 0) — Moduswechsel wird so ein weicher Crossfade.
@@ -45,12 +53,21 @@ export function createVehicle(base = '/audio', { volume = 0.2 }: { volume?: numb
       if (level[snd]! > 0.003) {
         if (loop.paused && !loop._blocked) loop.play().catch(() => {})
         loop.volume = level[snd]!
-      } else if (!loop.paused) { loop.volume = 0; loop.pause() }
+      } else if (!loop.paused) {
+        loop.volume = 0
+        loop.pause()
+      }
     }
   }, 60)
 
   // Autoplay-Block nach der ersten User-Geste aufheben (Retry im Timer)
-  window.addEventListener('pointerdown', () => { for (const l of Object.values(loops)) l._blocked = false }, { passive: true })
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      for (const l of Object.values(loops)) l._blocked = false
+    },
+    { passive: true },
+  )
 
   return {
     // Aktiven Modus setzen (aus ui.onModeChange). Unbekannte/motorlose Modi ⇒ Stille.
@@ -62,10 +79,21 @@ export function createVehicle(base = '/audio', { volume = 0.2 }: { volume?: numb
       curSnd = snd
       if (snd) getLoop(snd) // Loop bei Bedarf anlegen → MP3 wird vorgeladen
     },
-    setGate: (fn: () => boolean) => { gate = fn },
-    setEnabled: (on: boolean) => { enabled = on },
-    get sound() { return curSnd }, // Debug/Abnahme
-    get level() { return curSnd ? (level[curSnd] ?? 0) : 0 }, // Debug/Abnahme
-    destroy: () => { clearInterval(timer); for (const l of Object.values(loops)) l.pause() },
+    setGate: (fn: () => boolean) => {
+      gate = fn
+    },
+    setEnabled: (on: boolean) => {
+      enabled = on
+    },
+    get sound() {
+      return curSnd
+    }, // Debug/Abnahme
+    get level() {
+      return curSnd ? (level[curSnd] ?? 0) : 0
+    }, // Debug/Abnahme
+    destroy: () => {
+      clearInterval(timer)
+      for (const l of Object.values(loops)) l.pause()
+    },
   }
 }
