@@ -4,6 +4,12 @@ icon: globus
 
 # Konzept: Mehrsprachigkeit (i18n) & URL-Routing
 
+> **Vorher zu klären: womit gebaut wird.** Astro bringt i18n-Routing im Kern mit
+> (Sprachpräfixe, `prefixDefaultLocale` für den hier gewünschten Fall
+> `/en/` als Standard, Fallback-Locales). Von Hand hieße es, alle vier Stellen des
+> URL-Raums gleichzeitig zu erweitern. Wer i18n zuerst baut, baut es zweimal:
+> [konzept_astro_umstieg.md](konzept_astro_umstieg.md).
+
 ## 1. Zielsetzung
 Maptale soll international ausgerichtet werden und sowohl im Web als auch in der Android-App mehrsprachig (zunächst Deutsch und Englisch) nutzbar sein.
 

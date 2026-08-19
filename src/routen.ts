@@ -17,8 +17,20 @@
  * gehört nicht in eine URL, die jemand vorliest oder in einer Mail anklickt.
  * Die `…​.html`-Adressen antworten weiterhin — die Dateien liegen nun einmal im
  * Build —, aber das ist ein Nebeneffekt und keine Zusage: Nichts im Code zeigt
- * mehr dorthin. Solange Maptale nicht produktiv genutzt wird, ist ein Pfad noch
- * frei änderbar; sobald die ersten Touren geteilt sind, ist er es nicht mehr.
+ * mehr dorthin.
+ *
+ * **Ein Pfad ist heute FREI ÄNDERBAR, und das ist eine Ansage, kein Versehen.**
+ * Maptale ist Alpha: Registrierung nur mit Einladung, der Player trägt
+ * `noindex`, in `sitemap.xml` stehen vier Seiten (`/`, `/galerie`,
+ * `/impressum`, `/datenschutz`). Es gibt also weder eine Suchmaschine noch ein
+ * Publikum, dem ein umbenannter Pfad etwas wegnähme. Wer hier eine Adresse
+ * ändert, ändert sie und fertig — kein Alias, kein Rewrite, keine Rücksicht.
+ *
+ * Verbindlich wird ein Pfad ab dem Launch, und dann NICHT alle gleich stark:
+ * die vier gelisteten sammeln externe Links; `/anmelden` und `/konto` stehen in
+ * Mails, aber nur so lange, wie deren Token gilt (Stunden, nicht ewig);
+ * geteilte Tour-Links binden erst, sobald jemand teilt. Bis dahin kostet jede
+ * vorgezogene Rücksicht Aufwand für ein Publikum, das es nicht gibt.
  *
  * **Mehrsprachigkeit.** Die Pfade sind deutsch, weil das Produkt deutsch ist;
  * englische Pfade wären der schlechteste Zwischenschritt (englische URL am
@@ -27,8 +39,9 @@
  * Namen trägt und der Pfad nur dessen heutige Ausprägung ist: Aus
  * `pfad: '/anmelden'` wird dann `pfade: { de: '/anmelden', en: '/sign-in' }`
  * samt `/en/`-Präfix, ohne dass eine einzige Link-Stelle im Code sich ändert —
- * die rufen alle `pfad('anmelden')`. Die dann alten Pfade bleiben für immer
- * als Alias bestehen; Mail-Links sind in der Welt.
+ * die rufen alle `pfad('anmelden')`. Ob die dann alten Pfade als Alias
+ * bestehen bleiben, entscheidet der Stand zu jenem Zeitpunkt — nach dem Launch
+ * ja, vorher nicht (s. oben).
  */
 
 /** Sprachneutraler Name einer Seite. Er, nicht der Pfad, steht im Code. */

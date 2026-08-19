@@ -1,173 +1,460 @@
 ---
-stand: 2026-08-07
-status: 'am 13.08. geprüft und VERTAGT (§9), nichts davon umgesetzt'
+stand: 2026-08-19
+status: beschlossen am 2026-08-19, zweite Fassung nach Review, Wellen und Verträge inventarisiert, nichts umgesetzt
+betrifft:
+  - server/src/db.ts
+  - server/src/schema/edits.ts
+  - server/src/schema/upload.ts
+  - server/src/routes/auth.ts
+  - server/src/routes/tours.ts
+  - src/studio/api.ts
+  - src/remote.ts
+  - src/studio/editmodell.ts
+  - src/filmachse.ts
+  - src/kartenmaler.ts
+  - android/app/src/main/java/app/maptale/daten/Entities.kt
+  - android/app/src/main/java/app/maptale/daten/LuhamboDb.kt
+  - android/app/src/main/java/app/maptale/upload/ApiClient.kt
+  - android/app/src/main/java/app/maptale/upload/EditsFortschreibung.kt
+  - CLAUDE.md
+  - docs/specs/austauschformat.md
+  - docs/specs/overlay-und-tourjson.md
 icon: buchstaben
 ---
 
 # Konzept: Codebase-Bezeichner auf Englisch
 
-**Vertagt.** Bis auf Weiteres bleibt auch neuer Code deutsch. Was jetzt schon
-gilt: die linke Glossar-Spalte (§6), ein Wort je Begriff.
-**Anlass:** Zukunftssicherheit (Mitentwickler, Hiring, öffentliche APIs) bei
-weiterhin deutschem Chat und deutschen Produkttexten.
+**Beschlossen.** Interne Bezeichner gehen auf Englisch, einschließlich aller
+persistierten Verträge und der HTTP-API. Die vertagte Fassung vom 13.08. ist
+überholt (§10), die erste beschlossene Fassung vom Vormittag des 19.08. ist durch
+diese ersetzt (§0).
+
 **Leitplanke:** Coding-Agenten übernehmen die Tipparbeit; Menschen halten
-Glossar, Wellengrenze und Review. Kein Big-Bang.
+Glossar, Wellengrenze und Review. Kein Big-Bang. Kein Rückwärtsleser.
+
+---
+
+## 0. Was diese Fassung gegenüber der ersten vom 19.08. ändert
+
+Die erste Fassung hatte Welle 1 als „DB + vier JSON-Dateien + Room" geschnitten
+und sich darauf verlassen, dass der Compiler den Rest aufreißt. Ein Review gegen
+den Code hat sieben Stellen gefunden, an denen das nicht trägt. Jede hat hier
+ihren Abschnitt:
+
+1. **Die HTTP-API ist ein Vertrag und fehlte.** 73 Pfade, rund 45 davon mit
+   deutschen Wörtern, dazu deutsche Feldnamen in fast jeder Antwort. Web und
+   Android tippen diese Typen von Hand nach, kein Compiler verbindet die Seiten.
+   **Entschieden: die API geht mit**, Pfade und Felder, in Welle 1 (§3.2, §6.7).
+2. **„Der Compiler reißt es auf" gilt nicht an den Nähten.** `server/` und
+   `src/` sind getrennte `tsconfig`-Welten, Kotlin sieht nichts davon, und
+   `EditsFortschreibung.kt` schreibt `edits.json` über ein rohes `JsonObject`.
+   Die Nähte stehen jetzt als Liste (§3.3).
+3. **Die Specs verlangen schon heute eine Versionserhöhung** („Schema-Änderungen
+   erhöhen die `@`-Version", `austauschformat.md`). Die Kennung wird erhöht,
+   ein Leser für die alte Fassung wird NICHT gebaut (§4.1). Das ist kein
+   Kompatibilitätsweg, sondern die Fehlermeldung.
+4. **„Keine Datenbewegung" stimmt nur für Spaltennamen.** Acht Tabellen tragen
+   deutsche Werte in `CHECK`-Constraints, dazu ein partieller Index auf
+   `'laeuft'` und JSON-Blobs in Spalten. Werte gehen mit, und das ist je Tabelle
+   ein Neubau, kein `RENAME` (§4.2).
+5. **Der Einmal-Lauf war nicht betreibbar.** Ein gelöschtes Skript unter
+   `scripts/` erreicht weder den Datenordner im Container noch die
+   Dev-Instanzen noch einen Snapshot. Die JSON-Umschreibung wird eine
+   eingecheckte **Start-Migration** neben der DB-Leiter, und `tour.json` wird
+   nicht umgeschrieben, sondern **neu gerendert** (§4.3).
+6. **Die Nutzer-Annahme hat Zahlen und eine Frist** (§4.5). Der APK hängt
+   öffentlich an der Landing, Einladungen und Warteliste sind live, Play Store
+   steht in der Roadmap davor.
+7. **Android braucht Room v4 mit `fallbackToDestructiveMigration()`**, nicht
+   nur eine Neuinstallation: Ein APK-Update derselben Signatur stürzt sonst beim
+   Start ab (§4.4).
+
+Dazu: Glossar-Lücken gefüllt (`export` als neues Homonym, `Aufnahme`, `Pause`,
+API-Pfade), die Modultabelle vollständig, die Messskripte als blinder Fleck
+benannt, Topf C korrigiert, ein Rückweg in §8.
 
 ---
 
 ## 1. Ziel und Nicht-Ziel
 
 ### Ziel
-Interne Bezeichner (Funktionen, Typen, Variablen, Dateinamen, später DB/API)
-auf **Englisch** vereinheitlichen.
+
+Interne Bezeichner auf **Englisch** vereinheitlichen: Funktionen, Typen,
+Variablen, Dateinamen, DB-Tabellen und -Spalten, DB-Werte mit Codebedeutung,
+JSON-Schlüssel und -Werte in allen vier Tour-Dateien, HTTP-API-Pfade unter
+`/api/` und ihre Felder, Room-Tabellen, -Spalten und Enum-Speicherwerte,
+DataStore-Schlüssel.
 
 ### Bleibt Deutsch
-- UI-Texte, Mail-Vorlagen, Rechtstexte, Commit-Messages-Stil nach Geschmack
-- Produktchat und Specs dürfen Deutsch bleiben
-- Domain-Wörter im Glossar haben eine feste englische Code-Form; die
-  deutsche Bedeutung steht daneben
 
-### Nicht-Ziel (eigene Themen)
-- Mehrsprachigkeit der Oberfläche → [konzept_mehrsprachigkeit_i18n.md](konzept_mehrsprachigkeit_i18n.md)
+- UI-Texte, Mail-Vorlagen, Rechtstexte, Hilfetexte
+- Commit-Messages, Produktchat, Konzepte und Specs als Prosa
+- Der Inhalt der Tabelle `mailvorlagen` (Text, keine Struktur)
+- Die Texte der Einwilligungs-Historie (`textfassung`): Das ist eine Zusage
+  nach Art. 7 DSGVO, kein Schlüssel
+
+### Nicht-Ziel
+
+- **Seiten-Pfade.** `/anmelden`, `/konto`, `/galerie`, `/@handle`, `/tour/t_…`
+  sind Produkttext. Mehrsprachigkeit macht daraus `/de/anmelden` neben
+  `/en/login` (→ [konzept_mehrsprachigkeit_i18n.md](konzept_mehrsprachigkeit_i18n.md)).
+  Die API-Pfade unter `/api/` sind davon ausdrücklich **ausgenommen**: Sie sind
+  Code, kein Produkttext, und gehen mit.
+- Mehrsprachigkeit der Oberfläche (dasselbe Dokument)
 - Modus-Konsolidierung → [modi-konsolidierung.md](modi-konsolidierung.md)
+- Die Wurzel-`CLAUDE.md` zu kürzen (100 KB; war nach dem Aufräumen im August
+  25 KB). Ein eigenes Thema, unabhängig von der Sprache.
 
-### Ausgangslage: der Player ist schon englisch
+### Ausgangslage, gemessen am 2026-08-19
 
-Die Codebase ist **nicht durchgehend deutsch**, und das prägt den Zuschnitt der
-Wellen unten. Gemessen am 2026-08-11:
-
-| Bereich | Sprache der Bezeichner |
+| Bereich | Stand |
 |---|---|
-| Player (`src/*.js`) | **englisch** — der alte Prototyp-Code |
-| Studio, Konto, Profil, Admin (`src/**/*.ts`) | deutsch |
-| Server (`server/`), Android (`android/`) | deutsch |
+| Player-Kern (`src/*.ts`, 80 Dateien) | gemischt: englisches Prototyp-Erbe, deutscher Neubau darüber (`filmachse`, `filmuhr`, `kartenmaler`, `kartenschicht`, `einblendung`, `streckenanker`, `tourtexte`, `wetterhimmel`, `vollbild`, `karteninfo`, `exportfilm`, dazu die deutschen Ergänzungen in `tour.ts`, `ui.ts`, `main.ts`) |
+| Studio, Konto, Profil, Admin, Galerie | deutsch |
+| Server (`server/src`, 74 Dateien) | deutsch, Verträge gemischt (`upload@1` fast englisch, `edits@1` fast deutsch, `tour@1` gemischt) |
+| Android (59 Kotlin-Dateien) | deutsch |
+| SQLite | 17 Tabellen, `user_version` 22; 11 Tabellennamen und rund 80 Spalten deutsch, 8 `CHECK`-Wertemengen deutsch |
+| HTTP-API | 73 Pfade, rund 45 mit deutschen Wörtern; Feldnamen überwiegend deutsch |
 
-Im Player sind rund **30 von 839** Bezeichnern deutsch (~4 %) — durchweg jüngere
-Ergänzungen: `planeRueckzug`, `kamFolger`, `merkeSeitenverhaeltnis`,
-`setzeViewportHoehe`, `zeichneKopf`, `hoehenPruefen` und ein paar mehr in
-`main.js`, `photopins.js`, `atmosphere.js`, `ui.js`, `tour.js`.
+Grobzählung der `export`-Deklarationen: `src/` 816, `server/src/` 414, jeweils
+**rund die Hälfte** mit deutschem Wortstamm (Heuristik über Stämme, nicht
+belastbar auf zehn Prozent genau; die Größenordnung reicht für den Schnitt).
 
-Deshalb kommt der Player in den Wellen 1–7 **nicht vor**: Dort ist fast nichts zu
-tun. Die Wellen greifen genau dort, wo nach dem Prototyp weitergebaut wurde.
+### Ein Nebengewinn und ein Nebenverlust
 
-**Verhältnis zur TypeScript-Migration**
-([konzept_player_typescript.md](../archive/konzept_player_typescript.md)): Die beiden
-Vorhaben berühren sich kaum — das eine betrifft `src/*.js`, das andere alles
-darum herum. Die eine echte Abhängigkeit läuft in eine Richtung: Wer die ~30
-Restnamen des Players anfassen will, tut das **nach** der TS-Migration, weil
-Umbenennen dann eine typgeprüfte Operation über den ganzen Graph ist statt einer
-Textsuche. Umgekehrt gewinnt die TS-Migration nichts davon, vorher anglisiert zu
-haben.
+**Deutsch hat hier ein Homonym, das Englisch auflöst: `Karte`.** Landkarte
+(`karteninfo`, `kartenstimmung`) und Foto-Karte (`kartenmaler`, `kartenschicht`,
+`KARTEN_MASSE`) liegen beide im Player, beide werden pro Frame gezeichnet, eine
+Suche nach `karte` findet beides. Auf Englisch `map` und `card`.
+
+**Englisch schafft dafür eines: `export`.** Video-Export (`exportfilm.ts`,
+`exportformat.ts`, `exportblatt.ts`) und DSGVO-Datenexport (`export.ts`,
+`exportinhalt.ts`, `exportlauf.ts`, Tabelle `exporte`) hießen auf Deutsch schon
+gleich und würden es auf Englisch erst recht. Das Glossar trennt sie als
+`filmExport` und `dataExport` (§6.1). Dasselbe gilt für `Aufnahme` (der Vorgang
+des Aufzeichnens gegen das einzelne Foto) und `Pause` (GPS-Stillstand gegen
+angehaltene Wiedergabe).
 
 ### Agenten-Qualität
-Englisch im Code macht Agenten **nicht** grundsätzlich schlechter, solange
-Glossar + `CLAUDE.md` mitziehen. Schlechter wird es durch **Halb-Umbau**
-(drei Synonyme für dieselbe Sache) und Docs, die noch die alten Namen führen.
+
+Englisch im Code macht Agenten **nicht** schlechter, solange Glossar und
+`CLAUDE.md` mitziehen. Schlechter wird es durch **Halb-Umbau** (drei Synonyme
+für eine Sache) und durch Docs mit alten Namen. Beides adressiert §7.
 
 ---
 
 ## 2. Spielregeln
 
-1. **Das Glossar ist verbindlich.** Kein Agent erfindet Synonyme
-   (`Halt` ist nicht mal `stop`, mal `hold`, mal `pause`).
+1. **Das Glossar ist verbindlich.** Kein Agent erfindet Synonyme. Neue Begriffe
+   zuerst in §6, dann im Code.
 2. **Eine Welle = ein PR-Thema**, CI grün, kurzer manueller Smoke, dann weiter.
-3. **Persistierte Verträge zuletzt** (JSON-Felder, SQLite, Room, URL-Pfade) —
-   mit Versionierung oder Alias, nie stumm umbenannt.
-4. **Pro Welle Docs mitziehen** (`CLAUDE.md`, Studio-/Server-CLAUDE, Specs) —
-   nicht erst am Ende.
-5. **UI-Strings nicht mit-refactorn.** Code `visibility`, Label „Sichtbarkeit“.
+3. **Verträge werden EINMAL umgeschrieben.** Die Schema-Kennung steigt auf `@2`
+   (§4.1); für `@1` gibt es **keinen Leser**, keine Aliase, keine dauerhafte
+   Übersetzungsschicht. Die Umschreibung der Bestandsdaten ist eine
+   eingecheckte, idempotente Start-Migration (§4.3), kein Lesepfad.
+4. **Pro Welle Docs mitziehen** nach §7, nicht erst am Ende.
+5. **UI-Strings nicht mit-refactorn.** Code `visibility`, Label „Sichtbarkeit".
+6. **Was kein Compiler sieht, steht auf der Nahtliste** (§3.3) und wird in der
+   Welle, die die Naht berührt, von Hand geprüft.
 
-Vor dem Start in `CLAUDE.md` die Sprachregel anpassen:
+Vor dem Start in `CLAUDE.md` die Sprachregel anpassen (Welle 0):
 
-> Code-Bezeichner Englisch (siehe Glossar in
-> `docs/concepts/konzept_codebase_english_refactoring.md`). UI- und
-> Produkttexte Deutsch. Chat darf Deutsch.
+> Code-Bezeichner Englisch (Glossar in
+> `docs/concepts/konzept_codebase_english_refactoring.md` §6), einschließlich
+> API-Pfaden unter `/api/`, DB-Schema und JSON-Schlüsseln. UI- und Produkttexte
+> Deutsch. Doku und Chat Deutsch.
 
 ---
 
-## 3. Wellen-Reihenfolge
+## 3. Die Verträge: Inventur
+
+### 3.1 Was ein Vertrag ist
+
+Alles, was **zwei getrennt kompilierte Seiten teilen** oder **auf Platte
+liegt**. Getrennt kompiliert sind hier vier Welten: `src/` (Web), `server/src/`
+(eigener `rootDir`, `tsconfig.json` der Wurzel schließt `server` aus),
+`android/` (Kotlin) und die Skripte unter `scripts/` (nicht typgeprüft). Eine
+Umbenennung innerhalb einer Welt fängt der Compiler; eine Umbenennung ÜBER eine
+Grenze hinweg fängt niemand.
+
+### 3.2 Die Verträge und ihre Leser
+
+| Vertrag | Wo | Leser (außerhalb des Schreibers) | Kennung |
+|---|---|---|---|
+| SQLite-Schema | `server/src/db.ts` | nur Server | `user_version` 22 |
+| `original/manifest.json` | Datenordner | Server (Pipeline), Android (Schreiber) | `maptale/upload@1` |
+| `edits.json` | Datenordner | Server, Studio (über API), **Android** (`EditsFortschreibung.kt`, rohes `JsonObject`) | `maptale/edits@1` |
+| `anreicherung.json` | Datenordner | nur Server (Cache) | `maptale/anreicherung@1` |
+| `tour.json` | Datenordner | Player (`src/remote.ts`), Export-ZIP | `maptale/tour@1` |
+| JSON in DB-Spalten | `tours.stats_json`, `rueckmeldungen.kontext`, `mail_tokens.nutzlast`, `tracker_verknuepfungen.tokens` | Server, Web (`stats` in Listen) | keine |
+| **HTTP-API** | `server/src/routes/*`, `server/src/app.ts` | Web (`src/studio/api.ts`, `src/remote.ts`, `src/konto`, `src/profil`, `src/admin`, `src/galerie`, `src/app-nav.ts`), **Android** (`ApiClient.kt`, `TourenScreen.kt`, `ImportViewModel.kt`, `TrackerModell.kt`) | keine |
+| Room | `Entities.kt`, `LuhamboDb.kt` | nur App | Version 3, zwei Migrationen |
+| DataStore | `api_token`, `email`, `server_url`, `fotos_automatisch` | nur App | keine |
+| Cookies | `maptale_session`, `maptale_dabei` | Browser | keine |
+| localStorage | `maptale.ansicht` | Browser | keine |
+| `postMessage`-Kanal | `src/exportformat.ts` | Studio ↔ Export-Rahmen, gleiche Welt | keine |
+| `window.__j`, `window.__studio` | Player, Studio | **`scripts/messungen/*`** (Playwright) | keine |
+| Query-Parameter | `?tour`, `?app`, `?dev`, `?pins3d`, `?reverse` | Android-WebView (`?app=1`), Bookmarks | keine |
+
+**Was von der Tabelle in Welle 1 gehört:** die ersten sieben Zeilen und Room.
+DataStore, Cookies, localStorage, Query-Parameter und der `postMessage`-Kanal
+gehen in der Welle ihres Moduls mit (§5); bei den vier App-seitigen
+DataStore-Schlüsseln ist ein Schlüsselwechsel eine Abmeldung, also ein
+bewusster Schritt in Welle 7, nicht beiläufig.
+
+### 3.3 Die Nähte, die kein Compiler sieht
+
+Jede Welle, die eine dieser Stellen berührt, prüft sie von Hand und lässt den
+zugehörigen Test laufen:
+
+| Naht | Warum blind | Halt |
+|---|---|---|
+| API-Felder Server → Web | handgetippte Typen in `src/studio/api.ts`, `src/remote.ts`, `src/konto/*`, `src/profil/*`, `src/admin/*`, `src/galerie/*` | Welle 1 ändert beide Seiten in einem Commit; Smoke über alle Seiten (§8) |
+| API-Felder Server → Android | `ApiClient.kt` Data Classes, String-Vergleiche auf `"bereit"`/`"fehler"` (`TourenScreen.kt:258`, `ImportViewModel.kt:119`) | Welle 1; App-Release im selben Tag wie der Server |
+| `edits.json` ← Android | `EditsFortschreibung.kt` mit rohen Schlüsseln `"medien"`, `"titelbild"`, `"caption"` | Welle 1; Android-Unit-Test auf die neuen Schlüssel |
+| `test/fixtures/filmachse.json` | EIN Fixture, zwei Testwelten (`test/filmachse.test.ts`, `server/test/filmtempo.test.ts`) | Welle 5 ändert Fixture und Server-Spiegel zusammen |
+| Server-Spiegel ohne Import | `server/src/webpfade.ts`, `server/src/handle.ts`, `server/src/pipeline/filmtempo.ts`, `filmachse.ts`, `STUDIO_PEGEL` in `schema/edits.ts` | bestehende Drift-Wächter in `test/routen.test.ts`, `test/filmachse.test.ts`, `test/audio*.test.ts` |
+| Text-Wächter | Tests, die Quelltext als Zeichenkette lesen (`test/newsletter-einwilligung.test.ts`, `test/session-hinweis.test.ts`, `test/routen.test.ts`, `test/basis-css.test.ts`) | laufen ohnehin; wer rot wird, passt den Wächter an, nicht den Code |
+| Messskripte | `scripts/messungen/*.ts|mjs` importieren `src/filmachse`, `src/einblendung`, `src/kartenmaler`, `src/streckenanker`, `src/geo` und lesen `window.__j.filmachse`, `.filmS`, `.uhr`, `.exportMess`; `scripts/seed-demo-touren.mjs` importiert `src/tours` | Welle 5 und 6 ziehen `scripts/` mit; Abnahme: jedes Messskript einmal gestartet |
+| Vhost | `deploy/cloudpanel-nginx.conf` proxyt nur `/api` als Präfix und `/sitemap-*.xml` | unberührt, solange `/api/` Präfix bleibt |
+| Extern registrierte URLs | OAuth-Callback und Webhook der Tracker-Anbieter (`/api/tracker/:provider/callback`, `/api/webhooks/tracker/:provider`) | schon englisch, **bleiben wortgleich**; eine Änderung hieße Neuregistrierung beim Anbieter |
+| Mail-Links auf die API | `/api/export/:token` (48 h gültig), `/api/newsletter/ein-klick/:token` (noch kein Versand live) | Welle 1 zu einem Zeitpunkt ohne laufenden Export; Newsletter-Versand ist Teil B und noch nicht gebaut |
+
+### 3.4 Was ausdrücklich NICHT dazugehört
+
+- **Seiten-Pfade** (§1). Auch `/@handle`, `/tour/t_…`, `/sitemap-*.xml`.
+- **Tour-IDs** `t_…`: Das Präfix IST die Unterscheidung zu den kuratierten
+  `TOURS` und steht so im Player-Vertrag.
+- **Der Inhalt** von `mailvorlagen`, `newsletter_einwilligungen.textfassung`
+  und allen Rechtstexten.
+- **Extern registrierte Pfade** (Tracker-Callback, Webhook): schon englisch.
+- **Die Ordnerstruktur je Tour** (`original/`, `media/`): schon englisch;
+  `anreicherung.json` wird zu `enrichment.json` (§4.3).
+
+---
+
+## 4. Persistenz und API als Einmal-Lauf
+
+Der Bestand ist klein genug, dass der schwere Weg (Versionierung mit
+Rückwärtslesern, Aliase, Doppelbetrieb) nicht nötig ist. Die Option verfällt
+mit fremden Daten im System; §4.5 hält die Zahlen und die Frist.
+
+### 4.1 Die Schema-Kennungen steigen auf `@2`, Leser für `@1` gibt es nicht
+
+`austauschformat.md` §„Versionierung" sagt schon heute: „Schema-Änderungen
+erhöhen die `@`-Version." Das gilt weiter. `maptale/upload@2`, `edits@2`,
+`enrichment@2` (umbenannt, s. §4.3), `tour@2`. Was NICHT gebaut wird, ist ein
+Leser für `@1`: Eine alte App, die `upload@1` sendet, bekommt **400 mit
+Klartext** („App aktualisieren"), und die App zeigt ihn an. Ohne Erhöhung wäre
+die Ablehnung ein opaker `additionalProperties`-Fehler, und `@1` hieße zwei
+verschiedene Dinge. Der Satz in der Spec, das Backend „darf alte
+Manifest-Versionen weiter annehmen", wird in Welle 1 ersetzt durch: „nimmt genau
+die aktuelle an; ältere werden mit Hinweis abgelehnt."
+
+### 4.2 SQLite: Spalten per `RENAME`, Werte per Neubau
+
+**Spalten und Tabellen** sind ein weiterer Schritt in der `user_version`-Leiter
+([server/src/db.ts](../../server/src/db.ts)) mit `ALTER TABLE … RENAME COLUMN`
+und `RENAME TO`. Keine Datenbewegung. 11 Tabellennamen und rund 80 Spalten, die
+vollständige Abbildung steht in §6.8.
+
+**Werte** sind etwas anderes. Acht Tabellen tragen deutsche Werte in
+`CHECK`-Constraints, und `RENAME COLUMN` kann die nicht ändern:
+
+| Tabelle | Spalte | Werte heute | Werte danach |
+|---|---|---|---|
+| `tours` | `status` | `angelegt, verarbeitung, bereit, fehler` | `created, processing, ready, failed` |
+| `users` | `rolle` | `nutzer, admin` | `user, admin` |
+| `exporte` | `status` | `laeuft, fertig, fehler` | `running, done, failed` |
+| `newsletter_einwilligungen` | `zustand` / `quelle` | `an, aus` / `registrierung, konto, abmeldelink` | `on, off` / `signup, account, unsubscribe_link` |
+| `rueckmeldungen` | `status` | `offen, in_arbeit, erledigt` | `open, in_progress, done` |
+| `tracker_importe` | `status` | `wartet, laeuft, fertig, fehler, uebersprungen` | `pending, running, done, failed, skipped` |
+| `tracker_verknuepfungen` | `status` | `aktiv, abgelaufen, getrennt` | `active, expired, disconnected` |
+| `mail_tokens` | `zweck` | `verify, reset, email` | bleibt |
+
+Jede dieser Tabellen wird nach dem SQLite-Rezept neu gebaut (neue Tabelle
+anlegen, `INSERT … SELECT` mit `CASE` über die Werte, alte löschen, umbenennen,
+Indizes neu anlegen). Der partielle Index `idx_exporte_laufend … WHERE status =
+'laeuft'` entsteht dabei als `WHERE status = 'running'` neu. Das ist
+Datenbewegung, in Sekunden erledigt, aber sie gehört benannt: Der
+Migrationsschritt läuft in einer Transaktion, und der Test, der die Leiter von
+Version 0 hochfährt, bekommt je Tabelle eine Zeile mit altem Wert, die danach
+den neuen tragen muss.
+
+**JSON-Blobs in Spalten** (`tours.stats_json` mit `fotos`, `spur`;
+`rueckmeldungen.kontext`; `mail_tokens.nutzlast`; `tracker_verknuepfungen.tokens`)
+werden im selben Migrationsschritt per `UPDATE` über die Glossartabelle
+umgeschrieben. `nutzlast` und `tokens` tragen nur fremde oder schon englische
+Schlüssel und bleiben.
+
+### 4.3 JSON auf Platte: Start-Migration, und `tour.json` wird neu gerendert
+
+Die erste Fassung wollte ein Einmal-Skript unter `scripts/`, das nach dem Lauf
+gelöscht wird. Das scheitert am Betrieb: Auf dem Server läuft nur die API im
+Container, die Daten liegen unter `/srv/maptale/daten`; jede Dev-Instanz, die
+Smoke-Instanz (`MAPTALE_DATEN_DIR`) und jeder Snapshot von vor Welle 1 brauchen
+dasselbe Werkzeug; und zwischen `docker compose up` des neuen Images und dem
+Skriptlauf läse der neue Code alte Schlüssel.
+
+Deshalb: **eine Start-Migration im Server, neben der DB-Leiter.** Beim Start
+liest der Server `daten/.schema` (Marker, heute nicht vorhanden = Stand 1),
+durchläuft bei Stand 1 alle Tour-Ordner, bildet die Schlüssel von
+`original/manifest.json`, `edits.json` und `anreicherung.json` nach der
+Glossartabelle ab, benennt `anreicherung.json` in `enrichment.json` um,
+schreibt die Kennungen auf `@2` und setzt den Marker auf 2. Idempotent, in
+einer Transaktion je Tour (Schreiben in `.neu`, dann `rename`), eingecheckt
+unter `server/src/migrationen/`. Das ist **kein Rückwärtsleser**: Es liest die
+alte Form genau einmal, in Ruhe, vor dem ersten Request. Drei Regeln:
+
+- **Die Abbildung ist dieselbe Tabelle wie im Code**, nicht zwei Listen. Sie
+  steht als Datenstruktur in `server/src/migrationen/schluessel-v2.ts` und wird
+  von einem Test gegen die zod-Schemata gehalten: Jeder neue Schlüssel muss im
+  Schema vorkommen, jeder alte darf es nicht mehr.
+- **`tour.json` wird nicht umgeschrieben, sondern neu gerendert.** Nach der
+  Migration stößt die Start-Migration für jede Tour mit Status `ready` ein
+  Re-Render an (dieselbe Warteschlange wie `reprocess`, aus dem Cache, also
+  ohne Geocoding und Bildanalyse). Eine Schlüssel-Abbildung auf `tour.json`
+  träfe nicht, was der neue Code anders ableitet, und die Bestandstouren-
+  Rückfälle aus `CLAUDE.md` („tragen die alten Texte, bis sie neu gerendert
+  werden"; `f` statt `filmS`; Alt-Kicker) erledigen sich dabei mit. Bis das
+  Render durch ist, antwortet `/api/tours/:id` mit `processing`; der Player
+  zeigt das wie heute.
+- **`enrichment.json` ist ein Cache.** Klemmt die Abbildung, wird die Datei
+  gelöscht und beim Render neu gebaut (kostet Geocoding und Bildanalyse, nichts
+  Unwiederbringliches). Die Migration bildet sie trotzdem ab, weil die
+  Bildanalyse der teuerste Posten der Pipeline ist.
+
+Die Start-Migration bleibt im Code, solange irgendwo Stand-1-Daten liegen
+können (Snapshots, Geräte des Betreibers). Sie wird in einer späteren Welle
+entfernt, wenn der Marker überall 2 ist; das ist ein eigener Commit mit dem
+Satz „ab hier ist Stand 1 nicht mehr lesbar."
+
+### 4.4 Android: Room v4, destruktiv, einmal
+
+Room steht auf Version 3 mit zwei Migrationen.
+[LuhamboDb.kt](../../android/app/src/main/java/app/maptale/daten/LuhamboDb.kt)
+verzichtet heute ausdrücklich auf `fallbackToDestructiveMigration`, mit der
+Begründung, auf dem Gerät lägen unwiederbringliche Aufnahmen. Für diesen einen
+Schritt gilt das nicht (nur Geräte des Betreibers, §4.5). Aber **„Neuinstallation
+statt Migration" ist ein Code-Schritt**: Ein APK-Update derselben Signatur
+(CI-Keystore) auf ein Gerät mit v3 stürzt ohne Migration beim Start ab. Also:
+Version 4, `fallbackToDestructiveMigration()` im Builder, der Kommentar im
+selben Commit umgeschrieben. Nach Welle 7 kommt die Zusage zurück: Aufruf raus,
+Kommentar wieder hin, ab v5 wieder echte Migrationen.
+
+Mit umzubenennen sind die **Enum-Speicherwerte** (`TourStatus.AUFNAHME, ENTWURF,
+LAEDT_HOCH, HOCHGELADEN, FEHLER`, `MediumUploadStatus.LOKAL, HOCHGELADEN`,
+`Bewegungsart.ZU_FUSS, RAD, FAHRZEUG`): Die `TypeConverter` speichern `.name`,
+also liegen sie als Strings in der DB. Wer nur die Kotlin-Namen ändert, lässt
+sie stehen. Die Room-Tabellennamen (`touren`, …) und Spalten (`titel`,
+`beschreibung`, `endeMs`, `distanzM`, `genauigkeitM`, `aufgenommenMs`,
+`ankerLng`, `typ`, `datei`, `modusAutomatisch`) gehen mit; bei destruktiver
+Migration ist das eine Umbenennung im Code, sonst nichts.
+
+### 4.5 Die Annahme, und wann sie verfällt
+
+Der leichte Weg steht auf drei Annahmen. Sie werden in Welle 0 **gemessen und
+hier eingetragen**, nicht geglaubt:
+
+| Annahme | Prüfung | Stand 2026-08-19 |
+|---|---|---|
+| Es gibt so gut wie keine fremden Nutzerdaten | `SELECT count(*) FROM users WHERE rolle='nutzer'`; `SELECT count(*) FROM tours WHERE owner_id <> <Betreiber>`; aktive `sessions`/`tokens` je Konto | **offen, in Welle 0 eintragen** |
+| Der APK läuft nur auf Geräten des Betreibers | Download-Zahl des GitHub-Releases; `tokens`-Zeilen mit App-Label fremder Konten | **offen**; der Knopf hängt öffentlich an der Landing ([index.html](../../index.html), `releases/latest/download/maptale-android.apk`) |
+| Ein Datenverlust wäre verschmerzbar | Betreiber-Entscheid, hier festgehalten | ja, laut Entscheid vom 19.08. |
+
+Daraus zwei Regeln bis zum Ende von Welle 1: **Keine neuen Einladungen** aus
+der Warteliste, und **Play Store** ([konzept_play_store_interner_test.md](konzept_play_store_interner_test.md))
+kommt NACH dieser Welle, nicht davor; die Roadmap ist entsprechend sortiert.
+Überschreitet eine der Zahlen die Schwelle (fremde Touren > 10 oder ein fremdes
+App-Gerät), wird §4 neu entschieden, und dann heißt die Antwort Versionierung
+mit Leser.
+
+---
+
+## 5. Reihenfolge der Wellen
 
 | Welle | Inhalt | Risiko |
 |------:|--------|--------|
-| **0** | Glossar einfrieren, CLAUDE-Regel, Scope-Grenze, Smoke-Checkliste | — |
-| **1** | Internals ohne Persistenz: zuerst `editmodell.ts` + Tests (s. §5) | niedrig |
-| **2** | Weitere Studio-DOM-freie Module (`zeitleiste`, `tonklip`, `stopps`, `pruefung`) | niedrig |
-| **3** | Studio-Verdrahtung (`editor.ts`, `studio.ts`) + Dateiumbenennungen der Welle | mittel |
-| **4** | Server-Internals (Pipeline, Mail-Bausteine) — **Route-Pfade und JSON-Felder bleiben** | mittel |
-| **5** | Android ViewModels/Screens (Enums-Speicherwerte und Room-Spalten bleiben) | mittel |
-| **6** | API-Transporttypen & interne Helper; URL-Aliases optional | hoch |
-| **7** | DB-Spalten, Room-Felder, Overlay-/Tour-JSON-Felder mit Schema-Bump / Migration | sehr hoch |
-| **8** | Rest-Docs, Mockup-Kommentare, Aufräumen verbotener Synonyme | niedrig |
-| **9** *(optional)* | Die ~30 deutschen Restnamen im Player (s. §1). **Erst nach der TS-Migration** — dann greift „Symbol umbenennen" typgeprüft. | niedrig |
+| **0** | Glossar vollständig und eingefroren, Sprachregel in `CLAUDE.md`, Zahlen aus §4.5, DB-Snapshot, Abnahme-Checkliste, Roadmap sortiert | keins |
+| **1** | **Verträge und ihre Leser**: SQLite (Spalten, Tabellen, Werte, Blobs), `upload@2`, `edits@2`, `enrichment@2`, `tour@2`, **HTTP-API** (Pfade und Felder), Room v4, Start-Migration, Re-Render, plus aller Code, der dadurch rot wird, plus die Nähte aus §3.3; die beiden Specs | mittel, und heute am billigsten |
+| **2** | Server-Internals: Pipeline, Routen-Handler, Mail-Bausteine, Auth, Dateiumbenennungen in `server/src` | mittel |
+| **3** | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `stopps`, `pruefung`) | niedrig |
+| **4** | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `abspielen`, `exportblatt`, `nachreichen`, `sfxbibliothek`, `tipp`, `kartenstimmung`) + Dateiumbenennungen | mittel |
+| **5** | Player-Engine (`tour`, `filmachse`, `filmuhr`, `kartenmaler`, `kartenschicht`, `einblendung`, `streckenanker`, `ui`, `main`, `exportfilm`, `exportformat`, `vollbild`, `karteninfo`, `tourtexte`, `wetterhimmel`, `pinmodell`) + `window.__j` + `scripts/messungen` + `test/fixtures/filmachse.json` mit Server-Spiegel | mittel |
+| **6** | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`, `demclean*`) + localStorage | niedrig |
+| **7** | Android: ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; Zusage in `LuhamboDb.kt` zurück | niedrig (nur eigene Geräte) |
+| **8** | Doku nach §7: Topf A übersetzen, Topf C archivieren, Start-Migration ausbauen, wenn der Marker überall 2 ist | niedrig |
 
-**Aufwand (realistisch, mit Agenten):** eher **mehrere Wochen gestreckt** als
-„2–3 Tage“. Tipparbeit ist billig; Review, Migration und Altbestand sind es nicht.
-Die frühere Schätzung von 2,5 Tagen unterschätzt Persistenz und Drift-Wächter massiv.
+**Warum Welle 1 zuerst und nicht zuletzt.** Die Feldnamen sind das, worum sich
+alles andere herumbaut. Käme sie zuletzt, hätte Welle 3 Typen umbenannt, deren
+Felder deutsch bleiben mussten (`MediaEdit` mit `geloescht`, `reihe`,
+`staerke`), und die späte Welle hätte dieselben Dateien ein zweites Mal
+geöffnet. Zuerst die Verträge heißt: Jede spätere Welle arbeitet gegen bereits
+englische Daten.
 
----
+**Welle 1 ist die größte und die einzige irreversible.** Sie lässt sich nicht
+klein schneiden, ohne genau die Übersetzungsschicht einzuziehen, die dieses
+Papier vermeiden will. Wenn sie zu groß wird, ist die Bruchlinie **je Vertrag**
+und in dieser Reihenfolge, jeder Schritt für sich atomar und deploybar:
 
-## 4. Persistenz — nicht in Welle 1–5
+1. SQLite + die API-Felder, die direkt aus Zeilen kommen (`users`, `tours`,
+   Admin-Routen) + Web- und Android-Leser dieser Felder
+2. `upload@2` + Android-Manifestbau + `POST /api/tours/:id/media`
+3. `edits@2` + Studio-Typen + `EditsFortschreibung.kt`
+4. `enrichment@2` + `tour@2` + Player-Leser + Re-Render
+5. API-Pfade (rein mechanisch, zuletzt, weil sie nichts Fachliches ändern)
 
-Diese Namen sind Verträge. Umbenennung braucht Versionierung, Migration und
-Rückwärtslesbarkeit.
+Nicht nach Modul aufteilen. Jeder Schritt bringt seine Start-Migration mit.
 
-### JSON
-- Schema-IDs: `maptale/upload@1`, `maptale/edits@1`, `maptale/tour@1`,
-  `maptale/anreicherung@1`
-- Overlay-Felder u. a.: `medien`, `geloescht`, `reihe`, `holdS`, `trim`,
-  `vonS`, `bisS`, `modi`, `kamera`, `momente`, `audio`, `wetter`, `titelbild`,
-  `anker`, `versatzFilmS`, `dauerFilmS`, `einstiegS`, `lautstaerke`, `quelle`,
-  `staerke`
-- Anreicherung: `befunde`, `videoMeta`, `videoSchnittSignatur`, `trimSignatur`,
-  `orte`, `wetterRoh`
-- Upload: `modiAutomatisch`, `trackFile`, `takenAt`, …
+**Verhältnis zu Astro und i18n: beide kommen danach.** Entschieden am
+2026-08-19. Der [Astro-Umstieg](konzept_astro_umstieg.md) fasst dieselben
+Dateien an wie Welle 6 (`app-nav.ts`, `routen.ts`, die HTML-Einstiege), und
+[Mehrsprachigkeit](konzept_mehrsprachigkeit_i18n.md) wartet auf Astro. Die
+Kette ist Englisch, dann Astro, dann i18n: Wer zuerst umstellt, fasst jede
+Datei einmal an. Die Gegenrichtung kostet nichts, weil Astro dann auf
+englischen Modulnamen aufbaut.
 
-### HTTP / URLs
-- `/api/...`-Pfade, `/@handle`, `/tour/:id`, `/konto`, `/anmelden`, …
-- Tour-IDs `t_…`
+### Welle 1: Schnitt
 
-### SQLite / Room
-- Spalten und Tabellen in `server/src/db.ts` und Android `Entities.kt`
-- Enum-**Speicherwerte** wie `AUFNAHME`, `ENTWURF`, `LAEDT_HOCH` (Android)
-
-**Muster für Welle 7:** interne Code-Namen neu, externe Felder alt — oder
-Schema-Bump (`edits@2`) mit Leser, der `@1` noch versteht. Nicht mischen.
-
----
-
-## 5. Welle 1 — konkreter Schnitt
-
-### Scope
 | Drin | Draußen |
-|------|---------|
-| `src/studio/editmodell.ts` — exportierte **Funktionen** und **Typnamen** | Interface-**Felder**, die `edits.json` spiegeln (`geloescht`, `reihe`, `staerke`, `ab`, …) |
-| Aufrufer-Anpassungen nur so weit nötig (`editor.ts`, `tonklip.ts`, …) | Dateiumbenennung `editmodell.ts` → später (Ende Welle 2/3) |
-| Tests: `test/studio-editor.test.ts`, `studio-baukasten.test.ts`, `studio-stopps.test.ts`, `studio-tonklip.test.ts`, `studio-inspektor.test.ts` | Server-Schema, Android, DB |
+|---|---|
+| Spalten, Tabellen, Werte und JSON-Blobs in `db.ts` samt neuem Migrationsschritt (§4.2) | Seiten-Pfade, Tour-IDs |
+| Felder und Werte in `schema/edits.ts` und `schema/upload.ts`, Kennungen auf `@2` | Inhalt von `mailvorlagen`, `textfassung` |
+| Felder in `tour.json` und `enrichment.json`; Re-Render aller Touren | Prosa in `docs/` außer den zwei Specs |
+| **API-Pfade unter `/api/` und alle Request-/Response-Felder** (§6.7) | extern registrierte Pfade (Tracker) |
+| Web-Leser: `src/studio/api.ts`, `src/remote.ts`, `src/konto/*`, `src/profil/*`, `src/admin/*`, `src/galerie/*`, `src/app-nav.ts` (nur die API-Typen und Feldzugriffe, nicht die Modulnamen) | Umbenennungen, die weder Compiler noch Nahtliste verlangen |
+| Android-Leser: `ApiClient.kt`, `Manifest.kt`, `EditsFortschreibung.kt`, `TourenScreen.kt`/`ImportViewModel.kt` (Statuswerte), Room-Entities, Enum-Speicherwerte, Room v4 | Android-Screens, ViewModels, Service-Namen (Welle 7) |
+| Start-Migration in `server/src/migrationen/` | |
+| `docs/specs/austauschformat.md` und `overlay-und-tourjson.md` | |
 
-### Warum dieser Schnitt
-- DOM-frei, gut getestet, zentral für den Editor
-- Trainiert das Glossar an echten Namen (`materialisiereModi`, `mitMedienEdit`, …)
-- Kein Persistenz-Risiko, wenn JSON-Felder unangetastet bleiben
+Die Regel, die trägt: In Welle 1 wird umbenannt, **was die Vertragsänderung rot
+macht oder was auf der Nahtliste steht**. Alles, was ein Agent „bei der
+Gelegenheit" mitnehmen möchte, gehört in seine Welle.
 
-### Umbenenn-Liste Welle 1 (Funktionen / Typen)
+**Die beiden Specs gehören in dieselbe Welle**, nicht in Welle 8. Sie
+beschreiben genau die Felder, die hier wandern; einen Commit lang falsch wären
+sie die gefährlichste Datei im Repo.
+
+**Deploy von Welle 1 ist EIN Tag**, der Server und App zusammen baut (das tut
+der Release-Lauf ohnehin). Die App auf den Geräten des Betreibers wird am selben
+Tag aktualisiert; bis dahin antwortet der Server einer alten App mit dem
+Klartext aus §4.1.
+
+### Wellen 3 bis 6: Namen
+
+Die Umbenenn-Tabelle für `editmodell.ts` bleibt gültig und wird einfacher, weil
+die Feld-Ausnahmen entfallen:
 
 | Ist | Soll |
 |-----|------|
 | `Modus` | `TravelMode` |
 | `WetterModus` | `WeatherMode` |
 | `TrackPunkt` | `TrackPoint` |
-| `MediumEdit` | `MediaEdit` *(Typname; Felder unverändert)* |
-| `MediumEditPatch` | `MediaEditPatch` |
-| `ModusGrenze` | `TravelModeBoundary` |
-| `WetterGrenze` | `WeatherBoundary` |
-| `KameraPreset` | `CameraPreset` — Literalwerte `nah`/`mittel`/`weit`/`standard` bleiben (Overlay-Vertrag) |
-| `KameraGrenze` | `CameraBoundary` |
-| `MomentArt` | `CameraMomentKind` — Literalwerte `umkreisen`/`aufstieg`/`innehalten` bleiben |
-| `KameraMoment` | `CameraMoment` |
+| `MediumEdit` / `MediumEditPatch` | `MediaEdit` / `MediaEditPatch` |
+| `ModusGrenze` / `WetterGrenze` | `TravelModeBoundary` / `WeatherBoundary` |
+| `KameraPreset` / `KameraGrenze` | `CameraPreset` / `CameraBoundary` |
+| `MomentArt` / `KameraMoment` | `CameraMomentKind` / `CameraMoment` |
 | `AudioEintrag` | `AudioEntry` |
-| `AudioPatch` | `AudioPatch` *(ok)* |
-| `EditOverlay` | `EditOverlay` *(ok)* |
-| `EditorSegment` | `EditorSegment` *(ok)* |
 | `UndoStapel` | `UndoStack` |
 | `TrackProjektion` | `TrackProjection` |
 | `AnzeigeAbschnitt` | `DisplaySegment` |
@@ -175,7 +462,7 @@ Schema-Bump (`edits@2`) mit Leser, der `@1` noch versteht. Nicht mischen.
 | `erfasseUndo` | `recordUndo` |
 | `offsetZuIso` / `isoZuOffset` | `offsetToIso` / `isoToOffset` |
 | `projiziereAufTrack` | `projectOntoTrack` |
-| `punktZuOffset` | `pointAtOffset` |
+| `punktZuOffset` | `pointAtOffset` (liefert den Punkt zu einem Offset) |
 | `naechsterPunktIndex` | `nearestPointIndex` |
 | `mitMedienEdit` | `withMediaEdit` |
 | `mitModusGrenze` / `ohneModusGrenze` | `withTravelModeBoundary` / `withoutTravelModeBoundary` |
@@ -185,244 +472,506 @@ Schema-Bump (`edits@2`) mit Leser, der `@1` noch versteht. Nicht mischen.
 | `mitWetterGrenze` / `ohneWetterGrenze` | `withWeatherBoundary` / `withoutWeatherBoundary` |
 | `mitMoment` / `ohneMoment` | `withCameraMoment` / `withoutCameraMoment` |
 | `mitAudioEintrag` / `ohneAudioEintrag` | `withAudioEntry` / `withoutAudioEntry` |
-| `mitAudioPatch` | `withAudioPatch` |
 | `pruefeOverlay` | `validateOverlay` |
 | `zerlegeFuerAnzeige` | `splitForDisplay` |
 | `miniaturQuelle` | `thumbnailSource` |
 | `effektiveMedien` | `effectiveMedia` |
-| `LEERES_OVERLAY` | `EMPTY_OVERLAY` |
-| `HISTORIE_MAX` | `HISTORY_MAX` |
-| `WETTER_MODI` | `WEATHER_MODES` |
-| `MOMENT_DEFAULT_S` | `MOMENT_DEFAULT_S` *(ok)* |
+| `LEERES_OVERLAY` / `HISTORIE_MAX` | `EMPTY_OVERLAY` / `HISTORY_MAX` |
+| `WETTER_MODI` / `MODI` | `WEATHER_MODES` / `TRAVEL_MODES` |
 
-`MODI` kann `TRAVEL_MODES` werden — Werte (`walk`, …) bleiben.
+### Welle 5: der Player
 
-### Agenten-Prompt (Welle 1, Vorlage)
-
-```
-Welle 1 des Englisch-Refactors (docs/concepts/konzept_codebase_english_refactoring.md §5).
-
-Nur: Typ- und Funktionsnamen in src/studio/editmodell.ts + alle Aufrufer/Tests.
-Glossar in dem Dokument ist verbindlich.
-NICHT umbenennen: Interface-Felder die edits.json spiegeln, Schema-Strings,
-Literalwerte nah/mittel/weit/umkreisen/…, Dateinamen, Server, Android.
-
-Danach: npm test (betroffene Studio-Tests) und npm run typecheck.
-```
-
-### Done-Kriterien Welle 1
-- [ ] Tabelle oben umgesetzt
-- [ ] `npm test` und `npm run typecheck` grün
-- [ ] Kein Diff an `server/src/schema/edits.ts` Feldnamen
-- [ ] Kurzverweis in `src/studio/CLAUDE.md`: neue Namen + Link zum Glossar
-- [ ] Smoke: Tour im Studio öffnen, Modus-Grenze ziehen, Undo einmal
+Die Wörter stehen in §6.3a, die Modulnamen in §6.6. Drei Dinge, die nur hier
+vorkommen: `window.__j` wird zu `window.__maptale` mit englischen Schlüsseln
+(`filmAxis`, `filmTime`, `clock`, `exportStats`), die Messskripte unter
+`scripts/messungen/` ziehen im selben Commit mit, und
+`test/fixtures/filmachse.json` wird zu `film-axis.json` mit englischen
+Schlüsseln auf beiden Seiten (Web-Test und `server/test/filmtempo.test.ts`).
 
 ---
 
 ## 6. Glossar (verbindlich)
 
-Synonyme in der rechten Spalte sind **verboten**, außer hier erlaubt.
-Neue Begriffe zuerst hier eintragen, dann im Code verwenden.
+Synonyme in der rechten Spalte sind **verboten**, außer hier erlaubt. Neue
+Begriffe zuerst hier eintragen, dann im Code verwenden. Die linke Spalte gilt
+weiter für alles, was noch deutsch ist: ein Wort je Begriff. Drei Doppel sind
+damit aufgelöst und werden beiläufig bereinigt, wenn eine Welle die Stelle
+ohnehin öffnet:
 
-**Solange die Migration vertagt ist (§9), gilt die LINKE Spalte genauso verbindlich.**
-Das ist die wichtigere Hälfte: Ein Synonym kostet heute, in jeder Suche und in jedem
-Konzept — die englische Zielform kostet erst, wenn übersetzt wird. Und eine Übersetzung
-wird billig, wenn vorher pro Begriff EIN Wort dasteht; teuer wird sie, wenn man erst die
-Bedeutung sortieren muss, bevor man ein Wort wählen kann.
-
-Drei Doppel stehen unten noch in der linken Spalte, weil sie so im Code stehen. Sie sind
-hiermit aufgelöst — umbenannt wird **beiläufig**, wenn eine Etappe die Stelle ohnehin
-öffnet, nie als eigener Lauf:
-
-| Begriff | verbindlich deutsch | Alt-Namen im Code | wo |
+| Begriff | verbindlich | Alt-Namen im Code | wo |
 |---|---|---|---|
-| Ort, an dem der Film anhält | **Halt** | `Stopp`, `PlayerStopp`, `gruppiereStopps`, `stops`, Datei `stopps.ts` | Player + `src/studio/stopps.ts` |
-| Wie lange die Karte steht | **Standzeit** | `haltedauerS` (neben `klemmeStandzeit` in derselben Datei) | `zeitleiste.ts` |
-| Zeit, die der Film läuft | **Filmzeit** | — (einheitlich) | — |
+| Ort, an dem der Film anhält | **Halt** / `stop` | `Stopp`, `PlayerStopp`, `gruppiereStopps` | Player + `src/studio/stopps.ts` |
+| Wie lange die Karte steht | **Standzeit** / `holdDuration`, Feld `holdS` | `haltedauerS` | `zeitleiste.ts`, `editor.ts` |
+| Zeit, die der Film läuft | **Filmzeit** / `filmTime` | einheitlich | |
 
-`HOLD_HIDE`/`holdT`/`display.holdS` bleiben, wie sie sind: englisches Prototyp-Erbe des
-Players und im Austauschformat ein persistiertes Feld (Welle 7).
+**Der eine Streitpunkt aus der ersten Fassung ist entschieden:** `stop` ist der
+Ort, `hold` ist die Dauer dort. Beides ist im Englischen üblich (ein Kamera-
+„hold" auf einem Motiv) und das Feld `holdS` existiert in drei Verträgen.
 
 ### 6.1 Domain-Kern
 
 | Deutsch / Ist | Englisch (Code) | Nicht verwenden / Hinweis |
-|---------------|-----------------|---------------------------|
-| Tour (technisch) | `tour` | nicht `trip` für Tour-JSON |
-| Halt / Stopp (Foto-Halt) | `stop` | nicht `pause` (Aufnahme-Pause); nicht `hold` (das ist Standzeit/`holdS`) |
+|---|---|---|
+| Tour (technisch) | `tour` | nicht `trip` |
+| Halt (Foto-Halt) | `stop` | nicht `pause` |
 | Halt-Intervall | `stopInterval` | |
-| Halt-Stück (Aufnahme in Kette) | `stopItem` | |
-| Filmzeit | `filmTime` | nicht wall-clock |
+| Halt-Stück (Aufnahme in der Kette) | `stopItem` | |
+| Aufnahme (Vorgang des Aufzeichnens) | `recording` | `RecordingScreen`, `startRecording` |
+| Aufnahme (das einzelne Foto/Video) | `medium` / `media` | nicht `capture`, nicht `shot`; im Halt `stopItem` |
+| Aufnahmeart (Foto/Video) | `mediaType` | Android-Kamera: `captureMode` |
+| Standzeit | `holdDuration`, Feld `holdS` | |
+| Filmzeit | `filmTime`, Feld `filmS` | nicht wall-clock |
 | Aufnahmezeit | `recordingTime` | |
-| Achse (Filmzeit-Abbildung) | `timelineAxis` | UI-Leiste = `timeline` |
 | Anker | `anchor` | |
-| Reihe (Order im Halt) | `order` / Feld `reihe` bleibt bis Welle 7 | |
-| Titelbild (Tour) | `cover` / `coverImage` | Profil-Banner: `profileBanner` |
-| Fortbewegung / Modus | `travelMode` | nicht UI-„mode“ |
+| Reihe (Ordnung im Halt) | `order` | Feld `reihe` geht in Welle 1 mit |
+| Titelbild (Tour) | `cover` | |
+| Titelbild (Profil) | `banner` | nicht `cover`, nicht `header` |
+| Dachzeile | `kicker` | Feld `dachzeile` |
+| Fortbewegung / Modus | `travelMode` | nicht UI-`mode` |
 | Modus-Grenze | `travelModeBoundary` | |
-| Standzeit / Haltedauer | `holdDuration` — Feld bleibt `holdS` | |
-| Sichtbarkeit (Tour) | `visibility` | getrennt von Profil/Suchindex |
-| Pause (GPS-Stillstand) | `pause` | `collapsePauses` / Zeitraffer getrennt |
+| Sichtbarkeit (Tour) | `visibility` | getrennt von Profil und Suchindex |
+| Pause (GPS-Stillstand) | `pause`, `collapsePauses` | |
+| Pause (Wiedergabe angehalten) | `paused` | Zustand, nie `pause` als Substantiv |
 | Overlay / Edits | `editOverlay` | |
+| gelöscht (Overlay) | `removed` | Feld `geloescht` geht in Welle 1 mit |
+| Video-Export | `filmExport` | nicht bloß `export` |
+| Datenexport (Art. 20 DSGVO) | `dataExport` | Tabelle `data_exports` |
+| Befund (Bildanalyse) | `finding` | |
+| Befund (Upload-Prüfung) | `importReport` | |
 
 ### 6.2 Auth, Konto, Profil
 
 | Deutsch / Ist | Englisch (Code) | Hinweis |
-|---------------|-----------------|---------|
+|---|---|---|
 | Benutzer | `user` | |
 | Konto | `account` | nicht `profile` |
 | Profil | `profile` | öffentlich |
 | Anzeigename | `displayName` | |
 | Handle | `handle` | nicht `username` |
 | Einwilligung | `consent` | nicht `preference` |
-| Newsletter-Einwilligung | `newsletterConsent` | |
-| Textfassung (Rechtstext) | `textVersion` | |
+| Textfassung (Rechtstext) | `textVersion` | Inhalt bleibt deutsch |
 | Suchmaschinen (Schalter) | `searchIndexing` | nicht mit `visibility` mischen |
 | Einladung | `invitation` | |
 | Warteliste | `waitlist` | |
 | Gerät (Sitzung/App) | `device` | |
-| Sitzung | `session` | ≠ App-Token |
-| Export-Stand | `exportStatus` | |
+| Sitzung | `session` | ist nicht App-Token |
 | läuft ab am | `expiresAt` | |
+| Rolle | `role`, Werte `user`/`admin` | |
+| Speicher (Quota) | `storage` | |
 
 ### 6.3 Studio / Zeitleiste
 
 | Deutsch / Ist | Englisch (Code) | Hinweis |
-|---------------|-----------------|---------|
-| Zeitleiste | `timeline` | |
+|---|---|---|
+| Zeitleiste (UI) | `timeline` | |
 | Zustandsband | `stateBand` | kein Clip |
 | Szenen-Klip | `sceneClip` | |
 | Ton-Klip | `audioClip` | |
-| Fokus (Auswahl) | `selection` | ≠ Playhead |
-| materialisiere… | `materialize…` | ganze Stufenfunktion festschreiben |
+| Fokus (Auswahl) | `selection` | ist nicht Playhead |
+| materialisiere… | `materialize…` | |
 | mitX / ohneX | `withX` / `withoutX` | immutable Updates |
-| baue… | `build…` | |
-| setze… | `set…` | |
-| prüfe… | `validate…` / `check…` | Upload-Befund: `importReport` |
-| Trim (Tour) | `tourTrim` | Video: `mediaTrim` / Feld `trim` |
-| gelöscht (Overlay) | Code später `removed`; Feld `geloescht` bis Welle 7 | nicht Datei löschen |
-| effektive Medien | `effectiveMedia` | |
-| Kamera-Moment-Arten | Literale bleiben; Typ `CameraMomentKind` | `innehalten` → Kind-Wert bleibt bis Welle 7 |
-| Umkreisen / Aufstieg / Innehalten (Aktion) | später `orbit` / `rise` / `hold` als Literal-Bump | |
+| baue… / setze… | `build…` / `set…` | |
+| prüfe… | `validate…` / `check…` | |
+| Trim (Tour) | `tourTrim` | Video: `mediaTrim` |
+| Klangbibliothek | `audioLibrary` | |
+| Nachreichen (Medien) | `addMedia` | Route `POST /api/tours/:id/media` |
+
+### 6.3a Player und Film
+
+| Deutsch / Ist | Englisch (Code) | Hinweis |
+|---|---|---|
+| Karte (Landkarte) | `map` | |
+| Karte (Foto-Karte) | `card` | der aufgelöste Homonym-Fall |
+| Maler | `painter` | `kartenmaler` → `cardPainter` |
+| Bühne | `stage` | |
+| Schleier | `scrim` | nicht `veil`, nicht `overlay` |
+| Klip (einer Aufnahme) | `clip` | |
+| Filmuhr | `filmClock` | die eine Uhr der Engine |
+| verworfene Frames | `droppedFrames` | |
+| Filmachse | `filmAxis` | Abbildung Filmzeit ↔ Strecke; `timeline` ist die UI-Leiste |
+| Rampe | `ramp`, `RAMP_M` | Tempowechsel, nicht nur am Halt |
+| Streckenposition `s` | `s` | bleibt |
+| Strecke bei Filmzeit | `distanceAtFilmTime` | war `streckeBeiFilm` |
+| Filmzeit bei Strecke | `filmTimeAtDistance` | war `filmBeiS` |
+| rohe ↔ gebaute Meter | `rawAtRoute` / `routeAtRaw` | nur `main.ts` kennt beide |
+| Einblendung (Zeitrechnung) | `cardTiming` | |
+| Bildschirm-Tempo | `screenSpeed` | Fahrtempo ÷ Kameradistanz |
+| Vollbild | `fullscreen` | |
+| Wetterhimmel | `weatherSky` | |
+| Fortschrittsleiste | `progressBar` | |
+| Halt-Fläche (auf der Leiste) | `stopSpan` | |
+| Telemetrie | `telemetry` | |
+| Weg hinaus (Pille oben links) | `exitPill` | |
+| Startscreen / Finale-Tafel | `introPanel` / `finalePanel` | |
+| Entwickeln (der Karte) | `develop` | |
 
 ### 6.4 Server / Pipeline
 
 | Deutsch / Ist | Englisch (Code) | Hinweis |
-|---------------|-----------------|---------|
+|---|---|---|
 | laden (DB/Tour) | `load…` | |
 | verarbeiten | `processTour` | |
-| Anreicherung | `enrichment` | |
+| Anreicherung | `enrichment`, Datei `enrichment.json` | |
 | kollabierePausen | `collapsePauses` | GPS-Drift |
 | raffePausen | `compressPauses` | Film-Zeitraffer |
-| Befund (Vision) | `finding` | ≠ Upload-`importReport` |
 | Benennung | `naming` | |
 | darfSehen | `canView` | |
 | nurOwner | `requireOwner` | |
-| registriere…Routen | `register…Routes` | ≠ Benutzer-Registrierung |
+| registriere…Routen | `register…Routes` | nicht Benutzer-Registrierung |
 | Protokoll (Admin) | `auditLog` | |
+| Rückmeldung | `feedback` | |
+| Einstellung (Betrieb) | `setting` | nicht `option` |
+| Bremse (Rate-Limit) | `rateLimit` | |
+| Manifestsperre | `manifestLock` | |
+| Bildfassung | `imageVariant` | |
 
 ### 6.5 Android
 
 | Deutsch / Ist | Englisch (Code) | Hinweis |
-|---------------|-----------------|---------|
+|---|---|---|
 | AufzeichnungScreen | `RecordingScreen` | |
 | TourenScreen | `ToursScreen` | |
 | AufzeichnungsService | `RecordingService` | |
 | starteAufnahme / beendeAufnahme | `startRecording` / `finishRecording` | |
 | Bewegungserkennung | `activityRecognition` | |
-| AufnahmeModus (Foto/Video) | `captureMode` | ≠ `travelMode` |
-| Status-Enum-**Namen** | `Recording`, `Draft`, … | **Speicherwerte** `AUFNAHME` … bleiben bis Migration |
+| Bewegungsart | `ActivityKind`, Werte `ON_FOOT`, `CYCLING`, `VEHICLE` | Speicherwerte, Welle 1 |
+| AufnahmeModus (Foto/Video) | `captureMode` | nicht `travelMode` |
+| TourStatus | `RECORDING`, `DRAFT`, `UPLOADING`, `UPLOADED`, `FAILED` | Speicherwerte, Welle 1 |
+| MediumUploadStatus | `LOCAL`, `UPLOADED` | Speicherwerte, Welle 1 |
 | TeilenBlatt | `ShareSheet` | |
 | Ruhe / Lädt / Fertig | `Idle` / `Loading` / `Complete` | |
+| DataStore `fotos_automatisch` | `auto_photos` | Welle 7, bewusst |
 
-### 6.6 Datei- / Modulnamen (Wellen 2–3)
+### 6.6 Datei- und Modulnamen
+
+Vollständig für `src/` flach, `src/studio/`, und die deutschen Dateien unter
+`server/src/`. Was nicht in der Tabelle steht, ist schon englisch oder ein
+Ordner, dessen Inhalt die Welle benennt.
+
+| Ist | Soll | Welle |
+|-----|------|------:|
+| `src/studio/editmodell.ts` | `edit-model.ts` | 4 |
+| `src/studio/zeitleiste.ts` | `timeline.ts` | 4 |
+| `src/studio/tonklip.ts` | `audio-clip.ts` | 4 |
+| `src/studio/stopps.ts` | `stops.ts` | 4 |
+| `src/studio/pruefung.ts` | `import-validation.ts` | 4 |
+| `src/studio/abspielen.ts` | `playback.ts` | 4 |
+| `src/studio/exportblatt.ts` | `export-sheet.ts` | 4 |
+| `src/studio/kartenstimmung.ts` | `map-mood.ts` | 4 |
+| `src/studio/nachreichen.ts` | `add-media.ts` | 4 |
+| `src/studio/sfxbibliothek.ts` | `sfx-library.ts` | 4 |
+| `src/studio/tipp.ts` | `tooltip.ts` | 4 |
+| `src/filmachse.ts` | `film-axis.ts` | 5 |
+| `src/filmuhr.ts` | `film-clock.ts` | 5 |
+| `src/kartenmaler.ts` | `card-painter.ts` | 5 |
+| `src/kartenschicht.ts` | `card-layer.ts` | 5 |
+| `src/einblendung.ts` | `card-timing.ts` | 5 |
+| `src/streckenanker.ts` | `route-anchors.ts` | 5 |
+| `src/karteninfo.ts` | `map-attribution.ts` | 5 |
+| `src/tourtexte.ts` | `tour-texts.ts` | 5 |
+| `src/wetterhimmel.ts` | `weather-sky.ts` | 5 |
+| `src/vollbild.ts` | `fullscreen.ts` | 5 |
+| `src/exportfilm.ts` | `film-export.ts` | 5 |
+| `src/exportformat.ts` | `film-export-channel.ts` | 5 |
+| `src/pinmodell.ts` | `pin-model.ts` | 5 |
+| `src/demclean-rechnung.ts` | `dem-clean-math.ts` | 5 |
+| `src/sichtbarkeit.ts` | `visibility.ts` | 6 |
+| `src/profil/profilmodell.ts` | `profile-model.ts` | 6 |
+| `src/profil/profilbearbeiten.ts` | `edit-profile.ts` | 6 |
+| `src/profil/titelbilder.ts` | `profile-banners.ts` | 6 |
+| `src/konto/kontomodell.ts` | `account-model.ts` | 6 |
+| `src/konto/kontodialoge.ts` | `account-dialogs.ts` | 6 |
+| `src/konto/trackerkarte.ts` / `trackermodell.ts` | `tracker-card.ts` / `tracker-model.ts` | 6 |
+| `src/galerie/galeriemodell.ts` | `gallery-model.ts` | 6 |
+| `src/admin/adminmodell.ts` | `admin-model.ts` | 6 |
+| `src/passwortstaerke.ts` | `password-strength.ts` | 6 |
+| `src/passwortfeld.ts` | `password-field.ts` | 6 |
+| `src/dialogschicht.ts` | `dialog-layer.ts` | 6 |
+| `src/entwicklungsstand.ts` | `release-stage.ts` | 6 |
+| `src/routen.ts` | `routes.ts` | 6 |
+| `src/einladungscode.ts` | `invitation-code.ts` | 6 |
+| `src/feedbackknopf.ts` / `feedbackformular.ts` / `feedbackmodell.ts` | `feedback-button.ts` / `feedback-form.ts` / `feedback-model.ts` | 6 |
+| `src/session-hinweis.ts` | `session-notice.ts` | 6 |
+| `src/rechtstextgliederung.ts` | `legal-text-outline.ts` | 6 |
+| `server/src/pipeline/anreicherung.ts` | `enrichment.ts` | 2 |
+| `server/src/pipeline/bild.ts` / `bildnachtrag.ts` | `image.ts` / `image-addendum.ts` | 2 |
+| `server/src/pipeline/filmachse.ts` / `filmtempo.ts` | `film-axis.ts` / `film-tempo.ts` | 2 |
+| `server/src/pipeline/musikwahl.ts` / `schienen.ts` / `signatur.ts` / `zeit.ts` | `music-choice.ts` / `rails.ts` / `signature.ts` / `time.ts` | 2 |
+| `server/src/exportinhalt.ts` / `exportlauf.ts` / `export.ts` | `data-export-content.ts` / `data-export-run.ts` / `data-export.ts` | 2 |
+| `server/src/bremse.ts` / `manifestsperre.ts` / `mailvorlagen.ts` / `maillayout.ts` | `rate-limit.ts` / `manifest-lock.ts` / `mail-templates.ts` / `mail-layout.ts` | 2 |
+| `server/src/protokoll.ts` / `rueckmeldungen.ts` / `profilfelder.ts` / `titelbilder.ts` / `seiten.ts` / `webpfade.ts` | `audit-log.ts` / `feedback.ts` / `profile-fields.ts` / `profile-banners.ts` / `pages.ts` / `web-paths.ts` | 2 |
+| `server/src/migrationen/` (neu in Welle 1) | `migrations/` | 2 |
+| `android/…/daten/LuhamboDb.kt` | `MaptaleDb.kt` | 7 |
+
+`anreicherung.json` auf Platte wird in Welle 1 zu `enrichment.json`, nicht mit
+dem Modul.
+
+### 6.7 HTTP-API
+
+**Pfade.** Alles unter `/api/`. Präfix bleibt, der Vhost kennt nur ihn. Was
+schon englisch ist (`/api/tours/:id/editor|edits|finalize|reprocess|track|audio`,
+`/api/media/…`, `/api/tracker/…`, `/api/webhooks/…`, `/api/export/:token`,
+`/api/push/…`, `/api/auth/login|logout|register|me`), bleibt wortgleich.
 
 | Ist | Soll |
-|-----|------|
-| `editmodell.ts` | `edit-model.ts` |
-| `zeitleiste.ts` | `timeline.ts` |
-| `tonklip.ts` | `audio-clip.ts` |
-| `stopps.ts` | `stops.ts` |
-| `pruefung.ts` | `import-validation.ts` |
-| `sichtbarkeit.ts` | `visibility.ts` |
-| `profilmodell.ts` | `profile-model.ts` |
-| `kontomodell.ts` | `account-model.ts` |
-| `profilbearbeiten.ts` | `edit-profile.ts` |
-| `titelbilder.ts` | `profile-banners.ts` |
-| `routen.ts` | `routes.ts` |
-| `anreicherung.ts` | `enrichment.ts` |
-| `exportinhalt.ts` | `export-content.ts` |
+|---|---|
+| `/api/admin/benutzer[/:id]` | `/api/admin/users[/:id]` |
+| `/api/admin/einladungen[/:code]` | `/api/admin/invitations[/:code]` |
+| `/api/admin/einstellungen` | `/api/admin/settings` |
+| `/api/admin/mailvorlagen[/:schluessel[/test\|/vorschau]]` | `/api/admin/mail-templates[/:key[/test\|/preview]]` |
+| `/api/admin/protokoll` | `/api/admin/audit-log` |
+| `/api/admin/rueckmeldungen[/:id]` | `/api/admin/feedback[/:id]` |
+| `/api/admin/statistiken` | `/api/admin/stats` |
+| `/api/admin/warteliste[/:id[/einladen]]` | `/api/admin/waitlist[/:id[/invite]]` |
+| `/api/audio-bibliothek[/:datei]` | `/api/audio-library[/:file]` |
+| `/api/auth/einladung-pruefen` | `/api/auth/check-invitation` |
+| `/api/auth/email-bestaetigen` | `/api/auth/confirm-email` |
+| `/api/auth/verifiziere` | `/api/auth/verify` |
+| `/api/auth/passwort-reset[-anfordern]` | `/api/auth/password-reset[-request]` |
+| `/api/auth/session-aus-token` | `/api/auth/session-from-token` |
+| `/api/auth/warteliste[/austragen\|/bestaetigen]` | `/api/auth/waitlist[/leave\|/confirm]` |
+| `/api/auth/me/geraete[/:id]` | `/api/auth/me/devices[/:id]` |
+| `/api/auth/me/passwort` | `/api/auth/me/password` |
+| `/api/auth/me/profil` | `/api/auth/me/profile` |
+| `/api/auth/me/speicher` | `/api/auth/me/storage` |
+| `/api/auth/me/suchmaschinen` | `/api/auth/me/search-indexing` |
+| `/api/auth/me/titelbild` | `/api/auth/me/banner` |
+| `/api/benutzer/:id/avatar\|profil\|titelbild` | `/api/users/:id/avatar\|profile\|banner` |
+| `/api/galerie` | `/api/gallery` |
+| `/api/gesundheit` | `/api/health` |
+| `/api/media/:tourId/:datei` | `/api/media/:tourId/:file` |
+| `/api/newsletter/abmelden` | `/api/newsletter/unsubscribe` |
+| `/api/newsletter/ein-klick/:token` | `/api/newsletter/one-click/:token` |
+| `/api/push/geraete` | `/api/push/devices` |
+| `/api/rueckmeldung` | `/api/feedback` |
+| `/api/tours/:id/audio/:datei` | `/api/tours/:id/audio/:file` |
+| `/api/tours/:id/bibliothek-audio/:datei` | `/api/tours/:id/library-audio/:file` |
+| `POST /api/tours/:id/medien` | `POST /api/tours/:id/media` (Sammlung; `PUT/DELETE …/media/:mid` bleiben) |
+| `/api/tracker/imports/gesehen` | `/api/tracker/imports/seen` |
 
-`anreicherung.json` auf Disk: **nicht** mit dem Modul umbenennen (Welle 7).
+Die Vollzählung der Aufrufer erzeugt Welle 0 mechanisch: `grep -rhoE
+"'/api/[^']+'" server/src | sort -u` gegen dieselbe Suche über `src/` und
+`android/`; jeder Pfad, der nur auf einer Seite vorkommt, ist ein Befund.
+
+**Felder.** Request- und Response-Körper folgen §6.1 bis §6.5. Die häufigsten:
+`anzeigename` → `displayName`, `titelbild[Url]` → `banner[Url]`, `suchmaschinen`
+→ `searchIndexing`, `sichtbarkeit` → `visibility`, `fehler` → `error`,
+`rolle` → `role`, `geraete` → `devices`, `speicher` → `storage`, `an` (Schalter)
+→ `enabled`, `notiz` → `note`, `autor` → `author`, `bereit`/`verarbeitung` als
+Statuswerte → `ready`/`processing` (§4.2). Die vollständige Liste je Route
+erzeugt der Agent in Welle 1 aus den Handlern und legt sie als Tabelle unter
+`docs/specs/api.md` ab; diese Datei gibt es heute nicht und sie ist der
+bleibende Ort für den API-Vertrag.
+
+**Fehlercodes und Meldungen** bleiben, was sie sind: Der Klartext ist
+Produkttext (deutsch), der Code (`400`, `409`, `413`) ist Zahl.
+
+### 6.8 SQLite
+
+Tabellen (Werte s. §4.2):
+
+| Ist | Soll |
+|---|---|
+| `einladungen` | `invitations` |
+| `einstellungen` | `settings` |
+| `exporte` | `data_exports` |
+| `handles_reserviert` | `reserved_handles` |
+| `mailvorlagen` | `mail_templates` |
+| `newsletter_einwilligungen` | `newsletter_consents` |
+| `push_geraete` | `push_devices` |
+| `rueckmeldungen` | `feedback` |
+| `tracker_importe` | `tracker_imports` |
+| `tracker_verknuepfungen` | `tracker_links` |
+| `warteliste` | `waitlist` |
+| `users`, `tours`, `sessions`, `tokens`, `mail_tokens` | bleiben |
+
+Spalten (nur die deutschen; `snake_case`; `…_am` → `…_at`):
+
+| Tabelle | Ist → Soll |
+|---|---|
+| `users` | `anzeigename`→`display_name`, `profil_sichtbarkeit`→`profile_visibility`, `rolle`→`role`, `handle_geaendert_am`→`handle_changed_at`, `ort`→`location`, `titelbild`→`banner`, `suchmaschinen`→`search_indexing` |
+| `tours` | `fehler`→`error`, `finale_ziel`→`finale_target`, `dachzeile`→`kicker` |
+| `sessions` | `ip_praefix`→`ip_prefix`, `zuletzt_gesehen`→`last_seen_at` |
+| `mail_tokens` | `zweck`→`purpose`, `nutzlast`→`payload` |
+| `invitations` | `notiz`→`note`, `erstellt_von`→`created_by`, `erstellt_am`→`created_at`, `ablauf`→`expires_at`, `eingeloest_von`→`redeemed_by`, `eingeloest_am`→`redeemed_at` |
+| `settings` | `schluessel`→`key`, `wert`→`value` |
+| `data_exports` | `benutzer_id`→`user_id`, `angefordert_am`→`requested_at`, `fertig_am`→`finished_at`, `laeuft_ab_am`→`expires_at`, `dateien`→`file_count`, `fehler`→`error` |
+| `reserved_handles` | `frei_ab`→`free_from` |
+| `mail_templates` | `schluessel`→`key`, `betreff`→`subject`, `titel`→`title`, `text`→`body`, `knopf`→`button`, `fuss`→`footer`, `geaendert_am`→`updated_at`, `geaendert_von`→`updated_by` |
+| `newsletter_consents` | `benutzer_id`→`user_id`, `zeitpunkt`→`at`, `zustand`→`state`, `quelle`→`source`, `textfassung`→`text_version` |
+| `push_devices` | `benutzer_id`→`user_id`, `plattform`→`platform`, `angelegt_am`→`created_at`, `zuletzt_gesehen_am`→`last_seen_at` |
+| `feedback` | `benutzer_id`→`user_id`, `kontext`→`context`, `quelle`→`source`, `notiz`→`note`, `angelegt_am`→`created_at`, `geaendert_am`→`updated_at` |
+| `tracker_imports` | `benutzer_id`→`user_id`, `anbieter`→`provider`, `externe_id`→`external_id`, `gemeldet_am`→`reported_at`, `fertig_am`→`finished_at`, `gesehen_am`→`seen_at`, `wiederholbar`→`retryable`, `versuche`→`attempts`, `fehler`→`error` |
+| `tracker_links` | `benutzer_id`→`user_id`, `anbieter`→`provider`, `externer_nutzer`→`external_user`, `laeuft_ab_am`→`expires_at`, `verbunden_am`→`connected_at`, `zuletzt_sync_am`→`last_sync_at`, `letzter_fehler`→`last_error` |
+| `waitlist` | `notiz`→`note`, `eingetragen_am`→`joined_at`, `eingetragen_ip`→`joined_ip`, `bestaetigt_am`→`confirmed_at`, `bestaetigt_ip`→`confirmed_ip`, `eingeladen_am`→`invited_at`, `eingeladen_code`→`invited_code` |
+
+Die Schlüssel in `settings.key` (`einladung_pflicht`, `warteliste_offen`)
+und `mail_templates.key` sind Codewerte und gehen nach §6.4 mit; die Werte in
+`mail_templates` (Betreff, Text) bleiben deutsch.
+
+### 6.9 Die vier Tour-Dateien
+
+**`upload@2`** (Manifest, schon fast englisch): `modiAutomatisch` →
+`travelModesAuto`, `quelle` → `source`, `entfernt` → `removed`, `medien` (Route
+Nachreichen) → `media`. Rest bleibt.
+
+**`edits@2`**: `medien` → `media`; je Medium `geloescht` → `removed`, `reihe` →
+`order`, `trim.vonS/bisS` → `trim.fromS/toS`; `modi` → `travelModes` mit `ab` →
+`from`; `trim.start/ende` → `trim.start/end`; `kamera` → `camera` mit `preset`
+`nah/mittel/weit/standard` → `near/medium/far/default`, `skala` → `scale`;
+`momente` → `moments` mit `art` → `kind` (`umkreisen/aufstieg/innehalten` →
+`orbit/ascend/linger`), `dauerS` → `durationS`; `audio[]` mit `datei` → `file`,
+`typ musik/sfx` → `type music/sfx`, `ab/bis` → `from/to`, `lautstaerke` →
+`volume`, `quelle bibliothek/benutzer` → `source library/user`, `anker` →
+`anchor`, `versatzFilmS` → `offsetFilmS`, `dauerFilmS` → `durationFilmS`,
+`einstiegS` → `startS` (so heißt es im Tour-JSON schon); `wetter` → `weather`
+mit `staerke` → `intensity`; `titelbild` → `cover`.
+
+**`enrichment@2`** (war `anreicherung@1`): `befunde` → `findings`, `orte` →
+`places`, `wetterRoh` → `weatherRaw`, `trimSignatur` → `trimSignature`,
+`videoSchnittSignatur` → `videoCutSignature`; innere Schlüssel nach Glossar.
+
+**`tour@2`**: `reihe` → `order`, `moments[].art` → `kind`, `dauerS` →
+`durationS`, `camera[].skala` → `scale`, `autor` → `author` mit `anzeigename`
+→ `displayName`, `fehler` → `error`, `stats.fotos` → `stats.photos`,
+`stats.spur` → `stats.trackSignature`. Die Statuswerte nach §4.2. Wird nicht
+migriert, sondern neu gerendert (§4.3).
 
 ---
 
-## 7. Arbeitsmodus mit Coding-Agenten
+## 7. Die Doku: sortieren, nicht neu schreiben
 
-1. Welle wählen, Glossar-Auszug + „nur dieses Modul“ + Ausschlussliste nennen.
-2. Agent: Rename + Tests; Mensch: Namenskonsistenz und Vertragsgrenzen prüfen.
-3. CI grün → Glossar um gefundene Lücken ergänzen → nächste Welle.
-4. Verbot: „Rename the whole repository to English in one go.“
+Gemessen am 2026-08-19: `docs/` ohne `_site` sind **45 Dateien**, dazu fünf
+`CLAUDE.md` mit **230 KB** (Wurzel 100 KB, Studio 68 KB, Server 35 KB, Android
+22 KB, Admin 5 KB). Das klingt nach einem eigenen Vorhaben, ist es aber nicht,
+sobald man drei Dinge auseinanderhält.
+
+**Die Bezeichner sind der kleinere Teil.** Deutsche Namen in Code-Spannen über
+das ganze Repo: rund **700 Stellen**, großzügig gezählt. Das ist dieselbe
+Abbildungstabelle wie im Code, angewandt auf `.md`.
+
+**Die Substanz sind Messwerte, und die kann niemand neu schreiben.** Treffer
+auf Zahlen mit Einheit und „gemessen/kalibriert": `konzept_gleichlauf_player_editor`
+148, `zeitleiste-umbau` 149, `die-foto-karte-auf-eine-leinwand` 79,
+`src/studio/CLAUDE.md` 65, `CLAUDE.md` 59, `foto-pins-3d` 40,
+`konzept_video_export` 38. Ein Neuschrieb ersetzt die Prosa, die billig war,
+und verliert die Zahlen, die es nicht waren.
+
+**Ein Drittel der Konzepte ist gar nicht betroffen.** Monetarisierung, Social
+Login, Play Store, Live mitverfolgen, i18n, Reisen und Sammlungen:
+Absichtstexte enthalten kaum Namen.
+
+| | Was | Behandlung |
+|---|---|---|
+| **A** | die fünf `CLAUDE.md`, `austauschformat.md`, `overlay-und-tourjson.md`, das neue `docs/specs/api.md` | Tabelle anwenden, dann **ein** Lesedurchgang je Datei. Hiernach handeln Agenten. Die Specs laufen in Welle 1 mit |
+| **B** | Absichts-Konzepte für Ungebautes | unangetastet |
+| **C** | abgearbeitete Befund-Dokumente: `die-foto-karte-auf-eine-leinwand.md` (Status „abgearbeitet"), `docs/architecture/zeitleiste-umbau.md` (kein Kopf, seit 05.08. umgesetzt), `konzept_gleichlauf_player_editor.md` | ins Archiv, deutsch eingefroren. **Vorher** wandern die offenen Stücke des Gleichlauf-Konzepts (§9 Szene-Schicht, §10 Tag/Nacht im Editor, §11 Feinplatzierung) als eigene Zeilen in die Roadmap, sonst archiviert man offene Arbeit. Umgehängt wird über den Doku-Viewer |
+| **D** | `docs/archive/` | nie anfassen |
+
+**Was hier nicht gebündelt wird:** „Wir haben zu viel Doku" und „wir wechseln
+die Sprache" sind zwei Entscheidungen. Zusammengelegt wird der Sprachwechsel
+zur Gelegenheit, Messwerte zu verlieren, und das fällt erst auf, wenn in einem
+halben Jahr jemand fragt, warum die Rampe 120 m ist und nicht 200.
 
 ---
 
-## 8. Smoke-Checkliste (nach jeder Welle)
+## 8. Abnahme je Welle
 
 - [ ] Web: `npm test` + `npm run typecheck`
-- [ ] Server (ab Welle 4): `cd server && npm test`
-- [ ] Android (ab Welle 5): `./gradlew test`
-- [ ] Manuell: Anmelden → Tour öffnen → Editor-Grenze ziehen → Speichern → Player
-- [ ] Diff enthält keine unbeabsichtigten JSON-Feld-Renames (`geloescht`, `medien`, …)
+- [ ] Server: `cd server && npm test` (Coverage-Gate 80 % wie in der CI)
+- [ ] Android ab Welle 1 (Room, Manifest, Edits): `./gradlew test`
+- [ ] Manuell: Anmelden, Tour öffnen, Modus-Grenze ziehen, Speichern, Player
+- [ ] Nahtliste §3.3 durchgegangen für jede berührte Naht
+- [ ] `status` und `stand` dieses Dokuments nachgezogen, Roadmap-Schritt aktuell
+
+Zusätzlich für Welle 1:
+
+- [ ] Zahlen aus §4.5 erhoben und eingetragen; Schwelle nicht überschritten
+- [ ] DB-Snapshot UND Kopie des Datenordners vor dem Lauf
+- [ ] Start-Migration zuerst gegen die Kopie (lokale Instanz mit
+      `MAPTALE_DATEN_DIR`), dann scharf
+- [ ] Migrations-Test: Leiter von `user_version` 0 bis 23 mit je einer Zeile
+      je Werte-Tabelle; danach englische Werte und alle Indizes vorhanden
+- [ ] Jede migrierte Tour nach dem Re-Render einmal im Player geöffnet, nicht nur die erste
+- [ ] Eine Tour vollständig neu hochgeladen und gerendert (App und Studio-Upload)
+- [ ] App neu installiert, eine Aufnahme gemacht, hochgeladen; eine Aufnahme
+      mit alter App-Version gegen den neuen Server: Klartext-Ablehnung sichtbar
+- [ ] Jede Seite einmal geöffnet (Galerie, Profil, Konto mit Geräten und
+      Speicher, Verwaltung alle Reiter): keine leeren Felder, keine 404 im
+      Netzwerk-Tab
+- [ ] Grep über den Datenordner nach den alten Schlüsseln: keine Treffer;
+      `daten/.schema` = 2
+- [ ] Grep über `src/` und `android/` nach alten API-Pfaden: keine Treffer
+- [ ] Kein laufender Datenexport zum Zeitpunkt des Deploys (48-h-Links)
+
+**Rückweg für Welle 1** (der einzige irreversible Schritt): altes Image-Tag in
+`docker-compose.cloudpanel.yml` eintragen, Datenordner aus der Kopie
+zurückspielen, DB aus dem Snapshot, `dist/` des vorigen Tags per `rsync`. Das
+ist ein Handgriff von zehn Minuten, aber nur, solange Kopie und Snapshot
+existieren; beides wird erst nach Abnahme der Welle 2 gelöscht.
 
 ---
 
-## 9. Entscheidungstor
+## 9. Arbeitsmodus mit Coding-Agenten
 
-Start, wenn mindestens eines gilt:
-
-- bald Mitentwickler ohne Deutsch, oder
-- öffentliche API/Lib geplant, oder
-- der bestehende Hybrid (schon teils Englisch) stört mehr als der Umbau.
-
-### Stand 13. August 2026: geprüft und VERTAGT
-
-Aufgekommen mitten in Paket B des [Gleichlauf-Umbaus](konzept_gleichlauf_player_editor.md):
-Der legt neue geteilte Module an (`filmuhr.ts`, `einblendung.ts`, bald `filmachse.ts`), und
-die Frage war, ob wenigstens die englisch entstehen sollen.
-
-**Entschieden: nein. Alles bleibt deutsch, auch neue Module.** Damit ist die frühere
-Empfehlung dieses Abschnitts („neue Module bereits englisch, stop the bleeding") ausdrücklich
-zurückgenommen. Drei Gründe:
-
-1. **Die Regel wäre nicht ablesbar gewesen.** Der naheliegende Schnitt „`src/*.ts` ist der
-   Player, also englisch" hält nicht: Flach in `src/` liegen auch `passwortstaerke.ts`,
-   `app-nav.ts`, `dialogschicht.ts`, `entwicklungsstand.ts`, `handle.ts` — Produktmodule der
-   deutschen Seite ohne eigenes Verzeichnis. Eine Grenze hätte entweder Dateien verschoben
-   (mitten in den Etappen, die genau diese Dateien anfassen) oder wäre eine Liste zum
-   Nachschlagen geworden.
-2. **Der Mix ist teurer als der Aufschub.** Eine englische Insel plus Sonderregel erzeugt
-   genau den Zustand, den §1 als agentenschädlich benennt — und der wächst mit jedem Paket.
-3. **Später wird es kaum teurer.** Die Arbeit steckt laut diesem Papier in Review,
-   Persistenz und Drift-Wächtern, nicht in der Zahl der Namen. Ob dreißig Bezeichner mehr zu
-   übersetzen sind, ist Tipparbeit für einen Agenten.
-
-**Was stattdessen gilt:** die linke Glossar-Spalte (§6) — ein Wort je Begriff, auf Deutsch.
-Das ist die Wartbarkeitsfrage, die heute wirklich Geld kostet, und sie ist von der Sprache
-unabhängig.
-
-**Wieder aufmachen, wenn** eines der drei Tor-Kriterien oben eintritt. Bis dahin ist diese
-Frage beantwortet — wer sie erneut stellt, findet hier die Antwort samt Begründung, statt sie
-neu herzuleiten.
+1. Welle wählen, Glossar-Auszug plus „nur diese Dateien" plus Ausschlussliste
+   plus die Nähte dieser Welle aus §3.3.
+2. Agent: Rename und Tests. Mensch: Namenskonsistenz, Wellengrenze, Nähte.
+3. CI grün, Glossar um gefundene Lücken ergänzen, nächste Welle.
+4. Verbot: „Rename the whole repository to English in one go."
+5. Verbot: Rückwärtsleser, Aliase, Kompatibilitätsschichten, Doppelrouten
+   (§2.3). Die Start-Migration ist die eine erlaubte Stelle, die alte Schlüssel
+   kennt, und sie kennt sie nur beim Start.
 
 ---
 
-## 10. Nächster Schritt
+## 10. Entscheidungstor
 
-Solange vertagt (§9), gibt es genau einen: **die deutschen Doppel beiläufig auflösen** —
-`Stopp` → Halt, `haltedauerS` → Standzeit —, wenn eine Etappe die Stelle ohnehin öffnet.
-Kein eigener Lauf dafür.
+Die vertagte Fassung nannte drei Kriterien, unter denen wieder aufgemacht wird:
+Mitentwickler ohne Deutsch, öffentliche API, oder der Hybrid stört mehr als der
+Umbau.
 
-Wenn das Tor aufgeht:
+**Stand 19. August 2026: geöffnet.** Zwei Beobachtungen stützen es:
 
-1. Dieses Dokument reviewen (Glossar-Streitpunkte: vor allem `Halt` → `stop`).
-2. CLAUDE-Sprachregel anpassen (Welle 0).
-3. Welle 1 per Agenten-Prompt in §5 ausführen.
+- Die Prämisse der Vertagung („später wird es kaum teurer") stimmt für den
+  Code, aber nicht für die Persistenz und die API. Dort wird es sprunghaft
+  teurer, sobald fremde Daten oder fremde Clients im System sind, und dieser
+  Punkt ist noch nicht erreicht (§4.5 misst ihn).
+- Der Hybrid ist seit dem 13.08. gewachsen: Der ganze Gleichlauf-Umbau ist
+  deutsch auf englisches Prototyp-Erbe gesetzt worden.
+
+### Historie: die Vertagung vom 13. August 2026
+
+Aufgekommen mitten in Paket B des
+[Gleichlauf-Umbaus](konzept_gleichlauf_player_editor.md), der neue geteilte
+Module anlegte (`filmuhr.ts`, `einblendung.ts`, `filmachse.ts`). Entschieden
+wurde: alles bleibt deutsch, auch neue Module. Begründung damals: Die Regel
+wäre nicht ablesbar gewesen; ein Mix aus englischer Insel und Sonderregel ist
+teurer als der Aufschub; später werde es kaum teurer. Der dritte Punkt hat sich
+für Persistenz und API als falsch erwiesen, die ersten zwei als Kosten
+bestätigt: Genau der beschriebene Hybrid ist entstanden.
+
+### Historie: die erste beschlossene Fassung vom 19. August 2026, Vormittag
+
+Schnitt „DB + vier JSON + Room", Einmal-Skript unter `scripts/`, keine
+Versionserhöhung, API nicht erwähnt. Im Review am selben Tag an sieben Stellen
+gegen den Code gefallen (§0). Ersetzt durch diese Fassung.
+
+---
+
+## 11. Nächster Schritt
+
+**Welle 0**, konkret und in dieser Reihenfolge:
+
+1. Zahlen aus §4.5 auf dem Server erheben und eintragen. Liegt eine über der
+   Schwelle, endet Welle 0 hier und §4 wird neu entschieden.
+2. Roadmap: Play Store hinter dieses Vorhaben; Einladungen bis Ende Welle 1
+   pausieren.
+3. Glossar §6 auf Vollständigkeit prüfen: Agent erzeugt die Liste aller
+   deutschen Exporte in `src/`, `server/src`, `android/` und aller API-Felder je
+   Route; was nicht im Glossar steht, wird eingetragen. Ergebnis:
+   `docs/specs/api.md` (Ist-Stand) und ein eingefrorenes §6.
+4. Sprachregel in `CLAUDE.md` anpassen (§2).
+5. DB-Snapshot und Kopie des Datenordners.
+6. Erst danach Welle 1, Schritt 1 (§5): SQLite + die Felder, die direkt aus
+   Zeilen kommen.

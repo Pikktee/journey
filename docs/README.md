@@ -474,6 +474,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`konzept_maptale_als_ios_webapp.md`](concepts/konzept_maptale_als_ios_webapp.md) — Maptale zum Home-Bildschirm: der Ersatz für die native App, die es auf iOS nicht gibt. Offen ist zuerst, was der Editor auf einem Telefon sein soll. Entwurf, nichts gebaut.
 * [`konzept_newsletter.md`](concepts/konzept_newsletter.md) — Teil B: redaktioneller Newsletter-Versand (Teil A ist live).
 * [`konzept_mehrsprachigkeit_i18n.md`](concepts/konzept_mehrsprachigkeit_i18n.md) — Mehrsprachigkeit & `/de/` / `/en/`-Routing.
+* [`konzept_astro_umstieg.md`](concepts/konzept_astro_umstieg.md) — Layouts statt fünfmal kopiertem Header, i18n-Routing aus dem Framework statt von Hand. Mit den Messwerten, an denen Astro gegen die leichteren Alternativen gewonnen hat. Entwurf, nichts gebaut.
 * [`konzept_tracker_integrationen.md`](concepts/konzept_tracker_integrationen.md) — Garmin/Strava Sync & automatische Foto-Zuordnung.
 * [`konzept_medien_nachreichen_und_loeschen.md`](concepts/konzept_medien_nachreichen_und_loeschen.md) — Additive Medien-Route & endgültiges Löschen (Etappe 0 der Tracker-Integrationen).
 * [`konzept_codebase_english_refactoring.md`](concepts/konzept_codebase_english_refactoring.md) — Bezeichner auf Englisch: Wellenplan, Glossar, Welle‑1-Schnitt.
