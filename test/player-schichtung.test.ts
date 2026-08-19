@@ -52,6 +52,23 @@ describe('Schichtung der Player-Bühne', () => {
     expect(zIndex('.photo-layer')).toBeLessThan(zIndex('.dock'))
   })
 
+  // Der Auto-Rückzug (body.ui-clean) räumt drei Elemente aus dem Bild. Alle drei
+  // tragen `.reveal` aus dem Startscreen, und deren Animation läuft mit
+  // `forwards` — ein Animations-Endwert schlägt in der Kaskade jede normale
+  // Deklaration. Ohne `!important` blieb der Weg zurück als einziges Element
+  // stehen, während sich alles andere zurückzog: monatelang unbemerkt, weil die
+  // Regel dasteht und richtig aussieht.
+  it('blendet ALLE drei Elemente des Rückzugs wirklich aus', () => {
+    for (const sel of ['.zurueck', '.next-stop', '.dock']) {
+      const regel = new RegExp(`body\\.ui-clean ${sel.replace('.', '\\.')}\\s*\\{([^}]*)\\}`, 'm')
+      const treffer = regel.exec(css)
+      expect(treffer, `body.ui-clean ${sel} fehlt in style.css`).not.toBeNull()
+      expect(treffer![1], `body.ui-clean ${sel} braucht !important gegen die .reveal-Animation`).toMatch(
+        /opacity:\s*0\s*!important/,
+      )
+    }
+  })
+
   // Der Stand der Karte hängt an der FILMZEIT und nicht an einer Wanduhr (E15).
   // Bis Etappe 2 stellte das CSS das mit dauerhaft pausierten Animationen und
   // einem negativen Delay nach; hier stand deshalb ein Wächter auf
