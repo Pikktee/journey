@@ -43,25 +43,25 @@ const konto = (teil: Partial<AdminBenutzer> = {}): AdminBenutzer => ({
   id: 'u_1',
   email: 'anna@example.com',
   name: 'Anna',
-  rolle: 'nutzer',
-  verifiziert: true,
-  angelegtAm: '2026-03-04T10:00:00.000Z',
-  anzeigename: null,
-  touren: 0,
-  speicher: 0,
-  fest: false,
+  role: 'user',
+  verified: true,
+  createdAt: '2026-03-04T10:00:00.000Z',
+  displayName: null,
+  tours: 0,
+  storage: 0,
+  fixed: false,
   ...teil,
 })
 
 const einladung = (teil: Partial<AdminEinladung> = {}): AdminEinladung => ({
   code: 'ABCD-2345',
-  notiz: null,
-  erstelltAm: '2026-03-04T10:00:00.000Z',
-  erstelltVon: 'chefin@example.com',
-  ablauf: null,
-  eingeloestAm: null,
-  eingeloestVon: null,
-  zustand: 'offen',
+  note: null,
+  createdAt: '2026-03-04T10:00:00.000Z',
+  createdBy: 'chefin@example.com',
+  expiresAt: null,
+  redeemedAt: null,
+  redeemedBy: null,
+  state: 'open',
   ...teil,
 })
 
@@ -125,7 +125,7 @@ describe('formatiereDatum', () => {
 describe('filtereBenutzer', () => {
   const liste = [
     konto({ id: 'u_1', email: 'anna@example.com', name: 'Anna Berg' }),
-    konto({ id: 'u_2', email: 'bert@example.com', name: 'Bert', anzeigename: 'Radfahrer' }),
+    konto({ id: 'u_2', email: 'bert@example.com', name: 'Bert', displayName: 'Radfahrer' }),
   ]
 
   it('gibt ohne Suche alles zurück', () => {
@@ -147,12 +147,12 @@ describe('filtereBenutzer', () => {
 
   it('filtert nach Rolle und offener Bestätigung', () => {
     const gemischt = [
-      konto({ id: 'u_1', rolle: 'admin' }),
-      konto({ id: 'u_2', email: 'bert@example.com', name: 'Bert', verifiziert: false }),
+      konto({ id: 'u_1', role: 'admin' }),
+      konto({ id: 'u_2', email: 'bert@example.com', name: 'Bert', verified: false }),
       konto({ id: 'u_3', email: 'cara@example.com', name: 'Cara' }),
     ]
     expect(filtereBenutzer(gemischt, '', 'admins').map((b) => b.id)).toEqual(['u_1'])
-    expect(filtereBenutzer(gemischt, '', 'unbestaetigt').map((b) => b.id)).toEqual(['u_2'])
+    expect(filtereBenutzer(gemischt, '', 'unconfirmed').map((b) => b.id)).toEqual(['u_2'])
     expect(filtereBenutzer(gemischt, '', 'alle')).toHaveLength(3)
   })
 
@@ -160,11 +160,11 @@ describe('filtereBenutzer', () => {
   // Filter-Segmenten zählen innerhalb der laufenden Suche.
   it('verbindet Suche und Filter mit UND', () => {
     const gemischt = [
-      konto({ id: 'u_1', email: 'anna@example.com', rolle: 'admin' }),
-      konto({ id: 'u_2', email: 'bert@example.com', name: 'Bert', rolle: 'admin' }),
+      konto({ id: 'u_1', email: 'anna@example.com', role: 'admin' }),
+      konto({ id: 'u_2', email: 'bert@example.com', name: 'Bert', role: 'admin' }),
     ]
     expect(filtereBenutzer(gemischt, 'anna', 'admins').map((b) => b.id)).toEqual(['u_1'])
-    expect(filtereBenutzer(gemischt, 'anna', 'unbestaetigt')).toHaveLength(0)
+    expect(filtereBenutzer(gemischt, 'anna', 'unconfirmed')).toHaveLength(0)
   })
 })
 
@@ -182,7 +182,7 @@ describe('initiale', () => {
 describe('beschreibeEinladung', () => {
   it('sagt bei offenen Codes, wie lange sie noch gelten', () => {
     expect(beschreibeEinladung(einladung())).toBe('Offen · ohne Ablaufdatum')
-    expect(beschreibeEinladung(einladung({ ablauf: '2026-04-03T10:00:00.000Z' }))).toMatch(
+    expect(beschreibeEinladung(einladung({ expiresAt: '2026-04-03T10:00:00.000Z' }))).toMatch(
       /^Offen · gültig bis \d{2}\./,
     )
   })
@@ -190,9 +190,9 @@ describe('beschreibeEinladung', () => {
   it('nennt bei eingelösten Codes die Person', () => {
     const text = beschreibeEinladung(
       einladung({
-        zustand: 'eingeloest',
-        eingeloestVon: 'anna@example.com',
-        eingeloestAm: '2026-03-06T10:00:00.000Z',
+        state: 'redeemed',
+        redeemedBy: 'anna@example.com',
+        redeemedAt: '2026-03-06T10:00:00.000Z',
       }),
     )
     expect(text).toContain('anna@example.com')
@@ -201,9 +201,9 @@ describe('beschreibeEinladung', () => {
   it('kommt ohne Person aus, wenn das Konto gelöscht wurde', () => {
     const text = beschreibeEinladung(
       einladung({
-        zustand: 'eingeloest',
-        eingeloestVon: null,
-        eingeloestAm: '2026-03-06T10:00:00.000Z',
+        state: 'redeemed',
+        redeemedBy: null,
+        redeemedAt: '2026-03-06T10:00:00.000Z',
       }),
     )
     expect(text).toContain('gelöschten Konto')
@@ -211,34 +211,34 @@ describe('beschreibeEinladung', () => {
 
   it('nennt bei abgelaufenen Codes das Datum', () => {
     expect(
-      beschreibeEinladung(einladung({ zustand: 'abgelaufen', ablauf: '2026-03-05T10:00:00.000Z' })),
+      beschreibeEinladung(einladung({ state: 'expired', expiresAt: '2026-03-05T10:00:00.000Z' })),
     ).toMatch(/^Abgelaufen am /)
   })
 })
 
 describe('zaehleEinladungen', () => {
   it('zählt je Zustand und fängt bei null an', () => {
-    expect(zaehleEinladungen([])).toEqual({ offen: 0, eingeloest: 0, abgelaufen: 0 })
+    expect(zaehleEinladungen([])).toEqual({ open: 0, redeemed: 0, expired: 0 })
     expect(
       zaehleEinladungen([
         einladung(),
-        einladung({ zustand: 'eingeloest' }),
-        einladung({ zustand: 'eingeloest' }),
+        einladung({ state: 'redeemed' }),
+        einladung({ state: 'redeemed' }),
       ]),
-    ).toEqual({ offen: 1, eingeloest: 2, abgelaufen: 0 })
+    ).toEqual({ open: 1, redeemed: 2, expired: 0 })
   })
 })
 
 describe('filtereEinladungen', () => {
   const liste = [
-    einladung({ code: 'ABCD-2345', notiz: 'Anna vom Radclub' }),
-    einladung({ code: 'WXYZ-9876', zustand: 'eingeloest' }),
-    einladung({ code: 'QRST-1111', zustand: 'abgelaufen', notiz: 'Messe' }),
+    einladung({ code: 'ABCD-2345', note: 'Anna vom Radclub' }),
+    einladung({ code: 'WXYZ-9876', state: 'redeemed' }),
+    einladung({ code: 'QRST-1111', state: 'expired', note: 'Messe' }),
   ]
 
   it('filtert nach Zustand', () => {
-    expect(filtereEinladungen(liste, '', 'offen').map((e) => e.code)).toEqual(['ABCD-2345'])
-    expect(filtereEinladungen(liste, '', 'abgelaufen').map((e) => e.code)).toEqual(['QRST-1111'])
+    expect(filtereEinladungen(liste, '', 'open').map((e) => e.code)).toEqual(['ABCD-2345'])
+    expect(filtereEinladungen(liste, '', 'expired').map((e) => e.code)).toEqual(['QRST-1111'])
     expect(filtereEinladungen(liste, '', 'alle')).toHaveLength(3)
   })
 
@@ -307,19 +307,19 @@ describe('Sperr-Regeln', () => {
   })
 
   it('schützt die konfigurierten Adressen', () => {
-    const fest = konto({ rolle: 'admin', fest: true })
+    const fest = konto({ role: 'admin', fixed: true })
     expect(rolleGesperrt(fest, 'u_ich', 3)).toContain('Konfiguration')
     expect(loeschenGesperrt(fest, 'u_ich', 3)).toContain('Konfiguration')
   })
 
   it('lässt die eigene Admin-Rolle nicht ablegen und das eigene Konto nicht löschen', () => {
-    const ich = konto({ id: 'u_ich', rolle: 'admin' })
+    const ich = konto({ id: 'u_ich', role: 'admin' })
     expect(rolleGesperrt(ich, 'u_ich', 3)).toContain('eigene')
     expect(loeschenGesperrt(ich, 'u_ich', 3)).toContain('Studio')
   })
 
   it('hält den letzten Administrator fest', () => {
-    const letzter = konto({ id: 'u_andere', rolle: 'admin' })
+    const letzter = konto({ id: 'u_andere', role: 'admin' })
     expect(rolleGesperrt(letzter, 'u_ich', 1)).toContain('mindestens einen')
     expect(loeschenGesperrt(letzter, 'u_ich', 1)).toContain('mindestens einen')
     // Mit einem zweiten Admin geht beides
@@ -328,7 +328,7 @@ describe('Sperr-Regeln', () => {
   })
 
   it('zählt die Administratoren einer Liste', () => {
-    expect(zaehleAdmins([konto(), konto({ rolle: 'admin' }), konto({ rolle: 'admin' })])).toBe(2)
+    expect(zaehleAdmins([konto(), konto({ role: 'admin' }), konto({ role: 'admin' })])).toBe(2)
   })
 })
 
@@ -336,38 +336,36 @@ describe('Warteliste', () => {
   const wartender = (teil: Partial<AdminWartender> = {}): AdminWartender => ({
     id: 'w_1',
     email: 'anna@example.com',
-    notiz: null,
-    eingetragenAm: '2026-03-04T10:00:00.000Z',
-    bestaetigtAm: null,
-    eingeladenAm: null,
-    eingeladenCode: null,
-    zustand: 'unbestaetigt',
+    note: null,
+    joinedAt: '2026-03-04T10:00:00.000Z',
+    confirmedAt: null,
+    invitedAt: null,
+    invitedCode: null,
+    state: 'unconfirmed',
     ...teil,
   })
 
   it('zählt jeden Zustand einzeln', () => {
     const zahl = zaehleWarteliste([
       wartender(),
-      wartender({ zustand: 'wartend' }),
-      wartender({ zustand: 'wartend' }),
-      wartender({ zustand: 'eingeladen' }),
+      wartender({ state: 'pending' }),
+      wartender({ state: 'pending' }),
+      wartender({ state: 'invited' }),
     ])
-    expect(zahl).toEqual({ unbestaetigt: 1, wartend: 2, eingeladen: 1 })
+    expect(zahl).toEqual({ unconfirmed: 1, pending: 2, invited: 1 })
   })
 
   it('sagt zu jedem Eintrag, wo er gerade steht', () => {
     expect(beschreibeWartenden(wartender())).toContain('Bestätigung steht aus')
     expect(
-      beschreibeWartenden(
-        wartender({ zustand: 'wartend', bestaetigtAm: '2026-03-05T08:00:00.000Z' }),
-      ),
+      beschreibeWartenden(wartender({ state: 'pending', confirmedAt: '2026-03-05T08:00:00.000Z' })),
     ).toBe('Bestätigt am 05.03.2026 · wartet')
     expect(
       beschreibeWartenden(
         wartender({
-          zustand: 'eingeladen',
-          eingeladenAm: '2026-03-06T08:00:00.000Z',
-          eingeladenCode: 'ABCD-2345',
+          state: 'invited',
+          invitedAt: '2026-03-06T08:00:00.000Z',
+          invitedCode: 'ABCD-2345',
         }),
       ),
     ).toBe('Eingeladen am 06.03.2026 mit Code ABCD-2345')
@@ -378,20 +376,20 @@ describe('Warteliste', () => {
   // gebaut ist. Der Server lehnt sie ab — der Knopf soll sie nicht anbieten.
   it('bietet das Einladen nur bestätigten Adressen an', () => {
     expect(einladenGesperrt(wartender())).toContain('nicht bestätigt')
-    expect(einladenGesperrt(wartender({ zustand: 'eingeladen' }))).toContain('Schon eingeladen')
-    expect(einladenGesperrt(wartender({ zustand: 'wartend' }))).toBe('')
+    expect(einladenGesperrt(wartender({ state: 'invited' }))).toContain('Schon eingeladen')
+    expect(einladenGesperrt(wartender({ state: 'pending' }))).toBe('')
   })
 
   it('filtert nach Zustand und sucht in Adresse und Notiz', () => {
     const liste = [
-      wartender({ id: 'w_1', zustand: 'wartend', notiz: 'Radtour durch Island' }),
+      wartender({ id: 'w_1', state: 'pending', note: 'Radtour durch Island' }),
       wartender({ id: 'w_2', email: 'bert@example.com' }),
-      wartender({ id: 'w_3', email: 'cara@example.com', zustand: 'eingeladen' }),
+      wartender({ id: 'w_3', email: 'cara@example.com', state: 'invited' }),
     ]
-    expect(filtereWarteliste(liste, '', 'wartend').map((e) => e.id)).toEqual(['w_1'])
+    expect(filtereWarteliste(liste, '', 'pending').map((e) => e.id)).toEqual(['w_1'])
     expect(filtereWarteliste(liste, 'bert').map((e) => e.id)).toEqual(['w_2'])
     expect(filtereWarteliste(liste, 'island').map((e) => e.id)).toEqual(['w_1'])
-    expect(filtereWarteliste(liste, 'island', 'eingeladen')).toHaveLength(0)
+    expect(filtereWarteliste(liste, 'island', 'invited')).toHaveLength(0)
   })
 
   // Spiegel von `wartelisteAngeboten` in server/src/auth/warteliste.ts — die
@@ -404,7 +402,7 @@ describe('Warteliste', () => {
     expect(wartelisteAngeboten(false, false, false)).toBe(false)
     // Schalter an + Einladungspflicht: ja.
     expect(wartelisteAngeboten(true, true, true)).toBe(true)
-    // Schalter an, keine Pflicht, Registrierung offen: wirkungslos — man kann
+    // Schalter an, keine Pflicht, Registrierung open: wirkungslos — man kann
     // sich ja anmelden.
     expect(wartelisteAngeboten(true, false, true)).toBe(false)
     // Registrierung per Umgebung zu: dann ist die Warteliste der einzige Weg.
@@ -414,28 +412,28 @@ describe('Warteliste', () => {
 
 describe('System-Mails', () => {
   const vorlage = (teil: Partial<MailVorlage> = {}): MailVorlage => ({
-    schluessel: 'verifikation',
+    key: 'verification',
     name: 'E-Mail bestätigen',
     anlass: 'Geht nach der Registrierung raus.',
     platzhalter: [{ name: 'link', beschreibung: 'Bestätigungslink', beispiel: 'https://…' }],
     hatLink: true,
     standard: {
-      betreff: 'Bestätige',
+      subject: 'Bestätige',
       titel: 'Willkommen',
       text: 'Hallo',
-      knopf: 'Los',
-      fuss: '24 Stunden',
+      button: 'Los',
+      footer: '24 Stunden',
     },
-    bausteine: {
-      betreff: 'Bestätige',
+    blocks: {
+      subject: 'Bestätige',
       titel: 'Willkommen',
       text: 'Hallo',
-      knopf: 'Los',
-      fuss: '24 Stunden',
+      button: 'Los',
+      footer: '24 Stunden',
     },
-    angepasst: false,
-    geaendertAm: null,
-    geaendertVon: null,
+    customized: false,
+    updatedAt: null,
+    updatedBy: null,
     ...teil,
   })
 
@@ -449,9 +447,9 @@ describe('System-Mails', () => {
     expect(
       beschreibeVorlage(
         vorlage({
-          angepasst: true,
-          geaendertAm: '2026-03-05T08:00:00.000Z',
-          geaendertVon: 'chefin@example.com',
+          customized: true,
+          updatedAt: '2026-03-05T08:00:00.000Z',
+          updatedBy: 'chefin@example.com',
         }),
       ),
     ).toBe('Angepasst am 05.03.2026 von chefin@example.com')
@@ -459,16 +457,16 @@ describe('System-Mails', () => {
 
   it('kommt ohne bekannte Person aus — das Konto kann gelöscht sein', () => {
     expect(
-      beschreibeVorlage(vorlage({ angepasst: true, geaendertAm: '2026-03-05T08:00:00.000Z' })),
+      beschreibeVorlage(vorlage({ customized: true, updatedAt: '2026-03-05T08:00:00.000Z' })),
     ).toBe('Angepasst am 05.03.2026')
   })
 })
 
 describe('Protokoll', () => {
   const e = (patch: Partial<ProtokollEintrag> = {}): ProtokollEintrag => ({
-    nr: 1,
+    no: 1,
     zeit: '2026-08-04T12:30:05.000Z',
-    stufe: 'warnung',
+    level: 'warning',
     text: 'Bildanalyse: HTTP 429 (Rate-Limit)',
     ...patch,
   })
@@ -477,18 +475,18 @@ describe('Protokoll', () => {
     const liste = [
       e(),
       e({
-        nr: 2,
+        no: 2,
         text: 'Anreicherung fehlgeschlagen',
         detail: 'Tour t_abc123 · Track nicht lesbar',
       }),
     ]
-    expect(filtereProtokoll(liste, 't_abc123').map((x) => x.nr)).toEqual([2])
+    expect(filtereProtokoll(liste, 't_abc123').map((x) => x.no)).toEqual([2])
   })
 
   it('filtert nach Stufe', () => {
-    const liste = [e(), e({ nr: 2, stufe: 'fehler' })]
-    expect(filtereProtokoll(liste, '', 'fehler').map((x) => x.nr)).toEqual([2])
-    expect(zaehleProtokoll(liste)).toEqual({ warnung: 1, fehler: 1 })
+    const liste = [e(), e({ no: 2, level: 'failed' })]
+    expect(filtereProtokoll(liste, '', 'failed').map((x) => x.no)).toEqual([2])
+    expect(zaehleProtokoll(liste)).toEqual({ warning: 1, failed: 1 })
   })
 
   it('zeigt bei Meldungen von heute nur die Uhrzeit, sonst auch den Tag', () => {

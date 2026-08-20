@@ -154,8 +154,7 @@ function oeffneTitelbild(profile: ProfilAntwort, fertig: () => void): void {
   // man beide unterscheidet, ist der Pfad: Vorschläge liegen als statische
   // Datei unter /titelbilder/, eigene Bilder kommen aus der API.
   const eigenesBild =
-    !!profile.bannerUrl &&
-    !TITELBILDER.some((b) => titelbildPfad(b.datei) === profile.bannerUrl)
+    !!profile.bannerUrl && !TITELBILDER.some((b) => titelbildPfad(b.datei) === profile.bannerUrl)
   const entfernen = el('button', 'still', 'Zurücksetzen')
   entfernen.type = 'button'
   if (eigenesBild) fuss.append(entfernen, el('span', 'sp-luft'))

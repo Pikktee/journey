@@ -27,7 +27,7 @@ import {
   mitTrim,
   mitWetterGrenze,
   wetterBeiZeit,
-  MODI,
+  TRAVEL_MODES,
   MOMENT_DEFAULT_S,
   offsetZuIso,
   ohneAudioEintrag,
@@ -149,12 +149,12 @@ describe('punktZuOffset', () => {
 
 describe('Kamera-Grenzen', () => {
   it('setzt, ersetzt (gleicher ab) und sortiert', () => {
-    let e = mitKameraGrenze(LEERES_OVERLAY, iso(600), 'weit')
-    e = mitKameraGrenze(e, iso(100), 'nah')
-    e = mitKameraGrenze(e, iso(600), 'mittel')
-    expect(e.kamera).toEqual([
-      { ab: iso(100), preset: 'nah' },
-      { ab: iso(600), preset: 'mittel' },
+    let e = mitKameraGrenze(LEERES_OVERLAY, iso(600), 'far')
+    e = mitKameraGrenze(e, iso(100), 'near')
+    e = mitKameraGrenze(e, iso(600), 'mid')
+    expect(e.camera).toEqual([
+      { from: iso(100), preset: 'near' },
+      { from: iso(600), preset: 'mid' },
     ])
     e = ohneKameraGrenze(e, iso(100))
     e = ohneKameraGrenze(e, iso(600))
@@ -162,27 +162,27 @@ describe('Kamera-Grenzen', () => {
   })
 
   it('Feinjustierung: skala wird gehalten, bei 1/undefined weggelassen', () => {
-    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'nah', 1.4).kamera).toEqual([
-      { ab: iso(0), preset: 'nah', skala: 1.4 },
+    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'near', 1.4).camera).toEqual([
+      { from: iso(0), preset: 'near', scale: 1.4 },
     ])
     // skala 1 oder undefined = kein Feld (minimales JSON)
-    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'nah', 1).kamera).toEqual([
-      { ab: iso(0), preset: 'nah' },
+    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'near', 1).camera).toEqual([
+      { from: iso(0), preset: 'near' },
     ])
-    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'nah').kamera).toEqual([
-      { ab: iso(0), preset: 'nah' },
+    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'near').camera).toEqual([
+      { from: iso(0), preset: 'near' },
     ])
     // pruefeOverlay: 0.5..2 erlaubt, außerhalb abgelehnt
     expect(
       pruefeOverlay({
-        schema: 'maptale/edits@1',
-        kamera: [{ ab: iso(0), preset: 'nah', skala: 0.4 }],
+        schema: 'maptale/edits@2',
+        camera: [{ from: iso(0), preset: 'near', scale: 0.4 }],
       }),
     ).toMatch(/Feinjustierung/)
     expect(
       pruefeOverlay({
-        schema: 'maptale/edits@1',
-        kamera: [{ ab: iso(0), preset: 'nah', skala: 1.5 }],
+        schema: 'maptale/edits@2',
+        camera: [{ from: iso(0), preset: 'near', scale: 1.5 }],
       }),
     ).toBeNull()
   })
@@ -190,12 +190,12 @@ describe('Kamera-Grenzen', () => {
 
 describe('Kamera-Momente', () => {
   it('setzt, ersetzt (gleicher ab), sortiert und räumt auf', () => {
-    let e = mitMoment(LEERES_OVERLAY, iso(600), 'umkreisen')
-    e = mitMoment(e, iso(100), 'innehalten', 8)
-    e = mitMoment(e, iso(600), 'aufstieg') // ersetzt den Umkreisen-Moment
-    expect(e.momente).toEqual([
-      { ab: iso(100), art: 'innehalten', dauerS: 8 },
-      { ab: iso(600), art: 'aufstieg' },
+    let e = mitMoment(LEERES_OVERLAY, iso(600), 'orbit')
+    e = mitMoment(e, iso(100), 'linger', 8)
+    e = mitMoment(e, iso(600), 'ascend') // ersetzt den Umkreisen-Moment
+    expect(e.moments).toEqual([
+      { from: iso(100), kind: 'linger', durationS: 8 },
+      { from: iso(600), kind: 'ascend' },
     ])
     e = ohneMoment(e, iso(100))
     e = ohneMoment(e, iso(600))
@@ -204,18 +204,18 @@ describe('Kamera-Momente', () => {
 
   it('pruefeOverlay lehnt unparsebare Zeit und Dauer außerhalb 1..30 ab', () => {
     expect(
-      pruefeOverlay({ schema: 'maptale/edits@1', momente: [{ ab: 'quatsch', art: 'umkreisen' }] }),
+      pruefeOverlay({ schema: 'maptale/edits@2', moments: [{ from: 'quatsch', kind: 'orbit' }] }),
     ).toMatch(/Moment/)
     expect(
       pruefeOverlay({
-        schema: 'maptale/edits@1',
-        momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 99 }],
+        schema: 'maptale/edits@2',
+        moments: [{ from: iso(0), kind: 'orbit', durationS: 99 }],
       }),
     ).toMatch(/Dauer/)
     expect(
       pruefeOverlay({
-        schema: 'maptale/edits@1',
-        momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 6 }],
+        schema: 'maptale/edits@2',
+        moments: [{ from: iso(0), kind: 'orbit', durationS: 6 }],
       }),
     ).toBeNull()
   })
@@ -229,18 +229,18 @@ describe('Kamera-Momente', () => {
 
 describe('Audio-Einträge', () => {
   it('fügt hinzu, patcht per Index und räumt beim letzten Entfernen auf', () => {
-    let e = mitAudioEintrag(LEERES_OVERLAY, { datei: 'a.mp3', typ: 'musik', ab: iso(0) })
-    e = mitAudioEintrag(e, { datei: 'b.mp3', typ: 'sfx', ab: iso(60) })
-    e = mitAudioPatch(e, 0, { bis: iso(600), lautstaerke: 0.5 })
+    let e = mitAudioEintrag(LEERES_OVERLAY, { file: 'a.mp3', type: 'music', from: iso(0) })
+    e = mitAudioEintrag(e, { file: 'b.mp3', type: 'sfx', from: iso(60) })
+    e = mitAudioPatch(e, 0, { to: iso(600), volume: 0.5 })
     expect(e.audio?.[0]).toEqual({
-      datei: 'a.mp3',
-      typ: 'musik',
-      ab: iso(0),
-      bis: iso(600),
-      lautstaerke: 0.5,
+      file: 'a.mp3',
+      type: 'music',
+      from: iso(0),
+      to: iso(600),
+      volume: 0.5,
     })
     // undefined entfernt den Schlüssel
-    e = mitAudioPatch(e, 0, { lautstaerke: undefined })
+    e = mitAudioPatch(e, 0, { volume: undefined })
     expect('lautstaerke' in (e.audio?.[0] ?? {})).toBe(false)
     e = ohneAudioEintrag(e, 1)
     e = ohneAudioEintrag(e, 0)
@@ -249,56 +249,56 @@ describe('Audio-Einträge', () => {
 
   it('Wechsel auf sfx wirft das Ende weg', () => {
     let e = mitAudioEintrag(LEERES_OVERLAY, {
-      datei: 'a.mp3',
-      typ: 'musik',
-      ab: iso(0),
-      bis: iso(60),
+      file: 'a.mp3',
+      type: 'music',
+      from: iso(0),
+      to: iso(60),
     })
-    e = mitAudioPatch(e, 0, { typ: 'sfx' })
-    expect(e.audio?.[0]).toEqual({ datei: 'a.mp3', typ: 'sfx', ab: iso(0) })
+    e = mitAudioPatch(e, 0, { type: 'sfx' })
+    expect(e.audio?.[0]).toEqual({ file: 'a.mp3', type: 'sfx', from: iso(0) })
   })
 
   it('Stück tauschen: datei+quelle ersetzen, die Platzierung bleibt', () => {
     // Ausgangslage: Bibliotheks-Musik mit gesetztem Bereich und Lautstärke
     let e = mitAudioEintrag(LEERES_OVERLAY, {
-      datei: 'mus-aufbruch.mp3',
-      typ: 'musik',
-      ab: iso(0),
-      bis: iso(600),
-      lautstaerke: 0.5,
-      quelle: 'bibliothek',
+      file: 'mus-aufbruch.mp3',
+      type: 'music',
+      from: iso(0),
+      to: iso(600),
+      volume: 0.5,
+      source: 'library',
     })
     // „Ändern …": eigener Upload übernimmt — ab/bis/lautstaerke unangetastet
-    e = mitAudioPatch(e, 0, { datei: 'meine-musik.mp3', quelle: 'benutzer' })
+    e = mitAudioPatch(e, 0, { file: 'meine-musik.mp3', source: 'user' })
     expect(e.audio?.[0]).toEqual({
-      datei: 'meine-musik.mp3',
-      typ: 'musik',
-      ab: iso(0),
-      bis: iso(600),
-      lautstaerke: 0.5,
-      quelle: 'benutzer',
+      file: 'meine-musik.mp3',
+      type: 'music',
+      from: iso(0),
+      to: iso(600),
+      volume: 0.5,
+      source: 'user',
     })
     // Tausch gegen einen Katalog-Effekt wechselt die Art mit → Ende fällt weg
-    e = mitAudioPatch(e, 0, { datei: 'sfx-moewe.mp3', quelle: 'bibliothek', typ: 'sfx' })
+    e = mitAudioPatch(e, 0, { file: 'sfx-moewe.mp3', source: 'library', type: 'sfx' })
     expect(e.audio?.[0]).toEqual({
-      datei: 'sfx-moewe.mp3',
-      typ: 'sfx',
-      ab: iso(0),
-      lautstaerke: 0.5,
-      quelle: 'bibliothek',
+      file: 'sfx-moewe.mp3',
+      type: 'sfx',
+      from: iso(0),
+      volume: 0.5,
+      source: 'library',
     })
-    // quelle: undefined heißt ausdrücklich „tour-lokal" — der Schlüssel verschwindet
-    e = mitAudioPatch(e, 0, { datei: 'lokal.mp3', quelle: undefined })
-    expect(e.audio?.[0]).toEqual({ datei: 'lokal.mp3', typ: 'sfx', ab: iso(0), lautstaerke: 0.5 })
+    // source: undefined heißt ausdrücklich „tour-lokal" — der Schlüssel verschwindet
+    e = mitAudioPatch(e, 0, { file: 'lokal.mp3', source: undefined })
+    expect(e.audio?.[0]).toEqual({ file: 'lokal.mp3', type: 'sfx', from: iso(0), volume: 0.5 })
   })
 })
 
 describe('Display-Optionen je Medium', () => {
   it('setzt holdS/kenBurns und räumt leere display-Objekte weg', () => {
     let e = mitMedienEdit(LEERES_OVERLAY, 'm1', { display: { holdS: 8, kenBurns: false } })
-    expect(e.medien?.['m1']?.display).toEqual({ holdS: 8, kenBurns: false })
+    expect(e.media?.['m1']?.display).toEqual({ holdS: 8, kenBurns: false })
     e = mitMedienEdit(e, 'm1', { display: { kenBurns: false } })
-    expect(e.medien?.['m1']?.display).toEqual({ kenBurns: false })
+    expect(e.media?.['m1']?.display).toEqual({ kenBurns: false })
     e = mitMedienEdit(e, 'm1', { display: {} })
     expect('medien' in e).toBe(false)
   })
@@ -327,22 +327,22 @@ describe('Display-Optionen je Medium', () => {
 
 describe('pruefeOverlay (Baukasten-Fälle)', () => {
   const basis = (audio: NonNullable<EditOverlay['audio']>): EditOverlay => ({
-    schema: 'maptale/edits@1',
+    schema: 'maptale/edits@2',
     audio,
   })
   it('lehnt Ende vor Beginn ab', () => {
     expect(
-      pruefeOverlay(basis([{ datei: 'a.mp3', typ: 'musik', ab: iso(60), bis: iso(30) }])),
+      pruefeOverlay(basis([{ file: 'a.mp3', type: 'music', from: iso(60), to: iso(30) }])),
     ).toMatch(/Ende/)
   })
   it('lehnt Ende bei SFX ab', () => {
     expect(
-      pruefeOverlay(basis([{ datei: 'a.mp3', typ: 'sfx', ab: iso(0), bis: iso(30) }])),
+      pruefeOverlay(basis([{ file: 'a.mp3', type: 'sfx', from: iso(0), to: iso(30) }])),
     ).toMatch(/Musik/)
   })
   it('lehnt Lautstärke außerhalb 0..1 ab', () => {
     expect(
-      pruefeOverlay(basis([{ datei: 'a.mp3', typ: 'musik', ab: iso(0), lautstaerke: 1.2 }])),
+      pruefeOverlay(basis([{ file: 'a.mp3', type: 'music', from: iso(0), volume: 1.2 }])),
     ).toMatch(/Lautstärke/)
   })
   it('lehnt Haltedauern außerhalb 2..60 ab', () => {
@@ -352,14 +352,14 @@ describe('pruefeOverlay (Baukasten-Fälle)', () => {
   })
   it('lehnt unparsebare Kamera-Grenzen ab', () => {
     expect(
-      pruefeOverlay({ schema: 'maptale/edits@1', kamera: [{ ab: 'quatsch', preset: 'nah' }] }),
+      pruefeOverlay({ schema: 'maptale/edits@2', camera: [{ from: 'quatsch', preset: 'near' }] }),
     ).toMatch(/Kamera/)
   })
   it('lehnt zu viele Audio-Einträge ab (Server-Limit 50 gespiegelt)', () => {
     const viele = Array.from({ length: 51 }, () => ({
-      datei: 'a.mp3',
-      typ: 'musik' as const,
-      ab: iso(0),
+      file: 'a.mp3',
+      type: 'music' as const,
+      from: iso(0),
     }))
     expect(pruefeOverlay(basis(viele))).toMatch(/maximal 50/)
   })
@@ -374,24 +374,24 @@ describe('audioWirdVerworfen (Trim-Warnung im Editor)', () => {
   it('meldet SFX im weggetrimmten Vorlauf', () => {
     const edits = mitTrim(LEERES_OVERLAY, 'start', iso(300))
     expect(
-      audioWirdVerworfen({ datei: 's.mp3', typ: 'sfx', ab: iso(120) }, edits, START, skala),
+      audioWirdVerworfen({ file: 's.mp3', type: 'sfx', from: iso(120) }, edits, START, skala),
     ).toBe(true)
     expect(
-      audioWirdVerworfen({ datei: 's.mp3', typ: 'sfx', ab: iso(600) }, edits, START, skala),
+      audioWirdVerworfen({ file: 's.mp3', type: 'sfx', from: iso(600) }, edits, START, skala),
     ).toBe(false)
   })
   it('meldet Musik, deren Spanne komplett vor dem Trim-Start liegt', () => {
     const edits = mitTrim(LEERES_OVERLAY, 'start', iso(600))
     expect(
       audioWirdVerworfen(
-        { datei: 'm.mp3', typ: 'musik', ab: iso(60), bis: iso(300) },
+        { file: 'm.mp3', type: 'music', from: iso(60), to: iso(300) },
         edits,
         START,
         skala,
       ),
     ).toBe(true)
     expect(
-      audioWirdVerworfen({ datei: 'm.mp3', typ: 'musik', ab: iso(60) }, edits, START, skala),
+      audioWirdVerworfen({ file: 'm.mp3', type: 'music', from: iso(60) }, edits, START, skala),
     ).toBe(false)
   })
 })
@@ -406,7 +406,7 @@ describe('Fortbewegungs-Modi', () => {
     // `MODUS_TEMPO` steht seit Paket D in src/filmachse.ts und wird von der
     // Engine, vom Studio und (als erzwungener Spiegel) vom Server gelesen —
     // kein Quelltext-Vergleich mehr nötig.
-    expect(Object.keys(MODUS_TEMPO).slice().sort()).toEqual([...MODI].slice().sort())
+    expect(Object.keys(MODUS_TEMPO).slice().sort()).toEqual([...TRAVEL_MODES].slice().sort())
   })
 
   it('Tempo-Faktoren der Dauerschätzung stimmen mit der Engine überein', () => {
@@ -435,7 +435,7 @@ describe('Fortbewegungs-Modi', () => {
     const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
     const block = quelle.match(/const MODE_SCALE = \{([\s\S]*?)\n\}/)
     const engine = [...(block?.[1] ?? '').matchAll(/^\s{2}(\w+)\s*:/gm)].map((m) => m[1] as string)
-    expect(engine.slice().sort()).toEqual([...MODI].slice().sort())
+    expect(engine.slice().sort()).toEqual([...TRAVEL_MODES].slice().sort())
   })
 
   // Der Läufer im Editor soll dasselbe Zeichen tragen wie der Fahrer im Player.
@@ -452,7 +452,7 @@ describe('Fortbewegungs-Modi', () => {
     const pfade = (text: string): string[] =>
       [...text.matchAll(/\sd="([^"]+)"/g)].map((m) => (m[1] as string).replace(/\s+/g, ' ').trim())
 
-    for (const modus of MODI) {
+    for (const modus of TRAVEL_MODES) {
       const engineIcon = (engineBlock?.[1] ?? '').match(
         new RegExp(`(?:^|\\n)\\s*(?://[^\\n]*\\n\\s*)?${modus}:\\s*\`([\\s\\S]*?)\``),
       )
@@ -474,15 +474,15 @@ describe('Wetter-Grenzen', () => {
     e = mitWetterGrenze(e, iso(600), 'rain')
     e = mitWetterGrenze(e, iso(0), 'clouds')
     e = mitWetterGrenze(e, iso(600), 'storm', 0.9) // ersetzt die rain-Grenze
-    expect(e.wetter).toEqual([
-      { ab: iso(0), mode: 'clouds' },
-      { ab: iso(600), mode: 'storm', staerke: 0.9 },
+    expect(e.weather).toEqual([
+      { from: iso(0), mode: 'clouds' },
+      { from: iso(600), mode: 'storm', intensity: 0.9 },
     ])
   })
 
   it('lässt staerke 1/undefined weg, hält das JSON minimal', () => {
     const e = mitWetterGrenze(LEERES_OVERLAY, iso(0), 'fog')
-    expect(e.wetter).toEqual([{ ab: iso(0), mode: 'fog' }])
+    expect(e.weather).toEqual([{ from: iso(0), mode: 'fog' }])
   })
 
   it('entfernt die Grenze und räumt das leere Feld weg (zurück zum Auto-Wetter)', () => {
@@ -495,9 +495,9 @@ describe('Wetter-Grenzen', () => {
   // zeichnet — die Karte im Editor (§10) fragt darüber, was sie zeigen soll.
   describe('wetterBeiZeit', () => {
     const grenzen = [
-      { ab: iso(0), mode: 'clouds' as const },
-      { ab: iso(600), mode: 'rain' as const, staerke: 0.9 },
-      { ab: iso(1200), mode: 'off' as const },
+      { from: iso(0), mode: 'clouds' as const },
+      { from: iso(600), mode: 'rain' as const, intensity: 0.9 },
+      { from: iso(1200), mode: 'off' as const },
     ]
 
     it('gilt AB ihrer Grenze und bis zur nächsten', () => {
@@ -509,8 +509,8 @@ describe('Wetter-Grenzen', () => {
     })
 
     it('reicht die Stärke durch', () => {
-      expect(wetterBeiZeit(grenzen, iso(700))?.staerke).toBe(0.9)
-      expect(wetterBeiZeit(grenzen, iso(100))?.staerke).toBeUndefined()
+      expect(wetterBeiZeit(grenzen, iso(700))?.intensity).toBe(0.9)
+      expect(wetterBeiZeit(grenzen, iso(100))?.intensity).toBeUndefined()
     })
 
     // Der Unterschied, der leicht verlorengeht: VOR der ersten Grenze hat sich
@@ -530,14 +530,14 @@ describe('Wetter-Grenzen', () => {
   it('pruefeOverlay lehnt Stärke außerhalb [0,1] ab', () => {
     expect(
       pruefeOverlay({
-        schema: 'maptale/edits@1',
-        wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.4 }],
+        schema: 'maptale/edits@2',
+        weather: [{ from: iso(0), mode: 'rain', intensity: 1.4 }],
       }),
     ).toMatch(/Wetter-Stärke/)
     expect(
       pruefeOverlay({
-        schema: 'maptale/edits@1',
-        wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.5 }],
+        schema: 'maptale/edits@2',
+        weather: [{ from: iso(0), mode: 'rain', intensity: 0.5 }],
       }),
     ).toBeNull()
   })
@@ -561,8 +561,8 @@ describe('Wetter-Grenzen', () => {
   // lauter als der Schnitt, den man geprüft hat — und man hört es erst im Player.
   it('STUDIO_PEGEL_VORGABE deckt sich mit STUDIO_PEGEL im Server', () => {
     const quelle = readFileSync(new URL('../server/src/schema/edits.ts', import.meta.url), 'utf8')
-    const treffer = quelle.match(/STUDIO_PEGEL = ([0-9.]+)/)
-    expect(treffer, 'STUDIO_PEGEL in server/src/schema/edits.ts nicht gefunden').not.toBeNull()
+    const treffer = quelle.match(/STUDIO_GAIN = ([0-9.]+)/)
+    expect(treffer, 'STUDIO_GAIN in server/src/schema/edits.ts nicht gefunden').not.toBeNull()
     expect(Number(treffer?.[1])).toBe(STUDIO_PEGEL_VORGABE)
   })
 
@@ -573,32 +573,32 @@ describe('Wetter-Grenzen', () => {
       new URL('../server/src/pipeline/enrich.ts', import.meta.url),
       'utf8',
     )
-    expect(quelle).toMatch(/gain: spur\.lautstaerke \?\? STUDIO_PEGEL/)
+    expect(quelle).toMatch(/gain: spur\.volume \?\? STUDIO_GAIN/)
   })
 })
 
 describe('Musik- und Klangbibliothek', () => {
   it('Katalog ist konsistent: eindeutige Dateien, Kategorie passt zum Typ', () => {
-    const dateien = SFX_BIBLIOTHEK.map((e) => e.datei)
+    const dateien = SFX_BIBLIOTHEK.map((e) => e.file)
     expect(new Set(dateien).size, 'doppelte Dateinamen im Katalog').toBe(dateien.length)
     for (const e of SFX_BIBLIOTHEK) {
-      expect(e.datei, `${e.name}: Dateiname`).toMatch(/^[A-Za-z0-9_-]{1,64}\.mp3$/)
+      expect(e.file, `${e.name}: Dateiname`).toMatch(/^[A-Za-z0-9_-]{1,64}\.mp3$/)
       // Musik und Umgebung laufen als Loop über eine Spanne (musik),
       // Effekte als One-Shot an einem Punkt (sfx)
-      expect(e.typ, `${e.name}: Typ passt zur Kategorie`).toBe(
-        e.kategorie === 'effekt' ? 'sfx' : 'musik',
+      expect(e.type, `${e.name}: Typ passt zur Kategorie`).toBe(
+        e.kategorie === 'effekt' ? 'sfx' : 'music',
       )
     }
-    expect(SFX_DATEIEN.has(SFX_BIBLIOTHEK[0]!.datei)).toBe(true)
-    expect(sfxEffekt(SFX_BIBLIOTHEK[0]!.datei)?.name).toBe(SFX_BIBLIOTHEK[0]!.name)
+    expect(SFX_DATEIEN.has(SFX_BIBLIOTHEK[0]!.file)).toBe(true)
+    expect(sfxEffekt(SFX_BIBLIOTHEK[0]!.file)?.name).toBe(SFX_BIBLIOTHEK[0]!.name)
     expect(sfxEffekt('gibtsnicht.mp3')).toBeUndefined()
   })
 
   it('bietet Musik an — nicht nur Atmosphären und Effekte', () => {
     // Die Spur heißt „Musik & Sound"; ohne Musik wäre sie eine Ankündigung.
-    const musik = SFX_BIBLIOTHEK.filter((e) => e.kategorie === 'musik')
+    const musik = SFX_BIBLIOTHEK.filter((e) => e.kategorie === 'music')
     expect(musik.length).toBeGreaterThanOrEqual(10)
-    expect(musik.every((e) => e.typ === 'musik')).toBe(true)
+    expect(musik.every((e) => e.type === 'music')).toBe(true)
   })
 
   it('deckt sich mit den erzeugten Clips (Drift-Wächter Katalog ↔ Skripte)', async () => {
@@ -614,7 +614,7 @@ describe('Musik- und Klangbibliothek', () => {
       MUSIK_CLIPS: Array<{ name: string }>
     }
     const ausSkript = [...CLIPS, ...MUSIK_CLIPS].map((c) => `${c.name}.mp3`).sort()
-    const ausKatalog = SFX_BIBLIOTHEK.map((e) => e.datei)
+    const ausKatalog = SFX_BIBLIOTHEK.map((e) => e.file)
       .slice()
       .sort()
     expect(ausSkript).toEqual(ausKatalog)
@@ -623,8 +623,8 @@ describe('Musik- und Klangbibliothek', () => {
   it('jede Katalogdatei liegt wirklich unter public/audio/sfx/', () => {
     // Ein Katalogeintrag ohne Datei ist ein Eintrag, der beim Anklicken schweigt.
     for (const e of SFX_BIBLIOTHEK) {
-      const pfad = new URL(`../public/audio/sfx/${e.datei}`, import.meta.url)
-      expect(existsSync(pfad), `${e.name}: ${e.datei} fehlt`).toBe(true)
+      const pfad = new URL(`../public/audio/sfx/${e.file}`, import.meta.url)
+      expect(existsSync(pfad), `${e.name}: ${e.file} fehlt`).toBe(true)
     }
   })
 
@@ -643,7 +643,7 @@ describe('Musik- und Klangbibliothek', () => {
     expect(dateien.length, 'AUTO_MUSIK ist leer').toBeGreaterThanOrEqual(5)
     for (const datei of dateien) {
       expect(SFX_DATEIEN.has(datei), `${datei} fehlt im Studio-Katalog`).toBe(true)
-      expect(sfxEffekt(datei)?.kategorie, `${datei} ist keine Musik`).toBe('musik')
+      expect(sfxEffekt(datei)?.kategorie, `${datei} ist keine Musik`).toBe('music')
     }
   })
 })
@@ -652,7 +652,7 @@ describe('Zeitleiste', () => {
   const skala = baueSkala(track)!
 
   it('baut die Skala aus erstem/letztem Punkt (und null bei zu wenig Spanne)', () => {
-    expect(skala).toEqual({ vonS: 0, bisS: 1200 })
+    expect(skala).toEqual({ fromS: 0, toS: 1200 })
     expect(baueSkala([[9, 47, 0, 5]])).toBeNull()
   })
 
@@ -666,7 +666,7 @@ describe('Zeitleiste', () => {
   it('setzt Medien-Dots an die projizierte Wiedergabe-Zeit (ohne gelöschte/unplatzierte)', () => {
     const basis: MediumBasis[] = [
       {
-        id: 'weit',
+        id: 'far',
         type: 'photo',
         src: '/x',
         takenAt: iso(0),
@@ -690,26 +690,26 @@ describe('Zeitleiste', () => {
         takenAt: iso(0),
         caption: '',
         anchor: null,
-        placement: 'unplatziert',
+        placement: 'unplaced',
       },
     ]
-    const edits = mitMedienEdit(LEERES_OVERLAY, 'weg', { geloescht: true })
+    const edits = mitMedienEdit(LEERES_OVERLAY, 'weg', { removed: true })
     const dots = baueMedienDots(effektiveMedien(basis, edits), track, skala)
-    expect(dots.map((d) => d.id)).toEqual(['weit'])
+    expect(dots.map((d) => d.id)).toEqual(['far'])
     expect(dots[0]?.anteil).toBeCloseTo(0.25, 2)
   })
 
   it('baut Audio-Balken: Musik ohne bis läuft bis 1, SFX ist punktförmig', () => {
     const balken = baueAudioBalken(
       [
-        { datei: 'a.mp3', typ: 'musik', ab: iso(300) },
-        { datei: 'b.mp3', typ: 'sfx', ab: iso(600) },
+        { file: 'a.mp3', type: 'music', from: iso(300) },
+        { file: 'b.mp3', type: 'sfx', from: iso(600) },
       ],
       START,
       skala,
     )
-    expect(balken[0]).toMatchObject({ index: 0, von: 0.25, bis: 1, lane: 0 })
-    expect(balken[1]).toMatchObject({ index: 1, von: 0.5, bis: 0.5, lane: 0 })
+    expect(balken[0]).toMatchObject({ index: 0, von: 0.25, to: 1, lane: 0 })
+    expect(balken[1]).toMatchObject({ index: 1, von: 0.5, to: 0.5, lane: 0 })
   })
 
   it('stapelt überlappende Musik-Klips in Unterzeilen — Nachbarn teilen die Zeile', () => {
@@ -717,8 +717,8 @@ describe('Zeitleiste', () => {
     // Eingesetztes ab Tour-Beginn) dürfen sich nicht verdecken.
     const voll = baueAudioBalken(
       [
-        { datei: 'mus-regentag.mp3', typ: 'musik', ab: iso(0), quelle: 'bibliothek' },
-        { datei: 'amb-hafen.mp3', typ: 'musik', ab: iso(0), quelle: 'bibliothek' },
+        { file: 'mus-regentag.mp3', type: 'music', from: iso(0), source: 'library' },
+        { file: 'amb-hafen.mp3', type: 'music', from: iso(0), source: 'library' },
       ],
       START,
       skala,
@@ -731,10 +731,10 @@ describe('Zeitleiste', () => {
     // ihre eigene Lane oben und zählen nicht mit.
     const gemischt = baueAudioBalken(
       [
-        { datei: 'a.mp3', typ: 'musik', ab: iso(0), bis: iso(600) },
-        { datei: 'b.mp3', typ: 'musik', ab: iso(600), bis: iso(1200) },
-        { datei: 'c.mp3', typ: 'musik', ab: iso(300), bis: iso(900) },
-        { datei: 'd.mp3', typ: 'sfx', ab: iso(300) },
+        { file: 'a.mp3', type: 'music', from: iso(0), to: iso(600) },
+        { file: 'b.mp3', type: 'music', from: iso(600), to: iso(1200) },
+        { file: 'c.mp3', type: 'music', from: iso(300), to: iso(900) },
+        { file: 'd.mp3', type: 'sfx', from: iso(300) },
       ],
       START,
       skala,
@@ -747,50 +747,50 @@ describe('Zeitleiste', () => {
   })
 
   it('Trim-Griffe: Default 0/1, sonst Anteil der Trim-Zeiten', () => {
-    expect(baueTrimGriffe(LEERES_OVERLAY, START, skala)).toEqual({ start: 0, ende: 1 })
-    const e = mitTrim(mitTrim(LEERES_OVERLAY, 'start', iso(300)), 'ende', iso(900))
-    expect(baueTrimGriffe(e, START, skala)).toEqual({ start: 0.25, ende: 0.75 })
+    expect(baueTrimGriffe(LEERES_OVERLAY, START, skala)).toEqual({ start: 0, end: 1 })
+    const e = mitTrim(mitTrim(LEERES_OVERLAY, 'start', iso(300)), 'end', iso(900))
+    expect(baueTrimGriffe(e, START, skala)).toEqual({ start: 0.25, end: 0.75 })
   })
 
   it('Zustandsbänder: lückenlos, jedes Band endet an der nächsten Grenze', () => {
     const baender = baueZustandsBaender(
       [
-        { ab: iso(300), wert: 'nah' },
-        { ab: iso(900), wert: 'weit' },
+        { from: iso(300), wert: 'near' },
+        { from: iso(900), wert: 'far' },
       ],
       START,
       skala,
       null,
     )
     expect(baender).toEqual([
-      { von: 0, bis: 0.25, wert: null, ab: null },
-      { von: 0.25, bis: 0.75, wert: 'nah', ab: iso(300) },
-      { von: 0.75, bis: 1, wert: 'weit', ab: iso(900) },
+      { von: 0, to: 0.25, wert: null, from: null },
+      { von: 0.25, to: 0.75, wert: 'near', from: iso(300) },
+      { von: 0.75, to: 1, wert: 'far', from: iso(900) },
     ])
     // lückenlos: das Ende jedes Bandes ist der Anfang des nächsten
-    for (let i = 1; i < baender.length; i++) expect(baender[i]?.von).toBe(baender[i - 1]?.bis)
+    for (let i = 1; i < baender.length; i++) expect(baender[i]?.von).toBe(baender[i - 1]?.to)
   })
 
   it('Zustandsbänder: Grenze bei 0 erzeugt kein leeres Grundband, Doppelgrenzen kein Null-Band', () => {
-    const abNull = baueZustandsBaender([{ ab: iso(0), wert: 'nah' }], START, skala, null)
-    expect(abNull).toEqual([{ von: 0, bis: 1, wert: 'nah', ab: iso(0) }])
+    const abNull = baueZustandsBaender([{ from: iso(0), wert: 'near' }], START, skala, null)
+    expect(abNull).toEqual([{ von: 0, to: 1, wert: 'near', from: iso(0) }])
 
     const doppelt = baueZustandsBaender(
       [
-        { ab: iso(600), wert: 'nah' },
-        { ab: iso(600), wert: 'weit' },
+        { from: iso(600), wert: 'near' },
+        { from: iso(600), wert: 'far' },
       ],
       START,
       skala,
       null,
     )
-    expect(doppelt.every((b) => b.bis > b.von)).toBe(true)
-    expect(doppelt[doppelt.length - 1]).toMatchObject({ wert: 'weit', bis: 1 })
+    expect(doppelt.every((b) => b.to > b.von)).toBe(true)
+    expect(doppelt[doppelt.length - 1]).toMatchObject({ wert: 'far', to: 1 })
   })
 
   it('Zustandsbänder: unparsebare Grenzen fallen weg', () => {
-    const baender = baueZustandsBaender([{ ab: 'quatsch', wert: 'nah' }], START, skala, 'mittel')
-    expect(baender).toEqual([{ von: 0, bis: 1, wert: 'mittel', ab: null }])
+    const baender = baueZustandsBaender([{ from: 'quatsch', wert: 'near' }], START, skala, 'mid')
+    expect(baender).toEqual([{ von: 0, to: 1, wert: 'mid', from: null }])
   })
 
   it('schätzt die Animationsdauer aus Fahrzeit und Foto-Stopps', () => {
@@ -965,7 +965,7 @@ describe('Zeitleiste', () => {
 
     it('ein Halt aus drei Aufnahmen löst sich zu „Aufnahme n von m" auf', () => {
       // Drei Fotos à 5,2 s + 0,8 s Ausblendung = 6 s je Aufnahme, 18 s Halt
-      const stuecke = ['m1', 'm2', 'm3'].map((id) => ({ id, dauerS: 6 }))
+      const stuecke = ['m1', 'm2', 'm3'].map((id) => ({ id, durationS: 6 }))
       const drei = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 18, stuecke }], fSkala)
       const halt = drei.halte?.[0]
       expect(halt?.filmBis! - halt!.filmVon).toBeCloseTo(18, 6)
@@ -982,7 +982,7 @@ describe('Zeitleiste', () => {
       // Eine einzelne Aufnahme braucht kein Zählwerk („Aufnahme 1 von 1")
       const eine = baueAchse(
         abschnitte,
-        [{ offsetS: 600, breiteS: 6, stuecke: [{ id: 'm1', dauerS: 6 }] }],
+        [{ offsetS: 600, breiteS: 6, stuecke: [{ id: 'm1', durationS: 6 }] }],
         fSkala,
       )
       expect(beschreibeHaltStand(haltBeiFilmS(eine, eine.halte![0]!.filmVon + 2.5)!)).toBe(
@@ -1027,9 +1027,9 @@ describe('Zeitleiste', () => {
     it('die Achse rechnet ein Video mit seiner echten Länge', () => {
       // Ein 34-s-Video bekam als „Foto" 5,2 s — an einer 293-s-Tour ~34 px
       // statt ~200 px Achsenbreite (docs/architecture/zeitleiste-umbau.md §6).
-      expect(aufnahmeHaltS({ type: 'video', dauerS: 34 })).toBe(34)
+      expect(aufnahmeHaltS({ type: 'video', durationS: 34 })).toBe(34)
       // holdS ist bei Video wirkungslos: der Player läuft bis zum Dateiende
-      expect(aufnahmeHaltS({ type: 'video', dauerS: 34, display: { holdS: 8 } })).toBe(34)
+      expect(aufnahmeHaltS({ type: 'video', durationS: 34, display: { holdS: 8 } })).toBe(34)
       // Ohne bekannte Länge (unverarbeiteter Altbestand) bleibt die Annahme
       expect(aufnahmeHaltS({ type: 'video' })).toBe(HALT_ENGINE_S)
       // Fotos bleiben, wie sie waren
@@ -1038,11 +1038,11 @@ describe('Zeitleiste', () => {
 
       const video = {
         id: 'v1',
-        dauerS: aufnahmeHaltS({ type: 'video', dauerS: 34 }) + HALT_AUSBLEND_S,
+        durationS: aufnahmeHaltS({ type: 'video', durationS: 34 }) + HALT_AUSBLEND_S,
       }
       const mitVideo = baueAchse(
         abschnitte,
-        [{ offsetS: 600, breiteS: video.dauerS, stuecke: [video] }],
+        [{ offsetS: 600, breiteS: video.durationS, stuecke: [video] }],
         fSkala,
       )
       // 100 s Fahrt + 34,8 s Video statt 100 + 6, dazu die drei Rampen
@@ -1058,15 +1058,15 @@ describe('Zeitleiste', () => {
     it('Szenen-Klips: ein Halt ist eine Kette, jede Aufnahme mit eigener Breite', () => {
       // Drei Aufnahmen am selben Ort: 6 s + 34,8 s Video + 6 s = 46,8 s Halt
       const stuecke = [
-        { id: 'm1', dauerS: 6 },
-        { id: 'v1', dauerS: 34.8 },
-        { id: 'm2', dauerS: 6 },
+        { id: 'm1', durationS: 6 },
+        { id: 'v1', durationS: 34.8 },
+        { id: 'm2', durationS: 6 },
       ]
       const kette = baueAchse(
         abschnitte,
         [
           { offsetS: 600, breiteS: 46.8, stuecke },
-          { offsetS: 900, breiteS: 6, stuecke: [{ id: 'm3', dauerS: 6 }] },
+          { offsetS: 900, breiteS: 6, stuecke: [{ id: 'm3', durationS: 6 }] },
         ],
         fSkala,
       )
@@ -1097,16 +1097,16 @@ describe('Zeitleiste', () => {
       // Vorher lief ein Timer über die reine STANDZEIT, der Klip aber über
       // Standzeit + Ausblendung: das Bild ging 0,8 s vor seinem Klip aus.
       const stuecke = [
-        { id: 'm1', dauerS: HALT_ENGINE_S + HALT_AUSBLEND_S },
-        { id: 'm2', dauerS: 12 + HALT_AUSBLEND_S },
+        { id: 'm1', durationS: HALT_ENGINE_S + HALT_AUSBLEND_S },
+        { id: 'm2', durationS: 12 + HALT_AUSBLEND_S },
       ]
-      const breite = stuecke.reduce((s2, x) => s2 + x.dauerS, 0)
+      const breite = stuecke.reduce((s2, x) => s2 + x.durationS, 0)
       const a = baueAchse(abschnitte, [{ offsetS: 600, breiteS: breite, stuecke }], fSkala)
       for (const k of baueSzenenKlips(a)) {
         // Kurz vor der rechten Kante läuft die Karte noch …
         const drin = haltBeiFilmS(a, k.filmBis - 0.01)
         expect(drin?.stueck?.id).toBe(k.id)
-        expect(drin!.stueck!.dauerS).toBeCloseTo(k.filmBis - k.filmVon, 6)
+        expect(drin!.stueck!.durationS).toBeCloseTo(k.filmBis - k.filmVon, 6)
         // … und an der Ankunft gehört sie schon dem Klip selbst
         expect(haltBeiFilmS(a, k.filmVon + 0.01)?.stueck?.id).toBe(k.id)
       }
@@ -1115,7 +1115,7 @@ describe('Zeitleiste', () => {
     })
 
     it('Klip-Zug in der Kette: der Platz entscheidet sich an der MITTE', () => {
-      const stuecke = ['a', 'b', 'c'].map((id) => ({ id, dauerS: 6 }))
+      const stuecke = ['a', 'b', 'c'].map((id) => ({ id, durationS: 6 }))
       const kette = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 18, stuecke }], fSkala)
       const halt = kette.halte![0]!
       // Vor der Mitte des ersten Klips: Platz 0, die Marke steht an der Ankunft
@@ -1178,8 +1178,8 @@ describe('Zeitleiste', () => {
       const a = baueAchse(abschnitte, halte, fSkala)
       const kurve = baueGrenzKurve(
         fahrTrack,
-        fSkala.vonS,
-        fSkala.bisS,
+        fSkala.fromS,
+        fSkala.toS,
         { davor: null, links: 'walk', rechts: 'bike' },
         0,
         a.halte ?? [],
@@ -1193,10 +1193,10 @@ describe('Zeitleiste', () => {
           zerlegeFuerAnzeige(
             [{ mode: 'bike', pts: fahrTrack }],
             {
-              schema: 'maptale/edits@1',
-              modi: [
-                { ab: iso(fSkala.vonS), mode: 'walk' },
-                { ab: iso(t), mode: 'bike' },
+              schema: 'maptale/edits@2',
+              travelModes: [
+                { from: iso(fSkala.fromS), mode: 'walk' },
+                { from: iso(t), mode: 'bike' },
               ],
             },
             START,
@@ -1216,8 +1216,8 @@ describe('Zeitleiste', () => {
       }
 
       // Monoton und im Fenster geklemmt
-      expect(zeitBeiFilm(kurve, -50)).toBeCloseTo(fSkala.vonS, 6)
-      expect(zeitBeiFilm(kurve, 1e6)).toBeCloseTo(fSkala.bisS, 6)
+      expect(zeitBeiFilm(kurve, -50)).toBeCloseTo(fSkala.fromS, 6)
+      expect(zeitBeiFilm(kurve, 1e6)).toBeCloseTo(fSkala.toS, 6)
       // Der Halt im Fenster kostet Filmzeit, ohne von der Grenze abzuhängen —
       // dazu seine beiden Rampen und die Anfahrt aus dem Stand (zu Fuß 2,5 s je
       // Rampe).
@@ -1339,50 +1339,53 @@ describe('Zeitleiste', () => {
         edits: EditOverlay,
         altAb: string,
         zielS: number,
-      ): { edits: EditOverlay; ab: string } {
+      ): { edits: EditOverlay; from: string } {
         const geklemmt = klemmeGrenze(
-          edits.modi ?? [],
+          edits.travelModes ?? [],
           altAb,
           START,
-          Math.max(fSkala.vonS, Math.min(fSkala.bisS, zielS)),
+          Math.max(fSkala.fromS, Math.min(fSkala.toS, zielS)),
         )
         const neuAb = iso(geklemmt)
-        if (neuAb === altAb) return { edits, ab: altAb }
-        const alt = edits.modi?.find((g) => g.ab === altAb)
-        if (!alt || edits.modi?.some((g) => g.ab === neuAb)) return { edits, ab: altAb }
-        return { edits: mitModusGrenze(ohneModusGrenze(edits, altAb), neuAb, alt.mode), ab: neuAb }
+        if (neuAb === altAb) return { edits, from: altAb }
+        const alt = edits.travelModes?.find((g) => g.from === altAb)
+        if (!alt || edits.travelModes?.some((g) => g.from === neuAb)) return { edits, from: altAb }
+        return {
+          edits: mitModusGrenze(ohneModusGrenze(edits, altAb), neuAb, alt.mode),
+          from: neuAb,
+        }
       }
 
       /** Ein Zieh-Frame: Zeiger zeigt auf `zielFilmS`. */
       function ziehFrame(
         edits: EditOverlay,
-        ab: string,
+        from: string,
         zielFilmS: number,
         zug: {
-          vonS: number
-          bisS: number
+          fromS: number
+          toS: number
           minFilmS: number
           maxFilmS: number
           zeitBei: (f: number) => number
         },
         pxProFilmS: number,
-      ): { edits: EditOverlay; ab: string; gerastet: boolean; hinter: boolean } {
+      ): { edits: EditOverlay; from: string; gerastet: boolean; hinter: boolean } {
         const achse = achseVon(edits)
         const filmS = klemmeFilmS(zielFilmS, zug.minFilmS, zug.maxFilmS, pxProFilmS)
         // Gerastet wird an den Halten, wie sie JETZT auf der Leiste stehen
         const sichtbar = (achse.halte ?? []).filter(
-          (h) => h.offsetS > zug.vonS && h.offsetS <= zug.bisS,
+          (h) => h.offsetS > zug.fromS && h.offsetS <= zug.toS,
         )
         const rast = rasteAnHalt(sichtbar, anteilZuOffset(achse, filmZuAnteil(achse, filmS)), filmS)
         const ziel = rast.halt ? rast.tOffsetS : zug.zeitBei(filmS)
-        return { ...schreibeGrenze(edits, ab, ziel), gerastet: !!rast.halt, hinter: rast.hinter }
+        return { ...schreibeGrenze(edits, from, ziel), gerastet: !!rast.halt, hinter: rast.hinter }
       }
 
       /** Zug-Start für eine Fortbewegungs-Kante bei `kanteS` (Vorgänger bei `vonS`). */
       function starte(
         edits: EditOverlay,
         kanteS: number,
-        vonS: number,
+        fromS: number,
         links: Modus,
         rechts: Modus,
         davor: Modus | null = null,
@@ -1390,24 +1393,24 @@ describe('Zeitleiste', () => {
         const achse = achseVon(edits)
         const kurve = baueGrenzKurve(
           fahrTrack,
-          vonS,
-          fSkala.bisS,
+          fromS,
+          fSkala.toS,
           { davor, links, rechts },
-          filmZuOffset(achse, vonS),
+          filmZuOffset(achse, fromS),
           achse.halte ?? [],
         )!
         return {
-          vonS,
-          bisS: fSkala.bisS,
-          minFilmS: filmZuOffset(achse, vonS),
+          fromS,
+          toS: fSkala.toS,
+          minFilmS: filmZuOffset(achse, fromS),
           maxFilmS: kurve.gesamtS,
           zeitBei: (f: number): number => zeitBeiFilm(kurve, f),
         }
       }
 
       /** Filmsekunde, auf der die Kante nach dem Loslassen steht. */
-      const landung = (edits: EditOverlay, ab: string): number =>
-        filmZuOffset(achseVon(edits), isoZuOffset(START, ab))
+      const landung = (edits: EditOverlay, from: string): number =>
+        filmZuOffset(achseVon(edits), isoZuOffset(START, from))
 
       // Eine Aufnahme-Sekunde ist die feinste Auflösung, die ein Overlay-Anker
       // hat (`offsetZuIso` schneidet die Millisekunden ab) — mehr Genauigkeit
@@ -1422,10 +1425,10 @@ describe('Zeitleiste', () => {
         // der sie selbst liegt. Gemessen wird deshalb NICHT die Zwischenrechnung,
         // sondern die fertige Leiste — dieselbe Probe, die der Nutzer macht.
         const start: EditOverlay = {
-          schema: 'maptale/edits@1',
-          modi: [
-            { ab: iso(0), mode: 'walk' },
-            { ab: iso(600), mode: 'bike' },
+          schema: 'maptale/edits@2',
+          travelModes: [
+            { from: iso(0), mode: 'walk' },
+            { from: iso(600), mode: 'bike' },
           ],
         }
         const zug = starte(start, 600, 0, 'walk', 'bike')
@@ -1433,22 +1436,22 @@ describe('Zeitleiste', () => {
         for (const ziel of [20, 40, 100, 200]) {
           const f = ziehFrame(start, iso(600), ziel, zug, 10)
           expect(f.gerastet).toBe(false) // fern jedes Halts — hier gilt der Fixpunkt
-          expect(Math.abs(landung(f.edits, f.ab) - ziel)).toBeLessThan(RUNDUNG_WALK_S + 0.01)
+          expect(Math.abs(landung(f.edits, f.from) - ziel)).toBeLessThan(RUNDUNG_WALK_S + 0.01)
         }
 
         // Und über viele Frames hinweg: der Zug schreibt live, jeder Frame baut
         // auf dem vorigen auf — die Kante darf dabei nicht davonwandern.
-        let stand = { edits: start, ab: iso(600) }
+        let stand = { edits: start, from: iso(600) }
         for (const ziel of [200, 150, 100, 60, 100, 150, 200]) {
-          const f = ziehFrame(stand.edits, stand.ab, ziel, zug, 10)
-          stand = { edits: f.edits, ab: f.ab }
+          const f = ziehFrame(stand.edits, stand.from, ziel, zug, 10)
+          stand = { edits: f.edits, from: f.from }
           if (f.gerastet) continue // Rasten ist die eine gewollte Ausnahme (s. u.)
-          expect(Math.abs(landung(stand.edits, stand.ab) - ziel)).toBeLessThan(
+          expect(Math.abs(landung(stand.edits, stand.from) - ziel)).toBeLessThan(
             RUNDUNG_WALK_S + 0.01,
           )
         }
         // Am Ende der Bewegung steht die Kante wieder genau unter dem Zeiger
-        expect(Math.abs(landung(stand.edits, stand.ab) - 200)).toBeLessThan(RUNDUNG_WALK_S + 0.01)
+        expect(Math.abs(landung(stand.edits, stand.from) - 200)).toBeLessThan(RUNDUNG_WALK_S + 0.01)
       })
 
       it('(a) Ausnahme: in einen Halt VOR sich kann die Fortbewegungs-Kante nicht landen', () => {
@@ -1460,10 +1463,10 @@ describe('Zeitleiste', () => {
         // gibt es dafür nicht: „vor dem Halt" und „auf dem Pixel, wo der Halt
         // gerade gezeichnet ist" sind hier zwei verschiedene Orte.
         const start: EditOverlay = {
-          schema: 'maptale/edits@1',
-          modi: [
-            { ab: iso(0), mode: 'walk' },
-            { ab: iso(288), mode: 'bike' },
+          schema: 'maptale/edits@2',
+          travelModes: [
+            { from: iso(0), mode: 'walk' },
+            { from: iso(288), mode: 'bike' },
           ],
         }
         const zug = starte(start, 288, 0, 'walk', 'bike')
@@ -1483,7 +1486,7 @@ describe('Zeitleiste', () => {
 
         const f = ziehFrame(start, iso(288), halt.filmVon + 10, zug, 10)
         expect(f.gerastet).toBe(true)
-        expect(isoZuOffset(START, f.ab)).toBe(600 + RAST_HINTER_S)
+        expect(isoZuOffset(START, f.from)).toBe(600 + RAST_HINTER_S)
         // Der Halt ist mitgewandert (mehr Fußweg davor) — die Kante steht
         // dahinter, nicht mehr auf dem angepeilten Pixel.
         // Alles bis zum Halt ist jetzt Fußweg: 6000 m plus Anfahrt und Bremsen.
@@ -1496,9 +1499,9 @@ describe('Zeitleiste', () => {
         // liegt jetzt links des Halts, also gilt wieder der Fixpunkt. Es
         // pendelt nicht — ein Halt liegt in ruhiger Lage stets RECHTS der
         // Kante, ein Dauerflackern ist damit ausgeschlossen.
-        const f2 = ziehFrame(f.edits, f.ab, halt.filmVon + 10, zug, 10)
+        const f2 = ziehFrame(f.edits, f.from, halt.filmVon + 10, zug, 10)
         expect(f2.gerastet).toBe(false)
-        expect(Math.abs(landung(f2.edits, f2.ab) - (halt.filmVon + 10))).toBeLessThan(
+        expect(Math.abs(landung(f2.edits, f2.from) - (halt.filmVon + 10))).toBeLessThan(
           RUNDUNG_WALK_S + 0.01,
         )
       })
@@ -1517,10 +1520,10 @@ describe('Zeitleiste', () => {
 
       it('(b) Einrasten trifft die Seite, auf die gezeigt wird', () => {
         const start: EditOverlay = {
-          schema: 'maptale/edits@1',
-          modi: [
-            { ab: iso(0), mode: 'walk' },
-            { ab: iso(300), mode: 'bike' },
+          schema: 'maptale/edits@2',
+          travelModes: [
+            { from: iso(0), mode: 'walk' },
+            { from: iso(300), mode: 'bike' },
           ],
         }
         const zug = starte(start, 300, 0, 'walk', 'bike')
@@ -1530,17 +1533,19 @@ describe('Zeitleiste', () => {
         // vollständig im neuen Zustand ab.
         const vorne = ziehFrame(start, iso(300), halt.filmVon + 1, zug, 10)
         expect(vorne).toMatchObject({ gerastet: true, hinter: false })
-        expect(isoZuOffset(START, vorne.ab)).toBe(600)
+        expect(isoZuOffset(START, vorne.from)).toBe(600)
         const aVorne = achseVon(vorne.edits)
-        expect(landung(vorne.edits, vorne.ab)).toBeCloseTo(aVorne.halte![0]!.filmVon, 6)
+        expect(landung(vorne.edits, vorne.from)).toBeCloseTo(aVorne.halte![0]!.filmVon, 6)
 
         // Hintere Hälfte → dahinter, und zwar eine GANZE Sekunde: ein Epsilon
         // fiele durch die Sekundenrundung des Ankers wieder davor.
         const hinten = ziehFrame(start, iso(300), halt.filmBis - 1, zug, 10)
         expect(hinten).toMatchObject({ gerastet: true, hinter: true })
-        expect(isoZuOffset(START, hinten.ab)).toBe(600 + RAST_HINTER_S)
+        expect(isoZuOffset(START, hinten.from)).toBe(600 + RAST_HINTER_S)
         const aHinten = achseVon(hinten.edits)
-        expect(landung(hinten.edits, hinten.ab)).toBeGreaterThanOrEqual(aHinten.halte![0]!.filmBis)
+        expect(landung(hinten.edits, hinten.from)).toBeGreaterThanOrEqual(
+          aHinten.halte![0]!.filmBis,
+        )
 
         // Der Halt bleibt dabei ein Halt — er wird nicht zerschnitten
         expect(aHinten.halte![0]!.filmBis - aHinten.halte![0]!.filmVon).toBeCloseTo(20, 6)
@@ -1549,18 +1554,18 @@ describe('Zeitleiste', () => {
       it('(c) zwei Grenzen können nicht unter die Mindestbreite zusammenrücken', () => {
         const px = 10
         const start: EditOverlay = {
-          schema: 'maptale/edits@1',
-          modi: [
-            { ab: iso(0), mode: 'walk' },
-            { ab: iso(300), mode: 'bike' },
-            { ab: iso(900), mode: 'jeep' },
+          schema: 'maptale/edits@2',
+          travelModes: [
+            { from: iso(0), mode: 'walk' },
+            { from: iso(300), mode: 'bike' },
+            { from: iso(900), mode: 'jeep' },
           ],
         }
         // Die hintere Kante ganz nach links gezogen — auf ihren Vorgänger
         const zug = starte(start, 900, 300, 'bike', 'jeep', 'walk')
         const gezogen = ziehFrame(start, iso(900), -1000, zug, px)
         const neu = achseVon(gezogen.edits)
-        const breitePx = (landung(gezogen.edits, gezogen.ab) - filmZuOffset(neu, 300)) * px
+        const breitePx = (landung(gezogen.edits, gezogen.from) - filmZuOffset(neu, 300)) * px
         // Mindestens ein greifbares Band — bis auf die Sekundenrundung des Ankers
         expect(breitePx).toBeGreaterThan(BAND_MIN_PX - RUNDUNG_BIKE_S * px - 0.01)
         expect(breitePx).toBeLessThan(BAND_MIN_PX + 1)
@@ -1570,7 +1575,7 @@ describe('Zeitleiste', () => {
         const ohneKlemme = schreibeGrenze(start, iso(900), zug.zeitBei(zug.minFilmS))
         const aOhne = achseVon(ohneKlemme.edits)
         const engPx =
-          (filmZuOffset(aOhne, isoZuOffset(START, ohneKlemme.ab)) - filmZuOffset(aOhne, 300)) * px
+          (filmZuOffset(aOhne, isoZuOffset(START, ohneKlemme.from)) - filmZuOffset(aOhne, 300)) * px
         expect(engPx).toBeLessThan(2)
 
         // Und die vordere Grenze steht danach unverändert da: was VOR der
@@ -1676,7 +1681,7 @@ describe('Zeitleiste', () => {
         e.rendere()
       }
       expect(e.stapel.historie).toHaveLength(HISTORIE_MAX)
-      expect(e.stapel.historie[HISTORIE_MAX - 1]?.medien?.['m1']?.caption).toBe(
+      expect(e.stapel.historie[HISTORIE_MAX - 1]?.media?.['m1']?.caption).toBe(
         `s${HISTORIE_MAX + 3}`,
       )
     })
@@ -1732,7 +1737,7 @@ describe('Zeitleiste', () => {
     expect(marken[0]?.rand).toBe('anfang')
     expect(marken[marken.length - 1]?.rand).toBe('ende')
     // Degeneriert: nichts zu beschriften
-    expect(baueFilmMassband({ vonS: 0, bisS: 100 }, 5)).toEqual([])
+    expect(baueFilmMassband({ fromS: 0, toS: 100 }, 5)).toEqual([])
   })
 
   it('formatiert Dauern je nach Größenordnung', () => {
@@ -1769,10 +1774,10 @@ describe('Zeitleiste', () => {
 
 describe('klemmeVideoTrim (Drift-Wächter gegen video.ts)', () => {
   it('hat an BEIDEN Kanten das Material als Anschlag', () => {
-    expect(klemmeVideoTrim({ vonS: 2, bisS: 100 }, 30)).toEqual({ vonS: 2, bisS: 30 })
-    expect(klemmeVideoTrim({ vonS: -5, bisS: 100 }, 30)).toBeNull() // = ganze Datei
-    expect(klemmeVideoTrim({ vonS: 50, bisS: 60 }, 30)).toBeNull()
-    expect(klemmeVideoTrim({ vonS: 4 }, 30)).toEqual({ vonS: 4, bisS: 30 })
+    expect(klemmeVideoTrim({ fromS: 2, toS: 100 }, 30)).toEqual({ fromS: 2, toS: 30 })
+    expect(klemmeVideoTrim({ fromS: -5, toS: 100 }, 30)).toBeNull() // = ganze Datei
+    expect(klemmeVideoTrim({ fromS: 50, toS: 60 }, 30)).toBeNull()
+    expect(klemmeVideoTrim({ fromS: 4 }, 30)).toEqual({ fromS: 4, toS: 30 })
     expect(klemmeVideoTrim(undefined, 30)).toBeNull()
   })
 
@@ -1784,21 +1789,21 @@ describe('klemmeVideoTrim (Drift-Wächter gegen video.ts)', () => {
     expect(quelle).toMatch(/if \(!\(bisS - vonS > 0\.05\)\) return null/)
     expect(VIDEO_TRIM_MIN_S).toBe(0.05)
     // Der Vollschnitt gilt auf beiden Seiten als „kein Schnitt"
-    expect(quelle).toMatch(/if \(vonS <= 0 && bisS >= dauerS\) return null/)
+    expect(quelle).toMatch(/if \(vonS <= 0 && bisS >= durationS\) return null/)
   })
 
   it('macht den Ripple zur Folge der Breite, nicht zu eigenem Code', () => {
     // Ein Video liegt in einer Halt-Kette ohne Lücken: wird es kürzer, wird sein
     // Halt schmaler und alles Folgende rückt vor. Es gibt keinen Ripple-Zweig.
-    const ganz = aufnahmeHaltS({ type: 'video', dauerS: 34 })
-    const geschnitten = aufnahmeHaltS({ type: 'video', dauerS: 34, trim: { vonS: 6, bisS: 20 } })
+    const ganz = aufnahmeHaltS({ type: 'video', durationS: 34 })
+    const geschnitten = aufnahmeHaltS({ type: 'video', durationS: 34, trim: { fromS: 6, toS: 20 } })
     expect(ganz).toBe(34)
     expect(geschnitten).toBe(14)
-    expect(videoFilmS(34, { vonS: 0, bisS: 34 })).toBe(34) // Vollschnitt ändert nichts
+    expect(videoFilmS(34, { fromS: 0, toS: 34 })).toBe(34) // Vollschnitt ändert nichts
   })
 
   it('lässt einen Foto-Halt unberührt — dort gibt es nichts zu schneiden', () => {
-    expect(aufnahmeHaltS({ type: 'photo', trim: { vonS: 2, bisS: 3 } })).toBe(HALT_ENGINE_S)
+    expect(aufnahmeHaltS({ type: 'photo', trim: { fromS: 2, toS: 3 } })).toBe(HALT_ENGINE_S)
   })
 })
 
@@ -1830,17 +1835,17 @@ describe('videoStandS: der Klip ist länger als das Material', () => {
 
 describe('loeseFokusAuf: Ton-Spanne kommt aus der FILM-Achse (Etappe 4)', () => {
   const AUDIO_EDITS = {
-    schema: 'maptale/edits@1' as const,
+    schema: 'maptale/edits@2' as const,
     audio: [
       // Aufgewertet: anker/versatz/dauer gelten, `ab`/`bis` sind nur noch Fallback
       {
-        datei: 'a.mp3',
-        typ: 'musik' as const,
-        ab: iso(60),
-        bis: iso(300),
-        anker: iso(600),
-        versatzFilmS: 0,
-        dauerFilmS: 12,
+        file: 'a.mp3',
+        type: 'music' as const,
+        from: iso(60),
+        to: iso(300),
+        anchor: iso(600),
+        offsetFilmS: 0,
+        durationFilmS: 12,
       },
     ],
   }
@@ -1853,31 +1858,31 @@ describe('loeseFokusAuf: Ton-Spanne kommt aus der FILM-Achse (Etappe 4)', () => 
 
   it('nimmt die gelieferte Spanne, nicht ab/bis', () => {
     const info = loeseFokusAuf(
-      { art: 'audio', index: 0 },
+      { kind: 'audio', index: 0 },
       AUDIO_EDITS,
       abschnitte,
       track,
       START,
       [],
       () => ({
-        vonS: 600,
-        bisS: 660,
+        fromS: 600,
+        toS: 660,
       }),
     )
-    expect(info?.vonS).toBe(600)
-    expect(info?.bisS).toBe(660)
+    expect(info?.fromS).toBe(600)
+    expect(info?.toS).toBe(660)
   })
 
   it('fällt ohne Achse auf ab/bis zurück — Bestandsdaten bleiben lesbar', () => {
     const info = loeseFokusAuf(
-      { art: 'audio', index: 0 },
+      { kind: 'audio', index: 0 },
       AUDIO_EDITS,
       abschnitte,
       track,
       START,
       [],
     )
-    expect(info?.vonS).toBe(60)
-    expect(info?.bisS).toBe(300)
+    expect(info?.fromS).toBe(60)
+    expect(info?.toS).toBe(300)
   })
 })

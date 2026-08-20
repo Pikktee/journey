@@ -212,7 +212,7 @@ export async function ladeTracker(melde: (text: string) => void): Promise<void> 
       // Kein neues Fenster: Der Weg führt über den Anbieter zurück auf genau
       // diese Seite (`/konto#tracker=…`) — ein zweiter Tab hätte danach keinen
       // Weg zurück, nur ein Schließkreuz.
-      window.location.href = autorisierungsUrl
+      window.location.href = authorizationUrl
     } catch {
       melde(`${a.name} ließ sich gerade nicht verbinden.`)
       void ladeTracker(melde)
@@ -245,7 +245,7 @@ export async function ladeTracker(melde: (text: string) => void): Promise<void> 
         a,
         imports.filter((i) => i.provider === a.id),
         (ziel) => {
-          if (ziel.connected && ziel.status !== 'abgelaufen') void trenne(ziel)
+          if (ziel.connected && ziel.status !== 'expired') void trenne(ziel)
           else void verbinde(ziel)
         },
       ),

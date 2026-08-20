@@ -152,8 +152,7 @@ export function klemmeSchnitt(
 ): VideoSchnitt | null {
   if (!schnitt || !(durationS > 0)) return null
   const vonS = Math.min(Math.max(0, schnitt.fromS), durationS)
-  const bisS =
-    schnitt.toS === undefined ? durationS : Math.min(Math.max(0, schnitt.toS), durationS)
+  const bisS = schnitt.toS === undefined ? durationS : Math.min(Math.max(0, schnitt.toS), durationS)
   if (!(bisS - vonS > 0.05)) return null
   // Der Vollschnitt ist kein Schnitt: er erzwänge einen Transcode ohne Wirkung.
   if (vonS <= 0 && bisS >= durationS) return null

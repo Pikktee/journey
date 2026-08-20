@@ -232,7 +232,7 @@ const EFFEKT: SfxEffekt[] = [
     beschreibung: 'Kurzer Jubel und Applaus',
   },
   {
-    file: 'sfx-camera.mp3',
+    file: 'sfx-kamera.mp3',
     name: 'Kamera',
     kategorie: 'effekt',
     type: 'sfx',
@@ -244,7 +244,7 @@ export const SFX_BIBLIOTHEK: readonly SfxEffekt[] = [...MUSIK, ...UMGEBUNG, ...E
 
 /** Überschriften der Gruppen im Katalog — Reihenfolge wie in SFX_BIBLIOTHEK. */
 export const KATEGORIE_NAMEN: Record<SfxEffekt['kategorie'], string> = {
-  musik: 'Musik',
+  music: 'Musik',
   umgebung: 'Atmosphäre',
   effekt: 'Effekte',
 }

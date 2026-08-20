@@ -15,7 +15,7 @@ import {
 // gewacht — test/studio-baukasten.test.ts vergleicht beide.
 import { WETTER_MODI } from '../src/studio/editmodell.js'
 
-const MODI: SzenenWetter[] = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm']
+const TRAVEL_MODES: SzenenWetter[] = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm']
 
 describe('himmelBei', () => {
   it('kennt jede Lage, die das Overlay setzen kann', () => {
@@ -59,7 +59,7 @@ describe('schleierFuer', () => {
   // Partikel-Overlay KEIN Profil — dort blieb die Karte leer. Hier haben sie
   // eine Farbe wie jede andere Lage.
   it('stellt JEDE Lage dar, auch die ohne Partikel', () => {
-    for (const m of MODI.filter((x) => x !== 'off')) {
+    for (const m of TRAVEL_MODES.filter((x) => x !== 'off')) {
       const s = schleierFuer(m, 0.7)
       expect(s.wasch, `${m} ohne Farbschleier`).not.toBe('')
       expect(s.schatten, `${m} ohne Abdunklung`).not.toBe('')
@@ -93,7 +93,7 @@ describe('schleierFuer', () => {
   // und nicht bloß einen grauen Schleier darüber.
   it('gibt nur bei Schnee eine Schneedecke', () => {
     expect(schleierFuer('snow', 1).schnee).toBeGreaterThan(0)
-    for (const m of MODI.filter((x) => x !== 'snow')) {
+    for (const m of TRAVEL_MODES.filter((x) => x !== 'snow')) {
       expect(schleierFuer(m, 1).schnee, `${m} sollte keinen Bodenschnee haben`).toBe(0)
     }
   })

@@ -230,7 +230,7 @@ describe('Kartengeometrie', () => {
     expect(g.bild.x).toBeGreaterThanOrEqual(g.karte.x)
     expect(g.bild.y).toBeGreaterThanOrEqual(g.karte.y)
     expect(g.bild.x + g.bild.breite).toBeLessThanOrEqual(g.karte.x + g.karte.breite + 0.01)
-    // Die Beschriftung endet innerhalb der Karte: Die Angabenzeile ist die
+    // Die Beschriftung endet innerhalb der titel: Die Angabenzeile ist die
     // unterste, seit die Bildunterschrift entfallen ist.
     expect(g.text.angaben.y + g.text.angaben.hoehe).toBeLessThanOrEqual(
       g.karte.y + g.karte.hoehe + 0.01,

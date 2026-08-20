@@ -120,7 +120,7 @@ export interface Pruefbefund {
   /** Kann daraus eine Tour werden? */
   bereit: boolean
   /** Wie die Strecke zustande kommt — die Tour aus Fotos hat keine aufgezeichnete */
-  source: 'aufzeichnung' | 'fotos' | 'keine'
+  quelle: 'aufzeichnung' | 'fotos' | 'keine'
 }
 
 /** Aufnahmen, die weiter als das hinter/vor der Aufzeichnung liegen, werden gemeldet. */
@@ -219,7 +219,7 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
     })
   }
 
-  const source: Pruefbefund['quelle'] = track
+  const quelle: Pruefbefund['quelle'] = track
     ? 'aufzeichnung'
     : mitOrt.length >= 2
       ? 'fotos'
@@ -230,8 +230,8 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
     vonMs: Number.isFinite(vonMs) ? vonMs : 0,
     bisMs: Number.isFinite(bisMs) ? bisMs : 0,
     meldungen,
-    bereit: source !== 'keine',
-    source,
+    bereit: quelle !== 'keine',
+    quelle,
   }
 }
 

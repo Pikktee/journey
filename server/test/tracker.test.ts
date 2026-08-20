@@ -251,9 +251,7 @@ describe('Verknüpfen (OAuth)', () => {
       url: '/api/tracker/polar/callback?code=ok&state=erfunden',
     })
     expect(antwort.headers.location).toContain('tracker=abgelaufen')
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_links').get()).toEqual(
-      { n: 0 },
-    )
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_links').get()).toEqual({ n: 0 })
   })
 
   it('verbraucht den state EINMALIG', async () => {
@@ -303,9 +301,7 @@ describe('Verknüpfen (OAuth)', () => {
     })
     expect(antwort.statusCode).toBe(200)
     expect(provider.aufrufe).toContain('trenne')
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_links').get()).toEqual(
-      { n: 0 },
-    )
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_links').get()).toEqual({ n: 0 })
     // Das Abruf-Protokoll beschreibt die VERBINDUNG und geht mit ihr — so
     // steht es als Frist in datenschutz.html Abschnitt 10.
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_imports').get()).toEqual({
@@ -432,9 +428,7 @@ describe('Webhook → Tour', () => {
     const { u } = await baueMitProvider()
     await verknuepfe(u)
     await melde(u, { event: 'ABMELDUNG', user_id: 'extern-1', entity_id: 'x' })
-    const zeile = u.app.deps.db
-      .prepare('SELECT status, last_error FROM tracker_links')
-      .get() as {
+    const zeile = u.app.deps.db.prepare('SELECT status, last_error FROM tracker_links').get() as {
       status: string
       last_error: string
     }
@@ -817,9 +811,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
 
     provider.setzeTrack('a1', beispielRohTrack())
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
-    const fertig = u.app.deps.db
-      .prepare('SELECT last_sync_at FROM tracker_links')
-      .get() as {
+    const fertig = u.app.deps.db.prepare('SELECT last_sync_at FROM tracker_links').get() as {
       last_sync_at: string | null
     }
     expect(fertig.last_sync_at).not.toBeNull()

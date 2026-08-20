@@ -5,8 +5,8 @@
 // der Importe (was kam an, was wurde übersprungen, was ging schief). Das erste
 // beantwortet „warum kommt nichts?", das zweite „was ist eigentlich passiert?".
 
-export type VerknuepfungsStatus = 'aktiv' | 'abgelaufen' | 'getrennt'
-export type ImportStatus = 'wartet' | 'laeuft' | 'fertig' | 'fehler' | 'uebersprungen'
+export type VerknuepfungsStatus = 'active' | 'expired' | 'disconnected'
+export type ImportStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped'
 
 export interface AnbieterStand {
   id: string
@@ -17,14 +17,14 @@ export interface AnbieterStand {
   status: VerknuepfungsStatus | null
   connectedAt: string | null
   lastSyncAt: string | null
-  fehler: string | null
+  error: string | null
 }
 
 /** Die Tour hinter einem Import — nur, was in eine Zeile gehört. */
 export interface TourKurz {
-  titel: string | null
+  title: string | null
   km: number | null
-  fotos: number | null
+  placedMedia: number | null
   status: string
   visibility: string | null
 }
@@ -37,7 +37,7 @@ export interface ImportStand {
   tourId: string | null
   reportedAt: string
   finishedAt: string | null
-  fehler: string | null
+  error: string | null
   /** Wie oft angelaufen (≥ 1). */
   attempts?: number
   /** Wartet die Aktivität noch auf einen neuen Anlauf? */
@@ -55,9 +55,9 @@ export interface ImportStand {
  */
 export function anbieterSatz(a: AnbieterStand): string {
   if (!a.available) return 'Auf diesem Server noch nicht eingerichtet.'
-  if (a.status === 'abgelaufen') {
-    return a.fehler
-      ? `Der Zugang gilt nicht hasMore: ${a.fehler} Bitte neu verbinden.`
+  if (a.status === 'expired') {
+    return a.error
+      ? `Der Zugang gilt nicht hasMore: ${a.error} Bitte neu verbinden.`
       : 'Der Zugang gilt nicht mehr — bitte neu verbinden.'
   }
   if (!a.connected)
@@ -82,12 +82,12 @@ export function letzterAnkunftsSatz(imports: readonly ImportStand[]): string | n
   const letzter = imports[0]
   if (!letzter) return null
   const wann = datumMitZeit(letzter.finishedAt ?? letzter.reportedAt)
-  if (letzter.status === 'fertig') {
-    const titel = letzter.tour?.titel?.trim()
+  if (letzter.status === 'done') {
+    const titel = letzter.tour?.title?.trim()
     return titel ? `Zuletzt: ${titel} · ${wann}` : `Zuletzt angekommen: ${wann}`
   }
-  if (letzter.status === 'uebersprungen') return `Zuletzt übersprungen: ${wann}`
-  if (letzter.status === 'fehler') return `Zuletzt nicht geklappt: ${wann}`
+  if (letzter.status === 'skipped') return `Zuletzt übersprungen: ${wann}`
+  if (letzter.status === 'failed') return `Zuletzt nicht geklappt: ${wann}`
   return `Läuft gerade: ${wann}`
 }
 
@@ -96,7 +96,7 @@ export function anbieterKnopf(
   a: AnbieterStand,
 ): { text: string; art: 'primaer' | 'gefahr' } | null {
   if (!a.available) return null
-  if (a.status === 'abgelaufen') return { text: 'Neu verbinden', art: 'primaer' }
+  if (a.status === 'expired') return { text: 'Neu verbinden', art: 'primaer' }
   return a.connected ? { text: 'Trennen', art: 'gefahr' } : { text: 'Verbinden', art: 'primaer' }
 }
 
@@ -109,10 +109,10 @@ export function anbieterKnopf(
  * die eine echte Störung ginge darin unter.
  */
 export function importSatz(i: ImportStand): string {
-  if (i.status === 'fertig') return i.tour ? tourSatz(i.tour) : 'Als Tour angelegt'
-  const grund = i.fehler ? ` — ${entschaerfe(i.fehler)}` : ''
-  if (i.status === 'uebersprungen') return `Übersprungen${grund}${nachsatz(i)}`
-  if (i.status === 'fehler') return `Nicht geklappt${grund}${nachsatz(i)}`
+  if (i.status === 'done') return i.tour ? tourSatz(i.tour) : 'Als Tour angelegt'
+  const grund = i.error ? ` — ${entschaerfe(i.error)}` : ''
+  if (i.status === 'skipped') return `Übersprungen${grund}${nachsatz(i)}`
+  if (i.status === 'failed') return `Nicht geklappt${grund}${nachsatz(i)}`
   return 'Wird geholt …'
 }
 
@@ -129,11 +129,11 @@ export function importSatz(i: ImportStand): string {
  * noch), bleibt der schlichte Satz: lieber nichts sagen als „0,0 km".
  */
 export function tourSatz(t: TourKurz): string {
-  if (t.status !== 'bereit') return 'Angelegt, wird noch verarbeitet …'
+  if (t.status !== 'ready') return 'Angelegt, wird noch verarbeitet …'
   const teile: string[] = []
   if (t.km !== null && t.km > 0) teile.push(`${t.km.toFixed(1).replace('.', ',')} km`)
-  if (t.fotos !== null && t.fotos > 0)
-    teile.push(t.fotos === 1 ? '1 Aufnahme' : `${t.fotos} Aufnahmen`)
+  if (t.placedMedia !== null && t.placedMedia > 0)
+    teile.push(t.placedMedia === 1 ? '1 Aufnahme' : `${t.placedMedia} Aufnahmen`)
   return teile.length ? `Spielbereit · ${teile.join(' · ')}` : 'Spielbereit'
 }
 
@@ -147,7 +147,7 @@ export function tourSatz(t: TourKurz): string {
  * (`aQlC83`) benennt sie zwar eindeutig, aber für niemanden, der hier steht.
  */
 export function importTitel(i: ImportStand): string | null {
-  return i.tour?.titel?.trim() || null
+  return i.tour?.title?.trim() || null
 }
 
 /**
@@ -167,11 +167,11 @@ function nachsatz(i: ImportStand): string {
 }
 
 /** Ton der Zeile: nur echte Fehler werden als solche markiert. */
-export function importTon(i: ImportStand): 'ok' | 'warn' | 'fehler' | 'laeuft' {
-  if (i.status === 'fertig') return 'ok'
-  if (i.status === 'uebersprungen') return 'warn'
-  if (i.status === 'fehler') return 'fehler'
-  return 'laeuft'
+export function importTon(i: ImportStand): 'ok' | 'warn' | 'failed' | 'running' {
+  if (i.status === 'done') return 'ok'
+  if (i.status === 'skipped') return 'warn'
+  if (i.status === 'failed') return 'failed'
+  return 'running'
 }
 
 /**
@@ -219,8 +219,8 @@ export function datumMitZeit(iso: string): string {
 export function rueckkehrText(wert: string): string | null {
   if (wert === 'verbunden') return 'Verbunden. Neue Aufzeichnungen kommen ab jetzt von selbst an.'
   if (wert === 'abgebrochen') return 'Abgebrochen — es wurde nichts verknüpft.'
-  if (wert === 'abgelaufen')
+  if (wert === 'expired')
     return 'Der Verbindungsversuch ist abgelaufen. Bitte noch einmal versuchen.'
-  if (wert === 'fehler') return 'Das Verbinden hat nicht geklappt. Bitte noch einmal versuchen.'
+  if (wert === 'failed') return 'Das Verbinden hat nicht geklappt. Bitte noch einmal versuchen.'
   return null
 }

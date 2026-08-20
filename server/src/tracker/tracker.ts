@@ -306,9 +306,7 @@ export class TrackerDienst {
 
   merkeSync(verknuepfungId: string): void {
     this.db
-      .prepare(
-        'UPDATE tracker_links SET last_sync_at = ?, last_error = NULL WHERE id = ?',
-      )
+      .prepare('UPDATE tracker_links SET last_sync_at = ?, last_error = NULL WHERE id = ?')
       .run(this.jetzt().toISOString(), verknuepfungId)
   }
 
@@ -447,9 +445,7 @@ export class TrackerDienst {
 
   importe(benutzerId: string, grenze = 30): ImportZeile[] {
     const zeilen = this.db
-      .prepare(
-        'SELECT id FROM tracker_imports WHERE user_id = ? ORDER BY reported_at DESC LIMIT ?',
-      )
+      .prepare('SELECT id FROM tracker_imports WHERE user_id = ? ORDER BY reported_at DESC LIMIT ?')
       .all(benutzerId, grenze) as Array<{ id: string }>
     return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportZeile => z !== null)
   }

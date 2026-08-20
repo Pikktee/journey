@@ -130,7 +130,7 @@ describe('dist', () => {
 // sich der Studio-Editor ausrichtet (Drift-Wächter in studio-stopps.test.ts).
 
 describe('gruppiereStopps', () => {
-  const foto = (id: string, s: number, extra: { reihe?: number } = {}) => ({ id, s, ...extra })
+  const foto = (id: string, s: number, extra: { order?: number } = {}) => ({ id, s, ...extra })
 
   it('fasst Aufnahmen unter 120 m zu einem Halt zusammen', () => {
     const stopps = gruppiereStopps([foto('a', 1000), foto('b', 1119), foto('c', 5000)])
@@ -152,17 +152,17 @@ describe('gruppiereStopps', () => {
     ])
   })
 
-  it('ordnet innerhalb eines Halts nach `reihe`, sonst nach Streckenmetern', () => {
+  it('ordnet innerhalb eines Halts nach `order`, sonst nach Streckenmetern', () => {
     const mitReihe = gruppiereStopps([
-      foto('a', 1000, { reihe: 2 }),
-      foto('b', 1050, { reihe: 0 }),
-      foto('c', 1100, { reihe: 1 }),
+      foto('a', 1000, { order: 2 }),
+      foto('b', 1050, { order: 0 }),
+      foto('c', 1100, { order: 1 }),
     ])
     expect(mitReihe[0]!.items.map((m) => m.id)).toEqual(['b', 'c', 'a'])
     const ohne = gruppiereStopps([foto('a', 1000), foto('b', 1050)])
     expect(ohne[0]!.items.map((m) => m.id)).toEqual(['a', 'b'])
     // Teilweise gesetzt: wer keine hat, kommt dahinter
-    const teils = gruppiereStopps([foto('a', 1000), foto('b', 1050, { reihe: 0 })])
+    const teils = gruppiereStopps([foto('a', 1000), foto('b', 1050, { order: 0 })])
     expect(teils[0]!.items.map((m) => m.id)).toEqual(['b', 'a'])
   })
 

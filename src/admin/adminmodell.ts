@@ -3,8 +3,8 @@
 
 import { pfad } from '../routen.js'
 
-export type Rolle = 'nutzer' | 'admin'
-export type EinladungsZustand = 'offen' | 'eingeloest' | 'abgelaufen'
+export type Rolle = 'user' | 'admin'
+export type EinladungsZustand = 'open' | 'redeemed' | 'expired'
 
 // — Bereiche —
 //
@@ -30,10 +30,10 @@ export interface Tab {
 
 export const TABS: readonly Tab[] = [
   { id: 'konten', name: 'Konten', zaehlt: 'Konten' },
-  { id: 'einladungen', name: 'Einladungen', zaehlt: 'offen' },
+  { id: 'einladungen', name: 'Einladungen', zaehlt: 'open' },
   { id: 'warteliste', name: 'Warteliste', zaehlt: 'warten' },
   { id: 'statistiken', name: 'Statistiken', zaehlt: 'Live' },
-  { id: 'rueckmeldungen', name: 'Rückmeldungen', zaehlt: 'offen' },
+  { id: 'rueckmeldungen', name: 'Rückmeldungen', zaehlt: 'open' },
   { id: 'protokoll', name: 'Protokoll', zaehlt: 'Fehler' },
   { id: 'mails', name: 'System-Mails', zaehlt: 'Vorlagen' },
 ]
@@ -71,7 +71,7 @@ export interface AdminBenutzer {
 
 export interface AdminEinladung {
   code: string
-  notiz: string | null
+  note: string | null
   createdAt: string
   createdBy: string | null
   expiresAt: string | null
@@ -80,13 +80,13 @@ export interface AdminEinladung {
   state: EinladungsZustand
 }
 
-export type WartelistenZustand = 'unbestaetigt' | 'wartend' | 'eingeladen'
+export type WartelistenZustand = 'unconfirmed' | 'pending' | 'invited'
 
 export interface AdminWartender {
   id: string
   email: string
   /** Freiwillige Angabe des Anmelders — das Kriterium fürs gezielte Freischalten. */
-  notiz: string | null
+  note: string | null
   joinedAt: string
   confirmedAt: string | null
   invitedAt: string | null
@@ -118,7 +118,7 @@ export function initiale(name: string): string {
 
 const enthaelt = (feld: string, suche: string): boolean => feld.toLowerCase().includes(suche)
 
-export type KontenFilter = 'alle' | 'admins' | 'unbestaetigt'
+export type KontenFilter = 'alle' | 'admins' | 'unconfirmed'
 
 /**
  * Suche über alles, was jemanden identifiziert: Adresse, Klarname und
@@ -137,7 +137,7 @@ export function filtereBenutzer(
   const s = suche.trim().toLowerCase()
   return liste.filter((b) => {
     if (filter === 'admins' && b.role !== 'admin') return false
-    if (filter === 'unbestaetigt' && b.verified) return false
+    if (filter === 'unconfirmed' && b.verified) return false
     if (!s) return true
     return [b.email, b.name, b.displayName ?? ''].some((feld) => enthaelt(feld, s))
   })
@@ -170,7 +170,7 @@ export function filtereEinladungen(
         .includes(blank)
     )
       return true
-    return enthaelt(e.notiz ?? '', s)
+    return enthaelt(e.note ?? '', s)
   })
 }
 
@@ -186,7 +186,7 @@ export function filtereWarteliste(
   return liste.filter((e) => {
     if (filter !== 'alle' && e.state !== filter) return false
     if (!s) return true
-    return [e.email, e.notiz ?? ''].some((feld) => enthaelt(feld, s))
+    return [e.email, e.note ?? ''].some((feld) => enthaelt(feld, s))
   })
 }
 
@@ -194,7 +194,7 @@ export function filtereWarteliste(
 export function zaehleEinladungen(
   liste: readonly AdminEinladung[],
 ): Record<EinladungsZustand, number> {
-  const zaehler: Record<EinladungsZustand, number> = { offen: 0, eingeloest: 0, abgelaufen: 0 }
+  const zaehler: Record<EinladungsZustand, number> = { open: 0, redeemed: 0, expired: 0 }
   for (const e of liste) zaehler[e.state]++
   return zaehler
 }
@@ -204,12 +204,14 @@ export function zaehleEinladungen(
  * Einladung hat: Kann die noch jemand benutzen, und wenn nein, wer war es?
  */
 export function beschreibeEinladung(e: AdminEinladung): string {
-  if (e.state === 'eingeloest') {
+  if (e.state === 'redeemed') {
     const wer = e.redeemedBy ?? 'einem gelöschten Konto'
     return `Eingelöst von ${wer} am ${formatiereDatum(e.redeemedAt)}`
   }
-  if (e.state === 'abgelaufen') return `Abgelaufen am ${formatiereDatum(e.expiresAt)}`
-  return e.expiresAt ? `Offen · gültig bis ${formatiereDatum(e.expiresAt)}` : 'Offen · ohne Ablaufdatum'
+  if (e.state === 'expired') return `Abgelaufen am ${formatiereDatum(e.expiresAt)}`
+  return e.expiresAt
+    ? `Offen · gültig bis ${formatiereDatum(e.expiresAt)}`
+    : 'Offen · ohne Ablaufdatum'
 }
 
 /**
@@ -221,7 +223,7 @@ export function beschreibeEinladung(e: AdminEinladung): string {
 export function zaehleWarteliste(
   liste: readonly AdminWartender[],
 ): Record<WartelistenZustand, number> {
-  const zaehler: Record<WartelistenZustand, number> = { unbestaetigt: 0, wartend: 0, eingeladen: 0 }
+  const zaehler: Record<WartelistenZustand, number> = { unconfirmed: 0, pending: 0, invited: 0 }
   for (const e of liste) zaehler[e.state]++
   return zaehler
 }
@@ -244,11 +246,11 @@ export const wartelisteAngeboten = (
 
 /** Der Satz unter der Adresse — wo im Ablauf dieser Eintrag gerade steht. */
 export function beschreibeWartenden(e: AdminWartender): string {
-  if (e.state === 'eingeladen') {
+  if (e.state === 'invited') {
     const code = e.invitedCode ? ` mit Code ${e.invitedCode}` : ''
     return `Eingeladen am ${formatiereDatum(e.invitedAt)}${code}`
   }
-  if (e.state === 'wartend') return `Bestätigt am ${formatiereDatum(e.confirmedAt)} · wartet`
+  if (e.state === 'pending') return `Bestätigt am ${formatiereDatum(e.confirmedAt)} · wartet`
   return `Eingetragen am ${formatiereDatum(e.joinedAt)} · Bestätigung steht aus`
 }
 
@@ -261,8 +263,8 @@ export function beschreibeWartenden(e: AdminWartender): string {
  * Double-Opt-in gebaut ist.
  */
 export function einladenGesperrt(e: AdminWartender): string {
-  if (e.state === 'unbestaetigt') return 'Diese Adresse ist noch nicht bestätigt'
-  if (e.state === 'eingeladen') return 'Schon eingeladen, der Code steht in der Liste darunter'
+  if (e.state === 'unconfirmed') return 'Diese Adresse ist noch nicht bestätigt'
+  if (e.state === 'invited') return 'Schon eingeladen, der Code steht in der Liste darunter'
   return ''
 }
 
@@ -294,8 +296,7 @@ export function rolleGesperrt(ziel: AdminBenutzer, ichId: string, adminZahl: num
 export function loeschenGesperrt(ziel: AdminBenutzer, ichId: string, adminZahl: number): string {
   if (ziel.id === ichId) return 'Das eigene Konto löschst du im Studio unter „Konto"'
   if (ziel.fixed) return 'In der Konfiguration als Admin gesetzt'
-  if (ziel.role === 'admin' && adminZahl <= 1)
-    return 'Es muss mindestens einen Administrator geben'
+  if (ziel.role === 'admin' && adminZahl <= 1) return 'Es muss mindestens einen Administrator geben'
   return ''
 }
 
@@ -353,7 +354,7 @@ export function beschreibeVorlage(v: MailVorlage): string {
 // im Arbeitsspeicher (server/src/protokoll.ts) — was diese Ansicht zeigt, ist
 // also immer „seit dem letzten Neustart", und genau das sagt sie auch.
 
-export type ProtokollStufe = 'warnung' | 'fehler'
+export type ProtokollStufe = 'warning' | 'failed'
 
 export interface ProtokollEintrag {
   no: number
@@ -382,7 +383,7 @@ export function filtereProtokoll(
 export function zaehleProtokoll(
   liste: readonly ProtokollEintrag[],
 ): Record<ProtokollStufe, number> {
-  const zaehler: Record<ProtokollStufe, number> = { warnung: 0, fehler: 0 }
+  const zaehler: Record<ProtokollStufe, number> = { warning: 0, failed: 0 }
   for (const e of liste) zaehler[e.level]++
   return zaehler
 }
@@ -425,7 +426,7 @@ export function beschreibeProtokoll(
 }
 
 /** Der Eingang der Alpha: was Besucher gemeldet haben. */
-export type RueckmeldungStatus = 'offen' | 'in_arbeit' | 'erledigt'
+export type RueckmeldungStatus = 'open' | 'in_progress' | 'done'
 
 export interface AdminRueckmeldung {
   id: string
@@ -436,7 +437,7 @@ export interface AdminRueckmeldung {
   context: Record<string, string | number | boolean | null> | null
   quelle: 'web' | 'app'
   status: RueckmeldungStatus
-  notiz: string | null
+  note: string | null
   createdAt: string
   updatedAt: string | null
 }
@@ -445,15 +446,15 @@ export type RueckmeldungFilter = 'alle' | RueckmeldungStatus
 
 /** Wortlaut der Zustände — an einer Stelle, sonst heißt derselbe Status zweimal anders. */
 export const RUECKMELDUNG_WORTE: Record<RueckmeldungStatus, string> = {
-  offen: 'Offen',
-  in_arbeit: 'In Arbeit',
-  erledigt: 'Erledigt',
+  open: 'Offen',
+  in_progress: 'In Arbeit',
+  done: 'Erledigt',
 }
 
 export function zaehleRueckmeldungen(
   liste: readonly AdminRueckmeldung[],
 ): Record<RueckmeldungStatus, number> {
-  const z: Record<RueckmeldungStatus, number> = { offen: 0, in_arbeit: 0, erledigt: 0 }
+  const z: Record<RueckmeldungStatus, number> = { open: 0, in_progress: 0, done: 0 }
   for (const r of liste) z[r.status]++
   return z
 }
@@ -472,7 +473,7 @@ export function filtereRueckmeldungen(
   return liste.filter((r) => {
     if (filter !== 'alle' && r.status !== filter) return false
     if (!s) return true
-    return [r.text, r.notiz, r.email, r.benutzerName]
+    return [r.text, r.note, r.email, r.benutzerName]
       .filter(Boolean)
       .some((feld) => String(feld).toLowerCase().includes(s))
   })

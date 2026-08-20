@@ -225,9 +225,7 @@ export async function listTours(): Promise<TourListItem[]> {
   return (await anfrage<{ tours: TourListItem[] }>('/tours')).tours
 }
 
-export function createTour(
-  manifest: UploadManifest,
-): Promise<{ id: string; reused?: boolean }> {
+export function createTour(manifest: UploadManifest): Promise<{ id: string; reused?: boolean }> {
   return anfrage('/tours', { method: 'POST', headers: jsonKopf, body: JSON.stringify(manifest) })
 }
 
@@ -357,10 +355,7 @@ export function loadEditorPayload(id: string): Promise<EditorPayload> {
   return anfrage(`/tours/${id}/editor`)
 }
 
-export function saveEdits(
-  id: string,
-  edits: unknown,
-): Promise<{ ok: boolean; status: string }> {
+export function saveEdits(id: string, edits: unknown): Promise<{ ok: boolean; status: string }> {
   return anfrage(`/tours/${id}/edits`, {
     method: 'PUT',
     headers: jsonKopf,

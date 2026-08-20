@@ -338,7 +338,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     if (stand.marke !== erg.vorher) optionen.setzeMarke(stand.marke)
     spieleMusik(stand.marke)
     pruefeKlaenge(erg.vorher, stand.marke)
-    if (erg.ende) {
+    if (erg.end) {
       halteAn()
       return
     }

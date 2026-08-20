@@ -411,7 +411,11 @@ describe('Dienst ohne Versandweg', () => {
     const dienst = new PushDienst(u.app.deps.db, null)
     expect(dienst.einsatzbereit).toBe(false)
     expect(
-      await dienst.melde(benutzerId(u), { type: 'import-finished', tourId: 't_1', importId: 'i_1' }),
+      await dienst.melde(benutzerId(u), {
+        type: 'import-finished',
+        tourId: 't_1',
+        importId: 'i_1',
+      }),
     ).toBe(0)
     await u.app.close()
   })

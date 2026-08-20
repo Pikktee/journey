@@ -21,15 +21,15 @@ describe('Feedback-Kontext', () => {
       userAgent: CHROME_MAC,
       breite: 1440,
       hoehe: 900,
-      sprache: 'de-DE',
+      language: 'de-DE',
     })
     expect(kontext).toEqual({
-      seite: '/galerie',
+      page: '/galerie',
       version: '0.60.5',
       browser: 'Chrome',
-      plattform: 'macOS',
-      schirm: '1440×900',
-      sprache: 'de-DE',
+      platform: 'macOS',
+      screen: '1440×900',
+      language: 'de-DE',
     })
   })
 
@@ -41,7 +41,7 @@ describe('Feedback-Kontext', () => {
       breite: 0,
       hoehe: 0,
     })
-    expect(kontext).toEqual({ seite: '/app', version: '0.60.5' })
+    expect(kontext).toEqual({ page: '/app', version: '0.60.5' })
     expect('browser' in kontext).toBe(false)
   })
 

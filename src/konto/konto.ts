@@ -375,7 +375,7 @@ function verdrahteExport(daten: MeAntwort): void {
 
   const zeige = (stand: ExportStand | null | undefined): void => {
     if (zeile) zeile.textContent = exportZeile(stand)
-    knopf.disabled = stand?.status === 'laeuft'
+    knopf.disabled = stand?.status === 'running'
   }
   zeige(daten.export)
 

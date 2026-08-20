@@ -113,14 +113,11 @@ export function einladungen(): Promise<EinladungsStand> {
   return anfrage('/admin/einladungen')
 }
 
-export function ladeEin(
-  notiz: string,
-  validDays: number,
-): Promise<{ einladung: AdminEinladung }> {
+export function ladeEin(note: string, validDays: number): Promise<{ einladung: AdminEinladung }> {
   return anfrage('/admin/einladungen', {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify({ notiz, validDays }),
+    body: JSON.stringify({ note, validDays }),
   })
 }
 
@@ -180,7 +177,7 @@ export function rueckmeldungen(): Promise<RueckmeldungsStand> {
 
 export function aendereRueckmeldung(
   id: string,
-  felder: { status?: RueckmeldungStatus; notiz?: string | null },
+  felder: { status?: RueckmeldungStatus; note?: string | null },
 ): Promise<{ rueckmeldung: AdminRueckmeldung }> {
   return anfrage(`/admin/rueckmeldungen/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -237,10 +234,7 @@ export function vorschau(key: string, blocks: MailBausteine): Promise<VorschauAn
 }
 
 /** Testmail an die eigene Adresse; ohne Bausteine geht die gespeicherte Fassung raus. */
-export function testeVorlage(
-  key: string,
-  blocks?: MailBausteine,
-): Promise<{ an: string }> {
+export function testeVorlage(key: string, blocks?: MailBausteine): Promise<{ an: string }> {
   return anfrage(`/admin/mailvorlagen/${encodeURIComponent(key)}/test`, {
     method: 'POST',
     headers: jsonKopf,

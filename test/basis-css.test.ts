@@ -1,6 +1,6 @@
 // Drift-Wächter für das Design-System: DESIGN.md ist die Quelle, src/basis.css
 // die Ableitung. Dieselbe Bauart wie der Wächter für die Server-Kopie von
-// handle.ts oder die MODI-Liste — beide Seiten liegen in verschiedenen Dateien
+// handle.ts oder die TRAVEL_MODES-Liste — beide Seiten liegen in verschiedenen Dateien
 // und müssen dasselbe sagen.
 //
 // Was er verhindert, ist der Befund, der zu Etappe 7 geführt hat: 4519 Zeilen
@@ -72,9 +72,9 @@ function ausDesign(abschnitt: string): Record<string, string> {
 }
 
 /** `--name: wert;` aus einem Stilblatt sammeln. */
-function eigenschaften(quelle: string): Record<string, string> {
+function eigenschaften(source: string): Record<string, string> {
   const aus: Record<string, string> = {}
-  for (const [, name, wert] of quelle.matchAll(/^\s*(--[\w-]+):\s*([^;]+);/gm))
+  for (const [, name, wert] of source.matchAll(/^\s*(--[\w-]+):\s*([^;]+);/gm))
     if (name && wert) aus[name] = wert.trim()
   return aus
 }
@@ -341,8 +341,8 @@ describe('Ein Namenssystem', () => {
     // Augen-Icon erbte deshalb die Textfarbe) und `var(--ok, #56c271)` im
     // Studio — eine fünfte Grünstufe, die niemand definiert hatte.
     const quellen = [...SEITEN, ...BLAETTER, 'src/basis.css', 'public/404.html']
-    const namen = (quelle: string, muster: RegExp): string[] =>
-      [...quelle.matchAll(muster)].map((m) => m[1]).filter((n): n is string => Boolean(n))
+    const namen = (source: string, muster: RegExp): string[] =>
+      [...source.matchAll(muster)].map((m) => m[1]).filter((n): n is string => Boolean(n))
 
     const definiert = new Set<string>()
     for (const datei of quellen)

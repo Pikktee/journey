@@ -504,13 +504,13 @@ export const KARTE_EXPORT_ABWEICHUNGEN: readonly {
  * den Anfang gestellt hat. Stabil bei Gleichstand, und die Eingabe bleibt
  * unangetastet.
  */
-export function reihenfolgeImHalt<T extends { reihe?: number }>(
+export function reihenfolgeImHalt<T extends { order?: number }>(
   items: readonly T[],
   natuerlich: (x: T) => number,
 ): T[] {
   return [...items].sort((a, b) => {
-    const ra = a.reihe ?? Number.POSITIVE_INFINITY
-    const rb = b.reihe ?? Number.POSITIVE_INFINITY
+    const ra = a.order ?? Number.POSITIVE_INFINITY
+    const rb = b.order ?? Number.POSITIVE_INFINITY
     return ra === rb ? natuerlich(a) - natuerlich(b) : ra - rb
   })
 }

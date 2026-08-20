@@ -21,16 +21,16 @@ const SCHMAL = '\u202f'
 
 const profil = (patch: Partial<ProfilAntwort> = {}): ProfilAntwort => ({
   handle: 'henrik',
-  anzeigename: 'Henrik',
+  displayName: 'Henrik',
   bio: 'Unterwegs meistens auf zwei Rädern.',
-  ort: 'Frankfurt am Main',
+  location: 'Frankfurt am Main',
   website: null,
   instagram: null,
   avatarUrl: null,
-  titelbildUrl: null,
-  dabeiSeit: '2026-07-04T08:00:00.000Z',
-  kennzahlen: { touren: 3, km: 68.2, hm: 1240 },
-  touren: [],
+  bannerUrl: null,
+  memberSince: '2026-07-04T08:00:00.000Z',
+  stats: { tours: 3, km: 68.2, elevationGain: 1240 },
+  tours: [],
   ...patch,
 })
 
@@ -41,21 +41,21 @@ describe('profilKopf', () => {
       bio: 'Unterwegs meistens auf zwei Rädern.',
       bild: null,
       handle: '@henrik',
-      ort: 'Frankfurt am Main',
-      dabeiSeit: 'Dabei seit Juli 2026',
+      location: 'Frankfurt am Main',
+      memberSince: 'Dabei seit Juli 2026',
     })
   })
 
   it('nimmt ohne Anzeigenamen den Handle — und zeigt ihn dann nicht zweimal', () => {
-    const kopf = profilKopf(profil({ anzeigename: null, bio: '  ', ort: '   ' }))
+    const kopf = profilKopf(profil({ displayName: null, bio: '  ', location: '   ' }))
     expect(kopf.name).toBe('@henrik')
     expect(kopf.handle).toBeNull()
     expect(kopf.bio).toBeNull()
-    expect(kopf.ort).toBeNull()
+    expect(kopf.location).toBeNull()
   })
 
   it('erfindet auch ohne Handle nichts', () => {
-    expect(profilKopf(profil({ anzeigename: null, handle: null })).name).toBe('Ohne Namen')
+    expect(profilKopf(profil({ displayName: null, handle: null })).name).toBe('Ohne Namen')
   })
 })
 
@@ -90,7 +90,7 @@ describe('dabeiSeit', () => {
 
 describe('kennzahlChips', () => {
   it('baut drei Chips aus den Zahlen des Servers', () => {
-    expect(kennzahlChips({ touren: 3, km: 68.2, hm: 1240 })).toEqual([
+    expect(kennzahlChips({ tours: 3, km: 68.2, elevationGain: 1240 })).toEqual([
       { art: 'touren', zahl: '3', wort: 'Touren' },
       { art: 'km', zahl: '68', wort: 'km unterwegs' },
       { art: 'hm', zahl: `1${SCHMAL}240`, wort: 'Höhenmeter' },
@@ -98,12 +98,15 @@ describe('kennzahlChips', () => {
   })
 
   it('sagt „Tour" bei genau einer', () => {
-    expect(kennzahlChips({ touren: 1, km: 0, hm: 0 })[0]).toMatchObject({ zahl: '1', wort: 'Tour' })
+    expect(kennzahlChips({ tours: 1, km: 0, elevationGain: 0 })[0]).toMatchObject({
+      zahl: '1',
+      wort: 'Tour',
+    })
   })
 
   it('lässt Nullen weg — „0 km unterwegs" ist keine Auskunft', () => {
-    expect(kennzahlChips({ touren: 0, km: 0, hm: 0 })).toEqual([])
-    expect(kennzahlChips({ touren: 2, km: 12, hm: 0 })).toHaveLength(2)
+    expect(kennzahlChips({ tours: 0, km: 0, elevationGain: 0 })).toEqual([])
+    expect(kennzahlChips({ tours: 2, km: 12, elevationGain: 0 })).toHaveLength(2)
   })
 
   it('ohne Kennzahlen gar nichts', () => {
@@ -168,16 +171,16 @@ describe('profilAdresse', () => {
 describe('anfangsbuchstabe', () => {
   it('nimmt den Anzeigenamen, nicht den Handle', () => {
     // Ein „h" neben „Reisende" sähe aus wie ein Fehler
-    expect(anfangsbuchstabe(profil({ anzeigename: 'Reisende', handle: 'henrik' }))).toBe('R')
+    expect(anfangsbuchstabe(profil({ displayName: 'Reisende', handle: 'henrik' }))).toBe('R')
   })
 
   it('fällt auf den Handle und dann auf ein neutrales Zeichen zurück', () => {
-    expect(anfangsbuchstabe(profil({ anzeigename: null }))).toBe('H')
-    expect(anfangsbuchstabe(profil({ anzeigename: null, handle: null }))).toBe('·')
+    expect(anfangsbuchstabe(profil({ displayName: null }))).toBe('H')
+    expect(anfangsbuchstabe(profil({ displayName: null, handle: null }))).toBe('·')
   })
 
   it('verkraftet Zeichen jenseits der Grundebene', () => {
     // [...text][0] statt text[0]: Ein Emoji besteht aus zwei UTF-16-Einheiten
-    expect(anfangsbuchstabe(profil({ anzeigename: '🚲 Radler' }))).toBe('🚲')
+    expect(anfangsbuchstabe(profil({ displayName: '🚲 Radler' }))).toBe('🚲')
   })
 })

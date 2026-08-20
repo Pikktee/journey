@@ -23,8 +23,8 @@ const TOUR = {
 
 function aufnahme(teil: Partial<NeueAufnahme> = {}): NeueAufnahme {
   return {
-    datei: 'IMG_0001.jpg',
-    typ: 'photo',
+    file: 'IMG_0001.jpg',
+    type: 'photo',
     zeitMs: Date.parse('2026-07-04T10:00:00Z'),
     zeitGeraten: false,
     ort: null,
@@ -41,8 +41,8 @@ describe('ordneEin', () => {
   })
 
   it('ohne Ort entscheidet die Uhrzeit über Strecke oder Ablage', () => {
-    const drin = aufnahme({ datei: 'a.jpg', zeitMs: Date.parse('2026-07-04T11:00:00Z') })
-    const weit = aufnahme({ datei: 'b.jpg', zeitMs: Date.parse('2026-07-05T11:00:00Z') })
+    const drin = aufnahme({ file: 'a.jpg', zeitMs: Date.parse('2026-07-04T11:00:00Z') })
+    const weit = aufnahme({ file: 'b.jpg', zeitMs: Date.parse('2026-07-05T11:00:00Z') })
     const [a, b] = ordneEin([drin, weit], TOUR)
     expect(a?.einordnung).toBe('zeit')
     expect(b?.einordnung).toBe('ablage')
@@ -73,11 +73,11 @@ describe('ordneEin', () => {
     const abstand = abstandsFunktion(strecke)
     expect(abstand).toBeDefined()
     const ziel = { ...TOUR, abstandZurStrecke: abstand! }
-    const nah = aufnahme({ datei: 'nah.jpg', ort: [18.0705, 59.3305] })
+    const nah = aufnahme({ file: 'nah.jpg', ort: [18.0705, 59.3305] })
     // ~1,5 km östlich — jenseits der 500 m, aber mit Zeit in der Aufzeichnung
-    const fern = aufnahme({ datei: 'fern.jpg', ort: [18.097, 59.33] })
+    const fern = aufnahme({ file: 'fern.jpg', ort: [18.097, 59.33] })
     const fernOhneZeit = aufnahme({
-      datei: 'fern2.jpg',
+      file: 'fern2.jpg',
       ort: [18.097, 59.33],
       zeitMs: Date.parse('2019-01-01T00:00:00Z'),
     })
@@ -105,20 +105,20 @@ describe('fasseZusammen', () => {
     const befund = fasseZusammen(
       [
         aufnahme({
-          datei: 'spaet.jpg',
+          file: 'spaet.jpg',
           zeitMs: Date.parse('2026-07-04T13:00:00Z'),
           groesse: 2 * 1048576,
         }),
         aufnahme({
-          datei: 'ort.jpg',
+          file: 'ort.jpg',
           ort: [18.07, 59.33],
           zeitMs: Date.parse('2026-07-04T09:00:00Z'),
         }),
-        aufnahme({ datei: 'weg.jpg', zeitMs: Date.parse('2019-01-01T00:00:00Z') }),
+        aufnahme({ file: 'weg.jpg', zeitMs: Date.parse('2019-01-01T00:00:00Z') }),
       ],
       TOUR,
     )
-    expect(befund.aufnahmen.map((a) => a.datei)).toEqual(['weg.jpg', 'ort.jpg', 'spaet.jpg'])
+    expect(befund.aufnahmen.map((a) => a.file)).toEqual(['weg.jpg', 'ort.jpg', 'spaet.jpg'])
     expect([befund.mitOrt, befund.nachZeit, befund.inAblage]).toEqual([1, 1, 1])
     expect(befund.gesamtBytes).toBe(4 * 1048576)
   })
@@ -145,7 +145,7 @@ describe('befundSaetze', () => {
 
   it('zählt ab zwei', () => {
     const saetze = befundSaetze(
-      fasseZusammen([aufnahme({ datei: 'a.jpg' }), aufnahme({ datei: 'b.jpg' })], TOUR),
+      fasseZusammen([aufnahme({ file: 'a.jpg' }), aufnahme({ file: 'b.jpg' })], TOUR),
     )
     expect(saetze[0]).toContain('2 Aufnahmen ohne Ortsangabe')
   })
@@ -177,12 +177,12 @@ describe('Anzeige-Helfer', () => {
 
 describe('Endgültiges Löschen im Overlay', () => {
   const overlay: EditOverlay = {
-    schema: 'maptale/edits@1',
-    titelbild: 'm1',
-    medien: {
-      m1: { geloescht: true },
+    schema: 'maptale/edits@2',
+    cover: 'm1',
+    media: {
+      m1: { removed: true },
       m2: { caption: 'Abfahrt' },
-      m3: { geloescht: true, caption: 'weg damit' },
+      m3: { removed: true, caption: 'weg damit' },
     },
   }
 
@@ -191,26 +191,26 @@ describe('Endgültiges Löschen im Overlay', () => {
   })
 
   it('meldet nichts, wenn nichts entfernt wurde', () => {
-    expect(endgueltigZuLoeschen({ schema: 'maptale/edits@1' })).toEqual([])
+    expect(endgueltigZuLoeschen({ schema: 'maptale/edits@2' })).toEqual([])
     expect(
-      endgueltigZuLoeschen({ schema: 'maptale/edits@1', medien: { m1: { caption: 'da' } } }),
+      endgueltigZuLoeschen({ schema: 'maptale/edits@2', media: { m1: { caption: 'da' } } }),
     ).toEqual([])
   })
 
   it('tilgt Overlay-Spuren gelöschter Medien samt Titelbild-Verweis', () => {
     const danach = ohneMedien(overlay, ['m1', 'm3'])
-    expect(Object.keys(danach.medien ?? {})).toEqual(['m2'])
+    expect(Object.keys(danach.media ?? {})).toEqual(['m2'])
     // Ein Titelbild, das ins Leere zeigt, verhinderte die Neuwahl beim Render
-    expect(danach.titelbild).toBeUndefined()
+    expect(danach.cover).toBeUndefined()
   })
 
   it('lässt ein Titelbild stehen, das ein anderes Medium meint', () => {
-    const danach = ohneMedien({ ...overlay, titelbild: 'm2' }, ['m1'])
-    expect(danach.titelbild).toBe('m2')
+    const danach = ohneMedien({ ...overlay, cover: 'm2' }, ['m1'])
+    expect(danach.cover).toBe('m2')
   })
 
   it('räumt den leeren medien-Block weg (das gespeicherte JSON bleibt minimal)', () => {
-    const danach = ohneMedien({ schema: 'maptale/edits@1', medien: { m1: { geloescht: true } } }, [
+    const danach = ohneMedien({ schema: 'maptale/edits@2', media: { m1: { removed: true } } }, [
       'm1',
     ])
     expect('medien' in danach).toBe(false)
@@ -219,7 +219,7 @@ describe('Endgültiges Löschen im Overlay', () => {
   it('ändert nichts an anderen Spuren', () => {
     const mitTon: EditOverlay = {
       ...overlay,
-      audio: [{ datei: 'mus-aufbruch.mp3', typ: 'musik', ab: '2026-07-04T08:00:00Z' }],
+      audio: [{ file: 'mus-aufbruch.mp3', type: 'music', from: '2026-07-04T08:00:00Z' }],
     }
     expect(ohneMedien(mitTon, ['m1']).audio).toEqual(mitTon.audio)
   })

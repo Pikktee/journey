@@ -101,8 +101,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         return reply.code(404).send({ error: `Unbekannte Medien-ID: ${request.params.mid}` })
       // Tombstone: Was endgültig gelöscht wurde, kommt unter seiner ID nie zurück —
       // die Auslieferung hat für diese Namen `immutable` versprochen.
-      if (medium.removed)
-        return reply.code(409).send({ error: 'Medium wurde endgültig gelöscht' })
+      if (medium.removed) return reply.code(409).send({ error: 'Medium wurde endgültig gelöscht' })
       // Nach dem Rendern sind vorhandene Medien unveränderlich (derselbe
       // `immutable`-Grund). NACHGEREICHTE Einträge haben noch keine Datei — für
       // sie ist das PUT auch bei „bereit" erlaubt, sonst bliebe die additive
@@ -149,9 +148,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       // Genau der Status „bereit" ist der Zweck der Route (Cloud-Touren,
       // Studio-Nachreichen).
       if (tour.status === 'processing') {
-        return reply
-          .code(409)
-          .send({ error: 'Verarbeitung läuft, bitte gleich erneut hinzufügen' })
+        return reply.code(409).send({ error: 'Verarbeitung läuft, bitte gleich erneut hinzufügen' })
       }
 
       // Lesen → Ändern → Schreiben gehört unter die Sperre: Zwei gleichzeitige

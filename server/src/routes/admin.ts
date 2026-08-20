@@ -126,7 +126,14 @@ async function holeUmamiStatistiken(dbPasswort: string | null): Promise<AdminSta
       }
     }
 
-    return { realtime: echtzeit, today: heute, last7Days: letzte7Tage, total: gesamt, referrer, pages: seiten }
+    return {
+      realtime: echtzeit,
+      today: heute,
+      last7Days: letzte7Tage,
+      total: gesamt,
+      referrer,
+      pages: seiten,
+    }
   } catch {
     return leeresErgebnis
   }
@@ -328,11 +335,7 @@ export function registriereAdminRouten(app: FastifyInstance): void {
       const admin = erfordereAdmin(request, reply)
       if (!admin) return
       const tage = request.body?.validDays ?? GUELTIG_TAGE_STANDARD
-      const einladung = app.einladungen.erstelle(
-        admin.id,
-        request.body?.note ?? null,
-        tage || null,
-      )
+      const einladung = app.einladungen.erstelle(admin.id, request.body?.note ?? null, tage || null)
       return reply.code(201).send({ invitation: einladung })
     },
   )
@@ -415,7 +418,8 @@ export function registriereAdminRouten(app: FastifyInstance): void {
       // Die Prüfung ist keine Formsache: Eine Mail ohne ihren Link ist für den
       // Empfänger eine Sackgasse — und auffallen würde das erst im Postfach.
       const probleme = pruefeBausteine(vorlage(schluessel), request.body)
-      if (probleme.length) return reply.code(400).send({ error: probleme.join(' '), issues: probleme })
+      if (probleme.length)
+        return reply.code(400).send({ error: probleme.join(' '), issues: probleme })
       app.mailvorlagen.setze(schluessel, request.body, admin.id)
       return { templates: app.mailvorlagen.alle() }
     },

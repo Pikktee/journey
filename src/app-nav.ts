@@ -111,7 +111,7 @@ export function appHeaderHtml(opts: { aktiv: AppNavSeite; variante?: AppHeaderVa
       `<div class="nav-right" id="nav-right">` +
       `<a href="${pfad('app')}" class="nav-cta" data-gast>Anmelden</a>` +
       `<div class="konto-wrap" data-dabei>` +
-      `<button typ="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">` +
+      `<button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">` +
       `<span class="punkt"></span><span class="nav-profil-name"></span>` +
       `</button></div></div>`
   }

@@ -53,7 +53,7 @@ const distanzFuer = (name: string): Kameradistanz =>
 /** Ein Kamera-Moment aus dem Kreativbaukasten, verankert an Streckenmeter `s`. */
 export interface KameraMoment {
   s: number
-  /** `umkreisen` | `aufstieg` | `innehalten` — roh vom Server, unbekanntes hält still */
+  /** `orbit` | `ascend` | `linger` — roh vom Server, unbekanntes hält still */
   art: string
   dauerS?: number | undefined
 }

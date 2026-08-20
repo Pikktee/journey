@@ -127,9 +127,7 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-library)', () => 
   it('verlangt Anmeldung (401) und trennt Benutzer voneinander', async () => {
     const u = await baueTestApp()
     await ladeBibliothekHoch(u)
-    expect((await u.app.inject({ method: 'GET', url: '/api/audio-library' })).statusCode).toBe(
-      401,
-    )
+    expect((await u.app.inject({ method: 'GET', url: '/api/audio-library' })).statusCode).toBe(401)
     const fremd = await fremdeCookies(u)
     const liste = await u.app.inject({
       method: 'GET',
@@ -172,8 +170,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
       url: '/api/audio-library',
       cookies: u.cookies,
     })
-    const eintrag = (liste.json() as { files: Array<{ usedBy: Array<{ id: string }> }> })
-      .files[0]
+    const eintrag = (liste.json() as { files: Array<{ usedBy: Array<{ id: string }> }> }).files[0]
     expect(eintrag?.usedBy.map((t) => t.id)).toEqual([id])
   })
 

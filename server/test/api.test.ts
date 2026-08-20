@@ -109,9 +109,7 @@ describe('Auth', () => {
       headers: { authorization: `Bearer ${u.apiToken}` },
     })
     expect(antwort.statusCode).toBe(200)
-    expect((antwort.json() as { user: { email: string } }).user.email).toBe(
-      'test@example.com',
-    )
+    expect((antwort.json() as { user: { email: string } }).user.email).toBe('test@example.com')
   })
 
   it('beendet Sessions beim Logout (me() antwortet danach mit user null)', async () => {
@@ -1484,7 +1482,9 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
     })
-    return antwort.statusCode === 200 ? (antwort.json() as { travelModes?: Array<{ mode: string }> }) : {}
+    return antwort.statusCode === 200
+      ? (antwort.json() as { travelModes?: Array<{ mode: string }> })
+      : {}
   }
 
   it('macht aus der geratenen Radfahrt eine Straßenbahn — als Grenze im Overlay', async () => {
@@ -1527,7 +1527,10 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@2', travelModes: [{ from: '2026-07-31T18:09:00Z', mode: 'jeep' }] },
+      payload: {
+        schema: 'maptale/edits@2',
+        travelModes: [{ from: '2026-07-31T18:09:00Z', mode: 'jeep' }],
+      },
     })
     await finalisiere(u, id)
 

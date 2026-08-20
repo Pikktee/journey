@@ -227,7 +227,12 @@ export class AuthDienst {
     verifiziert = true,
     rolle: Rolle = 'user',
   ): Promise<Benutzer> {
-    const benutzer: Benutzer = { id: neueUserId(), email: email.toLowerCase().trim(), name, role: rolle }
+    const benutzer: Benutzer = {
+      id: neueUserId(),
+      email: email.toLowerCase().trim(),
+      name,
+      role: rolle,
+    }
     const pwHash = await hashePasswort(passwort)
     // Jedes Konto bekommt sofort eine Adresse — ein Profil ohne Handle wäre
     // nicht verlinkbar, und ein nachgereichter Handle hieße, dass die halbe

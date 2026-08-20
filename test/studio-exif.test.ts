@@ -45,7 +45,7 @@ describe('liesExif Robustheit', () => {
 describe('liesAufnahme (Kameradaten fürs Panel)', () => {
   it('liest Kamera, Objektiv, Belichtung, Maße und Höhe', () => {
     const a = liesAufnahme(beispielBild())
-    expect(a.kamera).toBe('Apple iPhone 15 Pro')
+    expect(a.camera).toBe('Apple iPhone 15 Pro')
     expect(a.objektiv).toBe('iPhone 15 Pro back camera 6.86mm f/1.78')
     expect(a.belichtungS).toBeCloseTo(1 / 250, 6)
     expect(a.blende).toBeCloseTo(2.8, 6)
@@ -59,7 +59,7 @@ describe('liesAufnahme (Kameradaten fürs Panel)', () => {
 
   it('nennt den Hersteller nicht doppelt, wenn er im Modell steckt', () => {
     // Make „Canon" + Model „Canon EOS R6" → einmal Canon
-    expect(liesAufnahme(bild('exif-canon.jpg')).kamera).toBe('Canon EOS R6')
+    expect(liesAufnahme(bild('exif-canon.jpg')).camera).toBe('Canon EOS R6')
   })
 
   it('liefert leer statt zu werfen ohne EXIF/bei Müll', () => {

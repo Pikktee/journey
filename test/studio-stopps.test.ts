@@ -78,10 +78,10 @@ describe('baueStopps', () => {
     const basis = [foto('a', 1000), foto('b', 3000)]
     const ohneAnker: MediumBasis[] = [
       ...basis,
-      { ...foto('c', 0), anchor: null, placement: 'unplatziert' },
+      { ...foto('c', 0), anchor: null, placement: 'unplaced' },
     ]
     expect(stopps(ohneAnker)).toHaveLength(2)
-    const geloescht = mitMedienEdit(LEERES_OVERLAY, 'b', { geloescht: true })
+    const geloescht = mitMedienEdit(LEERES_OVERLAY, 'b', { removed: true })
     expect(stopps(basis, geloescht)).toHaveLength(1)
   })
 
@@ -94,15 +94,15 @@ describe('baueStopps', () => {
     expect(stopps(basis, e)[0]!.items.map((m) => m.id)).toEqual(['b', 'a', 'c'])
 
     // Lücke: wer keine reihe hat, kommt ans Ende (nach Aufnahmezeit)
-    e = mitMedienEdit(LEERES_OVERLAY, 'b', { reihe: 0 })
+    e = mitMedienEdit(LEERES_OVERLAY, 'b', { order: 0 })
     expect(stopps(basis, e)[0]!.items.map((m) => m.id)).toEqual(['b', 'c', 'a'])
   })
 
-  it('behält `reihe: 0` — sie darf nicht als „leer" wegfallen', () => {
-    const e = mitMedienEdit(LEERES_OVERLAY, 'x', { reihe: 0 })
-    expect(e.medien?.['x']?.reihe).toBe(0)
+  it('behält `order: 0` — sie darf nicht als „leer" wegfallen', () => {
+    const e = mitMedienEdit(LEERES_OVERLAY, 'x', { order: 0 })
+    expect(e.media?.['x']?.order).toBe(0)
     // undefined räumt sie dagegen weg
-    expect(mitMedienEdit(e, 'x', { reihe: undefined }).medien).toBeUndefined()
+    expect(mitMedienEdit(e, 'x', { order: undefined }).media).toBeUndefined()
   })
 
   it('liefert Ort und Zeit des Halts als Mittel seiner Mitglieder', () => {
@@ -190,17 +190,17 @@ describe('Drift-Wächter: Editor und Player gruppieren gleich', () => {
 
   // Die Reihenfolge im Halt war bis zur Szene-Schicht (§9) ein Textvergleich:
   // Der Wächter suchte den Quelltext des Players nach
-  // `a.reihe ?? Number.POSITIVE_INFINITY` ab. Ein Regex auf einen Rumpf hält
+  // `a.order ?? Number.POSITIVE_INFINITY` ab. Ein Regex auf einen Rumpf hält
   // keine Regel zusammen — er meldet jede Umformulierung als Bruch und lässt
   // jede echte Änderung der Studio-Seite durch. Beide rufen jetzt dieselbe
   // Funktion auf, und geprüft wird das VERHALTEN an denselben Beispielen.
   // Eine Aufnahme, wie beide Bühnen sie kennen: ein Ort (der Player misst
   // Meter) UND eine Zeit (das Studio ordnet danach). `reihe` ist optional.
-  type Aufnahme = { s: number; takenAt: string; reihe?: number }
-  const auf = (s: number, min: number, reihe?: number): Aufnahme => ({
+  type Aufnahme = { s: number; takenAt: string; order?: number }
+  const auf = (s: number, min: number, order?: number): Aufnahme => ({
     s,
     takenAt: `2026-05-02T10:${String(min).padStart(2, '0')}:00Z`,
-    ...(reihe !== undefined ? { reihe } : {}),
+    ...(order !== undefined ? { order } : {}),
   })
   const nachOrt = (x: Aufnahme) => x.s
   const nachZeit = (x: Aufnahme) => Date.parse(x.takenAt)
@@ -242,7 +242,7 @@ describe('Drift-Wächter: Editor und Player gruppieren gleich', () => {
 
   it('das Studio-Schema kennt `reihe` genauso wie das Server-Schema', () => {
     const server = readFileSync(new URL('../server/src/schema/edits.ts', import.meta.url), 'utf8')
-    expect(server).toMatch(/reihe\?: number/)
-    expect(server).toMatch(/reihe: \{ type: 'integer'/)
+    expect(server).toMatch(/order\?: number/)
+    expect(server).toMatch(/order: \{ type: 'integer'/)
   })
 })

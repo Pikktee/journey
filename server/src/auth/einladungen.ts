@@ -135,9 +135,7 @@ export class EinladungsDienst {
   pruefe(code: string): EinladungsFehler | null {
     const zeile = this.db
       .prepare('SELECT expires_at, redeemed_at FROM invitations WHERE code = ?')
-      .get(normiere(code)) as
-      | { expires_at: string | null; redeemed_at: string | null }
-      | undefined
+      .get(normiere(code)) as { expires_at: string | null; redeemed_at: string | null } | undefined
     if (!zeile) return 'unbekannt'
     if (zeile.redeemed_at) return 'verbraucht'
     if (zeile.expires_at && Date.parse(zeile.expires_at) < Date.now()) return 'abgelaufen'

@@ -3,7 +3,7 @@
 // src/routen.ts ist die Quelle. Der Nginx-Vhost und die Kopie im Server
 // (Mail-Links, eigener rootDir) leiten sich davon ab, KÖNNEN sie aber nicht
 // importieren — genau die Lage, in der in diesem Projekt schon einmal etwas
-// auseinanderlief (die Fortbewegungs-MODI). Ein Fehler hier fällt sonst erst
+// auseinanderlief (die Fortbewegungs-TRAVEL_MODES). Ein Fehler hier fällt sonst erst
 // auf, wenn jemand einen Link in seiner Mail anklickt.
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'

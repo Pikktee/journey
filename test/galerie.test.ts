@@ -18,8 +18,8 @@ const tour = (patch: Partial<GalerieTour> = {}): GalerieTour => ({
   titel: 'Lauterbrunnen → Grindelwald',
   cover: '/api/media/t_abc/m1.jpg',
   km: 12.42,
-  erstelltAm: '2026-07-04T08:00:00.000Z',
-  autor: null,
+  createdAt: '2026-07-04T08:00:00.000Z',
+  author: null,
   ...patch,
 })
 
@@ -43,39 +43,39 @@ describe('alsKarte', () => {
   })
 
   it('nennt den Urheber, verlinkt ihn aber nur mit öffentlicher Profilseite', () => {
-    const ohneSeite = alsKarte(tour({ autor: { anzeigename: 'Reisende', avatarUrl: null } }))
+    const ohneSeite = alsKarte(tour({ author: { displayName: 'Reisende', avatarUrl: null } }))
     expect(ohneSeite.autorName).toBe('Reisende')
     expect(ohneSeite.autorLink).toBeNull()
 
     const mitSeite = alsKarte(
-      tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1' } }),
+      tour({ author: { displayName: 'Reisende', avatarUrl: null, id: 'u_1' } }),
     )
     expect(mitSeite.autorLink).toBe('/profil?id=u_1')
   })
 
   it('verlinkt über den Handle, sobald es einen gibt', () => {
     const karte = alsKarte(
-      tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1', handle: 'henrik' } }),
+      tour({ author: { displayName: 'Reisende', avatarUrl: null, id: 'u_1', handle: 'henrik' } }),
     )
     expect(karte.autorLink).toBe('/@henrik')
   })
 
   it('kodiert Kennungen für die Adresse', () => {
     const karte = alsKarte(
-      tour({ id: 't a/b', autor: { anzeigename: 'X', avatarUrl: null, id: 'u/1' } }),
+      tour({ id: 't a/b', author: { displayName: 'X', avatarUrl: null, id: 'u/1' } }),
     )
     expect(karte.spielLink).toBe('/tour/t%20a%2Fb')
     expect(karte.autorLink).toBe('/profil?id=u%2F1')
   })
 
   it('kommt ohne Bild und ohne Zahlen aus', () => {
-    const karte = alsKarte(tour({ cover: null, km: null, erstelltAm: '' }))
+    const karte = alsKarte(tour({ cover: null, km: null, createdAt: '' }))
     expect(karte.cover).toBeNull()
     expect(karte.unterzeile).toBe('')
   })
 
   it('wandelt eine ganze Antwort um', () => {
-    expect(alsKarten({ touren: [tour(), tour({ id: 't_2' })], mehr: false })).toHaveLength(2)
+    expect(alsKarten({ tours: [tour(), tour({ id: 't_2' })], hasMore: false })).toHaveLength(2)
   })
 })
 

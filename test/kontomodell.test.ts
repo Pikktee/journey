@@ -32,11 +32,11 @@ const EDGE_WIN =
 
 const geraet = (patch: Partial<Geraet> = {}): Geraet => ({
   id: 'sitzung:s_1',
-  art: 'sitzung',
-  kennung: CHROME_MAC,
-  ipPraefix: '84.119.x.x',
-  angemeldetAm: '2026-08-01T10:00:00.000Z',
-  zuletztGesehen: '2026-08-06T09:58:00.000Z',
+  kind: 'session',
+  label: CHROME_MAC,
+  ipPrefix: '84.119.x.x',
+  signedInAt: '2026-08-01T10:00:00.000Z',
+  lastSeenAt: '2026-08-06T09:58:00.000Z',
   ...patch,
 })
 
@@ -58,28 +58,28 @@ describe('Geräte deuten', () => {
 
   it('beschriftet Sitzungen und die App', () => {
     expect(geraeteName(geraet())).toBe('Chrome auf macOS')
-    expect(geraeteName(geraet({ kennung: SAFARI_IPHONE }))).toBe('Safari auf iPhone')
-    expect(geraeteName(geraet({ art: 'app', kennung: 'Pixel 9' }))).toBe('Maptale App · Pixel 9')
+    expect(geraeteName(geraet({ label: SAFARI_IPHONE }))).toBe('Safari auf iPhone')
+    expect(geraeteName(geraet({ kind: 'app', label: 'Pixel 9' }))).toBe('Maptale App · Pixel 9')
   })
 
   it('rät nicht, wo es nichts zu deuten gibt', () => {
-    expect(geraeteName(geraet({ kennung: null }))).toBe('Unbekanntes Gerät')
-    expect(geraeteName(geraet({ kennung: 'irgendetwas/1.0' }))).toBe('Unbekanntes Gerät')
+    expect(geraeteName(geraet({ label: null }))).toBe('Unbekanntes Gerät')
+    expect(geraeteName(geraet({ label: 'irgendetwas/1.0' }))).toBe('Unbekanntes Gerät')
   })
 
   it('wählt das Symbol nach Bauart', () => {
     expect(geraeteSymbol(geraet())).toBe('rechner')
-    expect(geraeteSymbol(geraet({ kennung: SAFARI_IPHONE }))).toBe('telefon')
-    expect(geraeteSymbol(geraet({ art: 'app', kennung: 'Pixel 9' }))).toBe('app')
+    expect(geraeteSymbol(geraet({ label: SAFARI_IPHONE }))).toBe('telefon')
+    expect(geraeteSymbol(geraet({ kind: 'app', label: 'Pixel 9' }))).toBe('app')
     expect(istHandgeraet(EDGE_WIN)).toBe(false)
   })
 
   it('baut die Unterzeile aus dem, was da ist — und lässt Lücken weg', () => {
     const jetzt = new Date('2026-08-06T10:00:00.000Z')
     expect(geraeteUnterzeile(geraet(), jetzt)).toBe('84.119.x.x · zuletzt gerade eben')
-    expect(geraeteUnterzeile(geraet({ ipPraefix: null }), jetzt)).toBe('zuletzt gerade eben')
+    expect(geraeteUnterzeile(geraet({ ipPrefix: null }), jetzt)).toBe('zuletzt gerade eben')
     // Ohne „zuletzt gesehen" zählt die Anmeldung — nie ein Platzhalter-Strich.
-    expect(geraeteUnterzeile(geraet({ ipPraefix: null, zuletztGesehen: null }), jetzt)).toBe(
+    expect(geraeteUnterzeile(geraet({ ipPrefix: null, lastSeenAt: null }), jetzt)).toBe(
       'zuletzt vor 5 Tagen',
     )
   })
@@ -113,40 +113,40 @@ describe('relativeZeit', () => {
 describe('Speicher', () => {
   const mb = (n: number): number => n * 1024 * 1024
   const stand = (patch: Partial<SpeicherStand> = {}): SpeicherStand => ({
-    benutzt: mb(248),
+    used: mb(248),
     limit: mb(2048),
-    frei: mb(1800),
-    aufteilung: {
-      fotos: mb(152),
+    free: mb(1800),
+    breakdown: {
+      photos: mb(152),
       videos: mb(63),
-      klaenge: mb(21),
-      aufzeichnungen: mb(12),
-      sonstiges: 0,
+      audio: mb(21),
+      recordings: mb(12),
+      other: 0,
     },
     ...patch,
   })
 
   it('misst am Limit, nicht an der Summe — sonst sähe ein leeres Konto voll aus', () => {
     const abschnitte = speicherAbschnitte(stand())
-    expect(abschnitte.map((a) => a.art)).toEqual(['fotos', 'videos', 'klaenge', 'aufzeichnungen'])
+    expect(abschnitte.map((a) => a.art)).toEqual(['photos', 'videos', 'audio', 'recordings'])
     expect(abschnitte[0]?.prozent).toBeCloseTo((152 / 2048) * 100, 4)
     expect(Math.round(belegtProzent(stand()))).toBe(12)
   })
 
   it('lässt leere Arten weg', () => {
     const leer = stand({
-      aufteilung: { fotos: mb(10), videos: 0, klaenge: 0, aufzeichnungen: 0, sonstiges: 0 },
+      breakdown: { photos: mb(10), videos: 0, audio: 0, recordings: 0, other: 0 },
     })
-    expect(speicherAbschnitte(leer).map((a) => a.art)).toEqual(['fotos'])
+    expect(speicherAbschnitte(leer).map((a) => a.art)).toEqual(['photos'])
   })
 
   it('warnt erst, wenn wirklich nichts mehr passt', () => {
     expect(speicherKnapp(stand())).toBe(false)
-    expect(speicherKnapp(stand({ benutzt: mb(1902) }))).toBe(true)
+    expect(speicherKnapp(stand({ used: mb(1902) }))).toBe(true)
   })
 
   it('sprengt den Balken nicht, wenn das Limit überschritten ist', () => {
-    expect(belegtProzent(stand({ benutzt: mb(3000) }))).toBe(100)
+    expect(belegtProzent(stand({ used: mb(3000) }))).toBe(100)
     expect(belegtProzent(stand({ limit: 0 }))).toBe(0)
   })
 
@@ -165,12 +165,12 @@ describe('exportZeile', () => {
   const jetzt = new Date('2026-08-06T12:00:00Z')
   const stand = (p: Partial<ExportStand> = {}): ExportStand => ({
     id: 'x_1',
-    status: 'fertig',
-    angefordertAm: '2026-08-06T10:00:00Z',
-    fertigAm: '2026-08-06T10:05:00Z',
-    laeuftAbAm: '2026-08-08T10:05:00Z',
+    status: 'done',
+    requestedAt: '2026-08-06T10:00:00Z',
+    finishedAt: '2026-08-06T10:05:00Z',
+    expiresAt: '2026-08-08T10:05:00Z',
     bytes: 1024 * 1024 * 640,
-    dateien: 42,
+    files: 42,
     ...p,
   })
 
@@ -184,21 +184,19 @@ describe('exportZeile', () => {
     expect(exportZeile(stand(), jetzt)).toBe(
       'Dein Archiv (640 MB) liegt bereit, der Link aus der Mail gilt noch 46 Stunden.',
     )
-    expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T12:40:00Z' }), jetzt)).toContain(
+    expect(exportZeile(stand({ expiresAt: '2026-08-06T12:40:00Z' }), jetzt)).toContain(
       'noch eine Stunde',
     )
   })
 
   it('behauptet nichts über ein Archiv, das es nicht mehr gibt', () => {
     // Abgelaufen heißt gelöscht — die Zeile darf nicht sagen, es liege bereit.
-    expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T09:00:00Z' }), jetzt)).toContain(
-      'abgelaufen',
-    )
-    expect(exportZeile(stand({ laeuftAbAm: null }), jetzt)).toContain('abgelaufen')
+    expect(exportZeile(stand({ expiresAt: '2026-08-06T09:00:00Z' }), jetzt)).toContain('abgelaufen')
+    expect(exportZeile(stand({ expiresAt: null }), jetzt)).toContain('abgelaufen')
   })
 
   it('unterscheidet läuft und fehlgeschlagen', () => {
-    expect(exportZeile(stand({ status: 'laeuft' }), jetzt)).toContain('wird gerade gebaut')
-    expect(exportZeile(stand({ status: 'fehler' }), jetzt)).toContain('fehlgeschlagen')
+    expect(exportZeile(stand({ status: 'running' }), jetzt)).toContain('wird gerade gebaut')
+    expect(exportZeile(stand({ status: 'failed' }), jetzt)).toContain('fehlgeschlagen')
   })
 })

@@ -262,7 +262,7 @@ export interface StoppFoto {
   /** Streckenmeter des Ankers */
   s: number
   /** Platz im Halt (0-basiert, im Studio gesetzt) */
-  reihe?: number
+  order?: number
 }
 
 /** Ein Halt: Streckenmeter des ERSTEN Fotos plus alle Aufnahmen dort. */

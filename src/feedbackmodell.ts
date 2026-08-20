@@ -16,7 +16,7 @@ import { browserAus, systemAus } from './konto/kontomodell.js'
 /** Genau die Felder, die der Server annimmt. Mehr zu schicken hätte keinen Zweck. */
 export interface FeedbackKontext {
   /** Adresse der Seite OHNE Query und Fragment — dort steht sonst Fremdes. */
-  seite?: string
+  page?: string
   version?: string
   browser?: string
   platform?: string
@@ -54,21 +54,21 @@ export function sammleKontext(opts: {
   hoehe: number
   language?: string
 }): FeedbackKontext {
-  const context: FeedbackKontext = {
-    seite: sauberePfadangabe(opts.href),
+  const kontext: FeedbackKontext = {
+    page: sauberePfadangabe(opts.href),
     version: opts.version,
   }
   const browser = browserAus(opts.userAgent)
   const system = systemAus(opts.userAgent)
-  if (browser) context.browser = browser
-  if (system) context.platform = system
-  if (opts.breite > 0 && opts.hoehe > 0) context.screen = `${opts.breite}×${opts.hoehe}`
-  if (opts.language) context.language = opts.language
-  return context
+  if (browser) kontext.browser = browser
+  if (system) kontext.platform = system
+  if (opts.breite > 0 && opts.hoehe > 0) kontext.screen = `${opts.breite}×${opts.hoehe}`
+  if (opts.language) kontext.language = opts.language
+  return kontext
 }
 
 /** Menschenlesbare Paare für den Aufklapper. Reihenfolge fest, damit sie nicht springt. */
-export function kontextZeilen(context: FeedbackKontext): Array<[string, string]> {
+export function kontextZeilen(kontext: FeedbackKontext): Array<[string, string]> {
   const namen: Array<[keyof FeedbackKontext, string]> = [
     ['page', 'Seite'],
     ['version', 'Version'],
@@ -78,8 +78,8 @@ export function kontextZeilen(context: FeedbackKontext): Array<[string, string]>
     ['language', 'Sprache'],
   ]
   return namen
-    .filter(([schluessel]) => context[schluessel])
-    .map(([schluessel, name]) => [name, String(context[schluessel])])
+    .filter(([schluessel]) => kontext[schluessel])
+    .map(([schluessel, name]) => [name, String(kontext[schluessel])])
 }
 
 /**

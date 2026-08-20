@@ -31,7 +31,9 @@ const WURZEL = join(dirname(fileURLToPath(import.meta.url)), '..')
 const TABELLE = join(WURZEL, 'docs/specs/abbildungstabelle.tsv')
 const SPALTEN = ['ist', 'ziel', 'art', 'fundort', 'welle', 'bemerkung']
 
-const roh = readFileSync(TABELLE, 'utf8').split('\n').filter((z) => z.trim() !== '')
+const roh = readFileSync(TABELLE, 'utf8')
+  .split('\n')
+  .filter((z) => z.trim() !== '')
 const formfehler = []
 if (roh[0].split('\t').join(',') !== SPALTEN.join(',')) formfehler.push('Kopfzeile weicht ab')
 
@@ -70,13 +72,15 @@ const kollisionen = []
 for (const [s, g] of grupp((z) => `${z.ziel} | ${z.art} | ${z.fundort}`)) {
   if (s.startsWith('bleibt |')) continue
   const namen = new Set(g.filter((z) => z.ziel !== z.ist).map((z) => z.ist))
-  if (namen.size > 1) kollisionen.push(`${[...namen].join(' und ')} → ${g[0].ziel} (${g[0].fundort})`)
+  if (namen.size > 1)
+    kollisionen.push(`${[...namen].join(' und ')} → ${g[0].ziel} (${g[0].fundort})`)
 }
 
 const homonyme = []
 for (const [ist, g] of grupp((z) => z.ist)) {
   const ziele = [...new Set(g.map((z) => z.ziel))]
-  if (ziele.length > 1) homonyme.push({ ist, ziele, wo: g.map((z) => `${z.ziel} ← ${z.art} ${z.fundort}`) })
+  if (ziele.length > 1)
+    homonyme.push({ ist, ziele, wo: g.map((z) => `${z.ziel} ← ${z.art} ${z.fundort}`) })
 }
 
 /** In welcher getrennt kompilierten Welt liegt dieser Fundort? */
@@ -132,14 +136,22 @@ if (process.argv.includes('--json')) {
   console.log(JSON.stringify(bericht, null, 2))
 } else {
   console.log(`Abbildungstabelle: ${bericht.eintraege} Einträge`)
-  console.log(`  je Welle:  ${Object.entries(bericht.jeWelle).map(([w, n]) => `${w}: ${n}`).join(', ')}`)
+  console.log(
+    `  je Welle:  ${Object.entries(bericht.jeWelle)
+      .map(([w, n]) => `${w}: ${n}`)
+      .join(', ')}`,
+  )
   console.log(`  Vorschläge ohne Glossar-Deckung: ${bericht.vorschlaege}`)
   console.log(`  eingefroren (Zielform "bleibt"): ${bericht.eingefroren}`)
   console.log(`  Homonyme (gewollt, je Fundort verschieden): ${bericht.homonyme}`)
   console.log('')
   const melde = (titel, liste) => {
     console.log(`${liste.length === 0 ? 'OK  ' : 'FEHLER '} ${titel}: ${liste.length}`)
-    liste.slice(0, 20).forEach((e) => console.log(`      ${typeof e === 'string' ? e : `${e.ist} [${e.art}] ${e.paare}`}`))
+    liste
+      .slice(0, 20)
+      .forEach((e) =>
+        console.log(`      ${typeof e === 'string' ? e : `${e.ist} [${e.art}] ${e.paare}`}`),
+      )
     if (liste.length > 20) console.log(`      (und ${liste.length - 20} weitere)`)
   }
   melde('Formfehler', formfehler)

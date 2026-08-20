@@ -147,14 +147,11 @@ export function registriereRueckmeldungsRouten(app: FastifyInstance): void {
     },
   )
 
-  app.delete<{ Params: { id: string } }>(
-    '/api/admin/feedback/:id',
-    async (request, reply) => {
-      if (!erfordereAdmin(request, reply)) return
-      if (!app.rueckmeldungen.loesche(request.params.id)) {
-        return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
-      }
-      return reply.send({ ok: true })
-    },
-  )
+  app.delete<{ Params: { id: string } }>('/api/admin/feedback/:id', async (request, reply) => {
+    if (!erfordereAdmin(request, reply)) return
+    if (!app.rueckmeldungen.loesche(request.params.id)) {
+      return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
+    }
+    return reply.send({ ok: true })
+  })
 }

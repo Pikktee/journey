@@ -182,7 +182,10 @@ describe('pruefeEditsSemantik', () => {
 
   it('prüft Kamera-Grenzen (Baukasten)', () => {
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@2', camera: [{ from: iso(0), preset: 'near' }] }),
+      pruefeEditsSemantik({
+        schema: 'maptale/edits@2',
+        camera: [{ from: iso(0), preset: 'near' }],
+      }),
     ).toBeNull()
     expect(
       pruefeEditsSemantik({

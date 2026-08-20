@@ -179,7 +179,7 @@ export function baueBaender(abschnitte: readonly AnzeigeAbschnitt[], scale: Zeit
         aktiv: a.aktiv,
       }
     })
-    .filter((b) => b.bis > b.von)
+    .filter((b) => b.to > b.von)
 }
 
 export interface MedienDot {
@@ -260,7 +260,7 @@ export function baueZustandsBaender<T>(
   }
   baender.push({ von, to: 1, wert, from })
   // Null-breite Bänder (Grenze bei 0, zwei Grenzen auf demselben Punkt) fallen weg
-  return baender.filter((b) => b.bis > b.von)
+  return baender.filter((b) => b.to > b.von)
 }
 
 /** Default-Haltedauer eines Fotos — entspricht „Auto (5 s)" im Editor. */
@@ -307,7 +307,7 @@ export function baueAudioBalken(
   // Klip vor ihm endet. Die Zuordnung ist stabil gegenüber dem Overlay-Index
   // (Sortierung nur fürs Färben; zurück kommt die Original-Reihenfolge).
   const musik = balken
-    .filter((b) => b.typ === 'music')
+    .filter((b) => b.type === 'music')
     .sort((a, b) => a.von - b.von || a.index - b.index)
   const laneEnden: number[] = []
   for (const b of musik) {
@@ -316,7 +316,7 @@ export function baueAudioBalken(
       lane = laneEnden.length
       laneEnden.push(0)
     }
-    laneEnden[lane] = b.bis
+    laneEnden[lane] = b.to
     b.lane = lane
   }
   return balken
@@ -324,7 +324,7 @@ export function baueAudioBalken(
 
 /** Zahl der Unterzeilen der Musik-Bahn (mindestens 1) — für ihre Höhe. */
 export function musikLanes(balken: readonly AudioBalken[]): number {
-  return balken.reduce((max, b) => (b.typ === 'music' ? Math.max(max, b.lane + 1) : max), 1)
+  return balken.reduce((max, b) => (b.type === 'music' ? Math.max(max, b.lane + 1) : max), 1)
 }
 
 // — Zeit-Eingabe im Inspector —
@@ -381,7 +381,7 @@ export type Fokus =
 
 /** Aufgelöster Fokus: was der Inspector zeigt und was auf der Karte leuchtet. */
 export interface FokusZiel {
-  kind: Fokus['art']
+  kind: Fokus['kind']
   fromS: number
   toS: number
   /**
@@ -412,7 +412,7 @@ const grenzeBei = (
   startIso: string,
   offsetS: number,
 ): string | null =>
-  grenzen.find((g) => Math.abs(isoZuOffset(startIso, g.from) - offsetS) < 1)?.ab ?? null
+  grenzen.find((g) => Math.abs(isoZuOffset(startIso, g.from) - offsetS) < 1)?.from ?? null
 
 /**
  * Eine Zustands-Grenze bleibt zwischen ihren Nachbarn. Ohne diese Klemme
@@ -474,7 +474,7 @@ export function loeseFokusAuf(
   const scale = baueSkala(track)
   if (!scale) return null
 
-  if (fokus.art === 'modus') {
+  if (fokus.kind === 'modus') {
     // Aus den Anzeige-Abschnitten: die tragen echte Trackpunkte, also echte Zeiten
     const i = abschnitte.findIndex((a) => {
       const von = (a.pts[0] as TrackPunkt)[3]
@@ -512,12 +512,15 @@ export function loeseFokusAuf(
     }
   }
 
-  if (fokus.art === 'kamera' || fokus.art === 'wetter') {
-    const istWetter = fokus.art === 'wetter'
+  if (fokus.kind === 'kamera' || fokus.kind === 'wetter') {
+    const istWetter = fokus.kind === 'wetter'
     // Wetter-Grund ist „klar" (off), sobald IRGENDeine Grenze existiert — dann
     // ersetzt das Overlay das Auto-Wetter vollständig; sonst „automatisch".
     const grenzen = istWetter
-      ? (edits.weather ?? []).map((g) => ({ from: g.from, wert: g.mode as KameraPreset | WetterModus }))
+      ? (edits.weather ?? []).map((g) => ({
+          from: g.from,
+          wert: g.mode as KameraPreset | WetterModus,
+        }))
       : (edits.camera ?? []).map((g) => ({
           from: g.from,
           wert: g.preset as KameraPreset | WetterModus,
@@ -526,35 +529,34 @@ export function loeseFokusAuf(
     const baender = baueZustandsBaender(grenzen, startIso, scale, grund)
     const i = baender.findIndex(
       (b) =>
-        fokus.bezugS >= anteilZuOffset(scale, b.von) &&
-        fokus.bezugS <= anteilZuOffset(scale, b.bis),
+        fokus.bezugS >= anteilZuOffset(scale, b.von) && fokus.bezugS <= anteilZuOffset(scale, b.to),
     )
     const treffer = baender[i]
     if (!treffer) return null
     const ziel: FokusZiel = {
-      kind: fokus.art,
+      kind: fokus.kind,
       fromS: anteilZuOffset(scale, treffer.von),
-      toS: anteilZuOffset(scale, treffer.bis),
-      from: treffer.ab,
-      naechsteAb: baender[i + 1]?.ab ?? null,
+      toS: anteilZuOffset(scale, treffer.to),
+      from: treffer.from,
+      naechsteAb: baender[i + 1]?.from ?? null,
     }
     if (treffer.wert) {
       if (istWetter) ziel.wetterMode = treffer.wert as WetterModus
       else ziel.preset = treffer.wert as KameraPreset
     }
-    if (istWetter && treffer.ab !== null) {
-      const intensity = edits.weather?.find((g) => g.from === treffer.ab)?.intensity
+    if (istWetter && treffer.from !== null) {
+      const intensity = edits.weather?.find((g) => g.from === treffer.from)?.intensity
       if (intensity !== undefined) ziel.intensity = intensity
     }
-    if (!istWetter && treffer.ab !== null) {
-      const feinSkala = edits.camera?.find((g) => g.from === treffer.ab)?.scale
+    if (!istWetter && treffer.from !== null) {
+      const feinSkala = edits.camera?.find((g) => g.from === treffer.from)?.scale
       if (feinSkala !== undefined) ziel.intensity = feinSkala
     }
     return ziel
   }
 
-  if (fokus.art === 'moment') {
-    const m = (edits.moments ?? []).find((x) => x.from === fokus.ab)
+  if (fokus.kind === 'moment') {
+    const m = (edits.moments ?? []).find((x) => x.from === fokus.from)
     if (!m) return null
     const s = isoZuOffset(startIso, m.from)
     return {
@@ -568,7 +570,7 @@ export function loeseFokusAuf(
     }
   }
 
-  if (fokus.art === 'audio') {
+  if (fokus.kind === 'audio') {
     const a = (edits.audio ?? [])[fokus.index]
     if (!a) return null
     const ausAchse = tonSpanne?.(fokus.index)
@@ -586,7 +588,14 @@ export function loeseFokusAuf(
   const m = media.find((x) => x.id === fokus.id)
   if (!m?.anchor) return null
   const p = projiziereAufTrack(track, m.anchor[0], m.anchor[1])
-  return { kind: 'medium', fromS: p.punkt[3], toS: p.punkt[3], from: null, naechsteAb: null, id: m.id }
+  return {
+    kind: 'medium',
+    fromS: p.punkt[3],
+    toS: p.punkt[3],
+    from: null,
+    naechsteAb: null,
+    id: m.id,
+  }
 }
 
 /** Trim-Griffe als Anteile (Default 0/1, wenn kein Trim gesetzt). */
@@ -600,9 +609,7 @@ export function baueTrimGriffe(
       ? offsetZuAnteil(scale, isoZuOffset(startIso, edits.trim.start))
       : 0
   const end =
-    edits.trim?.end !== undefined
-      ? offsetZuAnteil(scale, isoZuOffset(startIso, edits.trim.end))
-      : 1
+    edits.trim?.end !== undefined ? offsetZuAnteil(scale, isoZuOffset(startIso, edits.trim.end)) : 1
   return { start, end }
 }
 
@@ -898,16 +905,16 @@ function stueckBei(
   let gelaufen = 0
   for (const [i, s] of stuecke.entries()) {
     const letzte = i === stuecke.length - 1
-    if (imHaltS < gelaufen + s.dauerS || letzte) {
+    if (imHaltS < gelaufen + s.durationS || letzte) {
       return {
         nr: i + 1,
         anzahl: stuecke.length,
         id: s.id,
-        imS: Math.min(Math.max(imHaltS - gelaufen, 0), s.dauerS),
-        durationS: s.dauerS,
+        imS: Math.min(Math.max(imHaltS - gelaufen, 0), s.durationS),
+        durationS: s.durationS,
       }
     }
-    gelaufen += s.dauerS
+    gelaufen += s.durationS
   }
   return null
 }
@@ -950,9 +957,9 @@ export function baueSzenenKlips(achse: Achse): SzenenKlip[] {
         platz,
         anzahl: stuecke.length,
         filmVon: film,
-        filmBis: film + s.dauerS,
+        filmBis: film + s.durationS,
       })
-      film += s.dauerS
+      film += s.durationS
     }
   }
   return klips
@@ -976,9 +983,9 @@ export function platzInKette(halt: HaltIntervall, filmS: number): KettenPlatz {
   let fuge = halt.filmVon
   let platz = 0
   for (const s of halt.stuecke ?? []) {
-    if (filmS < fuge + s.dauerS / 2) break
+    if (filmS < fuge + s.durationS / 2) break
     platz += 1
-    fuge += s.dauerS
+    fuge += s.durationS
   }
   return { platz, filmS: fuge }
 }
@@ -1067,7 +1074,7 @@ export function formatiereSekunden(sekunden: number): string {
 export function beschreibeHaltStand(stand: HaltStand): string {
   const s = stand.stueck
   if (!s) return `${sekText(stand.imHaltS)} s von ${sekText(stand.halt.breiteS)} s`
-  const zeit = `${sekText(s.imS)} s von ${sekText(s.dauerS)} s`
+  const zeit = `${sekText(s.imS)} s von ${sekText(s.durationS)} s`
   return s.anzahl > 1 ? `Aufnahme ${s.nr} von ${s.anzahl} · ${zeit}` : zeit
 }
 

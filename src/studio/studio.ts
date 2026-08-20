@@ -217,7 +217,7 @@ function versteckeBoot(): void {
  */
 function zeigeBenutzer(sitzung: api.Session): void {
   const benutzer = sitzung.user
-  const anzeige = sitzung.profile?.anzeigename?.trim() || benutzer?.name || benutzer?.email || ''
+  const anzeige = sitzung.profile?.displayName?.trim() || benutzer?.name || benutzer?.email || ''
   els.benutzerName.textContent = anzeige
   els.kmMail.textContent = benutzer?.email ?? ''
 
@@ -323,7 +323,7 @@ let uploadGesperrt = false
 function zeigeSitzung(sitzung: api.Session): void {
   const unbestaetigt = sitzung.user !== null && sitzung.verified === false
   els.verifyBanner.hidden = !unbestaetigt
-  els.kmVerwaltung.hidden = sitzung.user?.rolle !== 'admin'
+  els.kmVerwaltung.hidden = sitzung.user?.role !== 'admin'
   // „Mein Profil" zeigt auf die Adresse der Person, nicht auf /profil — dort
   // stünde ohne Handle nichts. Ohne Handle bleibt der Eintrag weg.
   const handle = sitzung.profile?.handle
@@ -333,8 +333,8 @@ function zeigeSitzung(sitzung: api.Session): void {
   els.neuBauen.title = unbestaetigt ? 'Erst E-Mail bestätigen' : ''
   if (sitzung.quota) {
     const mb = (b: number): string => (b / (1024 * 1024)).toFixed(0)
-    const anteil = sitzung.quota.limit > 0 ? sitzung.quota.benutzt / sitzung.quota.limit : 0
-    els.kmQuotaText.textContent = `${mb(sitzung.quota.benutzt)} / ${mb(sitzung.quota.limit)} MB`
+    const anteil = sitzung.quota.limit > 0 ? sitzung.quota.used / sitzung.quota.limit : 0
+    els.kmQuotaText.textContent = `${mb(sitzung.quota.used)} / ${mb(sitzung.quota.limit)} MB`
     els.kmBalkenFuell.style.width = `${Math.min(100, anteil * 100).toFixed(0)}%`
     els.kmBalkenFuell.classList.toggle('voll', anteil > 0.9)
   }
@@ -358,10 +358,10 @@ function setzeBestaetigtenCode(code: string): void {
 }
 
 function zeigeRegistrierungsmodus(sitzung: api.Session): void {
-  einladungPflicht = sitzung.registration?.einladungPflicht ?? false
+  einladungPflicht = sitzung.registration?.invitationRequired ?? false
   // Der Weg zur Warteliste steht nur da, wo der Server ihn anbietet — sonst
   // führte ein Link auf ein Formular, dessen Route mit 403 antwortet.
-  els.zurWarteliste.hidden = !sitzung.registration?.warteliste
+  els.zurWarteliste.hidden = !sitzung.registration?.waitlist
   // Steht die Tür wieder offen, ist ein bestätigter Code gegenstandslos —
   // sonst hinge der Chip über einem Formular, das gar nichts mehr fragt.
   if (!einladungPflicht) setzeBestaetigtenCode('')
@@ -794,7 +794,8 @@ function datum(iso: string): string {
 function metaZeile(t: api.TourListItem): string {
   const teile: string[] = []
   if (t.stats?.km) teile.push(`${String(t.stats.km).replace('.', ',')} km`)
-  if (t.stats?.placedMedia) teile.push(t.stats.placedMedia === 1 ? '1 Aufnahme' : `${t.stats.placedMedia} Aufnahmen`)
+  if (t.stats?.placedMedia)
+    teile.push(t.stats.placedMedia === 1 ? '1 Aufnahme' : `${t.stats.placedMedia} Aufnahmen`)
   teile.push(datum(t.createdAt))
   return teile.filter(Boolean).join(' · ')
 }
@@ -923,7 +924,7 @@ function spurSignet(t: api.TourListItem): string {
   return `<svg class="spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
     <path class="linie" d="${escape(s.d)}"/>
     <circle class="start" cx="${s.start[0]}" cy="${s.start[1]}" r="3.2"/>
-    <circle class="ende" cx="${s.ende[0]}" cy="${s.ende[1]}" r="3.2"/></svg>`
+    <circle class="ende" cx="${s.end[0]}" cy="${s.end[1]}" r="3.2"/></svg>`
 }
 
 function baueKarte(t: api.TourListItem): HTMLElement {
@@ -1277,8 +1278,7 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
       gpxText = await file.text()
     } else if (medientyp(file.name)) {
       const doppelt = medienDateien.some(
-        (m) =>
-          m.name === file.name && m.size === file.size && m.lastModified === file.lastModified,
+        (m) => m.name === file.name && m.size === file.size && m.lastModified === file.lastModified,
       )
       if (!doppelt) {
         medienDateien.push(file)
@@ -1368,7 +1368,7 @@ function zeigeLeerHinweis(): void {
 function entferneAufnahmen(dateien: readonly string[]): void {
   const raus = new Set(dateien)
   medienDateien = medienDateien.filter((d) => !raus.has(d.name))
-  befunde = befunde.filter((b) => !raus.has(b.datei))
+  befunde = befunde.filter((b) => !raus.has(b.file))
   renderNeu()
 }
 
@@ -1555,7 +1555,7 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
   }
   for (const g of gruppen) {
     const erste = g.items[0] as AufnahmeBefund
-    const file = medienDateien.find((d) => d.name === erste.datei)
+    const file = medienDateien.find((d) => d.name === erste.file)
     const stiel = document.createElement('div')
     stiel.className = 'stiel'
     stiel.style.left = `${g.anteil.toFixed(2)}%`
@@ -1571,7 +1571,7 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
     ) {
       bild.classList.add('ausserhalb')
     }
-    if (erste.typ === 'photo' && file) bild.style.backgroundImage = `url("${vorschauUrl(file)}")`
+    if (erste.type === 'photo' && file) bild.style.backgroundImage = `url("${vorschauUrl(file)}")`
     else bild.innerHTML = `<span class="film">${icon('film')}</span>`
     if (g.items.length > 1) {
       const zahl = document.createElement('span')
@@ -1579,7 +1579,7 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
       zahl.textContent = String(g.items.length)
       bild.appendChild(zahl)
     }
-    bild.title = g.items.map((i) => `${i.datei} · ${uhr(i.zeitMs)}`).join('\n')
+    bild.title = g.items.map((i) => `${i.file} · ${uhr(i.zeitMs)}`).join('\n')
     bahn.appendChild(bild)
   }
   innen.appendChild(bahn)
@@ -1682,11 +1682,11 @@ els.neuBauen.addEventListener('click', async () => {
   els.neuBauen.disabled = true
   const modus = els.neuModus.value
   const sicht = els.neuSicht.value as 'private' | 'unlisted' | 'public'
-  const medienUpload = medienDateien.filter((d) => befunde.some((b) => b.datei === d.name))
+  const medienUpload = medienDateien.filter((d) => befunde.some((b) => b.file === d.name))
 
   try {
     const media = medienAusBefund(befund, (ms) => isoMitZone(ms, ZONE))
-    const kennung = `studio:${(gpxDatei?.name ?? befund.aufnahmen[0]?.datei ?? 'tour').slice(0, 60)}:${befund.vonMs}`
+    const kennung = `studio:${(gpxDatei?.name ?? befund.aufnahmen[0]?.file ?? 'tour').slice(0, 60)}:${befund.vonMs}`
     const manifest = baueUploadManifest({
       clientTourId: kennung,
       title: null,
@@ -1705,8 +1705,8 @@ els.neuBauen.addEventListener('click', async () => {
     }
 
     zeigeFortschritt(0, medienUpload.length + 2)
-    const { id, wiederverwendet } = await api.createTour(manifest)
-    if (wiederverwendet) {
+    const { id, reused } = await api.createTour(manifest)
+    if (reused) {
       const vorhanden = await api.tour(id)
       if (vorhanden.schema === 'maptale/tour@1' || vorhanden.status === 'bereit') {
         setzeNeuStatus('Diese Tour gibt es bereits.', 'fehler')
@@ -1739,7 +1739,7 @@ els.neuBauen.addEventListener('click', async () => {
     const status = await warteAufBereit(id)
     if (status === 'fehler') {
       const t = await api.tour(id)
-      hinweisToast(`Verarbeitung fehlgeschlagen: ${t.fehler ?? 'unbekannt'}`, true)
+      hinweisToast(`Verarbeitung fehlgeschlagen: ${t.error ?? 'unbekannt'}`, true)
     }
     await ladeListe()
     zeigeSitzung(await api.me()) // Quota nachziehen

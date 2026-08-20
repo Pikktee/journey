@@ -126,7 +126,8 @@ export class ExportDienst {
          WHERE id = ? AND status = 'running'`,
       )
       .run(fertig.toISOString(), ablauf.toISOString(), bytes, dateien, id)
-    const z = this.db.prepare('SELECT * FROM data_exports WHERE id = ?').get(id) as Zeile | undefined
+    const z = this.db.prepare('SELECT * FROM data_exports WHERE id = ?').get(id) as
+      Zeile | undefined
     return z ? alsStand(z) : null
   }
 

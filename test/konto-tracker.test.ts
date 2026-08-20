@@ -23,12 +23,12 @@ function anbieter(teil: Partial<AnbieterStand> = {}): AnbieterStand {
   return {
     id: 'polar',
     name: 'Polar',
-    verfuegbar: true,
-    verbunden: false,
+    available: true,
+    connected: false,
     status: null,
-    verbundenSeit: null,
-    zuletztSync: null,
-    fehler: null,
+    connectedAt: null,
+    lastSyncAt: null,
+    error: null,
     ...teil,
   }
 }
@@ -36,13 +36,13 @@ function anbieter(teil: Partial<AnbieterStand> = {}): AnbieterStand {
 function importe(teil: Partial<ImportStand> = {}): ImportStand {
   return {
     id: 'i_1',
-    anbieter: 'polar',
-    externeId: 'aQlC83',
-    status: 'fertig',
+    provider: 'polar',
+    externalId: 'aQlC83',
+    status: 'done',
     tourId: 't_abc',
-    gemeldetAm: '2026-08-09T14:32:00Z',
-    fertigAm: '2026-08-09T14:33:00Z',
-    fehler: null,
+    reportedAt: '2026-08-09T14:32:00Z',
+    finishedAt: '2026-08-09T14:33:00Z',
+    error: null,
     ...teil,
   }
 }
@@ -51,16 +51,16 @@ describe('Anbieter-Zeile', () => {
   it('unterscheidet alle vier Zustände', () => {
     const saetze = [
       anbieterSatz(anbieter()),
-      anbieterSatz(anbieter({ verbunden: true, status: 'aktiv' })),
-      anbieterSatz(anbieter({ status: 'abgelaufen' })),
-      anbieterSatz(anbieter({ verfuegbar: false })),
+      anbieterSatz(anbieter({ connected: true, status: 'active' })),
+      anbieterSatz(anbieter({ status: 'expired' })),
+      anbieterSatz(anbieter({ available: false })),
     ]
     expect(new Set(saetze).size).toBe(4)
   })
 
   it('sagt bei abgelaufenem Zugang, was zu tun ist — und nennt den Grund', () => {
     const satz = anbieterSatz(
-      anbieter({ status: 'abgelaufen', fehler: 'Zugriff beim Anbieter widerrufen.' }),
+      anbieter({ status: 'expired', error: 'Zugriff beim Anbieter widerrufen.' }),
     )
     expect(satz).toContain('widerrufen')
     expect(satz).toContain('neu verbinden')
@@ -68,7 +68,7 @@ describe('Anbieter-Zeile', () => {
 
   it('nennt bei einer aktiven Verknüpfung das Datum', () => {
     const satz = anbieterSatz(
-      anbieter({ verbunden: true, status: 'aktiv', verbundenSeit: '2026-08-09T10:00:00Z' }),
+      anbieter({ connected: true, status: 'active', connectedAt: '2026-08-09T10:00:00Z' }),
     )
     expect(satz).toContain('9. Aug')
   })
@@ -76,18 +76,18 @@ describe('Anbieter-Zeile', () => {
   it('bietet dem nicht eingerichteten Anbieter keinen Knopf an', () => {
     // Ein „Verbinden", das auf eine Fehlerseite des Anbieters führt, wäre die
     // schlechtere Auskunft als gar kein Knopf.
-    expect(anbieterKnopf(anbieter({ verfuegbar: false }))).toBeNull()
+    expect(anbieterKnopf(anbieter({ available: false }))).toBeNull()
   })
 
   it('beschriftet den Knopf nach dem Zustand', () => {
     expect(anbieterKnopf(anbieter())).toEqual({ text: 'Verbinden', art: 'primaer' })
-    expect(anbieterKnopf(anbieter({ verbunden: true, status: 'aktiv' }))).toEqual({
+    expect(anbieterKnopf(anbieter({ connected: true, status: 'active' }))).toEqual({
       text: 'Trennen',
       art: 'gefahr',
     })
     // Abgelaufen führt NICHT auf „Trennen": Da ist nichts mehr zu trennen,
     // sondern etwas neu herzustellen.
-    expect(anbieterKnopf(anbieter({ status: 'abgelaufen' }))).toEqual({
+    expect(anbieterKnopf(anbieter({ status: 'expired' }))).toEqual({
       text: 'Neu verbinden',
       art: 'primaer',
     })
@@ -105,11 +105,11 @@ describe('Importliste', () => {
   it('sagt bei einer fertigen Tour, WELCHE Fahrt angekommen ist', () => {
     const i = importe({
       tour: {
-        titel: 'Frankfurt-Runde',
+        title: 'Frankfurt-Runde',
         km: 4.23,
-        fotos: 12,
-        status: 'bereit',
-        sichtbarkeit: 'private',
+        placedMedia: 12,
+        status: 'ready',
+        visibility: 'private',
       },
     })
     expect(importTitel(i)).toBe('Frankfurt-Runde')
@@ -118,7 +118,7 @@ describe('Importliste', () => {
 
   it('verspricht nichts, was noch rendert', () => {
     const i = importe({
-      tour: { titel: null, km: null, fotos: null, status: 'verarbeitung', sichtbarkeit: null },
+      tour: { title: null, km: null, placedMedia: null, status: 'processing', visibility: null },
     })
     expect(importSatz(i)).toContain('wird noch verarbeitet')
     // Ohne Tourtitel gibt es keine Überschrift: Der Dienstname stünde über
@@ -129,7 +129,7 @@ describe('Importliste', () => {
 
   it('lässt Nullwerte weg, statt „0,0 km" zu behaupten', () => {
     const i = importe({
-      tour: { titel: 'Ohne Zahlen', km: 0, fotos: 0, status: 'bereit', sichtbarkeit: null },
+      tour: { title: 'Ohne Zahlen', km: 0, placedMedia: 0, status: 'ready', visibility: null },
     })
     expect(importSatz(i)).toBe('Spielbereit')
   })
@@ -137,61 +137,59 @@ describe('Importliste', () => {
   it('fasst den letzten Stand für die Anbieter-Zeile zusammen', () => {
     expect(letzterAnkunftsSatz([])).toBeNull()
     const fertig = importe({
-      tour: { titel: 'Abendrunde', km: 8, fotos: 3, status: 'bereit', sichtbarkeit: null },
+      tour: { title: 'Abendrunde', km: 8, placedMedia: 3, status: 'ready', visibility: null },
     })
     expect(letzterAnkunftsSatz([fertig])).toContain('Zuletzt: Abendrunde')
     // Die Reihenfolge kommt vom Server (jüngste zuerst) — gelesen wird die erste.
-    expect(letzterAnkunftsSatz([importe({ status: 'uebersprungen' }), fertig])).toContain(
-      'übersprungen',
-    )
+    expect(letzterAnkunftsSatz([importe({ status: 'skipped' }), fertig])).toContain('übersprungen')
   })
 
   it('führt „übersprungen" NICHT als Fehler', () => {
     // Eine Halleneinheit ohne GPS ist normal. Rot markiert, wäre die Liste
     // eines Vielsportlers dauerhaft alarmiert.
-    const i = importe({ status: 'uebersprungen', fehler: 'Aktivität ohne GPS-Route' })
+    const i = importe({ status: 'skipped', error: 'Aktivität ohne GPS-Route' })
     expect(importTon(i)).toBe('warn')
     expect(importSatz(i)).toContain('keine Strecke')
   })
 
   it('übersetzt Betreiber-Fehlertexte in eine Auskunft für den Nutzer', () => {
-    expect(
-      importSatz(importe({ status: 'uebersprungen', fehler: 'Speicher voll (Quota)' })),
-    ).toContain('dein Speicher ist voll')
+    expect(importSatz(importe({ status: 'skipped', error: 'Speicher voll (Quota)' }))).toContain(
+      'dein Speicher ist voll',
+    )
     expect(
       importSatz(
-        importe({ status: 'fehler', fehler: 'Bitte bestätige zuerst deine E-Mail-Adresse' }),
+        importe({ status: 'failed', error: 'Bitte bestätige zuerst deine E-Mail-Adresse' }),
       ),
     ).toContain('noch nicht bestätigt')
   })
 
   it('behält einen unbekannten Fehlertext, statt ihn zu verschlucken', () => {
-    const satz = importSatz(importe({ status: 'fehler', fehler: 'Polar antwortete 500' }))
+    const satz = importSatz(importe({ status: 'failed', error: 'Polar antwortete 500' }))
     expect(satz).toContain('Polar antwortete 500')
-    expect(importTon(importe({ status: 'fehler' }))).toBe('fehler')
+    expect(importTon(importe({ status: 'failed' }))).toBe('failed')
   })
 
   it('zeigt einen laufenden Import als solchen', () => {
-    expect(importTon(importe({ status: 'laeuft' }))).toBe('laeuft')
-    expect(importSatz(importe({ status: 'wartet' }))).toContain('Wird geholt')
+    expect(importTon(importe({ status: 'running' }))).toBe('running')
+    expect(importSatz(importe({ status: 'pending' }))).toContain('Wird geholt')
   })
 
   it('sagt, ob es noch einen Anlauf gibt', () => {
     // Der Server unterscheidet das seit dem Wiederhol-Weg. Beides gleich zu
     // beschriften ließe den einen warten und den anderen hoffen.
     const nochmal = importe({
-      status: 'fehler',
-      fehler: 'Polar antwortete 500',
-      wiederholbar: true,
-      versuche: 1,
+      status: 'failed',
+      error: 'Polar antwortete 500',
+      retryable: true,
+      attempts: 1,
     })
     expect(importSatz(nochmal)).toContain('wird noch einmal versucht')
 
     const aufgegeben = importe({
-      status: 'fehler',
-      fehler: 'Polar antwortete 500',
-      wiederholbar: false,
-      versuche: 3,
+      status: 'failed',
+      error: 'Polar antwortete 500',
+      retryable: false,
+      attempts: 3,
     })
     expect(importSatz(aufgegeben)).toContain('aufgegeben nach 3 Versuchen')
   })
@@ -200,14 +198,14 @@ describe('Importliste', () => {
     // Endgültig übersprungen (ohne Route) ist beim ersten Mal entschieden —
     // „aufgegeben nach 1 Versuch" wäre eine Zahl ohne Aussage.
     const ohneRoute = importe({
-      status: 'uebersprungen',
-      fehler: 'Aktivität ohne GPS-Route',
-      wiederholbar: false,
-      versuche: 1,
+      status: 'skipped',
+      error: 'Aktivität ohne GPS-Route',
+      retryable: false,
+      attempts: 1,
     })
     expect(importSatz(ohneRoute)).toBe('Übersprungen — die Aufzeichnung hat keine Strecke')
     // Ältere Antwort ohne die Felder: lieber nichts sagen als das Falsche
-    expect(importSatz(importe({ status: 'fehler', fehler: 'Kaputt' }))).toBe(
+    expect(importSatz(importe({ status: 'failed', error: 'Kaputt' }))).toBe(
       'Nicht geklappt — Kaputt',
     )
   })
@@ -230,7 +228,7 @@ describe('Datumsformate', () => {
 
 describe('Rückkehr vom Anbieter', () => {
   it('unterscheidet Erfolg, Abbruch, Ablauf und Fehler', () => {
-    const texte = ['verbunden', 'abgebrochen', 'abgelaufen', 'fehler'].map((w) => rueckkehrText(w))
+    const texte = ['verbunden', 'abgebrochen', 'expired', 'failed'].map((w) => rueckkehrText(w))
     expect(texte.every((t) => typeof t === 'string' && t.length > 0)).toBe(true)
     expect(new Set(texte).size).toBe(4)
   })

@@ -200,8 +200,7 @@ export async function legeTourAn(
   benutzerId: string,
   manifest: UploadManifest,
 ): Promise<
-  | { ok: true; id: string; reused: boolean }
-  | { ok: false; code: 400 | 403; error: string }
+  { ok: true; id: string; reused: boolean } | { ok: false; code: 400 | 403; error: string }
 > {
   const { db, storage } = app.deps
 

@@ -388,7 +388,8 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
     }
     if (medium.trim) {
       const { fromS, toS } = medium.trim
-      if (!(Number.isFinite(fromS) && fromS >= 0)) return `Ungültiger Video-Schnitt für Medium ${id}`
+      if (!(Number.isFinite(fromS) && fromS >= 0))
+        return `Ungültiger Video-Schnitt für Medium ${id}`
       if (toS !== undefined) {
         if (!Number.isFinite(toS)) return `Ungültiger Video-Schnitt für Medium ${id}`
         // Ein Schnitt ohne Inhalt ist keine Geschmacksfrage: er ließe ein
@@ -398,12 +399,14 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
     }
   }
   for (const grenze of edits.camera ?? []) {
-    if (!Number.isFinite(Date.parse(grenze.from))) return `Unparsebare Kamera-Grenze: ${grenze.from}`
+    if (!Number.isFinite(Date.parse(grenze.from)))
+      return `Unparsebare Kamera-Grenze: ${grenze.from}`
     if (grenze.scale !== undefined && !Number.isFinite(grenze.scale))
       return `Ungültige Kamera-Feinjustierung: ${grenze.from}`
   }
   for (const moment of edits.moments ?? []) {
-    if (!Number.isFinite(Date.parse(moment.from))) return `Unparsebarer Kamera-Moment: ${moment.from}`
+    if (!Number.isFinite(Date.parse(moment.from)))
+      return `Unparsebarer Kamera-Moment: ${moment.from}`
     if (moment.durationS !== undefined && !Number.isFinite(moment.durationS))
       return `Ungültige Moment-Dauer: ${moment.from}`
   }
@@ -447,7 +450,8 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
     }
   }
   for (const grenze of edits.weather ?? []) {
-    if (!Number.isFinite(Date.parse(grenze.from))) return `Unparsebare Wetter-Grenze: ${grenze.from}`
+    if (!Number.isFinite(Date.parse(grenze.from)))
+      return `Unparsebare Wetter-Grenze: ${grenze.from}`
     if (
       grenze.intensity !== undefined &&
       !(Number.isFinite(grenze.intensity) && grenze.intensity >= 0 && grenze.intensity <= 1)

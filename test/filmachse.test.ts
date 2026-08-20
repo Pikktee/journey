@@ -140,8 +140,8 @@ describe('Filmachse', () => {
   it('rechnet einen Moment ohne Ausblendung, eine Aufnahme mit', () => {
     // Die Engine geht nach `momentDauer` direkt zurück in die Fahrt (tour.ts);
     // ein Foto-Halt hat sein Nachspiel.
-    expect(momentHaltS({ art: 'umkreisen' })).toBe(6)
-    expect(momentHaltS({ art: 'aufstieg', dauerS: 12 })).toBe(12)
+    expect(momentHaltS({ art: 'orbit' })).toBe(6)
+    expect(momentHaltS({ art: 'ascend', dauerS: 12 })).toBe(12)
     expect(momentHaltS({ art: 'unbekannt' })).toBe(5)
     expect(standzeitS({ type: 'photo' })).toBe(HOLD_HIDE)
     expect(standzeitS({ type: 'photo', display: { holdS: 9 } })).toBe(9)
@@ -188,8 +188,8 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
     [{ mode: 'walk', aktiv: true, pts: track }],
     [{ offsetS: HALT_M, breiteS: HALT_S }],
     {
-      vonS: 0,
-      bisS: METER,
+      fromS: 0,
+      toS: METER,
     },
   )
   const spielkurve = baueSpielKurve(editor, [{ aktiv: true, pts: track }])

@@ -333,7 +333,9 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
   it('ist neu angelegt aus', async () => {
     const u = await baueTestApp()
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    expect((me.json() as { profile: { searchIndexing: boolean } }).profile.searchIndexing).toBe(false)
+    expect((me.json() as { profile: { searchIndexing: boolean } }).profile.searchIndexing).toBe(
+      false,
+    )
   })
 
   it('lässt sich setzen und wirkt sofort auf die Seite', async () => {

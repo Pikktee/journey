@@ -503,9 +503,9 @@ describe('Registrierung mit Einladung', () => {
       url: '/api/admin/invitations',
       cookies: admin.cookies,
     })
-    expect(
-      (liste.json() as { invitations: Array<{ state: string }> }).invitations[0]?.state,
-    ).toBe('expired')
+    expect((liste.json() as { invitations: Array<{ state: string }> }).invitations[0]?.state).toBe(
+      'expired',
+    )
   })
 
   it('lässt ohne Pflicht jeden herein — und der Schalter überlebt den Aufruf', async () => {
@@ -559,9 +559,9 @@ describe('Registrierung mit Einladung', () => {
       url: '/api/admin/invitations',
       cookies: admin.cookies,
     })
-    expect(
-      (liste.json() as { invitations: Array<{ state: string }> }).invitations[0]?.state,
-    ).toBe('open')
+    expect((liste.json() as { invitations: Array<{ state: string }> }).invitations[0]?.state).toBe(
+      'open',
+    )
     // … und danach lässt er sich noch einlösen
     expect(
       (await registriere(u, { email: 'a@example.com', password: 'geheim12345', name: 'A', code }))

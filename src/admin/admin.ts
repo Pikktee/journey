@@ -239,12 +239,12 @@ let flashTimer = 0
  * Ein Fehler steht länger als ein Erfolg: Bei „gespeichert" reicht der Blick,
  * bei „ging nicht" will man den Satz lesen.
  */
-function flash(text: string, art: 'ok' | 'fehler' = 'ok'): void {
+function flash(text: string, art: 'ok' | 'failed' = 'ok'): void {
   flashEl?.remove()
   const el = document.createElement('div')
   el.className = `flash ${art}`
   el.setAttribute('role', 'status')
-  el.innerHTML = art === 'fehler' ? ICON_FEHLER : ICON_OK
+  el.innerHTML = art === 'failed' ? ICON_FEHLER : ICON_OK
   const wort = document.createElement('span')
   wort.textContent = text
   el.append(wort)
@@ -257,7 +257,7 @@ function flash(text: string, art: 'ok' | 'fehler' = 'ok'): void {
       el.classList.remove('zeigt')
       window.setTimeout(() => el.remove(), 240)
     },
-    art === 'fehler' ? 7000 : 4200,
+    art === 'failed' ? 7000 : 4200,
   )
 }
 
@@ -458,7 +458,7 @@ async function start(): Promise<void> {
   try {
     await lade()
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   }
 }
 
@@ -472,23 +472,23 @@ async function start(): Promise<void> {
 function reiterZahl(id: TabId): { wert: number; wichtig: boolean } {
   if (id === 'konten') return { wert: z.benutzer.length, wichtig: false }
   if (id === 'statistiken') return { wert: 0, wichtig: false }
-  if (id === 'einladungen') return { wert: zaehleEinladungen(z.invitations).offen, wichtig: false }
+  if (id === 'einladungen') return { wert: zaehleEinladungen(z.invitations).open, wichtig: false }
   if (id === 'warteliste') {
-    const wartend = zaehleWarteliste(z.warteliste).wartend
+    const wartend = zaehleWarteliste(z.warteliste).pending
     return { wert: wartend, wichtig: wartend > 0 }
   }
   // Wie bei der Warteliste zählt nur, worauf man handeln kann: OFFENE
   // Meldungen. Eine erledigte an den Reiter zu schreiben hieße, dauerhaft eine
   // Zahl zu zeigen, die nie kleiner wird.
   if (id === 'rueckmeldungen') {
-    const offen = zaehleRueckmeldungen(z.rueckmeldungen).offen
+    const offen = zaehleRueckmeldungen(z.rueckmeldungen).open
     return { wert: offen, wichtig: offen > 0 }
   }
   // Beim Protokoll zählen die FEHLER, nicht alle Meldungen: Eine Warnung ist
   // Betrieb, ein Fehler ist etwas, das jemand ansehen sollte — und nur das
   // gehört als amberne Zahl an einen Reiter.
   if (id === 'protokoll') {
-    const fehler = zaehleProtokoll([...z.protokoll, ...z.protokollWartend]).fehler
+    const fehler = zaehleProtokoll([...z.protokoll, ...z.protokollWartend]).failed
     return { wert: fehler, wichtig: fehler > 0 }
   }
   return { wert: z.mailvorlagen.length, wichtig: false }
@@ -662,7 +662,7 @@ function fuelleListe(el: HTMLElement, zeilen: HTMLElement[], leer: () => HTMLEle
         tu: () => {
           z.laedt = true
           render()
-          void lade().catch((f) => flash(fehlerText(f), 'fehler'))
+          void lade().catch((f) => flash(fehlerText(f), 'failed'))
         },
       }),
     )
@@ -772,8 +772,7 @@ function rendereRegistrierung(): void {
   // vergeblich vor der Tür. Und weil die Ursache im anderen Reiter liegt,
   // steht daneben der Weg dorthin.
   const wirkungslos =
-    z.waitlistOpen &&
-    !wartelisteAngeboten(z.waitlistOpen, z.invitationRequired, z.registrationOpen)
+    z.waitlistOpen && !wartelisteAngeboten(z.waitlistOpen, z.invitationRequired, z.registrationOpen)
   els.wlSchalterText.textContent = wirkungslos
     ? 'Angeschaltet, aber ohne Wirkung: Solange sich jeder selbst anmelden kann, braucht niemand eine Warteliste.'
     : z.waitlistOpen
@@ -797,7 +796,7 @@ function rendereKonten(): void {
         zahl: gesucht.filter((b) => b.role === 'admin').length,
       },
       {
-        wert: 'unbestaetigt',
+        wert: 'unconfirmed',
         name: 'Unbestätigt',
         zahl: gesucht.filter((b) => !b.verified).length,
       },
@@ -821,13 +820,13 @@ function rendereKonten(): void {
     kopf.oben.append(name, plakette(b.role, b.role === 'admin' ? 'Administrator' : 'Nutzer'))
     if (b.fixed) {
       kopf.oben.append(
-        plakette('nutzer', 'Fest', 'Steht in der Konfiguration: Rolle und Konto sind unantastbar'),
+        plakette('user', 'Fest', 'Steht in der Konfiguration: Rolle und Konto sind unantastbar'),
       )
     }
     if (!b.verified) {
       kopf.oben.append(
         plakette(
-          'unbestaetigt',
+          'unconfirmed',
           'Unbestätigt',
           'E-Mail noch nicht bestätigt. Hochladen ist gesperrt',
         ),
@@ -886,9 +885,9 @@ function rendereEinladungen(): void {
     els.einladungenFilter,
     [
       { wert: 'alle', name: 'Alle', zahl: gesucht.length },
-      { wert: 'offen', name: 'Offen', zahl: zahl.offen },
-      { wert: 'eingeloest', name: 'Eingelöst', zahl: zahl.eingeloest },
-      { wert: 'abgelaufen', name: 'Abgelaufen', zahl: zahl.abgelaufen },
+      { wert: 'open', name: 'Offen', zahl: zahl.open },
+      { wert: 'redeemed', name: 'Eingelöst', zahl: zahl.redeemed },
+      { wert: 'expired', name: 'Abgelaufen', zahl: zahl.expired },
     ] satisfies Chip<EinladungsFilter>[],
     z.einladungenFilter,
     (wert) => {
@@ -908,17 +907,14 @@ function rendereEinladungen(): void {
     code.textContent = e.code
     kopf.oben.append(
       code,
-      plakette(
-        e.state,
-        { offen: 'Offen', eingeloest: 'Eingelöst', abgelaufen: 'Abgelaufen' }[e.state],
-      ),
+      plakette(e.state, { open: 'Offen', redeemed: 'Eingelöst', expired: 'Abgelaufen' }[e.state]),
     )
-    if (e.notiz) {
-      const notiz = document.createElement('span')
-      notiz.className = 'notiz'
-      notiz.textContent = e.notiz
-      notiz.title = e.notiz
-      kopf.oben.append(notiz)
+    if (e.note) {
+      const note = document.createElement('span')
+      note.className = 'notiz'
+      note.textContent = e.note
+      note.title = e.note
+      kopf.oben.append(note)
     }
     const unten = document.createElement('div')
     unten.className = 'unten'
@@ -926,9 +922,9 @@ function rendereEinladungen(): void {
     kopf.text.append(unten)
 
     const knoepfe: HTMLElement[] = []
-    if (e.state === 'offen') knoepfe.push(griff('Link kopieren', () => void kopiereLink(e.code)))
+    if (e.state === 'open') knoepfe.push(griff('Link kopieren', () => void kopiereLink(e.code)))
     knoepfe.push(
-      griff(e.state === 'offen' ? 'Widerrufen' : 'Entfernen', () => void widerrufe(e), {
+      griff(e.state === 'open' ? 'Widerrufen' : 'Entfernen', () => void widerrufe(e), {
         gefahr: true,
       }),
     )
@@ -974,9 +970,9 @@ function rendereWarteliste(): void {
     els.wartelisteFilter,
     [
       { wert: 'alle', name: 'Alle', zahl: gesucht.length },
-      { wert: 'wartend', name: 'Wartet', zahl: zahl.wartend },
-      { wert: 'unbestaetigt', name: 'Unbestätigt', zahl: zahl.unbestaetigt },
-      { wert: 'eingeladen', name: 'Eingeladen', zahl: zahl.eingeladen },
+      { wert: 'pending', name: 'Wartet', zahl: zahl.pending },
+      { wert: 'unconfirmed', name: 'Unbestätigt', zahl: zahl.unconfirmed },
+      { wert: 'invited', name: 'Eingeladen', zahl: zahl.invited },
     ] satisfies Chip<WartelistenFilter>[],
     z.wartelisteFilter,
     (wert) => {
@@ -997,8 +993,8 @@ function rendereWarteliste(): void {
     kopf.oben.append(
       adresse,
       plakette(
-        { unbestaetigt: 'unbestaetigt', wartend: 'offen', eingeladen: 'eingeloest' }[e.state],
-        { unbestaetigt: 'Unbestätigt', wartend: 'Wartet', eingeladen: 'Eingeladen' }[e.state],
+        { unconfirmed: 'unbestaetigt', pending: 'offen', invited: 'eingeloest' }[e.state],
+        { unconfirmed: 'Unbestätigt', pending: 'Wartet', invited: 'Eingeladen' }[e.state],
       ),
     )
     const unten = document.createElement('div')
@@ -1007,11 +1003,11 @@ function rendereWarteliste(): void {
     kopf.text.append(unten)
     // Was jemand freiwillig geschrieben hat, ist das Kriterium fürs
     // Freischalten — eigene Zeile, nicht hinter zwei Daten gequetscht.
-    if (e.notiz) {
+    if (e.note) {
       const zitat = document.createElement('div')
       zitat.className = 'zitat'
-      zitat.textContent = `„${e.notiz}"`
-      zitat.title = e.notiz
+      zitat.textContent = `„${e.note}"`
+      zitat.title = e.note
       kopf.text.append(zitat)
     }
 
@@ -1137,9 +1133,9 @@ function rendereRueckmeldungen(): void {
     els.rueckmeldungenFilter,
     [
       { wert: 'alle', name: 'Alle', zahl: gesucht.length },
-      { wert: 'offen', name: RUECKMELDUNG_WORTE.offen, zahl: zahl.offen },
-      { wert: 'in_arbeit', name: RUECKMELDUNG_WORTE.in_arbeit, zahl: zahl.in_arbeit },
-      { wert: 'erledigt', name: RUECKMELDUNG_WORTE.erledigt, zahl: zahl.erledigt },
+      { wert: 'open', name: RUECKMELDUNG_WORTE.open, zahl: zahl.open },
+      { wert: 'in_progress', name: RUECKMELDUNG_WORTE.in_progress, zahl: zahl.in_progress },
+      { wert: 'done', name: RUECKMELDUNG_WORTE.done, zahl: zahl.done },
     ] satisfies Chip<RueckmeldungFilter>[],
     z.rueckmeldungenFilter,
     (wert) => {
@@ -1160,11 +1156,11 @@ function rendereRueckmeldungen(): void {
     kopf.oben.append(
       absender,
       plakette(
-        { offen: 'offen', in_arbeit: 'unbestaetigt', erledigt: 'eingeloest' }[r.status],
+        { open: 'offen', in_progress: 'unbestaetigt', done: 'eingeloest' }[r.status],
         RUECKMELDUNG_WORTE[r.status],
       ),
     )
-    if (r.quelle === 'app') kopf.oben.append(plakette('unbestaetigt', 'App'))
+    if (r.quelle === 'app') kopf.oben.append(plakette('unconfirmed', 'App'))
 
     // Der Text steht ungekürzt: Er IST die Meldung. Eine Zeile mit „…" zwänge
     // dazu, jede einzelne aufzuklappen, um zu wissen, worum es überhaupt geht.
@@ -1179,11 +1175,11 @@ function rendereRueckmeldungen(): void {
     unten.title = kontextZeile(r)
     kopf.text.append(unten)
 
-    if (r.notiz) {
-      const notiz = document.createElement('div')
-      notiz.className = 'unten'
-      notiz.textContent = `Notiz: ${r.notiz}`
-      kopf.text.append(notiz)
+    if (r.note) {
+      const note = document.createElement('div')
+      note.className = 'unten'
+      note.textContent = `Notiz: ${r.note}`
+      kopf.text.append(note)
     }
 
     const wahl = document.createElement('select')
@@ -1247,7 +1243,7 @@ async function setzeRueckmeldungsStatus(
     // Zurück auf den alten Wert: Ein Auswahlfeld, das den nicht gespeicherten
     // Zustand zeigt, behauptet eine Änderung, die es nicht gibt.
     wahl.value = r.status
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   } finally {
     wahl.disabled = false
     rendereReiter()
@@ -1258,14 +1254,14 @@ async function setzeRueckmeldungsStatus(
 async function notiereRueckmeldung(r: AdminRueckmeldung): Promise<void> {
   // Ein `prompt` und kein eigener Dialog: Es ist ein Feld, und die Notiz ist
   // eine Gedächtnisstütze für den Betreiber, kein Formular.
-  const notiz = window.prompt('Interne Notiz zu dieser Rückmeldung', r.notiz ?? '')
-  if (notiz === null) return
+  const note = window.prompt('Interne Notiz zu dieser Rückmeldung', r.note ?? '')
+  if (note === null) return
   try {
-    const { rueckmeldung } = await api.aendereRueckmeldung(r.id, { notiz: notiz.trim() || null })
+    const { rueckmeldung } = await api.aendereRueckmeldung(r.id, { note: note.trim() || null })
     Object.assign(r, rueckmeldung)
     flash('Notiz gespeichert.')
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   }
   rendereRueckmeldungen()
 }
@@ -1283,7 +1279,7 @@ async function loescheRueckmeldung(r: AdminRueckmeldung): Promise<void> {
     z.rueckmeldungen = z.rueckmeldungen.filter((x) => x.id !== r.id)
     flash('Rückmeldung gelöscht.')
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   }
   rendereReiter()
   rendereRueckmeldungen()
@@ -1296,8 +1292,8 @@ function rendereProtokoll(): void {
     els.protokollFilter,
     [
       { wert: 'alle', name: 'Alle', zahl: gesucht.length },
-      { wert: 'fehler', name: 'Fehler', zahl: zahl.fehler },
-      { wert: 'warnung', name: 'Warnungen', zahl: zahl.warnung },
+      { wert: 'failed', name: 'Fehler', zahl: zahl.failed },
+      { wert: 'warning', name: 'Warnungen', zahl: zahl.warning },
     ] satisfies Chip<ProtokollFilter>[],
     z.protokollFilter,
     (wert) => {
@@ -1313,7 +1309,7 @@ function rendereProtokoll(): void {
   const gesamt = [...z.protokollWartend, ...z.protokoll]
   els.protokollZusammenfassung.textContent = z.laedt
     ? 'Wird geladen …'
-    : beschreibeProtokoll(gesamt.length, zaehleProtokoll(gesamt).fehler, z.protokollGestartet)
+    : beschreibeProtokoll(gesamt.length, zaehleProtokoll(gesamt).failed, z.protokollGestartet)
 
   const sichtbar = filtereProtokoll(gesucht, '', z.protokollFilter)
   const gefiltert = !!z.protokollSuche.trim() || z.protokollFilter !== 'alle'
@@ -1341,7 +1337,7 @@ function rendereProtokoll(): void {
         meldung.append(detail)
       }
 
-      zeile.append(zeit, plakette(e.level, e.level === 'fehler' ? 'Fehler' : 'Warnung'), meldung)
+      zeile.append(zeit, plakette(e.level, e.level === 'failed' ? 'Fehler' : 'Warnung'), meldung)
       return zeile
     }),
     () =>
@@ -1435,7 +1431,7 @@ async function kopiereLink(code: string): Promise<void> {
 }
 
 async function widerrufe(e: AdminEinladung): Promise<void> {
-  const offen = e.state === 'offen'
+  const offen = e.state === 'open'
   const ja = await frage({
     titel: offen ? `Einladung ${e.code} widerrufen?` : `Einladung ${e.code} entfernen?`,
     text: offen
@@ -1450,7 +1446,7 @@ async function widerrufe(e: AdminEinladung): Promise<void> {
     await lade()
     flash('Einladung entfernt')
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   }
 }
 
@@ -1475,7 +1471,7 @@ async function ladeEinAusWarteliste(e: AdminWartender, button: HTMLButtonElement
     await lade()
     flash(`Einladung ${einladung.code} an ${e.email} verschickt`)
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
     button.disabled = false
   }
 }
@@ -1493,7 +1489,7 @@ async function entferneWartenden(e: AdminWartender): Promise<void> {
     await lade()
     flash('Von der Warteliste entfernt')
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   }
 }
 
@@ -1514,7 +1510,7 @@ async function deleteAccount(b: AdminBenutzer): Promise<void> {
     await lade()
     flash('Konto gelöscht')
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   }
 }
 
@@ -1528,7 +1524,7 @@ els.pflichtSchalter.addEventListener('click', async () => {
     rendereRegistrierung()
     flash(neu ? 'Registrierung nur noch mit Einladung' : 'Registrierung steht allen offen')
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   } finally {
     els.pflichtSchalter.disabled = false
   }
@@ -1546,7 +1542,7 @@ els.wlSchalter.addEventListener('click', async () => {
       neu ? 'Die Warteliste steht wieder vor der Tür' : 'Die Warteliste wird nicht mehr angeboten',
     )
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    flash(fehlerText(fehler), 'failed')
   } finally {
     els.wlSchalter.disabled = false
   }
@@ -1591,7 +1587,7 @@ function oeffneKonto(b: AdminBenutzer | null): void {
   kdPasswortfeld.leere()
   els.kdPasswort.required = !b
   els.kdPwZusatz.textContent = b ? 'leer lassen, um es nicht zu ändern' : 'mindestens 8 Zeichen'
-  els.kdRolle.value = b?.role ?? 'nutzer'
+  els.kdRolle.value = b?.role ?? 'user'
   els.kdVerifiziert.checked = b ? b.verified : true
   els.kdSpeichern.textContent = b ? 'Speichern' : 'Anlegen'
 
@@ -1618,14 +1614,14 @@ els.kontoForm.addEventListener('submit', async (e) => {
   els.kdSpeichern.disabled = true
   try {
     if (bearbeitet) {
-      const felder: api.KontoFelder = { name, email, verifiziert }
+      const felder: api.KontoFelder = { name, email, verified: verifiziert }
       // Die Rolle nur mitschicken, wenn sie überhaupt wählbar war — sonst
       // hinge an einem gesperrten Feld eine stille Änderung.
       if (!els.kdRolle.disabled) felder.role = rolle
-      if (passwort) felder.passwort = passwort
+      if (passwort) felder.password = passwort
       await api.aendere(bearbeitet.id, felder)
     } else {
-      await api.legeAn({ name, email, passwort, rolle, verifiziert })
+      await api.legeAn({ name, email, password: passwort, role: rolle, verified: verifiziert })
     }
     els.kontoDialog.close()
     await lade()
@@ -1685,9 +1681,9 @@ const bausteineAusFeldern = (): MailBausteine => ({
   footer: els.mdFuss.value,
 })
 
-function setzeMailStand(text: string, art: 'ok' | 'fehler' = 'ok'): void {
+function setzeMailStand(text: string, art: 'ok' | 'failed' = 'ok'): void {
   els.mdStand.textContent = text
-  els.mdStand.classList.toggle('fehler', art === 'fehler')
+  els.mdStand.classList.toggle('failed', art === 'failed')
 }
 
 function oeffneMail(v: MailVorlage): void {
@@ -1846,8 +1842,8 @@ async function schickeTestmail(
     if (imDialog) setzeMailStand(`Testmail an ${an} verschickt`)
     else flash(`Testmail an ${an} verschickt`)
   } catch (fehler) {
-    if (imDialog) setzeMailStand(fehlerText(fehler), 'fehler')
-    else flash(fehlerText(fehler), 'fehler')
+    if (imDialog) setzeMailStand(fehlerText(fehler), 'failed')
+    else flash(fehlerText(fehler), 'failed')
   } finally {
     button.disabled = false
   }

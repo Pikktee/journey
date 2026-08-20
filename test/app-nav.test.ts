@@ -164,27 +164,27 @@ describe('app-nav', () => {
     // Sonst blitzt beim MPA-Wechsel wieder die leere Schale — View Transition
     // hin oder her. Der Inhalt MUSS exakt schreibeAppHeader entsprechen.
     const seiten: Array<{
-      datei: string
+      file: string
       aktiv: 'studio' | 'galerie' | 'profil' | 'konto' | 'admin'
       variante?: 'studio' | 'admin' | 'oeffentlich'
     }> = [
-      { datei: 'galerie.html', aktiv: 'galerie' },
-      { datei: 'konto.html', aktiv: 'konto' },
-      { datei: 'profil.html', aktiv: 'profil' },
-      { datei: 'studio.html', aktiv: 'studio', variante: 'studio' },
-      { datei: 'admin.html', aktiv: 'admin', variante: 'admin' },
+      { file: 'galerie.html', aktiv: 'galerie' },
+      { file: 'konto.html', aktiv: 'konto' },
+      { file: 'profil.html', aktiv: 'profil' },
+      { file: 'studio.html', aktiv: 'studio', variante: 'studio' },
+      { file: 'admin.html', aktiv: 'admin', variante: 'admin' },
     ]
     for (const s of seiten) {
-      const html = readFileSync(join(wurzel, s.datei), 'utf8')
+      const html = readFileSync(join(wurzel, s.file), 'utf8')
       const erwartet = `<div class="wrap">${appHeaderHtml({
         aktiv: s.aktiv,
         ...(s.variante ? { variante: s.variante } : {}),
       })}</div>`
       // Kein Regex auf </nav>: innen steckt schon .top-nav.
-      expect(html, s.datei).toContain(`id="app-header"`)
-      expect(html, s.datei).toContain(erwartet)
-      expect(html, s.datei).toContain('class="brand"')
-      expect(html, s.datei).toContain('class="top-nav"')
+      expect(html, s.file).toContain(`id="app-header"`)
+      expect(html, s.file).toContain(erwartet)
+      expect(html, s.file).toContain('class="brand"')
+      expect(html, s.file).toContain('class="top-nav"')
     }
   })
 

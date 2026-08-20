@@ -362,7 +362,7 @@ export interface MediumEditPatch {
 
 export function mitMedienEdit(edits: EditOverlay, id: string, patch: MediumEditPatch): EditOverlay {
   const eintrag: MediumEdit = { ...(edits.media?.[id] ?? {}) }
-  for (const key of ['caption', 'anchor', 'geloescht', 'display', 'reihe', 'trim'] as const) {
+  for (const key of ['caption', 'anchor', 'removed', 'display', 'order', 'trim'] as const) {
     if (!(key in patch)) continue
     const wert = patch[key]
     const leeresDisplay = key === 'display' && wert !== undefined && !Object.keys(wert).length
@@ -403,9 +403,7 @@ export function endgueltigZuLoeschen(edits: EditOverlay): string[] {
 export function ohneMedien(edits: EditOverlay, ids: readonly string[]): EditOverlay {
   const weg = new Set(ids)
   const naechste: EditOverlay = { ...edits }
-  const media = Object.fromEntries(
-    Object.entries(edits.media ?? {}).filter(([id]) => !weg.has(id)),
-  )
+  const media = Object.fromEntries(Object.entries(edits.media ?? {}).filter(([id]) => !weg.has(id)))
   if (Object.keys(media).length) naechste.media = media
   else delete naechste.media
   if (naechste.cover && weg.has(naechste.cover)) delete naechste.cover
@@ -416,7 +414,7 @@ export function ohneMedien(edits: EditOverlay, ids: readonly string[]): EditOver
 export function mitModusGrenze(edits: EditOverlay, from: string, mode: Modus): EditOverlay {
   const travelModes = (edits.travelModes ?? []).filter((g) => g.from !== from)
   travelModes.push({ from, mode })
-  travelModes.sort((a, b) => Date.parse(a.from) - Date.parse(b.ab))
+  travelModes.sort((a, b) => Date.parse(a.from) - Date.parse(b.from))
   return { ...edits, travelModes }
 }
 
@@ -477,7 +475,7 @@ export function materialisiereModi(
 
 export function mitTrim(
   edits: EditOverlay,
-  teil: 'start' | 'ende',
+  teil: 'start' | 'end',
   iso: string | null,
 ): EditOverlay {
   const trim = { ...(edits.trim ?? {}) }
@@ -499,7 +497,7 @@ export function mitKameraGrenze(
 ): EditOverlay {
   const camera = (edits.camera ?? []).filter((g) => g.from !== from)
   camera.push(scale !== undefined && scale !== 1 ? { from, preset, scale } : { from, preset })
-  camera.sort((a, b) => Date.parse(a.from) - Date.parse(b.ab))
+  camera.sort((a, b) => Date.parse(a.from) - Date.parse(b.from))
   return { ...edits, camera }
 }
 
@@ -521,15 +519,15 @@ export function mitWetterGrenze(
 ): EditOverlay {
   const weather = (edits.weather ?? []).filter((g) => g.from !== from)
   weather.push(intensity !== undefined ? { from, mode, intensity } : { from, mode })
-  weather.sort((a, b) => Date.parse(a.from) - Date.parse(b.ab))
+  weather.sort((a, b) => Date.parse(a.from) - Date.parse(b.from))
   return { ...edits, weather }
 }
 
 export function ohneWetterGrenze(edits: EditOverlay, from: string): EditOverlay {
   const weather = (edits.weather ?? []).filter((g) => g.from !== from)
   const naechste: EditOverlay = { ...edits }
-  if (weather.length) naechste.wetter = weather
-  else delete naechste.wetter
+  if (weather.length) naechste.weather = weather
+  else delete naechste.weather
   return naechste
 }
 
@@ -542,7 +540,7 @@ export function mitMoment(
 ): EditOverlay {
   const moments = (edits.moments ?? []).filter((m) => m.from !== from)
   moments.push(durationS !== undefined ? { from, kind, durationS } : { from, kind })
-  moments.sort((a, b) => Date.parse(a.from) - Date.parse(b.ab))
+  moments.sort((a, b) => Date.parse(a.from) - Date.parse(b.from))
   return { ...edits, moments }
 }
 
@@ -584,16 +582,16 @@ export interface AudioPatch {
  * eine 0 zu hinterlassen, die niemand mehr los wird.
  */
 const AUDIO_FELDER = [
-  'typ',
-  'ab',
-  'bis',
-  'lautstaerke',
-  'datei',
-  'quelle',
-  'anker',
-  'versatzFilmS',
-  'dauerFilmS',
-  'einstiegS',
+  'type',
+  'from',
+  'to',
+  'volume',
+  'file',
+  'source',
+  'anchor',
+  'offsetFilmS',
+  'durationFilmS',
+  'startS',
   'loop',
 ] as const
 
@@ -653,7 +651,10 @@ export function pruefeOverlay(edits: EditOverlay): string | null {
   }
   for (const m of edits.moments ?? []) {
     if (!Number.isFinite(Date.parse(m.from))) return `Unparsebarer Kamera-Moment: ${m.from}`
-    if (m.durationS !== undefined && !(Number.isFinite(m.durationS) && m.durationS >= 1 && m.durationS <= 30)) {
+    if (
+      m.durationS !== undefined &&
+      !(Number.isFinite(m.durationS) && m.durationS >= 1 && m.durationS <= 30)
+    ) {
       return `Moment-Dauer muss zwischen 1 und 30 Sekunden liegen`
     }
   }
@@ -665,10 +666,7 @@ export function pruefeOverlay(edits: EditOverlay): string | null {
       if (Date.parse(a.to) <= Date.parse(a.from))
         return `Audio ${i + 1}: das Ende muss nach dem Beginn liegen`
     }
-    if (
-      a.volume !== undefined &&
-      !(Number.isFinite(a.volume) && a.volume >= 0 && a.volume <= 1)
-    ) {
+    if (a.volume !== undefined && !(Number.isFinite(a.volume) && a.volume >= 0 && a.volume <= 1)) {
       return `Audio ${i + 1}: Lautstärke muss zwischen 0 und 1 liegen`
     }
   }
@@ -852,7 +850,7 @@ export function effektiveMedien(
       ...m,
       caption: e?.caption !== undefined ? e.caption : m.caption,
       anchor: e?.anchor ?? m.anchor,
-      placement: e?.anchor ? 'manuell' : m.placement,
+      placement: e?.anchor ? 'manual' : m.placement,
       removed: e?.removed === true,
       ...(e?.display ? { display: e.display } : {}),
       ...(e?.order !== undefined ? { order: e.order } : {}),

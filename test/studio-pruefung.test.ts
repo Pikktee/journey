@@ -32,13 +32,13 @@ const track = gpx([
 ])
 
 const foto = (
-  datei: string,
+  file: string,
   m: number,
   ort: [number, number] | null = null,
   zeitGeraten = false,
 ): AufnahmeBefund => ({
-  datei,
-  typ: 'photo',
+  file,
+  type: 'photo',
   zeitMs: min(m),
   zeitGeraten,
   ort,
@@ -110,12 +110,12 @@ describe('pruefe — mit Aufzeichnung', () => {
 
   it('sortiert die Aufnahmen nach Zeit', () => {
     const b = pruefe(track, [foto('spaet.jpg', 90), foto('frueh.jpg', 10)])
-    expect(b.aufnahmen.map((a) => a.datei)).toEqual(['frueh.jpg', 'spaet.jpg'])
+    expect(b.aufnahmen.map((a) => a.file)).toEqual(['frueh.jpg', 'spaet.jpg'])
   })
 
   it('meldet fehlende Ortsangaben als Hinweis — die Uhrzeit reicht', () => {
     const b = pruefe(track, [foto('a.jpg', 30), foto('b.jpg', 60)])
-    const m = b.meldungen.find((x) => x.art === 'ohne-ort')!
+    const m = b.meldungen.find((x) => x.kind === 'ohne-ort')!
     expect(m.ton).toBe('hinweis')
     expect(m.dateien).toEqual(['a.jpg', 'b.jpg'])
   })
@@ -123,7 +123,7 @@ describe('pruefe — mit Aufzeichnung', () => {
   it('meldet Aufnahmen außerhalb der Aufzeichnung als Warnung', () => {
     // 101 min nach dem Track-Ende — jemand hat ein fremdes Foto mit hineingezogen
     const b = pruefe(track, [foto('fremd.jpg', 221, [100, 9.7])])
-    const m = b.meldungen.find((x) => x.art === 'ausserhalb')!
+    const m = b.meldungen.find((x) => x.kind === 'ausserhalb')!
     expect(m.ton).toBe('warnung')
     expect(m.text).toContain('1 h 41 min')
     expect(m.dateien).toEqual(['fremd.jpg'])
@@ -132,7 +132,7 @@ describe('pruefe — mit Aufzeichnung', () => {
   it('lässt eine Aufnahme kurz vor dem Start in Ruhe', () => {
     // 10 min davor: das ist das Foto vom Aufbruch, kein Ausreißer
     const b = pruefe(track, [foto('start.jpg', -10, [100, 9.7])])
-    expect(b.meldungen.some((m) => m.art === 'ausserhalb')).toBe(false)
+    expect(b.meldungen.some((m) => m.kind === 'ausserhalb')).toBe(false)
   })
 
   it('nimmt Ausreißer in die Zeitachse auf — sonst sähe man sie nicht', () => {
@@ -142,7 +142,7 @@ describe('pruefe — mit Aufzeichnung', () => {
 
   it('meldet geratene Zeitstempel', () => {
     const b = pruefe(track, [foto('a.jpg', 30, [100, 9.7], true)])
-    expect(b.meldungen.find((m) => m.art === 'ohne-zeit')?.text).toContain('Datum der Datei')
+    expect(b.meldungen.find((m) => m.kind === 'ohne-zeit')?.text).toContain('Datum der Datei')
   })
 })
 
@@ -151,14 +151,14 @@ describe('pruefe — ohne Aufzeichnung', () => {
     const b = pruefe(null, [foto('a.jpg', 0, [100, 9.7]), foto('b.jpg', 30, [100.1, 9.8])])
     expect(b.quelle).toBe('fotos')
     expect(b.bereit).toBe(true)
-    expect(b.meldungen.find((m) => m.art === 'ohne-track')?.text).toContain('von Foto zu Foto')
+    expect(b.meldungen.find((m) => m.kind === 'ohne-track')?.text).toContain('von Foto zu Foto')
   })
 
   it('sagt klar, was fehlt, wenn es keine zwei Orte gibt', () => {
     const b = pruefe(null, [foto('a.jpg', 0), foto('b.jpg', 30, [100, 9.7])])
     expect(b.quelle).toBe('keine')
     expect(b.bereit).toBe(false)
-    expect(b.meldungen.find((m) => m.art === 'keine-orte')?.ton).toBe('warnung')
+    expect(b.meldungen.find((m) => m.kind === 'keine-orte')?.ton).toBe('warnung')
   })
 
   it('ohne Aufzeichnung wiegt eine fehlende Ortsangabe schwerer', () => {
@@ -168,7 +168,7 @@ describe('pruefe — ohne Aufzeichnung', () => {
       foto('b.jpg', 30, [100.1, 9.8]),
       foto('c.jpg', 60),
     ])
-    expect(b.meldungen.find((m) => m.art === 'ohne-ort')?.ton).toBe('warnung')
+    expect(b.meldungen.find((m) => m.kind === 'ohne-ort')?.ton).toBe('warnung')
   })
 
   it('verträgt gar nichts', () => {

@@ -1,4 +1,4 @@
-// Remote-Adapter (src/remote.ts): Server-JSON `maptale/tour@1` → cfg-Form des
+// Remote-Adapter (src/remote.ts): Server-JSON `maptale/tour@2` → cfg-Form des
 // Players. Der Adapter ist die Naht zwischen Backend und Player — hier bricht
 // bei Schema-Drift zuerst etwas, deshalb eigene Tests.
 
@@ -8,7 +8,7 @@ import { adaptiereTour, createTimeAt, RemoteTourFehler, type TourJsonAntwort } f
 
 function beispielTour(): TourJsonAntwort {
   return {
-    schema: 'maptale/tour@1',
+    schema: 'maptale/tour@2',
     id: 't_abc123',
     no: 'N°07',
     brandTitle: 'Lauterbrunnen → Grindelwald',
@@ -134,7 +134,7 @@ describe('adaptiereTour', () => {
       title: 'Foto · 11:00',
       caption: '',
       anchor: null,
-      placement: 'unplatziert',
+      placement: 'unplaced',
       takenAt: '2026-07-04T11:00:00+02:00',
     })
     const cfg = adaptiereTour(tour)
@@ -159,8 +159,8 @@ describe('adaptiereTour', () => {
   it('reicht Kamera-Keyframes und Audio-Spuren roh durch (f-basiert)', () => {
     const tour = beispielTour()
     tour.camera = [
-      { f: 0.2, preset: 'nah' },
-      { f: 0.7, preset: 'weit' },
+      { f: 0.2, preset: 'near' },
+      { f: 0.7, preset: 'far' },
     ]
     tour.audio = [
       { type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0.1, f1: 0.9, gain: 0.8 },
@@ -189,12 +189,12 @@ describe('adaptiereTour', () => {
   it('filtert Kamera-/Audio-Einträge mit kaputten f-Werten (Number.isFinite)', () => {
     const tour = beispielTour()
     tour.camera = [
-      { f: Number.NaN, preset: 'weit' },
-      { f: 0.4, preset: 'mittel' },
+      { f: Number.NaN, preset: 'far' },
+      { f: 0.4, preset: 'mid' },
     ]
     tour.audio = [{ type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0, f1: Number.NaN }]
     const cfg = adaptiereTour(tour)
-    expect(cfg.camera).toEqual([{ f: 0.4, preset: 'mittel' }])
+    expect(cfg.camera).toEqual([{ f: 0.4, preset: 'mid' }])
     // ALLE Audio-Einträge kaputt → Feld bleibt ganz weg („nur bei Länge setzen")
     expect(cfg.audio).toBeUndefined()
   })
@@ -226,7 +226,7 @@ describe('adaptiereTour', () => {
   })
 
   it('wirft bei laufender Verarbeitung einen sprechenden Fehler', () => {
-    const inArbeit = { id: 't_abc123', status: 'verarbeitung' } as unknown as TourJsonAntwort
+    const inArbeit = { id: 't_abc123', status: 'processing' } as unknown as TourJsonAntwort
     expect(() => adaptiereTour(inArbeit)).toThrow(RemoteTourFehler)
     expect(() => adaptiereTour(inArbeit)).toThrow(/verarbeitet/)
   })
@@ -235,7 +235,7 @@ describe('adaptiereTour', () => {
     const kaputt = {
       id: 't_abc123',
       status: 'fehler',
-      fehler: 'ffmpeg explodiert',
+      error: 'ffmpeg explodiert',
     } as unknown as TourJsonAntwort
     expect(() => adaptiereTour(kaputt)).toThrow(/ffmpeg explodiert/)
   })

@@ -156,9 +156,7 @@ describe('Rückmeldungen', () => {
     const erledigt = u.app.rueckmeldungen.nimmAn({ text: 'alt und erledigt' })
     const offen = u.app.rueckmeldungen.nimmAn({ text: 'alt und offen' })
     u.app.rueckmeldungen.aktualisiere(erledigt.id, { status: 'done' })
-    const setzeDatum = u.app.deps.db.prepare(
-      'UPDATE feedback SET created_at = ? WHERE id = ?',
-    )
+    const setzeDatum = u.app.deps.db.prepare('UPDATE feedback SET created_at = ? WHERE id = ?')
     setzeDatum.run(alt(FRIST_ERLEDIGT_TAGE + 1), erledigt.id)
     setzeDatum.run(alt(FRIST_ERLEDIGT_TAGE + 1), offen.id)
 

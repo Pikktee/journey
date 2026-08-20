@@ -12,7 +12,7 @@ export interface MediumEingabe {
 }
 
 export interface UploadManifest {
-  schema: 'maptale/upload@1'
+  schema: 'maptale/upload@2'
   clientTourId: string
   title: string | null
   description: null
@@ -122,7 +122,7 @@ export function baueUploadManifest(opts: {
   media: MediumEingabe[]
 }): UploadManifest {
   return {
-    schema: 'maptale/upload@1',
+    schema: 'maptale/upload@2',
     clientTourId: opts.clientTourId,
     title: opts.title,
     description: null,

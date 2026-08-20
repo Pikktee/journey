@@ -42,14 +42,14 @@ function track(punkte = 31): TrackPunkt[] {
  * = 2,5 Filmsekunden, `RAMPE`).
  */
 function achseOhneHalt(): Achse {
-  return baueAchse([{ mode: 'walk', aktiv: true, pts: track() }], [], { vonS: 0, bisS: 1800 })
+  return baueAchse([{ mode: 'walk', aktiv: true, pts: track() }], [], { fromS: 0, toS: 1800 })
 }
 
 /** Dieselbe Achse mit einem 6-s-Halt bei Aufnahmesekunde 600. */
 function achseMitHalt(): Achse {
   return baueAchse([{ mode: 'walk', aktiv: true, pts: track() }], [{ offsetS: 600, breiteS: 6 }], {
-    vonS: 0,
-    bisS: 1800,
+    fromS: 0,
+    toS: 1800,
   })
 }
 
@@ -64,7 +64,9 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
   const achse = achseOhneHalt()
 
   it('liest einen Bestands-Eintrag über ab/bis (unverändert)', () => {
-    const audio: AudioEintrag[] = [{ datei: 'a.mp3', typ: 'musik', ab: '2026-07-04T08:05:00.000Z' }]
+    const audio: AudioEintrag[] = [
+      { file: 'a.mp3', type: 'music', from: '2026-07-04T08:05:00.000Z' },
+    ]
     const k = klipVon(loeseTonKlips(audio, START, achse))
     expect(k.altVerankert).toBe(true)
     expect(k.filmVon).toBeCloseTo(BIS_300 + RAMPE, 6) // 300 Aufnahmesekunden Reise + Anfahrt
@@ -76,12 +78,12 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
   it('bevorzugt Anker + Versatz, sobald sie dastehen', () => {
     const audio: AudioEintrag[] = [
       {
-        datei: 'a.mp3',
-        typ: 'musik',
-        ab: '2026-07-04T08:00:00.000Z', // absichtlich woanders — darf nicht gewinnen
-        anker: '2026-07-04T08:05:00.000Z',
-        versatzFilmS: 2.5,
-        dauerFilmS: 8,
+        file: 'a.mp3',
+        type: 'music',
+        from: '2026-07-04T08:00:00.000Z', // absichtlich woanders — darf nicht gewinnen
+        anchor: '2026-07-04T08:05:00.000Z',
+        offsetFilmS: 2.5,
+        durationFilmS: 8,
       },
     ]
     const k = klipVon(loeseTonKlips(audio, START, achse))
@@ -95,7 +97,7 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
     // Der Player spielt einen One-Shot bis zum Dateiende; als Punkt gezeichnet
     // verschwieg die Leiste nur, wie lange er klingt.
     const audio: AudioEintrag[] = [
-      { datei: 'sfx-moewe.mp3', typ: 'sfx', ab: '2026-07-04T08:05:00.000Z' },
+      { file: 'sfx-moewe.mp3', type: 'sfx', from: '2026-07-04T08:05:00.000Z' },
     ]
     const ohneMass = klipVon(loeseTonKlips(audio, START, achse))
     expect(ohneMass.filmBis).toBe(ohneMass.filmVon) // ungemessen: bleibt ein Punkt
@@ -108,9 +110,30 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
 
   it('stapelt Überlappungen in Unterzeilen — der Player mischt sie', () => {
     const audio: AudioEintrag[] = [
-      { datei: 'a.mp3', typ: 'musik', ab: START, anker: START, versatzFilmS: 0, dauerFilmS: 20 },
-      { datei: 'b.mp3', typ: 'musik', ab: START, anker: START, versatzFilmS: 10, dauerFilmS: 20 },
-      { datei: 'c.mp3', typ: 'musik', ab: START, anker: START, versatzFilmS: 40, dauerFilmS: 10 },
+      {
+        file: 'a.mp3',
+        type: 'music',
+        from: START,
+        anchor: START,
+        offsetFilmS: 0,
+        durationFilmS: 20,
+      },
+      {
+        file: 'b.mp3',
+        type: 'music',
+        from: START,
+        anchor: START,
+        offsetFilmS: 10,
+        durationFilmS: 20,
+      },
+      {
+        file: 'c.mp3',
+        type: 'music',
+        from: START,
+        anchor: START,
+        offsetFilmS: 40,
+        durationFilmS: 10,
+      },
     ]
     const klips = loeseTonKlips(audio, START, achse)
     expect(klips.map((k) => k.lane)).toEqual([0, 1, 0]) // c passt wieder in Zeile 0
@@ -122,9 +145,9 @@ describe('verankere — Anker in Aufnahmezeit, Feinlage in Filmsekunden', () => 
   it('hält die Filmposition exakt, obwohl der Anker auf Sekunden rundet', () => {
     const achse = achseOhneHalt()
     for (const filmS of [0, 3.7, 12.25, 41.9]) {
-      const { anker, versatzFilmS } = verankere(achse, START, filmS)
+      const { anchor, offsetFilmS } = verankere(achse, START, filmS)
       const klips = loeseTonKlips(
-        [{ datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS }],
+        [{ file: 'a.mp3', type: 'music', from: anchor, offsetFilmS }],
         START,
         achse,
       )
@@ -140,10 +163,10 @@ describe('verankere — Anker in Aufnahmezeit, Feinlage in Filmsekunden', () => 
     // Der Versatz trägt die Feinlage, deshalb landet der Klip trotzdem genau dort.
     const achse = achseMitHalt()
     const imHalt = achse.halte![0]!.filmVon + 3
-    const { anker, versatzFilmS } = verankere(achse, START, imHalt)
-    expect(versatzFilmS).toBeGreaterThan(0) // ohne ihn fiele die Lage auf die Haltkante
+    const { anchor, offsetFilmS } = verankere(achse, START, imHalt)
+    expect(offsetFilmS).toBeGreaterThan(0) // ohne ihn fiele die Lage auf die Haltkante
     const klips = loeseTonKlips(
-      [{ datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS }],
+      [{ file: 'a.mp3', type: 'music', from: anchor, offsetFilmS }],
       START,
       achse,
     )
@@ -155,11 +178,11 @@ describe('trimmeLinks — Anfang und Datei-Einstieg wandern gemeinsam', () => {
   const achse = achseOhneHalt()
   const klip = (patch: Partial<TonKlip> = {}): TonKlip => ({
     index: 0,
-    typ: 'musik',
-    datei: 'a.mp3',
+    type: 'music',
+    file: 'a.mp3',
     filmVon: 10,
     filmBis: 30,
-    einstiegS: 0,
+    startS: 0,
     loop: true,
     dateiS: 60,
     lane: 0,
@@ -170,26 +193,26 @@ describe('trimmeLinks — Anfang und Datei-Einstieg wandern gemeinsam', () => {
 
   it('legt frei statt zu verschieben: der Inhalt bleibt an seinem Platz im Film', () => {
     const { patch } = trimmeLinks(achse, START, klip(), 14)
-    expect(patch.einstiegS).toBeCloseTo(4, 3) // 4 s Datei fallen vorne weg
-    expect(patch.dauerFilmS).toBeCloseTo(16, 3) // rechte Kante bleibt bei 30
+    expect(patch.startS).toBeCloseTo(4, 3) // 4 s Datei fallen vorne weg
+    expect(patch.durationFilmS).toBeCloseTo(16, 3) // rechte Kante bleibt bei 30
   })
 
   it('hat den DATEIANFANG als Anschlag — und Loop ändert daran nichts', () => {
     // Loop springt am Dateiende auf den Dateianfang. Eine Wiederholung VOR dem
     // Anfang gibt es nicht; wer sie zuließ, ließ das Stück mitten drin einsetzen.
     for (const loop of [true, false]) {
-      const a = klip({ einstiegS: 3, loop })
+      const a = klip({ startS: 3, loop })
       const { patch, amAnschlag } = trimmeLinks(achse, START, a, 0) // weit nach links gezogen
-      expect(patch.einstiegS).toBe(0)
+      expect(patch.startS).toBe(0)
       expect(amAnschlag).toBe(true)
       // Die Kante steht bei filmVon − einstiegS = 7, nicht bei 0
-      expect(patch.dauerFilmS).toBeCloseTo(23, 3)
+      expect(patch.durationFilmS).toBeCloseTo(23, 3)
     }
   })
 
   it('lässt den Klip nicht auf null zusammenschnurren', () => {
-    const { patch } = trimmeLinks(achse, START, klip({ einstiegS: 30 }), 99)
-    expect(patch.dauerFilmS).toBeCloseTo(TON_MIN_S, 6)
+    const { patch } = trimmeLinks(achse, START, klip({ startS: 30 }), 99)
+    expect(patch.durationFilmS).toBeCloseTo(TON_MIN_S, 6)
   })
 })
 
@@ -197,11 +220,11 @@ describe('trimmeRechts — nur das Ende, Loop hebt den Anschlag auf', () => {
   const achse = achseOhneHalt()
   const klip = (patch: Partial<TonKlip> = {}): TonKlip => ({
     index: 0,
-    typ: 'sfx',
-    datei: 'sfx-brandung.mp3',
+    type: 'sfx',
+    file: 'sfx-brandung.mp3',
     filmVon: 10,
     filmBis: 14,
-    einstiegS: 0,
+    startS: 0,
     loop: false,
     dateiS: 8,
     lane: 0,
@@ -212,18 +235,18 @@ describe('trimmeRechts — nur das Ende, Loop hebt den Anschlag auf', () => {
 
   it('stoppt ohne Loop am Material', () => {
     const { patch, amAnschlag } = trimmeRechts(achse, START, klip(), 40)
-    expect(patch.dauerFilmS).toBeCloseTo(8, 3) // die ganze Datei, kein Meter mehr
+    expect(patch.durationFilmS).toBeCloseTo(8, 3) // die ganze Datei, kein Meter mehr
     expect(amAnschlag).toBe(true)
   })
 
   it('zieht den Anschlag um den Einstieg mit — getrimmtes Material ist weg', () => {
-    const { patch } = trimmeRechts(achse, START, klip({ einstiegS: 3 }), 40)
-    expect(patch.dauerFilmS).toBeCloseTo(5, 3) // 8 s Datei minus 3 s Einstieg
+    const { patch } = trimmeRechts(achse, START, klip({ startS: 3 }), 40)
+    expect(patch.durationFilmS).toBeCloseTo(5, 3) // 8 s Datei minus 3 s Einstieg
   })
 
   it('wächst MIT Loop beliebig weiter', () => {
     const { patch, amAnschlag } = trimmeRechts(achse, START, klip({ loop: true }), 40)
-    expect(patch.dauerFilmS).toBeCloseTo(30, 3)
+    expect(patch.durationFilmS).toBeCloseTo(30, 3)
     expect(amAnschlag).toBe(false)
   })
 
@@ -231,21 +254,21 @@ describe('trimmeRechts — nur das Ende, Loop hebt den Anschlag auf', () => {
     const ohne = klip()
     delete (ohne as { dateiS?: number }).dateiS
     const { patch, amAnschlag } = trimmeRechts(achse, START, ohne, 40)
-    expect(patch.dauerFilmS).toBeCloseTo(30, 3)
+    expect(patch.durationFilmS).toBeCloseTo(30, 3)
     expect(amAnschlag).toBe(false)
   })
 
   it('rührt die linke Kante nicht an', () => {
-    const a = klip({ einstiegS: 2 })
+    const a = klip({ startS: 2 })
     const { patch } = trimmeRechts(achse, START, a, 12)
     const klips = loeseTonKlips(
-      [{ datei: a.datei, typ: a.typ, ab: patch.anker, ...patch }],
+      [{ file: a.file, type: a.type, from: patch.anchor, ...patch }],
       START,
       achse,
-      new Map([[a.datei, 8]]),
+      new Map([[a.file, 8]]),
     )
     expect(klipVon(klips).filmVon).toBeCloseTo(a.filmVon, 3)
-    expect(klipVon(klips).einstiegS).toBeCloseTo(2, 3)
+    expect(klipVon(klips).startS).toBeCloseTo(2, 3)
   })
 })
 
@@ -253,11 +276,11 @@ describe('verschiebeTon — der Klip hängt danach woanders an der Reise', () =>
   const achse = achseOhneHalt()
   const basis: TonKlip = {
     index: 0,
-    typ: 'musik',
-    datei: 'a.mp3',
+    type: 'music',
+    file: 'a.mp3',
     filmVon: 10,
     filmBis: 30,
-    einstiegS: 4,
+    startS: 4,
     loop: true,
     dateiS: 60,
     lane: 0,
@@ -267,10 +290,10 @@ describe('verschiebeTon — der Klip hängt danach woanders an der Reise', () =>
 
   it('nimmt Länge und Einstieg unverändert mit', () => {
     const patch = verschiebeTon(achse, START, basis, 25)
-    expect(patch.dauerFilmS).toBeCloseTo(20, 3)
-    expect(patch.einstiegS).toBeCloseTo(4, 3)
+    expect(patch.durationFilmS).toBeCloseTo(20, 3)
+    expect(patch.startS).toBeCloseTo(4, 3)
     const klips = loeseTonKlips(
-      [{ datei: 'a.mp3', typ: 'musik', ab: patch.anker, ...patch }],
+      [{ file: 'a.mp3', type: 'music', from: patch.anchor, ...patch }],
       START,
       achse,
     )
@@ -281,7 +304,7 @@ describe('verschiebeTon — der Klip hängt danach woanders an der Reise', () =>
     // „Läuft bis zum Schluss" darf durch bloßes Verschieben nicht zu einer
     // festen Dauer werden — und ein One-Shot nicht zum Bereich.
     const offen = { ...basis, laengeGesetzt: false, filmBis: achse.kurve?.gesamtS ?? 0 }
-    expect(verschiebeTon(achse, START, offen, 25).dauerFilmS).toBeUndefined()
+    expect(verschiebeTon(achse, START, offen, 25).durationFilmS).toBeUndefined()
   })
 })
 
@@ -290,10 +313,10 @@ describe('schreibeTonFest — die Aufwertung ändert die Lage nicht', () => {
     const achse = achseMitHalt()
     const audio: AudioEintrag[] = [
       {
-        datei: 'a.mp3',
-        typ: 'musik',
-        ab: '2026-07-04T08:05:00.000Z',
-        bis: '2026-07-04T08:15:00.000Z',
+        file: 'a.mp3',
+        type: 'music',
+        from: '2026-07-04T08:05:00.000Z',
+        to: '2026-07-04T08:15:00.000Z',
       },
     ]
     const vorher = klipVon(loeseTonKlips(audio, START, achse))
@@ -306,7 +329,9 @@ describe('schreibeTonFest — die Aufwertung ändert die Lage nicht', () => {
 
   it('ist idempotent — zweimal festschreiben ändert nichts mehr', () => {
     const achse = achseMitHalt()
-    const audio: AudioEintrag[] = [{ datei: 'a.mp3', typ: 'musik', ab: '2026-07-04T08:05:00.000Z' }]
+    const audio: AudioEintrag[] = [
+      { file: 'a.mp3', type: 'music', from: '2026-07-04T08:05:00.000Z' },
+    ]
     const eins = schreibeTonFest(achse, START, klipVon(loeseTonKlips(audio, START, achse)))
     const zwischen = { ...audio[0]!, ...eins }
     const zwei = schreibeTonFest(achse, START, klipVon(loeseTonKlips([zwischen], START, achse)))
@@ -325,14 +350,14 @@ describe('Ton-Magnetik — eine geänderte Standzeit nimmt den Ton mit', () => {
   /** Dieselbe Achse, nur mit anderer Haltbreite. 30 Aufnahmesekunden = 1 Filmsekunde. */
   const achseMitBreite = (breiteS: number): Achse =>
     baueAchse([{ mode: 'walk', aktiv: true, pts: track() }], [{ offsetS: HALT_S, breiteS }], {
-      vonS: 0,
-      bisS: 1800,
+      fromS: 0,
+      toS: 1800,
     })
 
   /** Ein filmverankerter Klip fester Länge an der Filmstelle `filmS` der Basis-Achse. */
   function verankerterKlip(filmS: number): AudioEintrag {
-    const { anker, versatzFilmS } = verankere(achseMitBreite(BASIS_BREITE), START, filmS)
-    return { datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS, dauerFilmS: 8 }
+    const { anchor, offsetFilmS } = verankere(achseMitBreite(BASIS_BREITE), START, filmS)
+    return { file: 'a.mp3', type: 'music', from: anchor, offsetFilmS, durationFilmS: 8 }
   }
 
   const lageBei = (eintrag: AudioEintrag, breiteS: number): TonKlip =>
@@ -376,10 +401,10 @@ describe('Ton-Magnetik — eine geänderte Standzeit nimmt den Ton mit', () => {
     // Standzeit dazwischen zählt in beide hinein. Der Klip wird länger, statt
     // mitzurücken — ein Musikstück, das plötzlich 10 Filmsekunden mehr füllen soll.
     const alt: AudioEintrag = {
-      datei: 'a.mp3',
-      typ: 'musik',
-      ab: '2026-07-04T08:05:00.000Z', // Aufnahmesekunde 300, vor dem Halt
-      bis: '2026-07-04T08:20:00.000Z', // Aufnahmesekunde 1200, dahinter
+      file: 'a.mp3',
+      type: 'music',
+      from: '2026-07-04T08:05:00.000Z', // Aufnahmesekunde 300, vor dem Halt
+      to: '2026-07-04T08:20:00.000Z', // Aufnahmesekunde 1200, dahinter
     }
     const basis = lageBei(alt, BASIS_BREITE)
     const breiter = lageBei(alt, BASIS_BREITE + 10)
@@ -392,11 +417,11 @@ describe('Ton-Magnetik — eine geänderte Standzeit nimmt den Ton mit', () => {
 describe('wellenLage — die Wellenform gehört zur DATEI, nicht zum Klip', () => {
   const basis: TonKlip = {
     index: 0,
-    typ: 'musik',
-    datei: 'a.mp3',
+    type: 'music',
+    file: 'a.mp3',
     filmVon: 10,
     filmBis: 30,
-    einstiegS: 4,
+    startS: 4,
     loop: false,
     dateiS: 60,
     lane: 0,
@@ -450,12 +475,12 @@ describe('setzeLoop — Loop aus holt den Klip ans Material zurück', () => {
   const achse = achseOhneHalt()
   const basis: TonKlip = {
     index: 0,
-    typ: 'musik',
-    datei: 'a.mp3',
+    type: 'music',
+    file: 'a.mp3',
     filmVon: 10,
     // Unter Loop weit über das Dateiende hinaus gewachsen
     filmBis: 45,
-    einstiegS: 0,
+    startS: 0,
     loop: true,
     dateiS: 22,
     lane: 0,
@@ -467,20 +492,20 @@ describe('setzeLoop — Loop aus holt den Klip ans Material zurück', () => {
     // Ohne das hinge hinter der Wellenform Stille im Klip — und Stille gehört
     // ZWISCHEN die Klips, nie in einen. Man müsste ihn von Hand zurechtziehen,
     // um überhaupt zu sehen, wo sein Material endet.
-    expect(setzeLoop(achse, START, basis, false).dauerFilmS).toBeCloseTo(22, 3)
+    expect(setzeLoop(achse, START, basis, false).durationFilmS).toBeCloseTo(22, 3)
   })
 
   it('zieht den Einstieg mit ab — getrimmtes Material ist weg', () => {
-    expect(setzeLoop(achse, START, { ...basis, einstiegS: 6 }, false).dauerFilmS).toBeCloseTo(16, 3)
+    expect(setzeLoop(achse, START, { ...basis, startS: 6 }, false).durationFilmS).toBeCloseTo(16, 3)
   })
 
   it('lässt einen Klip in Ordnung unangetastet', () => {
     const kurz = { ...basis, filmBis: 18 } // 8 s, passt in die 22-s-Datei
-    expect(setzeLoop(achse, START, kurz, false).dauerFilmS).toBeCloseTo(8, 3)
+    expect(setzeLoop(achse, START, kurz, false).durationFilmS).toBeCloseTo(8, 3)
   })
 
   it('Loop AN nimmt nur den Anschlag weg — die Länge bleibt', () => {
-    expect(setzeLoop(achse, START, basis, true).dauerFilmS).toBeCloseTo(35, 3)
+    expect(setzeLoop(achse, START, basis, true).durationFilmS).toBeCloseTo(35, 3)
   })
 
   it('friert ohne gemessene Datei nichts ein', () => {
@@ -488,18 +513,18 @@ describe('setzeLoop — Loop aus holt den Klip ans Material zurück', () => {
     // wäre eine Aussage, die niemand getroffen hat.
     const ohne = { ...basis, laengeGesetzt: false }
     delete (ohne as { dateiS?: number }).dateiS
-    expect(setzeLoop(achse, START, ohne, false).dauerFilmS).toBeUndefined()
+    expect(setzeLoop(achse, START, ohne, false).durationFilmS).toBeUndefined()
   })
 })
 
 describe('loopNachRollenwechsel — die Rolle darf das Verhalten nicht still kippen', () => {
-  const k = (typ: 'musik' | 'sfx', loop: boolean): TonKlip => ({
+  const k = (type: 'music' | 'sfx', loop: boolean): TonKlip => ({
     index: 0,
-    typ,
-    datei: 'a.mp3',
+    type,
+    file: 'a.mp3',
     filmVon: 0,
     filmBis: 10,
-    einstiegS: 0,
+    startS: 0,
     loop,
     lane: 0,
     altVerankert: false,
@@ -510,12 +535,12 @@ describe('loopNachRollenwechsel — die Rolle darf das Verhalten nicht still kip
     // Eine durchlaufende Atmosphäre („Filmmusik", loop an) wird zu „Ton der
     // Szene" — dort ist die Vorgabe AUS. Ohne diesen Wert würde sie still zum
     // einmaligen Knall.
-    expect(loopNachRollenwechsel(k('musik', true), 'sfx')).toBe(true)
-    expect(loopNachRollenwechsel(k('sfx', false), 'musik')).toBe(false)
+    expect(loopNachRollenwechsel(k('music', true), 'sfx')).toBe(true)
+    expect(loopNachRollenwechsel(k('sfx', false), 'music')).toBe(false)
   })
 
   it('lässt das Feld weg, wo die neue Vorgabe ohnehin passt', () => {
-    expect(loopNachRollenwechsel(k('sfx', true), 'musik')).toBeUndefined()
-    expect(loopNachRollenwechsel(k('musik', false), 'sfx')).toBeUndefined()
+    expect(loopNachRollenwechsel(k('sfx', true), 'music')).toBeUndefined()
+    expect(loopNachRollenwechsel(k('music', false), 'sfx')).toBeUndefined()
   })
 })

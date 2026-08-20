@@ -77,9 +77,7 @@ describe('nacktesInstagram', () => {
 describe('titelbildUrl', () => {
   it('unterscheidet Vorschlag und eigenes Bild am Schrägstrich', () => {
     expect(titelbildUrl('u_1', 'serpentinen.jpg')).toBe('/titelbilder/serpentinen.jpg')
-    expect(titelbildUrl('u_1', 'banner/123.jpg')).toBe(
-      '/api/users/u_1/banner?v=banner%2F123.jpg',
-    )
+    expect(titelbildUrl('u_1', 'banner/123.jpg')).toBe('/api/users/u_1/banner?v=banner%2F123.jpg')
     expect(titelbildUrl('u_1', null)).toBeNull()
   })
 
@@ -242,9 +240,9 @@ describe('Eigenes Profil, solange es privat ist', () => {
   it('bleibt für alle anderen ein 404', async () => {
     const u = await baueTestApp()
     await patch(u, { displayName: 'Reisende' })
-    expect(
-      (await u.app.inject({ method: 'GET', url: '/api/users/test/profile' })).statusCode,
-    ).toBe(404)
+    expect((await u.app.inject({ method: 'GET', url: '/api/users/test/profile' })).statusCode).toBe(
+      404,
+    )
   })
 
   it('meldet beim öffentlichen Profil nurFuerDich falsch', async () => {

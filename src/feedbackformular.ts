@@ -43,7 +43,7 @@ const STIL = `
   letter-spacing: 0.01em;
 }
 .fb-form .feld-art.pflicht { color: var(--text-2, #a7b1bf); }
-.fb-form textarea, .fb-form input[typ='email'] {
+.fb-form textarea, .fb-form input[type='email'] {
   width: 100%;
   margin-bottom: 6px;
   font-family: var(--font-ui);
@@ -55,13 +55,13 @@ const STIL = `
   padding: 9px 10px;
 }
 .fb-form textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
-.fb-form textarea:focus, .fb-form input[typ='email']:focus {
+.fb-form textarea:focus, .fb-form input[type='email']:focus {
   outline: none;
   border-color: var(--akzent, #f59e0b);
 }
 .fb-zeile { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2, #a7b1bf); }
 .fb-zeile label { font-weight: 500; }
-.fb-zeile input[typ='checkbox'] { accent-color: var(--akzent, #f59e0b); }
+.fb-zeile input[type='checkbox'] { accent-color: var(--akzent, #f59e0b); }
 .fb-angaben { font-size: 12px; color: var(--text-3, #7e8a99); }
 .fb-angaben summary { cursor: pointer; width: fit-content; }
 .fb-angaben summary:hover { color: var(--text-2, #a7b1bf); }

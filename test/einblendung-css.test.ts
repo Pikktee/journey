@@ -56,11 +56,11 @@ const playerCss = readFileSync(new URL('../src/style.css', import.meta.url), 'ut
 const malerTs = readFileSync(new URL('../src/kartenmaler.ts', import.meta.url), 'utf8')
 
 /** Den Rumpf einer flachen Regel holen — bis zur ersten schließenden Klammer. */
-function regel(quelle: string, selektor: string): string {
-  const start = quelle.indexOf(selektor + ' {')
+function regel(source: string, selektor: string): string {
+  const start = source.indexOf(selektor + ' {')
   expect(start, `Regel ${selektor} nicht gefunden`).toBeGreaterThan(-1)
-  const ende = quelle.indexOf('}', start)
-  return quelle.slice(start, ende)
+  const ende = source.indexOf('}', start)
+  return source.slice(start, ende)
 }
 
 /** Der Wert einer Eigenschaft einer Regel, mit normierten Leerzeichen. */
@@ -79,8 +79,8 @@ function wert(rumpf: string, eigenschaft: string): string {
  * lebendig — der Test verbietet dann, das Verschwundene zu benennen, und das ist
  * die falsche Regel.
  */
-function ohneKommentare(quelle: string): string {
-  return quelle
+function ohneKommentare(source: string): string {
+  return source
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/.*$/gm, '$1')
@@ -91,7 +91,7 @@ const KLIP_S = klipDauerS(HOLD_HIDE)
 const bei = (imS: number, opt?: { keinKenBurns?: boolean; ruhig?: boolean }) =>
   kartenPhasen(imS, KLIP_S, opt ?? {})
 
-describe('Foto-Karte: der Maler führt die Zeiten der Tabelle', () => {
+describe('Foto-titel: der Maler führt die Zeiten der Tabelle', () => {
   it('die Blende setzt `blendeVersatzS` später ein und dauert `blendeDauerS`', () => {
     expect(bei(KARTE.blendeVersatzS).sicht).toBeCloseTo(0, 5)
     expect(bei(KARTE.blendeVersatzS + KARTE.blendeDauerS).sicht).toBeCloseTo(1, 5)
@@ -261,7 +261,7 @@ describe('Der Kamerablitz ist zurückgebaut', () => {
   })
 })
 
-describe('Foto-Karte: die zwei Bühnen-Sätze sind nur GEOMETRIE', () => {
+describe('Foto-titel: die zwei Bühnen-Sätze sind nur GEOMETRIE', () => {
   // Das ist die Regel, die den Umbau trägt: Was auf beiden Bühnen gleich
   // aussehen soll, kommt aus `KARTE`; was verschieden sein darf, steht als
   // benannter Bühnen-Satz da — mit seinem Grund. Ohne diese Trennung wäre der

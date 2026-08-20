@@ -330,7 +330,7 @@ const route = buildRoute(waypoints)
 // Die eine Übersetzung, durch die JEDER f-Anker dieser Tour geht (§8D). Danach
 // rechnet der Player nur noch in Metern — es gibt bewusst keine Tabelle zurück.
 const sBeiF = baueSBeiF(fVollstaendig ? wegpunktF : null, route.wpS, route.total)
-window.__j.anker = sBeiF.quelle
+window.__j.anchor = sBeiF.quelle
 // Für die zwei Verbraucher, die (noch) in Anteilen rechnen: audiotracks.ts
 // vergleicht `f0 <= frac < f1` gegen `s / route.total` und ist mit dem Studio
 // GETEILT (Etappe 4b stellt beide zugleich auf Filmsekunden um), createTimeAt
@@ -394,7 +394,7 @@ const stops = gruppiereStopps(photos)
 // genau das seine Filmsekunde überhaupt erst erzeugt. Das Feld im JSON ist die
 // Auskunft, WANN er im Film liegt, kein Eingang für den Player.
 const moments: KameraMoment[] = (cfg.moments ?? [])
-  .map((m) => ({ s: sBeiF(m.f), kind: m.kind, durationS: m.durationS }))
+  .map((m) => ({ s: sBeiF(m.f), art: m.kind as KameraMoment['art'], dauerS: m.durationS }))
   .sort((a, b) => a.s - b.s)
 // — Die Filmachse: Strecke → Filmzeit (Etappe 3) —
 //
@@ -1701,7 +1701,7 @@ map.on('load', () => {
       if (!remoteCfg || !istEigeneBereiteTour(tourParam, liste)) {
         const satz = 'Export nur für eigene, fertige Touren.'
         if (stand) stand.textContent = satz
-        melde?.({ type: EXPORT_NACHRICHT, stand: 'fehler', text: satz })
+        melde?.({ typ: EXPORT_NACHRICHT, stand: 'fehler', text: satz })
         return
       }
       applyWeather('auto', false)

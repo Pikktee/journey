@@ -815,9 +815,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       if (handle !== undefined) {
         const fehler = app.auth.setzeHandle(benutzer.id, handle)
         if (fehler)
-          return reply
-            .code(fehler === 'vergeben' ? 409 : 400)
-            .send({ error: HANDLE_TEXTE[fehler] })
+          return reply.code(fehler === 'vergeben' ? 409 : 400).send({ error: HANDLE_TEXTE[fehler] })
       }
       if (titelbild !== undefined) {
         const wert = titelbild.trim()

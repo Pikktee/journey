@@ -47,26 +47,38 @@ const sichtbar = (html: string): string =>
     .replace(/\s+/g, ' ')
 
 describe('Newsletter-Einwilligung', () => {
+  /**
+   * Der SCHLÜSSEL ist Code und ging mit Welle 1 auf Englisch; das LABEL ist
+   * Beweismaterial nach Art. 7 DSGVO und bleibt, wie es verschickt wurde
+   * (§1 des Englisch-Konzepts). Deshalb hier eine Zuordnung statt eines
+   * Musters aus dem Namen.
+   */
+  const LABEL_PRAEFIX = { signup: 'registrierung', account: 'konto' } as const
+
   const texte = einwilligungstexte()
 
   it('kennt beide Fassungen mit Label und Wortlaut', () => {
-    expect(Object.keys(texte).sort()).toEqual(['konto', 'registrierung'])
+    expect(Object.keys(texte).sort()).toEqual(['account', 'signup'])
     for (const [name, eintrag] of Object.entries(texte)) {
       expect(eintrag.text.length, `${name} ohne Wortlaut`).toBeGreaterThan(30)
       // Das Label trägt sein Datum: Wer den Text ändert, ohne es zu heben,
       // behauptete eine Zustimmung zu einem Satz, den niemand gelesen hat.
       // Die laufende Nummer dahinter ist der zweite Wortlaut AM SELBEN TAG —
       // ohne sie müsste man auf den nächsten Tag warten oder das Datum fälschen.
-      expect(eintrag.fassung).toMatch(new RegExp(`^${name}-\\d{4}-\\d{2}-\\d{2}(-\\d+)?$`))
+      expect(eintrag.fassung).toMatch(
+        new RegExp(
+          `^${LABEL_PRAEFIX[name as keyof typeof LABEL_PRAEFIX]}-\\d{4}-\\d{2}-\\d{2}(-\\d+)?$`,
+        ),
+      )
     }
   })
 
   it('steht wortgleich im Kästchen der Registrierung', () => {
-    expect(sichtbar(lies('studio.html'))).toContain(texte.registrierung?.text)
+    expect(sichtbar(lies('studio.html'))).toContain(texte.signup?.text)
   })
 
   it('steht wortgleich in den Kontoeinstellungen', () => {
-    expect(sichtbar(lies('konto.html'))).toContain(texte.konto?.text)
+    expect(sichtbar(lies('konto.html'))).toContain(texte.account?.text)
   })
 
   it('ist in der Registrierung nicht vorangekreuzt', () => {

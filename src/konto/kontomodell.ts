@@ -6,7 +6,7 @@
 /** Ein angemeldetes Gerät, wie es `GET /api/auth/me/geraete` ausliefert. */
 export interface Geraet {
   id: string
-  art: 'sitzung' | 'app'
+  kind: 'session' | 'app'
   /** Roher User-Agent (Sitzung) bzw. das Label der App-Anmeldung. */
   label: string | null
   ipPrefix: string | null
@@ -17,7 +17,7 @@ export interface Geraet {
 }
 
 export interface SpeicherAufteilung {
-  fotos: number
+  photos: number
   videos: number
   audio: number
   recordings: number
@@ -84,7 +84,7 @@ export function istHandgeraet(userAgent: string): boolean {
  * ob jemand ein fremdes Gerät abmeldet.
  */
 export function geraeteName(device: Geraet): string {
-  if (device.art === 'app') return `Maptale App${device.label ? ` · ${device.label}` : ''}`
+  if (device.kind === 'app') return `Maptale App${device.label ? ` · ${device.label}` : ''}`
   const ua = device.label ?? ''
   const browser = browserAus(ua)
   const system = systemAus(ua)
@@ -94,7 +94,7 @@ export function geraeteName(device: Geraet): string {
 
 /** Rechner, Telefon oder App — nur das Zeichen links in der Zeile. */
 export function geraeteSymbol(device: Geraet): 'app' | 'telefon' | 'rechner' {
-  if (device.art === 'app') return 'app'
+  if (device.kind === 'app') return 'app'
   return istHandgeraet(device.label ?? '') ? 'telefon' : 'rechner'
 }
 
@@ -148,7 +148,7 @@ export interface SpeicherAbschnitt {
 }
 
 const WORTE: Record<keyof SpeicherAufteilung, string> = {
-  fotos: 'Fotos',
+  photos: 'Fotos',
   videos: 'Videos',
   audio: 'Eigene Klänge',
   recordings: 'Aufzeichnungen',
@@ -212,7 +212,7 @@ export function groesse(bytes: number): string {
 /** Der Auftrag, wie ihn `/auth/me` mitliefert. */
 export interface ExportStand {
   id: string
-  status: 'laeuft' | 'fertig' | 'fehler'
+  status: 'running' | 'done' | 'failed'
   requestedAt: string
   finishedAt: string | null
   expiresAt: string | null
@@ -245,9 +245,9 @@ export function exportZeile(
   jetzt: Date = new Date(),
 ): string {
   if (!stand) return EXPORT_STANDARDZEILE
-  if (stand.status === 'laeuft')
+  if (stand.status === 'running')
     return 'Dein Archiv wird gerade gebaut. Die Mail kommt, sobald es fertig ist.'
-  if (stand.status === 'fehler')
+  if (stand.status === 'failed')
     return 'Der letzte Versuch ist fehlgeschlagen. Fordere das Archiv noch einmal an.'
   const ablauf = stand.expiresAt ? new Date(stand.expiresAt) : null
   if (!ablauf || ablauf <= jetzt) return 'Dein letztes Archiv ist abgelaufen und wurde gelöscht.'

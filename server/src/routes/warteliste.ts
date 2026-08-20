@@ -159,10 +159,7 @@ export function registriereWartelistenRouten(app: FastifyInstance): void {
       // wäre sonst nur halb wahr. Eine EINGELÖSTE Einladung bleibt stehen —
       // dann gibt es ein Konto, und sie ist dessen Herkunftsnachweis.
       const eintrag = app.warteliste.nachToken(request.body.token)
-      if (
-        eintrag?.invitedCode &&
-        app.einladungen.pruefe(eintrag.invitedCode) !== 'verbraucht'
-      ) {
+      if (eintrag?.invitedCode && app.einladungen.pruefe(eintrag.invitedCode) !== 'verbraucht') {
         app.einladungen.widerrufe(eintrag.invitedCode)
       }
       app.warteliste.trageAus(request.body.token)

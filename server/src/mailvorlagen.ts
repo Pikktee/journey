@@ -310,9 +310,8 @@ export class MailVorlagenDienst {
 
   /** Die wirksamen Bausteine einer Vorlage — Anpassung, sonst Standard. */
   bausteine(schluessel: VorlagenSchluessel): MailBausteine {
-    const zeile = this.db
-      .prepare('SELECT * FROM mail_templates WHERE key = ?')
-      .get(schluessel) as VorlagenZeile | undefined
+    const zeile = this.db.prepare('SELECT * FROM mail_templates WHERE key = ?').get(schluessel) as
+      VorlagenZeile | undefined
     if (!zeile) return vorlage(schluessel).standard
     return {
       subject: zeile.subject,
@@ -383,9 +382,7 @@ export class MailVorlagenDienst {
 
   /** Zurück auf den Stand im Code; false, wenn nie etwas angepasst war. */
   setzeZurueck(schluessel: VorlagenSchluessel): boolean {
-    return (
-      this.db.prepare('DELETE FROM mail_templates WHERE key = ?').run(schluessel).changes > 0
-    )
+    return this.db.prepare('DELETE FROM mail_templates WHERE key = ?').run(schluessel).changes > 0
   }
 
   /** Die fertige Mail — der eine Weg, auf dem System-Mails entstehen. */

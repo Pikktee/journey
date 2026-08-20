@@ -1,4 +1,4 @@
-// Die Foto-Karte: was Player und Editor gemeinsam wissen müssen.
+// Die Foto-titel: was Player und Editor gemeinsam wissen müssen.
 //
 // Beide Zahlen hier hatten vorher eine stille Abweichung — die Standzeit stand
 // an vier Stellen (eine davon roh und ungewacht), das Seitenverhältnis war im

@@ -387,9 +387,7 @@ export function wellenLage(
 ): { breiteAnteil: number; versatzAnteil: number; wiederholungen: number } | null {
   if (!(klip.dateiS && klip.dateiS > 0) || !(gesamtFilmS > 0)) return null
   const klipS = klip.filmBis - klip.filmVon
-  const wiederholungen = klip.loop
-    ? Math.max(1, Math.ceil((klip.startS + klipS) / klip.dateiS))
-    : 1
+  const wiederholungen = klip.loop ? Math.max(1, Math.ceil((klip.startS + klipS) / klip.dateiS)) : 1
   return {
     breiteAnteil: klip.dateiS / gesamtFilmS,
     versatzAnteil: -klip.startS / gesamtFilmS,

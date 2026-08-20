@@ -420,11 +420,19 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // Moment darf die Achse nicht verlängern — deshalb ist es genau die gefilterte
   // Liste, die unten in die Halte geht.
   let momentHalte: AchsenHalt[] = []
-  let gefilterteMomente: Array<{ offsetS: number; kind: MomentArt; durationS: number | undefined }> = []
+  let gefilterteMomente: Array<{
+    offsetS: number
+    kind: MomentArt
+    durationS: number | undefined
+  }> = []
   if (edits?.moments?.length) {
     const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
     gefilterteMomente = edits.moments
-      .map((m) => ({ offsetS: (Date.parse(m.from) - startMs) / 1000, kind: m.kind, durationS: m.durationS }))
+      .map((m) => ({
+        offsetS: (Date.parse(m.from) - startMs) / 1000,
+        kind: m.kind,
+        durationS: m.durationS,
+      }))
       .filter((m) => Number.isFinite(m.offsetS))
       .filter((m) => {
         if (trackEndeSek === undefined || m.offsetS <= trackEndeSek) return true

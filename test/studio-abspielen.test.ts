@@ -48,7 +48,7 @@ describe('tick — Fahrt', () => {
     const s = tick(stand(), 1, plan())
     expect(s.stand.marke).toBeCloseTo(0.01, 6)
     expect(s.vorher).toBe(0)
-    expect(s.ende).toBe(false)
+    expect(s.end).toBe(false)
   })
 
   it('läuft im Schnelllauf schneller und rückwärts zurück', () => {
@@ -60,15 +60,15 @@ describe('tick — Fahrt', () => {
     // Der erste Frame hat dt = 0. Prüfte man beide Ränder, träfe die Marke 0
     // die Bedingung „≤ 0" und die Wiedergabe wäre vorbei, bevor sie beginnt.
     const erster = tick(stand(), 0, plan())
-    expect(erster.ende).toBe(false)
+    expect(erster.end).toBe(false)
     expect(erster.stand.marke).toBe(0)
 
     expect(tick(stand({ marke: 0.99 }), 5, plan()).stand.marke).toBe(1)
-    expect(tick(stand({ marke: 0.99 }), 5, plan()).ende).toBe(true)
+    expect(tick(stand({ marke: 0.99 }), 5, plan()).end).toBe(true)
     // rückwärts am Anfang
-    expect(tick(stand({ marke: 0.01, tempo: -1 }), 5, plan()).ende).toBe(true)
+    expect(tick(stand({ marke: 0.01, tempo: -1 }), 5, plan()).end).toBe(true)
     // rückwärts am ENDE ist kein Ende
-    expect(tick(stand({ marke: 1, tempo: -1 }), 1, plan()).ende).toBe(false)
+    expect(tick(stand({ marke: 1, tempo: -1 }), 1, plan()).end).toBe(false)
   })
 
   it('überspringt eine reale Pause in einem Wimpernschlag', () => {
@@ -101,8 +101,8 @@ describe('tick — Fahrt', () => {
 
 describe('Musik', () => {
   const musik = [
-    { von: 0.1, bis: 0.4, url: '/a.mp3', lautstaerke: 0.6 },
-    { von: 0.6, bis: 1, url: '/b.mp3', lautstaerke: 0.5 },
+    { von: 0.1, to: 0.4, url: '/a.mp3', volume: 0.6 },
+    { von: 0.6, to: 1, url: '/b.mp3', volume: 0.5 },
   ]
 
   it('findet Bereiche halboffen [von, bis)', () => {
@@ -115,10 +115,10 @@ describe('Musik', () => {
 
   it('liefert bei Überlappung ALLE Bereiche — sie mischen sich wie im Film', () => {
     const ueberlappend = [
-      { von: 0, bis: 1, url: '/musik.mp3', lautstaerke: 0.8 },
-      { von: 0.2, bis: 0.7, url: '/atmo.mp3', lautstaerke: 0.6 },
+      { von: 0, to: 1, url: '/musik.mp3', volume: 0.8 },
+      { von: 0.2, to: 0.7, url: '/atmo.mp3', volume: 0.6 },
       // Dieselbe Datei ein zweites Mal: die Identität ist der Platz im Plan
-      { von: 0.5, bis: 0.9, url: '/musik.mp3', lautstaerke: 0.4 },
+      { von: 0.5, to: 0.9, url: '/musik.mp3', volume: 0.4 },
     ]
     expect(klipsBei(ueberlappend, 0.1)).toEqual([0])
     expect(klipsBei(ueberlappend, 0.3)).toEqual([0, 1])

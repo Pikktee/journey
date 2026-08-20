@@ -86,7 +86,7 @@ describe('baueUploadManifest', () => {
       },
       zone: 'UTC',
       trackMode: 'bike',
-      medien: [
+      media: [
         {
           id: 'm1',
           type: 'photo',
@@ -96,7 +96,7 @@ describe('baueUploadManifest', () => {
         },
       ],
     })
-    expect(m.schema).toBe('maptale/upload@1')
+    expect(m.schema).toBe('maptale/upload@2')
     expect(m.trackFile).toBe('track.gpx')
     expect(m.trackMode).toBe('bike')
     expect(m.time.start).toBe('2026-07-04T08:00:00+00:00')

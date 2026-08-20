@@ -54,35 +54,35 @@ describe('naechsterPunktIndex', () => {
 describe('Overlay-Mutationen', () => {
   it('mitMedienEdit merged, räumt Leeres weg und bleibt immutabel', () => {
     const a = mitMedienEdit(LEERES_OVERLAY, 'm1', { caption: 'Hallo' })
-    expect(a.medien?.['m1']).toEqual({ caption: 'Hallo' })
-    expect(LEERES_OVERLAY.medien).toBeUndefined()
+    expect(a.media?.['m1']).toEqual({ caption: 'Hallo' })
+    expect(LEERES_OVERLAY.media).toBeUndefined()
 
     const b = mitMedienEdit(a, 'm1', { anchor: [7.9, 46.5] })
-    expect(b.medien?.['m1']).toEqual({ caption: 'Hallo', anchor: [7.9, 46.5] })
+    expect(b.media?.['m1']).toEqual({ caption: 'Hallo', anchor: [7.9, 46.5] })
 
-    // caption: undefined entfernt den Override, geloescht: false ebenso
+    // caption: undefined entfernt den Override, removed: false ebenso
     const c = mitMedienEdit(b, 'm1', { caption: undefined, anchor: undefined })
-    expect(c.medien).toBeUndefined()
-    const d = mitMedienEdit(mitMedienEdit(LEERES_OVERLAY, 'm1', { geloescht: true }), 'm1', {
-      geloescht: false,
+    expect(c.media).toBeUndefined()
+    const d = mitMedienEdit(mitMedienEdit(LEERES_OVERLAY, 'm1', { removed: true }), 'm1', {
+      removed: false,
     })
-    expect(d.medien).toBeUndefined()
+    expect(d.media).toBeUndefined()
   })
 
   it('mitModusGrenze ersetzt gleiche Zeitpunkte und sortiert', () => {
     const a = mitModusGrenze(mitModusGrenze(LEERES_OVERLAY, iso(600), 'ferry'), iso(300), 'tram')
-    expect(a.modi?.map((g) => g.mode)).toEqual(['tram', 'ferry'])
+    expect(a.travelModes?.map((g) => g.mode)).toEqual(['tram', 'ferry'])
     const b = mitModusGrenze(a, iso(600), 'walk')
-    expect(b.modi?.map((g) => g.mode)).toEqual(['tram', 'walk'])
-    expect(ohneModusGrenze(ohneModusGrenze(b, iso(300)), iso(600)).modi).toBeUndefined()
+    expect(b.travelModes?.map((g) => g.mode)).toEqual(['tram', 'walk'])
+    expect(ohneModusGrenze(ohneModusGrenze(b, iso(300)), iso(600)).travelModes).toBeUndefined()
   })
 
   it('mitTrim setzt und entfernt Kanten', () => {
     const a = mitTrim(LEERES_OVERLAY, 'start', iso(300))
     expect(a.trim).toEqual({ start: iso(300) })
     expect(mitTrim(a, 'start', null).trim).toBeUndefined()
-    expect(pruefeOverlay(mitTrim(a, 'ende', iso(100)))).toMatch(/Trim-Start/)
-    expect(pruefeOverlay(mitTrim(a, 'ende', iso(900)))).toBeNull()
+    expect(pruefeOverlay(mitTrim(a, 'end', iso(100)))).toMatch(/Trim-Start/)
+    expect(pruefeOverlay(mitTrim(a, 'end', iso(900)))).toBeNull()
   })
 })
 
@@ -116,7 +116,7 @@ describe('zerlegeFuerAnzeige', () => {
   })
 
   it('markiert getrimmte Bereiche als inaktiv (Verbinder wird grau)', () => {
-    const edits = mitTrim(mitTrim(LEERES_OVERLAY, 'start', iso(300)), 'ende', iso(600))
+    const edits = mitTrim(mitTrim(LEERES_OVERLAY, 'start', iso(300)), 'end', iso(600))
     const out = zerlegeFuerAnzeige(segmente(), edits, START)
     expect(out.map((a) => [a.aktiv, a.pts.map((p) => p[3])])).toEqual([
       [false, [0, 300]], // vor dem Trim-Start: grau bis einschließlich Eintrittspunkt
@@ -201,10 +201,10 @@ describe('materialisiereModi', () => {
 
   it('schreibt die erkannte Aufteilung als Grenzen fest', () => {
     const out = materialisiereModi(LEERES_OVERLAY, erkannt(), START)
-    expect(out.modi).toEqual([
-      { ab: iso(0), mode: 'moped' },
-      { ab: iso(300), mode: 'walk' },
-      { ab: iso(600), mode: 'moped' },
+    expect(out.travelModes).toEqual([
+      { from: iso(0), mode: 'moped' },
+      { from: iso(300), mode: 'walk' },
+      { from: iso(600), mode: 'moped' },
     ])
   })
 
@@ -224,16 +224,16 @@ describe('materialisiereModi', () => {
 
   it('ist idempotent', () => {
     const einmal = materialisiereModi(LEERES_OVERLAY, erkannt(), START)
-    expect(materialisiereModi(einmal, erkannt(), START).modi).toEqual(einmal.modi)
+    expect(materialisiereModi(einmal, erkannt(), START).travelModes).toEqual(einmal.travelModes)
   })
 
   it('behält vorhandene Grenzen bei und ergänzt die erkannten', () => {
     const mit = mitModusGrenze(LEERES_OVERLAY, iso(450), 'ferry')
     const out = materialisiereModi(mit, erkannt(), START)
-    expect(out.modi).toEqual([
-      { ab: iso(0), mode: 'moped' },
-      { ab: iso(300), mode: 'walk' },
-      { ab: iso(600), mode: 'ferry' }, // ab 450 gilt ferry — beim nächsten Punkt sichtbar
+    expect(out.travelModes).toEqual([
+      { from: iso(0), mode: 'moped' },
+      { from: iso(300), mode: 'walk' },
+      { from: iso(600), mode: 'ferry' }, // ab 450 gilt ferry — beim nächsten Punkt sichtbar
     ])
   })
 
@@ -265,28 +265,28 @@ describe('effektiveMedien', () => {
       takenAt: iso(600),
       caption: '',
       anchor: null,
-      placement: 'unplatziert',
+      placement: 'unplaced',
     },
   ]
 
   it('legt Overrides über die Auto-Platzierung; Gelöschte bleiben markiert drin', () => {
-    const edits = mitMedienEdit(mitMedienEdit(LEERES_OVERLAY, 'm1', { geloescht: true }), 'm2', {
+    const edits = mitMedienEdit(mitMedienEdit(LEERES_OVERLAY, 'm1', { removed: true }), 'm2', {
       anchor: [7.91, 46.51],
       caption: 'Neu',
     })
     const [m1, m2] = effektiveMedien(basis(), edits)
-    expect(m1).toMatchObject({ geloescht: true, caption: 'Alt', placement: 'gps' })
+    expect(m1).toMatchObject({ removed: true, caption: 'Alt', placement: 'gps' })
     expect(m2).toMatchObject({
-      geloescht: false,
+      removed: false,
       caption: 'Neu',
-      placement: 'manuell',
+      placement: 'manual',
       anchor: [7.91, 46.51],
     })
   })
 
   it('ist ohne Overlay die Basis mit geloescht=false', () => {
     const out = effektiveMedien(basis(), LEERES_OVERLAY)
-    expect(out.map((m) => m.geloescht)).toEqual([false, false])
+    expect(out.map((m) => m.removed)).toEqual([false, false])
     expect(out[0]?.placement).toBe('gps')
   })
 })
@@ -295,7 +295,7 @@ describe('effektiveMedien', () => {
 // Render-Logik (Server): ein Punkt exakt auf der Trim-Kante zählt als aktiv.
 describe('Trim-Kanten-Semantik (inklusiv, wie serverseitig)', () => {
   it('behandelt die Kantenpunkte als Teil der aktiven Spanne', () => {
-    const edits = mitTrim(mitTrim(LEERES_OVERLAY, 'start', iso(0)), 'ende', iso(900))
+    const edits = mitTrim(mitTrim(LEERES_OVERLAY, 'start', iso(0)), 'end', iso(900))
     const out = zerlegeFuerAnzeige(segmente(), edits, START)
     expect(out).toHaveLength(1)
     expect(out[0]?.aktiv).toBe(true)
