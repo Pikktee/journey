@@ -1691,7 +1691,7 @@ function oeffneMail(v: MailVorlage): void {
   els.mdFehler.textContent = ''
   setzeMailStand('')
   els.mdTitel.textContent = v.name
-  els.mdAnlass.textContent = v.anlass
+  els.mdAnlass.textContent = v.occasion
   els.mdBetreff.value = v.blocks.subject
   els.mdMtitel.value = v.blocks.titel
   els.mdText.value = v.blocks.text
@@ -1703,12 +1703,12 @@ function oeffneMail(v: MailVorlage): void {
   // Die Chips tragen die Erklärung im `title`: Was `{{code}}` einsetzt, sieht
   // man am Namen nicht — und eine Legende darunter läse niemand.
   els.mdPlatzhalter.replaceChildren(
-    ...v.platzhalter.map((p) => {
+    ...v.placeholders.map((p) => {
       const chip = document.createElement('button')
       chip.type = 'button'
       chip.textContent = `{{${p.name}}}`
-      chip.title = p.beschreibung
-      chip.setAttribute('aria-label', `${p.name} einfügen, ${p.beschreibung}`)
+      chip.title = p.description
+      chip.setAttribute('aria-label', `${p.name} einfügen, ${p.description}`)
       chip.addEventListener('click', () => fuegeEin(`{{${p.name}}}`))
       return chip
     }),

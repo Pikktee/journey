@@ -3423,3 +3423,12 @@ zoom	zoom	window-schluessel	src/studio/editor.ts	-	bleibt (schon englisch); Zoom
 upload-$tourId	bleibt	worker-name	android UploadWorker.kt	-	schon englisch; Klassen-Umbenennung in Welle 7 braucht trotzdem Cancel+Neueinreihen (§4.4)
 upload-$tourId	bleibt	worker-name	android/app/src/main/java/app/maptale/upload/UploadWorker.kt	-	Grundstock: schon englisch; die Klassen-Umbenennungen der Welle 7 brauchen trotzdem Cancel+Neueinreihen (§4.4).
 UploadWorker	UploadWorker	worker-name	android/app/src/main/java/app/maptale/upload/UploadWorker.kt	-	bleibt (schon englisch); worker_class_name liegt in der WorkManager-DB.
+idx_exporte_laufend	idx_data_exports_running	db-index	exporte/data_exports; server/src/db.ts	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): Indexnamen tragen die Tabellennamen im Wort und gehen beim Neubau mit (§4.2)
+titelbild/<ts>.jpg	banner/<ts>.jpg	ordner	daten/benutzer/<id>/; server/src/routes/auth.ts, server/src/migrations/start.ts	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): §4.2 verlangt Ordner UND Werte im selben Schritt; der Ordner daten/benutzer/ selbst bleibt vorerst
+anbieter	providers	api-feld	GET /api/tracker/providers (Antwortschluessel der Liste)	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): Sammlung im Plural (§6.0 Regel 4); das Element heisst weiter provider
+anlass	occasion	api-feld	GET /api/admin/mail-templates (templates[].anlass); server/src/mailvorlagen.ts	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): nicht description: beschreibung→description steht in derselben Datei, das waere die Kollision
+platzhalter	placeholders	api-feld	GET /api/admin/mail-templates (templates[].platzhalter); server/src/mailvorlagen.ts	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): Sammlung im Plural; Typ PlatzhalterInfo→PlaceholderInfo
+beschreibung	description	api-feld	GET /api/admin/mail-templates (platzhalter[].beschreibung)	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): Glossar-Grundform
+beispiel	example	api-feld	GET /api/admin/mail-templates (platzhalter[].beispiel)	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): beispielWerte (Funktion) bleibt bis Welle 2
+hatLink	hasLink	api-feld	GET /api/admin/mail-templates (templates[].hatLink)	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): §6.0 Regel 2
+standard	defaultContent	api-feld	GET /api/admin/mail-templates (templates[].standard); server/src/mailvorlagen.ts	1	NACHTRAG 2026-08-20 (Welle-1-Befund, entschieden): die eingebauten MailBausteine; nicht default (laese sich als Boolean neben customized)

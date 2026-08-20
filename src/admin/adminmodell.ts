@@ -317,17 +317,17 @@ export interface MailBausteine {
 
 export interface MailPlatzhalter {
   name: string
-  beschreibung: string
-  beispiel: string
+  description: string
+  example: string
 }
 
 export interface MailVorlage {
   key: string
   name: string
-  anlass: string
-  platzhalter: MailPlatzhalter[]
-  hatLink: boolean
-  standard: MailBausteine
+  occasion: string
+  placeholders: MailPlatzhalter[]
+  hasLink: boolean
+  defaultContent: MailBausteine
   /** Was tatsächlich verschickt wird: die Anpassung, sonst der Standard. */
   blocks: MailBausteine
   customized: boolean
@@ -343,7 +343,7 @@ export interface MailVorlage {
  * dringendere, wer sie zuletzt angefasst hat.
  */
 export function beschreibeVorlage(v: MailVorlage): string {
-  if (!v.customized) return v.anlass
+  if (!v.customized) return v.occasion
   const wer = v.updatedBy ? ` von ${v.updatedBy}` : ''
   return `Angepasst am ${formatiereDatum(v.updatedAt)}${wer}`
 }

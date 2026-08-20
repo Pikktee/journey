@@ -414,10 +414,10 @@ describe('System-Mails', () => {
   const vorlage = (teil: Partial<MailVorlage> = {}): MailVorlage => ({
     key: 'verification',
     name: 'E-Mail bestätigen',
-    anlass: 'Geht nach der Registrierung raus.',
-    platzhalter: [{ name: 'link', beschreibung: 'Bestätigungslink', beispiel: 'https://…' }],
-    hatLink: true,
-    standard: {
+    occasion: 'Geht nach der Registrierung raus.',
+    placeholders: [{ name: 'link', description: 'Bestätigungslink', example: 'https://…' }],
+    hasLink: true,
+    defaultContent: {
       subject: 'Bestätige',
       titel: 'Willkommen',
       text: 'Hallo',

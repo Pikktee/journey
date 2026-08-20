@@ -645,7 +645,7 @@ describe('Registrierung mit Einladung', () => {
 })
 
 describe('System-Mails verwalten', () => {
-  const standard = () => vorlage('verification').standard
+  const defaultContent = () => vorlage('verification').defaultContent
 
   it('verwehrt gewöhnlichen Konten jeden Zugriff (403)', async () => {
     const u = await baueTestApp()
@@ -660,7 +660,7 @@ describe('System-Mails verwalten', () => {
           method: 'PATCH',
           url: '/api/admin/mail-templates/reset',
           cookies: c,
-          payload: standard(),
+          payload: defaultContent(),
         })
       ).statusCode,
     ).toBe(403)
@@ -692,7 +692,7 @@ describe('System-Mails verwalten', () => {
     const { templates } = antwort.json() as { templates: Array<Record<string, unknown>> }
     expect(templates).toHaveLength(6)
     expect(templates[0]).toMatchObject({ key: 'verification', customized: false })
-    expect(templates[0]?.platzhalter).toEqual(
+    expect(templates[0]?.placeholders).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: 'link' })]),
     )
   })
@@ -705,7 +705,7 @@ describe('System-Mails verwalten', () => {
       method: 'PATCH',
       url: '/api/admin/mail-templates/verification',
       cookies: admin.cookies,
-      payload: { ...standard(), title: 'Servus {{name}}', button: 'Jetzt bestätigen' },
+      payload: { ...defaultContent(), title: 'Servus {{name}}', button: 'Jetzt bestätigen' },
     })
     expect(antwort.statusCode).toBe(200)
 
@@ -728,12 +728,12 @@ describe('System-Mails verwalten', () => {
       method: 'PATCH',
       url: '/api/admin/mail-templates/verification',
       cookies: admin.cookies,
-      payload: { ...standard(), button: '' },
+      payload: { ...defaultContent(), button: '' },
     })
     expect(antwort.statusCode).toBe(400)
     expect(antwort.json()).toMatchObject({ error: expect.stringContaining('{{link}}') })
     // Nichts gespeichert: Die Vorlage hängt weiter am Code.
-    expect(u.app.mailvorlagen.bausteine('verification')).toEqual(standard())
+    expect(u.app.mailvorlagen.bausteine('verification')).toEqual(defaultContent())
   })
 
   it('kennt keine erfundenen Vorlagen', async () => {
@@ -745,7 +745,7 @@ describe('System-Mails verwalten', () => {
           method: 'PATCH',
           url: '/api/admin/mail-templates/rechnung',
           cookies: admin.cookies,
-          payload: standard(),
+          payload: defaultContent(),
         })
       ).statusCode,
     ).toBe(404)
@@ -764,7 +764,7 @@ describe('System-Mails verwalten', () => {
           method: 'POST',
           url: '/api/admin/mail-templates/rechnung/preview',
           cookies: admin.cookies,
-          payload: standard(),
+          payload: defaultContent(),
         })
       ).statusCode,
     ).toBe(404)
@@ -777,7 +777,7 @@ describe('System-Mails verwalten', () => {
       method: 'PATCH',
       url: '/api/admin/mail-templates/reset',
       cookies: admin.cookies,
-      payload: { ...vorlage('reset').standard, title: 'Anders' },
+      payload: { ...vorlage('reset').defaultContent, title: 'Anders' },
     })
     const antwort = await u.app.inject({
       method: 'DELETE',
@@ -798,7 +798,7 @@ describe('System-Mails verwalten', () => {
       method: 'POST',
       url: '/api/admin/mail-templates/waitlist-invitation/preview',
       cookies: admin.cookies,
-      payload: vorlage('waitlist-invitation').standard,
+      payload: vorlage('waitlist-invitation').defaultContent,
     })
     expect(antwort.statusCode).toBe(200)
     const erg = antwort.json() as { html: string; subject: string; issues: string[] }
@@ -815,7 +815,7 @@ describe('System-Mails verwalten', () => {
       method: 'POST',
       url: '/api/admin/mail-templates/reset/preview',
       cookies: admin.cookies,
-      payload: { ...vorlage('reset').standard, subject: '' },
+      payload: { ...vorlage('reset').defaultContent, subject: '' },
     })
     expect(antwort.statusCode).toBe(200)
     expect((antwort.json() as { issues: string[] }).issues.join(' ')).toContain('Betreff')
@@ -829,7 +829,7 @@ describe('System-Mails verwalten', () => {
       method: 'POST',
       url: '/api/admin/mail-templates/verification/test',
       cookies: admin.cookies,
-      payload: { blocks: { ...standard(), title: 'Probe' } },
+      payload: { blocks: { ...defaultContent(), title: 'Probe' } },
     })
     expect(antwort.statusCode).toBe(200)
     expect(antwort.json()).toMatchObject({ ok: true, to: 'chefin@example.com' })
@@ -848,7 +848,7 @@ describe('System-Mails verwalten', () => {
       method: 'PATCH',
       url: '/api/admin/mail-templates/reset',
       cookies: admin.cookies,
-      payload: { ...vorlage('reset').standard, title: 'Gespeichert' },
+      payload: { ...vorlage('reset').defaultContent, title: 'Gespeichert' },
     })
     await u.app.inject({
       method: 'POST',

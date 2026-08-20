@@ -121,23 +121,34 @@ das Konzept und die [Abbildungstabelle](abbildungstabelle.tsv).
 - **Indexnamen gehen mit** (`idx_exporte_laufend` → `idx_data_exports_running`
   usw.). Sie stehen in keiner Zeile der Abbildungstabelle, tragen aber die alten
   Tabellennamen im Wort und fielen sonst beim Abnahme-Grep aus §8 auf. Reine
-  DDL-Bezeichner ohne Leser ausserhalb von `db.ts`. **Offene Frage an Henrik.**
+  DDL-Bezeichner ohne Leser ausserhalb von `db.ts`.
+  **Entschieden 2026-08-20 (Abnahme der offenen Punkte):** ja, sie gehen mit; die Tabelle trägt jetzt eine `db-index`-Zeile.
 - **`titelbild/<ts>.jpg` wird `banner/<ts>.jpg`** (Upload-Ordner im
   Benutzer-Storage). §4.2 verlangt die Umbenennung der Benutzer-Ordner, die
   Tabelle hat dafür keine Zeile. Der Ordner `daten/benutzer/` selbst bleibt
-  vorerst. **Offene Frage an Henrik.**
+  vorerst.
+  **Entschieden 2026-08-20 (Abnahme der offenen Punkte):** so bleibt es; Tabellen-Zeile nachgetragen (`ordner`, Welle 1).
 - **`#tracker=`-Werte bleiben deutsch.** §3.4 friert sie ausdrücklich ein, die
   Abbildungstabelle nennt sie im Fundort zweier `api-wert`-Zeilen trotzdem
   (`abgelaufen`, `fehler`). Nach der Rangfolge der Quellen gilt §3.4.
-  **Offene Frage an Henrik.**
+  **Entschieden 2026-08-20 (Abnahme der offenen Punkte):** §3.4 gilt, die Werte bleiben deutsch; die zwei Fundort-Nennungen sind nur Kontext, keine Aufträge.
 - **`GET /api/tracker/providers` antwortet `{ providers: […] }`.** Die Tabelle
   bildet `anbieter` auf `provider` ab; hier ist der Schlüssel eine LISTE, und
-  `provider` für ein Array wäre falsch. **Offene Frage an Henrik.**
+  `provider` für ein Array wäre falsch.
+  **Entschieden 2026-08-20 (Abnahme der offenen Punkte):** `providers` ist richtig (§6.0 Regel 4, Sammlungen Plural); Tabellen-Zeile nachgetragen.
 - **Nicht angefasst, weil die Tabelle keine Zeile hat:** die übrigen Felder von
   `VorlagenEintrag` in der Antwort von `GET /api/admin/mail-templates`
   (`name`, `anlass`, `platzhalter[].name|beschreibung|beispiel`, `hatLink`,
   `standard`). Sie sind Teil des API-Vertrags, stehen aber weder in §6.7 noch in
-  der Tabelle. **Offene Frage an Henrik.**
+  der Tabelle.
+  **Entschieden 2026-08-20 (Abnahme der offenen Punkte):** sie gehen mit, noch in dieser Welle umgesetzt:
+  `anlass` → `occasion` (nicht `description` — das ist in derselben Datei schon
+  die Zielform von `beschreibung`, die Kollision verböte der Wächter),
+  `platzhalter` → `placeholders` (Typ `PlaceholderInfo`), `beschreibung` →
+  `description`, `beispiel` → `example`, `hatLink` → `hasLink`, `standard` →
+  `defaultContent` (nicht `default`: läse sich neben `customized` wie ein
+  Boolean). `name` war schon englisch. Sechs Tabellen-Zeilen nachgetragen,
+  beide Testwelten grün.
 - **`daten/exporte/` bleibt** als Ablagename der Export-Archive: ein
   Datenordner, kein Bezeichner, und ein Umzug verwaiste laufende Archive.
 - Der Ordner `public/audio/sfx/`, die Fragment-Schlüssel der Mail-Links und die

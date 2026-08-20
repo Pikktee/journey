@@ -26,32 +26,32 @@ import {
 export type VorlagenSchluessel =
   'verification' | 'reset' | 'email-change' | 'waitlist' | 'waitlist-invitation' | 'export'
 
-export interface PlatzhalterInfo {
+export interface PlaceholderInfo {
   name: string
   /** Was der Platzhalter einsetzt — steht so in der Verwaltung. */
-  beschreibung: string
+  description: string
   /** Beispielwert für Vorschau und Testmail. */
-  beispiel: string
+  example: string
 }
 
 export interface VorlagenEintrag {
   key: VorlagenSchluessel
   name: string
   /** Wann diese Mail rausgeht — die Frage, die man vor dem Bearbeiten hat. */
-  anlass: string
-  platzhalter: PlatzhalterInfo[]
+  occasion: string
+  placeholders: PlaceholderInfo[]
   /**
    * Trägt der Knopf den Hauptlink? Dann muss `{{link}}` nicht im Text stehen.
    * Ohne Knopf wäre die Mail ohne den Platzhalter eine Sackgasse.
    */
-  hatLink: boolean
-  standard: MailBausteine
+  hasLink: boolean
+  defaultContent: MailBausteine
 }
 
-const LINK_INFO = (was: string, beispiel: string): PlatzhalterInfo => ({
+const LINK_INFO = (was: string, example: string): PlaceholderInfo => ({
   name: 'link',
-  beschreibung: `${was}, steckt im Knopf; im Text nur nötig, wenn du den Knopf leerst`,
-  beispiel,
+  description: `${was}, steckt im Knopf; im Text nur nötig, wenn du den Knopf leerst`,
+  example,
 })
 
 /**
@@ -62,18 +62,18 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     key: 'verification',
     name: 'E-Mail bestätigen',
-    anlass:
+    occasion:
       'Geht sofort nach der Registrierung raus. Ohne den Klick darf niemand Touren hochladen.',
-    hatLink: true,
-    platzhalter: [
+    hasLink: true,
+    placeholders: [
       {
         name: 'name',
-        beschreibung: 'Name des Kontos (aus der Registrierung oder der Adresse abgeleitet)',
-        beispiel: 'Mira Wolf',
+        description: 'Name des Kontos (aus der Registrierung oder der Adresse abgeleitet)',
+        example: 'Mira Wolf',
       },
       LINK_INFO('Bestätigungslink', 'https://maptale.io/anmelden#verify=beispiel'),
     ],
-    standard: {
+    defaultContent: {
       subject: 'Bestätige deine E-Mail-Adresse',
       title: 'Willkommen bei Maptale',
       text:
@@ -89,17 +89,17 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     key: 'reset',
     name: 'Passwort zurücksetzen',
-    anlass: 'Geht raus, wenn jemand auf der Anmeldeseite „Passwort vergessen" wählt.',
-    hatLink: true,
-    platzhalter: [
+    occasion: 'Geht raus, wenn jemand auf der Anmeldeseite „Passwort vergessen" wählt.',
+    hasLink: true,
+    placeholders: [
       {
         name: 'name',
-        beschreibung: 'Name des Kontos, zu dem die Adresse gehört',
-        beispiel: 'Mira Wolf',
+        description: 'Name des Kontos, zu dem die Adresse gehört',
+        example: 'Mira Wolf',
       },
       LINK_INFO('Link zum neuen Passwort', 'https://maptale.io/anmelden#reset=beispiel'),
     ],
-    standard: {
+    defaultContent: {
       subject: 'Passwort zurücksetzen',
       title: 'Neues Passwort setzen',
       text:
@@ -115,14 +115,14 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     key: 'email-change',
     name: 'Neue E-Mail-Adresse bestätigen',
-    anlass:
+    occasion:
       'Geht an die NEUE Adresse, wenn jemand sie in den Kontoeinstellungen einträgt. Erst der Klick macht sie zur Anmeldeadresse, bis dahin gilt die alte weiter.',
-    hatLink: true,
-    platzhalter: [
-      { name: 'name', beschreibung: 'Name des Kontos', beispiel: 'Mira Wolf' },
+    hasLink: true,
+    placeholders: [
+      { name: 'name', description: 'Name des Kontos', example: 'Mira Wolf' },
       LINK_INFO('Bestätigungslink', 'https://maptale.io/konto#email=beispiel'),
     ],
-    standard: {
+    defaultContent: {
       subject: 'Bestätige deine neue E-Mail-Adresse',
       title: 'Neue Adresse bestätigen',
       text:
@@ -137,13 +137,13 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     key: 'waitlist',
     name: 'Warteliste: Platz bestätigen',
-    anlass:
+    occasion:
       'Geht raus, sobald sich jemand ohne Einladungscode einträgt. Erst der Klick macht daraus einen Platz in der Schlange (Double-Opt-in).',
-    hatLink: true,
-    platzhalter: [
+    hasLink: true,
+    placeholders: [
       LINK_INFO('Bestätigungslink', 'https://maptale.io/registrieren#warteliste=beispiel'),
     ],
-    standard: {
+    defaultContent: {
       subject: 'Bitte bestätige deinen Platz auf der Warteliste',
       title: 'Fast auf der Liste',
       text:
@@ -160,14 +160,14 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     key: 'waitlist-invitation',
     name: 'Warteliste: Platz ist frei',
-    anlass:
+    occasion:
       'Geht raus, wenn du in der Warteliste auf „Einladen" drückst, mit dem frisch erzeugten Code.',
-    hatLink: true,
-    platzhalter: [
+    hasLink: true,
+    placeholders: [
       {
         name: 'code',
-        beschreibung: 'Der Einladungscode. Steht er allein in einem Absatz, wird er hervorgehoben.',
-        beispiel: 'MAPT-4F7K',
+        description: 'Der Einladungscode. Steht er allein in einem Absatz, wird er hervorgehoben.',
+        example: 'MAPT-4F7K',
       },
       LINK_INFO(
         'Registrierung mit eingetragenem Code',
@@ -175,12 +175,12 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
       ),
       {
         name: 'leaveLink',
-        beschreibung:
+        description:
           'Weg aus der Warteliste, muss in der Mail stehen (Löschung ohne Umweg über uns)',
-        beispiel: 'https://maptale.io/registrieren#warteliste-austragen=beispiel',
+        example: 'https://maptale.io/registrieren#warteliste-austragen=beispiel',
       },
     ],
-    standard: {
+    defaultContent: {
       subject: 'Dein Platz ist frei',
       title: 'Es ist so weit',
       text:
@@ -198,17 +198,17 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     key: 'export',
     name: 'Datenexport fertig',
-    anlass:
+    occasion:
       'Geht raus, sobald das angeforderte ZIP gebaut ist (Art. 20 DSGVO). ' +
       'Der Link gilt 48 Stunden, danach ist das Archiv gelöscht, nicht nur unerreichbar.',
-    hatLink: true,
-    platzhalter: [
-      { name: 'name', beschreibung: 'Name des Kontos', beispiel: 'Mira Wolf' },
+    hasLink: true,
+    placeholders: [
+      { name: 'name', description: 'Name des Kontos', example: 'Mira Wolf' },
       LINK_INFO('Link zum Archiv', 'https://maptale.io/api/export/beispiel'),
-      { name: 'size', beschreibung: 'Größe des Archivs, fertig formatiert', beispiel: '1,4 GB' },
-      { name: 'deadline', beschreibung: 'Wie lange der Link gilt', beispiel: '48 Stunden' },
+      { name: 'size', description: 'Größe des Archivs, fertig formatiert', example: '1,4 GB' },
+      { name: 'deadline', description: 'Wie lange der Link gilt', example: '48 Stunden' },
     ],
-    standard: {
+    defaultContent: {
       subject: 'Dein Datenexport ist fertig',
       title: 'Deine Daten liegen bereit',
       text:
@@ -236,7 +236,7 @@ export function vorlage(schluessel: VorlagenSchluessel): VorlagenEintrag {
 
 /** Beispielbelegung für Vorschau und Testmail. */
 export const beispielWerte = (eintrag: VorlagenEintrag): Record<string, string> =>
-  Object.fromEntries(eintrag.platzhalter.map((p) => [p.name, p.beispiel]))
+  Object.fromEntries(eintrag.placeholders.map((p) => [p.name, p.example]))
 
 /**
  * Was an einer bearbeiteten Vorlage nicht stimmt — leer heißt: geht raus.
@@ -257,7 +257,7 @@ export function pruefeBausteine(eintrag: VorlagenEintrag, bausteine: MailBaustei
     ...findePlatzhalter(bausteine.text),
     ...findePlatzhalter(bausteine.footer),
   ])
-  const bekannt = new Set(eintrag.platzhalter.map((p) => p.name))
+  const bekannt = new Set(eintrag.placeholders.map((p) => p.name))
   for (const name of benutzt) {
     if (!bekannt.has(name))
       probleme.push(
@@ -267,9 +267,9 @@ export function pruefeBausteine(eintrag: VorlagenEintrag, bausteine: MailBaustei
 
   // Ein Platzhalter, der den einzigen Weg der Mail trägt, muss ankommen: `link`
   // über den Knopf ODER im Text, alle anderen im Text.
-  for (const p of eintrag.platzhalter) {
+  for (const p of eintrag.placeholders) {
     if (benutzt.has(p.name)) continue
-    if (p.name === 'link' && eintrag.hatLink && bausteine.button.trim()) continue
+    if (p.name === 'link' && eintrag.hasLink && bausteine.button.trim()) continue
     probleme.push(
       p.name === 'link'
         ? 'Ohne Knopf muss {{link}} im Text stehen, sonst kommt der Empfänger nirgendwohin.'
@@ -312,7 +312,7 @@ export class MailVorlagenDienst {
   bausteine(schluessel: VorlagenSchluessel): MailBausteine {
     const zeile = this.db.prepare('SELECT * FROM mail_templates WHERE key = ?').get(schluessel) as
       VorlagenZeile | undefined
-    if (!zeile) return vorlage(schluessel).standard
+    if (!zeile) return vorlage(schluessel).defaultContent
     return {
       subject: zeile.subject,
       title: zeile.title,
@@ -337,7 +337,7 @@ export class MailVorlagenDienst {
         ...eintrag,
         blocks: z
           ? { subject: z.subject, title: z.title, text: z.body, button: z.button, footer: z.footer }
-          : eintrag.standard,
+          : eintrag.defaultContent,
         customized: Boolean(z),
         updatedAt: z?.updated_at ?? null,
         updatedBy: z?.bearbeiter ?? null,
@@ -355,7 +355,7 @@ export class MailVorlagenDienst {
    * dort nie an.
    */
   setze(schluessel: VorlagenSchluessel, bausteine: MailBausteine, benutzerId: string | null): void {
-    if (!weichtAb(bausteine, vorlage(schluessel).standard)) {
+    if (!weichtAb(bausteine, vorlage(schluessel).defaultContent)) {
       this.setzeZurueck(schluessel)
       return
     }

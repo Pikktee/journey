@@ -132,14 +132,14 @@ describe('Vorlagen-Katalog', () => {
       'export',
     ])
     for (const v of VORLAGEN) {
-      expect(v.standard.subject, v.key).toBeTruthy()
-      expect(v.standard.title, v.key).toBeTruthy()
-      expect(v.platzhalter.length, v.key).toBeGreaterThan(0)
+      expect(v.defaultContent.subject, v.key).toBeTruthy()
+      expect(v.defaultContent.title, v.key).toBeTruthy()
+      expect(v.placeholders.length, v.key).toBeGreaterThan(0)
     }
   })
 
   it('hält jeden Standardtext für versandfähig', () => {
-    for (const v of VORLAGEN) expect(pruefeBausteine(v, v.standard), v.key).toEqual([])
+    for (const v of VORLAGEN) expect(pruefeBausteine(v, v.defaultContent), v.key).toEqual([])
   })
 
   it('erkennt fremde Schlüssel', () => {
@@ -151,7 +151,7 @@ describe('Vorlagen-Katalog', () => {
   it('rendert jeden Standard mit seinen Beispielwerten ohne offenen Platzhalter', () => {
     for (const v of VORLAGEN) {
       const werte = beispielWerte(v)
-      const mail = rendereMail(v.standard, werte, { basisUrl: BASIS, link: werte.link ?? BASIS })
+      const mail = rendereMail(v.defaultContent, werte, { basisUrl: BASIS, link: werte.link ?? BASIS })
       expect(mail.text, v.key).not.toMatch(/\{\{/)
       expect(mail.html, v.key).not.toMatch(/\{\{/)
     }
@@ -174,14 +174,14 @@ describe('Vorlagen prüfen', () => {
 
   it('meldet einen Platzhalter, den es in dieser Mail nicht gibt', () => {
     const probleme = pruefeBausteine(eintrag, {
-      ...eintrag.standard,
+      ...eintrag.defaultContent,
       text: 'Hallo {{name}}, {{rechnung}}',
     })
     expect(probleme.join(' ')).toContain('{{rechnung}}')
   })
 
   it('verlangt den Link im Text, sobald der Knopf leer ist', () => {
-    const ohneKnopf = { ...eintrag.standard, button: '' }
+    const ohneKnopf = { ...eintrag.defaultContent, button: '' }
     expect(pruefeBausteine(eintrag, ohneKnopf).join(' ')).toContain('{{link}}')
     expect(
       pruefeBausteine(eintrag, { ...ohneKnopf, text: 'Hallo {{name}}, hier entlang: {{link}}' }),
@@ -189,7 +189,7 @@ describe('Vorlagen prüfen', () => {
   })
 
   it('meldet jede andere fehlende Angabe', () => {
-    expect(pruefeBausteine(eintrag, { ...eintrag.standard, text: 'Ganz ohne Anrede.' })).toContain(
+    expect(pruefeBausteine(eintrag, { ...eintrag.defaultContent, text: 'Ganz ohne Anrede.' })).toContain(
       '{{name}} fehlt, diese Angabe geht sonst verloren.',
     )
   })
@@ -205,43 +205,43 @@ describe('MailVorlagenDienst', () => {
   })
 
   it('liefert ohne Anpassung den Text aus dem Code', () => {
-    expect(dienst.bausteine('reset')).toEqual(vorlage('reset').standard)
+    expect(dienst.bausteine('reset')).toEqual(vorlage('reset').defaultContent)
     expect(dienst.alle().every((v) => !v.customized)).toBe(true)
   })
 
   it('speichert eine Anpassung und meldet sie in der Liste', () => {
-    dienst.setze('reset', { ...vorlage('reset').standard, title: 'Neues Kennwort' }, null)
+    dienst.setze('reset', { ...vorlage('reset').defaultContent, title: 'Neues Kennwort' }, null)
     expect(dienst.bausteine('reset').title).toBe('Neues Kennwort')
     const stand = dienst.alle().find((v) => v.key === 'reset')
     expect(stand?.customized).toBe(true)
     expect(stand?.updatedAt).toBeTruthy()
     // Der Standard bleibt daneben sichtbar — sonst wüsste niemand, wovon die
     // Fassung abweicht.
-    expect(stand?.standard).toEqual(vorlage('reset').standard)
+    expect(stand?.defaultContent).toEqual(vorlage('reset').defaultContent)
   })
 
   it('behandelt das Speichern des unveränderten Standards als Zurücksetzen', () => {
-    dienst.setze('reset', { ...vorlage('reset').standard, title: 'Anders' }, null)
-    dienst.setze('reset', vorlage('reset').standard, null)
+    dienst.setze('reset', { ...vorlage('reset').defaultContent, title: 'Anders' }, null)
+    dienst.setze('reset', vorlage('reset').defaultContent, null)
     expect(dienst.alle().find((v) => v.key === 'reset')?.customized).toBe(false)
   })
 
   it('setzt zurück und hängt die Vorlage wieder an den Code', () => {
-    dienst.setze('verification', { ...vorlage('verification').standard, subject: 'Anders' }, null)
+    dienst.setze('verification', { ...vorlage('verification').defaultContent, subject: 'Anders' }, null)
     expect(dienst.setzeZurueck('verification')).toBe(true)
-    expect(dienst.bausteine('verification')).toEqual(vorlage('verification').standard)
+    expect(dienst.bausteine('verification')).toEqual(vorlage('verification').defaultContent)
     expect(dienst.setzeZurueck('verification')).toBe(false)
   })
 
   it('rendert über den Dienst mit der angepassten Fassung', () => {
-    dienst.setze('verification', { ...vorlage('verification').standard, title: 'Servus' }, null)
+    dienst.setze('verification', { ...vorlage('verification').defaultContent, title: 'Servus' }, null)
     const mail = dienst.rendere('verification', { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
     expect(mail.html).toContain('Servus')
     expect(mail.text.startsWith('Servus')).toBe(true)
   })
 
   it('vergleicht Fassungen ohne Randleerraum', () => {
-    const a = vorlage('reset').standard
+    const a = vorlage('reset').defaultContent
     expect(weichtAb(a, { ...a, title: `  ${a.title}  ` })).toBe(false)
     expect(weichtAb(a, { ...a, title: 'anders' })).toBe(true)
   })
