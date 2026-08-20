@@ -3,11 +3,11 @@
 Das Austauschformat ist die Achse zwischen Android-App, CLI-Importer, Web-Studio,
 Backend und Player. Es hat zwei Gestalten desselben Schemas:
 
-1. **Upload-Manifest `maptale/upload@1`** — was Clients hochladen (Rohdaten).
-2. **Tour-JSON `maptale/tour@1`** — was das Backend daraus rendert und der
+1. **Upload-Manifest `maptale/upload@2`** — was Clients hochladen (Rohdaten).
+2. **Tour-JSON `maptale/tour@2`** — was das Backend daraus rendert und der
    Player abspielt (angereichert).
 
-Dazu tritt das **Edit-Overlay `maptale/edits@1`** — die Bearbeitungen, aus denen
+Dazu tritt das **Edit-Overlay `maptale/edits@2`** — die Bearbeitungen, aus denen
 zusammen mit den Rohdaten das Tour-JSON entsteht. Wer wissen will, welche der
 drei Dateien wofür zuständig ist und wohin ein neues Feld gehört:
 [overlay-und-tourjson.md](overlay-und-tourjson.md).
@@ -31,7 +31,7 @@ Grundprinzipien:
   Stelle. Nachrechnen kann der Client das nicht: `vereinfacheSegment` wirft
   Punkte weg, die Länge tragen.
   **Die eine begründete Ausnahme ist die FILMSEKUNDE je Ereignis** (`audio[].filmS`
-  / `filmBisS`, `camera[].filmS`, `moments[].filmS` — E10, s. u.). Sie ist keine
+  / `filmToS`, `camera[].filmS`, `moments[].filmS` — E10, s. u.). Sie ist keine
   zweite Streckenangabe, sondern eine andere Größe: Im HALT (Foto-Standzeit,
   Moment, kollabierte Pause) läuft der Film, während die Strecke steht. Ein
   ganzes Film-Intervall fällt dort auf EIN `f` zusammen, und aus diesem `f` ist
@@ -45,13 +45,13 @@ Grundprinzipien:
 - **Unbekannte Felder ignoriert der Player.** Baukasten-Felder (`camera`,
   `audio`, `media[].display`) sind reserviert und ab Tag 1 im Schema erlaubt.
 
-## Upload-Manifest `maptale/upload@1`
+## Upload-Manifest `maptale/upload@2`
 
 `POST /api/tours` (Bearer-Token oder Session), Validierung: `server/src/schema/upload.ts`.
 
 ```json
 {
-  "schema": "maptale/upload@1",
+  "schema": "maptale/upload@2",
   "clientTourId": "8f3e-…",
   "title": null,
   "description": null,
@@ -69,12 +69,12 @@ Grundprinzipien:
 }
 ```
 
-- `segments[].pts`: `[lng, lat, ele(m), tOffset(s ab time.start)]` — die Zeit
+- `segments[].pts`: `[lng, lat, ele(m), tOffset(s from time.start)]` — die Zeit
   als 4. Koordinate trägt die nichtlineare Pseudo-Zeit (M2) und die
   Zeit-Platzierung von Medien.
 - `mode`: `walk | bike | moped | jeep | tram | ferry` (Tempo + Kameradistanz im Player).
-- `media[].quelle` (optional, nur beim Nachreichen): Herkunfts-Schlüssel des Clients,
-  z. B. `galerie:4711`. Er macht `POST /api/tours/:id/medien` idempotent — derselbe
+- `media[].source` (optional, nur beim Nachreichen): Herkunfts-Schlüssel des Clients,
+  z. B. `galerie:4711`. Er macht `POST /api/tours/:id/media` idempotent — derselbe
   Schlüssel legt keinen zweiten Eintrag an. Der Foto-Nachzug der App setzt ihn, das
   Studio nicht (s. [konzept_medien_nachreichen_und_loeschen.md](../concepts/konzept_medien_nachreichen_und_loeschen.md)).
   Die Liste ist deckungsgleich mit `MODI` in `server/src/schema/upload.ts` und der
@@ -89,9 +89,9 @@ Grundprinzipien:
 
 Medien-Binärdaten: `PUT /api/tours/:id/media/:mid` (roher Body, idempotent,
 wiederholbar). Danach `POST /api/tours/:id/finalize` → Anreicherung läuft
-asynchron (`status: angelegt → verarbeitung → bereit | fehler`).
+asynchron (`status: created → processing → ready | failed`).
 
-## Tour-JSON `maptale/tour@1`
+## Tour-JSON `maptale/tour@2`
 
 `GET /api/tours/:id` (Sichtbarkeit: `private` nur Owner, `unlisted`/`public`
 per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
@@ -99,10 +99,10 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
 
 ```json
 {
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "id": "t_V1kQz9xY",
   "no": "N°07",
-  "status": "bereit",
+  "status": "ready",
   "brandTitle": "Lauterbrunnen → Grindelwald",
   "kicker": "Lauterbrunnen",
   "titleHtml": "Lauterbrunnen<br />→ Grindelwald",
@@ -110,7 +110,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   "showFinale": false,
   "finaleTitle": "Grindelwald",
   "description": null,
-  "autor": { "anzeigename": "Henrik", "avatarUrl": null, "id": "u_…", "handle": "henrik" },
+  "author": { "anzeigename": "Henrik", "avatarUrl": null, "id": "u_…", "handle": "henrik" },
   "time": { "start": "…", "end": "…", "zone": "Europe/Zurich" },
   "timeline": [{ "f": 0.0, "t": "…" }, { "f": 1.0, "t": "…" }],
   "segments": [{ "mode": "walk", "label": "Zu Fuß", "pts": [[7.9086, 46.5934, 802.1]], "f": [0.0] }],
@@ -137,16 +137,16 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   werden.
 
 - **`kicker` ist die Dachzeile über dem Titel und kommt aus einem FELD**
-  (`tours.dachzeile`), nicht mehr aus einem erzeugten Satz. Bis 2026-08-18 stand
+  (`tours.kicker`), nicht mehr aus einem erzeugten Satz. Bis 2026-08-18 stand
   dort „Aufgezeichnet am 4. Juli 2026"; das Datum steht jetzt in der
   Herkunftszeile neben dem Namen des Aufnehmers. Drei Zustände: Spalte `NULL` =
   nie gesetzt, dann nimmt `baueBenennung` die Vorbelegung (bei einer Rundtour den
   Startort, sonst nichts); leerer String = ausdrücklich keine Zeile; sonst der
   Text. Ohne die Unterscheidung ließe sich eine einmal gesetzte Zeile nie wieder
-  loswerden. Die Vorschläge im Studio (`dachzeileVorschlaege` im Editor-
+  loswerden. Die Vorschläge im Studio (`kickerSuggestions` im Editor-
   Datensatz) sind die Adress-Ebenen des Startpunkts aus dem Anreicherungs-Cache
   — dieselbe Geocoder-Antwort, aus der schon der Ortsname stammt.
-- **`autor` steht NICHT in der gerenderten Datei.** Die Route setzt ihn bei jeder
+- **`author` steht NICHT in der gerenderten Datei.** Die Route setzt ihn bei jeder
   Auslieferung frisch aus der Datenbank ein: Ein eingebackener Name wäre nach dem
   nächsten Wechsel falsch, und ein Re-Render aller Touren dafür unverhältnismäßig.
   Er fehlt ganz, wenn niemand einen Anzeigenamen gesetzt hat (dann bleibt die
@@ -181,7 +181,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   Umstellung gerendert wurden und den Start-Nachtrag noch nicht durchlaufen
   haben (`server/src/pipeline/bildnachtrag.ts`) — jede Anzeige braucht deshalb
   einen Rückfall auf `src`.
-- `segments[].f` (**additiv**, `maptale/tour@1` bleibt): Streckenanteil je Punkt
+- `segments[].f` (**additiv**, `maptale/tour@2` bleibt): Streckenanteil je Punkt
   von `pts`, auf der ROHEN Geometrie gemessen — parallele Liste, gleiche Länge.
   Der Player baut daraus mit `route.wpS` (`src/geo.ts`) eine Tabelle und
   übersetzt JEDEN `f`-Anker der Tour EINMAL beim Laden nach Streckenmetern
@@ -233,19 +233,19 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   - `camera: [{f, preset, filmS?}]` — Kamera-Preset-Keyframes (nah|mittel|weit|standard),
     sortiert nach `f`; gilt ab dieser Stelle bis zum nächsten Keyframe. Der Player
     (main.js-Folger) wendet sie über `tour.setPreset` an; ein manueller
-    Preset-Klick des Zuschauers übersteuert den Verlauf. `standard` ist der
+    Preset-Klick des Zuschauers übersteuert den Verlauf. `default` ist der
     Wert für „keine Vorgabe": Der Folger setzt dort den Abstand zurück, den der
     Zuschauer eingestellt hat (dasselbe wie vor dem ersten Keyframe), und eine
-    `skala` bleibt dabei außen vor — sie gehört zu einem gewählten Abstand.
+    `scale` bleibt dabei außen vor — sie gehört zu einem gewählten Abstand.
     `PRESETS` in src/tour.js kennt ihn NICHT; er wird im Folger übersetzt.
-  - `audio: [{type, src, f0, f1, gain?, filmS?, filmBisS?}]` — `music` spielt im
+  - `audio: [{type, src, f0, f1, gain?, filmS?, filmToS?}]` — `music` spielt im
     Bereich [Beginn, Ende) mit weichen Blenden (src/audiotracks.ts; ersetzt die
     statische Hintergrundmusik der Tour komplett), `sfx` feuert einmal beim
     Vorwärts-Überfahren seines Beginns. `gain` 0..1 (Default 1).
-  - **Die Film-Anker `filmS` / `filmBisS` (additiv, E10) gehen `f0`/`f1` vor.**
+  - **Die Film-Anker `filmS` / `filmToS` (additiv, E10) gehen `f0`/`f1` vor.**
     Der Player rechnet in Filmsekunden, nicht im Streckenanteil — je Endpunkt
     einzeln: Wo `filmS` steht, gilt es; wo es fehlt, rechnet er die Filmsekunde
-    aus `f0` über die Filmachse. `filmBisS` steht nur bei einem BEREICH — ein
+    aus `f0` über die Filmachse. `filmToS` steht nur bei einem BEREICH — ein
     One-Shot hat keine Länge, und dasselbe gilt für `camera[].filmS` und
     `moments[].filmS` (dort ist es eine Auskunft: Einen Moment verankert der
     Player weiter an `f`, weil die Filmachse AUS den Momenten gebaut wird).
@@ -257,7 +257,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
     Sekunden (Default 5,2 s) und Ken-Burns-Drift an/aus (Default an);
     für Videos wirkungslos (Haltedauer = Videolänge).
 
-## Edit-Overlay `maptale/edits@1` (M7)
+## Edit-Overlay `maptale/edits@2` (M7)
 
 Alle Bearbeitungen einer Tour leben in EINER Datei `edits.json` neben den
 unantastbaren Rohdaten unter `original/` — die Pipeline rendert das Tour-JSON
@@ -267,18 +267,18 @@ Auto-Wetter — die Edits bleiben dabei erhalten).
 
 ```jsonc
 {
-  "schema": "maptale/edits@1",
-  "medien": {                          // Overrides je Medien-ID des Manifests
+  "schema": "maptale/edits@2",
+  "media": {                          // Overrides je Medien-ID des Manifests
     "m3": { "caption": "Neuer Text" },
-    "m5": { "anchor": [7.912, 46.51] },// manuell gesetzt → placement "manuell"
-    "m7": { "geloescht": true }        // aus der Wiedergabe; Rohdatei bleibt
+    "m5": { "anchor": [7.912, 46.51] },// von Hand gesetzt → placement "manual"
+    "m7": { "removed": true }        // aus der Wiedergabe; Rohdatei bleibt
   },
-  "modi": [                            // Fortbewegung ab Zeitpunkt (bis zur nächsten Grenze)
-    { "ab": "2026-07-04T10:15:00Z", "mode": "ferry" }
+  "travelModes": [                            // Fortbewegung ab Zeitpunkt (bis zur nächsten Grenze)
+    { "from": "2026-07-04T10:15:00Z", "mode": "ferry" }
   ],
   "trim": {                            // Track beschneiden (je optional)
     "start": "2026-07-04T08:30:00Z",
-    "ende":  "2026-07-04T16:00:00Z"
+    "end":  "2026-07-04T16:00:00Z"
   }
 }
 ```
@@ -287,7 +287,7 @@ Kern-Designentscheid: Edits referenzieren **stabile Anker** — Medien-IDs,
 Koordinaten und absolute Zeitstempel, **nie den Streckenanteil `f`**. Ein Trim
 verschiebt so keine nachfolgenden Bearbeitungen (Anker hängen an Koordinaten,
 Grenzen an Uhrzeiten). Titel, Beschreibung und Endscreen (`finale` /
-`finale_ziel`) liegen bewusst NICHT im Overlay, sondern in den DB-Spalten
+`finale_target`) liegen bewusst NICHT im Overlay, sondern in den DB-Spalten
 (`PATCH /api/tours/:id`) — eine Quelle der Wahrheit pro Feld.
 Anwendungsreihenfolge in der Pipeline (`pipeline/edits.ts`):
 Trim → Modus-Grenzen → Auto-Platzierung → Medien-Overrides; Benennung,
@@ -296,52 +296,52 @@ Timeline und Wetter rechnen danach auf dem bearbeiteten Track.
 Der Studio-Editor holt sich seine Arbeitsgrundlage über
 `GET /api/tours/:id/editor` (Owner-only): Original-Track **mit Zeit-Offsets**
 (`pts: [lng, lat, ele, tOffsetS]`, vereinfacht), Auto-Platzierung aller Medien
-(inklusive gelöschter/unplatzierter; je Medium zusätzlich `gpsAnker` = roher
+(inklusive gelöschter/unplatzierter; je Medium zusätzlich `gpsAnchor` = roher
 Manifest-Anker, auch wenn die Platzierung ihn verwarf), die hochgeladenen
-Audio-Assets (`audio: [{datei, groesse}]`) und das gespeicherte Overlay.
+Audio-Assets (`audio: [{file, size}]`) und das gespeicherte Overlay.
 Bewusste Vereinfachung: Die Auto-Platzierung im Editor rechnet auf dem
 **Original-** (untrimmten) Track — beschneidet ein Trim das Umfeld eines
 Auto-Ankers, kann das Render-Ergebnis davon abweichen (Medium wird
-`unplatziert`); der gerenderte Stand ist immer die Wahrheit des Players.
+`unplaced`); der gerenderte Stand ist immer die Wahrheit des Players.
 
-### Kreativbaukasten (edits@1-Erweiterung)
+### Kreativbaukasten (edits@2-Erweiterung)
 
 Drei zusätzliche Overlay-Bereiche, alle mit **absoluten Zeitstempeln** als
 Anker (trim-stabil, nie `f`):
 
 ```jsonc
 {
-  "medien": { "m3": { "display": { "holdS": 8, "kenBurns": false } } },
-  "kamera": [ { "ab": "2026-07-04T10:00:00Z", "preset": "weit" } ],
+  "media": { "m3": { "display": { "holdS": 8, "kenBurns": false } } },
+  "camera": [ { "from": "2026-07-04T10:00:00Z", "preset": "far" } ],
   "audio": [
-    { "datei": "musik.mp3", "typ": "musik", "ab": "…", "bis": "…", "lautstaerke": 0.8 },
-    { "datei": "knall.mp3", "typ": "sfx", "ab": "…" }
+    { "file": "musik.mp3", "type": "music", "from": "…", "to": "…", "volume": 0.8 },
+    { "file": "knall.mp3", "type": "sfx", "from": "…" }
   ]
 }
 ```
 
 - `display.holdS` 2..60 s, `kenBurns` boolean; nur bei Fotos wirksam.
-- `kamera` (max. 100): Preset ab Zeitpunkt bis zur nächsten Grenze.
-- `audio` (max. 50): `musik` mit optionalem `bis` (fehlt = Tour-Ende),
-  `sfx` als Einzelschuss (kein `bis`); `lautstaerke` 0..1.
+- `camera` (max. 100): Preset ab Zeitpunkt bis zur nächsten Grenze.
+- `audio` (max. 50): `music` mit optionalem `to` (fehlt = Tour-Ende),
+  `sfx` als Einzelschuss (kein `to`); `volume` 0..1.
 
 **Audio-Assets** sind KEINE Aufnahme-Medien (nicht im Upload-Manifest),
 sondern kreative Zutaten mit eigenem Lebenszyklus:
 
-- `PUT /api/tours/:id/audio/:datei` — roher Body; `datei` =
-  `^[A-Za-z0-9_-]{1,64}\.(mp3|m4a|ogg|wav)$`; auch auf `bereit`-Touren
-  erlaubt (nur während `verarbeitung` 409). Überschreiben ist verboten
+- `PUT /api/tours/:id/audio/:file` — roher Body; `file` =
+  `^[A-Za-z0-9_-]{1,64}\.(mp3|m4a|ogg|wav)$`; auch auf `ready`-Touren
+  erlaubt (nur während `processing` 409). Überschreiben ist verboten
   (409) — die Auslieferung verspricht `immutable`-Caching, neue Version =
   neuer Name. Limit `maxAudioBytes` (Default 25 MB) → 413.
-- `DELETE /api/tours/:id/audio/:datei` — löscht das Asset (das Overlay
+- `DELETE /api/tours/:id/audio/:file` — löscht das Asset (das Overlay
   bereinigt der Editor beim Speichern; die Pipeline überspringt Einträge
   mit fehlender Datei mit Protokoll-Warnung).
 - Ablage unter `media/`, Auslieferung über die normale Medien-Route
   (Range-Support fürs Seeking, korrekte audio/*-Content-Types).
 
 Beim Rendern bildet die Pipeline die Zeit-Anker über `positionZurZeit` auf
-den **bearbeiteten** (getrimmten) Track ab: `kamera.ab → camera[].f`,
-`audio.ab/bis → f0/f1` (Musik ohne `bis` → f1 = 1; Einträge, die komplett
+den **bearbeiteten** (getrimmten) Track ab: `camera.from → camera[].f`,
+`audio.from/to → f0/f1` (Musik ohne `to` → f1 = 1; Einträge, die komplett
 außerhalb der Wiedergabespanne liegen, entfallen mit Warnung). Parallel dazu
 läuft dieselbe Abbildung über die **Film-Achse** (`server/src/pipeline/filmachse.ts`,
 Spiegel von `src/filmachse.ts`) und liefert die Film-Anker. „Komplett außerhalb"
@@ -352,10 +352,17 @@ sehr wohl eine Länge und bleibt — vorher fiel genau er heraus.
 
 | Zustand | `GET /api/tours/:id` liefert |
 |---|---|
-| `angelegt` / `verarbeitung` | `{ id, status }` — Clients pollen |
-| `fehler` | `{ id, status: "fehler", fehler: "…" }` |
-| `bereit` | das Tour-JSON oben |
+| `created` / `processing` | `{ id, status }` — Clients pollen |
+| `failed` | `{ id, status: "failed", error: "…" }` |
+| `ready` | das Tour-JSON oben |
 
-Versionierung: Schema-Änderungen erhöhen die `@`-Version. Das Backend darf
-alte Manifest-Versionen weiter annehmen (Renderer bleibt kompatibel), der
-Player prüft `schema` und meldet Unverständliches sauber (`RemoteTourFehler`).
+Versionierung: Schema-Änderungen erhöhen die `@`-Version. Das Backend nimmt
+GENAU die aktuelle an; ältere werden mit einem Hinweis abgelehnt (400 mit dem
+Satz „Diese App-Version ist zu alt für den Server …", s. u.). Der Player prüft
+`schema` und meldet Unverständliches sauber (`RemoteTourFehler`).
+
+**Die Ablehnung trägt ihren Text zweimal** — als `error` UND als `fehler`. Sie
+ist die eine Stelle, an der ein Client antwortet, der die Umbenennung nicht
+kennen KANN: eine installierte App, die noch `maptale/upload@1` schickt und
+darum den Fehlertext unter dem alten Namen sucht. Überall sonst gibt es kein
+zweites Feld und keinen Rückwärtsleser.

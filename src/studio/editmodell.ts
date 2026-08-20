@@ -150,11 +150,11 @@ export interface AudioEintrag {
   to?: string
   volume?: number
   /**
-   * Herkunft der Datei. Fehlt = tour-lokal hochgeladen (→ /api/medien/…).
+   * Herkunft der Datei. Fehlt = tour-lokal hochgeladen (→ /api/media/…).
    * 'library' = kuratierter Effekt aus [[sfxbibliothek]] (→ /audio/sfx/…),
    * liegt global und wird nicht mit der Tour hochgeladen.
    * 'user' = eigener Upload in der benutzerweiten Bibliothek — liegt einmal
-   * beim Konto und ist in jeder Tour einsetzbar (→ /api/audio-bibliothek/…).
+   * beim Konto und ist in jeder Tour einsetzbar (→ /api/audio-library/…).
    */
   source?: 'library' | 'user'
   /**

@@ -3,7 +3,7 @@
 // Balkenabschnitt ist, wann aus einem Zeitstempel „gerade eben" wird. Die Seite
 // ist nur die Hülle darum (dieselbe Aufteilung wie profilmodell.ts).
 
-/** Ein angemeldetes Gerät, wie es `GET /api/auth/me/geraete` ausliefert. */
+/** Ein angemeldetes Gerät, wie es `GET /api/auth/me/devices` ausliefert. */
 export interface Geraet {
   id: string
   kind: 'session' | 'app'

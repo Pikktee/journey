@@ -53,13 +53,13 @@ wie es gerendert ankommt:
 ```jsonc
 // edits.json — 190 Bytes, die GANZE Datei
 {
-  "schema": "maptale/edits@1",
+  "schema": "maptale/edits@2",
   "audio": [
     {
-      "datei": "mus-regentag.mp3",
-      "typ": "musik",
-      "ab": "2026-05-14T13:17:19+02:00",
-      "quelle": "bibliothek"
+      "file": "mus-regentag.mp3",
+      "type": "music",
+      "from": "2026-05-14T13:17:19+02:00",
+      "source": "library"
     }
   ]
 }
@@ -74,9 +74,8 @@ wie es gerendert ankommt:
 
 | Overlay | Tour-JSON | Warum verschieden |
 |---|---|---|
-| `datei` + `quelle: bibliothek` | `src: /audio/sfx/…` | Die URL hängt davon ab, ob die Datei global ausgeliefert wird oder unter `media/` der Tour liegt — eine Render-Entscheidung |
-| `ab: 2026-05-14T13:17:19+02:00` | `f0: 0, f1: 1` | **Der Kern:** absoluter Zeitpunkt vs. Streckenanteil |
-| `typ: musik` | `type: music` | Player-Vokabular |
+| `file` + `source: library` | `src: /audio/sfx/…` | Die URL hängt davon ab, ob die Datei global ausgeliefert wird oder unter `media/` der Tour liegt — eine Render-Entscheidung |
+| `from: 2026-05-14T13:17:19+02:00` | `f0: 0, f1: 1` | **Der Kern:** absoluter Zeitpunkt vs. Streckenanteil |
 
 ## Absolute Anker im Overlay, `f` im Tour-JSON
 
@@ -101,7 +100,7 @@ Streckenanteil: Was man dort anfasst, wird direkt zum Anker im Overlay.
 Beim Erweitern hilft eine Frage: **Kann ein Mensch das entscheiden?**
 
 - **Ja** → ins Overlay. Beispiele: Titel eines Fotos, Standzeit, Kamera-Preset,
-  Reihenfolge im Stopp (`reihe`), Wetterkorrektur. Damit taucht es im Studio auf
+  Reihenfolge im Stopp (`order`), Wetterkorrektur. Damit taucht es im Studio auf
   und ist änder- und löschbar.
 - **Nein, das rechnet die Pipeline aus** → nur ins Tour-JSON. Beispiele:
   Streckenanteile, Höhenprofil, Routen-Signatur, Kilometer.
@@ -110,7 +109,7 @@ Beim Erweitern hilft eine Frage: **Kann ein Mensch das entscheiden?**
 
 ### Tour-weite Meta (Titel, Beschreibung, Endscreen)
 
-Titel, Beschreibung und der optionale Endscreen (`finale` / `finale_ziel`)
+Titel, Beschreibung und der optionale Endscreen (`finale` / `finale_target`)
 liegen wie bisher in den **DB-Spalten** und werden per `PATCH /api/tours/:id`
 gesetzt — nicht im Overlay. Die Pipeline liest sie als Overrides und schreibt
 `showFinale` / `finaleTitle` ins Tour-JSON.
@@ -127,9 +126,9 @@ das Überstimmen stehen könnte.
   unlöschbar — die Pipeline schriebe sie bei jedem Render zurück. Man bräuchte
   dann ein „diesmal wirklich keine Musik"-Flag, also doch wieder ein Overlay.
 - **Auto-Wetter** bleibt dagegen im Tour-JSON, bis jemand eingreift: Der Editor
-  bekommt es über `/api/tours/:id/editor` als `autoWetter` nur zur Anzeige und
+  bekommt es über `/api/tours/:id/editor` als `autoWeather` nur zur Anzeige und
   schreibt es erst beim ersten eigenen Eingriff fest (`schreibeWetterFest`).
-  Grund: `edits.wetter` ersetzt das Auto-Wetter der ganzen Tour vollständig —
+  Grund: `edits.weather` ersetzt das Auto-Wetter der ganzen Tour vollständig —
   ohne dieses Festschreiben würde eine einzelne Korrektur den Rest der Tour
   schlagartig gleichmachen.
 

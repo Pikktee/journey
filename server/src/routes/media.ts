@@ -390,7 +390,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         ) as EditOverlay
         if (edits.audio?.some((a) => a.file === request.params.file)) {
           return reply.code(409).send({
-            fehler:
+            error:
               'Datei wird von den gespeicherten Bearbeitungen genutzt, erst Eintrag entfernen und speichern',
           })
         }

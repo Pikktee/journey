@@ -520,7 +520,7 @@ describe('reichereAn mit Edit-Overlay', () => {
       gain: 0.7,
     })
     expect(musik?.filmS).toBe(0)
-    expect(musik?.filmBisS).toBeGreaterThan(0)
+    expect(musik?.filmToS).toBeGreaterThan(0)
     const sfx = tour.audio?.[1]
     expect(sfx?.type).toBe('sfx')
     expect(sfx?.f0).toBe(sfx?.f1)
@@ -741,7 +741,7 @@ describe('reichereAn: Ton am Film-Anker', () => {
     const klip = drin.audio?.[0]
     expect(klip).toBeDefined()
     expect(klip?.f0).toBeCloseTo(klip?.f1 ?? -1, 9) // im f-Raum weiterhin ein Punkt
-    expect((klip?.filmBisS ?? 0) - (klip?.filmS ?? 0)).toBeCloseTo(3, 6)
+    expect((klip?.filmToS ?? 0) - (klip?.filmS ?? 0)).toBeCloseTo(3, 6)
     expect(meldungen.some((m) => /Standzeit/.test(m))).toBe(false)
   })
 

@@ -88,7 +88,7 @@ export async function starteGalerie(): Promise<void> {
   async function ladeSeite(): Promise<void> {
     mehrKnopf!.disabled = true
     try {
-      const antwort = await fetch(`/api/galerie?limit=${SEITE}&offset=${offset}`)
+      const antwort = await fetch(`/api/gallery?limit=${SEITE}&offset=${offset}`)
       if (!antwort.ok) throw new Error(String(antwort.status))
       const daten = (await antwort.json()) as GalerieAntwort
       if (offset === 0 && daten.tours.length === 0) {

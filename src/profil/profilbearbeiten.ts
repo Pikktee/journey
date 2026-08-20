@@ -69,14 +69,14 @@ async function sendeProfil(
   daten: Record<string, unknown>,
 ): Promise<{ ok: true } | { ok: false; fehler: string }> {
   try {
-    const antwort = await fetch('/api/auth/me/profil', {
+    const antwort = await fetch('/api/auth/me/profile', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(daten),
     })
     if (antwort.ok) return { ok: true }
-    const koerper = (await antwort.json().catch(() => ({}))) as { fehler?: string }
-    return { ok: false, fehler: koerper.fehler ?? 'Das ließ sich gerade nicht speichern.' }
+    const koerper = (await antwort.json().catch(() => ({}))) as { error?: string }
+    return { ok: false, fehler: koerper.error ?? 'Das ließ sich gerade nicht speichern.' }
   } catch {
     return { ok: false, fehler: 'Keine Verbindung zum Server.' }
   }
@@ -177,7 +177,7 @@ function oeffneTitelbild(profile: ProfilAntwort, fertig: () => void): void {
     uebernehmen.disabled = true
     eigenes.disabled = true
     try {
-      const antwort = await fetch('/api/auth/me/titelbild', {
+      const antwort = await fetch('/api/auth/me/banner', {
         method: 'PUT',
         headers: { 'content-type': 'image/jpeg' },
         body: bild,
@@ -193,7 +193,7 @@ function oeffneTitelbild(profile: ProfilAntwort, fertig: () => void): void {
   })
 
   entfernen.addEventListener('click', async () => {
-    await fetch('/api/auth/me/titelbild', { method: 'DELETE' }).catch(() => undefined)
+    await fetch('/api/auth/me/banner', { method: 'DELETE' }).catch(() => undefined)
     // Auch die gewählte Vorschlags-WAHL muss weg, nicht nur das hochgeladene
     // Bild: Zurückgesetzt wird auf „keine eigene Entscheidung" — was danach im
     // Banner steht, bestimmt `standardTitelbild`.

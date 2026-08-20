@@ -165,7 +165,7 @@ function audioName(a: AudioEintrag): string {
  *  die Konto-Route (der Player nutzt später die tour-gebundene), sonst tour-lokal. */
 function audioUrl(a: AudioEintrag, tourId: string): string {
   if (a.source === 'library') return `/audio/sfx/${encodeURIComponent(a.file)}`
-  if (a.source === 'user') return `/api/audio-bibliothek/${encodeURIComponent(a.file)}`
+  if (a.source === 'user') return `/api/audio-library/${encodeURIComponent(a.file)}`
   return `/api/media/${tourId}/${encodeURIComponent(a.file)}`
 }
 
@@ -3725,7 +3725,7 @@ function eigeneZeilen(q: string): SfxZeileDef[] {
         ]
           .filter(Boolean)
           .join(' · '),
-        url: `/api/audio-bibliothek/${encodeURIComponent(d.file)}`,
+        url: `/api/audio-library/${encodeURIComponent(d.file)}`,
         file: d.file,
         source: 'user',
         type: null,

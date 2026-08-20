@@ -177,7 +177,7 @@ async function ladeGeraete(): Promise<void> {
   if (!tafel) return
   let devices: Geraet[] = []
   try {
-    const antwort = await fetch('/api/auth/me/geraete')
+    const antwort = await fetch('/api/auth/me/devices')
     if (!antwort.ok) throw new Error(String(antwort.status))
     devices = ((await antwort.json()) as { devices: Geraet[] }).devices
   } catch {
@@ -216,7 +216,7 @@ async function ladeSpeicher(): Promise<void> {
   if (!balken || !legende) return
   let stand: SpeicherStand
   try {
-    const antwort = await fetch('/api/auth/me/speicher')
+    const antwort = await fetch('/api/auth/me/storage')
     if (!antwort.ok) throw new Error(String(antwort.status))
     stand = (await antwort.json()) as SpeicherStand
   } catch {
@@ -276,7 +276,7 @@ function verdrahteSichtbarkeit(daten: MeAntwort): void {
   schalter.addEventListener('change', async () => {
     const gewuenscht = schalter.checked
     schalter.disabled = true
-    const antwort = await fetch('/api/auth/me/profil', {
+    const antwort = await fetch('/api/auth/me/profile', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ visibility: gewuenscht ? 'public' : 'private' }),
@@ -332,7 +332,7 @@ function verdrahteSuche(daten: MeAntwort): void {
   schalter.addEventListener('change', async () => {
     const gewuenscht = schalter.checked
     schalter.disabled = true
-    const antwort = await fetch('/api/auth/me/suchmaschinen', {
+    const antwort = await fetch('/api/auth/me/search-indexing', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ an: gewuenscht }),
@@ -472,14 +472,14 @@ async function loeseNewsletterAbmeldungEin(): Promise<{ ok: boolean; text: strin
   if (!treffer?.[1]) return null
   const token = decodeURIComponent(treffer[1])
   window.history.replaceState(null, '', window.location.pathname)
-  const antwort = await fetch('/api/newsletter/abmelden', {
+  const antwort = await fetch('/api/newsletter/unsubscribe', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ token }),
   }).catch(() => null)
   if (antwort?.ok) return { ok: true, text: 'Du bekommst keine Updates mehr von Maptale.' }
-  const koerper = (await antwort?.json().catch(() => ({}))) as { fehler?: string } | undefined
-  return { ok: false, text: koerper?.fehler ?? 'Dieser Abmeldelink gilt nicht mehr.' }
+  const koerper = (await antwort?.json().catch(() => ({}))) as { error?: string } | undefined
+  return { ok: false, text: koerper?.error ?? 'Dieser Abmeldelink gilt nicht mehr.' }
 }
 
 // ————— Der Bestätigungslink aus der Mail —————
@@ -497,7 +497,7 @@ async function loeseMailWechselEin(): Promise<boolean> {
   if (!treffer?.[1]) return false
   const token = decodeURIComponent(treffer[1])
   window.history.replaceState(null, '', window.location.pathname)
-  const antwort = await fetch('/api/auth/email-bestaetigen', {
+  const antwort = await fetch('/api/auth/confirm-email', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ token }),
@@ -506,8 +506,8 @@ async function loeseMailWechselEin(): Promise<boolean> {
     melde('Deine neue E-Mail-Adresse ist bestätigt.')
     return true
   }
-  const koerper = (await antwort?.json().catch(() => ({}))) as { fehler?: string } | undefined
-  melde(koerper?.fehler ?? 'Dieser Bestätigungslink gilt nicht mehr.')
+  const koerper = (await antwort?.json().catch(() => ({}))) as { error?: string } | undefined
+  melde(koerper?.error ?? 'Dieser Bestätigungslink gilt nicht mehr.')
   return false
 }
 

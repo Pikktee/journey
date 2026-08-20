@@ -280,7 +280,7 @@ export async function starteProfil(): Promise<void> {
 
   let daten: ProfilAntwort
   try {
-    const antwort = await fetch(`/api/benutzer/${encodeURIComponent(wen)}/profile`)
+    const antwort = await fetch(`/api/users/${encodeURIComponent(wen)}/profile`)
     if (antwort.status === 404) {
       buehne.hidden = true
       zeigeFehler(meldung, 'Dieses Profil gibt es nicht (mehr).')

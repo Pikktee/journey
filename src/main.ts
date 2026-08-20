@@ -512,7 +512,7 @@ window.__j.filmS = filmBeiS
 // den Studio-Pegel absolut, kuratierte sind gegen die 0.22 ausgemessen.
 //
 // Die Grenzen laufen EINMAL durch die Übersetzung, danach rechnet
-// audiotracks.ts nur noch in Filmzeit. Je Endpunkt gilt: `filmS`/`filmBisS` aus
+// audiotracks.ts nur noch in Filmzeit. Je Endpunkt gilt: `filmS`/`filmToS` aus
 // dem Tour-JSON, wo sie stehen — sonst der Rückfall über die Filmachse. Nur der
 // Server kann den ersten Weg gehen: Ein Anker MITTEN in einer Standzeit fällt im
 // Streckenanteil auf die Halt-Kante, und aus `f` ist er nicht wieder
@@ -521,7 +521,7 @@ window.__j.filmS = filmBeiS
 const audioSpuren = cfg.audio?.map((a) => ({
   ...a,
   filmVonS: a.filmS ?? filmBeiS(sBeiF(a.f0)),
-  filmBisS: a.filmBisS ?? filmBeiS(sBeiF(a.f1)),
+  filmBisS: a.filmToS ?? filmBeiS(sBeiF(a.f1)),
 }))
 const tourAudio = audioSpuren?.length
   ? createAudioTracks(audioSpuren, { volume: cfg.audioPegel ?? KURATIERTER_PEGEL })

@@ -5,7 +5,7 @@
 // bessere Formulierung erreicht die App ohne neues Release. Der Preis steht
 // offen: Ohne Netz gibt es hier nichts zu sehen — genau dann, wenn jemand
 // vielleicht melden will, dass nichts lädt. Wer das ändern will, braucht eine
-// native Maske samt Warteschlange; die Route (`POST /api/rueckmeldung`) nimmt
+// native Maske samt Warteschlange; die Route (`POST /api/feedback`) nimmt
 // beides an.
 //
 // Anders als der Player läuft dieser Screen NICHT im Vollbild: Er ist ein

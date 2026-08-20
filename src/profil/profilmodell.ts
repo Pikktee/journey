@@ -6,7 +6,7 @@
 import { profilPfad } from '../routen.js'
 import type { GalerieTour } from '../galerie/galeriemodell.js'
 
-/** Die Antwort von `GET /api/benutzer/:wen/profile`. */
+/** Die Antwort von `GET /api/users/:id/profile`. */
 export interface ProfilAntwort {
   handle: string | null
   displayName: string | null

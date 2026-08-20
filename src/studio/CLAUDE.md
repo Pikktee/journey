@@ -213,9 +213,9 @@ mehr tour-lokal, sondern in der Bibliothek des Kontos (`<userId>/audio/` im benu
 [server/src/routes/bibliothek.ts](../../server/src/routes/bibliothek.ts)): einmal hochgeladen, in
 jeder Tour einsetzbar (`quelle: 'benutzer'` im Overlay), zur Quota zählend, löschbar nur
 solange KEINE Tour sie referenziert (edits.json ODER gerendertes tour.json). Ausgeliefert
-wird über die Tour (`/api/tours/:id/bibliothek-audio/:datei`, Sichtbarkeit + Referenz-Check
+wird über die Tour (`/api/tours/:id/library-audio/:file`, Sichtbarkeit + Referenz-Check
 — sonst wäre die Route ein Orakel über fremde Bibliotheken); das Studio hört über die
-Owner-Route `/api/audio-bibliothek/:datei` vor. Tour-lokale `media/`-Audios bleiben als
+Owner-Route `/api/audio-library/:datei` vor. Tour-lokale `media/`-Audios bleiben als
 Altbestand unterstützt (Verweis ohne `quelle`). Im Studio ist die Bibliothek ein **Katalog
 zum Durchhören** in einem Dialog mit FESTEM Format (springt beim Filtern nicht): Suche über
 die GANZE Bibliothek (Reiter treten zurück), Reiter nach Art (Musik · Atmosphäre · Effekte ·

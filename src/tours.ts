@@ -69,7 +69,7 @@ export interface TourAudio {
    */
   filmS?: number
   /** Filmsekunde des Endes; nur bei Bereichen (ein One-Shot hat keine) */
-  filmBisS?: number
+  filmToS?: number
 }
 
 export interface TourConfig {

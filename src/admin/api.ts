@@ -35,7 +35,7 @@ async function anfrage<T>(path: string, optionen: RequestInit = {}): Promise<T> 
   if (!res.ok)
     throw new ApiError(
       res.status,
-      (json as { fehler?: string } | null)?.fehler ?? `HTTP ${res.status}`,
+      (json as { error?: string } | null)?.error ?? `HTTP ${res.status}`,
     )
   return json as T
 }

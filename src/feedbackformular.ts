@@ -235,7 +235,7 @@ export function montiereFeedbackFormular(
     }
     knopf.disabled = true
     sage('Wird gesendet …')
-    void fetch('/api/rueckmeldung', {
+    void fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // `credentials: same-origin` ist der Standard; die Sitzung geht also mit,
@@ -255,9 +255,9 @@ export function montiereFeedbackFormular(
           optionen.beiErfolg?.()
           return
         }
-        const daten = (await antwort.json().catch(() => ({}))) as { fehler?: string }
+        const daten = (await antwort.json().catch(() => ({}))) as { error?: string }
         sage(
-          daten.fehler ?? 'Das hat nicht geklappt. Bitte versuch es später noch einmal.',
+          daten.error ?? 'Das hat nicht geklappt. Bitte versuch es später noch einmal.',
           'fehler',
         )
       })

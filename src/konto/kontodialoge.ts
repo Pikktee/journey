@@ -36,8 +36,8 @@ async function sende(
       body: JSON.stringify(daten),
     })
     if (antwort.ok) return { ok: true }
-    const koerper = (await antwort.json().catch(() => ({}))) as { fehler?: string }
-    return { ok: false, fehler: koerper.fehler ?? 'Das hat gerade nicht geklappt.' }
+    const koerper = (await antwort.json().catch(() => ({}))) as { error?: string }
+    return { ok: false, fehler: koerper.error ?? 'Das hat gerade nicht geklappt.' }
   } catch {
     return { ok: false, fehler: 'Keine Verbindung zum Server.' }
   }
@@ -156,7 +156,7 @@ export function oeffnePasswortDialog(
   aendern.addEventListener('click', async () => {
     aendern.disabled = true
     fehler.hidden = true
-    const ergebnis = await sende('/api/auth/me/passwort', {
+    const ergebnis = await sende('/api/auth/me/password', {
       alt: alt.eingabe.value,
       neu: neu.eingabe.value,
     })

@@ -29,7 +29,7 @@ Cookie oder Bearer-Token), **Besitzer** (Sitzung plus `nurOwner`), **Admin**
 (`erfordereAdmin`), **Sichtbarkeit** (öffentlich, aber `darfSehen`: private nur
 für den Besitzer). „Bremse" heißt Rate-Limit.
 
-Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
+Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 `details`.
 
 ---
@@ -37,69 +37,69 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 ## auth (routes/auth.ts)
 
 ### POST /api/auth/login (öffentlich, Bremse)
-- Request: `email`, `passwort`, `tokenLabel?`
-- Response: `benutzer{id,email,name,rolle}`, `apiToken?` (nur mit tokenLabel; dann KEINE Sitzung)
+- Request: `email`, `password`, `tokenLabel?`
+- Response: `user{id,email,name,role}`, `apiToken?` (nur mit tokenLabel; dann KEINE Sitzung)
 - Aufrufer: src/studio/api.ts, android ApiClient.kt
 
 ### POST /api/auth/register (öffentlich, Bremse)
-- Request: `email`, `passwort`, `name?`, `code?` (Einladung), `newsletter?`
-- Response 201: `benutzer`, `verifiziert` (false)
+- Request: `email`, `password`, `name?`, `code?` (Einladung), `newsletter?`
+- Response 201: `user`, `verified` (false)
 - Aufrufer: src/studio/api.ts
 
-### POST /api/auth/einladung-pruefen (öffentlich, Bremse)
-- Request: `code`; Response: `ok`, `pflicht`
+### POST /api/auth/check-invitation (öffentlich, Bremse)
+- Request: `code`; Response: `ok`, `required`
 - Aufrufer: src/studio/api.ts
 
-### POST /api/auth/verifiziere (öffentlich)
+### POST /api/auth/verify (öffentlich)
 - Request: `token`; Response: `ok` (setzt Session-Cookie)
 - Aufrufer: src/studio/api.ts
 
-### POST /api/auth/passwort-reset-anfordern (öffentlich, Bremse)
+### POST /api/auth/password-reset-request (öffentlich, Bremse)
 - Request: `email`; Response: immer `ok` (keine Existenz-Auskunft)
 - Aufrufer: src/studio/api.ts
 
-### POST /api/auth/passwort-reset (öffentlich)
-- Request: `token`, `passwort`; Response: `ok`
+### POST /api/auth/password-reset (öffentlich)
+- Request: `token`, `password`; Response: `ok`
 - Aufrufer: src/studio/api.ts
 
-### POST /api/auth/session-aus-token (Sitzung; praktisch nur Bearer)
-- Request: –; Response: `sessionId`, `ablauf`
+### POST /api/auth/session-from-token (Sitzung; praktisch nur Bearer)
+- Request: –; Response: `sessionId`, `expiresAt`
 - Aufrufer: android ApiClient.kt (WebView-Player)
 
 ### POST /api/auth/logout (öffentlich; wirkt auf Cookie)
 - Response: `ok`
 - Aufrufer: src/studio/api.ts, src/app-nav.ts
 
-### POST /api/auth/me/passwort (Sitzung, Bremse)
-- Request: `alt`, `neu`; Response: `ok` (beendet alle anderen Zugänge)
+### POST /api/auth/me/password (Sitzung, Bremse)
+- Request: `old`, `new`; Response: `ok` (beendet alle anderen Zugänge)
 - Aufrufer: src/konto/kontodialoge.ts
 
 ### POST /api/auth/me/email (Sitzung, Bremse)
-- Request: `email`, `passwort`; Response: immer `ok` (Mail an NEUE Adresse; Wechsel erst beim Klick)
+- Request: `email`, `password`; Response: immer `ok` (Mail an NEUE Adresse; Wechsel erst beim Klick)
 - Aufrufer: src/konto/kontodialoge.ts
 
-### POST /api/auth/email-bestaetigen (öffentlich; Token ist der Nachweis)
+### POST /api/auth/confirm-email (öffentlich; Token ist der Nachweis)
 - Request: `token`; Response: `ok`, `email`
-- Aufrufer: src/konto/konto.ts (`/konto#email=…`)
+- Aufrufer: src/konto/konto.ts (`/account#email=…`)
 
-### GET /api/auth/me/geraete (Sitzung)
-- Response: `geraete[]{id ("sitzung:…"/"app:…"), art ("sitzung"|"app"), kennung, ipPraefix, angemeldetAm, zuletztGesehen, dieses}`
+### GET /api/auth/me/devices (Sitzung)
+- Response: `devices[]{id ("session:…"/"app:…"), kind ("session"|"app"), label, ipPrefix, signedInAt, lastSeenAt, current}`
 - Aufrufer: src/konto/konto.ts
 
-### DELETE /api/auth/me/geraete/:id (Sitzung)
+### DELETE /api/auth/me/devices/:id (Sitzung)
 - Response: `ok`
 - Aufrufer: src/konto/konto.ts
 
 ### POST /api/auth/me/newsletter (Sitzung)
-- Request: `an`; Response: `ok`, `newsletter`, `versandRuht`
+- Request: `enabled`; Response: `ok`, `newsletter`, `sendingPaused`
 - Aufrufer: src/konto/konto.ts
 
-### POST /api/auth/me/suchmaschinen (Sitzung)
-- Request: `an`; Response: `ok`, `suchmaschinen`, `wirktRuht`
+### POST /api/auth/me/search-indexing (Sitzung)
+- Request: `enabled`; Response: `ok`, `searchIndexing`, `effectPaused`
 - Aufrufer: src/konto/konto.ts
 
-### GET /api/auth/me/speicher (Sitzung)
-- Response: `benutzt`, `limit`, `frei`, `aufteilung{fotos,videos,klaenge,aufzeichnungen,sonstiges}`
+### GET /api/auth/me/storage (Sitzung)
+- Response: `used`, `limit`, `free`, `breakdown{photos,videos,audio,recordings,other}`
 - Aufrufer: src/konto/konto.ts
 
 ### DELETE /api/auth/me (Sitzung)
@@ -107,14 +107,14 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 - Aufrufer: src/studio/api.ts, src/konto/kontodialoge.ts, android ApiClient.kt
 
 ### GET /api/auth/me (öffentlich; angereichert bei Sitzung)
-- Response ohne Anmeldung: `benutzer: null`, `registrierung{offen,einladungPflicht,warteliste}`
-- Response angemeldet zusätzlich: `verifiziert`, `quota{benutzt,limit,frei}`, `newsletter`,
-  `profil{handle,anzeigename,bio,ort,website,instagram,avatarUrl,titelbild,titelbildUrl,sichtbarkeit,suchmaschinen}`,
-  `export{id,status,angefordertAm,fertigAm,laeuftAbAm,bytes,dateien}|null`
+- Response ohne Anmeldung: `user: null`, `registration{open,invitationRequired,waitlist}`
+- Response angemeldet zusätzlich: `verified`, `quota{used,limit,free}`, `newsletter`,
+  `profile{handle,displayName,bio,location,website,instagram,avatarUrl,banner,bannerUrl,visibility,searchIndexing}`,
+  `dataExport{id,status,requestedAt,finishedAt,expiresAt,bytes,files}|null`
 - Aufrufer: src/studio/api.ts, src/admin/api.ts, src/app-nav.ts, src/konto/konto.ts, src/profil/profil.ts, android ApiClient.kt
 
-### PATCH /api/auth/me/profil (Sitzung)
-- Request: `anzeigename?`, `bio?`, `ort?`, `website?`, `instagram?`, `sichtbarkeit?` (private|public), `handle?`, `titelbild?` (Vorschlags-Name; '' entfernt)
+### PATCH /api/auth/me/profile (Sitzung)
+- Request: `displayName?`, `bio?`, `location?`, `website?`, `instagram?`, `visibility?` (private|public), `handle?`, `banner?` (Vorschlags-Name; '' entfernt)
 - Response: das Profil-Objekt (wie in /auth/me)
 - Aufrufer: src/konto/konto.ts, src/profil/profilbearbeiten.ts, android ApiClient.kt
 
@@ -125,17 +125,17 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 ### DELETE /api/auth/me/avatar (Sitzung)
 - Response: `ok`; Aufrufer: src/profil/profilbearbeiten.ts, android ApiClient.kt
 
-### PUT /api/auth/me/titelbild (Sitzung; roher Bild-Body, max 8 MB)
-- Response: `titelbildUrl`; Aufrufer: src/profil/profilbearbeiten.ts
+### PUT /api/auth/me/banner (Sitzung; roher Bild-Body, max 8 MB)
+- Response: `bannerUrl`; Aufrufer: src/profil/profilbearbeiten.ts
 
-### DELETE /api/auth/me/titelbild (Sitzung)
+### DELETE /api/auth/me/banner (Sitzung)
 - Response: `ok`; Aufrufer: src/profil/profilbearbeiten.ts
 
-### GET /api/benutzer/:id/titelbild (öffentlich)
+### GET /api/users/:id/banner (öffentlich)
 - Response: Binär (JPEG, immutable-Cache)
-- Aufrufer: kein Code-Literal; datengetrieben als `titelbildUrl` aus Profil-Antworten (img src)
+- Aufrufer: kein Code-Literal; datengetrieben als `bannerUrl` aus Profil-Antworten (img src)
 
-### GET /api/benutzer/:id/avatar (öffentlich)
+### GET /api/users/:id/avatar (öffentlich)
 - Query: `v` (Cache-Buster, Dateiname)
 - Response: Binär (JPEG)
 - Aufrufer: datengetrieben als `avatarUrl` aus Profil-/Galerie-/Tour-Antworten
@@ -147,28 +147,28 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 ### POST /api/tours (Sitzung + E-Mail-verifiziert)
 - Request (UploadManifest, JSON-Schema): `schema`, `clientTourId?`, `title?`, `description?`,
   `time{start,end,zone}`, `segments?[]{mode,label?,pts}`, `trackFile?`, `trackMode?`,
-  `modiAutomatisch?`, `media[]{id,type,file,takenAt,anchor?,caption?,durationS?,quelle?}`
-- Response 201: `id`; 200 bei Wiederholung: `id`, `wiederverwendet`
+  `travelModesAuto?`, `media[]{id,type,file,takenAt,anchor?,caption?,durationS?,source?}`
+- Response 201: `id`; 200 bei Wiederholung: `id`, `reused`
 - Aufrufer: src/studio/api.ts, android ApiClient.kt (auch tracker/touranleger.ts serverintern)
 
 ### POST /api/tours/:id/finalize (Besitzer)
-- Response 202: `id`, `status` ("verarbeitung"); 409: `fehler`, `fehlend?[]`
+- Response 202: `id`, `status` ("processing"); 409: `error`, `missing?[]`
 - Aufrufer: src/studio/api.ts, android ApiClient.kt
 
 ### PATCH /api/tours/:id (Besitzer)
-- Request: `title?`, `description?`, `dachzeile?`, `finale?`, `finaleZiel?`, `visibility?` (private|unlisted|public)
+- Request: `title?`, `description?`, `kicker?`, `finale?`, `finaleTarget?`, `visibility?` (private|unlisted|public)
 - Response: `ok` (rendert Texte ggf. asynchron nach)
 - Aufrufer: src/studio/api.ts, android ApiClient.kt (patchTour + setzeSichtbarkeit)
 
 ### GET /api/tours/:id/edits (Besitzer)
-- Response: EditOverlay `{schema, medien?, modi?, trim?, kamera?, momente?, audio?, wetter?, titelbild?}`
+- Response: EditOverlay `{schema, media?, travelModes?, trim?, camera?, moments?, audio?, weather?, cover?}`
 - Aufrufer: android ApiClient.kt (das Studio bezieht die Edits über /editor)
 
 ### PUT /api/tours/:id/edits (Besitzer, JSON-Schema)
-- Request: EditOverlay; Unterfelder: `medien{<id>:{caption?,anchor?,geloescht?,display{holdS?,kenBurns?},reihe?,trim{vonS,bisS?}}}`,
-  `modi[]{ab,mode}`, `trim{start?,ende?}`, `kamera[]{ab,preset,skala?}`, `momente[]{ab,art,dauerS?}`,
-  `audio[]{datei,typ,ab,bis?,anker?,versatzFilmS?,dauerFilmS?,einstiegS?,loop?,lautstaerke?,quelle?}`,
-  `wetter[]{ab,mode,staerke?}`, `titelbild?`
+- Request: EditOverlay; Unterfelder: `media{<id>:{caption?,anchor?,removed?,display{holdS?,kenBurns?},order?,trim{fromS,toS?}}}`,
+  `travelModes[]{from,mode}`, `trim{start?,end?}`, `camera[]{from,preset,scale?}`, `moments[]{from,kind,durationS?}`,
+  `audio[]{file,type,from,to?,anchor?,offsetFilmS?,durationFilmS?,startS?,loop?,volume?,source?}`,
+  `weather[]{from,mode,intensity?}`, `cover?`
 - Response: `ok`, `status` (202 bei Re-Render)
 - Aufrufer: src/studio/api.ts, android ApiClient.kt
 
@@ -176,27 +176,27 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 - Response 202: `id`, `status`; Aufrufer: src/studio/api.ts, android ApiClient.kt
 
 ### GET /api/tours/:id/editor (Besitzer)
-- Response: `id`, `status`, `title`, `description`, `dachzeile`, `dachzeileVorschlaege[]`,
-  `finale`, `finaleZiel`, `time{start,end,zone}`, `segmente[]{mode,pts}`,
-  `medien[]{id,type,src,takenAt,caption,anchor,placement,gpsAnker?,poster?,dauerS?,thumb?}`,
-  `audio[]{datei,groesse}`, `autoWetter[]{ab,mode,staerke?}`, `edits`
+- Response: `id`, `status`, `title`, `description`, `kicker`, `kickerSuggestions[]`,
+  `finale`, `finaleTarget`, `time{start,end,zone}`, `segments[]{mode,pts}`,
+  `media[]{id,type,src,takenAt,caption,anchor,placement,gpsAnchor?,poster?,durationS?,thumb?}`,
+  `audio[]{file,size}`, `autoWeather[]{from,mode,intensity?}`, `edits`
 - Aufrufer: src/studio/api.ts
 
 ### GET /api/tours (ohne Anmeldedaten: leere Liste; sonst Sitzung)
-- Response: `tours[]{id, no ("N°01"), status, visibility, title, stats, cover, coverThumb, fehler, createdAt}`
-  (stats: `km`, `gainM`, `fotos?`, `spur?{d,start,ende}`, `filmS?`, `finale?`)
+- Response: `tours[]{id, no ("N°01"), status, visibility, title, stats, cover, coverThumb, error, createdAt}`
+  (stats: `km`, `gainM`, `placedMedia?`, `trackSignature?{d,start,end}`, `filmS?`, `finale?`)
 - Aufrufer: src/studio/api.ts, src/remote.ts, android ApiClient.kt
 
 ### GET /api/tours/:id (Sichtbarkeit)
 - Response bereit: das tour.json; `schema`, `id`, `no`, `status`, `brandTitle`, `kicker`,
   `titleHtml`, `stops`, `showFinale`, `finaleTitle`, `description`, `time`,
   `segments[]{mode,label,pts,f?}`,
-  `media[]{id,type,src,title,caption,anchor,placement,takenAt,durationS?,poster?,thumb?,display?,reihe?}`,
-  `timeline?[]{f,t}`, `weather?[]{f,mode,k,source}`, `camera?[]{f,preset,skala?,filmS?}`,
-  `moments?[]{f,art,dauerS?,filmS?}`,
-  `audio?[]{type,src,f0,f1,gain?,loop?,startS?,filmS?,filmBisS?}`, `stats`,
-  dazu frisch eingesetzt `autor{anzeigename,avatarUrl,id?,handle?}`
-- Response nicht bereit: `id`, `status`, `fehler?` (nur Owner)
+  `media[]{id,type,src,title,caption,anchor,placement,takenAt,durationS?,poster?,thumb?,display?,order?}`,
+  `timeline?[]{f,t}`, `weather?[]{f,mode,k,source}`, `camera?[]{f,preset,scale?,filmS?}`,
+  `moments?[]{f,kind,durationS?,filmS?}`,
+  `audio?[]{type,src,f0,f1,gain?,loop?,startS?,filmS?,filmToS?}`, `stats`,
+  dazu frisch eingesetzt `author{displayName,avatarUrl,id?,handle?}`
+- Response nicht bereit: `id`, `status`, `error?` (nur Owner)
 - Aufrufer: src/studio/api.ts, src/remote.ts, android ApiClient.kt
 
 ### DELETE /api/tours/:id (Besitzer)
@@ -210,9 +210,9 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 - Response: `id`, `bytes` (409 bei „bereit"+vorhanden, Tombstone, laufender Verarbeitung; 413 Quota)
 - Aufrufer: src/studio/api.ts, android ApiClient.kt
 
-### POST /api/tours/:id/medien (Besitzer + verifiziert, JSON-Schema)
-- Request: `medien[]{type,file,takenAt,anchor?,caption?,durationS?,quelle?}` (IDs vergibt der Server)
-- Response: `medien[]{id,datei}` (indexgleich zur Anfrage), `neu`
+### POST /api/tours/:id/media (Besitzer + verifiziert, JSON-Schema)
+- Request: `media[]{type,file,takenAt,anchor?,caption?,durationS?,source?}` (IDs vergibt der Server)
+- Response: `media[]{id,file}` (indexgleich zur Anfrage), `new`
 - Aufrufer: src/studio/api.ts, android ApiClient.kt
 
 ### DELETE /api/tours/:id/media/:mid (Besitzer)
@@ -222,13 +222,13 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 ### PUT /api/tours/:id/track (Besitzer; roher GPX-Body)
 - Response: `bytes`; Aufrufer: src/studio/api.ts, android ApiClient.kt
 
-### PUT /api/tours/:id/audio/:datei (Besitzer; roher Binär-Body; kein Überschreiben)
-- Response: `datei`, `bytes`; Aufrufer: src/studio/api.ts
+### PUT /api/tours/:id/audio/:file (Besitzer; roher Binär-Body; kein Überschreiben)
+- Response: `file`, `bytes`; Aufrufer: src/studio/api.ts
 
-### DELETE /api/tours/:id/audio/:datei (Besitzer; nur wenn Edits die Datei nicht nutzen)
+### DELETE /api/tours/:id/audio/:file (Besitzer; nur wenn Edits die Datei nicht nutzen)
 - Response: `ok`; Aufrufer: src/studio/api.ts
 
-### GET /api/media/:tourId/:datei (Sichtbarkeit; Range-Support)
+### GET /api/media/:tourId/:file (Sichtbarkeit; Range-Support)
 - Response: Binär (Bild/Video/Audio/Poster; private → private-Cache)
 - Aufrufer: src/studio/editor.ts (Audio-Quelle), src/exif.ts (Range-Fetch);
   Player/Editor datengetrieben über `src`/`poster`/`thumb` aus tour.json und /editor
@@ -237,20 +237,20 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 
 ## audio-bibliothek (routes/bibliothek.ts)
 
-### GET /api/audio-bibliothek (Sitzung)
-- Response: `dateien[]{datei,groesse,verwendetVon[]{id,titel}}`
+### GET /api/audio-library (Sitzung)
+- Response: `files[]{file,size,usedBy[]{id,title}}`
 - Aufrufer: src/studio/api.ts
 
-### PUT /api/audio-bibliothek/:datei (Sitzung; Binär-Body; kein Überschreiben)
-- Response: `datei`, `bytes`; Aufrufer: src/studio/api.ts
+### PUT /api/audio-library/:file (Sitzung; Binär-Body; kein Überschreiben)
+- Response: `file`, `bytes`; Aufrufer: src/studio/api.ts
 
-### GET /api/audio-bibliothek/:datei (Sitzung; nur die eigene Datei; Range)
+### GET /api/audio-library/:file (Sitzung; nur die eigene Datei; Range)
 - Response: Binär; Aufrufer: src/studio/editor.ts (Vorhören)
 
-### DELETE /api/audio-bibliothek/:datei (Sitzung; nur wenn keine Tour sie nutzt)
+### DELETE /api/audio-library/:file (Sitzung; nur wenn keine Tour sie nutzt)
 - Response: `ok`; Aufrufer: src/studio/api.ts
 
-### GET /api/tours/:id/bibliothek-audio/:datei (Sichtbarkeit + Tour muss referenzieren; Range)
+### GET /api/tours/:id/library-audio/:file (Sichtbarkeit + Tour muss referenzieren; Range)
 - Response: Binär
 - Aufrufer: kein Code-Literal; datengetrieben als `audio[].src` im tour.json (Player)
 
@@ -258,54 +258,54 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 
 ## galerie / profil (routes/galerie.ts)
 
-### GET /api/galerie (öffentlich)
+### GET /api/gallery (öffentlich)
 - Query: `limit` (1–60, Standard 24), `offset`
-- Response: `touren[]{id,titel,cover,coverThumb,km,erstelltAm,autor{anzeigename,avatarUrl,id?,handle?}|null}`, `mehr`
+- Response: `tours[]{id,title,cover,coverThumb,km,createdAt,author{displayName,avatarUrl,id?,handle?}|null}`, `hasMore`
 - Aufrufer: src/galerie/galerie.ts
 
-### GET /api/benutzer/:id/profil (öffentlich; Besitzer sieht sein privates Profil)
+### GET /api/users/:id/profile (öffentlich; Besitzer sieht sein privates Profil)
 - Params: Handle oder `u_…`-ID
-- Response: `handle`, `anzeigename`, `bio`, `ort`, `website`, `instagram`, `avatarUrl`,
-  `titelbildUrl`, `dabeiSeit`, `kennzahlen{touren,km,hm}`, `nurFuerDich`, `touren[]` (Galerie-Karten)
+- Response: `handle`, `displayName`, `bio`, `location`, `website`, `instagram`, `avatarUrl`,
+  `bannerUrl`, `memberSince`, `stats{tours,km,elevationGain}`, `ownerOnly`, `tours[]` (Galerie-Karten)
 - Aufrufer: src/profil/profil.ts
 
 ---
 
 ## warteliste (routes/warteliste.ts)
 
-### POST /api/auth/warteliste (öffentlich, Bremse)
-- Request: `email`, `notiz?`; Response: immer `ok`
+### POST /api/auth/waitlist (öffentlich, Bremse)
+- Request: `email`, `note?`; Response: immer `ok`
 - Aufrufer: src/studio/api.ts
 
-### POST /api/auth/warteliste/bestaetigen (öffentlich, Bremse)
+### POST /api/auth/waitlist/confirm (öffentlich, Bremse)
 - Request: `token`; Response: `ok`, `email`
 - Aufrufer: src/studio/api.ts
 
-### POST /api/auth/warteliste/austragen (öffentlich, Bremse)
+### POST /api/auth/waitlist/leave (öffentlich, Bremse)
 - Request: `token`; Response: immer `ok`
 - Aufrufer: src/studio/api.ts
 
-### GET /api/admin/warteliste (Admin)
-- Response: `eintraege[]{id,email,notiz,eingetragenAm,bestaetigtAm,eingeladenAm,eingeladenCode,zustand}`,
-  `wartelisteOffen`, `angeboten`
+### GET /api/admin/waitlist (Admin)
+- Response: `entries[]{id,email,note,joinedAt,confirmedAt,invitedAt,invitedCode,state}`,
+  `waitlistOpen`, `offered`
 - Aufrufer: src/admin/api.ts
 
-### POST /api/admin/warteliste/:id/einladen (Admin)
-- Request: `gueltigTage?`; Response: `eintrag`, `einladung`
+### POST /api/admin/waitlist/:id/invite (Admin)
+- Request: `validDays?`; Response: `entry`, `invitation`
 - Aufrufer: src/admin/api.ts
 
-### DELETE /api/admin/warteliste/:id (Admin)
+### DELETE /api/admin/waitlist/:id (Admin)
 - Response: `ok`; Aufrufer: src/admin/api.ts
 
 ---
 
 ## newsletter (routes/newsletter.ts)
 
-### POST /api/newsletter/abmelden (öffentlich, Bremse)
+### POST /api/newsletter/unsubscribe (öffentlich, Bremse)
 - Request: `token` (signiert, ohne Frist); Response: `ok`
-- Aufrufer: src/konto/konto.ts (`/konto#newsletter-aus=…`)
+- Aufrufer: src/konto/konto.ts (`/account#newsletter-off=…`)
 
-### POST /api/newsletter/ein-klick/:token (öffentlich, Bremse; RFC 8058)
+### POST /api/newsletter/one-click/:token (öffentlich, Bremse; RFC 8058)
 - Request/Response: leer (Antwort geht an ein Mail-Programm)
 - Aufrufer: kein Code; nur List-Unsubscribe-Kopfzeilen der System-Mails
 
@@ -313,93 +313,93 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 
 ## rueckmeldungen (routes/rueckmeldungen.ts)
 
-### POST /api/rueckmeldung (öffentlich, Bremse; angemeldet wird die Konto-ID angehängt)
-- Request: `text`, `email?`, `kontext?` (nur die Felder `seite,version,browser,plattform,schirm,sprache,appVersion,geraet,androidVersion` kommen durch), `quelle?` (web|app)
+### POST /api/feedback (öffentlich, Bremse; angemeldet wird die Konto-ID angehängt)
+- Request: `body`, `email?`, `context?` (nur die Felder `page,version,browser,platform,screen,language,appVersion,device,androidVersion` kommen durch), `source?` (web|app)
 - Response: `ok`
 - Aufrufer: src/feedbackformular.ts (Web + App-WebView `/feedback?app=1`)
 
-### GET /api/admin/rueckmeldungen (Admin)
+### GET /api/admin/feedback (Admin)
 - Query: `status` (offen|in_arbeit|erledigt)
-- Response: `rueckmeldungen[]{id,benutzerId,benutzerName,email,text,kontext,quelle,status,notiz,angelegtAm,geaendertAm}`, `zaehlung{offen,in_arbeit,erledigt,gesamt}`
+- Response: `feedback[]{id,userId,userName,email,body,context,source,status,note,createdAt,updatedAt}`, `counts{open,in_progress,done,total}`
 - Aufrufer: src/admin/api.ts
 
-### PATCH /api/admin/rueckmeldungen/:id (Admin)
-- Request: `status?`, `notiz?` (auch null); Response: `rueckmeldung`
+### PATCH /api/admin/feedback/:id (Admin)
+- Request: `status?`, `note?` (auch null); Response: `feedback`
 - Aufrufer: src/admin/api.ts
 
-### DELETE /api/admin/rueckmeldungen/:id (Admin)
+### DELETE /api/admin/feedback/:id (Admin)
 - Response: `ok`; Aufrufer: src/admin/api.ts
 
 ---
 
 ## admin (routes/admin.ts)
 
-### GET /api/admin/statistiken (Admin)
-- Response: `echtzeit`, `heute{aufrufe,besucher}`, `letzte7Tage{aufrufe,besucher}`, `gesamt`,
-  `referrer[]{quelle,anzahl}`, `seiten[]{pfad,anzahl}` (Umami; bei Ausfall Nullen)
+### GET /api/admin/stats (Admin)
+- Response: `realtime`, `today{pageviews,visitors}`, `last7Days{pageviews,visitors}`, `total`,
+  `referrer[]{source,count}`, `pages[]{path,count}` (Umami; bei Ausfall Nullen)
 - Aufrufer: src/admin/api.ts
 
-### GET /api/admin/benutzer (Admin)
-- Response: `benutzer[]{id,email,name,rolle,verifiziert,angelegtAm,anzeigename,touren,fest,speicher}`, `quotaLimit`
+### GET /api/admin/users (Admin)
+- Response: `user[]{id,email,name,role,verified,createdAt,displayName,tours,fixed,storage}`, `quotaLimit`
 - Aufrufer: src/admin/api.ts
 
-### POST /api/admin/benutzer (Admin)
-- Request: `email`, `passwort`, `name`, `rolle?`, `verifiziert?`; Response 201: `benutzer`
+### POST /api/admin/users (Admin)
+- Request: `email`, `password`, `name`, `role?`, `verified?`; Response 201: `user`
 - Aufrufer: src/admin/api.ts
 
-### PATCH /api/admin/benutzer/:id (Admin)
-- Request: `email?`, `name?`, `rolle?`, `verifiziert?`, `passwort?`; Response: `benutzer`
+### PATCH /api/admin/users/:id (Admin)
+- Request: `email?`, `name?`, `role?`, `verified?`, `password?`; Response: `user`
 - Aufrufer: src/admin/api.ts
 
-### DELETE /api/admin/benutzer/:id (Admin)
+### DELETE /api/admin/users/:id (Admin)
 - Response: `ok`; Aufrufer: src/admin/api.ts
 
-### GET /api/admin/einladungen (Admin)
-- Response: `einladungen[]{code,notiz,erstelltAm,erstelltVon,ablauf,eingeloestAm,eingeloestVon,zustand}`,
-  `einladungPflicht`, `registrierungOffen`, `basisUrl`
+### GET /api/admin/invitations (Admin)
+- Response: `invitations[]{code,note,createdAt,createdBy,expiresAt,redeemedAt,redeemedBy,state}`,
+  `invitationRequired`, `registrationOpen`, `baseUrl`
 - Aufrufer: src/admin/api.ts
 
-### POST /api/admin/einladungen (Admin)
-- Request: `notiz?`, `gueltigTage?` (0 = ohne Ablauf); Response 201: `einladung`
+### POST /api/admin/invitations (Admin)
+- Request: `note?`, `validDays?` (0 = ohne Ablauf); Response 201: `invitation`
 - Aufrufer: src/admin/api.ts
 
-### DELETE /api/admin/einladungen/:code (Admin)
+### DELETE /api/admin/invitations/:code (Admin)
 - Response: `ok`; Aufrufer: src/admin/api.ts
 
-### PATCH /api/admin/einstellungen (Admin)
-- Request: `einladungPflicht?`, `wartelisteOffen?`; Response: beide Felder (ganzer Stand)
+### PATCH /api/admin/settings (Admin)
+- Request: `invitationRequired?`, `waitlistOpen?`; Response: beide Felder (ganzer Stand)
 - Aufrufer: src/admin/api.ts
 
-### GET /api/admin/mailvorlagen (Admin)
-- Response: `vorlagen[]{schluessel,…,bausteine{betreff,titel,text,knopf,fuss},angepasst,geaendertAm,geaendertVon}`, `basisUrl`
+### GET /api/admin/mail-templates (Admin)
+- Response: `templates[]{key,…,blocks{subject,title,body,button,footer},customized,updatedAt,updatedBy}`, `baseUrl`
 - Aufrufer: src/admin/api.ts
 
-### PATCH /api/admin/mailvorlagen/:schluessel (Admin)
-- Request: `betreff`, `titel`, `text`, `knopf`, `fuss`; Response: `vorlagen[]`; 400: `fehler`, `probleme[]`
+### PATCH /api/admin/mail-templates/:key (Admin)
+- Request: `subject`, `title`, `body`, `button`, `footer`; Response: `templates[]`; 400: `error`, `issues[]`
 - Aufrufer: src/admin/api.ts
 
-### DELETE /api/admin/mailvorlagen/:schluessel (Admin; auf Standard zurück)
-- Response: `vorlagen[]`; Aufrufer: src/admin/api.ts
+### DELETE /api/admin/mail-templates/:key (Admin; auf Standard zurück)
+- Response: `templates[]`; Aufrufer: src/admin/api.ts
 
-### POST /api/admin/mailvorlagen/:schluessel/vorschau (Admin)
-- Request: Bausteine; Response: `betreff`, `text`, `html`, `probleme[]`
+### POST /api/admin/mail-templates/:key/preview (Admin)
+- Request: Bausteine; Response: `subject`, `body`, `html`, `issues[]`
 - Aufrufer: src/admin/api.ts
 
-### POST /api/admin/mailvorlagen/:schluessel/test (Admin; Testmail an die eigene Adresse)
-- Request: `bausteine?`; Response: `ok`, `an`
+### POST /api/admin/mail-templates/:key/test (Admin; Testmail an die eigene Adresse)
+- Request: `blocks?`; Response: `ok`, `enabled`
 - Aufrufer: src/admin/api.ts
 
-### GET /api/admin/protokoll (Admin)
-- Query: `stufe` (fehler|warnung), `seit` (höchste bekannte Nummer)
-- Response: `eintraege[]{nr,zeit,stufe,text,detail?}`, `gesamt`, `fehler`, `gestartet`
-- Aufrufer: src/admin/api.ts (nutzt nur `seit`; `stufe` wird vom Web nicht gesetzt)
+### GET /api/admin/audit-log (Admin)
+- Query: `level` (failed|warning), `since` (höchste bekannte Nummer)
+- Response: `entries[]{no,at,level,body,detail?}`, `total`, `errorCount`, `startedAt`
+- Aufrufer: src/admin/api.ts (nutzt nur `since`; `level` wird vom Web nicht gesetzt)
 
 ---
 
 ## export (routes/export.ts)
 
 ### POST /api/auth/me/export (Sitzung, Bremse 5/h)
-- Response: `ok`, `export{id,status,angefordertAm,fertigAm,laeuftAbAm,bytes,dateien}` (Bau läuft danach im Hintergrund)
+- Response: `ok`, `dataExport{id,status,requestedAt,finishedAt,expiresAt,bytes,files}` (Bau läuft danach im Hintergrund)
 - Aufrufer: src/konto/konto.ts
 
 ### GET /api/export/:token (öffentlich; signierter Token ist der Nachweis)
@@ -411,11 +411,11 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 ## tracker (routes/tracker.ts)
 
 ### GET /api/tracker/providers (Sitzung)
-- Response: `anbieter[]{id,name,verfuegbar,verbunden,status,verbundenSeit,zuletztSync,fehler}`
+- Response: `provider[]{id,name,available,connected,status,connectedAt,lastSyncAt,error}`
 - Aufrufer: src/konto/trackerkarte.ts, android ApiClient.kt
 
 ### POST /api/tracker/:provider/connect (Sitzung)
-- Request: `ziel?` (web|app); Response: `autorisierungsUrl`
+- Request: `target?` (web|app); Response: `authorizationUrl`
 - Aufrufer: src/konto/trackerkarte.ts, android ApiClient.kt
 
 ### GET /api/tracker/:provider/callback (öffentlich; OAuth-Rückkehr, serverseitiger state)
@@ -424,23 +424,23 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 - Aufrufer: kein Code; der Anbieter leitet den Browser hierher
 
 ### DELETE /api/tracker/:provider (Sitzung)
-- Response: `ok`, `tourenBleiben`
+- Response: `ok`, `toursKept`
 - Aufrufer: src/konto/trackerkarte.ts, android ApiClient.kt
 
 ### POST /api/tracker/:provider/sync (Sitzung, Bremse 6/10 min)
-- Response: `gefunden`, `neu`, `imHintergrund`
+- Response: `found`, `new`, `inBackground`
 - Aufrufer: **KEINER** (s. Befunde)
 
 ### GET /api/tracker/imports (Sitzung)
-- Response: `importe[]{id,benutzerId,anbieter,externeId,status,tourId,gemeldetAm,fertigAm,gesehenAm,fehler,versuche,wiederholbar,tour{titel,km,fotos,status,sichtbarkeit}|null}`
+- Response: `imports[]{id,userId,provider,externalId,status,tourId,reportedAt,finishedAt,seenAt,error,attempts,retryable,tour{title,km,placedMedia,status,visibility}|null}`
 - Aufrufer: src/konto/trackerkarte.ts
 
 ### GET /api/tracker/imports/pending (Sitzung)
-- Query: `gesehen` (=1 quittiert alles Offene)
-- Response: `importe[]` (ohne tour-Anhang)
+- Query: `seen` (=1 quittiert alles Offene)
+- Response: `imports[]` (ohne tour-Anhang)
 - Aufrufer: android ApiClient.kt
 
-### POST /api/tracker/imports/gesehen (Sitzung)
+### POST /api/tracker/imports/seen (Sitzung)
 - Request: `ids[]`; Response: `ok`
 - Aufrufer: android ApiClient.kt
 
@@ -448,12 +448,12 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 
 ## push (routes/push.ts)
 
-### POST /api/push/geraete (Sitzung; das Gerät hängt am App-Token)
-- Request: `token`, `plattform` (android|ios)
-- Response: `ok`, `push`, `geraetId?` (push=false wenn FCM nicht konfiguriert)
+### POST /api/push/devices (Sitzung; das Gerät hängt am App-Token)
+- Request: `token`, `platform` (android|ios)
+- Response: `ok`, `push`, `deviceId?` (push=false wenn FCM nicht konfiguriert)
 - Aufrufer: android ApiClient.kt
 
-### DELETE /api/push/geraete (Sitzung; Token im Body, nicht im Pfad)
+### DELETE /api/push/devices (Sitzung; Token im Body, nicht im Pfad)
 - Request: `token`; Response: `ok`
 - Aufrufer: android ApiClient.kt
 
@@ -486,7 +486,7 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 
 ## sonstiges (app.ts)
 
-### GET /api/gesundheit (öffentlich)
+### GET /api/health (öffentlich)
 - Response: `ok`
 - Aufrufer: kein Code; nur `curl` im Runbook docs/ops/deploy-cloudpanel.md
 
@@ -499,13 +499,13 @@ Fehlerantworten tragen überall `{ fehler }`, Validierungsfehler zusätzlich
 1. **POST /api/tracker/:provider/sync**; der einzige echte Verdachtsfall: weder Web
    (trackerkarte.ts) noch Android rufen ihn. Der „Jetzt abrufen"-Knopf, für den die Route
    samt Bremse gebaut ist, existiert in keiner Oberfläche.
-2. GET /api/gesundheit; nur ops (curl im Runbook). Absicht (Health-Check).
+2. GET /api/health; nur ops (curl im Runbook). Absicht (Health-Check).
 3. GET /api/export/:token; nur Mail-Link. Absicht.
-4. POST /api/newsletter/ein-klick/:token; nur Mail-Kopfzeilen (RFC 8058). Absicht.
+4. POST /api/newsletter/one-click/:token; nur Mail-Kopfzeilen (RFC 8058). Absicht.
 5. GET/POST /api/webhooks/tracker/:provider; externe Anbieter. Absicht.
 6. GET /api/tracker/:provider/callback; OAuth-Redirect des Anbieters. Absicht.
-7. GET /api/benutzer/:id/titelbild, GET /api/benutzer/:id/avatar,
-   GET /api/tours/:id/bibliothek-audio/:datei, GET /sitemap-*.xml, GET /@:handle,
+7. GET /api/users/:id/banner, GET /api/users/:id/avatar,
+   GET /api/tours/:id/library-audio/:file, GET /sitemap-*.xml, GET /@:handle,
    GET /tour/:kennung; nur datengetrieben (URLs aus Server-Antworten, Browser-Navigation,
    robots.txt). Kein Code-Literal auf Aufruferseite, aber in Benutzung.
 

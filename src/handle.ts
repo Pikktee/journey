@@ -108,7 +108,7 @@ export function pruefeHandleForm(wert: string): HandleFehler | null {
   if (w.length < 3) return 'kurz'
   if (!HANDLE_REGELN.test(w)) return 'form'
   // Benutzer-IDs beginnen mit `u_` (server/src/ids.ts). Der Präfix bleibt frei,
-  // damit `/api/benutzer/:wen/profil` eine ID von einem Handle unterscheiden
+  // damit `/api/users/:id/profile` eine ID von einem Handle unterscheiden
   // kann, ohne zu raten — sonst führte ein Handle „u_abc" auf ein fremdes Profil.
   if (w.startsWith('u_')) return 'reserviert'
   if (RESERVIERTE_HANDLES.has(w)) return 'reserviert'

@@ -122,7 +122,7 @@ export interface TourJson {
      */
     filmS?: number
     /** Filmsekunde des Endes; nur bei Bereichen (ein One-Shot hat keine) */
-    filmBisS?: number
+    filmToS?: number
   }>
   stats: TourStats
 }
@@ -677,14 +677,14 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         // bekämen ein Feld, das sie nie hatten.
         ...(spur.loop !== undefined ? { loop: spur.loop } : {}),
         ...(spur.startS ? { startS: spur.startS } : {}),
-        // Die Film-Anker (E10). `filmS` steht bei jedem Klip, `filmBisS` nur bei
+        // Die Film-Anker (E10). `filmS` steht bei jedem Klip, `filmToS` nur bei
         // einem BEREICH: Ein One-Shot hat keine Länge, und ein zweites Feld mit
         // demselben Wert wäre eine Angabe über nichts. Der Player fällt je
-        // Endpunkt einzeln auf `f0`/`f1` zurück — ein Bereich ohne `filmBisS`
+        // Endpunkt einzeln auf `f0`/`f1` zurück — ein Bereich ohne `filmToS`
         // bleibt dadurch ein Bereich.
         ...(filmVonS !== undefined ? { filmS: filmZahl(filmVonS) } : {}),
         ...(filmBisS !== undefined && filmVonS !== undefined && filmBisS > filmVonS
-          ? { filmBisS: filmZahl(filmBisS) }
+          ? { filmToS: filmZahl(filmBisS) }
           : {}),
       })
     }
