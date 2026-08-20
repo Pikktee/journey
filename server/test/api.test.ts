@@ -95,7 +95,7 @@ describe('Auth', () => {
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'test@example.com', passwort: 'falsch' },
+      payload: { email: 'test@example.com', password: 'falsch' },
     })
     expect(antwort.statusCode).toBe(401)
     expect(antwort.body).not.toContain('existiert')
@@ -109,17 +109,17 @@ describe('Auth', () => {
       headers: { authorization: `Bearer ${u.apiToken}` },
     })
     expect(antwort.statusCode).toBe(200)
-    expect((antwort.json() as { benutzer: { email: string } }).benutzer.email).toBe(
+    expect((antwort.json() as { user: { email: string } }).user.email).toBe(
       'test@example.com',
     )
   })
 
-  it('beendet Sessions beim Logout (me() antwortet danach mit benutzer null)', async () => {
+  it('beendet Sessions beim Logout (me() antwortet danach mit user null)', async () => {
     const u = await baueTestApp()
     await u.app.inject({ method: 'POST', url: '/api/auth/logout', cookies: u.cookies })
     const antwort = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
     expect(antwort.statusCode).toBe(200)
-    expect((antwort.json() as { benutzer: unknown }).benutzer).toBeNull()
+    expect((antwort.json() as { user: unknown }).user).toBeNull()
     // Schreibzugriffe bleiben nach dem Logout gesperrt
     const schreiben = await u.app.inject({
       method: 'POST',
@@ -130,11 +130,11 @@ describe('Auth', () => {
     expect(schreiben.statusCode).toBe(401)
   })
 
-  it('me() ohne Anmeldung: 200 mit benutzer null statt 401 (kein Konsole-Rauschen)', async () => {
+  it('me() ohne Anmeldung: 200 mit user null statt 401 (kein Konsole-Rauschen)', async () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({ method: 'GET', url: '/api/auth/me' })
     expect(antwort.statusCode).toBe(200)
-    expect((antwort.json() as { benutzer: unknown }).benutzer).toBeNull()
+    expect((antwort.json() as { user: unknown }).user).toBeNull()
   })
 })
 
@@ -386,7 +386,7 @@ describe('Tour-Lebenszyklus', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(409)
-    expect((antwort.json() as { fehlend: string[] }).fehlend).toEqual(['track.gpx'])
+    expect((antwort.json() as { missing: string[] }).missing).toEqual(['track.gpx'])
   })
 
   it('weist ein Manifest mit BEIDEN Track-Quellen ab (segments + trackFile)', async () => {
@@ -429,7 +429,7 @@ describe('Tour-Lebenszyklus', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(409)
-    expect((antwort.json() as { fehlend: string[] }).fehlend).toEqual(['m1'])
+    expect((antwort.json() as { missing: string[] }).missing).toEqual(['m1'])
   })
 
   it('legt Touren mit gleicher clientTourId nur einmal an', async () => {
@@ -442,7 +442,7 @@ describe('Tour-Lebenszyklus', () => {
       payload: beispielManifest(),
     })
     expect(nochmal.statusCode).toBe(200)
-    expect((nochmal.json() as { id: string; wiederverwendet: boolean }).id).toBe(id)
+    expect((nochmal.json() as { id: string; reused: boolean }).id).toBe(id)
   })
 
   it('validiert das Manifest strikt', async () => {
@@ -567,7 +567,7 @@ describe('Titelbild', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', titelbild: 'm2' },
+      payload: { schema: 'maptale/edits@1', banner: 'm2' },
     })
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
@@ -596,11 +596,11 @@ describe('Session aus API-Token (App-Player)', () => {
 
     const tausch = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/session-aus-token',
+      url: '/api/auth/session-from-token',
       headers: { authorization: `Bearer ${u.apiToken}` },
     })
     expect(tausch.statusCode).toBe(200)
-    const { sessionId } = tausch.json() as { sessionId: string; ablauf: string }
+    const { sessionId } = tausch.json() as { sessionId: string; expiresAt: string }
 
     const mitSitzung = await u.app.inject({
       method: 'GET',
@@ -613,7 +613,7 @@ describe('Session aus API-Token (App-Player)', () => {
   it('ohne Anmeldung gibt es keine Sitzung', async () => {
     const u = await baueTestApp()
     expect(
-      (await u.app.inject({ method: 'POST', url: '/api/auth/session-aus-token' })).statusCode,
+      (await u.app.inject({ method: 'POST', url: '/api/auth/session-from-token' })).statusCode,
     ).toBe(401)
   })
 })
@@ -643,7 +643,7 @@ describe('Sichtbarkeit', () => {
     const jetzt = new Date().toISOString()
     db.prepare(
       `INSERT INTO tours (id, owner_id, no, status, client_tour_id, created_at, updated_at)
-       VALUES (?, (SELECT id FROM users LIMIT 1), 99, 'bereit', NULL, ?, ?)`,
+       VALUES (?, (SELECT id FROM users LIMIT 1), 99, 'ready', NULL, ?, ?)`,
     ).run('t_alt', jetzt, jetzt)
 
     const zeile = db.prepare('SELECT visibility FROM tours WHERE id = ?').get('t_alt') as {
@@ -700,7 +700,7 @@ describe('Sichtbarkeit', () => {
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'andere@example.com', passwort: 'geheim456' },
+      payload: { email: 'andere@example.com', password: 'geheim456' },
     })
     const fremdeCookies = {
       maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '',
@@ -743,7 +743,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'zweite@example.com', passwort: 'geheim456' },
+      payload: { email: 'zweite@example.com', password: 'geheim456' },
     })
     const cookies2 = {
       maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '',
@@ -784,17 +784,17 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
     const id = await legeTourAn(u)
     u.app.deps.db
       .prepare(
-        `UPDATE tours SET status = 'fehler', fehler = 'interner Stacktrace', visibility = 'unlisted' WHERE id = ?`,
+        `UPDATE tours SET status = 'failed', fehler = 'interner Stacktrace', visibility = 'unlisted' WHERE id = ?`,
       )
       .run(id)
     const anonym = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as {
-      fehler?: string
+      error?: string
     }
-    expect(anonym.fehler).toBeUndefined()
+    expect(anonym.error).toBeUndefined()
     const owner = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
-    ).json() as { fehler?: string }
-    expect(owner.fehler).toBe('interner Stacktrace')
+    ).json() as { error?: string }
+    expect(owner.error).toBe('interner Stacktrace')
   })
 
   it('cached private Medien nie public', async () => {
@@ -824,7 +824,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
       const antwort = await u.app.inject({
         method: 'POST',
         url: '/api/auth/login',
-        payload: { email: `flut-${Math.random()}@example.com`, passwort: 'falsch' },
+        payload: { email: `flut-${Math.random()}@example.com`, password: 'falsch' },
         remoteAddress: '203.0.113.7',
       })
       letzter = antwort.statusCode
@@ -898,7 +898,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'fremd@example.com', passwort: 'geheim456' },
+      payload: { email: 'fremd@example.com', password: 'geheim456' },
     })
     return { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
   }
@@ -943,7 +943,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson
-    expect(tour.status).toBe('bereit')
+    expect(tour.status).toBe('ready')
     expect(tour.media[0]?.title).toBe('Handgeschrieben')
     expect(tour.media[0]?.placement).toBe('manuell')
     expect(tour.media[0]?.anchor).toEqual([7.9184, 46.5891])
@@ -983,7 +983,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson
-    expect(tour.status).toBe('bereit')
+    expect(tour.status).toBe('ready')
     expect(tour.media[0]?.title).toBe('Bleibt')
   })
 
@@ -1009,7 +1009,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       },
     })
     expect(semantik.statusCode).toBe(400)
-    expect(semantik.json()).toMatchObject({ fehler: expect.stringContaining('Trim-Start') })
+    expect(semantik.json()).toMatchObject({ error: expect.stringContaining('Trim-Start') })
   })
 
   it('Bibliotheks-Audio übersteht den PUT und landet als /audio/sfx-URL', async () => {
@@ -1384,7 +1384,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(409)
-    expect(antwort.json()).toMatchObject({ fehler: expect.stringContaining('Track nicht lesbar') })
+    expect(antwort.json()).toMatchObject({ error: expect.stringContaining('Track nicht lesbar') })
   })
 
   it('weist Zeitstempel mit Anhängsel ab — Pattern voll verankert (Review-Fund)', async () => {

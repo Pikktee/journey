@@ -9,32 +9,32 @@ const pino = (level: number, felder: Record<string, unknown> = {}): string =>
 describe('Protokoll (Ringpuffer)', () => {
   it('hält die neuesten Meldungen und wirft die ältesten heraus', () => {
     const p = new Protokoll(3)
-    for (const n of [1, 2, 3, 4, 5]) p.schreibe('warnung', `Meldung ${n}`)
+    for (const n of [1, 2, 3, 4, 5]) p.schreibe('warning', `Meldung ${n}`)
     expect(p.liste().map((e) => e.text)).toEqual(['Meldung 5', 'Meldung 4', 'Meldung 3'])
-    expect(p.zaehle()).toEqual({ gesamt: 3, fehler: 0 })
+    expect(p.zaehle()).toEqual({ total: 3, errorCount: 0 })
   })
 
   it('zählt fortlaufend weiter, auch über das Herausfallen hinweg', () => {
     // Daran erkennt die Ansicht neue Einträge — eine Nummer darf nie zweimal
     // vorkommen, sonst hielte sie Altes für Neues.
     const p = new Protokoll(2)
-    for (const n of [1, 2, 3, 4]) p.schreibe('warnung', `M${n}`)
-    expect(p.liste().map((e) => e.nr)).toEqual([4, 3])
+    for (const n of [1, 2, 3, 4]) p.schreibe('warning', `M${n}`)
+    expect(p.liste().map((e) => e.no)).toEqual([4, 3])
   })
 
   it('filtert nach Stufe und begrenzt auf Wunsch', () => {
     const p = new Protokoll()
-    p.schreibe('warnung', 'nur eine Warnung')
-    p.schreibe('fehler', 'echter Fehler')
-    p.schreibe('warnung', 'noch eine')
-    expect(p.liste({ stufe: 'fehler' }).map((e) => e.text)).toEqual(['echter Fehler'])
+    p.schreibe('warning', 'nur eine Warnung')
+    p.schreibe('failed', 'echter Fehler')
+    p.schreibe('warning', 'noch eine')
+    expect(p.liste({ level: 'failed' }).map((e) => e.text)).toEqual(['echter Fehler'])
     expect(p.liste({ limit: 2 })).toHaveLength(2)
-    expect(p.zaehle()).toEqual({ gesamt: 3, fehler: 1 })
+    expect(p.zaehle()).toEqual({ total: 3, errorCount: 1 })
   })
 
   it('kappt sehr lange Meldungen', () => {
     const p = new Protokoll()
-    p.schreibe('fehler', 'x'.repeat(5000))
+    p.schreibe('failed', 'x'.repeat(5000))
     expect(p.liste()[0]?.text.length).toBe(2000)
   })
 })
@@ -56,13 +56,13 @@ describe('protokollZiel (pino-Anbindung)', () => {
     const p = new Protokoll()
     const ziel = protokollZiel(p, () => {})
     ziel.write(pino(20, { msg: 'debug' }))
-    ziel.write(pino(40, { msg: 'warnung' }))
-    ziel.write(pino(50, { msg: 'fehler' }))
+    ziel.write(pino(40, { msg: 'warning' }))
+    ziel.write(pino(50, { msg: 'failed' }))
     ziel.write(pino(60, { msg: 'fatal' }))
-    expect(p.liste().map((e) => [e.stufe, e.text])).toEqual([
-      ['fehler', 'fatal'],
-      ['fehler', 'fehler'],
-      ['warnung', 'warnung'],
+    expect(p.liste().map((e) => [e.level, e.text])).toEqual([
+      ['failed', 'fatal'],
+      ['failed', 'failed'],
+      ['warning', 'warning'],
     ])
   })
 
@@ -78,7 +78,7 @@ describe('protokollZiel (pino-Anbindung)', () => {
       }),
     )
     expect(p.liste()[0]).toMatchObject({
-      stufe: 'fehler',
+      level: 'failed',
       text: 'Anreicherung fehlgeschlagen',
       detail: 'POST /api/tours/t_1/finalize · HTTP 500 · Track nicht lesbar',
     })

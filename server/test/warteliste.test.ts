@@ -16,7 +16,7 @@ import { wartelisteAngeboten } from '../src/auth/warteliste.js'
 async function trageEin(u: TestUmgebung, email: string, notiz?: string): Promise<string> {
   const antwort = await u.app.inject({
     method: 'POST',
-    url: '/api/auth/warteliste',
+    url: '/api/auth/waitlist',
     payload: notiz ? { email, notiz } : { email },
   })
   expect(antwort.statusCode).toBe(200)
@@ -29,7 +29,7 @@ async function trageEin(u: TestUmgebung, email: string, notiz?: string): Promise
 async function bestaetige(u: TestUmgebung, token: string): Promise<number> {
   const antwort = await u.app.inject({
     method: 'POST',
-    url: '/api/auth/warteliste/bestaetigen',
+    url: '/api/auth/waitlist/confirm',
     payload: { token },
   })
   return antwort.statusCode
@@ -41,12 +41,12 @@ describe('Warteliste — eintragen und bestätigen', () => {
     const token = await trageEin(u, 'anna@example.com', 'Radtouren in den Alpen')
 
     expect(u.mail.nachrichten.at(-1)?.an).toBe('anna@example.com')
-    expect(u.app.warteliste.alle()[0]?.zustand).toBe('unbestaetigt')
+    expect(u.app.warteliste.alle()[0]?.state).toBe('unconfirmed')
 
     expect(await bestaetige(u, token)).toBe(200)
     const eintrag = u.app.warteliste.alle()[0]
-    expect(eintrag?.zustand).toBe('wartend')
-    expect(eintrag?.notiz).toBe('Radtouren in den Alpen')
+    expect(eintrag?.state).toBe('pending')
+    expect(eintrag?.note).toBe('Radtouren in den Alpen')
   })
 
   it('nimmt denselben Klick zweimal hin (Mail-Scanner öffnen Links vorab)', async () => {
@@ -61,7 +61,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
     const vorher = u.mail.nachrichten.length
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/warteliste',
+      url: '/api/auth/waitlist',
       payload: { email: 'test@example.com' }, // der Testbenutzer aus baueTestApp
     })
     expect(antwort.statusCode).toBe(200)
@@ -78,7 +78,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/warteliste',
+      url: '/api/auth/waitlist',
       payload: { email: 'anna@example.com' },
     })
     expect(antwort.statusCode).toBe(200)
@@ -93,7 +93,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
     expect(neu).not.toBe(alt)
     expect(await bestaetige(u, alt)).toBe(400)
     expect(await bestaetige(u, neu)).toBe(200)
-    expect(u.app.warteliste.alle()[0]?.notiz).toBe('Radtouren')
+    expect(u.app.warteliste.alle()[0]?.note).toBe('Radtouren')
   })
 
   it('weist einen unbekannten Token ab', async () => {
@@ -106,7 +106,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
     u.app.warteliste.setzeOffen(false)
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/warteliste',
+      url: '/api/auth/waitlist',
       payload: { email: 'anna@example.com' },
     })
     expect(antwort.statusCode).toBe(403)
@@ -117,18 +117,18 @@ describe('Warteliste — eintragen und bestätigen', () => {
     u.app.einladungen.setzePflicht(false)
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/warteliste',
+      url: '/api/auth/waitlist',
       payload: { email: 'anna@example.com' },
     })
     expect(antwort.statusCode).toBe(403)
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me' })
-    expect(me.json().registrierung.warteliste).toBe(false)
+    expect(me.json().registration.waitlist).toBe(false)
   })
 
   it('meldet das Angebot in /auth/me — auch ohne Anmeldung', async () => {
     const u = await baueTestApp()
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me' })
-    expect(me.json().registrierung).toMatchObject({ einladungPflicht: true, warteliste: true })
+    expect(me.json().registration).toMatchObject({ invitationRequired: true, waitlist: true })
   })
 })
 
@@ -153,7 +153,7 @@ describe('Warteliste — austragen', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/warteliste/austragen',
+      url: '/api/auth/waitlist/leave',
       payload: { token },
     })
     expect(antwort.statusCode).toBe(200)
@@ -171,7 +171,7 @@ describe('Warteliste — austragen', () => {
     const id = u.app.warteliste.alle()[0]?.id as string
     await u.app.inject({
       method: 'POST',
-      url: `/api/admin/warteliste/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/einladen`,
       cookies: admin.cookies,
       payload: {},
     })
@@ -183,7 +183,7 @@ describe('Warteliste — austragen', () => {
 
     await u.app.inject({
       method: 'POST',
-      url: '/api/auth/warteliste/austragen',
+      url: '/api/auth/waitlist/leave',
       payload: { token: austragToken },
     })
     expect(u.app.warteliste.alle()).toHaveLength(0)
@@ -198,7 +198,7 @@ describe('Warteliste — austragen', () => {
     const id = u.app.warteliste.alle()[0]?.id as string
     const einladen = await u.app.inject({
       method: 'POST',
-      url: `/api/admin/warteliste/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/einladen`,
       cookies: admin.cookies,
       payload: {},
     })
@@ -212,14 +212,14 @@ describe('Warteliste — austragen', () => {
       url: '/api/auth/register',
       payload: {
         email: 'anna@example.com',
-        passwort: 'lampe wolke treppe',
-        code: einladen.json().einladung.code,
+        password: 'lampe wolke treppe',
+        code: einladen.json().invitation.code,
       },
     })
 
     await u.app.inject({
       method: 'POST',
-      url: '/api/auth/warteliste/austragen',
+      url: '/api/auth/waitlist/leave',
       payload: { token: austragToken },
     })
     expect(u.app.warteliste.alle()).toHaveLength(0)
@@ -230,7 +230,7 @@ describe('Warteliste — austragen', () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/warteliste/austragen',
+      url: '/api/auth/waitlist/leave',
       payload: { token: 'lhb_langeweg' },
     })
     expect(antwort.statusCode).toBe(200)
@@ -247,31 +247,31 @@ describe('Warteliste — freischalten', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: `/api/admin/warteliste/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/einladen`,
       cookies: admin.cookies,
       payload: {},
     })
     expect(antwort.statusCode).toBe(200)
-    const { einladung } = antwort.json()
+    const { invitation } = antwort.json()
 
     // Die Mail trägt Code UND einen Weg hinaus
     const mail = u.mail.nachrichten.at(-1) as MailNachricht
     expect(mail.an).toBe('anna@example.com')
-    expect(mail.text).toContain(einladung.code)
+    expect(mail.text).toContain(invitation.code)
     expect(mail.text).toContain('#warteliste-austragen=')
 
     // Der Eintrag zeigt den Faden zur Einladung, die Einladung die Adresse
     expect(u.app.warteliste.alle()[0]).toMatchObject({
-      zustand: 'eingeladen',
-      eingeladenCode: einladung.code,
+      state: 'invited',
+      invitedCode: invitation.code,
     })
-    expect(u.app.einladungen.alle()[0]?.notiz).toBe('anna@example.com')
+    expect(u.app.einladungen.alle()[0]?.note).toBe('anna@example.com')
 
     // Der Code aus der Mail trägt tatsächlich durch die Registrierung
     const registrierung = await u.app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'anna@example.com', passwort: 'lampe wolke treppe', code: einladung.code },
+      payload: { email: 'anna@example.com', password: 'lampe wolke treppe', code: invitation.code },
     })
     expect(registrierung.statusCode).toBe(201)
   })
@@ -285,7 +285,7 @@ describe('Warteliste — freischalten', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: `/api/admin/warteliste/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/einladen`,
       cookies: admin.cookies,
       payload: {},
     })
@@ -306,7 +306,7 @@ describe('Warteliste — freischalten', () => {
     const einladen = async (): Promise<number> => {
       const antwort = await u.app.inject({
         method: 'POST',
-        url: `/api/admin/warteliste/${id}/einladen`,
+        url: `/api/admin/waitlist/${id}/einladen`,
         cookies: admin.cookies,
         payload: {},
       })
@@ -332,20 +332,20 @@ describe('Warteliste — freischalten', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: `/api/admin/warteliste/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/einladen`,
       cookies: admin.cookies,
       payload: {},
     })
     expect(antwort.statusCode).toBe(502)
     expect(u.app.einladungen.alle()).toHaveLength(0)
-    expect(u.app.warteliste.alle()[0]?.zustand).toBe('wartend')
+    expect(u.app.warteliste.alle()[0]?.state).toBe('pending')
   })
 
   it('hält Nicht-Admins von der Liste fern', async () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({
       method: 'GET',
-      url: '/api/admin/warteliste',
+      url: '/api/admin/waitlist',
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(403)
@@ -359,7 +359,7 @@ describe('Warteliste — freischalten', () => {
 
     const antwort = await u.app.inject({
       method: 'DELETE',
-      url: `/api/admin/warteliste/${id}`,
+      url: `/api/admin/waitlist/${id}`,
       cookies: admin.cookies,
     })
     expect(antwort.statusCode).toBe(200)
@@ -371,11 +371,11 @@ describe('Warteliste — freischalten', () => {
     const admin = await legeAdminAn(u)
     const antwort = await u.app.inject({
       method: 'PATCH',
-      url: '/api/admin/einstellungen',
+      url: '/api/admin/settings',
       cookies: admin.cookies,
-      payload: { wartelisteOffen: false },
+      payload: { waitlistOpen: false },
     })
-    expect(antwort.json()).toEqual({ einladungPflicht: true, wartelisteOffen: false })
+    expect(antwort.json()).toEqual({ invitationRequired: true, waitlistOpen: false })
     expect(u.app.warteliste.offen()).toBe(false)
   })
 })
@@ -391,7 +391,7 @@ describe('Warteliste — Fristen', () => {
     // Den alten Eintrag künstlich altern lassen (20 Tage)
     const zwanzigTage = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
     u.app.deps.db
-      .prepare('UPDATE warteliste SET eingetragen_am = ? WHERE email = ?')
+      .prepare('UPDATE waitlist SET eingetragen_am = ? WHERE email = ?')
       .run(zwanzigTage, 'alt@example.com')
 
     expect(u.app.warteliste.raeumeAuf()).toBe(1)
@@ -409,7 +409,7 @@ describe('Warteliste — Fristen', () => {
     u.app.warteliste.markiereEingeladen(id, 'ABCD-2345')
 
     const langeHer = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString()
-    u.app.deps.db.prepare('UPDATE warteliste SET eingeladen_am = ? WHERE id = ?').run(langeHer, id)
+    u.app.deps.db.prepare('UPDATE waitlist SET eingeladen_am = ? WHERE id = ?').run(langeHer, id)
 
     expect(u.app.warteliste.raeumeAuf()).toBe(1)
     expect(u.app.warteliste.alle()).toHaveLength(0)

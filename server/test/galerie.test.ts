@@ -8,7 +8,7 @@ interface Karte {
   titel: string | null
   cover: string | null
   km: number | null
-  autor: { anzeigename: string; avatarUrl: string | null; id?: string } | null
+  author: { displayName: string; avatarUrl: string | null; id?: string } | null
 }
 
 async function legeTourAn(u: TestUmgebung, clientId = 'client-1'): Promise<string> {
@@ -41,10 +41,10 @@ async function veroeffentliche(u: TestUmgebung, tourId: string): Promise<void> {
   })
 }
 
-async function galerie(u: TestUmgebung, query = ''): Promise<{ touren: Karte[]; mehr: boolean }> {
-  const antwort = await u.app.inject({ method: 'GET', url: `/api/galerie${query}` })
+async function galerie(u: TestUmgebung, query = ''): Promise<{ tours: Karte[]; hasMore: boolean }> {
+  const antwort = await u.app.inject({ method: 'GET', url: `/api/gallery${query}` })
   expect(antwort.statusCode).toBe(200)
-  return antwort.json() as { touren: Karte[]; mehr: boolean }
+  return antwort.json() as { tours: Karte[]; hasMore: boolean }
 }
 
 function nutzerId(u: TestUmgebung): string {
@@ -58,17 +58,17 @@ describe('Galerie', () => {
     await legeTourAn(u, 'c2') // bleibt privat
     await veroeffentliche(u, oeffentlich)
 
-    const { touren } = await galerie(u)
-    expect(touren.map((t) => t.id)).toEqual([oeffentlich])
-    expect(touren[0]?.cover).toBe(`/api/media/${oeffentlich}/m1.jpg`)
-    expect(touren[0]?.km).toBeGreaterThan(9)
+    const { tours } = await galerie(u)
+    expect(tours.map((t) => t.id)).toEqual([oeffentlich])
+    expect(tours[0]?.cover).toBe(`/api/media/${oeffentlich}/m1.jpg`)
+    expect(tours[0]?.km).toBeGreaterThan(9)
   })
 
   it('braucht keine Anmeldung', async () => {
     const u = await baueTestApp()
     await veroeffentliche(u, await legeTourAn(u))
     // galerie() ruft bewusst ohne Cookie ab — hier gilt das als Prüfung
-    expect((await galerie(u)).touren).toHaveLength(1)
+    expect((await galerie(u)).tours).toHaveLength(1)
   })
 
   it('nennt den Urheber erst mit gesetztem Anzeigenamen', async () => {
@@ -76,15 +76,15 @@ describe('Galerie', () => {
     // wird niemals ersatzweise gezeigt.
     const u = await baueTestApp()
     await veroeffentliche(u, await legeTourAn(u))
-    expect((await galerie(u)).touren[0]?.autor).toBeNull()
+    expect((await galerie(u)).tours[0]?.author).toBeNull()
 
     await u.app.inject({
       method: 'PATCH',
-      url: '/api/auth/me/profil',
+      url: '/api/auth/me/profile',
       cookies: u.cookies,
-      payload: { anzeigename: 'Reisende' },
+      payload: { displayName: 'Reisende' },
     })
-    expect((await galerie(u)).touren[0]?.autor?.anzeigename).toBe('Reisende')
+    expect((await galerie(u)).tours[0]?.author?.displayName).toBe('Reisende')
   })
 
   it('verlinkt die Profilseite nur, wenn es sie gibt', async () => {
@@ -92,13 +92,13 @@ describe('Galerie', () => {
     const u = await baueTestApp()
     await veroeffentliche(u, await legeTourAn(u))
     const patch = (payload: Record<string, unknown>) =>
-      u.app.inject({ method: 'PATCH', url: '/api/auth/me/profil', cookies: u.cookies, payload })
+      u.app.inject({ method: 'PATCH', url: '/api/auth/me/profile', cookies: u.cookies, payload })
 
-    await patch({ anzeigename: 'Reisende' })
-    expect((await galerie(u)).touren[0]?.autor?.id).toBeUndefined()
+    await patch({ displayName: 'Reisende' })
+    expect((await galerie(u)).tours[0]?.author?.id).toBeUndefined()
 
-    await patch({ sichtbarkeit: 'public' })
-    expect((await galerie(u)).touren[0]?.autor?.id).toBe(nutzerId(u))
+    await patch({ visibility: 'public' })
+    expect((await galerie(u)).tours[0]?.author?.id).toBe(nutzerId(u))
   })
 
   it('blättert seitenweise', async () => {
@@ -106,22 +106,22 @@ describe('Galerie', () => {
     for (const nr of [1, 2, 3]) await veroeffentliche(u, await legeTourAn(u, `c${nr}`))
 
     const erste = await galerie(u, '?limit=2')
-    expect(erste.touren).toHaveLength(2)
-    expect(erste.mehr).toBe(true)
+    expect(erste.tours).toHaveLength(2)
+    expect(erste.hasMore).toBe(true)
 
     const zweite = await galerie(u, '?limit=2&offset=2')
-    expect(zweite.touren).toHaveLength(1)
-    expect(zweite.mehr).toBe(false)
+    expect(zweite.tours).toHaveLength(1)
+    expect(zweite.hasMore).toBe(false)
     // Keine Tour taucht doppelt auf
-    expect(new Set([...erste.touren, ...zweite.touren].map((t) => t.id)).size).toBe(3)
+    expect(new Set([...erste.tours, ...zweite.tours].map((t) => t.id)).size).toBe(3)
   })
 
   it('verkraftet unsinnige Blätter-Angaben', async () => {
     const u = await baueTestApp()
     await veroeffentliche(u, await legeTourAn(u))
-    expect((await galerie(u, '?limit=-5&offset=-3')).touren).toHaveLength(1)
-    expect((await galerie(u, '?limit=99999')).touren).toHaveLength(1)
-    expect((await galerie(u, '?limit=abc')).touren).toHaveLength(1)
+    expect((await galerie(u, '?limit=-5&offset=-3')).tours).toHaveLength(1)
+    expect((await galerie(u, '?limit=99999')).tours).toHaveLength(1)
+    expect((await galerie(u, '?limit=abc')).tours).toHaveLength(1)
   })
 })
 
@@ -133,20 +133,20 @@ describe('Öffentliche Profilseite', () => {
     await veroeffentliche(u, oeffentlich)
     await u.app.inject({
       method: 'PATCH',
-      url: '/api/auth/me/profil',
+      url: '/api/auth/me/profile',
       cookies: u.cookies,
-      payload: { anzeigename: 'Reisende', bio: 'Unterwegs', sichtbarkeit: 'public' },
+      payload: { displayName: 'Reisende', bio: 'Unterwegs', visibility: 'public' },
     })
 
     const antwort = await u.app.inject({
       method: 'GET',
-      url: `/api/benutzer/${nutzerId(u)}/profil`,
+      url: `/api/users/${nutzerId(u)}/profil`,
     })
     expect(antwort.statusCode).toBe(200)
-    const profil = antwort.json() as { anzeigename: string; bio: string; touren: Karte[] }
-    expect(profil.anzeigename).toBe('Reisende')
+    const profil = antwort.json() as { displayName: string; bio: string; tours: Karte[] }
+    expect(profil.displayName).toBe('Reisende')
     expect(profil.bio).toBe('Unterwegs')
-    expect(profil.touren.map((t) => t.id)).toEqual([oeffentlich])
+    expect(profil.tours.map((t) => t.id)).toEqual([oeffentlich])
   })
 
   it('ein nicht freigegebenes Profil sieht aus wie keins', async () => {
@@ -154,7 +154,7 @@ describe('Öffentliche Profilseite', () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({
       method: 'GET',
-      url: `/api/benutzer/${nutzerId(u)}/profil`,
+      url: `/api/users/${nutzerId(u)}/profil`,
     })
     expect(antwort.statusCode).toBe(404)
   })
@@ -162,7 +162,7 @@ describe('Öffentliche Profilseite', () => {
   it('unbekannte Person: ebenfalls 404', async () => {
     const u = await baueTestApp()
     expect(
-      (await u.app.inject({ method: 'GET', url: '/api/benutzer/u_gibtsnicht/profil' })).statusCode,
+      (await u.app.inject({ method: 'GET', url: '/api/users/u_gibtsnicht/profile' })).statusCode,
     ).toBe(404)
   })
 })

@@ -46,7 +46,7 @@ function ladeBibliothekHoch(
 ) {
   return u.app.inject({
     method: 'PUT',
-    url: `/api/audio-bibliothek/${datei}`,
+    url: `/api/audio-library/${datei}`,
     cookies: u.cookies,
     headers: { 'content-type': 'application/octet-stream' },
     payload: Buffer.from(inhalt as string),
@@ -73,12 +73,12 @@ async function fremdeCookies(u: TestUmgebung): Promise<{ maptale_session: string
   const login = await u.app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email: 'fremd@example.com', passwort: 'geheim456' },
+    payload: { email: 'fremd@example.com', password: 'geheim456' },
   })
   return { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
 }
 
-describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-bibliothek)', () => {
+describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-library)', () => {
   it('lädt hoch, listet mit Größe und leerer Verwendung, streamt für den Eigentümer mit Range', async () => {
     const u = await baueTestApp()
     const put = await ladeBibliothekHoch(u)
@@ -87,7 +87,7 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-bibliothek)', () 
 
     const liste = await u.app.inject({
       method: 'GET',
-      url: '/api/audio-bibliothek',
+      url: '/api/audio-library',
       cookies: u.cookies,
     })
     expect(liste.statusCode).toBe(200)
@@ -97,7 +97,7 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-bibliothek)', () 
 
     const voll = await u.app.inject({
       method: 'GET',
-      url: '/api/audio-bibliothek/meine-musik.mp3',
+      url: '/api/audio-library/meine-musik.mp3',
       cookies: u.cookies,
     })
     expect(voll.statusCode).toBe(200)
@@ -106,7 +106,7 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-bibliothek)', () 
 
     const range = await u.app.inject({
       method: 'GET',
-      url: '/api/audio-bibliothek/meine-musik.mp3',
+      url: '/api/audio-library/meine-musik.mp3',
       cookies: u.cookies,
       headers: { range: 'bytes=2-5' },
     })
@@ -127,19 +127,19 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-bibliothek)', () 
   it('verlangt Anmeldung (401) und trennt Benutzer voneinander', async () => {
     const u = await baueTestApp()
     await ladeBibliothekHoch(u)
-    expect((await u.app.inject({ method: 'GET', url: '/api/audio-bibliothek' })).statusCode).toBe(
+    expect((await u.app.inject({ method: 'GET', url: '/api/audio-library' })).statusCode).toBe(
       401,
     )
     const fremd = await fremdeCookies(u)
     const liste = await u.app.inject({
       method: 'GET',
-      url: '/api/audio-bibliothek',
+      url: '/api/audio-library',
       cookies: fremd,
     })
     expect((liste.json() as { dateien: unknown[] }).dateien).toEqual([])
     const datei = await u.app.inject({
       method: 'GET',
-      url: '/api/audio-bibliothek/meine-musik.mp3',
+      url: '/api/audio-library/meine-musik.mp3',
       cookies: fremd,
     })
     expect(datei.statusCode).toBe(404)
@@ -169,7 +169,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
 
     const liste = await u.app.inject({
       method: 'GET',
-      url: '/api/audio-bibliothek',
+      url: '/api/audio-library',
       cookies: u.cookies,
     })
     const eintrag = (liste.json() as { dateien: Array<{ verwendetVon: Array<{ id: string }> }> })
@@ -198,7 +198,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
 
     const del = await u.app.inject({
       method: 'DELETE',
-      url: '/api/audio-bibliothek/meine-musik.mp3',
+      url: '/api/audio-library/meine-musik.mp3',
       cookies: u.cookies,
     })
     expect(del.statusCode).toBe(409)
@@ -216,7 +216,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
 
     const del2 = await u.app.inject({
       method: 'DELETE',
-      url: '/api/audio-bibliothek/meine-musik.mp3',
+      url: '/api/audio-library/meine-musik.mp3',
       cookies: u.cookies,
     })
     expect(del2.statusCode).toBe(200)
@@ -232,7 +232,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
       (
         await u.app.inject({
           method: 'DELETE',
-          url: '/api/audio-bibliothek/unbenutzt.mp3',
+          url: '/api/audio-library/unbenutzt.mp3',
           cookies: u.cookies,
         })
       ).statusCode,
@@ -241,7 +241,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
       (
         await u.app.inject({
           method: 'DELETE',
-          url: '/api/audio-bibliothek/unbenutzt.mp3',
+          url: '/api/audio-library/unbenutzt.mp3',
           cookies: u.cookies,
         })
       ).statusCode,

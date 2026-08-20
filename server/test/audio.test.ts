@@ -64,7 +64,7 @@ async function fremdeCookies(u: TestUmgebung): Promise<{ maptale_session: string
   const login = await u.app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email: 'fremd@example.com', passwort: 'geheim456' },
+    payload: { email: 'fremd@example.com', password: 'geheim456' },
   })
   return { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
 }
@@ -138,7 +138,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     await ladeAudioHoch(u, id, 'alt.mp3')
-    u.app.deps.db.prepare(`UPDATE tours SET status = 'verarbeitung' WHERE id = ?`).run(id)
+    u.app.deps.db.prepare(`UPDATE tours SET status = 'processing' WHERE id = ?`).run(id)
     expect((await ladeAudioHoch(u, id, 'neu.mp3')).statusCode).toBe(409)
     const del = await u.app.inject({
       method: 'DELETE',
@@ -292,7 +292,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson
-    expect(tour.status).toBe('bereit')
+    expect(tour.status).toBe('ready')
     expect(tour.media[0]?.display).toEqual({ holdS: 8, kenBurns: false })
     expect(tour.camera).toHaveLength(1)
     expect(tour.camera?.[0]?.preset).toBe('weit')
@@ -329,7 +329,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson
-    expect(tour.status).toBe('bereit')
+    expect(tour.status).toBe('ready')
     expect(tour.audio).toBeUndefined()
   })
 

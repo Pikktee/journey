@@ -294,7 +294,7 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
   it('weist während laufender Verarbeitung mit 409 ab', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    u.app.deps.db.prepare(`UPDATE tours SET status = 'verarbeitung' WHERE id = ?`).run(id)
+    u.app.deps.db.prepare(`UPDATE tours SET status = 'processing' WHERE id = ?`).run(id)
     const { statusCode } = await nachreichen(u, id, [
       { type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
     ])
@@ -536,7 +536,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     expect(json.media.map((m) => m.id)).not.toContain(medien[0]?.id)
     // Die Tour ist trotzdem sauber fertig geworden
     expect(u.app.deps.db.prepare('SELECT status FROM tours WHERE id = ?').get(id)).toEqual({
-      status: 'bereit',
+      status: 'ready',
     })
   })
 

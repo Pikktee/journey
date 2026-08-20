@@ -14,7 +14,7 @@ import { FRIST_ERLEDIGT_TAGE, FRIST_OFFEN_TAGE } from '../src/rueckmeldungen.js'
 import { saubereKontext } from '../src/routes/rueckmeldungen.js'
 
 async function melde(u: TestUmgebung, payload: Record<string, unknown>) {
-  return u.app.inject({ method: 'POST', url: '/api/rueckmeldung', payload })
+  return u.app.inject({ method: 'POST', url: '/api/feedback', payload })
 }
 
 describe('Rückmeldungen', () => {
@@ -26,10 +26,10 @@ describe('Rückmeldungen', () => {
     const liste = u.app.rueckmeldungen.liste()
     expect(liste).toHaveLength(1)
     expect(liste[0]?.text).toBe('Der Upload bricht bei großen Videos ab.')
-    expect(liste[0]?.status).toBe('offen')
-    expect(liste[0]?.benutzerId).toBeNull()
+    expect(liste[0]?.status).toBe('open')
+    expect(liste[0]?.userId).toBeNull()
     // Ohne Angaben bleibt das Feld NULL — das ist etwas anderes als ein leeres Objekt.
-    expect(liste[0]?.kontext).toBeNull()
+    expect(liste[0]?.context).toBeNull()
   })
 
   it('hängt die Konto-Kennung an, wenn jemand angemeldet meldet', async () => {
@@ -37,32 +37,32 @@ describe('Rückmeldungen', () => {
     const admin = await legeAdminAn(u)
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/rueckmeldung',
+      url: '/api/feedback',
       cookies: admin.cookies,
       payload: { text: 'Die Zeitleiste springt beim Ziehen.' },
     })
     expect(antwort.statusCode).toBe(200)
     const eine = u.app.rueckmeldungen.liste()[0]
-    expect(eine?.benutzerId).toBe(admin.id)
+    expect(eine?.userId).toBe(admin.id)
     // Der Name kommt aus dem JOIN, damit die Liste nicht nur Kennungen zeigt.
-    expect(eine?.benutzerName).toBe('Chefin')
+    expect(eine?.userName).toBe('Chefin')
   })
 
   it('nimmt nur die bekannten Kontext-Felder', async () => {
     const u = await baueTestApp()
     await melde(u, {
       text: 'Karte bleibt schwarz.',
-      kontext: {
+      context: {
         seite: '/tour/t_abc',
         version: '0.60.5',
         browser: 'Chrome 141 auf macOS',
         // Nichts davon darf ankommen: Der Client entscheidet OB, der Server WAS.
         cookie: 'maptale_session=geheim',
-        passwort: 'hunter2',
+        password: 'hunter2',
         standort: '50.11,8.68',
       },
     })
-    const kontext = u.app.rueckmeldungen.liste()[0]?.kontext
+    const kontext = u.app.rueckmeldungen.liste()[0]?.context
     expect(kontext).toEqual({
       seite: '/tour/t_abc',
       version: '0.60.5',
@@ -93,31 +93,31 @@ describe('Rückmeldungen', () => {
     const u = await baueTestApp()
     await melde(u, { text: 'Etwas stimmt nicht.' })
 
-    const ohne = await u.app.inject({ method: 'GET', url: '/api/admin/rueckmeldungen' })
+    const ohne = await u.app.inject({ method: 'GET', url: '/api/admin/feedback' })
     expect(ohne.statusCode).toBe(401)
 
     const admin = await legeAdminAn(u)
     const mit = await u.app.inject({
       method: 'GET',
-      url: '/api/admin/rueckmeldungen',
+      url: '/api/admin/feedback',
       cookies: admin.cookies,
     })
     expect(mit.statusCode).toBe(200)
-    const { rueckmeldungen, zaehlung } = mit.json()
-    expect(rueckmeldungen).toHaveLength(1)
-    expect(zaehlung).toMatchObject({ offen: 1, gesamt: 1 })
+    const { feedback, counts } = mit.json()
+    expect(feedback).toHaveLength(1)
+    expect(counts).toMatchObject({ open: 1, total: 1 })
 
-    const id = rueckmeldungen[0].id
+    const id = feedback[0].id
     const geaendert = await u.app.inject({
       method: 'PATCH',
-      url: `/api/admin/rueckmeldungen/${id}`,
+      url: `/api/admin/feedback/${id}`,
       cookies: admin.cookies,
-      payload: { status: 'erledigt', notiz: 'War ein Bedienfehler.' },
+      payload: { status: 'done', note: 'War ein Bedienfehler.' },
     })
     expect(geaendert.statusCode).toBe(200)
-    expect(geaendert.json().rueckmeldung).toMatchObject({
-      status: 'erledigt',
-      notiz: 'War ein Bedienfehler.',
+    expect(geaendert.json().feedback).toMatchObject({
+      status: 'done',
+      note: 'War ein Bedienfehler.',
     })
   })
 
@@ -126,28 +126,28 @@ describe('Rückmeldungen', () => {
     const admin = await legeAdminAn(u)
     const a = u.app.rueckmeldungen.nimmAn({ text: 'A' })
     u.app.rueckmeldungen.nimmAn({ text: 'B' })
-    u.app.rueckmeldungen.aktualisiere(a.id, { status: 'in_arbeit' })
+    u.app.rueckmeldungen.aktualisiere(a.id, { status: 'in_progress' })
 
     const antwort = await u.app.inject({
       method: 'GET',
-      url: '/api/admin/rueckmeldungen?status=offen',
+      url: '/api/admin/feedback?status=offen',
       cookies: admin.cookies,
     })
-    expect(antwort.json().rueckmeldungen).toHaveLength(1)
-    expect(antwort.json().rueckmeldungen[0].text).toBe('B')
-    expect(antwort.json().zaehlung).toMatchObject({ offen: 1, in_arbeit: 1, gesamt: 2 })
+    expect(antwort.json().feedback).toHaveLength(1)
+    expect(antwort.json().feedback[0].text).toBe('B')
+    expect(antwort.json().counts).toMatchObject({ open: 1, in_arbeit: 1, total: 2 })
   })
 
   it('behält die Meldung, wenn das Konto gelöscht wird', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u, 'weg@example.com')
-    u.app.rueckmeldungen.nimmAn({ text: 'Bleibt erhalten.', benutzerId: admin.id })
+    u.app.rueckmeldungen.nimmAn({ text: 'Bleibt erhalten.', userId: admin.id })
     u.app.deps.db.prepare('DELETE FROM users WHERE id = ?').run(admin.id)
 
     const eine = u.app.rueckmeldungen.liste()[0]
     expect(eine?.text).toBe('Bleibt erhalten.')
     // Der BEZUG fällt weg, der Sachverhalt bleibt.
-    expect(eine?.benutzerId).toBeNull()
+    expect(eine?.userId).toBeNull()
   })
 
   it('räumt erledigte Meldungen früher weg als offene', async () => {
@@ -155,9 +155,9 @@ describe('Rückmeldungen', () => {
     const alt = (tage: number): string => new Date(Date.now() - tage * 86_400_000).toISOString()
     const erledigt = u.app.rueckmeldungen.nimmAn({ text: 'alt und erledigt' })
     const offen = u.app.rueckmeldungen.nimmAn({ text: 'alt und offen' })
-    u.app.rueckmeldungen.aktualisiere(erledigt.id, { status: 'erledigt' })
+    u.app.rueckmeldungen.aktualisiere(erledigt.id, { status: 'done' })
     const setzeDatum = u.app.deps.db.prepare(
-      'UPDATE rueckmeldungen SET angelegt_am = ? WHERE id = ?',
+      'UPDATE feedback SET angelegt_am = ? WHERE id = ?',
     )
     setzeDatum.run(alt(FRIST_ERLEDIGT_TAGE + 1), erledigt.id)
     setzeDatum.run(alt(FRIST_ERLEDIGT_TAGE + 1), offen.id)

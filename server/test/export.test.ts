@@ -38,18 +38,18 @@ function zipNamen(buf: Buffer): string[] {
   return namen
 }
 
-async function legeTourAn(u: TestUmgebung, nr: string, titel: string): Promise<string> {
+async function legeTourAn(u: TestUmgebung, no: string, title: string): Promise<string> {
   const a = await u.app.inject({
     method: 'POST',
     url: '/api/tours',
     cookies: u.cookies,
-    payload: { ...beispielManifest(), clientTourId: `ct-${nr}` },
+    payload: { ...beispielManifest(), clientTourId: `ct-${no}` },
   })
   const id = (a.json() as { id: string }).id
   u.app.deps.db
     .prepare('UPDATE tours SET title = ?, status = ? WHERE id = ?')
-    .run(titel, 'bereit', id)
-  await u.storage.schreibe(id, 'tour.json', JSON.stringify({ id, titel }))
+    .run(title, 'ready', id)
+  await u.storage.schreibe(id, 'tour.json', JSON.stringify({ id, title }))
   await u.storage.schreibe(id, 'media/m1.w1920.jpg', Buffer.from('fake-jpeg'))
   await u.storage.schreibe(id, 'anreicherung.json', JSON.stringify({ intern: true }))
   return id
@@ -67,7 +67,7 @@ describe('Auftragsverwaltung', () => {
     expect(erste.neu).toBe(true)
     expect(zweite.neu).toBe(false)
     expect(zweite.stand.id).toBe(erste.stand.id)
-    const alle = u.app.deps.db.prepare('SELECT count(*) n FROM exporte').get() as { n: number }
+    const alle = u.app.deps.db.prepare('SELECT count(*) n FROM data_exports').get() as { n: number }
     expect(alle.n).toBe(1)
   })
 
@@ -84,7 +84,7 @@ describe('Auftragsverwaltung', () => {
     const wer = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
     const a = u.app.exporte.fordereAn(wer)
     const fertig = u.app.exporte.melde(a.stand.id, 100, 3)
-    const spanne = new Date(fertig!.laeuftAbAm!).getTime() - new Date(fertig!.fertigAm!).getTime()
+    const spanne = new Date(fertig!.expiresAt!).getTime() - new Date(fertig!.finishedAt!).getTime()
     expect(Math.round(spanne / 3_600_000)).toBe(FRIST_STUNDEN)
   })
 
@@ -119,7 +119,7 @@ describe('Auftragsverwaltung', () => {
     jetzt = new Date('2026-08-09T10:00:00Z')
     expect(await dienst.raeumeAuf()).toBe(1)
     expect(await archive.info(a.stand.id, 'maptale-export.zip')).toBeNull()
-    expect(db.prepare('SELECT count(*) n FROM exporte').get()).toEqual({ n: 0 })
+    expect(db.prepare('SELECT count(*) n FROM data_exports').get()).toEqual({ n: 0 })
   })
 
   it('befreit ein Konto, dessen Lauf abgestürzt ist', async () => {
@@ -187,12 +187,12 @@ describe('Inhalt', () => {
   it('sammelt Konto samt Newsletter-Historie', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
-    u.app.newsletter.setze(id, true, 'konto')
+    u.app.newsletter.setze(id, true, 'account')
     const konto = sammleKonto(u.app.deps.db, id)!
     expect(konto.email).toBe('test@example.com')
     expect(konto.newsletter.aktuell).toBe(true)
     expect(konto.newsletter.historie).toHaveLength(1)
-    expect(konto.newsletter.historie[0]?.quelle).toBe('konto')
+    expect(konto.newsletter.historie[0]?.quelle).toBe('account')
     // Zugangsmittel gehören nicht ins Archiv.
     expect(JSON.stringify(konto)).not.toContain('pw_hash')
     expect(JSON.stringify(konto)).not.toMatch(/\$argon/)
@@ -202,12 +202,12 @@ describe('Inhalt', () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
     await legeTourAn(u, '1', 'Runde bei Lauterbrunnen')
-    const eintraege = await sammleEintraege(
+    const entries = await sammleEintraege(
       { db: u.app.deps.db, storage: u.storage },
       id,
       '2026-08-06T12:00:00Z',
     )
-    const namen = eintraege.map((e) => e.name)
+    const namen = entries.map((e) => e.name)
     expect(namen).toContain('liesmich.txt')
     expect(namen).toContain('konto.json')
     expect(namen).toContain('touren.json')
@@ -216,7 +216,7 @@ describe('Inhalt', () => {
     // Der Rechenweg der Anreicherung ist unser Zwischenspeicher, keine Auskunft.
     expect(namen.some((n) => n.includes('anreicherung'))).toBe(false)
     // Und das Foto geht ungepackt hinein.
-    expect(eintraege.find((e) => e.name.endsWith('.jpg'))?.gepackt).toBe(true)
+    expect(entries.find((e) => e.name.endsWith('.jpg'))?.gepackt).toBe(true)
   })
 
   it('nennt im Begleittext, was drin ist und was nicht', async () => {
@@ -255,7 +255,7 @@ describe('Routen', () => {
     const u = await baueTestApp()
     const a = await u.app.inject({ method: 'POST', url: '/api/auth/me/export', cookies: u.cookies })
     expect(a.statusCode).toBe(200)
-    expect((a.json() as { export: { status: string } }).export.status).toBe('laeuft')
+    expect((a.json() as { export: { status: string } }).export.status).toBe('running')
   })
 
   it('legt bei einem zweiten Klick keinen zweiten Auftrag an', async () => {
@@ -304,7 +304,7 @@ describe('Routen', () => {
     const u = await baueTestApp()
     const a = await u.app.inject({ method: 'GET', url: '/api/export/x_gibtsnicht.falschesignatur' })
     expect(a.statusCode).toBe(404)
-    expect(a.json()).toEqual({ fehler: 'Dieser Link ist abgelaufen oder ungültig.' })
+    expect(a.json()).toEqual({ error: 'Dieser Link ist abgelaufen oder ungültig.' })
   })
 
   it('bleibt ohne Anmeldung verschlossen', async () => {
@@ -337,7 +337,7 @@ describe('Größenangabe', () => {
 async function warteAufFertig(u: TestUmgebung): Promise<void> {
   const id = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
   for (let i = 0; i < 100; i++) {
-    if (u.app.exporte.stand(id)?.status !== 'laeuft') return
+    if (u.app.exporte.stand(id)?.status !== 'running') return
     await new Promise((r) => setTimeout(r, 20))
   }
   throw new Error('Export wurde nicht fertig')

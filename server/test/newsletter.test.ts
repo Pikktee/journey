@@ -19,7 +19,7 @@ const registriere = (u: TestUmgebung, koerper: Record<string, unknown>) =>
   u.app.inject({
     method: 'POST',
     url: '/api/auth/register',
-    payload: { passwort: 'geheim123', ...koerper },
+    payload: { password: 'geheim123', ...koerper },
   })
 
 describe('Einwilligung bei der Registrierung', () => {
@@ -32,10 +32,10 @@ describe('Einwilligung bei der Registrierung', () => {
     expect(u.app.newsletter.stand(id)).toBe(true)
     const verlauf = u.app.newsletter.verlauf(id)
     expect(verlauf).toHaveLength(1)
-    expect(verlauf[0]?.zustand).toBe('an')
-    expect(verlauf[0]?.quelle).toBe('registrierung')
-    expect(verlauf[0]?.textfassung).toBe(EINWILLIGUNGSTEXTE.registrierung.fassung)
-    expect(Date.parse(verlauf[0]?.zeitpunkt ?? '')).not.toBeNaN()
+    expect(verlauf[0]?.state).toBe('an')
+    expect(verlauf[0]?.source).toBe('signup')
+    expect(verlauf[0]?.textVersion).toBe(EINWILLIGUNGSTEXTE.signup.fassung)
+    expect(Date.parse(verlauf[0]?.at ?? '')).not.toBeNaN()
   })
 
   it('bleibt aus, wenn das Feld fehlt oder false ist — nicht vorangekreuzt heißt auch: kein Eintrag', async () => {
@@ -86,17 +86,17 @@ describe('Der Riegel: unbestätigte Adresse', () => {
     // Der Klick auf den Bestätigungslink IST das Double-Opt-in für den
     // Newsletter gleich mit.
     const token = u.mail.letzterLink()?.split('#verify=')[1] ?? ''
-    await u.app.inject({ method: 'POST', url: '/api/auth/verifiziere', payload: { token } })
+    await u.app.inject({ method: 'POST', url: '/api/auth/verify', payload: { token } })
     expect(u.app.newsletter.empfaenger().map((e) => e.id)).toContain(id)
   })
 
   it('lässt den Versand ruhen, sobald die Bestätigung wieder fällt (Adresswechsel durch die Verwaltung)', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
-    u.app.newsletter.setze(id, true, 'konto')
+    u.app.newsletter.setze(id, true, 'account')
     expect(u.app.newsletter.empfaenger().map((e) => e.id)).toContain(id)
 
-    u.app.auth.aendereKonto(id, { email: 'andere@example.com', verifiziert: false })
+    u.app.auth.aendereKonto(id, { email: 'andere@example.com', verified: false })
     expect(u.app.newsletter.empfaenger()).toHaveLength(0)
     // Der Wunsch bleibt bestehen — er ruht nur.
     expect(u.app.newsletter.stand(id)).toBe(true)
@@ -127,8 +127,8 @@ describe('Der Schalter im Konto', () => {
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
     expect(u.app.newsletter.stand(id)).toBe(false)
     // Jüngste zuerst: aus, dann an.
-    expect(u.app.newsletter.verlauf(id).map((e) => e.zustand)).toEqual(['aus', 'an'])
-    expect(u.app.newsletter.verlauf(id).every((e) => e.quelle === 'konto')).toBe(true)
+    expect(u.app.newsletter.verlauf(id).map((e) => e.state)).toEqual(['aus', 'an'])
+    expect(u.app.newsletter.verlauf(id).every((e) => e.source === 'account')).toBe(true)
   })
 
   it('bleibt Angemeldeten vorbehalten', async () => {
@@ -146,27 +146,27 @@ describe('Abmelden ohne Anmeldung', () => {
   it('trägt über den signierten Token aus — ohne Sitzung, ohne Passwort', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
-    u.app.newsletter.setze(id, true, 'konto')
+    u.app.newsletter.setze(id, true, 'account')
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/newsletter/abmelden',
+      url: '/api/newsletter/unsubscribe',
       payload: { token: abmeldeToken(id, u.app.deps.konfig.cookieSecret) },
     })
     expect(antwort.statusCode).toBe(200)
     expect(u.app.newsletter.stand(id)).toBe(false)
-    expect(u.app.newsletter.verlauf(id)[0]?.quelle).toBe('abmeldelink')
+    expect(u.app.newsletter.verlauf(id)[0]?.source).toBe('unsubscribe_link')
   })
 
   it('nimmt den Ein-Klick-Widerruf der Mail-Programme entgegen (RFC 8058)', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
-    u.app.newsletter.setze(id, true, 'konto')
+    u.app.newsletter.setze(id, true, 'account')
 
     const token = abmeldeToken(id, u.app.deps.konfig.cookieSecret)
     const antwort = await u.app.inject({
       method: 'POST',
-      url: `/api/newsletter/ein-klick/${token}`,
+      url: `/api/newsletter/one-click/${token}`,
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       payload: 'List-Unsubscribe=One-Click',
     })
@@ -177,13 +177,13 @@ describe('Abmelden ohne Anmeldung', () => {
   it('weist einen gefälschten Token ab, statt irgendjemanden auszutragen', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
-    u.app.newsletter.setze(id, true, 'konto')
+    u.app.newsletter.setze(id, true, 'account')
 
     const echt = abmeldeToken(id, u.app.deps.konfig.cookieSecret)
     const gefaelscht = `${echt.split('.')[0]}.${'A'.repeat((echt.split('.')[1] ?? '').length)}`
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/newsletter/abmelden',
+      url: '/api/newsletter/unsubscribe',
       payload: { token: gefaelscht },
     })
     expect(antwort.statusCode).toBe(400)
@@ -198,7 +198,7 @@ describe('Abmelden ohne Anmeldung', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/newsletter/abmelden',
+      url: '/api/newsletter/unsubscribe',
       payload: { token },
     })
     expect(antwort.statusCode).toBe(200)
@@ -209,29 +209,29 @@ describe('Aufbewahrung', () => {
   it('räumt überholte Protokollzeilen nach drei Jahren weg, behält aber die jüngste', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
-    u.app.newsletter.setze(id, true, 'konto')
-    u.app.newsletter.setze(id, false, 'konto')
+    u.app.newsletter.setze(id, true, 'account')
+    u.app.newsletter.setze(id, false, 'account')
     // Beide auf „vor vier Jahren" zurückdatieren — die Uhr lässt sich im Test
     // nicht drehen, die Zeilen schon.
     u.app.deps.db
-      .prepare(`UPDATE newsletter_einwilligungen SET zeitpunkt = ? WHERE zustand = 'an'`)
+      .prepare(`UPDATE newsletter_consents SET zeitpunkt = ? WHERE zustand = 'an'`)
       .run('2022-08-06T10:00:00.000Z')
     u.app.deps.db
-      .prepare(`UPDATE newsletter_einwilligungen SET zeitpunkt = ? WHERE zustand = 'aus'`)
+      .prepare(`UPDATE newsletter_consents SET zeitpunkt = ? WHERE zustand = 'aus'`)
       .run('2022-08-07T10:00:00.000Z')
 
     expect(u.app.newsletter.raeumeAuf()).toBe(1)
     const verlauf = u.app.newsletter.verlauf(id)
     // Die jüngste bleibt: Ohne sie stünde in `users` ein Zustand ohne Herkunft.
     expect(verlauf).toHaveLength(1)
-    expect(verlauf[0]?.zustand).toBe('aus')
+    expect(verlauf[0]?.state).toBe('aus')
   })
 
   it('fasst frische Zeilen nicht an', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
-    u.app.newsletter.setze(id, true, 'konto')
-    u.app.newsletter.setze(id, false, 'konto')
+    u.app.newsletter.setze(id, true, 'account')
+    u.app.newsletter.setze(id, false, 'account')
     expect(u.app.newsletter.raeumeAuf()).toBe(0)
     expect(u.app.newsletter.verlauf(id)).toHaveLength(2)
   })

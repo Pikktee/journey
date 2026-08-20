@@ -35,7 +35,7 @@ async function verknuepfe(u: TestUmgebung, code = 'ok'): Promise<void> {
     payload: {},
   })
   expect(start.statusCode).toBe(200)
-  const url = new URL((start.json() as { autorisierungsUrl: string }).autorisierungsUrl)
+  const url = new URL((start.json() as { authorizationUrl: string }).authorizationUrl)
   const zustand = url.searchParams.get('state') ?? ''
   const rueckkehr = await u.app.inject({
     method: 'GET',
@@ -187,12 +187,12 @@ describe('Verknüpfen (OAuth)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    const anbieter = (antwort.json() as { anbieter: Array<Record<string, unknown>> }).anbieter
+    const anbieter = (antwort.json() as { providers: Array<Record<string, unknown>> }).providers
     expect(anbieter[0]).toMatchObject({
       id: 'polar',
       name: 'Polar',
-      verfuegbar: true,
-      verbunden: false,
+      available: true,
+      connected: false,
     })
   })
 
@@ -207,14 +207,14 @@ describe('Verknüpfen (OAuth)', () => {
       cookies: u.cookies,
     })
     expect(
-      (antwort.json() as { anbieter: Array<{ verbunden: boolean }> }).anbieter[0]?.verbunden,
+      (antwort.json() as { providers: Array<{ connected: boolean }> }).providers[0]?.connected,
     ).toBe(true)
   })
 
   it('legt die Tokens NICHT im Klartext ab', async () => {
     const { u } = await baueMitProvider()
     await verknuepfe(u, 'geheimer-code')
-    const zeile = u.app.deps.db.prepare('SELECT tokens FROM tracker_verknuepfungen').get() as {
+    const zeile = u.app.deps.db.prepare('SELECT tokens FROM tracker_links').get() as {
       tokens: string
     }
     expect(zeile.tokens).not.toContain('zugriff-geheimer-code')
@@ -230,9 +230,9 @@ describe('Verknüpfen (OAuth)', () => {
     const { id: uid } = u.app.deps.db.prepare('SELECT id FROM users LIMIT 1').get() as {
       id: string
     }
-    const vorher = u.app.tracker.verknuepfung(uid, 'polar')?.verbundenAm
+    const vorher = u.app.tracker.verknuepfung(uid, 'polar')?.connectedAt
     u.app.tracker.verknuepfe(uid, 'polar', { zugriff: 'frisch', externerNutzer: 'extern-1' })
-    expect(u.app.tracker.verknuepfung(uid, 'polar')?.verbundenAm).toBe(vorher)
+    expect(u.app.tracker.verknuepfung(uid, 'polar')?.connectedAt).toBe(vorher)
 
     // Nach dem Trennen ist es eine NEUE Verbindung — dort zählt das neue
     // Datum. Mit eigener Uhr geprüft, sonst fällt beides in dieselbe
@@ -241,7 +241,7 @@ describe('Verknüpfen (OAuth)', () => {
     const dienst = new TrackerDienst(u.app.deps.db, 'test-schluessel', () => spaeter)
     dienst.trenne(uid, 'polar')
     dienst.verknuepfe(uid, 'polar', { zugriff: 'neu', externerNutzer: 'extern-1' })
-    expect(dienst.verknuepfung(uid, 'polar')?.verbundenAm).toBe(spaeter.toISOString())
+    expect(dienst.verknuepfung(uid, 'polar')?.connectedAt).toBe(spaeter.toISOString())
   })
 
   it('verlangt einen gültigen state — der CSRF-Riegel der Verknüpfung', async () => {
@@ -251,7 +251,7 @@ describe('Verknüpfen (OAuth)', () => {
       url: '/api/tracker/polar/callback?code=ok&state=erfunden',
     })
     expect(antwort.headers.location).toContain('tracker=abgelaufen')
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_verknuepfungen').get()).toEqual(
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_links').get()).toEqual(
       { n: 0 },
     )
   })
@@ -265,7 +265,7 @@ describe('Verknüpfen (OAuth)', () => {
       payload: {},
     })
     const zustand =
-      new URL((start.json() as { autorisierungsUrl: string }).autorisierungsUrl).searchParams.get(
+      new URL((start.json() as { authorizationUrl: string }).authorizationUrl).searchParams.get(
         'state',
       ) ?? ''
     const erste = await u.app.inject({
@@ -303,12 +303,12 @@ describe('Verknüpfen (OAuth)', () => {
     })
     expect(antwort.statusCode).toBe(200)
     expect(provider.aufrufe).toContain('trenne')
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_verknuepfungen').get()).toEqual(
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_links').get()).toEqual(
       { n: 0 },
     )
     // Das Abruf-Protokoll beschreibt die VERBINDUNG und geht mit ihr — so
     // steht es als Frist in datenschutz.html Abschnitt 10.
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_imports').get()).toEqual({
       n: 0,
     })
     // Die Touren gehören dem Nutzer, nicht der Verknüpfung
@@ -328,7 +328,7 @@ describe('Webhook → Tour', () => {
       visibility: string
       client_tour_id: string
     }
-    expect(tour.status).toBe('bereit')
+    expect(tour.status).toBe('ready')
     // Vorgabe wie beim Upload: geteilt wird bewusst, nicht als Nebenwirkung
     expect(tour.visibility).toBe('private')
     // Der Dedup-Riegel steckt in der vorhandenen Idempotenz-Spalte
@@ -341,13 +341,13 @@ describe('Webhook → Tour', () => {
     })
     expect((json.json() as { schema: string }).schema).toBe('maptale/tour@1')
 
-    const importe = await u.app.inject({
+    const imports = await u.app.inject({
       method: 'GET',
       url: '/api/tracker/imports',
       cookies: u.cookies,
     })
     expect(
-      (importe.json() as { importe: Array<{ status: string; tourId: string }> }).importe[0],
+      (imports.json() as { imports: Array<{ status: string; tourId: string }> }).imports[0],
     ).toMatchObject({
       status: 'fertig',
       tourId: tour.id,
@@ -362,16 +362,16 @@ describe('Webhook → Tour', () => {
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
     await Promise.all([...u.app.verarbeitungen.values()])
 
-    const { importe } = (
+    const { imports } = (
       await u.app.inject({ method: 'GET', url: '/api/tracker/imports', cookies: u.cookies })
     ).json() as {
-      importe: Array<{
+      imports: Array<{
         status: string
         tour: { titel: string | null; km: number | null; status: string } | null
       }>
     }
-    expect(importe[0]?.tour).toMatchObject({ status: 'bereit' })
-    expect(typeof importe[0]?.tour?.km).toBe('number')
+    expect(imports[0]?.tour).toMatchObject({ status: 'ready' })
+    expect(typeof imports[0]?.tour?.km).toBe('number')
   })
 
   // Eine Zeile ohne Tour ist der Normalfall (übersprungen, gescheitert) und
@@ -383,10 +383,10 @@ describe('Webhook → Tour', () => {
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'fehlt' })
     await Promise.all([...u.app.trackerLaeufe.values()])
 
-    const { importe } = (
+    const { imports } = (
       await u.app.inject({ method: 'GET', url: '/api/tracker/imports', cookies: u.cookies })
-    ).json() as { importe: Array<{ status: string; tour: unknown }> }
-    expect(importe[0]?.tour).toBeNull()
+    ).json() as { imports: Array<{ status: string; tour: unknown }> }
+    expect(imports[0]?.tour).toBeNull()
   })
 
   it('legt bei wiederholter Zustellung KEINE zweite Tour an', async () => {
@@ -396,7 +396,7 @@ describe('Webhook → Tour', () => {
     await melde(u, nutzlast)
     await melde(u, nutzlast)
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_imports').get()).toEqual({
       n: 1,
     })
   })
@@ -411,7 +411,7 @@ describe('Webhook → Tour', () => {
         'falsches-geheimnis',
       ),
     ).toBe(401)
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_imports').get()).toEqual({
       n: 0,
     })
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 0 })
@@ -423,7 +423,7 @@ describe('Webhook → Tour', () => {
     // Antwort wie im Erfolgsfall: Eine Fehlermeldung wäre eine Auskunft
     // darüber, welche Anbieter-Konten bei uns liegen.
     expect(await melde(u, { event: 'EXERCISE', user_id: 'wer-anders', entity_id: 'a1' })).toBe(200)
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_imports').get()).toEqual({
       n: 0,
     })
   })
@@ -433,14 +433,14 @@ describe('Webhook → Tour', () => {
     await verknuepfe(u)
     await melde(u, { event: 'ABMELDUNG', user_id: 'extern-1', entity_id: 'x' })
     const zeile = u.app.deps.db
-      .prepare('SELECT status, letzter_fehler FROM tracker_verknuepfungen')
+      .prepare('SELECT status, letzter_fehler FROM tracker_links')
       .get() as {
       status: string
       letzter_fehler: string
     }
     // Eine stumm tote Verknüpfung ist die schlimmere Variante: Der Nutzer
     // wartet sonst auf Touren, die nie kommen.
-    expect(zeile.status).toBe('abgelaufen')
+    expect(zeile.status).toBe('expired')
     expect(zeile.letzter_fehler).toContain('widerrufen')
   })
 
@@ -452,10 +452,10 @@ describe('Webhook → Tour', () => {
     const { u } = await baueMitProvider(provider)
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'leer' })
-    const zeile = u.app.deps.db.prepare('SELECT status FROM tracker_importe').get() as {
+    const zeile = u.app.deps.db.prepare('SELECT status FROM tracker_imports').get() as {
       status: string
     }
-    expect(zeile.status).toBe('uebersprungen')
+    expect(zeile.status).toBe('skipped')
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 0 })
   })
 
@@ -473,12 +473,12 @@ describe('Webhook → Tour', () => {
     )
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'winzig' })
-    const zeile = u.app.deps.db.prepare('SELECT status, fehler FROM tracker_importe').get() as {
+    const zeile = u.app.deps.db.prepare('SELECT status, fehler FROM tracker_imports').get() as {
       status: string
-      fehler: string
+      error: string
     }
-    expect(zeile.status).toBe('uebersprungen')
-    expect(zeile.fehler).toContain('Zu kurz')
+    expect(zeile.status).toBe('skipped')
+    expect(zeile.error).toContain('Zu kurz')
   })
 
   it('importiert eine KURZE, aber echte Runde — die Schwelle fängt nur Versehen', async () => {
@@ -502,7 +502,7 @@ describe('Webhook → Tour', () => {
     )
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'kurz' })
-    const zeile = u.app.deps.db.prepare('SELECT status, tour_id FROM tracker_importe').get() as {
+    const zeile = u.app.deps.db.prepare('SELECT status, tour_id FROM tracker_imports').get() as {
       status: string
       tour_id: string | null
     }
@@ -514,12 +514,12 @@ describe('Webhook → Tour', () => {
     const { u } = await baueMitProvider()
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'gibts-nicht' })
-    const zeile = u.app.deps.db.prepare('SELECT status, fehler FROM tracker_importe').get() as {
+    const zeile = u.app.deps.db.prepare('SELECT status, fehler FROM tracker_imports').get() as {
       status: string
-      fehler: string
+      error: string
     }
     expect(zeile.status).toBe('fehler')
-    expect(zeile.fehler).toContain('Unbekannte Aktivität')
+    expect(zeile.error).toContain('Unbekannte Aktivität')
   })
 
   it('importiert nicht für ein Konto ohne bestätigte E-Mail', async () => {
@@ -527,12 +527,12 @@ describe('Webhook → Tour', () => {
     await verknuepfe(u)
     u.app.deps.db.prepare('UPDATE users SET email_verified = 0').run()
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
-    const zeile = u.app.deps.db.prepare('SELECT status, fehler FROM tracker_importe').get() as {
+    const zeile = u.app.deps.db.prepare('SELECT status, fehler FROM tracker_imports').get() as {
       status: string
-      fehler: string
+      error: string
     }
     expect(zeile.status).toBe('fehler')
-    expect(zeile.fehler).toContain('E-Mail')
+    expect(zeile.error).toContain('E-Mail')
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 0 })
   })
 
@@ -546,13 +546,13 @@ describe('Webhook → Tour', () => {
     ])
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
-    const zeile = u.app.deps.db.prepare('SELECT status, fehler FROM tracker_importe').get() as {
+    const zeile = u.app.deps.db.prepare('SELECT status, fehler FROM tracker_imports').get() as {
       status: string
-      fehler: string
+      error: string
     }
     // Kein stilles Verwerfen: sichtbarer Hinweis im Konto
-    expect(zeile.status).toBe('uebersprungen')
-    expect(zeile.fehler).toContain('Speicher')
+    expect(zeile.status).toBe('skipped')
+    expect(zeile.error).toContain('Speicher')
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 0 })
   })
 })
@@ -568,7 +568,7 @@ describe('Importliste und Benachrichtigung', () => {
       url: '/api/tracker/imports/pending',
       cookies: u.cookies,
     })
-    expect((erste.json() as { importe: unknown[] }).importe).toHaveLength(1)
+    expect((erste.json() as { imports: unknown[] }).imports).toHaveLength(1)
     // Ohne Bestätigung bleibt es offen — ein Hintergrundlauf, der nur liest,
     // darf die Meldung nicht verbrauchen.
     const zweite = await u.app.inject({
@@ -576,20 +576,20 @@ describe('Importliste und Benachrichtigung', () => {
       url: '/api/tracker/imports/pending',
       cookies: u.cookies,
     })
-    expect((zweite.json() as { importe: unknown[] }).importe).toHaveLength(1)
+    expect((zweite.json() as { imports: unknown[] }).imports).toHaveLength(1)
 
     const dritte = await u.app.inject({
       method: 'GET',
       url: '/api/tracker/imports/pending?gesehen=1',
       cookies: u.cookies,
     })
-    expect((dritte.json() as { importe: unknown[] }).importe).toHaveLength(1)
+    expect((dritte.json() as { imports: unknown[] }).imports).toHaveLength(1)
     const vierte = await u.app.inject({
       method: 'GET',
       url: '/api/tracker/imports/pending',
       cookies: u.cookies,
     })
-    expect((vierte.json() as { importe: unknown[] }).importe).toHaveLength(0)
+    expect((vierte.json() as { imports: unknown[] }).imports).toHaveLength(0)
   })
 
   it('quittiert auf Wunsch NAMENTLICH — was nicht dabei ist, bleibt offen', async () => {
@@ -606,22 +606,22 @@ describe('Importliste und Benachrichtigung', () => {
 
     const offen = (
       await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies })
-    ).json() as { importe: Array<{ id: string; status: string }> }
-    expect(offen.importe).toHaveLength(2)
-    const fertig = offen.importe.find((i) => i.status === 'fertig')
+    ).json() as { imports: Array<{ id: string; status: string }> }
+    expect(offen.imports).toHaveLength(2)
+    const fertig = offen.imports.find((i) => i.status === 'fertig')
 
     const quittiert = await u.app.inject({
       method: 'POST',
-      url: '/api/tracker/imports/gesehen',
+      url: '/api/tracker/imports/seen',
       cookies: u.cookies,
       payload: { ids: [fertig?.id ?? ''] },
     })
     expect(quittiert.statusCode).toBe(200)
     const danach = (
       await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies })
-    ).json() as { importe: Array<{ status: string }> }
+    ).json() as { imports: Array<{ status: string }> }
     // Der gemeldete ist weg, der ungemeldete wartet weiter
-    expect(danach.importe.map((i) => i.status)).toEqual(['fehler'])
+    expect(danach.imports.map((i) => i.status)).toEqual(['error'])
   })
 
   it('quittiert nichts für fremde Konten', async () => {
@@ -630,27 +630,27 @@ describe('Importliste und Benachrichtigung', () => {
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
     const offen = (
       await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies })
-    ).json() as { importe: Array<{ id: string }> }
+    ).json() as { imports: Array<{ id: string }> }
     // Ohne Anmeldung geht gar nichts — und eine fremde ID läuft ins Leere
     expect(
       (
         await u.app.inject({
           method: 'POST',
-          url: '/api/tracker/imports/gesehen',
+          url: '/api/tracker/imports/seen',
           payload: { ids: ['i_fremd'] },
         })
       ).statusCode,
     ).toBe(401)
     await u.app.inject({
       method: 'POST',
-      url: '/api/tracker/imports/gesehen',
+      url: '/api/tracker/imports/seen',
       cookies: u.cookies,
       payload: { ids: ['i_gibtsnicht'] },
     })
     const danach = (
       await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies })
-    ).json() as { importe: Array<{ id: string }> }
-    expect(danach.importe.map((i) => i.id)).toEqual(offen.importe.map((i) => i.id))
+    ).json() as { imports: Array<{ id: string }> }
+    expect(danach.imports.map((i) => i.id)).toEqual(offen.imports.map((i) => i.id))
   })
 
   it('zieht über den Polling-Weg nach, wenn ein Anbieter nicht pusht', async () => {
@@ -668,7 +668,7 @@ describe('Importliste und Benachrichtigung', () => {
     })
     expect(antwort.statusCode).toBe(200)
     await Promise.all([...u.app.verarbeitungen.values()])
-    expect(antwort.json()).toMatchObject({ gefunden: 1, neu: 1 })
+    expect(antwort.json()).toMatchObject({ found: 1, neu: 1 })
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
   })
 
@@ -694,9 +694,9 @@ describe('Importliste und Benachrichtigung', () => {
     })
     await Promise.all([...u.app.verarbeitungen.values()])
     // Gemeldet wird weiterhin eine — bearbeitet keine mehr.
-    expect(zweiter.json()).toMatchObject({ gefunden: 1, neu: 0 })
+    expect(zweiter.json()).toMatchObject({ found: 1, neu: 0 })
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_imports').get()).toEqual({
       n: 1,
     })
   })
@@ -706,17 +706,17 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
   /** Die Import-Zeile roh aus der Datenbank (samt der Spalten hinter der API). */
   function importZeile(u: TestUmgebung): {
     status: string
-    versuche: number
-    wiederholbar: number
-    fehler: string | null
+    attempts: number
+    retryable: number
+    error: string | null
   } {
     return u.app.deps.db
-      .prepare('SELECT status, versuche, wiederholbar, fehler FROM tracker_importe')
+      .prepare('SELECT status, versuche, wiederholbar, fehler FROM tracker_imports')
       .get() as {
       status: string
-      versuche: number
-      wiederholbar: number
-      fehler: string | null
+      attempts: number
+      retryable: number
+      error: string | null
     }
   }
 
@@ -727,7 +727,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
     const { u } = await baueMitProvider(provider)
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
-    expect(importZeile(u)).toMatchObject({ status: 'fehler', versuche: 1, wiederholbar: 1 })
+    expect(importZeile(u)).toMatchObject({ status: 'fehler', attempts: 1, retryable: 1 })
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 0 })
 
     // Die Fehlermeldung wird abgeholt — der Nutzer hat sie gesehen
@@ -739,10 +739,10 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
 
     provider.setzeTrack('a1', beispielRohTrack())
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
-    expect(importZeile(u)).toMatchObject({ status: 'fertig', versuche: 2 })
+    expect(importZeile(u)).toMatchObject({ status: 'fertig', attempts: 2 })
     // Genau EINE Tour — der zweite Anlauf ist ein Nachholen, kein Duplikat
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_imports').get()).toEqual({
       n: 1,
     })
     // Der Ausgang des neuen Anlaufs ist eine NEUE Nachricht: Die geglückte
@@ -752,7 +752,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
       url: '/api/tracker/imports/pending',
       cookies: u.cookies,
     })
-    expect((offen.json() as { importe: Array<{ status: string }> }).importe).toMatchObject([
+    expect((offen.json() as { imports: Array<{ status: string }> }).imports).toMatchObject([
       { status: 'fertig' },
     ])
   })
@@ -765,12 +765,12 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
       await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
     }
     const zeile = importZeile(u)
-    expect(zeile.versuche).toBe(MAX_VERSUCHE)
+    expect(zeile.attempts).toBe(MAX_VERSUCHE)
     // Kein stiller Deckel: Dass Schluss ist, steht in den FELDERN (die
     // Oberfläche macht daraus „aufgegeben nach 3 Versuchen") und der Grund
     // bleibt der Grund — im Text stünde beides doppelt.
-    expect(zeile.wiederholbar).toBe(0)
-    expect(zeile.fehler).toContain('Unbekannte Aktivität')
+    expect(zeile.retryable).toBe(0)
+    expect(zeile.error).toContain('Unbekannte Aktivität')
   })
 
   it('probiert eine Aktivität OHNE Route nie wieder — die bleibt ohne Route', async () => {
@@ -789,7 +789,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'leer' })
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'leer' })
-    expect(importZeile(u)).toMatchObject({ status: 'uebersprungen', versuche: 1, wiederholbar: 0 })
+    expect(importZeile(u)).toMatchObject({ status: 'skipped', attempts: 1, retryable: 0 })
   })
 
   it('nimmt einen vollen Speicher dagegen wieder auf — der geht vorbei', async () => {
@@ -802,7 +802,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
     ])
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
-    expect(importZeile(u)).toMatchObject({ status: 'uebersprungen', wiederholbar: 1 })
+    expect(importZeile(u)).toMatchObject({ status: 'skipped', retryable: 1 })
   })
 
   it('rückt den Sync-Zeitpunkt NICHT vor, solange etwas offen ist', async () => {
@@ -812,13 +812,13 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
     const { u } = await baueMitProvider(provider)
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
-    const offen = u.app.deps.db.prepare('SELECT zuletzt_sync_am FROM tracker_verknuepfungen').get()
+    const offen = u.app.deps.db.prepare('SELECT zuletzt_sync_am FROM tracker_links').get()
     expect(offen).toEqual({ zuletzt_sync_am: null })
 
     provider.setzeTrack('a1', beispielRohTrack())
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
     const fertig = u.app.deps.db
-      .prepare('SELECT zuletzt_sync_am FROM tracker_verknuepfungen')
+      .prepare('SELECT zuletzt_sync_am FROM tracker_links')
       .get() as {
       zuletzt_sync_am: string | null
     }
@@ -861,7 +861,7 @@ describe('Nachziehen von Hand', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(409)
-    expect((antwort.json() as { fehler: string }).fehler).toContain('neu verbinden')
+    expect((antwort.json() as { error: string }).error).toContain('neu verbinden')
   })
 
   it('meldet einen stummen Anbieter als 502, nicht als eigenen Fehler', async () => {
@@ -875,7 +875,7 @@ describe('Nachziehen von Hand', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(502)
-    expect((antwort.json() as { fehler: string }).fehler).not.toContain('Interner')
+    expect((antwort.json() as { error: string }).error).not.toContain('Interner')
   })
 
   it('wartet nur auf die ersten Aktivitäten und schiebt den Rest in den Hintergrund', async () => {
@@ -896,7 +896,7 @@ describe('Nachziehen von Hand', () => {
       url: '/api/tracker/polar/sync',
       cookies: u.cookies,
     })
-    expect(antwort.json()).toMatchObject({ gefunden: 5, neu: 3, imHintergrund: 2 })
+    expect(antwort.json()).toMatchObject({ found: 5, neu: 3, inBackground: 2 })
     await Promise.all([...u.app.trackerLaeufe.values()])
     await Promise.all([...u.app.verarbeitungen.values()])
     // Auch die nachlaufenden landen im Konto
@@ -913,7 +913,7 @@ describe('Ohne Anbieter und ohne Anmeldung', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    expect(antwort.json()).toEqual({ anbieter: [] })
+    expect(antwort.json()).toEqual({ provider: [] })
   })
 
   it('verlangt für die Nutzer-Routen eine Anmeldung', async () => {
@@ -941,7 +941,7 @@ describe('Ohne Anbieter und ohne Anmeldung', () => {
     })
     expect(antwort.statusCode).toBe(200)
     // Und er löst nichts aus: kein Import, keine Tour
-    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_imports').get()).toEqual({
       n: 0,
     })
   })

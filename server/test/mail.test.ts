@@ -24,11 +24,11 @@ const BASIS = 'https://maptale.test'
 const LINK = 'https://maptale.test/anmelden#verify=abc'
 
 const bausteine = (patch: Partial<MailBausteine> = {}): MailBausteine => ({
-  betreff: 'Hallo {{name}}',
-  titel: 'Willkommen',
+  subject: 'Hallo {{name}}',
+  title: 'Willkommen',
   text: 'Hallo {{name}},\n\nschön, dass du da bist.',
-  knopf: 'Los geht’s',
-  fuss: 'Der Link gilt 24 Stunden.',
+  button: 'Los geht’s',
+  footer: 'Der Link gilt 24 Stunden.',
   ...patch,
 })
 
@@ -70,7 +70,7 @@ describe('Mail-Layout', () => {
 
   it('zeichnet keinen Knopf, wenn die Beschriftung leer ist', () => {
     const mail = rendereMail(
-      bausteine({ knopf: '', text: 'Hier entlang:\n\n{{link}}' }),
+      bausteine({ button: '', text: 'Hier entlang:\n\n{{link}}' }),
       { name: 'Mira', link: LINK },
       { basisUrl: BASIS, link: LINK },
     )
@@ -123,23 +123,23 @@ describe('Mail-Layout', () => {
 
 describe('Vorlagen-Katalog', () => {
   it('kennt sechs System-Mails, jede mit Standardtext und Platzhaltern', () => {
-    expect(VORLAGEN.map((v) => v.schluessel)).toEqual([
-      'verifikation',
+    expect(VORLAGEN.map((v) => v.key)).toEqual([
+      'verification',
       'reset',
       'email-wechsel',
       'warteliste',
-      'warteliste-einladung',
+      'waitlist-invitation',
       'export',
     ])
     for (const v of VORLAGEN) {
-      expect(v.standard.betreff, v.schluessel).toBeTruthy()
-      expect(v.standard.titel, v.schluessel).toBeTruthy()
-      expect(v.platzhalter.length, v.schluessel).toBeGreaterThan(0)
+      expect(v.standard.subject, v.key).toBeTruthy()
+      expect(v.standard.title, v.key).toBeTruthy()
+      expect(v.platzhalter.length, v.key).toBeGreaterThan(0)
     }
   })
 
   it('hält jeden Standardtext für versandfähig', () => {
-    for (const v of VORLAGEN) expect(pruefeBausteine(v, v.standard), v.schluessel).toEqual([])
+    for (const v of VORLAGEN) expect(pruefeBausteine(v, v.standard), v.key).toEqual([])
   })
 
   it('erkennt fremde Schlüssel', () => {
@@ -152,17 +152,17 @@ describe('Vorlagen-Katalog', () => {
     for (const v of VORLAGEN) {
       const werte = beispielWerte(v)
       const mail = rendereMail(v.standard, werte, { basisUrl: BASIS, link: werte.link ?? BASIS })
-      expect(mail.text, v.schluessel).not.toMatch(/\{\{/)
-      expect(mail.html, v.schluessel).not.toMatch(/\{\{/)
+      expect(mail.text, v.key).not.toMatch(/\{\{/)
+      expect(mail.html, v.key).not.toMatch(/\{\{/)
     }
   })
 })
 
 describe('Vorlagen prüfen', () => {
-  const eintrag = vorlage('verifikation')
+  const eintrag = vorlage('verification')
 
   it('lehnt leere Pflichtfelder ab', () => {
-    const probleme = pruefeBausteine(eintrag, bausteine({ betreff: ' ', titel: '', text: '' }))
+    const probleme = pruefeBausteine(eintrag, bausteine({ subject: ' ', title: '', text: '' }))
     expect(probleme).toEqual(
       expect.arrayContaining([
         expect.stringContaining('Betreff'),
@@ -181,7 +181,7 @@ describe('Vorlagen prüfen', () => {
   })
 
   it('verlangt den Link im Text, sobald der Knopf leer ist', () => {
-    const ohneKnopf = { ...eintrag.standard, knopf: '' }
+    const ohneKnopf = { ...eintrag.standard, button: '' }
     expect(pruefeBausteine(eintrag, ohneKnopf).join(' ')).toContain('{{link}}')
     expect(
       pruefeBausteine(eintrag, { ...ohneKnopf, text: 'Hallo {{name}}, hier entlang: {{link}}' }),
@@ -206,44 +206,44 @@ describe('MailVorlagenDienst', () => {
 
   it('liefert ohne Anpassung den Text aus dem Code', () => {
     expect(dienst.bausteine('reset')).toEqual(vorlage('reset').standard)
-    expect(dienst.alle().every((v) => !v.angepasst)).toBe(true)
+    expect(dienst.alle().every((v) => !v.customized)).toBe(true)
   })
 
   it('speichert eine Anpassung und meldet sie in der Liste', () => {
-    dienst.setze('reset', { ...vorlage('reset').standard, titel: 'Neues Kennwort' }, null)
-    expect(dienst.bausteine('reset').titel).toBe('Neues Kennwort')
-    const stand = dienst.alle().find((v) => v.schluessel === 'reset')
-    expect(stand?.angepasst).toBe(true)
-    expect(stand?.geaendertAm).toBeTruthy()
+    dienst.setze('reset', { ...vorlage('reset').standard, title: 'Neues Kennwort' }, null)
+    expect(dienst.bausteine('reset').title).toBe('Neues Kennwort')
+    const stand = dienst.alle().find((v) => v.key === 'reset')
+    expect(stand?.customized).toBe(true)
+    expect(stand?.updatedAt).toBeTruthy()
     // Der Standard bleibt daneben sichtbar — sonst wüsste niemand, wovon die
     // Fassung abweicht.
     expect(stand?.standard).toEqual(vorlage('reset').standard)
   })
 
   it('behandelt das Speichern des unveränderten Standards als Zurücksetzen', () => {
-    dienst.setze('reset', { ...vorlage('reset').standard, titel: 'Anders' }, null)
+    dienst.setze('reset', { ...vorlage('reset').standard, title: 'Anders' }, null)
     dienst.setze('reset', vorlage('reset').standard, null)
-    expect(dienst.alle().find((v) => v.schluessel === 'reset')?.angepasst).toBe(false)
+    expect(dienst.alle().find((v) => v.key === 'reset')?.customized).toBe(false)
   })
 
   it('setzt zurück und hängt die Vorlage wieder an den Code', () => {
-    dienst.setze('verifikation', { ...vorlage('verifikation').standard, betreff: 'Anders' }, null)
-    expect(dienst.setzeZurueck('verifikation')).toBe(true)
-    expect(dienst.bausteine('verifikation')).toEqual(vorlage('verifikation').standard)
-    expect(dienst.setzeZurueck('verifikation')).toBe(false)
+    dienst.setze('verification', { ...vorlage('verification').standard, subject: 'Anders' }, null)
+    expect(dienst.setzeZurueck('verification')).toBe(true)
+    expect(dienst.bausteine('verification')).toEqual(vorlage('verification').standard)
+    expect(dienst.setzeZurueck('verification')).toBe(false)
   })
 
   it('rendert über den Dienst mit der angepassten Fassung', () => {
-    dienst.setze('verifikation', { ...vorlage('verifikation').standard, titel: 'Servus' }, null)
-    const mail = dienst.rendere('verifikation', { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
+    dienst.setze('verification', { ...vorlage('verification').standard, title: 'Servus' }, null)
+    const mail = dienst.rendere('verification', { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
     expect(mail.html).toContain('Servus')
     expect(mail.text.startsWith('Servus')).toBe(true)
   })
 
   it('vergleicht Fassungen ohne Randleerraum', () => {
     const a = vorlage('reset').standard
-    expect(weichtAb(a, { ...a, titel: `  ${a.titel}  ` })).toBe(false)
-    expect(weichtAb(a, { ...a, titel: 'anders' })).toBe(true)
+    expect(weichtAb(a, { ...a, title: `  ${a.title}  ` })).toBe(false)
+    expect(weichtAb(a, { ...a, title: 'anders' })).toBe(true)
   })
 })
 

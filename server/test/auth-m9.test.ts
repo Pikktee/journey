@@ -15,7 +15,7 @@ function tokenAusMail(u: TestUmgebung): string {
 async function registriere(
   u: TestUmgebung,
   email = 'neu@example.com',
-  passwort = 'geheim12345',
+  password = 'geheim12345',
   name = 'Neu',
 ) {
   // Diese Tests prüfen den OFFENEN Fluss; die Einladungspflicht hat eigene
@@ -24,7 +24,7 @@ async function registriere(
   return u.app.inject({
     method: 'POST',
     url: '/api/auth/register',
-    payload: { email, passwort, name },
+    payload: { email, password, name },
   })
 }
 
@@ -45,10 +45,10 @@ describe('Registrierung ohne Namensfeld', () => {
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'mira.wolf@example.com', passwort: 'lampe wolke treppe' },
+      payload: { email: 'mira.wolf@example.com', password: 'lampe wolke treppe' },
     })
     expect(antwort.statusCode).toBe(201)
-    expect(antwort.json().benutzer).toMatchObject({ name: 'Mira Wolf' })
+    expect(antwort.json().user).toMatchObject({ name: 'Mira Wolf' })
     expect(u.mail.nachrichten[0]?.text).toContain('Hallo Mira Wolf,')
   })
 
@@ -58,9 +58,9 @@ describe('Registrierung ohne Namensfeld', () => {
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'mira+maptale@example.com', passwort: 'lampe wolke treppe' },
+      payload: { email: 'mira+maptale@example.com', password: 'lampe wolke treppe' },
     })
-    expect(antwort.json().benutzer).toMatchObject({ name: 'Mira' })
+    expect(antwort.json().user).toMatchObject({ name: 'Mira' })
   })
 
   it('behält einen mitgeschickten Namen', async () => {
@@ -69,9 +69,9 @@ describe('Registrierung ohne Namensfeld', () => {
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'mira.wolf@example.com', passwort: 'lampe wolke treppe', name: 'Mira W.' },
+      payload: { email: 'mira.wolf@example.com', password: 'lampe wolke treppe', name: 'Mira W.' },
     })
-    expect(antwort.json().benutzer).toMatchObject({ name: 'Mira W.' })
+    expect(antwort.json().user).toMatchObject({ name: 'Mira W.' })
   })
 })
 
@@ -98,14 +98,14 @@ describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
     const u = await baueTestApp()
     const antwort = await registriere(u)
     expect(antwort.statusCode).toBe(201)
-    expect(antwort.json()).toMatchObject({ verifiziert: false })
+    expect(antwort.json()).toMatchObject({ verified: false })
     expect(u.mail.nachrichten).toHaveLength(1)
     expect(u.mail.nachrichten[0]?.an).toBe('neu@example.com')
     expect(u.mail.letzterLink()).toContain('#verify=')
     // me zeigt eingeloggt, aber unbestätigt
     const cookies = sessionAus(antwort)
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies })
-    expect(me.json()).toMatchObject({ verifiziert: false })
+    expect(me.json()).toMatchObject({ verified: false })
   })
 
   it('sperrt das Hochladen bis zur Bestätigung, danach klappt es', async () => {
@@ -123,7 +123,7 @@ describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
     // Bestätigen …
     const verify = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/verifiziere',
+      url: '/api/auth/verify',
       payload: { token: tokenAusMail(u) },
     })
     expect(verify.statusCode).toBe(200)
@@ -148,7 +148,7 @@ describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/verifiziere',
+      url: '/api/auth/verify',
       payload: { token: 'quatsch' },
     })
     expect(antwort.statusCode).toBe(400)
@@ -171,28 +171,28 @@ describe('Passwort-Reset (M9)', () => {
     // Reset für den vorhandenen Testbenutzer anfordern
     const anf = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/passwort-reset-anfordern',
+      url: '/api/auth/password-reset-request',
       payload: { email: 'test@example.com' },
     })
     expect(anf.statusCode).toBe(200)
     expect(u.mail.letzterLink()).toContain('#reset=')
     const reset = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/passwort-reset',
-      payload: { token: tokenAusMail(u), passwort: 'ganzneu12345' },
+      url: '/api/auth/password-reset',
+      payload: { token: tokenAusMail(u), password: 'ganzneu12345' },
     })
     expect(reset.statusCode).toBe(200)
     // Altes Passwort abgelehnt, neues akzeptiert
     const alt = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'test@example.com', passwort: 'geheim123' },
+      payload: { email: 'test@example.com', password: 'geheim123' },
     })
     expect(alt.statusCode).toBe(401)
     const neu = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'test@example.com', passwort: 'ganzneu12345' },
+      payload: { email: 'test@example.com', password: 'ganzneu12345' },
     })
     expect(neu.statusCode).toBe(200)
   })
@@ -201,7 +201,7 @@ describe('Passwort-Reset (M9)', () => {
     const u = await baueTestApp()
     const anf = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/passwort-reset-anfordern',
+      url: '/api/auth/password-reset-request',
       payload: { email: 'gibtsnicht@example.com' },
     })
     expect(anf.statusCode).toBe(200)
@@ -212,7 +212,7 @@ describe('Passwort-Reset (M9)', () => {
     const u = await baueTestApp()
     await u.app.inject({
       method: 'POST',
-      url: '/api/auth/passwort-reset-anfordern',
+      url: '/api/auth/password-reset-request',
       payload: { email: 'test@example.com' },
     })
     const token = tokenAusMail(u)
@@ -220,8 +220,8 @@ describe('Passwort-Reset (M9)', () => {
       (
         await u.app.inject({
           method: 'POST',
-          url: '/api/auth/passwort-reset',
-          payload: { token, passwort: 'ersteinmal12' },
+          url: '/api/auth/password-reset',
+          payload: { token, password: 'ersteinmal12' },
         })
       ).statusCode,
     ).toBe(200)
@@ -229,8 +229,8 @@ describe('Passwort-Reset (M9)', () => {
       (
         await u.app.inject({
           method: 'POST',
-          url: '/api/auth/passwort-reset',
-          payload: { token, passwort: 'nochmal12345' },
+          url: '/api/auth/password-reset',
+          payload: { token, password: 'nochmal12345' },
         })
       ).statusCode,
     ).toBe(400)
@@ -256,7 +256,7 @@ describe('Konto-Löschung (M9, DSGVO)', () => {
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'test@example.com', passwort: 'geheim123' },
+      payload: { email: 'test@example.com', password: 'geheim123' },
     })
     expect(login.statusCode).toBe(401)
   })
@@ -274,7 +274,7 @@ describe('Speicher-Quota (M9)', () => {
     })
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
     expect(me.json()).toMatchObject({
-      quota: { limit: 10 * 1024 * 1024, benutzt: expect.any(Number), frei: expect.any(Number) },
+      quota: { limit: 10 * 1024 * 1024, used: expect.any(Number), free: expect.any(Number) },
     })
   })
 
@@ -296,6 +296,6 @@ describe('Speicher-Quota (M9)', () => {
       payload: Buffer.alloc(5000, 1),
     })
     expect(put.statusCode).toBe(413)
-    expect(put.json()).toMatchObject({ fehler: expect.stringContaining('Speicherplatz') })
+    expect(put.json()).toMatchObject({ error: expect.stringContaining('Speicherplatz') })
   })
 })

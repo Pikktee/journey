@@ -4,24 +4,24 @@ import { baueTestApp, type TestUmgebung } from './helfer.js'
 
 interface ProfilAntwort {
   handle: string | null
-  anzeigename: string | null
+  displayName: string | null
   bio: string | null
-  ort: string | null
+  location: string | null
   website: string | null
   instagram: string | null
   avatarUrl: string | null
-  titelbild: string | null
-  titelbildUrl: string | null
-  sichtbarkeit: 'private' | 'public'
+  banner: string | null
+  bannerUrl: string | null
+  visibility: 'private' | 'public'
 }
 
 async function patch(u: TestUmgebung, payload: Record<string, unknown>) {
-  return u.app.inject({ method: 'PATCH', url: '/api/auth/me/profil', cookies: u.cookies, payload })
+  return u.app.inject({ method: 'PATCH', url: '/api/auth/me/profile', cookies: u.cookies, payload })
 }
 
 async function meinProfil(u: TestUmgebung): Promise<ProfilAntwort> {
   const antwort = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-  return (antwort.json() as { profil: ProfilAntwort }).profil
+  return (antwort.json() as { profile: ProfilAntwort }).profile
 }
 
 async function ladeAvatarHoch(u: TestUmgebung, inhalt = 'fake-jpeg') {
@@ -43,63 +43,63 @@ describe('Profil', () => {
       // Die Adresse steht dagegen von Anfang an (s. handle.test.ts): Ein Profil
       // ohne Handle wäre nicht verlinkbar.
       handle: 'test',
-      anzeigename: null,
+      displayName: null,
       bio: null,
-      ort: null,
+      location: null,
       website: null,
       instagram: null,
       avatarUrl: null,
-      titelbild: null,
-      titelbildUrl: null,
-      sichtbarkeit: 'private',
+      banner: null,
+      bannerUrl: null,
+      visibility: 'private',
       // Zweiter, unabhängiger Zustand: „über den Link erreichbar" und „unter
       // dem eigenen Namen auffindbar" sind verschiedene Entscheidungen. Aus
       // demselben Grund ist der Standard aus (s. server/src/routes/seiten.ts).
-      suchmaschinen: false,
+      searchIndexing: false,
     })
   })
 
   it('setzt Anzeigename, Bio und Sichtbarkeit', async () => {
     const u = await baueTestApp()
     const antwort = await patch(u, {
-      anzeigename: 'Reisende',
+      displayName: 'Reisende',
       bio: 'Unterwegs im Oberland',
-      sichtbarkeit: 'public',
+      visibility: 'public',
     })
     expect(antwort.statusCode).toBe(200)
     expect(await meinProfil(u)).toMatchObject({
-      anzeigename: 'Reisende',
+      displayName: 'Reisende',
       bio: 'Unterwegs im Oberland',
-      sichtbarkeit: 'public',
+      visibility: 'public',
     })
   })
 
   it('lässt nicht übergebene Felder unangetastet', async () => {
     const u = await baueTestApp()
-    await patch(u, { anzeigename: 'Reisende', bio: 'Text' })
-    await patch(u, { sichtbarkeit: 'public' })
+    await patch(u, { displayName: 'Reisende', bio: 'Text' })
+    await patch(u, { visibility: 'public' })
     expect(await meinProfil(u)).toMatchObject({
-      anzeigename: 'Reisende',
+      displayName: 'Reisende',
       bio: 'Text',
-      sichtbarkeit: 'public',
+      visibility: 'public',
     })
   })
 
   it('leert ein Feld mit leerem Text', async () => {
     // '' heißt „löschen", ein fehlendes Feld heißt „nicht angefasst"
     const u = await baueTestApp()
-    await patch(u, { anzeigename: 'Reisende', bio: 'Text' })
+    await patch(u, { displayName: 'Reisende', bio: 'Text' })
     await patch(u, { bio: '   ' })
     const profil = await meinProfil(u)
     expect(profil.bio).toBeNull()
-    expect(profil.anzeigename).toBe('Reisende')
+    expect(profil.displayName).toBe('Reisende')
   })
 
   it('weist zu lange Texte und unbekannte Sichtbarkeiten ab', async () => {
     const u = await baueTestApp()
-    expect((await patch(u, { anzeigename: 'x'.repeat(81) })).statusCode).toBe(400)
+    expect((await patch(u, { displayName: 'x'.repeat(81) })).statusCode).toBe(400)
     expect((await patch(u, { bio: 'x'.repeat(501) })).statusCode).toBe(400)
-    expect((await patch(u, { sichtbarkeit: 'halboeffentlich' })).statusCode).toBe(400)
+    expect((await patch(u, { visibility: 'halboeffentlich' })).statusCode).toBe(400)
   })
 
   it('ignoriert Felder, die nicht zum Profil gehören', async () => {
@@ -110,16 +110,16 @@ describe('Profil', () => {
     const me = (
       await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
     ).json() as {
-      benutzer: { email: string }
+      user: { email: string }
     }
-    expect(me.benutzer.email).toBe('test@example.com')
+    expect(me.user.email).toBe('test@example.com')
   })
 
   it('braucht eine Anmeldung', async () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({
       method: 'PATCH',
-      url: '/api/auth/me/profil',
+      url: '/api/auth/me/profile',
       payload: { bio: 'x' },
     })
     expect(antwort.statusCode).toBe(401)
@@ -176,7 +176,7 @@ describe('Avatar', () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({
       method: 'GET',
-      url: `/api/benutzer/${nutzerId(u)}/avatar`,
+      url: `/api/users/${nutzerId(u)}/avatar`,
     })
     expect(antwort.statusCode).toBe(404)
   })

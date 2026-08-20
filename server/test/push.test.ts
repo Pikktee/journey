@@ -61,7 +61,7 @@ async function verknuepfe(u: TestUmgebung): Promise<void> {
     cookies: u.cookies,
     payload: {},
   })
-  const url = new URL((start.json() as { autorisierungsUrl: string }).autorisierungsUrl)
+  const url = new URL((start.json() as { authorizationUrl: string }).authorizationUrl)
   const zustand = url.searchParams.get('state') ?? ''
   await u.app.inject({
     method: 'GET',
@@ -89,9 +89,9 @@ async function melde(u: TestUmgebung, externeId: string): Promise<void> {
 async function registriere(u: TestUmgebung, token = TOKEN, apiToken = u.apiToken) {
   return u.app.inject({
     method: 'POST',
-    url: '/api/push/geraete',
+    url: '/api/push/devices',
     headers: { authorization: `Bearer ${apiToken}` },
-    payload: { token, plattform: 'android' },
+    payload: { token, platform: 'android' },
   })
 }
 
@@ -125,7 +125,7 @@ describe('Geräte an- und abmelden', () => {
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'zweite@example.com', passwort: 'geheim123', tokenLabel: 'Zweitgerät' },
+      payload: { email: 'zweite@example.com', password: 'geheim123', tokenLabel: 'Zweitgerät' },
     })
     const zweiterToken = (login.json() as { apiToken: string }).apiToken
     await registriere(u, TOKEN, zweiterToken)
@@ -138,17 +138,17 @@ describe('Geräte an- und abmelden', () => {
     // worden. Ohne das CASCADE gingen Meldungen an ein abgemeldetes Telefon.
     const { u } = await baueMitPush()
     await registriere(u)
-    const geraete = await u.app.inject({
+    const devices = await u.app.inject({
       method: 'GET',
-      url: '/api/auth/me/geraete',
+      url: '/api/auth/me/devices',
       cookies: u.cookies,
     })
-    const appGeraet = (geraete.json() as { geraete: Array<{ id: string }> }).geraete.find((g) =>
+    const appGeraet = (devices.json() as { devices: Array<{ id: string }> }).devices.find((g) =>
       g.id.startsWith('app:'),
     )
     const weg = await u.app.inject({
       method: 'DELETE',
-      url: `/api/auth/me/geraete/${appGeraet?.id}`,
+      url: `/api/auth/me/devices/${appGeraet?.id}`,
       cookies: u.cookies,
     })
     expect(weg.statusCode).toBe(200)
@@ -161,7 +161,7 @@ describe('Geräte an- und abmelden', () => {
     await registriere(u)
     const weg = await u.app.inject({
       method: 'DELETE',
-      url: '/api/push/geraete',
+      url: '/api/push/devices',
       headers: { authorization: `Bearer ${u.apiToken}` },
       payload: { token: TOKEN },
     })
@@ -170,7 +170,7 @@ describe('Geräte an- und abmelden', () => {
     // Ein zweites Mal ist kein Fehler: Die App hat erreicht, was sie wollte.
     const nochmal = await u.app.inject({
       method: 'DELETE',
-      url: '/api/push/geraete',
+      url: '/api/push/devices',
       headers: { authorization: `Bearer ${u.apiToken}` },
       payload: { token: TOKEN },
     })
@@ -191,8 +191,8 @@ describe('Geräte an- und abmelden', () => {
     const { u } = await baueMitPush()
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/push/geraete',
-      payload: { token: TOKEN, plattform: 'android' },
+      url: '/api/push/devices',
+      payload: { token: TOKEN, platform: 'android' },
     })
     expect(antwort.statusCode).toBe(401)
     await u.app.close()
@@ -207,7 +207,7 @@ describe('Meldung nach einem Import', () => {
     await melde(u, 'a1')
     expect(push.gesendet).toHaveLength(1)
     expect(push.gesendet[0]?.tokens).toEqual([TOKEN])
-    expect(push.gesendet[0]?.nachricht.typ).toBe('import-fertig')
+    expect(push.gesendet[0]?.nachricht.type).toBe('import-finished')
     expect(push.gesendet[0]?.nachricht.tourId).toMatch(/^t_/)
     expect(push.gesendet[0]?.nachricht.importId).toMatch(/^i_/)
     await u.app.close()
@@ -232,12 +232,12 @@ describe('Meldung nach einem Import', () => {
     await verknuepfe(u)
     push.faelltAus = true
     await melde(u, 'a1')
-    const importe = await u.app.inject({
+    const imports = await u.app.inject({
       method: 'GET',
       url: '/api/tracker/imports',
       cookies: u.cookies,
     })
-    expect((importe.json() as { importe: Array<{ status: string }> }).importe[0]?.status).toBe(
+    expect((imports.json() as { imports: Array<{ status: string }> }).imports[0]?.status).toBe(
       'fertig',
     )
     await u.app.close()
@@ -270,7 +270,7 @@ describe('Datenexport', () => {
     await registriere(u)
     const konto = sammleKonto(u.app.deps.db, benutzerId(u))!
     expect(konto.pushGeraete).toEqual([
-      expect.objectContaining({ plattform: 'android', token: TOKEN }),
+      expect.objectContaining({ platform: 'android', token: TOKEN }),
     ])
     // Die Zeile darüber gilt weiter: Zugangsmittel gehören nicht ins Archiv.
     expect(JSON.stringify(konto)).not.toContain('pw_hash')
@@ -295,8 +295,8 @@ describe('FCM-Versand (ohne Netz)', () => {
       return new Response('{}', { status: 200 })
     }
     const versand = new FcmPush(DIENSTKONTO, hol)
-    await versand.sende(['a', 'b'], { typ: 'import-fertig', tourId: 't_1', importId: 'i_1' })
-    await versand.sende(['a'], { typ: 'import-fertig', tourId: 't_2', importId: 'i_2' })
+    await versand.sende(['a', 'b'], { type: 'import-finished', tourId: 't_1', importId: 'i_1' })
+    await versand.sende(['a'], { type: 'import-finished', tourId: 't_2', importId: 'i_2' })
     // Ein Anmelde-Aufruf für alles, danach je Gerät ein Sende-Aufruf.
     expect(aufrufe.filter((u) => u.includes('oauth2'))).toHaveLength(1)
     expect(aufrufe.filter((u) => u.includes('messages:send'))).toHaveLength(3)
@@ -314,7 +314,7 @@ describe('FCM-Versand (ohne Netz)', () => {
       return new Response('{}', { status: 200 })
     }
     await new FcmPush(DIENSTKONTO, hol).sende(['a'], {
-      typ: 'import-fertig',
+      type: 'import-finished',
       tourId: 't_1',
       importId: 'i_1',
     })
@@ -324,7 +324,7 @@ describe('FCM-Versand (ohne Netz)', () => {
     expect(nachricht.fid).toBe('a')
     expect(nachricht.token).toBeUndefined()
     expect(nachricht.notification).toBeUndefined()
-    expect(nachricht.data).toEqual({ typ: 'import-fertig', tourId: 't_1', importId: 'i_1' })
+    expect(nachricht.data).toEqual({ type: 'import-finished', tourId: 't_1', importId: 'i_1' })
     expect(nachricht.android).toEqual({ priority: 'high' })
   })
 
@@ -353,7 +353,7 @@ describe('FCM-Versand (ohne Netz)', () => {
     }
     const ergebnis = await new FcmPush(DIENSTKONTO, hol).sende(
       ['weg', 'nutzlast', 'fremderSender', 'apns', 'stumm', 'gut'],
-      { typ: 'import-fertig', tourId: 't_1', importId: 'i_1' },
+      { type: 'import-finished', tourId: 't_1', importId: 'i_1' },
     )
     expect(ergebnis.map((z) => z.abgemeldet)).toEqual([true, false, false, false, false, false])
   })
@@ -383,7 +383,7 @@ describe('FCM-Versand (ohne Netz)', () => {
       return new Response('{}', { status: 200 })
     }
     const versand = new FcmPush(DIENSTKONTO, hol, () => jetzt)
-    const nachricht = { typ: 'import-fertig' as const, tourId: 't_1', importId: 'i_1' }
+    const nachricht = { type: 'import-finished' as const, tourId: 't_1', importId: 'i_1' }
     await versand.sende(['a'], nachricht)
     jetzt += 50 * 60_000
     await versand.sende(['a'], nachricht)
@@ -397,7 +397,7 @@ describe('FCM-Versand (ohne Netz)', () => {
     const hol = async (): Promise<Response> => new Response('invalid_grant', { status: 400 })
     await expect(
       new FcmPush(DIENSTKONTO, hol).sende(['a'], {
-        typ: 'import-fertig',
+        type: 'import-finished',
         tourId: 't',
         importId: 'i',
       }),
@@ -411,7 +411,7 @@ describe('Dienst ohne Versandweg', () => {
     const dienst = new PushDienst(u.app.deps.db, null)
     expect(dienst.einsatzbereit).toBe(false)
     expect(
-      await dienst.melde(benutzerId(u), { typ: 'import-fertig', tourId: 't_1', importId: 'i_1' }),
+      await dienst.melde(benutzerId(u), { type: 'import-finished', tourId: 't_1', importId: 'i_1' }),
     ).toBe(0)
     await u.app.close()
   })
@@ -419,7 +419,7 @@ describe('Dienst ohne Versandweg', () => {
   it('der Konsolen-Versand schreibt ins Log und meldet niemanden ab', async () => {
     const zeilen: string[] = []
     const ergebnis = await new KonsolePush((z) => zeilen.push(z)).sende(['a', 'b'], {
-      typ: 'import-fertig',
+      type: 'import-finished',
       tourId: 't_1',
       importId: 'i_1',
     })

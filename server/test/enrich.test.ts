@@ -320,7 +320,7 @@ describe('reichereAn', () => {
     })
     const meldungen: string[] = []
     const tour = await reichereAn(eingabe({ wetter: kaputt, protokoll: (m) => meldungen.push(m) }))
-    expect(tour.status).toBe('bereit')
+    expect(tour.status).toBe('ready')
     expect(tour.weather).toBeUndefined()
     expect(tour.timeline).toBeDefined()
     expect(meldungen[0]).toMatch(/Auto-Wetter nicht verfügbar/)

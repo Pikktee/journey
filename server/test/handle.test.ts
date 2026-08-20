@@ -11,12 +11,12 @@ import { freierHandle, handleAusEmail } from '../src/handle.js'
 import { baueTestApp, type TestUmgebung } from './helfer.js'
 
 async function patch(u: TestUmgebung, payload: Record<string, unknown>) {
-  return u.app.inject({ method: 'PATCH', url: '/api/auth/me/profil', cookies: u.cookies, payload })
+  return u.app.inject({ method: 'PATCH', url: '/api/auth/me/profile', cookies: u.cookies, payload })
 }
 
 async function meinHandle(u: TestUmgebung): Promise<string | null> {
   const antwort = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-  return (antwort.json() as { profil: { handle: string | null } }).profil.handle
+  return (antwort.json() as { profile: { handle: string | null } }).profile.handle
 }
 
 function nutzerId(u: TestUmgebung): string {
@@ -123,9 +123,9 @@ describe('Handle ändern', () => {
     const me = (
       await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
     ).json() as {
-      profil: { bio: string | null }
+      profile: { bio: string | null }
     }
-    expect(me.profil.bio).toBeNull()
+    expect(me.profile.bio).toBeNull()
   })
 })
 
@@ -158,14 +158,14 @@ describe('90-Tage-Sperre', () => {
 
 describe('Profil unter der Adresse', () => {
   async function oeffentlichesProfil(u: TestUmgebung): Promise<void> {
-    await patch(u, { anzeigename: 'Reisende', sichtbarkeit: 'public' })
+    await patch(u, { displayName: 'Reisende', visibility: 'public' })
   }
 
   it('antwortet auf den Handle wie auf die ID', async () => {
     const u = await baueTestApp()
     await oeffentlichesProfil(u)
-    const perHandle = await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil' })
-    const perId = await u.app.inject({ method: 'GET', url: `/api/benutzer/${nutzerId(u)}/profil` })
+    const perHandle = await u.app.inject({ method: 'GET', url: '/api/users/test/profile' })
+    const perId = await u.app.inject({ method: 'GET', url: `/api/users/${nutzerId(u)}/profil` })
     expect(perHandle.statusCode).toBe(200)
     expect(perHandle.json()).toEqual(perId.json())
     expect((perHandle.json() as { handle: string }).handle).toBe('test')
@@ -177,7 +177,7 @@ describe('Profil unter der Adresse', () => {
     const u = await baueTestApp()
     await oeffentlichesProfil(u)
     await patch(u, { handle: 'henrik' })
-    const alt = await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil' })
+    const alt = await u.app.inject({ method: 'GET', url: '/api/users/test/profile' })
     expect(alt.statusCode).toBe(200)
     // Die Antwort nennt die KANONISCHE Adresse, damit die Seite umschreiben kann
     expect((alt.json() as { handle: string }).handle).toBe('henrik')
@@ -187,14 +187,14 @@ describe('Profil unter der Adresse', () => {
     const u = await baueTestApp()
     await oeffentlichesProfil(u)
     expect(
-      (await u.app.inject({ method: 'GET', url: '/api/benutzer/niemand/profil' })).statusCode,
+      (await u.app.inject({ method: 'GET', url: '/api/users/niemand/profile' })).statusCode,
     ).toBe(404)
   })
 
   it('verrät ohne freigegebenes Profil nicht einmal, dass es die Adresse gibt', async () => {
     const u = await baueTestApp()
-    await patch(u, { anzeigename: 'Reisende' })
-    const privat = await u.app.inject({ method: 'GET', url: '/api/benutzer/test/profil' })
+    await patch(u, { displayName: 'Reisende' })
+    const privat = await u.app.inject({ method: 'GET', url: '/api/users/test/profile' })
     expect(privat.statusCode).toBe(404)
   })
 })

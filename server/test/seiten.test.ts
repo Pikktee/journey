@@ -27,9 +27,9 @@ async function legeProfilAn(
   u.app.auth.setzeProfil(id, {
     // Nur übergeben, was gesetzt werden soll: `setzeProfil` deutet einen
     // leeren Wert als „Feld leeren" und verträgt kein null.
-    ...(opts.name ? { anzeigename: opts.name } : {}),
+    ...(opts.name ? { displayName: opts.name } : {}),
     ...(opts.bio ? { bio: opts.bio } : {}),
-    sichtbarkeit: opts.oeffentlich === false ? 'private' : 'public',
+    visibility: opts.oeffentlich === false ? 'private' : 'public',
   })
   if (opts.suche) u.app.deps.db.prepare('UPDATE users SET suchmaschinen = 1 WHERE id = ?').run(id)
   return id
@@ -211,7 +211,7 @@ describe('GET /tour/<kennung>', () => {
     const id = (a.json() as { id: string }).id
     u.app.deps.db
       .prepare(
-        `UPDATE tours SET visibility = ?, status = 'bereit', title = ?, description = ?, cover = ? WHERE id = ?`,
+        `UPDATE tours SET visibility = ?, status = 'ready', title = ?, description = ?, cover = ? WHERE id = ?`,
       )
       .run(
         opts.sicht ?? 'public',
@@ -281,14 +281,14 @@ describe('GET /tour/<kennung>', () => {
     // Sie hat noch keinen Inhalt, den man indexieren könnte.
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    u.app.deps.db.prepare(`UPDATE tours SET status = 'verarbeitung' WHERE id = ?`).run(id)
+    u.app.deps.db.prepare(`UPDATE tours SET status = 'processing' WHERE id = ?`).run(id)
     expect((await u.app.inject({ method: 'GET', url: `/tour/${id}` })).body).toContain(
       'content="noindex"',
     )
   })
 })
 
-describe('GET /sitemap-touren.xml', () => {
+describe('GET /sitemap-tours.xml', () => {
   it('listet nur öffentliche, fertige Touren', async () => {
     const u = await baueTestApp()
     const anlegen = async (sicht: string, status: string): Promise<string> => {
@@ -304,10 +304,10 @@ describe('GET /sitemap-touren.xml', () => {
         .run(sicht, status, id)
       return id
     }
-    const oeffentlich = await anlegen('public', 'bereit')
-    const ungelistet = await anlegen('unlisted', 'bereit')
-    const roh = await anlegen('public', 'verarbeitung')
-    const a = await u.app.inject({ method: 'GET', url: '/sitemap-touren.xml' })
+    const oeffentlich = await anlegen('public', 'ready')
+    const ungelistet = await anlegen('unlisted', 'ready')
+    const roh = await anlegen('public', 'processing')
+    const a = await u.app.inject({ method: 'GET', url: '/sitemap-tours.xml' })
     expect(a.body).toContain(`<loc>http://localhost:5173/tour/${oeffentlich}</loc>`)
     expect(a.body).not.toContain(ungelistet)
     expect(a.body).not.toContain(roh)
@@ -333,23 +333,23 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
   it('ist neu angelegt aus', async () => {
     const u = await baueTestApp()
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    expect((me.json() as { profil: { suchmaschinen: boolean } }).profil.suchmaschinen).toBe(false)
+    expect((me.json() as { profile: { searchIndexing: boolean } }).profile.searchIndexing).toBe(false)
   })
 
   it('lässt sich setzen und wirkt sofort auf die Seite', async () => {
     const u = await baueTestApp()
     u.app.auth.setzeHandle(u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id, 'testerin')
     u.app.auth.setzeProfil(u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id, {
-      sichtbarkeit: 'public',
+      visibility: 'public',
     })
     const setzen = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/me/suchmaschinen',
+      url: '/api/auth/me/search-indexing',
       cookies: u.cookies,
       payload: { an: true },
     })
     expect(setzen.statusCode).toBe(200)
-    expect((setzen.json() as { wirktRuht: boolean }).wirktRuht).toBe(false)
+    expect((setzen.json() as { effectPaused: boolean }).effectPaused).toBe(false)
     expect((await u.app.inject({ method: 'GET', url: '/@testerin' })).body).toContain(
       'content="index"',
     )
@@ -359,12 +359,12 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
     const u = await baueTestApp()
     const a = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/me/suchmaschinen',
+      url: '/api/auth/me/search-indexing',
       cookies: u.cookies,
       payload: { an: true },
     })
     expect(a.statusCode).toBe(200)
-    expect((a.json() as { wirktRuht: boolean }).wirktRuht).toBe(true)
+    expect((a.json() as { effectPaused: boolean }).effectPaused).toBe(true)
   })
 
   it('bleibt ohne Anmeldung verschlossen', async () => {
@@ -373,7 +373,7 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
       (
         await u.app.inject({
           method: 'POST',
-          url: '/api/auth/me/suchmaschinen',
+          url: '/api/auth/me/search-indexing',
           payload: { an: true },
         })
       ).statusCode,

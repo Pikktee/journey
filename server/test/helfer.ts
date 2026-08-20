@@ -178,14 +178,14 @@ export async function baueTestApp(
   const login = await app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email: 'test@example.com', passwort: 'geheim123' },
+    payload: { email: 'test@example.com', password: 'geheim123' },
   })
   if (login.statusCode !== 200) throw new Error(`Test-Login fehlgeschlagen: ${login.body}`)
   const sessionCookie = login.cookies.find((c) => c.name === 'maptale_session')
   const appLogin = await app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email: 'test@example.com', passwort: 'geheim123', tokenLabel: 'Testgerät' },
+    payload: { email: 'test@example.com', password: 'geheim123', tokenLabel: 'Testgerät' },
   })
   const apiToken = (appLogin.json() as { apiToken: string }).apiToken
 
@@ -214,17 +214,17 @@ export function oeffneRegistrierung(u: TestUmgebung): void {
 export async function legeAdminAn(
   u: TestUmgebung,
   email = 'chefin@example.com',
-  passwort = 'adminadmin',
+  password = 'adminadmin',
 ): Promise<{ id: string; cookies: { maptale_session: string } }> {
-  const benutzer = await u.app.auth.legeBenutzerAn(email, passwort, 'Chefin', true, 'admin')
+  const user = await u.app.auth.legeBenutzerAn(email, password, 'Chefin', true, 'admin')
   const login = await u.app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email, passwort },
+    payload: { email, password },
   })
   if (login.statusCode !== 200) throw new Error(`Admin-Login fehlgeschlagen: ${login.body}`)
   return {
-    id: benutzer.id,
+    id: user.id,
     cookies: {
       maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '',
     },

@@ -17,7 +17,7 @@ async function zweiteSitzung(u: TestUmgebung, agent: string): Promise<string> {
   const login = await u.app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { email: 'test@example.com', passwort: 'geheim123' },
+    payload: { email: 'test@example.com', password: 'geheim123' },
     headers: { 'user-agent': agent, 'x-forwarded-for': '84.119.12.7' },
   })
   return login.cookies.find((c) => c.name === 'maptale_session')?.value ?? ''
@@ -28,7 +28,7 @@ describe('Passwort ändern', () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/me/passwort',
+      url: '/api/auth/me/password',
       cookies: u.cookies,
       payload: { alt: 'falschfalsch', neu: 'neuesgeheimnis' },
     })
@@ -43,7 +43,7 @@ describe('Passwort ändern', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/me/passwort',
+      url: '/api/auth/me/password',
       cookies: u.cookies,
       payload: { alt: 'geheim123', neu: 'dreizufaelligeworte' },
     })
@@ -52,14 +52,14 @@ describe('Passwort ändern', () => {
 
     // Die eigene Sitzung trägt weiter …
     const eigene = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    expect((eigene.json() as { benutzer: unknown }).benutzer).not.toBeNull()
+    expect((eigene.json() as { user: unknown }).user).not.toBeNull()
     // … die andere nicht mehr, und das App-Token ebenso wenig.
     const fremde = await u.app.inject({
       method: 'GET',
       url: '/api/auth/me',
       cookies: { maptale_session: andere },
     })
-    expect((fremde.json() as { benutzer: unknown }).benutzer).toBeNull()
+    expect((fremde.json() as { user: unknown }).user).toBeNull()
     expect(u.app.auth.benutzerAusToken(u.apiToken)).toBeNull()
   })
 })
@@ -71,7 +71,7 @@ describe('E-Mail-Adresse wechseln', () => {
       method: 'POST',
       url: '/api/auth/me/email',
       cookies: u.cookies,
-      payload: { email: 'neu@example.com', passwort: 'geheim123' },
+      payload: { email: 'neu@example.com', password: 'geheim123' },
     })
     expect(antwort.statusCode).toBe(200)
     expect(u.mail.nachrichten.at(-1)?.an).toBe('neu@example.com')
@@ -82,7 +82,7 @@ describe('E-Mail-Adresse wechseln', () => {
 
     const einloesen = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/email-bestaetigen',
+      url: '/api/auth/confirm-email',
       payload: { token: tokenAus(u.mail.letzterLink()) },
     })
     expect(einloesen.statusCode).toBe(200)
@@ -99,13 +99,13 @@ describe('E-Mail-Adresse wechseln', () => {
       method: 'POST',
       url: '/api/auth/me/email',
       cookies: u.cookies,
-      payload: { email: 'neu@example.com', passwort: 'geheim123' },
+      payload: { email: 'neu@example.com', password: 'geheim123' },
     })
     const token = tokenAus(u.mail.letzterLink())
-    await u.app.inject({ method: 'POST', url: '/api/auth/email-bestaetigen', payload: { token } })
+    await u.app.inject({ method: 'POST', url: '/api/auth/confirm-email', payload: { token } })
     const nochmal = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/email-bestaetigen',
+      url: '/api/auth/confirm-email',
       payload: { token },
     })
     expect(nochmal.statusCode).toBe(400)
@@ -119,7 +119,7 @@ describe('E-Mail-Adresse wechseln', () => {
       method: 'POST',
       url: '/api/auth/me/email',
       cookies: u.cookies,
-      payload: { email: 'besetzt@example.com', passwort: 'geheim123' },
+      payload: { email: 'besetzt@example.com', password: 'geheim123' },
     })
     expect(antwort.statusCode).toBe(200)
     expect(u.mail.nachrichten.length).toBe(vorher)
@@ -131,7 +131,7 @@ describe('E-Mail-Adresse wechseln', () => {
       method: 'POST',
       url: '/api/auth/me/email',
       cookies: u.cookies,
-      payload: { email: 'neu@example.com', passwort: 'falschfalsch' },
+      payload: { email: 'neu@example.com', password: 'falschfalsch' },
     })
     expect(antwort.statusCode).toBe(403)
   })
@@ -142,12 +142,12 @@ describe('E-Mail-Adresse wechseln', () => {
       method: 'POST',
       url: '/api/auth/me/email',
       cookies: u.cookies,
-      payload: { email: 'neu@example.com', passwort: 'geheim123' },
+      payload: { email: 'neu@example.com', password: 'geheim123' },
     })
     await u.app.auth.legeBenutzerAn('neu@example.com', 'geheim123', 'Schneller')
     const einloesen = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/email-bestaetigen',
+      url: '/api/auth/confirm-email',
       payload: { token: tokenAus(u.mail.letzterLink()) },
     })
     expect(einloesen.statusCode).toBe(409)
@@ -161,24 +161,24 @@ describe('Angemeldete Geräte', () => {
 
     const antwort = await u.app.inject({
       method: 'GET',
-      url: '/api/auth/me/geraete',
+      url: '/api/auth/me/devices',
       cookies: u.cookies,
     })
-    const { geraete } = antwort.json() as {
-      geraete: Array<{
+    const { devices } = antwort.json() as {
+      devices: Array<{
         id: string
         art: string
-        kennung: string | null
-        ipPraefix: string | null
-        dieses: boolean
+        label: string | null
+        ipPrefix: string | null
+        current: boolean
       }>
     }
-    expect(geraete.filter((g) => g.art === 'sitzung')).toHaveLength(2)
-    expect(geraete.filter((g) => g.art === 'app')).toHaveLength(1)
-    expect(geraete.find((g) => g.art === 'app')?.kennung).toBe('Testgerät')
-    expect(geraete.filter((g) => g.dieses)).toHaveLength(1)
-    const iphone = geraete.find((g) => g.kennung?.includes('iPhone'))
-    expect(iphone?.ipPraefix).toBe('84.119.x.x')
+    expect(devices.filter((g) => g.art === 'sitzung')).toHaveLength(2)
+    expect(devices.filter((g) => g.art === 'app')).toHaveLength(1)
+    expect(devices.find((g) => g.art === 'app')?.label).toBe('Testgerät')
+    expect(devices.filter((g) => g.current)).toHaveLength(1)
+    const iphone = devices.find((g) => g.label?.includes('iPhone'))
+    expect(iphone?.ipPrefix).toBe('84.119.x.x')
   })
 
   it('meldet ein einzelnes Gerät ab', async () => {
@@ -186,7 +186,7 @@ describe('Angemeldete Geräte', () => {
     const andere = await zweiteSitzung(u, 'Firefox')
     const antwort = await u.app.inject({
       method: 'DELETE',
-      url: `/api/auth/me/geraete/sitzung:${andere}`,
+      url: `/api/auth/me/devices/sitzung:${andere}`,
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
@@ -195,7 +195,7 @@ describe('Angemeldete Geräte', () => {
       url: '/api/auth/me',
       cookies: { maptale_session: andere },
     })
-    expect((nachher.json() as { benutzer: unknown }).benutzer).toBeNull()
+    expect((nachher.json() as { user: unknown }).user).toBeNull()
   })
 
   // Der WebView-Tausch lief bis 2026-08-10 in jede Tour eine neue Sitzung —
@@ -207,24 +207,24 @@ describe('Angemeldete Geräte', () => {
 
     const erste = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/session-aus-token',
+      url: '/api/auth/session-from-token',
       headers: kopf,
     })
     const zweite = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/session-aus-token',
+      url: '/api/auth/session-from-token',
       headers: kopf,
     })
     const sitzungsId = (erste.json() as { sessionId: string }).sessionId
     // Derselbe Ausweis, nicht der nächste.
     expect((zweite.json() as { sessionId: string }).sessionId).toBe(sitzungsId)
 
-    const { geraete } = (
-      await u.app.inject({ method: 'GET', url: '/api/auth/me/geraete', cookies: u.cookies })
-    ).json() as { geraete: Array<{ id: string; art: string }> }
+    const { devices } = (
+      await u.app.inject({ method: 'GET', url: '/api/auth/me/devices', cookies: u.cookies })
+    ).json() as { devices: Array<{ id: string; art: string }> }
     // Eine Browser-Sitzung (der Test-Login) und das App-Token — sonst nichts.
-    expect(geraete.filter((g) => g.art === 'sitzung')).toHaveLength(1)
-    expect(geraete.filter((g) => g.art === 'app')).toHaveLength(1)
+    expect(devices.filter((g) => g.art === 'sitzung')).toHaveLength(1)
+    expect(devices.filter((g) => g.art === 'app')).toHaveLength(1)
 
     // Sie gilt trotzdem: Der WebView spielt damit private Touren ab.
     const alsWebView = await u.app.inject({
@@ -232,7 +232,7 @@ describe('Angemeldete Geräte', () => {
       url: '/api/auth/me',
       cookies: { maptale_session: sitzungsId },
     })
-    expect((alsWebView.json() as { benutzer: unknown }).benutzer).not.toBeNull()
+    expect((alsWebView.json() as { user: unknown }).user).not.toBeNull()
   })
 
   // Wer das Telefon abmeldet, erwartet, dass dorthin nichts mehr geht — auch
@@ -241,18 +241,18 @@ describe('Angemeldete Geräte', () => {
     const u = await baueTestApp()
     const tausch = await u.app.inject({
       method: 'POST',
-      url: '/api/auth/session-aus-token',
+      url: '/api/auth/session-from-token',
       headers: { authorization: `Bearer ${u.apiToken}` },
     })
     const sitzungsId = (tausch.json() as { sessionId: string }).sessionId
-    const { geraete } = (
-      await u.app.inject({ method: 'GET', url: '/api/auth/me/geraete', cookies: u.cookies })
-    ).json() as { geraete: Array<{ id: string; art: string }> }
-    const appGeraet = geraete.find((g) => g.art === 'app')
+    const { devices } = (
+      await u.app.inject({ method: 'GET', url: '/api/auth/me/devices', cookies: u.cookies })
+    ).json() as { devices: Array<{ id: string; art: string }> }
+    const appGeraet = devices.find((g) => g.art === 'app')
 
     await u.app.inject({
       method: 'DELETE',
-      url: `/api/auth/me/geraete/${appGeraet?.id}`,
+      url: `/api/auth/me/devices/${appGeraet?.id}`,
       cookies: u.cookies,
     })
 
@@ -261,7 +261,7 @@ describe('Angemeldete Geräte', () => {
       url: '/api/auth/me',
       cookies: { maptale_session: sitzungsId },
     })
-    expect((nachher.json() as { benutzer: unknown }).benutzer).toBeNull()
+    expect((nachher.json() as { user: unknown }).user).toBeNull()
   })
 
   it('lässt niemanden fremde Geräte abmelden', async () => {
@@ -270,7 +270,7 @@ describe('Angemeldete Geräte', () => {
     const fremdeSitzung = u.app.auth.erzeugeSession(fremd.id)
     const antwort = await u.app.inject({
       method: 'DELETE',
-      url: `/api/auth/me/geraete/sitzung:${fremdeSitzung.id}`,
+      url: `/api/auth/me/devices/sitzung:${fremdeSitzung.id}`,
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(404)
@@ -292,39 +292,39 @@ describe('Speicher', () => {
 
   it('schlüsselt auf, und die Teile ergeben die Summe', async () => {
     const u = await baueTestApp()
-    const benutzer = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const user = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
     // Eine Tour von Hand: die Aufteilung liest den Storage, nicht die Pipeline.
     u.app.deps.db
       .prepare(
         `INSERT INTO tours (id, owner_id, no, status, visibility, created_at, updated_at)
-         VALUES ('t_konto', ?, 1, 'bereit', 'private', '2026-08-06', '2026-08-06')`,
+         VALUES ('t_konto', ?, 1, 'ready', 'private', '2026-08-06', '2026-08-06')`,
       )
-      .run(benutzer)
+      .run(user)
     await u.storage.schreibe('t_konto', 'media/m1.w1920.jpg', Buffer.alloc(1000))
     await u.storage.schreibe('t_konto', 'media/m2.web.mp4', Buffer.alloc(2000))
     await u.storage.schreibe('t_konto', 'media/ton.mp3', Buffer.alloc(300))
     await u.storage.schreibe('t_konto', 'original/manifest.json', Buffer.alloc(70))
-    await u.benutzerStorage.schreibe(benutzer, 'audio/eigenes.mp3', Buffer.alloc(500))
+    await u.benutzerStorage.schreibe(user, 'audio/eigenes.mp3', Buffer.alloc(500))
 
     const antwort = await u.app.inject({
       method: 'GET',
-      url: '/api/auth/me/speicher',
+      url: '/api/auth/me/storage',
       cookies: u.cookies,
     })
     const stand = antwort.json() as {
-      benutzt: number
+      used: number
       limit: number
-      aufteilung: Record<string, number>
+      breakdown: Record<string, number>
     }
-    expect(stand.aufteilung).toEqual({
-      fotos: 1000,
+    expect(stand.breakdown).toEqual({
+      photos: 1000,
       videos: 2000,
-      klaenge: 800,
-      aufzeichnungen: 70,
-      sonstiges: 0,
+      audio: 800,
+      recordings: 70,
+      other: 0,
     })
-    const summe = Object.values(stand.aufteilung).reduce((a, b) => a + b, 0)
-    expect(summe).toBe(stand.benutzt)
+    const summe = Object.values(stand.breakdown).reduce((a, b) => a + b, 0)
+    expect(summe).toBe(stand.used)
     expect(stand.limit).toBeGreaterThan(0)
   })
 })
