@@ -12,7 +12,7 @@ import {
 import { reichereAn } from '../src/pipeline/enrich.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { PlatziertesMedium } from '../src/pipeline/placement.js'
-import { pruefeEditsSemantik, STUDIO_PEGEL, type EditOverlay } from '../src/schema/edits.js'
+import { pruefeEditsSemantik, STUDIO_GAIN, type EditOverlay } from '../src/schema/edits.js'
 import type { UploadManifest, UploadSegment } from '../src/schema/upload.js'
 
 const START_MS = Date.parse('2026-07-04T08:00:00Z')
@@ -43,14 +43,14 @@ const segmente = (): UploadSegment[] => [
 
 describe('wendeTrimAn', () => {
   it('behält nur Punkte innerhalb der Trim-Spanne', () => {
-    const out = wendeTrimAn(segmente(), { start: iso(300), ende: iso(1200) }, START_MS)
+    const out = wendeTrimAn(segmente(), { start: iso(300), end: iso(1200) }, START_MS)
     expect(out).toHaveLength(2)
     expect(out[0]?.pts.map((p) => p[3])).toEqual([300, 600, 900])
     expect(out[1]?.pts.map((p) => p[3])).toEqual([900, 1200])
   })
 
   it('lässt Segmente mit < 2 Restpunkten fallen', () => {
-    const out = wendeTrimAn(segmente(), { ende: iso(600) }, START_MS)
+    const out = wendeTrimAn(segmente(), { end: iso(600) }, START_MS)
     expect(out).toHaveLength(1)
     expect(out[0]?.mode).toBe('walk')
   })
@@ -66,7 +66,7 @@ describe('wendeTrimAn', () => {
 
 describe('wendeModiAn', () => {
   it('zerschneidet am Grenzpunkt mit GETEILTEM Übergabepunkt (main.js verkettet via slice(1))', () => {
-    const out = wendeModiAn(segmente(), [{ ab: iso(600), mode: 'ferry' }], START_MS)
+    const out = wendeModiAn(segmente(), [{ from: iso(600), mode: 'ferry' }], START_MS)
     expect(out.map((s) => s.mode)).toEqual(['walk', 'ferry', 'ferry'])
     // Grenzpunkt t=600 schließt walk ab UND eröffnet ferry — kein Punktverlust
     expect(out[0]?.pts.map((p) => p[3])).toEqual([0, 300, 600])
@@ -79,8 +79,8 @@ describe('wendeModiAn', () => {
     const out = wendeModiAn(
       segmente(),
       [
-        { ab: iso(600), mode: 'ferry' },
-        { ab: iso(1200), mode: 'walk' },
+        { from: iso(600), mode: 'ferry' },
+        { from: iso(1200), mode: 'walk' },
       ],
       START_MS,
     )
@@ -90,12 +90,12 @@ describe('wendeModiAn', () => {
   })
 
   it('gilt ab Grenze VOR dem Track-Start für alles', () => {
-    const out = wendeModiAn(segmente(), [{ ab: iso(-600), mode: 'tram' }], START_MS)
+    const out = wendeModiAn(segmente(), [{ from: iso(-600), mode: 'tram' }], START_MS)
     expect(out.map((s) => s.mode)).toEqual(['tram', 'tram'])
   })
 
   it('erlaubt eine Grenze am letzten Punkt (1-Punkt-Scheibe, Punkt bleibt geteilt)', () => {
-    const out = wendeModiAn(segmente(), [{ ab: iso(1800), mode: 'tram' }], START_MS)
+    const out = wendeModiAn(segmente(), [{ from: iso(1800), mode: 'tram' }], START_MS)
     expect(out.map((s) => s.mode)).toEqual(['walk', 'bike', 'tram'])
     expect(out[1]?.pts).toHaveLength(4) // bike behält seinen Endpunkt
     expect(out[1]?.label).toBe('Talfahrt')
@@ -105,7 +105,7 @@ describe('wendeModiAn', () => {
   it('entfernt redundante 1-Punkt-Scheiben am Segment-Übergabepunkt', () => {
     // Grenze exakt auf dem geteilten Punkt t=900: die 1-Punkt-ferry-Scheibe
     // aus seg1 ist im ferry-gewordenen seg2 bereits enthalten
-    const out = wendeModiAn(segmente(), [{ ab: iso(900), mode: 'ferry' }], START_MS)
+    const out = wendeModiAn(segmente(), [{ from: iso(900), mode: 'ferry' }], START_MS)
     expect(out.map((s) => s.mode)).toEqual(['walk', 'ferry'])
     expect(out[0]?.pts.map((p) => p[3])).toEqual([0, 300, 600, 900])
     expect(out[1]?.pts.map((p) => p[3])).toEqual([900, 1200, 1500, 1800])
@@ -126,14 +126,14 @@ describe('wendeMedienEditsAn', () => {
     {
       medium: { id: 'm2', type: 'photo', file: 'b.jpg', takenAt: iso(600) },
       anchor: null,
-      placement: 'unplatziert',
+      placement: 'unplaced',
     },
   ]
 
   it('entfernt gelöschte, übersteuert Caption und setzt manuelle Anker', () => {
     const edits: EditOverlay = {
-      schema: 'maptale/edits@1',
-      medien: {
+      schema: 'maptale/edits@2',
+      media: {
         m1: { caption: '' },
         m2: { anchor: [7.91, 46.51] },
       },
@@ -142,11 +142,11 @@ describe('wendeMedienEditsAn', () => {
     expect(out[0]?.medium.caption).toBe('')
     expect(out[0]?.placement).toBe('gps') // Anker unangetastet
     expect(out[1]?.anchor).toEqual([7.91, 46.51])
-    expect(out[1]?.placement).toBe('manuell')
+    expect(out[1]?.placement).toBe('manual')
 
     const geloescht = wendeMedienEditsAn(platziert(), {
-      schema: 'maptale/edits@1',
-      medien: { m1: { geloescht: true } },
+      schema: 'maptale/edits@2',
+      media: { m1: { removed: true } },
     })
     expect(geloescht.map((p) => p.medium.id)).toEqual(['m2'])
   })
@@ -158,158 +158,158 @@ describe('wendeMedienEditsAn', () => {
 
 describe('pruefeEditsSemantik', () => {
   it('akzeptiert Gültiges und meldet kaputte Zeiten/Spannen', () => {
-    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1' })).toBeNull()
+    expect(pruefeEditsSemantik({ schema: 'maptale/edits@2' })).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', trim: { start: iso(0), ende: iso(600) } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', trim: { start: iso(0), end: iso(600) } }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', trim: { start: iso(600), ende: iso(600) } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', trim: { start: iso(600), end: iso(600) } }),
     ).toMatch(/Trim-Start/)
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        modi: [{ ab: '2026-13-99T99:99:99Z', mode: 'walk' }],
+        schema: 'maptale/edits@2',
+        travelModes: [{ from: '2026-13-99T99:99:99Z', mode: 'walk' }],
       }),
     ).toMatch(/Modus-Grenze/)
     // JSON.parse('1e999') → Infinity rutscht am Ajv-Typ "number" vorbei
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        medien: { m1: { anchor: [Infinity, 46.5] } },
+        schema: 'maptale/edits@2',
+        media: { m1: { anchor: [Infinity, 46.5] } },
       }),
     ).toMatch(/Anker/)
   })
 
   it('prüft Kamera-Grenzen (Baukasten)', () => {
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', kamera: [{ ab: iso(0), preset: 'nah' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', camera: [{ from: iso(0), preset: 'near' }] }),
     ).toBeNull()
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }],
+        schema: 'maptale/edits@2',
+        camera: [{ from: '2026-13-99T99:99:99Z', preset: 'near' }],
       }),
     ).toMatch(/Kamera-Grenze/)
   })
 
   it('prüft Audio-Einträge: Zeiten, Spanne, bis nur bei Musik, Lautstärke endlich', () => {
-    const basis = { datei: 'a1.mp3', ab: iso(0) } as const
+    const basis = { file: 'a1.mp3', from: iso(0) } as const
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ ...basis, typ: 'musik', bis: iso(600), lautstaerke: 0.5 }],
+        schema: 'maptale/edits@2',
+        audio: [{ ...basis, type: 'music', to: iso(600), volume: 0.5 }],
       }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'sfx' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', audio: [{ ...basis, type: 'sfx' }] }),
     ).toBeNull()
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-13-99T99:99:99Z' }],
+        schema: 'maptale/edits@2',
+        audio: [{ file: 'a1.mp3', type: 'music', from: '2026-13-99T99:99:99Z' }],
       }),
     ).toMatch(/Audio-Start/)
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ ...basis, typ: 'musik', bis: '2026-13-99T99:99:99Z' }],
+        schema: 'maptale/edits@2',
+        audio: [{ ...basis, type: 'music', to: '2026-13-99T99:99:99Z' }],
       }),
     ).toMatch(/Audio-Ende/)
     // bis <= ab: leere Spanne
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ ...basis, typ: 'musik', bis: iso(0) }],
+        schema: 'maptale/edits@2',
+        audio: [{ ...basis, type: 'music', to: iso(0) }],
       }),
     ).toMatch(/Audio-Ende muss nach/)
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ ...basis, typ: 'sfx', bis: iso(600) }],
+        schema: 'maptale/edits@2',
+        audio: [{ ...basis, type: 'sfx', to: iso(600) }],
       }),
     ).toMatch(/nur bei Musik/)
     // JSON.parse('1e999') → Infinity: minimum/maximum fangen das im Schema,
     // die Semantik bleibt trotzdem wasserdicht (Number.isFinite)
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ ...basis, typ: 'musik', lautstaerke: Infinity }],
+        schema: 'maptale/edits@2',
+        audio: [{ ...basis, type: 'music', volume: Infinity }],
       }),
     ).toMatch(/Lautstärke/)
   })
 
   it('prüft die Film-Verankerung des Tons (Etappe 4)', () => {
-    const basis = { datei: 'a1.mp3' as const, ab: iso(0), typ: 'musik' as const }
+    const basis = { file: 'a1.mp3' as const, from: iso(0), type: 'music' as const }
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         audio: [
-          { ...basis, anker: iso(300), versatzFilmS: -2, dauerFilmS: 8, einstiegS: 3, loop: false },
+          { ...basis, anchor: iso(300), offsetFilmS: -2, durationFilmS: 8, startS: 3, loop: false },
         ],
       }),
     ).toBeNull()
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ ...basis, anker: '2026-13-99T99:99:99Z' }],
+        schema: 'maptale/edits@2',
+        audio: [{ ...basis, anchor: '2026-13-99T99:99:99Z' }],
       }),
     ).toMatch(/Audio-Anker/)
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ ...basis, versatzFilmS: Infinity }],
+        schema: 'maptale/edits@2',
+        audio: [{ ...basis, offsetFilmS: Infinity }],
       }),
     ).toMatch(/Audio-Versatz/)
     // Ein Klip ohne Länge ist kein Klip
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, dauerFilmS: 0 }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', audio: [{ ...basis, durationFilmS: 0 }] }),
     ).toMatch(/Audio-Länge/)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, dauerFilmS: -3 }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', audio: [{ ...basis, durationFilmS: -3 }] }),
     ).toMatch(/Audio-Länge/)
     // Der linke Trim hat den Dateianfang als Anschlag — auch mit Loop
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        audio: [{ ...basis, einstiegS: -1, loop: true }],
+        schema: 'maptale/edits@2',
+        audio: [{ ...basis, startS: -1, loop: true }],
       }),
     ).toMatch(/Datei-Einstieg/)
   })
 
   it('prüft den Video-Schnitt (Etappe 4)', () => {
-    const mit = (trim: { vonS: number; bisS?: number }): string | null =>
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { trim } } })
-    expect(mit({ vonS: 2, bisS: 9 })).toBeNull()
-    expect(mit({ vonS: 2 })).toBeNull() // ohne Ende: bis zum Dateiende
-    expect(mit({ vonS: -1 })).toMatch(/Video-Schnitt/)
-    expect(mit({ vonS: 2, bisS: Infinity })).toMatch(/Video-Schnitt/)
-    expect(mit({ vonS: 9, bisS: 9 })).toMatch(/Video-Schnittende/)
-    expect(mit({ vonS: 9, bisS: 2 })).toMatch(/Video-Schnittende/)
+    const mit = (trim: { fromS: number; toS?: number }): string | null =>
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', media: { m1: { trim } } })
+    expect(mit({ fromS: 2, toS: 9 })).toBeNull()
+    expect(mit({ fromS: 2 })).toBeNull() // ohne Ende: bis zum Dateiende
+    expect(mit({ fromS: -1 })).toMatch(/Video-Schnitt/)
+    expect(mit({ fromS: 2, toS: Infinity })).toMatch(/Video-Schnitt/)
+    expect(mit({ fromS: 9, toS: 9 })).toMatch(/Video-Schnittende/)
+    expect(mit({ fromS: 9, toS: 2 })).toMatch(/Video-Schnittende/)
   })
 
   it('lehnt einen nicht-ganzzahligen Platz im Stopp ab', () => {
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: 0 } } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', media: { m1: { order: 0 } } }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: 1.5 } } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', media: { m1: { order: 1.5 } } }),
     ).toMatch(/Platz im Stopp/)
     expect(
-      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: Infinity } } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@2', media: { m1: { order: Infinity } } }),
     ).toMatch(/Platz im Stopp/)
   })
 
   it('prüft display.holdS auf Endlichkeit (Baukasten)', () => {
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        medien: { m1: { display: { holdS: 8, kenBurns: false } } },
+        schema: 'maptale/edits@2',
+        media: { m1: { display: { holdS: 8, kenBurns: false } } },
       }),
     ).toBeNull()
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        medien: { m1: { display: { holdS: Infinity } } },
+        schema: 'maptale/edits@2',
+        media: { m1: { display: { holdS: Infinity } } },
       }),
     ).toMatch(/Standzeit/)
   })
@@ -317,26 +317,26 @@ describe('pruefeEditsSemantik', () => {
   it('prüft Wetter-Grenzen: Zeit parsebar, Stärke endlich und in [0,1]', () => {
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.6 }],
+        schema: 'maptale/edits@2',
+        weather: [{ from: iso(0), mode: 'rain', intensity: 0.6 }],
       }),
     ).toBeNull()
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        wetter: [{ ab: '2026-13-99T99:99:99Z', mode: 'rain' }],
+        schema: 'maptale/edits@2',
+        weather: [{ from: '2026-13-99T99:99:99Z', mode: 'rain' }],
       }),
     ).toMatch(/Wetter-Grenze/)
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        wetter: [{ ab: iso(0), mode: 'rain', staerke: Infinity }],
+        schema: 'maptale/edits@2',
+        weather: [{ from: iso(0), mode: 'rain', intensity: Infinity }],
       }),
     ).toMatch(/Wetter-Stärke/)
     expect(
       pruefeEditsSemantik({
-        schema: 'maptale/edits@1',
-        wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.5 }],
+        schema: 'maptale/edits@2',
+        weather: [{ from: iso(0), mode: 'rain', intensity: 1.5 }],
       }),
     ).toMatch(/Wetter-Stärke/)
   })
@@ -344,7 +344,7 @@ describe('pruefeEditsSemantik', () => {
 
 describe('reichereAn mit Edit-Overlay', () => {
   const manifest = (): UploadManifest => ({
-    schema: 'maptale/upload@1',
+    schema: 'maptale/upload@2',
     title: null,
     description: null,
     time: { start: iso(0), end: iso(1800), zone: 'UTC' },
@@ -377,10 +377,10 @@ describe('reichereAn mit Edit-Overlay', () => {
     const ohne = await reichereAn(eingabe(null))
     const mit = await reichereAn(
       eingabe({
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         trim: { start: iso(300) },
-        modi: [{ ab: iso(900), mode: 'ferry' }],
-        medien: { m1: { caption: 'Neu' }, m2: { geloescht: true } },
+        travelModes: [{ from: iso(900), mode: 'ferry' }],
+        media: { m1: { caption: 'Neu' }, m2: { removed: true } },
       }),
     )
 
@@ -398,24 +398,24 @@ describe('reichereAn mit Edit-Overlay', () => {
 
   it('wirft, wenn der Trim den kompletten Track entfernt', async () => {
     await expect(
-      reichereAn(eingabe({ schema: 'maptale/edits@1', trim: { start: iso(90000) } })),
+      reichereAn(eingabe({ schema: 'maptale/edits@2', trim: { start: iso(90000) } })),
     ).rejects.toThrow(/Kein Track/)
   })
 
   it('rendert Kamera-Keyframes: ab-Zeit → f, nach f sortiert (Baukasten)', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         // absichtlich unsortiert übergeben
-        kamera: [
-          { ab: iso(900), preset: 'nah' },
-          { ab: iso(0), preset: 'weit' },
+        camera: [
+          { from: iso(900), preset: 'near' },
+          { from: iso(0), preset: 'far' },
         ],
       }),
     )
     expect(tour.camera).toHaveLength(2)
-    expect(tour.camera?.[0]).toEqual({ f: 0, preset: 'weit', filmS: 0 })
-    expect(tour.camera?.[1]?.preset).toBe('nah')
+    expect(tour.camera?.[0]).toEqual({ f: 0, preset: 'far', filmS: 0 })
+    expect(tour.camera?.[1]?.preset).toBe('near')
     // t=900 liegt in der Streckenmitte (gleichförmige Punkte)
     expect(tour.camera?.[1]?.f).toBeGreaterThan(0.4)
     expect(tour.camera?.[1]?.f).toBeLessThan(0.6)
@@ -424,48 +424,48 @@ describe('reichereAn mit Edit-Overlay', () => {
   it('klemmt Kamera-Grenzen vor dem Trim-Start auf f=0 — der spätere ab gewinnt', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         trim: { start: iso(300) },
-        kamera: [
-          { ab: iso(0), preset: 'nah' },
-          { ab: iso(120), preset: 'weit' },
+        camera: [
+          { from: iso(0), preset: 'near' },
+          { from: iso(120), preset: 'far' },
         ],
       }),
     )
     // Beide Grenzen liegen vor dem getrimmten Track → beide auf f=0 geklemmt,
     // nur die spätere überlebt (Punktfunktion: sie gilt „ab hier")
-    expect(tour.camera).toEqual([{ f: 0, preset: 'weit', filmS: 0 }])
+    expect(tour.camera).toEqual([{ f: 0, preset: 'far', filmS: 0 }])
   })
 
   it('verwirft Kamera-Grenzen hinter dem Track-Ende (statt auf f=1 zu klemmen)', async () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'maptale/edits@1',
-        kamera: [
-          { ab: iso(600), preset: 'nah' },
-          { ab: iso(3600), preset: 'weit' }, // weit hinter dem Track-Ende (t=1800)
+        schema: 'maptale/edits@2',
+        camera: [
+          { from: iso(600), preset: 'near' },
+          { from: iso(3600), preset: 'far' }, // weit hinter dem Track-Ende (t=1800)
         ],
       }),
       protokoll: (m) => meldungen.push(m),
     })
     // Nur die gültige Grenze bleibt; die späte fällt raus (kein Umschalten am Finale)
     expect(tour.camera).toHaveLength(1)
-    expect(tour.camera?.[0]?.preset).toBe('nah')
+    expect(tour.camera?.[0]?.preset).toBe('near')
     expect(meldungen.some((m) => /Kamera-Grenze hinter dem Track-Ende/.test(m))).toBe(true)
   })
 
   it('reicht die Kamera-Feinjustierung (skala) durch, lässt 1 weg', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'maptale/edits@1',
-        kamera: [
-          { ab: iso(300), preset: 'nah', skala: 1.4 },
-          { ab: iso(600), preset: 'weit', skala: 1 }, // skala 1 → kein Feld
+        schema: 'maptale/edits@2',
+        camera: [
+          { from: iso(300), preset: 'near', scale: 1.4 },
+          { from: iso(600), preset: 'far', scale: 1 }, // skala 1 → kein Feld
         ],
       }),
     )
-    expect(tour.camera?.[0]).toMatchObject({ preset: 'nah', skala: 1.4 })
+    expect(tour.camera?.[0]).toMatchObject({ preset: 'near', scale: 1.4 })
     expect(tour.camera?.[1] && 'skala' in tour.camera[1]).toBe(false)
   })
 
@@ -473,20 +473,20 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'maptale/edits@1',
-        momente: [
-          { ab: iso(600), art: 'umkreisen', dauerS: 8 },
-          { ab: iso(300), art: 'innehalten' }, // Default-Dauer (kein dauerS)
-          { ab: iso(3600), art: 'aufstieg' }, // hinter Track-Ende (t=1800) → weg
+        schema: 'maptale/edits@2',
+        moments: [
+          { from: iso(600), kind: 'orbit', durationS: 8 },
+          { from: iso(300), kind: 'linger' }, // Default-Dauer (kein dauerS)
+          { from: iso(3600), kind: 'ascend' }, // hinter Track-Ende (t=1800) → weg
         ],
       }),
       protokoll: (m) => meldungen.push(m),
     })
     expect(tour.moments).toHaveLength(2)
     // sortiert nach f (300 vor 600)
-    expect(tour.moments?.[0]).toMatchObject({ art: 'innehalten' })
+    expect(tour.moments?.[0]).toMatchObject({ kind: 'linger' })
     expect(tour.moments?.[0] && 'dauerS' in tour.moments[0]).toBe(false)
-    expect(tour.moments?.[1]).toMatchObject({ art: 'umkreisen', dauerS: 8 })
+    expect(tour.moments?.[1]).toMatchObject({ kind: 'orbit', durationS: 8 })
     expect(tour.moments?.[0]?.f).toBeLessThan(tour.moments?.[1]?.f ?? 0)
     expect(meldungen.some((m) => /Kamera-Moment hinter dem Track-Ende/.test(m))).toBe(true)
   })
@@ -495,10 +495,10 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         audio: [
-          { datei: 'knall.wav', typ: 'sfx', ab: iso(900) },
-          { datei: 'musik.mp3', typ: 'musik', ab: iso(0), lautstaerke: 0.7 },
+          { file: 'knall.wav', type: 'sfx', from: iso(900) },
+          { file: 'musik.mp3', type: 'music', from: iso(0), volume: 0.7 },
         ],
       }),
       audioDateien: ['musik.mp3', 'knall.wav'],
@@ -523,18 +523,18 @@ describe('reichereAn mit Edit-Overlay', () => {
     expect(sfx?.f0).toBe(sfx?.f1)
     // `gain` steht IMMER — ohne ihn spielte der Player mit 1.0, der Film wäre
     // lauter als der Schnitt. Ohne eigenen Wert gilt die Reglerstellung des
-    // Studios (STUDIO_PEGEL), nicht „kein Feld".
-    expect(sfx?.gain).toBe(STUDIO_PEGEL)
+    // Studios (STUDIO_GAIN), nicht „kein Feld".
+    expect(sfx?.gain).toBe(STUDIO_GAIN)
   })
 
   it('Bibliotheks-Audio: /audio/sfx-URL, keine media/-Prüfung', async () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         audio: [
-          { datei: 'sfx-moewe.mp3', typ: 'sfx', ab: iso(900), quelle: 'bibliothek' },
-          { datei: 'amb-hafen.mp3', typ: 'musik', ab: iso(0), quelle: 'bibliothek' },
+          { file: 'sfx-moewe.mp3', type: 'sfx', from: iso(900), source: 'library' },
+          { file: 'amb-hafen.mp3', type: 'music', from: iso(0), source: 'library' },
         ],
       }),
       audioDateien: [], // Bibliothekseffekte liegen NICHT unter media/
@@ -550,8 +550,8 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'maptale/edits@1',
-        audio: [{ datei: 'fehlt.mp3', typ: 'musik', ab: iso(0) }],
+        schema: 'maptale/edits@2',
+        audio: [{ file: 'fehlt.mp3', type: 'music', from: iso(0) }],
       }),
       audioDateien: ['musik.mp3'],
       protokoll: (m) => meldungen.push(m),
@@ -564,17 +564,17 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         trim: { start: iso(300) },
         audio: [
           // komplett vor dem Trim-Start: f0=f1=0 → verworfen
-          { datei: 'vorher.mp3', typ: 'musik', ab: iso(0), bis: iso(300) },
+          { file: 'vorher.mp3', type: 'music', from: iso(0), to: iso(300) },
           // Start vor dem Trim, Ende offen → auf f0=0 geklemmt, spielt die ganze Tour
-          { datei: 'musik.mp3', typ: 'musik', ab: iso(0) },
+          { file: 'musik.mp3', type: 'music', from: iso(0) },
           // SFX vor dem getrimmten Track: würde sonst am Tour-Start knallen → verworfen
-          { datei: 'knall.wav', typ: 'sfx', ab: iso(0) },
+          { file: 'knall.wav', type: 'sfx', from: iso(0) },
           // SFX innerhalb bleibt
-          { datei: 'ping.ogg', typ: 'sfx', ab: iso(600) },
+          { file: 'ping.ogg', type: 'sfx', from: iso(600) },
         ],
       }),
       audioDateien: ['vorher.mp3', 'musik.mp3', 'knall.wav', 'ping.ogg'],
@@ -594,8 +594,8 @@ describe('reichereAn mit Edit-Overlay', () => {
   it('reicht display aus dem Overlay in die Medien durch — nur wo gesetzt', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'maptale/edits@1',
-        medien: { m1: { display: { holdS: 12, kenBurns: false } } },
+        schema: 'maptale/edits@2',
+        media: { m1: { display: { holdS: 12, kenBurns: false } } },
       }),
     )
     expect(tour.media[0]?.display).toEqual({ holdS: 12, kenBurns: false })
@@ -608,13 +608,13 @@ describe('reichereAn mit Edit-Overlay', () => {
   it('reicht reihe aus dem Overlay in die Medien durch — nur wo gesetzt', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'maptale/edits@1',
-        medien: { m1: { reihe: 0 }, m2: { reihe: 1 } },
+        schema: 'maptale/edits@2',
+        media: { m1: { order: 0 }, m2: { order: 1 } },
       }),
     )
-    expect(tour.media.find((m) => m.id === 'm1')?.reihe).toBe(0)
-    expect(tour.media.find((m) => m.id === 'm2')?.reihe).toBe(1)
-    const ohne = await reichereAn(eingabe({ schema: 'maptale/edits@1' }))
+    expect(tour.media.find((m) => m.id === 'm1')?.order).toBe(0)
+    expect(tour.media.find((m) => m.id === 'm2')?.order).toBe(1)
+    const ohne = await reichereAn(eingabe({ schema: 'maptale/edits@2' }))
     expect('reihe' in (ohne.media[0] ?? {})).toBe(false)
   })
 })
@@ -623,7 +623,7 @@ describe('reichereAn mit Edit-Overlay', () => {
 
 describe('reichereAn: Ton am Film-Anker', () => {
   const manifest = (): UploadManifest => ({
-    schema: 'maptale/upload@1',
+    schema: 'maptale/upload@2',
     title: null,
     description: null,
     time: { start: iso(0), end: iso(1800), zone: 'UTC' },
@@ -645,12 +645,12 @@ describe('reichereAn: Ton am Film-Anker', () => {
 
   it('ohne die neuen Felder rendert der Anker wie „ab" — Zeichen für Zeichen', async () => {
     const alt = await rendere({
-      schema: 'maptale/edits@1',
-      audio: [{ datei: 'musik.mp3', typ: 'musik', ab: iso(600) }],
+      schema: 'maptale/edits@2',
+      audio: [{ file: 'musik.mp3', type: 'music', from: iso(600) }],
     })
     const neu = await rendere({
-      schema: 'maptale/edits@1',
-      audio: [{ datei: 'musik.mp3', typ: 'musik', ab: iso(600), anker: iso(600) }],
+      schema: 'maptale/edits@2',
+      audio: [{ file: 'musik.mp3', type: 'music', from: iso(600), anchor: iso(600) }],
     })
     expect(neu.audio?.[0]?.f0).toBeCloseTo(alt.audio?.[0]?.f0 ?? -1, 9)
   })
@@ -658,12 +658,12 @@ describe('reichereAn: Ton am Film-Anker', () => {
   it('der Versatz rechnet in FILMsekunden, nicht in Aufnahmezeit', async () => {
     // 5 Filmsekunden sind zu Fuß 240 Streckenmeter — nicht 5 Sekunden Uhrzeit.
     const ohne = await rendere({
-      schema: 'maptale/edits@1',
-      audio: [{ datei: 'musik.mp3', typ: 'musik', ab: iso(0), anker: iso(300), versatzFilmS: 0 }],
+      schema: 'maptale/edits@2',
+      audio: [{ file: 'musik.mp3', type: 'music', from: iso(0), anchor: iso(300), offsetFilmS: 0 }],
     })
     const mit = await rendere({
-      schema: 'maptale/edits@1',
-      audio: [{ datei: 'musik.mp3', typ: 'musik', ab: iso(0), anker: iso(300), versatzFilmS: 5 }],
+      schema: 'maptale/edits@2',
+      audio: [{ file: 'musik.mp3', type: 'music', from: iso(0), anchor: iso(300), offsetFilmS: 5 }],
     })
     expect(mit.audio?.[0]?.f0).toBeGreaterThan(ohne.audio?.[0]?.f0 ?? 1)
   })
@@ -683,15 +683,15 @@ describe('reichereAn: Ton am Film-Anker', () => {
           titelOverride: null,
           beschreibungOverride: null,
           edits: {
-            schema: 'maptale/edits@1',
+            schema: 'maptale/edits@2',
             audio: [
               {
-                datei: 'musik.mp3',
-                typ: 'musik',
-                ab: iso(0),
-                anker: iso(600),
-                versatzFilmS: v,
-                dauerFilmS: 20,
+                file: 'musik.mp3',
+                type: 'music',
+                from: iso(0),
+                anchor: iso(600),
+                offsetFilmS: v,
+                durationFilmS: 20,
               },
             ],
           },
@@ -719,15 +719,15 @@ describe('reichereAn: Ton am Film-Anker', () => {
       titelOverride: null,
       beschreibungOverride: null,
       edits: {
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         audio: [
           {
-            datei: 'musik.mp3',
-            typ: 'musik',
-            ab: iso(0),
-            anker: iso(600),
-            versatzFilmS: 1,
-            dauerFilmS: 3,
+            file: 'musik.mp3',
+            type: 'music',
+            from: iso(0),
+            anchor: iso(600),
+            offsetFilmS: 1,
+            durationFilmS: 3,
           },
         ],
       },
@@ -746,17 +746,17 @@ describe('reichereAn: Ton am Film-Anker', () => {
     // Die Zusage aus §2E: Ton war vorher das einzige Element, das liegen blieb.
     // Der Anker liegt HINTER dem Foto, dessen Standzeit sich ändert.
     const basis = {
-      datei: 'musik.mp3' as const,
-      typ: 'musik' as const,
-      ab: iso(1200),
-      anker: iso(1200),
-      versatzFilmS: 0,
-      dauerFilmS: 4,
+      file: 'musik.mp3' as const,
+      type: 'music' as const,
+      from: iso(1200),
+      anchor: iso(1200),
+      offsetFilmS: 0,
+      durationFilmS: 4,
     }
-    const kurz = await rendere({ schema: 'maptale/edits@1', audio: [basis] })
+    const kurz = await rendere({ schema: 'maptale/edits@2', audio: [basis] })
     const lang = await rendere({
-      schema: 'maptale/edits@1',
-      medien: { m1: { display: { holdS: 30 } } },
+      schema: 'maptale/edits@2',
+      media: { m1: { display: { holdS: 30 } } },
       audio: [basis],
     })
     // Der ANKER (Stelle der Reise) bleibt, die Filmlage wächst mit dem Halt —
@@ -774,16 +774,16 @@ describe('reichereAn: Ton am Film-Anker', () => {
     // einen Versatz, der ÜBER den Moment reicht, gegen eine zu kurze Achse auf:
     // Editor und fertiger Film zeigten den Klip an verschiedenen Stellen.
     const spur = {
-      datei: 'musik.mp3' as const,
-      typ: 'musik' as const,
-      ab: iso(0),
-      anker: iso(0),
-      versatzFilmS: 20,
-      dauerFilmS: 4,
+      file: 'musik.mp3' as const,
+      type: 'music' as const,
+      from: iso(0),
+      anchor: iso(0),
+      offsetFilmS: 20,
+      durationFilmS: 4,
     }
-    const moment = { ab: iso(150), art: 'umkreisen' as const } // 6 Filmsekunden
-    const ohne = await rendere({ schema: 'maptale/edits@1', audio: [spur] })
-    const mit = await rendere({ schema: 'maptale/edits@1', momente: [moment], audio: [spur] })
+    const moment = { from: iso(150), kind: 'orbit' as const } // 6 Filmsekunden
+    const ohne = await rendere({ schema: 'maptale/edits@2', audio: [spur] })
+    const mit = await rendere({ schema: 'maptale/edits@2', moments: [moment], audio: [spur] })
     // Sechs der zwanzig Filmsekunden vergehen jetzt im Moment — der Klip setzt
     // entsprechend früher auf der STRECKE ein.
     expect(mit.audio?.[0]?.f0).toBeLessThan(ohne.audio?.[0]?.f0 ?? 1)
@@ -793,8 +793,8 @@ describe('reichereAn: Ton am Film-Anker', () => {
     // dem Anker kommt deshalb weiter vorn heraus als bei einem Moment, der nur
     // seine nackte Dauer kostete.
     const gekuerzt = await rendere({
-      schema: 'maptale/edits@1',
-      audio: [{ ...spur, versatzFilmS: 20 - 6 }],
+      schema: 'maptale/edits@2',
+      audio: [{ ...spur, offsetFilmS: 20 - 6 }],
     })
     expect(mit.audio?.[0]?.f0).toBeLessThan(gekuerzt.audio?.[0]?.f0 ?? -1)
   })
@@ -803,17 +803,17 @@ describe('reichereAn: Ton am Film-Anker', () => {
     // Verworfen wird er ohnehin (er steht nicht in `moments`) — er darf dann
     // auch die Ton-Verankerung nicht anfassen.
     const spur = {
-      datei: 'musik.mp3' as const,
-      typ: 'musik' as const,
-      ab: iso(0),
-      anker: iso(0),
-      versatzFilmS: 20,
-      dauerFilmS: 4,
+      file: 'musik.mp3' as const,
+      type: 'music' as const,
+      from: iso(0),
+      anchor: iso(0),
+      offsetFilmS: 20,
+      durationFilmS: 4,
     }
-    const ohne = await rendere({ schema: 'maptale/edits@1', audio: [spur] })
+    const ohne = await rendere({ schema: 'maptale/edits@2', audio: [spur] })
     const dahinter = await rendere({
-      schema: 'maptale/edits@1',
-      momente: [{ ab: iso(3600), art: 'umkreisen' }],
+      schema: 'maptale/edits@2',
+      moments: [{ from: iso(3600), kind: 'orbit' }],
       audio: [spur],
     })
     expect(dahinter.moments).toBeUndefined()
@@ -822,10 +822,10 @@ describe('reichereAn: Ton am Film-Anker', () => {
 
   it('dauerFilmS schlägt „bis" — und gibt auch einem Effekt eine Länge', async () => {
     const tour = await rendere({
-      schema: 'maptale/edits@1',
+      schema: 'maptale/edits@2',
       audio: [
-        { datei: 'musik.mp3', typ: 'musik', ab: iso(0), bis: iso(1800), dauerFilmS: 3 },
-        { datei: 'knall.wav', typ: 'sfx', ab: iso(300), dauerFilmS: 2 },
+        { file: 'musik.mp3', type: 'music', from: iso(0), to: iso(1800), durationFilmS: 3 },
+        { file: 'knall.wav', type: 'sfx', from: iso(300), durationFilmS: 2 },
       ],
     })
     const musik = tour.audio?.find((a) => a.type === 'music')
@@ -836,15 +836,15 @@ describe('reichereAn: Ton am Film-Anker', () => {
 
   it('schreibt loop und startS nur, wenn sie gesetzt sind', async () => {
     const still = await rendere({
-      schema: 'maptale/edits@1',
-      audio: [{ datei: 'musik.mp3', typ: 'musik', ab: iso(0) }],
+      schema: 'maptale/edits@2',
+      audio: [{ file: 'musik.mp3', type: 'music', from: iso(0) }],
     })
     expect('loop' in (still.audio?.[0] ?? {})).toBe(false)
     expect('startS' in (still.audio?.[0] ?? {})).toBe(false)
 
     const gesetzt = await rendere({
-      schema: 'maptale/edits@1',
-      audio: [{ datei: 'musik.mp3', typ: 'musik', ab: iso(0), loop: false, einstiegS: 12.5 }],
+      schema: 'maptale/edits@2',
+      audio: [{ file: 'musik.mp3', type: 'music', from: iso(0), loop: false, startS: 12.5 }],
     })
     expect(gesetzt.audio?.[0]?.loop).toBe(false)
     expect(gesetzt.audio?.[0]?.startS).toBe(12.5)

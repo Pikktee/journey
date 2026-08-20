@@ -86,9 +86,9 @@ describe('Fassungen beim Rendern', () => {
 
     const editor = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
-    ).json() as { medien: Array<{ id: string; src: string; thumb?: string }> }
-    expect(editor.medien[0]?.src).toBe(`/api/media/${id}/m1.w1920.jpg`)
-    expect(editor.medien[0]?.thumb).toBe(`/api/media/${id}/m1.t480.jpg`)
+    ).json() as { media: Array<{ id: string; src: string; thumb?: string }> }
+    expect(editor.media[0]?.src).toBe(`/api/media/${id}/m1.w1920.jpg`)
+    expect(editor.media[0]?.thumb).toBe(`/api/media/${id}/m1.t480.jpg`)
   })
 
   it('lässt ein wiederholtes finalize durch, obwohl das Original fort ist', async () => {
@@ -115,7 +115,7 @@ describe('Fassungen beim Rendern', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', medien: { m1: { caption: 'Am Wasserfall' } } },
+      payload: { schema: 'maptale/edits@2', media: { m1: { caption: 'Am Wasserfall' } } },
     })
     expect(antwort.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
@@ -217,7 +217,7 @@ describe('trageBildfassungenNach', () => {
       method: 'PUT',
       url: `/api/tours/${id.id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', titelbild: 'm2' },
+      payload: { schema: 'maptale/edits@2', cover: 'm2' },
     })
     await u.app.inject({ method: 'POST', url: `/api/tours/${id.id}/finalize`, cookies: u.cookies })
     await u.app.verarbeitungen.get(id.id)

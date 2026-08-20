@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { TourJson } from '../src/pipeline/enrich.js'
-import { STUDIO_PEGEL } from '../src/schema/edits.js'
+import { STUDIO_GAIN } from '../src/schema/edits.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
@@ -75,7 +75,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
     const id = await legeTourAn(u)
     const put = await ladeAudioHoch(u, id, 'a1.mp3', '0123456789')
     expect(put.statusCode).toBe(200)
-    expect(put.json()).toEqual({ datei: 'a1.mp3', bytes: 10 })
+    expect(put.json()).toEqual({ file: 'a1.mp3', bytes: 10 })
 
     const voll = await u.app.inject({
       method: 'GET',
@@ -131,7 +131,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
     expect((await ladeAudioHoch(u, id)).statusCode).toBe(200)
     const nochmal = await ladeAudioHoch(u, id, 'a1.mp3', 'neue-bytes')
     expect(nochmal.statusCode).toBe(409)
-    expect((nochmal.json() as { fehler: string }).fehler).toContain('existiert bereits')
+    expect((nochmal.json() as { error: string }).error).toContain('existiert bereits')
   })
 
   it('verweigert Upload und Löschen während laufender Verarbeitung (409)', async () => {
@@ -222,8 +222,8 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'maptale/edits@1',
-        audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00' }],
+        schema: 'maptale/edits@2',
+        audio: [{ file: 'a1.mp3', type: 'music', from: '2026-07-04T08:12:31+02:00' }],
       },
     })
     expect(put.statusCode).toBe(202)
@@ -255,10 +255,10 @@ describe('Editor-Daten mit Audio (Baukasten)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    const daten = antwort.json() as { audio: Array<{ datei: string; groesse: number }> }
+    const daten = antwort.json() as { audio: Array<{ file: string; size: number }> }
     expect(daten.audio).toEqual([
-      { datei: 'a1.mp3', groesse: 10 },
-      { datei: 'wind.wav', groesse: 9 },
+      { file: 'a1.mp3', size: 10 },
+      { file: 'wind.wav', size: 9 },
     ])
   })
 })
@@ -276,13 +276,13 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'maptale/edits@1',
-        medien: { m1: { display: { holdS: 8, kenBurns: false } } },
+        schema: 'maptale/edits@2',
+        media: { m1: { display: { holdS: 8, kenBurns: false } } },
         // Tour-Zeit: 08:12:31–14:03:10 +02:00
-        kamera: [{ ab: '2026-07-04T09:00:00+02:00', preset: 'weit' }],
+        camera: [{ from: '2026-07-04T09:00:00+02:00', preset: 'far' }],
         audio: [
-          { datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00', lautstaerke: 0.8 },
-          { datei: 'a1.mp3', typ: 'sfx', ab: '2026-07-04T09:00:00+02:00' },
+          { file: 'a1.mp3', type: 'music', from: '2026-07-04T08:12:31+02:00', volume: 0.8 },
+          { file: 'a1.mp3', type: 'sfx', from: '2026-07-04T09:00:00+02:00' },
         ],
       },
     })
@@ -295,7 +295,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     expect(tour.status).toBe('ready')
     expect(tour.media[0]?.display).toEqual({ holdS: 8, kenBurns: false })
     expect(tour.camera).toHaveLength(1)
-    expect(tour.camera?.[0]?.preset).toBe('weit')
+    expect(tour.camera?.[0]?.preset).toBe('far')
     expect(tour.camera?.[0]?.f).toBeGreaterThan(0)
     expect(tour.camera?.[0]?.f).toBeLessThan(1)
     expect(tour.audio).toHaveLength(2)
@@ -305,7 +305,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     expect(sfx?.f0).toBe(sfx?.f1)
     // Ohne eigene Lautstärke gilt die Studio-Vorgabe — geschrieben wird sie
     // immer, sonst spielte der Player mit 1.0 (s. enrich.ts).
-    expect(sfx?.gain).toBe(STUDIO_PEGEL)
+    expect(sfx?.gain).toBe(STUDIO_GAIN)
     // Sortiert nach f0
     expect(tour.audio?.[0]?.f0).toBeLessThanOrEqual(tour.audio?.[1]?.f0 ?? 0)
   })
@@ -320,8 +320,8 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'maptale/edits@1',
-        audio: [{ datei: 'fehlt.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00' }],
+        schema: 'maptale/edits@2',
+        audio: [{ file: 'fehlt.mp3', type: 'music', from: '2026-07-04T08:12:31+02:00' }],
       },
     })
     expect(put.statusCode).toBe(202)
@@ -337,25 +337,25 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     const faelle = [
-      { schema: 'maptale/edits@1', kamera: 'quatsch' },
-      { schema: 'maptale/edits@1', kamera: [{ ab: '2026-07-04T09:00:00Z', preset: 'ultra' }] },
+      { schema: 'maptale/edits@2', camera: 'quatsch' },
+      { schema: 'maptale/edits@2', camera: [{ from: '2026-07-04T09:00:00Z', preset: 'ultra' }] },
       {
-        schema: 'maptale/edits@1',
-        audio: [{ datei: 'boese.exe', typ: 'musik', ab: '2026-07-04T09:00:00Z' }],
+        schema: 'maptale/edits@2',
+        audio: [{ file: 'boese.exe', type: 'music', from: '2026-07-04T09:00:00Z' }],
       },
       // Achtung: '1' würde Fastifys coerceTypes still zu 1 wandeln — der
       // Ablehnungs-Test braucht einen NICHT koerzierbaren Wert
       {
-        schema: 'maptale/edits@1',
-        audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 'laut' }],
+        schema: 'maptale/edits@2',
+        audio: [{ file: 'a1.mp3', type: 'music', from: '2026-07-04T09:00:00Z', volume: 'laut' }],
       },
       {
-        schema: 'maptale/edits@1',
-        audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 2 }],
+        schema: 'maptale/edits@2',
+        audio: [{ file: 'a1.mp3', type: 'music', from: '2026-07-04T09:00:00Z', volume: 2 }],
       },
-      { schema: 'maptale/edits@1', medien: { m1: { display: { holdS: 1 } } } },
-      { schema: 'maptale/edits@1', medien: { m1: { display: { holdS: 90 } } } },
-      { schema: 'maptale/edits@1', medien: { m1: { display: { kenBurns: 'nein' } } } },
+      { schema: 'maptale/edits@2', media: { m1: { display: { holdS: 1 } } } },
+      { schema: 'maptale/edits@2', media: { m1: { display: { holdS: 90 } } } },
+      { schema: 'maptale/edits@2', media: { m1: { display: { kenBurns: 'nein' } } } },
     ]
     for (const payload of faelle) {
       const antwort = await u.app.inject({
@@ -374,20 +374,20 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     const faelle: Array<{ payload: Record<string, unknown>; fehler: RegExp }> = [
       {
         payload: {
-          schema: 'maptale/edits@1',
-          kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }],
+          schema: 'maptale/edits@2',
+          camera: [{ from: '2026-13-99T99:99:99Z', preset: 'near' }],
         },
         fehler: /Kamera-Grenze/,
       },
       {
         payload: {
-          schema: 'maptale/edits@1',
+          schema: 'maptale/edits@2',
           audio: [
             {
-              datei: 'a1.mp3',
-              typ: 'musik',
-              ab: '2026-07-04T10:00:00Z',
-              bis: '2026-07-04T09:00:00Z',
+              file: 'a1.mp3',
+              type: 'music',
+              from: '2026-07-04T10:00:00Z',
+              to: '2026-07-04T09:00:00Z',
             },
           ],
         },
@@ -395,13 +395,13 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
       },
       {
         payload: {
-          schema: 'maptale/edits@1',
+          schema: 'maptale/edits@2',
           audio: [
             {
-              datei: 'a1.mp3',
-              typ: 'sfx',
-              ab: '2026-07-04T09:00:00Z',
-              bis: '2026-07-04T10:00:00Z',
+              file: 'a1.mp3',
+              type: 'sfx',
+              from: '2026-07-04T09:00:00Z',
+              to: '2026-07-04T10:00:00Z',
             },
           ],
         },
@@ -409,8 +409,8 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
       },
       {
         payload: {
-          schema: 'maptale/edits@1',
-          audio: [{ datei: 'a1.mp3', typ: 'sfx', ab: '2026-13-99T99:99:99Z' }],
+          schema: 'maptale/edits@2',
+          audio: [{ file: 'a1.mp3', type: 'sfx', from: '2026-13-99T99:99:99Z' }],
         },
         fehler: /Audio-Start/,
       },
@@ -423,7 +423,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
         payload,
       })
       expect(antwort.statusCode).toBe(400)
-      expect((antwort.json() as { fehler: string }).fehler).toMatch(fehler)
+      expect((antwort.json() as { error: string }).error).toMatch(fehler)
     }
   })
 })

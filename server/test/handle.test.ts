@@ -149,7 +149,7 @@ describe('90-Tage-Sperre', () => {
     const u = await baueTestApp()
     await patch(u, { handle: 'henrik' })
     u.app.deps.db
-      .prepare('UPDATE handles_reserviert SET frei_ab = ?')
+      .prepare('UPDATE reserved_handles SET free_from = ?')
       .run('2020-01-01T00:00:00.000Z')
     const anna = await u.app.auth.legeBenutzerAn('anna@example.com', 'geheim123', 'Anna')
     expect(u.app.auth.setzeHandle(anna.id, 'test')).toBeNull()
@@ -165,7 +165,7 @@ describe('Profil unter der Adresse', () => {
     const u = await baueTestApp()
     await oeffentlichesProfil(u)
     const perHandle = await u.app.inject({ method: 'GET', url: '/api/users/test/profile' })
-    const perId = await u.app.inject({ method: 'GET', url: `/api/users/${nutzerId(u)}/profil` })
+    const perId = await u.app.inject({ method: 'GET', url: `/api/users/${nutzerId(u)}/profile` })
     expect(perHandle.statusCode).toBe(200)
     expect(perHandle.json()).toEqual(perId.json())
     expect((perHandle.json() as { handle: string }).handle).toBe('test')

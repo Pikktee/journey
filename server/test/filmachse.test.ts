@@ -149,13 +149,13 @@ describe('baueAchsenHalte', () => {
 describe('baueMomentHalte', () => {
   it('nimmt die Dauer der Art — ohne Ausblendung', () => {
     const halte = baueMomentHalte([
-      { offsetS: 100, art: 'umkreisen' },
-      { offsetS: 200, art: 'innehalten', dauerS: 9 },
+      { offsetS: 100, art: 'orbit' },
+      { offsetS: 200, art: 'linger', dauerS: 9 },
     ])
     // Ein Moment endet in der Engine direkt in der Weiterfahrt; 0,8 s
     // Ausblendung wie am Foto-Halt gibt es dort nicht.
     expect(halte).toEqual([
-      { offsetS: 100, breiteS: MOMENT_DEFAULT_S.umkreisen },
+      { offsetS: 100, breiteS: MOMENT_DEFAULT_S.orbit },
       { offsetS: 200, breiteS: 9 },
     ])
   })
@@ -164,8 +164,8 @@ describe('baueMomentHalte', () => {
     // Anders als Aufnahmen (120-m-Kette): jeder Moment ist ein eigenes
     // Ereignis mit eigener Kamerabewegung.
     const halte = baueMomentHalte([
-      { offsetS: 100, art: 'innehalten' },
-      { offsetS: 101, art: 'innehalten' },
+      { offsetS: 100, art: 'linger' },
+      { offsetS: 101, art: 'linger' },
     ])
     expect(halte).toHaveLength(2)
   })
@@ -176,8 +176,8 @@ describe('baueMomentHalte', () => {
     // kurze Achse auf — er landete im Film um die Momentdauer zu früh.
     const reihe = baueZeitreihe([geradeStrecke(11, 96, 60)])
     const ohne = baueFilmAchse(reihe, [], 0)!
-    const mit = baueFilmAchse(reihe, baueMomentHalte([{ offsetS: 300, art: 'umkreisen' }]), 0)!
-    expect(mit.gesamtS - ohne.gesamtS).toBeCloseTo(MOMENT_DEFAULT_S.umkreisen, 6)
+    const mit = baueFilmAchse(reihe, baueMomentHalte([{ offsetS: 300, art: 'orbit' }]), 0)!
+    expect(mit.gesamtS - ohne.gesamtS).toBeCloseTo(MOMENT_DEFAULT_S.orbit, 6)
     // Ein Anker VOR dem Moment liegt unverändert; 6 Filmsekunden nach ihm steht
     // die Aufnahmeuhr noch im Moment, statt schon weitergelaufen zu sein.
     expect(filmBeiZeit(mit, 120)).toBeCloseTo(filmBeiZeit(ohne, 120), 6)
@@ -191,13 +191,13 @@ describe('baueMomentHalte', () => {
       reihe,
       [
         ...baueAchsenHalte([{ type: 'photo', meter: 480, offsetS: 300 }]),
-        ...baueMomentHalte([{ offsetS: 480, art: 'aufstieg' }]),
+        ...baueMomentHalte([{ offsetS: 480, art: 'ascend' }]),
       ],
       0,
     )!
     // Fahrt + Foto (Standzeit samt Ausblendung) + Moment (nur Dauer)
     expect(achse.gesamtS).toBeCloseTo(
-      960 / tempoMs('walk') + HALT_ENGINE_S + HALT_AUSBLEND_S + MOMENT_DEFAULT_S.aufstieg,
+      960 / tempoMs('walk') + HALT_ENGINE_S + HALT_AUSBLEND_S + MOMENT_DEFAULT_S.ascend,
       6,
     )
   })

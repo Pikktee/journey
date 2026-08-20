@@ -17,7 +17,7 @@ async function trageEin(u: TestUmgebung, email: string, notiz?: string): Promise
   const antwort = await u.app.inject({
     method: 'POST',
     url: '/api/auth/waitlist',
-    payload: notiz ? { email, notiz } : { email },
+    payload: notiz ? { email, note: notiz } : { email },
   })
   expect(antwort.statusCode).toBe(200)
   const link = u.mail.letzterLink() ?? ''
@@ -171,7 +171,7 @@ describe('Warteliste — austragen', () => {
     const id = u.app.warteliste.alle()[0]?.id as string
     await u.app.inject({
       method: 'POST',
-      url: `/api/admin/waitlist/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/invite`,
       cookies: admin.cookies,
       payload: {},
     })
@@ -198,7 +198,7 @@ describe('Warteliste — austragen', () => {
     const id = u.app.warteliste.alle()[0]?.id as string
     const einladen = await u.app.inject({
       method: 'POST',
-      url: `/api/admin/waitlist/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/invite`,
       cookies: admin.cookies,
       payload: {},
     })
@@ -247,7 +247,7 @@ describe('Warteliste — freischalten', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: `/api/admin/waitlist/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/invite`,
       cookies: admin.cookies,
       payload: {},
     })
@@ -285,7 +285,7 @@ describe('Warteliste — freischalten', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: `/api/admin/waitlist/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/invite`,
       cookies: admin.cookies,
       payload: {},
     })
@@ -306,7 +306,7 @@ describe('Warteliste — freischalten', () => {
     const einladen = async (): Promise<number> => {
       const antwort = await u.app.inject({
         method: 'POST',
-        url: `/api/admin/waitlist/${id}/einladen`,
+        url: `/api/admin/waitlist/${id}/invite`,
         cookies: admin.cookies,
         payload: {},
       })
@@ -332,7 +332,7 @@ describe('Warteliste — freischalten', () => {
 
     const antwort = await u.app.inject({
       method: 'POST',
-      url: `/api/admin/waitlist/${id}/einladen`,
+      url: `/api/admin/waitlist/${id}/invite`,
       cookies: admin.cookies,
       payload: {},
     })
@@ -391,7 +391,7 @@ describe('Warteliste — Fristen', () => {
     // Den alten Eintrag künstlich altern lassen (20 Tage)
     const zwanzigTage = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
     u.app.deps.db
-      .prepare('UPDATE waitlist SET eingetragen_am = ? WHERE email = ?')
+      .prepare('UPDATE waitlist SET joined_at = ? WHERE email = ?')
       .run(zwanzigTage, 'alt@example.com')
 
     expect(u.app.warteliste.raeumeAuf()).toBe(1)
@@ -409,7 +409,7 @@ describe('Warteliste — Fristen', () => {
     u.app.warteliste.markiereEingeladen(id, 'ABCD-2345')
 
     const langeHer = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString()
-    u.app.deps.db.prepare('UPDATE waitlist SET eingeladen_am = ? WHERE id = ?').run(langeHer, id)
+    u.app.deps.db.prepare('UPDATE waitlist SET invited_at = ? WHERE id = ?').run(langeHer, id)
 
     expect(u.app.warteliste.raeumeAuf()).toBe(1)
     expect(u.app.warteliste.alle()).toHaveLength(0)

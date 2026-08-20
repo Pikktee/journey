@@ -21,7 +21,7 @@ export interface VideoInfo {
   codecVideo: string
   /** null, wenn das Video keine Tonspur hat */
   codecAudio: string | null
-  dauerS: number
+  durationS: number
   breite: number
   hoehe: number
 }
@@ -34,7 +34,7 @@ export interface VideoWerkzeug {
   /** Nur den Container neu schreiben (`-c copy`), damit `moov` vorn liegt. */
   remuxeFaststart(quellPfad: string, zielPfad: string): Promise<void>
   /**
-   * Ausschnitt [vonS, bisS) neu codieren.
+   * Ausschnitt [fromS, toS) neu codieren.
    *
    * IMMER Transcode, nie `-c copy`: Ein Stream-Copy kann nur an Keyframes
    * schneiden und träfe den gewünschten Punkt um Sekunden — bei einer
@@ -120,7 +120,7 @@ export function webVideoDateiname(mediumId: string): string {
 }
 
 /**
- * Ablage-Name des geschnittenen Videos (nur bei gesetztem `edits.medien[].trim`).
+ * Ablage-Name des geschnittenen Videos (nur bei gesetztem `edits.media[].trim`).
  *
  * Eine EIGENE Datei neben dem Master, nicht an seiner Stelle: Der Schnitt ist
  * ein Edit und damit jederzeit widerrufbar oder verschiebbar. Würde in die
@@ -134,29 +134,30 @@ export function schnittVideoDateiname(mediumId: string): string {
 
 /** Video-Schnitt in Dateisekunden, wie er aus dem Edit-Overlay kommt. */
 export interface VideoSchnitt {
-  vonS: number
-  bisS?: number
+  fromS: number
+  toS?: number
 }
 
 /**
  * Schnitt auf das MATERIAL klemmen — der Anschlag an beiden Kanten (docs §2F).
  *
- * Trimmen legt frei, was da ist, und erfindet nichts: `vonS` kann nicht vor den
- * Dateianfang, `bisS` nicht hinter das Dateiende. Bleibt danach keine echte
+ * Trimmen legt frei, was da ist, und erfindet nichts: `fromS` kann nicht vor den
+ * Dateianfang, `toS` nicht hinter das Dateiende. Bleibt danach keine echte
  * Spanne übrig (oder war gar keine gefordert), ist die Antwort `null` = ganze
  * Datei — ein leerer Schnitt darf kein Video von null Sekunden erzeugen.
  */
 export function klemmeSchnitt(
   schnitt: VideoSchnitt | undefined,
-  dauerS: number,
+  durationS: number,
 ): VideoSchnitt | null {
-  if (!schnitt || !(dauerS > 0)) return null
-  const vonS = Math.min(Math.max(0, schnitt.vonS), dauerS)
-  const bisS = schnitt.bisS === undefined ? dauerS : Math.min(Math.max(0, schnitt.bisS), dauerS)
+  if (!schnitt || !(durationS > 0)) return null
+  const vonS = Math.min(Math.max(0, schnitt.fromS), durationS)
+  const bisS =
+    schnitt.toS === undefined ? durationS : Math.min(Math.max(0, schnitt.toS), durationS)
   if (!(bisS - vonS > 0.05)) return null
   // Der Vollschnitt ist kein Schnitt: er erzwänge einen Transcode ohne Wirkung.
-  if (vonS <= 0 && bisS >= dauerS) return null
-  return { vonS, bisS }
+  if (vonS <= 0 && bisS >= durationS) return null
+  return { fromS: vonS, toS: bisS }
 }
 
 /**
@@ -174,7 +175,7 @@ export function posterZeitpunkt(_dauerS: number): number {
 /** Ergebnis der Aufbereitung eines Videos — fließt in enrich.ts ins tour.json. */
 export interface VideoMeta {
   /** Länge der AUSGELIEFERTEN Datei (bei gesetztem Schnitt die getrimmte) */
-  dauerS: number
+  durationS: number
   /** Auszuliefernde Videodatei (geschnitten, sonst transkodiert, sonst Original) */
   videoDatei: string
   /** Poster-JPEG */
@@ -224,7 +225,7 @@ export class FfmpegWerkzeug implements VideoWerkzeug {
     return {
       codecVideo: v.codec_name ?? '',
       codecAudio: a?.codec_name ?? null,
-      dauerS: Number(daten.format?.duration ?? v.duration ?? 0) || 0,
+      durationS: Number(daten.format?.duration ?? v.duration ?? 0) || 0,
       breite: Number(v.width ?? 0),
       hoehe: Number(v.height ?? 0),
     }
@@ -388,7 +389,7 @@ async function bereiteEinVideoAuf(
     // nicht jedes Mal ffmpeg anwerfen — Poster/Transcode sind deterministisch).
     if (!(await speicher.info(`media/${posterName}`))) {
       const posterTemp = join(arbeitsdir, 'poster.jpg')
-      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterZeitpunkt(info.dauerS))
+      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterZeitpunkt(info.durationS))
       await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
     }
 
@@ -432,10 +433,10 @@ async function bereiteEinVideoAuf(
     // Video-Schnitt (Etappe 4): eine eigene Auslieferungsdatei aus dem Master.
     // Geklemmt wird auf das Material — Trimmen legt frei, was da ist. Ohne
     // wirksamen Schnitt bleibt alles, wie es war (kein Transcode, keine Datei).
-    const wirksam = klemmeSchnitt(schnitt, info.dauerS)
+    const wirksam = klemmeSchnitt(schnitt, info.durationS)
     if (wirksam) {
       const schnittTemp = join(arbeitsdir, 'schnitt.mp4')
-      await werkzeug.schneide(quellTemp, schnittTemp, wirksam.vonS, wirksam.bisS)
+      await werkzeug.schneide(quellTemp, schnittTemp, wirksam.fromS, wirksam.toS)
       await speicher.schreibe(`media/${schnittName}`, await readFile(schnittTemp))
       // Das Poster zeigt den ersten Frame der AUSGELIEFERTEN Fassung — sonst
       // stünde dort ein Bild, das im Film gar nicht mehr vorkommt.
@@ -443,10 +444,10 @@ async function bereiteEinVideoAuf(
       await werkzeug.erzeugePoster(schnittTemp, posterTemp, posterZeitpunkt(0))
       await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
       return {
-        dauerS: (wirksam.bisS ?? info.dauerS) - wirksam.vonS,
+        durationS: (wirksam.toS ?? info.durationS) - wirksam.fromS,
         videoDatei: schnittName,
         posterDatei: posterName,
-        quellDauerS: info.dauerS,
+        quellDauerS: info.durationS,
       }
     }
     // Kein (wirksamer) Schnitt mehr: eine frühere Schnittfassung ist jetzt
@@ -455,15 +456,15 @@ async function bereiteEinVideoAuf(
     if (await speicher.info(`media/${schnittName}`)) {
       await speicher.loesche(`media/${schnittName}`)
       const posterTemp = join(arbeitsdir, 'poster-ganz.jpg')
-      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterZeitpunkt(info.dauerS))
+      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterZeitpunkt(info.durationS))
       await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
     }
 
     return {
-      dauerS: info.dauerS,
+      durationS: info.durationS,
       videoDatei: masterDatei,
       posterDatei: posterName,
-      quellDauerS: info.dauerS,
+      quellDauerS: info.durationS,
     }
   } finally {
     await rm(arbeitsdir, { recursive: true, force: true })

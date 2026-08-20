@@ -170,7 +170,7 @@ export async function sammleEintraege(
       // Der Zwischenspeicher der Anreicherung bleibt draußen: Er ist unser
       // Rechenweg (Ortsnamen, Wetterabrufe), nicht die Auskunft — und beim
       // nächsten Rendern ohnehin wieder anders.
-      if (datei.pfad === 'anreicherung.json') continue
+      if (datei.pfad === 'enrichment.json') continue
       // `original/manifest.json` → `manifest.json`, `edits.json` →
       // `bearbeitung.json`: Im Archiv zählt, was jemand beim Öffnen versteht,
       // nicht wie wir die Datei intern führen.

@@ -1,13 +1,13 @@
 // Medien-Platzierung (M6): jedem Foto/Video einen Anker auf dem Track geben.
 // Auto-Regel (Plan): GPS-Anker näher als 500 m am Track → so verankern; sonst
 // über die Aufnahmezeit auf den Trackpunkt zu diesem Zeitpunkt; sonst
-// „unplatziert" (wird nicht abgespielt, im Editor manuell setzbar, M7).
+// „unplaced" (wird nicht abgespielt, im Editor manuell setzbar, M7).
 // Reine Geometrie über den Rohdaten → direkt unit-testbar.
 
 import type { UploadMedium, UploadPunkt } from '../schema/upload.js'
 import { distanzM } from './geo.js'
 
-export type Platzierung = 'gps' | 'zeit' | 'manuell' | 'unplatziert'
+export type Platzierung = 'gps' | 'time' | 'manual' | 'unplaced'
 
 export interface PlatziertesMedium {
   medium: UploadMedium
@@ -60,10 +60,10 @@ function bestimmePlatzierung(
   const takenMs = Date.parse(medium.takenAt)
   if (Number.isFinite(takenMs)) {
     const anker = ankerZurZeit(nachZeit, (takenMs - startMs) / 1000)
-    if (anker) return { medium, anchor: anker, placement: 'zeit' }
+    if (anker) return { medium, anchor: anker, placement: 'time' }
   }
   // 3. Weder Ort noch verwertbare Zeit → unplatziert
-  return { medium, anchor: null, placement: 'unplatziert' }
+  return { medium, anchor: null, placement: 'unplaced' }
 }
 
 /**
@@ -76,7 +76,7 @@ export function platziereMedien(
   startMs: number,
 ): PlatziertesMedium[] {
   if (track.length < 2) {
-    return medien.map((medium) => ({ medium, anchor: null, placement: 'unplatziert' as const }))
+    return medien.map((medium) => ({ medium, anchor: null, placement: 'unplaced' as const }))
   }
   // ankerZurZeit setzt aufsteigende tOffsets voraus. Der Track bleibt in
   // Fahrreihenfolge (wichtig für die Route), kann bei springenden GPS-Zeiten

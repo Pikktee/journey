@@ -31,7 +31,7 @@ async function legeProfilAn(
     ...(opts.bio ? { bio: opts.bio } : {}),
     visibility: opts.oeffentlich === false ? 'private' : 'public',
   })
-  if (opts.suche) u.app.deps.db.prepare('UPDATE users SET suchmaschinen = 1 WHERE id = ?').run(id)
+  if (opts.suche) u.app.deps.db.prepare('UPDATE users SET search_indexing = 1 WHERE id = ?').run(id)
   return id
 }
 
@@ -288,7 +288,7 @@ describe('GET /tour/<kennung>', () => {
   })
 })
 
-describe('GET /sitemap-tours.xml', () => {
+describe('GET /sitemap-touren.xml', () => {
   it('listet nur öffentliche, fertige Touren', async () => {
     const u = await baueTestApp()
     const anlegen = async (sicht: string, status: string): Promise<string> => {
@@ -307,7 +307,7 @@ describe('GET /sitemap-tours.xml', () => {
     const oeffentlich = await anlegen('public', 'ready')
     const ungelistet = await anlegen('unlisted', 'ready')
     const roh = await anlegen('public', 'processing')
-    const a = await u.app.inject({ method: 'GET', url: '/sitemap-tours.xml' })
+    const a = await u.app.inject({ method: 'GET', url: '/sitemap-touren.xml' })
     expect(a.body).toContain(`<loc>http://localhost:5173/tour/${oeffentlich}</loc>`)
     expect(a.body).not.toContain(ungelistet)
     expect(a.body).not.toContain(roh)
@@ -346,7 +346,7 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
       method: 'POST',
       url: '/api/auth/me/search-indexing',
       cookies: u.cookies,
-      payload: { an: true },
+      payload: { enabled: true },
     })
     expect(setzen.statusCode).toBe(200)
     expect((setzen.json() as { effectPaused: boolean }).effectPaused).toBe(false)
@@ -361,7 +361,7 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
       method: 'POST',
       url: '/api/auth/me/search-indexing',
       cookies: u.cookies,
-      payload: { an: true },
+      payload: { enabled: true },
     })
     expect(a.statusCode).toBe(200)
     expect((a.json() as { effectPaused: boolean }).effectPaused).toBe(true)
@@ -374,7 +374,7 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
         await u.app.inject({
           method: 'POST',
           url: '/api/auth/me/search-indexing',
-          payload: { an: true },
+          payload: { enabled: true },
         })
       ).statusCode,
     ).toBe(401)

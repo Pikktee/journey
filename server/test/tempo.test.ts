@@ -322,7 +322,7 @@ describe('Zusammenspiel mit den Modus-Grenzen des Editors', () => {
 
     const mitGrenze = wendeModiAn(
       roh,
-      [{ ab: new Date(startMs).toISOString(), mode: 'ferry' }],
+      [{ from: new Date(startMs).toISOString(), mode: 'ferry' }],
       startMs,
     )
     // Ab dem Tour-Anfang gilt Fähre — der erkannte Gehabschnitt verschwindet

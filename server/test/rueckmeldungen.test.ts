@@ -53,7 +53,7 @@ describe('Rückmeldungen', () => {
     await melde(u, {
       text: 'Karte bleibt schwarz.',
       context: {
-        seite: '/tour/t_abc',
+        page: '/tour/t_abc',
         version: '0.60.5',
         browser: 'Chrome 141 auf macOS',
         // Nichts davon darf ankommen: Der Client entscheidet OB, der Server WAS.
@@ -64,7 +64,7 @@ describe('Rückmeldungen', () => {
     })
     const kontext = u.app.rueckmeldungen.liste()[0]?.context
     expect(kontext).toEqual({
-      seite: '/tour/t_abc',
+      page: '/tour/t_abc',
       version: '0.60.5',
       browser: 'Chrome 141 auf macOS',
     })
@@ -130,12 +130,12 @@ describe('Rückmeldungen', () => {
 
     const antwort = await u.app.inject({
       method: 'GET',
-      url: '/api/admin/feedback?status=offen',
+      url: '/api/admin/feedback?status=open',
       cookies: admin.cookies,
     })
     expect(antwort.json().feedback).toHaveLength(1)
     expect(antwort.json().feedback[0].text).toBe('B')
-    expect(antwort.json().counts).toMatchObject({ open: 1, in_arbeit: 1, total: 2 })
+    expect(antwort.json().counts).toMatchObject({ open: 1, in_progress: 1, total: 2 })
   })
 
   it('behält die Meldung, wenn das Konto gelöscht wird', async () => {
@@ -157,7 +157,7 @@ describe('Rückmeldungen', () => {
     const offen = u.app.rueckmeldungen.nimmAn({ text: 'alt und offen' })
     u.app.rueckmeldungen.aktualisiere(erledigt.id, { status: 'done' })
     const setzeDatum = u.app.deps.db.prepare(
-      'UPDATE feedback SET angelegt_am = ? WHERE id = ?',
+      'UPDATE feedback SET created_at = ? WHERE id = ?',
     )
     setzeDatum.run(alt(FRIST_ERLEDIGT_TAGE + 1), erledigt.id)
     setzeDatum.run(alt(FRIST_ERLEDIGT_TAGE + 1), offen.id)
@@ -174,6 +174,6 @@ describe('Rückmeldungen', () => {
     // Eine unlesbare Angabe ist dasselbe wie keine — der Text muss lesbar bleiben.
     expect(saubereKontext('kein objekt')).toBeNull()
     expect(saubereKontext(['auch', 'nicht'])).toBeNull()
-    expect(saubereKontext({ seite: '   ' })).toBeNull()
+    expect(saubereKontext({ page: '   ' })).toBeNull()
   })
 })

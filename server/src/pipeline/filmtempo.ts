@@ -54,9 +54,9 @@ export const RAMPE_M = 120
 
 /** `MOMENT_DEFAULT_S` in src/tour.ts: Filmzeit eines Kamera-Moments ohne eigene Angabe. */
 export const MOMENT_DEFAULT_S: Record<MomentArt, number> = {
-  umkreisen: 6,
-  aufstieg: 5,
-  innehalten: 4,
+  orbit: 6,
+  ascend: 5,
+  linger: 4,
 }
 
 /** Meter, die der Film in dieser Fortbewegung je Sekunde zurücklegt. */

@@ -25,7 +25,7 @@ export function wendeTrimAn(
   startMs: number,
 ): UploadSegment[] {
   const von = offsetS(trim?.start, startMs) ?? -Infinity
-  const bis = offsetS(trim?.ende, startMs) ?? Infinity
+  const bis = offsetS(trim?.end, startMs) ?? Infinity
   if (von === -Infinity && bis === Infinity) return [...segmente]
   return segmente
     .map((seg) => ({ ...seg, pts: seg.pts.filter((p) => p[3] >= von && p[3] <= bis) }))
@@ -44,11 +44,11 @@ export function wendeTrimAn(
  */
 export function wendeModiAn(
   segmente: readonly UploadSegment[],
-  modi: EditOverlay['modi'],
+  modi: EditOverlay['travelModes'],
   startMs: number,
 ): UploadSegment[] {
   const grenzen = (modi ?? [])
-    .map((g) => ({ abS: offsetS(g.ab, startMs), mode: g.mode }))
+    .map((g) => ({ abS: offsetS(g.from, startMs), mode: g.mode }))
     .filter((g): g is { abS: number; mode: Modus } => g.abS !== null)
     .sort((a, b) => a.abS - b.abS)
   if (!grenzen.length) return [...segmente]
@@ -106,7 +106,7 @@ export function wendeEditsAufSegmenteAn(
   startMs: number,
 ): UploadSegment[] {
   if (!edits) return [...segmente]
-  return wendeModiAn(wendeTrimAn(segmente, edits.trim, startMs), edits.modi, startMs)
+  return wendeModiAn(wendeTrimAn(segmente, edits.trim, startMs), edits.travelModes, startMs)
 }
 
 /**
@@ -118,16 +118,16 @@ export function wendeMedienEditsAn(
   platziert: readonly PlatziertesMedium[],
   edits: EditOverlay | null | undefined,
 ): PlatziertesMedium[] {
-  const medien = edits?.medien
+  const medien = edits?.media
   if (!medien) return [...platziert]
   return platziert
-    .filter((p) => !medien[p.medium.id]?.geloescht)
+    .filter((p) => !medien[p.medium.id]?.removed)
     .map((p) => {
       const e = medien[p.medium.id]
       if (!e) return p
       const medium = e.caption !== undefined ? { ...p.medium, caption: e.caption } : p.medium
       return e.anchor
-        ? { medium, anchor: e.anchor, placement: 'manuell' as const }
+        ? { medium, anchor: e.anchor, placement: 'manual' as const }
         : { ...p, medium }
     })
 }

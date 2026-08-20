@@ -32,7 +32,7 @@ describe('Einwilligung bei der Registrierung', () => {
     expect(u.app.newsletter.stand(id)).toBe(true)
     const verlauf = u.app.newsletter.verlauf(id)
     expect(verlauf).toHaveLength(1)
-    expect(verlauf[0]?.state).toBe('an')
+    expect(verlauf[0]?.state).toBe('on')
     expect(verlauf[0]?.source).toBe('signup')
     expect(verlauf[0]?.textVersion).toBe(EINWILLIGUNGSTEXTE.signup.fassung)
     expect(Date.parse(verlauf[0]?.at ?? '')).not.toBeNaN()
@@ -110,7 +110,7 @@ describe('Der Schalter im Konto', () => {
       method: 'POST',
       url: '/api/auth/me/newsletter',
       cookies: u.cookies,
-      payload: { an: true },
+      payload: { enabled: true },
     })
     expect(an.statusCode).toBe(200)
     expect((an.json() as { newsletter: boolean }).newsletter).toBe(true)
@@ -122,12 +122,12 @@ describe('Der Schalter im Konto', () => {
       method: 'POST',
       url: '/api/auth/me/newsletter',
       cookies: u.cookies,
-      payload: { an: false },
+      payload: { enabled: false },
     })
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
     expect(u.app.newsletter.stand(id)).toBe(false)
     // Jüngste zuerst: aus, dann an.
-    expect(u.app.newsletter.verlauf(id).map((e) => e.state)).toEqual(['aus', 'an'])
+    expect(u.app.newsletter.verlauf(id).map((e) => e.state)).toEqual(['off', 'on'])
     expect(u.app.newsletter.verlauf(id).every((e) => e.source === 'account')).toBe(true)
   })
 
@@ -136,7 +136,7 @@ describe('Der Schalter im Konto', () => {
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/auth/me/newsletter',
-      payload: { an: true },
+      payload: { enabled: true },
     })
     expect(antwort.statusCode).toBe(401)
   })
@@ -214,17 +214,17 @@ describe('Aufbewahrung', () => {
     // Beide auf „vor vier Jahren" zurückdatieren — die Uhr lässt sich im Test
     // nicht drehen, die Zeilen schon.
     u.app.deps.db
-      .prepare(`UPDATE newsletter_consents SET zeitpunkt = ? WHERE zustand = 'an'`)
+      .prepare(`UPDATE newsletter_consents SET at = ? WHERE state = 'on'`)
       .run('2022-08-06T10:00:00.000Z')
     u.app.deps.db
-      .prepare(`UPDATE newsletter_consents SET zeitpunkt = ? WHERE zustand = 'aus'`)
+      .prepare(`UPDATE newsletter_consents SET at = ? WHERE state = 'off'`)
       .run('2022-08-07T10:00:00.000Z')
 
     expect(u.app.newsletter.raeumeAuf()).toBe(1)
     const verlauf = u.app.newsletter.verlauf(id)
     // Die jüngste bleibt: Ohne sie stünde in `users` ein Zustand ohne Herkunft.
     expect(verlauf).toHaveLength(1)
-    expect(verlauf[0]?.state).toBe('aus')
+    expect(verlauf[0]?.state).toBe('off')
   })
 
   it('fasst frische Zeilen nicht an', async () => {

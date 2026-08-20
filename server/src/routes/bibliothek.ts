@@ -38,7 +38,7 @@ function referenziert(
   tourId: string,
   datei: string,
 ): boolean {
-  if (edits?.audio?.some((a) => a.quelle === 'benutzer' && a.datei === datei)) return true
+  if (edits?.audio?.some((a) => a.source === 'user' && a.file === datei)) return true
   // Auch das GERENDERTE tour.json zählt: zwischen „Eintrag entfernt und
   // gespeichert" und dem fertigen Re-Render zeigt der Player sonst auf eine 404.
   const src = `/api/tours/${tourId}/library-audio/${datei}`

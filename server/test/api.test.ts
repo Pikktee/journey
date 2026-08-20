@@ -69,7 +69,7 @@ const BEISPIEL_GPX = `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><trkse
 
 function gpxManifest(): UploadManifest {
   return {
-    schema: 'maptale/upload@1',
+    schema: 'maptale/upload@2',
     clientTourId: 'gpx-e2e-1',
     title: null,
     time: { start: '2026-07-04T08:00:00Z', end: '2026-07-04T08:30:00Z', zone: 'UTC' },
@@ -152,7 +152,7 @@ describe('Tour-Lebenszyklus', () => {
     })
     expect(antwort.statusCode).toBe(200)
     const tour = antwort.json() as TourJson
-    expect(tour.schema).toBe('maptale/tour@1')
+    expect(tour.schema).toBe('maptale/tour@2')
     expect(tour.brandTitle).toBe('Lauterbrunnen → Grindelwald')
     expect(tour.media[0]?.src).toBe(`/api/media/${id}/m1.jpg`)
   })
@@ -268,13 +268,13 @@ describe('Tour-Lebenszyklus', () => {
     expect(maxGleichzeitig).toBeGreaterThan(1) // lief nicht nacheinander
     expect(gelesen).toHaveLength(4)
     expect(new Set(gelesen)).toEqual(new Set(['480'])) // die Kachel, nicht die Anzeige-Fassung
-    const cache = JSON.parse((await u.storage.lese(id, 'anreicherung.json')).toString()) as {
-      befunde: Record<string, { konfidenz: number }>
+    const cache = JSON.parse((await u.storage.lese(id, 'enrichment.json')).toString()) as {
+      findings: Record<string, { konfidenz: number }>
     }
     // Jeder Befund an seinem Foto — und in Manifest-Reihenfolge abgelegt, damit
     // der Cache nicht je nach Antwortzeiten anders herum steht.
-    expect(Object.keys(cache.befunde)).toEqual(['m1', 'm2', 'm3', 'm4'])
-    expect(Object.values(cache.befunde).map((b) => b.konfidenz)).toEqual([0.1, 0.2, 0.3, 0.4])
+    expect(Object.keys(cache.findings)).toEqual(['m1', 'm2', 'm3', 'm4'])
+    expect(Object.values(cache.findings).map((b) => b.konfidenz)).toEqual([0.1, 0.2, 0.3, 0.4])
   })
 
   it('lässt das Wetter ohne konfigurierten Klassifikator unberührt (M5 No-Op)', async () => {
@@ -299,7 +299,7 @@ describe('Tour-Lebenszyklus', () => {
     const werkzeug = new FakeVideoWerkzeug({
       codecVideo: 'hevc', // neues iPhone/Pixel → muss transkodiert werden
       codecAudio: 'aac',
-      dauerS: 9.2,
+      durationS: 9.2,
       breite: 3840,
       hoehe: 2160,
     })
@@ -405,7 +405,7 @@ describe('Tour-Lebenszyklus', () => {
     const u = await baueTestApp()
     const { time, media } = beispielManifest()
     const ohne = {
-      schema: 'maptale/upload@1',
+      schema: 'maptale/upload@2',
       clientTourId: 'ohne-track',
       title: null,
       time,
@@ -567,7 +567,7 @@ describe('Titelbild', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', banner: 'm2' },
+      payload: { schema: 'maptale/edits@2', cover: 'm2' },
     })
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
@@ -784,7 +784,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
     const id = await legeTourAn(u)
     u.app.deps.db
       .prepare(
-        `UPDATE tours SET status = 'failed', fehler = 'interner Stacktrace', visibility = 'unlisted' WHERE id = ?`,
+        `UPDATE tours SET status = 'failed', error = 'interner Stacktrace', visibility = 'unlisted' WHERE id = ?`,
       )
       .run(id)
     const anonym = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as {
@@ -912,7 +912,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    expect(antwort.json()).toEqual({ schema: 'maptale/edits@1' })
+    expect(antwort.json()).toEqual({ schema: 'maptale/edits@2' })
   })
 
   it('PUT speichert, rendert neu — Caption, Modus-Grenze, Trim und manueller Anker erreichen das Tour-JSON', async () => {
@@ -929,10 +929,10 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'maptale/edits@1',
-        medien: { m1: { caption: 'Handgeschrieben', anchor: [7.9184, 46.5891] } },
+        schema: 'maptale/edits@2',
+        media: { m1: { caption: 'Handgeschrieben', anchor: [7.9184, 46.5891] } },
         // tOffset 1400 (Segmentwechsel walk→bike) — ab hier Fähre
-        modi: [{ ab: '2026-07-04T08:35:51+02:00', mode: 'ferry' }],
+        travelModes: [{ from: '2026-07-04T08:35:51+02:00', mode: 'ferry' }],
         // tOffset 620: erster Walk-Punkt fällt weg
         trim: { start: '2026-07-04T08:22:51+02:00' },
       },
@@ -945,7 +945,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
     ).json() as TourJson
     expect(tour.status).toBe('ready')
     expect(tour.media[0]?.title).toBe('Handgeschrieben')
-    expect(tour.media[0]?.placement).toBe('manuell')
+    expect(tour.media[0]?.placement).toBe('manual')
     expect(tour.media[0]?.anchor).toEqual([7.9184, 46.5891])
     expect(tour.segments.map((s) => s.mode)).toEqual(['walk', 'ferry'])
     expect(tour.stats.km).toBeLessThan(vorher.stats.km)
@@ -954,9 +954,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const edits = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })
     ).json() as {
-      medien: Record<string, { caption?: string }>
+      media: Record<string, { caption?: string }>
     }
-    expect(edits.medien['m1']?.caption).toBe('Handgeschrieben')
+    expect(edits.media['m1']?.caption).toBe('Handgeschrieben')
   })
 
   it('Reprocess rendert neu, ohne Edits zu verlieren (Plan-Kriterium)', async () => {
@@ -968,7 +968,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', medien: { m1: { caption: 'Bleibt' } } },
+      payload: { schema: 'maptale/edits@2', media: { m1: { caption: 'Bleibt' } } },
     })
     await u.app.verarbeitungen.get(id)
 
@@ -996,7 +996,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', modi: 'quatsch' },
+      payload: { schema: 'maptale/edits@2', travelModes: 'quatsch' },
     })
     expect(form.statusCode).toBe(400)
     const semantik = await u.app.inject({
@@ -1004,8 +1004,8 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'maptale/edits@1',
-        trim: { start: '2026-07-04T10:00:00Z', ende: '2026-07-04T09:00:00Z' },
+        schema: 'maptale/edits@2',
+        trim: { start: '2026-07-04T10:00:00Z', end: '2026-07-04T09:00:00Z' },
       },
     })
     expect(semantik.statusCode).toBe(400)
@@ -1025,13 +1025,13 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         audio: [
           {
-            datei: 'amb-hafen.mp3',
-            typ: 'musik',
-            ab: '2026-07-04T08:20:00Z',
-            quelle: 'bibliothek',
+            file: 'amb-hafen.mp3',
+            type: 'music',
+            from: '2026-07-04T08:20:00Z',
+            source: 'library',
           },
         ],
       },
@@ -1049,9 +1049,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'maptale/edits@1',
+        schema: 'maptale/edits@2',
         audio: [
-          { datei: 'amb-hafen.mp3', typ: 'musik', ab: '2026-07-04T08:20:00Z', quelle: 'boese' },
+          { file: 'amb-hafen.mp3', type: 'music', from: '2026-07-04T08:20:00Z', source: 'boese' },
         ],
       },
     })
@@ -1082,28 +1082,28 @@ describe('Edit-Overlay + Editor (M7)', () => {
     })
     expect(antwort.statusCode).toBe(200)
     const daten = antwort.json() as {
-      segmente: Array<{ mode: string; pts: number[][] }>
-      medien: Array<{ id: string; placement: string; src: string; gpsAnker?: [number, number] }>
+      segments: Array<{ mode: string; pts: number[][] }>
+      media: Array<{ id: string; placement: string; src: string; gpsAnchor?: [number, number] }>
       audio: unknown[]
       edits: { schema: string }
       time: { start: string }
     }
-    expect(daten.segmente.map((s) => s.mode)).toEqual(['walk', 'bike'])
+    expect(daten.segments.map((s) => s.mode)).toEqual(['walk', 'bike'])
     // Trackpunkte behalten den Zeit-Offset (4. Koordinate) — Trim/Grenzen brauchen ihn
-    expect(daten.segmente[0]?.pts[0]).toHaveLength(4)
-    expect(daten.medien[0]).toMatchObject({
+    expect(daten.segments[0]?.pts[0]).toHaveLength(4)
+    expect(daten.media[0]).toMatchObject({
       id: 'm1',
       placement: 'gps',
       src: `/api/media/${id}/m1.jpg`,
     })
-    // Roher Manifest-Anker als gpsAnker (Baukasten: „GPS-Ort verwenden")
-    expect(daten.medien[0]?.gpsAnker).toEqual([7.9105, 46.59])
+    // Roher Manifest-Anker als gpsAnchor (Baukasten: „GPS-Ort verwenden")
+    expect(daten.media[0]?.gpsAnchor).toEqual([7.9105, 46.59])
     // Ohne hochgeladene Audio-Dateien ist die Liste leer (Fotos zählen nicht)
     expect(daten.audio).toEqual([])
-    expect(daten.edits.schema).toBe('maptale/edits@1')
+    expect(daten.edits.schema).toBe('maptale/edits@2')
   })
 
-  it('Editor-Daten lassen gpsAnker weg, wenn das Manifest keinen Anker trägt', async () => {
+  it('Editor-Daten lassen gpsAnchor weg, wenn das Manifest keinen Anker trägt', async () => {
     const u = await baueTestApp()
     const manifest = beispielManifest()
     manifest.media.push({
@@ -1118,10 +1118,10 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/editor`,
       cookies: u.cookies,
     })
-    const daten = antwort.json() as { medien: Array<{ id: string }> }
-    const m2 = daten.medien.find((m) => m.id === 'm2')
+    const daten = antwort.json() as { media: Array<{ id: string }> }
+    const m2 = daten.media.find((m) => m.id === 'm2')
     expect(m2).toBeDefined()
-    expect(m2 && 'gpsAnker' in m2).toBe(false)
+    expect(m2 && 'gpsAnchor' in m2).toBe(false)
   })
 
   it('Editor-Daten: ein Video bringt seine echte Länge mit (dauerS)', async () => {
@@ -1129,7 +1129,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const werkzeug = new FakeVideoWerkzeug({
       codecVideo: 'h264',
       codecAudio: 'aac',
-      dauerS: 34,
+      durationS: 34,
       breite: 1920,
       hoehe: 1080,
     })
@@ -1151,11 +1151,11 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const daten = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
     ).json() as {
-      medien: Array<{ id: string; type: string; dauerS?: number }>
+      media: Array<{ id: string; type: string; durationS?: number }>
     }
-    expect(daten.medien.find((m) => m.id === 'm2')?.dauerS).toBe(34)
+    expect(daten.media.find((m) => m.id === 'm2')?.durationS).toBe(34)
     // Ein Foto bekommt das Feld nicht — es hat keine Laufzeit
-    expect(daten.medien.find((m) => m.id === 'm1')).not.toHaveProperty('dauerS')
+    expect(daten.media.find((m) => m.id === 'm1')).not.toHaveProperty('dauerS')
   })
 
   it('Editor-Daten: ohne bekannte Länge bleibt dauerS weg (unverarbeiteter Altbestand)', async () => {
@@ -1171,9 +1171,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const daten = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
     ).json() as {
-      medien: Array<{ id: string }>
+      media: Array<{ id: string }>
     }
-    const v = daten.medien.find((m) => m.id === 'm2')
+    const v = daten.media.find((m) => m.id === 'm2')
     expect(v).toBeDefined()
     expect(v && 'dauerS' in v).toBe(false)
   })
@@ -1194,9 +1194,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const daten = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
     ).json() as {
-      medien: Array<{ id: string; dauerS?: number }>
+      media: Array<{ id: string; durationS?: number }>
     }
-    expect(daten.medien.find((m) => m.id === 'm2')?.dauerS).toBe(21.5)
+    expect(daten.media.find((m) => m.id === 'm2')?.durationS).toBe(21.5)
   })
 
   it('Editor-Daten funktionieren auch für GPX-Quellen', async () => {
@@ -1209,10 +1209,10 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    const daten = antwort.json() as { segmente: Array<{ mode: string; pts: number[][] }> }
-    expect(daten.segmente).toHaveLength(1)
-    expect(daten.segmente[0]?.mode).toBe('bike')
-    expect(daten.segmente[0]?.pts).toHaveLength(3)
+    const daten = antwort.json() as { segments: Array<{ mode: string; pts: number[][] }> }
+    expect(daten.segments).toHaveLength(1)
+    expect(daten.segments[0]?.mode).toBe('bike')
+    expect(daten.segments[0]?.pts).toHaveLength(3)
   })
 
   it('Editor-Daten: GPS-Drift einer Pause kommt kollabiert an (ladeOriginalSegmente)', async () => {
@@ -1243,11 +1243,11 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    const daten = antwort.json() as { segmente: Array<{ pts: number[][] }> }
+    const daten = antwort.json() as { segments: Array<{ pts: number[][] }> }
     // Streckensumme der gelieferten Punkte: ohne Kollaps steckte ~1 km
     // GPS-Zickzack darin (≈ 6,9 km), mit Kollaps bleibt der Marsch (≈ 5,9 km)
     let meter = 0
-    for (const s of daten.segmente) {
+    for (const s of daten.segments) {
       for (let i = 1; i < s.pts.length; i++) {
         const dx = ((s.pts[i]?.[0] ?? 0) - (s.pts[i - 1]?.[0] ?? 0)) / gradProM
         const dy = ((s.pts[i]?.[1] ?? 0) - (s.pts[i - 1]?.[1] ?? 0)) * 111_320
@@ -1288,8 +1288,8 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    const daten = antwort.json() as { segmente: Array<{ mode: string }> }
-    expect(daten.segmente.map((s) => s.mode)).toEqual(['bike', 'walk', 'bike'])
+    const daten = antwort.json() as { segments: Array<{ mode: string }> }
+    expect(daten.segments.map((s) => s.mode)).toEqual(['bike', 'walk', 'bike'])
   })
 
   it('Editor-Daten: eine Foto-Tour bleibt ungeteilt (Luftlinien sind kein Tempo)', async () => {
@@ -1312,8 +1312,8 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/editor`,
       cookies: u.cookies,
     })
-    const daten = antwort.json() as { segmente: Array<{ mode: string }> }
-    expect(daten.segmente.map((s) => s.mode)).toEqual(['walk'])
+    const daten = antwort.json() as { segments: Array<{ mode: string }> }
+    expect(daten.segments.map((s) => s.mode)).toEqual(['walk'])
   })
 
   it('Beschreibung leeren erreicht das Tour-JSON (Review-Fund)', async () => {
@@ -1348,9 +1348,9 @@ describe('Edit-Overlay + Editor (M7)', () => {
     await finalisiere(u, id)
     const editor = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
-    ).json() as { finale: boolean; finaleZiel: string | null }
+    ).json() as { finale: boolean; finaleTarget: string | null }
     expect(editor.finale).toBe(false)
-    expect(editor.finaleZiel).toBeNull()
+    expect(editor.finaleTarget).toBeNull()
     const roh = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson
@@ -1360,7 +1360,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       method: 'PATCH',
       url: `/api/tours/${id}`,
       cookies: u.cookies,
-      payload: { finale: true, finaleZiel: 'Gletscherschlucht' },
+      payload: { finale: true, finaleTarget: 'Gletscherschlucht' },
     })
     await u.app.verarbeitungen.get(id)
     const an = (
@@ -1407,8 +1407,8 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'maptale/edits@1',
-        modi: [{ ab: '2026-07-04T09:00:00Z<b>x</b>', mode: 'walk' }],
+        schema: 'maptale/edits@2',
+        travelModes: [{ from: '2026-07-04T09:00:00Z<b>x</b>', mode: 'walk' }],
       },
     })
     expect(edits.statusCode).toBe(400)
@@ -1432,7 +1432,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
           method: 'PUT',
           url: `/api/tours/${id}/edits`,
           cookies: fremd,
-          payload: { schema: 'maptale/edits@1' },
+          payload: { schema: 'maptale/edits@2' },
         })
       ).statusCode,
     ).toBe(404)
@@ -1478,13 +1478,13 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
   async function ediereOverlay(
     u: TestUmgebung,
     id: string,
-  ): Promise<{ modi?: Array<{ mode: string }> }> {
+  ): Promise<{ travelModes?: Array<{ mode: string }> }> {
     const antwort = await u.app.inject({
       method: 'GET',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
     })
-    return antwort.statusCode === 200 ? (antwort.json() as { modi?: Array<{ mode: string }> }) : {}
+    return antwort.statusCode === 200 ? (antwort.json() as { travelModes?: Array<{ mode: string }> }) : {}
   }
 
   it('macht aus der geratenen Radfahrt eine Straßenbahn — als Grenze im Overlay', async () => {
@@ -1496,7 +1496,7 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     // Das Ergebnis steht im Overlay: dort ist es im Studio sichtbar und
     // korrigierbar (dasselbe Muster wie die Musikwahl)
     const overlay = await ediereOverlay(u, id)
-    expect(overlay.modi?.map((m) => m.mode)).toEqual(['tram', 'walk', 'tram'])
+    expect(overlay.travelModes?.map((m) => m.mode)).toEqual(['tram', 'walk', 'tram'])
     expect(schienen.abfragen).toHaveLength(1)
 
     // … und wirkt bis ins gerenderte Tour-JSON
@@ -1515,7 +1515,7 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     const id = await legeTourAn(u, manifest)
     await finalisiere(u, id)
 
-    expect((await ediereOverlay(u, id)).modi).toBeUndefined()
+    expect((await ediereOverlay(u, id)).travelModes).toBeUndefined()
     expect(schienen.abfragen).toHaveLength(0)
   })
 
@@ -1527,11 +1527,11 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1', modi: [{ ab: '2026-07-31T18:09:00Z', mode: 'jeep' }] },
+      payload: { schema: 'maptale/edits@2', travelModes: [{ from: '2026-07-31T18:09:00Z', mode: 'jeep' }] },
     })
     await finalisiere(u, id)
 
-    expect((await ediereOverlay(u, id)).modi?.map((m) => m.mode)).toEqual(['jeep'])
+    expect((await ediereOverlay(u, id)).travelModes?.map((m) => m.mode)).toEqual(['jeep'])
     expect(schienen.abfragen).toHaveLength(0)
   })
 
@@ -1545,7 +1545,7 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     const id = await legeTourAn(u, tramManifest())
     await finalisiere(u, id)
 
-    expect((await ediereOverlay(u, id)).modi).toBeUndefined()
+    expect((await ediereOverlay(u, id)).travelModes).toBeUndefined()
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as { segments: Array<{ mode: string }> }
@@ -1572,7 +1572,7 @@ describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
       { mode: 'walk', pts: bis(420, 1320) },
       { mode: 'jeep', pts: bis(1320, 2700) },
     ]
-    manifest.modiAutomatisch = true
+    manifest.travelModesAuto = true
     manifest.media = []
     manifest.time = {
       start: '2026-07-31T20:09:00+02:00',
@@ -1619,7 +1619,7 @@ describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
     const schienen = new FesteSchienen(gleis())
     const u = await baueTestApp(undefined, null, null, {}, null, schienen)
     const manifest = appManifest()
-    delete manifest.modiAutomatisch // = jemand hat die Modi selbst gesetzt
+    delete manifest.travelModesAuto // = jemand hat die Modi selbst gesetzt
     const id = await legeTourAn(u, manifest)
     await finalisiere(u, id)
 

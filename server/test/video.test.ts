@@ -29,7 +29,7 @@ function atom(typ: string, nutzlast = 0): Buffer {
 const info = (patch: Partial<VideoInfo> = {}): VideoInfo => ({
   codecVideo: 'h264',
   codecAudio: 'aac',
-  dauerS: 8,
+  durationS: 8,
   breite: 1920,
   hoehe: 1080,
   ...patch,
@@ -149,7 +149,7 @@ describe('bereiteVideosAuf', () => {
       'media/m1.mp4',
       Buffer.concat([atom('ftyp', 16), atom('moov', 64), atom('mdat', 512)]),
     )
-    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 8.4 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 8.4 }))
 
     const meta = await bereiteVideosAuf({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
@@ -159,7 +159,7 @@ describe('bereiteVideosAuf', () => {
 
     expect(werkzeug.aufrufe).toEqual(['probe', 'poster']) // weder Transcode noch Remux
     expect(meta.get('m1')).toEqual({
-      dauerS: 8.4,
+      durationS: 8.4,
       videoDatei: 'm1.mp4',
       posterDatei: 'm1.poster.jpg',
       quellDauerS: 8.4,
@@ -179,7 +179,7 @@ describe('bereiteVideosAuf', () => {
       'media/m1.mp4',
       Buffer.concat([atom('ftyp', 16), atom('mdat', 512), atom('moov', 64)]),
     )
-    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 12.7 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 12.7 }))
 
     const meta = await bereiteVideosAuf({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
@@ -222,7 +222,7 @@ describe('bereiteVideosAuf', () => {
   it('transkodiert HEVC und liefert danach die web.mp4 aus', async () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.mov', Buffer.from('HEVC-ORIGINAL'))
-    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'hevc', dauerS: 12 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'hevc', durationS: 12 }))
 
     const meta = await bereiteVideosAuf({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
@@ -243,7 +243,7 @@ describe('bereiteVideosAuf', () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
     sp.dateien.set('media/m1.poster.jpg', Buffer.from('POSTER'))
-    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'h264', dauerS: 9.5 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'h264', durationS: 9.5 }))
 
     const meta = await bereiteVideosAuf({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
@@ -253,7 +253,7 @@ describe('bereiteVideosAuf', () => {
 
     expect(werkzeug.aufrufe).toEqual(['probe']) // nichts neu erzeugt
     expect(meta.get('m1')).toEqual({
-      dauerS: 9.5,
+      durationS: 9.5,
       videoDatei: 'm1.web.mp4',
       posterDatei: 'm1.poster.jpg',
       quellDauerS: 9.5,
@@ -263,7 +263,7 @@ describe('bereiteVideosAuf', () => {
   it('erzeugt beim Wiedereintritt ein fehlendes Poster aus der web.mp4', async () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
-    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 4 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 4 }))
 
     const meta = await bereiteVideosAuf({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
@@ -352,23 +352,23 @@ describe('bereiteVideosAuf', () => {
 describe('klemmeSchnitt', () => {
   it('hat an BEIDEN Kanten das Material als Anschlag', () => {
     // Trimmen legt frei, was da ist, und erfindet nichts.
-    expect(klemmeSchnitt({ vonS: -5, bisS: 100 }, 30)).toBeNull() // = ganze Datei
-    expect(klemmeSchnitt({ vonS: 2, bisS: 100 }, 30)).toEqual({ vonS: 2, bisS: 30 })
-    expect(klemmeSchnitt({ vonS: 50, bisS: 60 }, 30)).toBeNull() // ganz hinter dem Ende
+    expect(klemmeSchnitt({ fromS: -5, toS: 100 }, 30)).toBeNull() // = ganze Datei
+    expect(klemmeSchnitt({ fromS: 2, toS: 100 }, 30)).toEqual({ fromS: 2, toS: 30 })
+    expect(klemmeSchnitt({ fromS: 50, toS: 60 }, 30)).toBeNull() // ganz hinter dem Ende
   })
 
   it('ohne Ende läuft der Schnitt bis zum Dateiende', () => {
-    expect(klemmeSchnitt({ vonS: 4 }, 30)).toEqual({ vonS: 4, bisS: 30 })
+    expect(klemmeSchnitt({ fromS: 4 }, 30)).toEqual({ fromS: 4, toS: 30 })
   })
 
   it('nimmt den Vollschnitt als „kein Schnitt" — er erzwänge einen Transcode ohne Wirkung', () => {
-    expect(klemmeSchnitt({ vonS: 0, bisS: 30 }, 30)).toBeNull()
+    expect(klemmeSchnitt({ fromS: 0, toS: 30 }, 30)).toBeNull()
     expect(klemmeSchnitt(undefined, 30)).toBeNull()
   })
 
   it('lehnt eine Spanne ohne Inhalt ab', () => {
-    expect(klemmeSchnitt({ vonS: 10, bisS: 10.01 }, 30)).toBeNull()
-    expect(klemmeSchnitt({ vonS: 10, bisS: 5 }, 30)).toBeNull()
+    expect(klemmeSchnitt({ fromS: 10, toS: 10.01 }, 30)).toBeNull()
+    expect(klemmeSchnitt({ fromS: 10, toS: 5 }, 30)).toBeNull()
   })
 })
 
@@ -385,10 +385,10 @@ describe('bereiteVideosAuf mit Schnitt', () => {
   it('schneidet IMMER per Transcode — nie per Stream-Copy', async () => {
     // Ein `-c copy` schneidet nur an Keyframes und träfe den Punkt um Sekunden.
     const sp = ganzesVideo()
-    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 34 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 34 }))
 
     const meta = await bereiteVideosAuf({
-      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { vonS: 6, bisS: 28 } }],
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { fromS: 6, toS: 28 } }],
       speicher: sp,
       werkzeug,
     })
@@ -396,16 +396,16 @@ describe('bereiteVideosAuf mit Schnitt', () => {
     expect(werkzeug.aufrufe).toContain('schneide:6-28')
     expect(werkzeug.aufrufe).not.toContain('remux')
     expect(meta.get('m1')?.videoDatei).toBe('m1.cut.mp4')
-    expect(meta.get('m1')?.dauerS).toBe(22) // die getrimmte Länge …
+    expect(meta.get('m1')?.durationS).toBe(22) // die getrimmte Länge …
     expect(meta.get('m1')?.quellDauerS).toBe(34) // … und der Anschlag fürs Studio
   })
 
   it('lässt das Material stehen — der Schnitt ist ein Edit, kein Verbrauch', async () => {
     const sp = ganzesVideo()
     await bereiteVideosAuf({
-      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { vonS: 6, bisS: 28 } }],
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { fromS: 6, toS: 28 } }],
       speicher: sp,
-      werkzeug: new FakeVideoWerkzeug(info({ dauerS: 34 })),
+      werkzeug: new FakeVideoWerkzeug(info({ durationS: 34 })),
     })
     // Ohne die Quelle wäre „Trim zurücknehmen" ein Datenverlust
     expect(sp.dateien.has('media/m1.mp4')).toBe(true)
@@ -415,10 +415,10 @@ describe('bereiteVideosAuf mit Schnitt', () => {
   it('zieht das Poster mit — sonst zeigt es einen Frame, den es nicht mehr gibt', async () => {
     const sp = ganzesVideo()
     sp.dateien.set('media/m1.poster.jpg', Buffer.from('ALTES-POSTER'))
-    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 34 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 34 }))
 
     await bereiteVideosAuf({
-      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { vonS: 6, bisS: 28 } }],
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { fromS: 6, toS: 28 } }],
       speicher: sp,
       werkzeug,
     })
@@ -430,7 +430,7 @@ describe('bereiteVideosAuf mit Schnitt', () => {
   it('nimmt den Schnitt zurück, wenn er aus dem Overlay verschwindet', async () => {
     const sp = ganzesVideo()
     sp.dateien.set('media/m1.cut.mp4', Buffer.from('ALTER-SCHNITT'))
-    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 34 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 34 }))
 
     const meta = await bereiteVideosAuf({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
@@ -440,32 +440,32 @@ describe('bereiteVideosAuf mit Schnitt', () => {
 
     expect(sp.dateien.has('media/m1.cut.mp4')).toBe(false)
     expect(meta.get('m1')?.videoDatei).toBe('m1.mp4')
-    expect(meta.get('m1')?.dauerS).toBe(34)
+    expect(meta.get('m1')?.durationS).toBe(34)
     expect(werkzeug.aufrufe).toContain('poster') // Poster wieder vom ganzen Video
   })
 
   it('schneidet auch aus der web.mp4, wenn das Original längst verworfen ist', async () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
-    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 20 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 20 }))
 
     const meta = await bereiteVideosAuf({
-      medien: [{ id: 'm1', originalDatei: 'm1.mov', schnitt: { vonS: 3 } }],
+      medien: [{ id: 'm1', originalDatei: 'm1.mov', schnitt: { fromS: 3 } }],
       speicher: sp,
       werkzeug,
     })
 
     expect(meta.get('m1')?.videoDatei).toBe('m1.cut.mp4')
-    expect(meta.get('m1')?.dauerS).toBe(17)
+    expect(meta.get('m1')?.durationS).toBe(17)
     expect(sp.dateien.has('media/m1.web.mp4')).toBe(true) // Master bleibt
   })
 
   it('ignoriert einen Schnitt, der das ganze Material meint', async () => {
     const sp = ganzesVideo()
-    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 34 }))
+    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 34 }))
 
     const meta = await bereiteVideosAuf({
-      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { vonS: 0, bisS: 34 } }],
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { fromS: 0, toS: 34 } }],
       speicher: sp,
       werkzeug,
     })

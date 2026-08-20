@@ -30,7 +30,7 @@ describe('baueSignatur', () => {
       [8, 47.2],
     ])!
     // Der SÜDLICHERE Punkt bekommt das GRÖSSERE y (SVG zählt nach unten)
-    expect(sig.start[1]).toBeGreaterThan(sig.ende[1])
+    expect(sig.start[1]).toBeGreaterThan(sig.end[1])
   })
 
   it('behält das Seitenverhältnis — eine schmale Route bleibt schmal', () => {
@@ -53,7 +53,7 @@ describe('baueSignatur', () => {
     const punkte = punkteAus(sig.d)
     expect(punkte.length).toBeLessThanOrEqual(91)
     expect(punkte[0]).toEqual(sig.start)
-    expect(punkte[punkte.length - 1]).toEqual(sig.ende)
+    expect(punkte[punkte.length - 1]).toEqual(sig.end)
   })
 
   it('liefert null, wo es keine Form gibt', () => {

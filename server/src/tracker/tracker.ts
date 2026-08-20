@@ -367,7 +367,7 @@ export class TrackerDienst {
            status = 'running',
            attempts = tracker_imports.attempts + 1,
            retryable = 0,
-           fehler = NULL,
+           error = NULL,
            finished_at = NULL,
            -- Auch wieder ungesehen: Der Ausgang des neuen Anlaufs ist eine
            -- NEUE Nachricht. Bliebe die Quittung des gescheiterten stehen,

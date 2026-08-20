@@ -1,6 +1,6 @@
 // Anreicherungs-Cache: beweist, dass die TEUREN externen Schritte (Reverse-
 // Geocoding, Auto-Wetter, Bildanalyse) beim Finalize einmal laufen und danach aus
-// anreicherung.json bedient werden — ein Edit-Speichern wendet nur das Overlay
+// enrichment.json bedient werden — ein Edit-Speichern wendet nur das Overlay
 // lokal an. Gemessen über die Aufruf-Mitschnitte der Fakes (Drift-sicher gegen
 // versehentliche Reaktivierung der Netz-Aufrufe im Render-Pfad).
 
@@ -62,7 +62,7 @@ const tourJson = async (u: TestUmgebung, id: string): Promise<TourJson> =>
 function stand(u: TestUmgebung, wetter: FesteWetterQuelle, klass: FesterKlassifikator) {
   return {
     geo: (u.app.deps.geocoder as FesterGeocoder).aufrufe,
-    wetter: wetter.abfragen.length,
+    weather: wetter.abfragen.length,
     klass: klass.aufrufe.length,
   }
 }
@@ -99,13 +99,13 @@ describe('Anreicherungs-Cache', () => {
   it('Finalize füllt den Cache genau einmal', async () => {
     const { u, wetter, klass, id } = await baueUndFinalisiere()
     // Finalize (frisch): jede externe Quelle genau einmal (Geocoder: Start + Ziel)
-    expect(stand(u, wetter, klass)).toEqual({ geo: 2, wetter: 1, klass: 1 })
+    expect(stand(u, wetter, klass)).toEqual({ geo: 2, weather: 1, klass: 1 })
     // Cache-Artefakt liegt neben tour.json und hält die Roh-Ergebnisse
-    const cache = JSON.parse((await u.storage.lese(id, 'anreicherung.json')).toString())
-    expect(cache.schema).toBe('maptale/anreicherung@1')
-    expect(cache.trimSignatur).toBe('null') // kein Trim
-    expect(cache.befunde.m1).toBeTruthy()
-    expect(cache.orte).toEqual({ startOrt: 'Lauterbrunnen', zielOrt: 'Grindelwald' })
+    const cache = JSON.parse((await u.storage.lese(id, 'enrichment.json')).toString())
+    expect(cache.schema).toBe('maptale/enrichment@2')
+    expect(cache.trimSignature).toBe('null') // kein Trim
+    expect(cache.findings.m1).toBeTruthy()
+    expect(cache.places).toEqual({ startOrt: 'Lauterbrunnen', zielOrt: 'Grindelwald' })
   })
 
   it('Edit ohne Trim (Caption) macht KEINE externen Aufrufe — rendert aber neu', async () => {
@@ -113,8 +113,8 @@ describe('Anreicherungs-Cache', () => {
     const vor = stand(u, wetter, klass)
 
     await speichereEdits(u, id, {
-      schema: 'maptale/edits@1',
-      medien: { m1: { caption: 'Schön hier' } },
+      schema: 'maptale/edits@2',
+      media: { m1: { caption: 'Schön hier' } },
     })
 
     // Der teure Teil bleibt komplett aus (Cache trägt alles)
@@ -132,8 +132,8 @@ describe('Anreicherungs-Cache', () => {
     // Cache (Geocoding/Auto-Wetter/Bildanalyse) trägt weiter, nichts wird neu geholt.
     const start = new Date(Date.parse('2026-07-04T08:12:31+02:00')).toISOString()
     await speichereEdits(u, id, {
-      schema: 'maptale/edits@1',
-      wetter: [{ ab: start, mode: 'storm' }],
+      schema: 'maptale/edits@2',
+      weather: [{ from: start, mode: 'storm' }],
     })
 
     expect(stand(u, wetter, klass)).toEqual(vor)
@@ -148,13 +148,13 @@ describe('Anreicherungs-Cache', () => {
 
     // Trim verschiebt den Startpunkt → Ortsnamen + Wetter (trim-abhängig) neu
     await speichereEdits(u, id, {
-      schema: 'maptale/edits@1',
+      schema: 'maptale/edits@2',
       trim: { start: '2026-07-04T08:13:00+02:00' },
     })
 
     const nach = stand(u, wetter, klass)
     expect(nach.geo - vor.geo).toBe(2) // Start + Ziel neu geocodiert
-    expect(nach.wetter - vor.wetter).toBe(1) // Auto-Wetter neu
+    expect(nach.weather - vor.weather).toBe(1) // Auto-Wetter neu
     expect(nach.klass - vor.klass).toBe(0) // Bildanalyse bleibt gecacht — der teure Teil
   })
 
@@ -172,7 +172,7 @@ describe('Anreicherungs-Cache', () => {
 
     const nach = stand(u, wetter, klass)
     expect(nach.geo - vor.geo).toBe(2)
-    expect(nach.wetter - vor.wetter).toBe(1)
+    expect(nach.weather - vor.weather).toBe(1)
     expect(nach.klass - vor.klass).toBe(1) // frisch klassifiziert
   })
 })

@@ -58,7 +58,7 @@
   "standzeit": {
     "fotoS": 5.2,
     "ausblendS": 0.8,
-    "momentS": { "umkreisen": 6, "aufstieg": 5, "innehalten": 4 }
+    "momentS": { "orbit": 6, "ascend": 5, "linger": 4 }
   },
   "haltAbstandM": 120,
   "faelle": [

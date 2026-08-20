@@ -33,7 +33,7 @@ import {
 } from '../src/pipeline/filmtempo.js'
 import { baueZeitreihe } from '../src/pipeline/zeit.js'
 import { MOMENT_ARTEN } from '../src/schema/edits.js'
-import { MODI, type Modus } from '../src/schema/upload.js'
+import { TRAVEL_MODES, type Modus } from '../src/schema/upload.js'
 
 interface Fall {
   name: string
@@ -78,7 +78,7 @@ function alsZeitreihe(fall: Fall) {
 
 describe('Filmtempo', () => {
   it('kennt genau die Modi des Austauschformats', () => {
-    expect(Object.keys(MODUS_TEMPO).slice().sort()).toEqual([...MODI].slice().sort())
+    expect(Object.keys(MODUS_TEMPO).slice().sort()).toEqual([...TRAVEL_MODES].slice().sort())
   })
 
   it('fährt jeden Modus im festgelegten Film-Tempo (Fixture)', () => {
@@ -128,10 +128,10 @@ describe('Filmtempo', () => {
     // Die Engine geht nach `momentDauer` direkt zurück auf `ride`; es gibt kein
     // HOLD_AUSBLEND-Nachspiel wie am Foto-Halt. Spiegel von `momentDauerS` in
     // src/studio/editor.ts.
-    expect(momentHaltS({ art: 'umkreisen' })).toBe(6)
-    expect(momentHaltS({ art: 'innehalten' })).toBe(4)
-    expect(momentHaltS({ art: 'aufstieg', dauerS: 12 })).toBe(12)
-    expect(momentHaltS({ art: 'aufstieg' })).not.toBe(MOMENT_DEFAULT_S.aufstieg + HALT_AUSBLEND_S)
+    expect(momentHaltS({ art: 'orbit' })).toBe(6)
+    expect(momentHaltS({ art: 'linger' })).toBe(4)
+    expect(momentHaltS({ art: 'ascend', dauerS: 12 })).toBe(12)
+    expect(momentHaltS({ art: 'ascend' })).not.toBe(MOMENT_DEFAULT_S.ascend + HALT_AUSBLEND_S)
   })
 
   it('bemisst eine Aufnahme wie die Engine: Video mit seiner Länge, Foto mit der Standzeit', () => {

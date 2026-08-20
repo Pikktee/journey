@@ -1,8 +1,8 @@
-// Austauschformat `maptale/upload@1` (auch `luhambo/upload@1` kompatibel): das Manifest, das App/Studio/CLI hochladen.
+// Austauschformat `maptale/upload@2`: das Manifest, das App/Studio/CLI hochladen.
 // TypeScript-Typen + JSON-Schema (Fastify validiert Requests damit).
 // Dokumentation: docs/austauschformat.md im Repo-Root.
 
-export const UPLOAD_SCHEMA_ID = 'maptale/upload@1'
+export const UPLOAD_SCHEMA_ID = 'maptale/upload@2'
 
 /**
  * Fortbewegungs-Modi — muss deckungsgleich mit der Player-Engine bleiben
@@ -10,9 +10,9 @@ export const UPLOAD_SCHEMA_ID = 'maptale/upload@1'
  * MODE_SOUND in src/vehicle.ts). Eine Quelle für Typ UND JSON-Schema-Enums,
  * damit die drei Stellen nicht wieder auseinanderlaufen.
  */
-export const MODI = ['walk', 'moped', 'bike', 'jeep', 'tram', 'ferry'] as const
+export const TRAVEL_MODES = ['walk', 'moped', 'bike', 'jeep', 'tram', 'ferry'] as const
 
-export type Modus = (typeof MODI)[number]
+export type Modus = (typeof TRAVEL_MODES)[number]
 
 /** Trackpunkt: [lng, lat, ele(m), tOffset(s ab time.start)] */
 export type UploadPunkt = [number, number, number, number]
@@ -50,7 +50,7 @@ export interface UploadMedium {
    * Optional: Das Studio-Nachreichen setzt ihn nicht (dort wählt ein Mensch
    * Dateien aus, und zwei Aufnahmen desselben Augenblicks sind dann Absicht).
    */
-  quelle?: string
+  source?: string
   /**
    * Tombstone: Medium wurde ENDGÜLTIG gelöscht (Dateien weg, Speicher frei).
    *
@@ -60,11 +60,11 @@ export interface UploadMedium {
    * fehlt das Feld absichtlich, ein Client kann es nicht mitschicken.
    * Pipeline, Editor und finalize überspringen Tombstones.
    */
-  entfernt?: boolean
+  removed?: boolean
 }
 
 /** Ein nachzureichendes Medium: wie UploadMedium, aber die ID vergibt der SERVER. */
-export type NachreichMedium = Omit<UploadMedium, 'id' | 'entfernt'>
+export type NachreichMedium = Omit<UploadMedium, 'id' | 'removed'>
 
 export interface UploadManifest {
   schema: typeof UPLOAD_SCHEMA_ID
@@ -87,7 +87,7 @@ export interface UploadManifest {
    * nicht von einer Vorgabe unterscheiden — „walk" heißt in der App zugleich
    * „zu Fuß" und „Automatisch".
    */
-  modiAutomatisch?: boolean
+  travelModesAuto?: boolean
   media: UploadMedium[]
 }
 
@@ -111,7 +111,7 @@ const medienEigenschaften = {
   anchor: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } },
   caption: { type: ['string', 'null'], maxLength: 1000 },
   durationS: { type: 'number', minimum: 0 },
-  quelle: { type: 'string', minLength: 1, maxLength: 200 },
+  source: { type: 'string', minLength: 1, maxLength: 200 },
 } as const
 
 // JSON-Schema für die Fastify-Validierung. Bewusst strikt (additionalProperties
@@ -128,8 +128,8 @@ export const uploadManifestJsonSchema = {
     title: { type: ['string', 'null'], maxLength: 200 },
     description: { type: ['string', 'null'], maxLength: 5000 },
     trackFile: { type: 'string', minLength: 1, maxLength: 255 },
-    trackMode: { enum: [...MODI] },
-    modiAutomatisch: { type: 'boolean' },
+    trackMode: { enum: [...TRAVEL_MODES] },
+    travelModesAuto: { type: 'boolean' },
     time: {
       type: 'object',
       additionalProperties: false,
@@ -149,7 +149,7 @@ export const uploadManifestJsonSchema = {
         additionalProperties: false,
         required: ['mode', 'pts'],
         properties: {
-          mode: { enum: [...MODI] },
+          mode: { enum: [...TRAVEL_MODES] },
           label: { type: 'string', maxLength: 60 },
           pts: {
             type: 'array',
@@ -184,16 +184,16 @@ export const uploadManifestJsonSchema = {
 /** Obergrenze der Medien je Tour — gilt fürs Manifest UND übers Nachreichen hinweg. */
 export const MAX_MEDIEN_PRO_TOUR = 500
 
-// Body von `POST /api/tours/:id/medien` (additives Nachreichen): dieselben
+// Body von `POST /api/tours/:id/media` (additives Nachreichen): dieselben
 // Einträge wie im Manifest, nur ohne ID — die vergibt der Server und gibt sie
 // in der Antwort zurück. `entfernt` ist hier wie im Manifest-Schema bewusst
 // nicht zugelassen: Tombstones schreibt nur die DELETE-Route.
 export const nachreichenJsonSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['medien'],
+  required: ['media'],
   properties: {
-    medien: {
+    media: {
       type: 'array',
       minItems: 1,
       maxItems: MAX_MEDIEN_PRO_TOUR,

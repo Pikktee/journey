@@ -51,7 +51,7 @@ async function legeTourAn(u: TestUmgebung, no: string, title: string): Promise<s
     .run(title, 'ready', id)
   await u.storage.schreibe(id, 'tour.json', JSON.stringify({ id, title }))
   await u.storage.schreibe(id, 'media/m1.w1920.jpg', Buffer.from('fake-jpeg'))
-  await u.storage.schreibe(id, 'anreicherung.json', JSON.stringify({ intern: true }))
+  await u.storage.schreibe(id, 'enrichment.json', JSON.stringify({ intern: true }))
   return id
 }
 
@@ -255,7 +255,7 @@ describe('Routen', () => {
     const u = await baueTestApp()
     const a = await u.app.inject({ method: 'POST', url: '/api/auth/me/export', cookies: u.cookies })
     expect(a.statusCode).toBe(200)
-    expect((a.json() as { export: { status: string } }).export.status).toBe('running')
+    expect((a.json() as { dataExport: { status: string } }).dataExport.status).toBe('running')
   })
 
   it('legt bei einem zweiten Klick keinen zweiten Auftrag an', async () => {
@@ -266,8 +266,8 @@ describe('Routen', () => {
     ])
     expect(a.statusCode).toBe(200)
     expect(b.statusCode).toBe(200)
-    expect((a.json() as { export: { id: string } }).export.id).toBe(
-      (b.json() as { export: { id: string } }).export.id,
+    expect((a.json() as { dataExport: { id: string } }).dataExport.id).toBe(
+      (b.json() as { dataExport: { id: string } }).dataExport.id,
     )
   })
 
@@ -279,7 +279,7 @@ describe('Routen', () => {
     await warteAufFertig(u)
 
     const stand = u.app.exporte.stand(u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id)!
-    expect(stand.status).toBe('fertig')
+    expect(stand.status).toBe('done')
     expect(stand.bytes).toBeGreaterThan(0)
 
     const mails = u.mail.nachrichten.filter((m) => m.betreff.includes('Datenexport'))
@@ -317,10 +317,10 @@ describe('Routen', () => {
   it('meldet den Stand über /auth/me', async () => {
     const u = await baueTestApp()
     const leer = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    expect((leer.json() as { export: unknown }).export).toBeNull()
+    expect((leer.json() as { dataExport: unknown }).dataExport).toBeNull()
     await u.app.inject({ method: 'POST', url: '/api/auth/me/export', cookies: u.cookies })
     const voll = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    expect((voll.json() as { export: { status: string } }).export.status).toBeTruthy()
+    expect((voll.json() as { dataExport: { status: string } }).dataExport.status).toBeTruthy()
   })
 })
 

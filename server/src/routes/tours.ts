@@ -84,7 +84,7 @@ export const TOURJSON_PFAD = 'tour.json'
 export const EDITS_PFAD = 'edits.json'
 /** Anreicherungs-Cache: teure extern beschaffte Ergebnisse (Bildanalyse, Wetter,
  *  Geocoding, Video) — beim Finalize/Reprocess erzeugt, von Edit-Saves genutzt */
-export const ANREICHERUNG_PFAD = 'anreicherung.json'
+export const ANREICHERUNG_PFAD = 'enrichment.json'
 
 /**
  * Gleichzeitige Bildanalyse-Aufrufe.
@@ -145,7 +145,7 @@ export async function verfuegbareMedien(
 ): Promise<UploadMedium[]> {
   const verfuegbar: UploadMedium[] = []
   for (const medium of medien) {
-    if (medium.entfernt) continue
+    if (medium.removed) continue
     if (await mediumVorhanden(storage, tourId, medium)) verfuegbar.push(medium)
   }
   return verfuegbar
@@ -328,7 +328,7 @@ export async function finalisiereTour(
   // als „fehlend" gemeldet blockierte es das Finalisieren für immer.
   const fehlend: string[] = []
   for (const medium of manifest.media) {
-    if (medium.entfernt) continue
+    if (medium.removed) continue
     if (!(await mediumVorhanden(storage, tour.id, medium))) fehlend.push(medium.id)
   }
   if (fehlend.length) {
@@ -352,10 +352,36 @@ export async function finalisiereTour(
 export function registriereTourRouten(app: FastifyInstance): void {
   const { db, storage } = app.deps
 
+  /**
+   * Eine alte App schickt `maptale/upload@1` — und soll das LESEN können.
+   *
+   * Ohne diesen Griff fiele sie in die Schema-Validierung und bekäme
+   * `additionalProperties`-Kauderwelsch. Die Antwort trägt den Klartext
+   * deshalb zweimal: unter `error` (die neue Form) UND unter `fehler` (die
+   * alte) — die Bestands-App liest ihre Meldungen aus `fehler` und zeigte
+   * sonst den rohen JSON-Body.
+   *
+   * **Das ist die einzige bewusste Alt-Ausnahme des ganzen Umbaus** (§4.1 des
+   * Englisch-Konzepts) und KEIN Rückwärtsleser: Sie liest nichts, sie lehnt
+   * ab. Sie verschwindet zusammen mit der Start-Migration, nicht früher —
+   * gebraucht wird sie, solange irgendwo eine alte App laufen kann.
+   */
+  const ALT_KENNUNGEN = ['maptale/upload@1', 'luhambo/upload@1']
+  const APP_AKTUALISIEREN =
+    'Diese App-Version ist zu alt für den Server. Bitte aktualisiere Maptale und lade die Aufnahme danach erneut hoch.'
+
   // — Anlegen: Manifest validieren + ablegen —
   app.post<{ Body: UploadManifest }>(
     '/api/tours',
-    { schema: { body: uploadManifestJsonSchema } },
+    {
+      schema: { body: uploadManifestJsonSchema },
+      preValidation: async (request, reply) => {
+        const kennung = (request.body as { schema?: unknown } | undefined)?.schema
+        if (typeof kennung === 'string' && ALT_KENNUNGEN.includes(kennung)) {
+          return reply.code(400).send({ error: APP_AKTUALISIEREN, fehler: APP_AKTUALISIEREN })
+        }
+      },
+    },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
@@ -568,7 +594,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
     const sichtbareMedien =
       tour.status === 'ready'
         ? await verfuegbareMedien(storage, tour.id, manifest.media)
-        : manifest.media.filter((m) => !m.entfernt)
+        : manifest.media.filter((m) => !m.removed)
     const platziert = platziereMedien(
       sichtbareMedien,
       segmente.flatMap((s) => s.pts),
@@ -638,7 +664,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
         const cache = JSON.parse(
           (await storage.lese(tour.id, ANREICHERUNG_PFAD)).toString(),
         ) as AnreicherungsCache
-        kickerSuggestions = cache.orte?.startEbenen ?? []
+        kickerSuggestions = cache.places?.startEbenen ?? []
       } catch {
         // Ein kaputter Cache kostet die Vorschläge, nicht den Editor.
       }
@@ -878,7 +904,7 @@ async function ladeOriginalSegmente(
 
 /**
  * Das AUTOMATISCH ermittelte Wetter der Tour als Zeitgrenzen — dieselbe Form,
- * die auch `edits.wetter` benutzt.
+ * die auch `edits.weather` benutzt.
  *
  * Der Editor zeigt damit auf der Wetterspur, was tatsächlich gilt, statt eines
  * einzigen Bandes „Automatisch"; beim ersten Eingriff schreibt er es fest (das
@@ -924,7 +950,7 @@ async function ermittleVideoDauern(
         (await storage.lese(tourId, ANREICHERUNG_PFAD)).toString(),
       ) as AnreicherungsCache
       for (const [id, meta] of Object.entries(cache.videoMeta ?? {}))
-        setze(id, meta?.quellDauerS ?? meta?.dauerS)
+        setze(id, meta?.quellDauerS ?? meta?.durationS)
     }
     if (await storage.info(tourId, TOURJSON_PFAD)) {
       const tourJson = JSON.parse((await storage.lese(tourId, TOURJSON_PFAD)).toString()) as {
@@ -944,7 +970,7 @@ async function ermittleAutoWetter(
   segmente: readonly UploadSegment[],
   edits: EditOverlay,
   startMs: number,
-): Promise<Array<{ ab: string; mode: string; staerke: number }>> {
+): Promise<Array<{ from: string; mode: string; intensity: number }>> {
   const { storage } = app.deps
   try {
     let keyframes: WetterKeyframe[] = []
@@ -959,7 +985,7 @@ async function ermittleAutoWetter(
       const cache = JSON.parse(
         (await storage.lese(tourId, ANREICHERUNG_PFAD)).toString(),
       ) as AnreicherungsCache
-      keyframes = cache.wetterRoh ?? []
+      keyframes = cache.weatherRaw ?? []
     }
     if (!keyframes.length) return []
     // Bezug ist der GETRIMMTE Track — auf ihm rechnet die Pipeline ihre f-Werte.
@@ -1013,7 +1039,7 @@ export async function processTour(
     // bedeutet und deshalb als Vorgabe gilt, nicht als Angabe.
     const modusGeraten =
       !manifest.trackMode &&
-      (manifest.modiAutomatisch === true ||
+      (manifest.travelModesAuto === true ||
         (manifest.segments ?? []).every((s) => s.mode === 'walk'))
 
     // GPX-Quelle (M6): das hochgeladene trackFile serverseitig zu einem Segment
@@ -1042,7 +1068,7 @@ export async function processTour(
     // Grenzen ins OVERLAY — dort ist es sichtbar und korrigierbar, statt als
     // unerklärlicher Automatik-Effekt im fertigen Tour-JSON zu stecken (dasselbe
     // Muster wie die Musikwahl unten).
-    if (frisch && modusGeraten && schienen && !edits?.modi?.length) {
+    if (frisch && modusGeraten && schienen && !edits?.travelModes?.length) {
       const segmente = manifest.segments ?? []
       const box = istAufzeichnung(segmente) ? umgebungsBox(segmente) : null
       if (box) {
@@ -1052,8 +1078,8 @@ export async function processTour(
             const startMs = Date.parse(manifest.time.start)
             const mitModi: EditOverlay = {
               ...(edits ?? { schema: EDITS_SCHEMA_ID }),
-              modi: gehoben.map((s) => ({
-                ab: new Date(startMs + (s.pts[0]?.[3] ?? 0) * 1000).toISOString(),
+              travelModes: gehoben.map((s) => ({
+                from: new Date(startMs + (s.pts[0]?.[3] ?? 0) * 1000).toISOString(),
                 mode: s.mode,
               })),
             }
@@ -1101,7 +1127,7 @@ export async function processTour(
     // sonst bliebe er bis zum nächsten „Neu verarbeiten" folgenlos.
     const schnittSig = videoSchnittSignatur(edits)
     let videoMeta: Map<string, VideoMeta>
-    if (cache && (cache.videoSchnittSignatur ?? '[]') === schnittSig) {
+    if (cache && (cache.videoCutSignature ?? '[]') === schnittSig) {
       videoMeta = recordZuMap(cache.videoMeta)
     } else {
       videoMeta = new Map<string, VideoMeta>()
@@ -1109,7 +1135,7 @@ export async function processTour(
       if (videoWerkzeug && videoMedien.length) {
         videoMeta = await bereiteVideosAuf({
           medien: videoMedien.map((m) => {
-            const schnitt = edits?.medien?.[m.id]?.trim
+            const schnitt = edits?.media?.[m.id]?.trim
             return { id: m.id, originalDatei: mediumDateiname(m), ...(schnitt ? { schnitt } : {}) }
           }),
           speicher: medienSpeicher,
@@ -1156,11 +1182,11 @@ export async function processTour(
     // Geocoding, Wetter, Track, Render) 4 s. Jetzt sind es 11 s.
     //
     // Die Ergebnisse werden anschließend in MANIFEST-Reihenfolge einsortiert:
-    // Der Cache (anreicherung.json) soll nicht je nach Antwortzeiten anders
+    // Der Cache (enrichment.json) soll nicht je nach Antwortzeiten anders
     // herum stehen, sonst ist jeder Re-Render ein Diff ohne Unterschied.
     let bildBefunde: Map<string, BildBefund>
     if (cache) {
-      bildBefunde = recordZuMap(cache.befunde)
+      bildBefunde = recordZuMap(cache.findings)
     } else {
       bildBefunde = new Map<string, BildBefund>()
       if (bildKlassifikator) {
@@ -1200,13 +1226,13 @@ export async function processTour(
     // (2) Ortsnamen + Roh-Wetter hängen am (getrimmten) Track → aus dem Cache nur
     //     bei passender Trim-Signatur; sonst neu holen. Das sind die einzigen
     //     externen Aufrufe, die ein Edit (nämlich ein Trim) noch auslösen kann.
-    let orte: AnreicherungsCache['orte']
-    let wetterRoh: AnreicherungsCache['wetterRoh']
-    if (cache && cache.trimSignatur === sig) {
-      orte = cache.orte
-      wetterRoh = cache.wetterRoh
+    let places: AnreicherungsCache['places']
+    let weatherRaw: AnreicherungsCache['weatherRaw']
+    if (cache && cache.trimSignature === sig) {
+      places = cache.places
+      weatherRaw = cache.weatherRaw
     } else {
-      ;({ orte, wetterRoh } = await berechneRohAnreicherung({
+      ;({ places, weatherRaw } = await berechneRohAnreicherung({
         manifest,
         edits,
         geocoder,
@@ -1222,14 +1248,14 @@ export async function processTour(
     if (erstmals && !edits?.audio?.length) {
       const datei = waehleMusik({
         segmente: manifest.segments ?? [],
-        wetter: wetterRoh,
+        wetter: weatherRaw,
         startIso: manifest.time.start,
         endeIso: manifest.time.end,
         zone: manifest.time.zone,
       })
       const mitMusik: EditOverlay = {
         ...(edits ?? { schema: EDITS_SCHEMA_ID }),
-        audio: [{ datei, typ: 'musik', ab: manifest.time.start, quelle: 'bibliothek' }],
+        audio: [{ file: datei, type: 'music', from: manifest.time.start, source: 'library' }],
       }
       await storage.schreibe(tourId, EDITS_PFAD, JSON.stringify(mitMusik, null, 2))
       edits = mitMusik
@@ -1258,8 +1284,8 @@ export async function processTour(
       ...(edits ? { edits } : {}),
       audioDateien,
       benutzerAudioDateien,
-      orte,
-      wetterRoh,
+      places,
+      weatherRaw,
       ...(videoMeta.size ? { videoMeta } : {}),
       ...(fotoMeta.size ? { fotoMeta } : {}),
       ...(bildBefunde.size ? { bildBefunde } : {}),
@@ -1270,18 +1296,18 @@ export async function processTour(
     // Anreicherungs-Cache zurückschreiben — das nächste Edit-Speichern nutzt ihn.
     const neuerCache: AnreicherungsCache = {
       schema: ANREICHERUNG_SCHEMA_ID,
-      befunde: mapZuRecord(bildBefunde),
+      findings: mapZuRecord(bildBefunde),
       videoMeta: mapZuRecord(videoMeta),
-      videoSchnittSignatur: schnittSig,
-      trimSignatur: sig,
-      orte,
-      wetterRoh,
+      videoCutSignature: schnittSig,
+      trimSignature: sig,
+      places,
+      weatherRaw,
     }
     await storage.schreibe(tourId, ANREICHERUNG_PFAD, JSON.stringify(neuerCache, null, 2))
     // title nur setzen, wenn noch keiner existiert (Auto-Benennung persistieren) —
     // ein während der Verarbeitung per PATCH gesetzter Nutzer-Titel darf nicht
     // rückwirkend überschrieben werden (Lost Update).
-    const titelbild = bestimmeCover(tourJson.media, edits?.titelbild)
+    const titelbild = bestimmeCover(tourJson.media, edits?.cover)
     db.prepare(
       `UPDATE tours SET status = ?, title = COALESCE(title, ?), stats_json = ?, cover = ?, cover_thumb = ?,
        error = NULL, updated_at = ? WHERE id = ?`,

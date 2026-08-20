@@ -27,7 +27,7 @@ describe('Protokoll (Ringpuffer)', () => {
     p.schreibe('warning', 'nur eine Warnung')
     p.schreibe('failed', 'echter Fehler')
     p.schreibe('warning', 'noch eine')
-    expect(p.liste({ level: 'failed' }).map((e) => e.text)).toEqual(['echter Fehler'])
+    expect(p.liste({ stufe: 'failed' }).map((e) => e.text)).toEqual(['echter Fehler'])
     expect(p.liste({ limit: 2 })).toHaveLength(2)
     expect(p.zaehle()).toEqual({ total: 3, errorCount: 1 })
   })

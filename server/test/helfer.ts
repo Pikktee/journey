@@ -118,7 +118,7 @@ export async function baueTestApp(
   geocoderAntworten: Array<string | null> = ['Lauterbrunnen', 'Grindelwald'],
   // Default null: Wetter aus — Tests, die Keyframes brauchen, geben eine
   // FesteWetterQuelle herein (Spiegelbild der OpenMeteoQuelle in index.ts)
-  wetter: WetterQuelle | null = null,
+  weather: WetterQuelle | null = null,
   // Default null: keine Video-Aufbereitung — Video-Tests geben einen
   // FakeVideoWerkzeug herein (Spiegelbild des FfmpegWerkzeug in index.ts)
   videoWerkzeug: VideoWerkzeug | null = null,
@@ -155,7 +155,7 @@ export async function baueTestApp(
     benutzerStorage,
     archive,
     geocoder: new FesterGeocoder(geocoderAntworten),
-    wetter,
+    wetter: weather,
     videoWerkzeug,
     bildWerkzeug,
     bildKlassifikator,
@@ -234,7 +234,7 @@ export async function legeAdminAn(
 /** Minimales, gültiges Upload-Manifest: 2 Segmente, 1 Foto (Berner Oberland). */
 export function beispielManifest(): UploadManifest {
   return {
-    schema: 'maptale/upload@1',
+    schema: 'maptale/upload@2',
     clientTourId: 'client-tour-1',
     title: null,
     description: null,

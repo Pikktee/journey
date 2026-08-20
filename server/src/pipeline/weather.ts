@@ -218,11 +218,11 @@ export async function berechneWetter(eingabe: {
   return keyframes
 }
 
-/** Standard-Stärke k eines Wetter-Overrides ohne eigene `staerke` (mittlere Intensität). */
+/** Standard-Stärke k eines Wetter-Overrides ohne eigene `intensity` (mittlere Intensität). */
 export const WETTER_STANDARD_K = 0.7
 
 /**
- * Nutzer-Wetter aus dem Studio-Overlay (`edits.wetter`) in Player-Keyframes
+ * Nutzer-Wetter aus dem Studio-Overlay (`edits.weather`) in Player-Keyframes
  * übersetzen. Anders als das Auto-Wetter ist das eine bewusst gesetzte
  * Stufenfunktion: Grenzen „gilt ab T" (absolute Zeit, stabile Anker wie
  * modi/kamera) werden über die Zeitreihe des (getrimmten) Tracks auf den
@@ -237,15 +237,15 @@ export const WETTER_STANDARD_K = 0.7
  * Nutzer-Grenze (statt auf halber Bandbreite).
  */
 export function wetterAusOverlay(
-  grenzen: ReadonlyArray<{ ab: string; mode: WetterModus; staerke?: number }>,
+  grenzen: ReadonlyArray<{ from: string; mode: WetterModus; intensity?: number }>,
   reihe: Zeitreihe,
   startMs: number,
 ): WetterKeyframe[] {
   const marken = grenzen
     .map((g) => ({
-      f: positionZurZeit(reihe, (Date.parse(g.ab) - startMs) / 1000).f,
+      f: positionZurZeit(reihe, (Date.parse(g.from) - startMs) / 1000).f,
       mode: g.mode,
-      k: g.staerke ?? WETTER_STANDARD_K,
+      k: g.intensity ?? WETTER_STANDARD_K,
     }))
     .filter((m) => Number.isFinite(m.f))
     .sort((a, b) => a.f - b.f)
@@ -301,28 +301,28 @@ export function wetterZuGrenzen(
   keyframes: readonly WetterKeyframe[],
   reihe: Zeitreihe,
   startMs: number,
-): Array<{ ab: string; mode: WetterModus; staerke: number }> {
+): Array<{ from: string; mode: WetterModus; intensity: number }> {
   const sortiert = [...keyframes].sort((a, b) => a.f - b.f)
   const erster = sortiert[0]
   if (!erster) return []
-  const grenzen: Array<{ ab: string; mode: WetterModus; staerke: number }> = []
+  const grenzen: Array<{ from: string; mode: WetterModus; intensity: number }> = []
   const zeitBei = (f: number): string =>
     new Date(startMs + zeitZurPosition(reihe, f) * 1000).toISOString()
 
   let letzter: { mode: WetterModus; k: number } = { mode: erster.mode, k: erster.k }
-  grenzen.push({ ab: zeitBei(erster.f), mode: erster.mode, staerke: erster.k })
+  grenzen.push({ from: zeitBei(erster.f), mode: erster.mode, intensity: erster.k })
   for (let i = 1; i < sortiert.length; i++) {
     const kf = sortiert[i] as WetterKeyframe
     if (kf.mode === letzter.mode && kf.k === letzter.k) continue
     const vorher = sortiert[i - 1] as WetterKeyframe
-    grenzen.push({ ab: zeitBei((vorher.f + kf.f) / 2), mode: kf.mode, staerke: kf.k })
+    grenzen.push({ from: zeitBei((vorher.f + kf.f) / 2), mode: kf.mode, intensity: kf.k })
     letzter = { mode: kf.mode, k: kf.k }
   }
   // Zwei Grenzen auf derselben Sekunde (Marken-Paare der Overlay-Erzeugung, oder
   // eine Pause im Track): die spätere gewinnt — sie ist die gültige Aussage.
   const gefiltert: typeof grenzen = []
   for (const g of grenzen) {
-    if (gefiltert[gefiltert.length - 1]?.ab === g.ab) gefiltert.pop()
+    if (gefiltert[gefiltert.length - 1]?.from === g.from) gefiltert.pop()
     gefiltert.push(g)
   }
   return gefiltert

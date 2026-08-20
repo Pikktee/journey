@@ -30,7 +30,7 @@ describe('Passwort ändern', () => {
       method: 'POST',
       url: '/api/auth/me/password',
       cookies: u.cookies,
-      payload: { alt: 'falschfalsch', neu: 'neuesgeheimnis' },
+      payload: { old: 'falschfalsch', new: 'neuesgeheimnis' },
     })
     expect(antwort.statusCode).toBe(403)
     // Und es bleibt beim alten Passwort.
@@ -45,7 +45,7 @@ describe('Passwort ändern', () => {
       method: 'POST',
       url: '/api/auth/me/password',
       cookies: u.cookies,
-      payload: { alt: 'geheim123', neu: 'dreizufaelligeworte' },
+      payload: { old: 'geheim123', new: 'dreizufaelligeworte' },
     })
     expect(antwort.statusCode).toBe(200)
     expect(await u.app.auth.login('test@example.com', 'dreizufaelligeworte')).not.toBeNull()
@@ -167,15 +167,15 @@ describe('Angemeldete Geräte', () => {
     const { devices } = antwort.json() as {
       devices: Array<{
         id: string
-        art: string
+        kind: string
         label: string | null
         ipPrefix: string | null
         current: boolean
       }>
     }
-    expect(devices.filter((g) => g.art === 'sitzung')).toHaveLength(2)
-    expect(devices.filter((g) => g.art === 'app')).toHaveLength(1)
-    expect(devices.find((g) => g.art === 'app')?.label).toBe('Testgerät')
+    expect(devices.filter((g) => g.kind === 'session')).toHaveLength(2)
+    expect(devices.filter((g) => g.kind === 'app')).toHaveLength(1)
+    expect(devices.find((g) => g.kind === 'app')?.label).toBe('Testgerät')
     expect(devices.filter((g) => g.current)).toHaveLength(1)
     const iphone = devices.find((g) => g.label?.includes('iPhone'))
     expect(iphone?.ipPrefix).toBe('84.119.x.x')
@@ -186,7 +186,7 @@ describe('Angemeldete Geräte', () => {
     const andere = await zweiteSitzung(u, 'Firefox')
     const antwort = await u.app.inject({
       method: 'DELETE',
-      url: `/api/auth/me/devices/sitzung:${andere}`,
+      url: `/api/auth/me/devices/session:${andere}`,
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
@@ -221,10 +221,10 @@ describe('Angemeldete Geräte', () => {
 
     const { devices } = (
       await u.app.inject({ method: 'GET', url: '/api/auth/me/devices', cookies: u.cookies })
-    ).json() as { devices: Array<{ id: string; art: string }> }
+    ).json() as { devices: Array<{ id: string; kind: string }> }
     // Eine Browser-Sitzung (der Test-Login) und das App-Token — sonst nichts.
-    expect(devices.filter((g) => g.art === 'sitzung')).toHaveLength(1)
-    expect(devices.filter((g) => g.art === 'app')).toHaveLength(1)
+    expect(devices.filter((g) => g.kind === 'session')).toHaveLength(1)
+    expect(devices.filter((g) => g.kind === 'app')).toHaveLength(1)
 
     // Sie gilt trotzdem: Der WebView spielt damit private Touren ab.
     const alsWebView = await u.app.inject({
@@ -247,8 +247,8 @@ describe('Angemeldete Geräte', () => {
     const sitzungsId = (tausch.json() as { sessionId: string }).sessionId
     const { devices } = (
       await u.app.inject({ method: 'GET', url: '/api/auth/me/devices', cookies: u.cookies })
-    ).json() as { devices: Array<{ id: string; art: string }> }
-    const appGeraet = devices.find((g) => g.art === 'app')
+    ).json() as { devices: Array<{ id: string; kind: string }> }
+    const appGeraet = devices.find((g) => g.kind === 'app')
 
     await u.app.inject({
       method: 'DELETE',
@@ -270,7 +270,7 @@ describe('Angemeldete Geräte', () => {
     const fremdeSitzung = u.app.auth.erzeugeSession(fremd.id)
     const antwort = await u.app.inject({
       method: 'DELETE',
-      url: `/api/auth/me/devices/sitzung:${fremdeSitzung.id}`,
+      url: `/api/auth/me/devices/session:${fremdeSitzung.id}`,
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(404)
@@ -280,14 +280,14 @@ describe('Angemeldete Geräte', () => {
 
 describe('Speicher', () => {
   it('ordnet jede Datei ihrer Art zu — und der Rest-Eimer bleibt leer, wo er es soll', () => {
-    expect(artDerDatei('media/m1.w1920.jpg')).toBe('fotos')
+    expect(artDerDatei('media/m1.w1920.jpg')).toBe('photos')
     expect(artDerDatei('media/m2.web.mp4')).toBe('videos')
-    expect(artDerDatei('media/m2.poster.jpg')).toBe('fotos')
-    expect(artDerDatei('media/mus-nachtfahrt.mp3')).toBe('klaenge')
-    expect(artDerDatei('original/manifest.json')).toBe('aufzeichnungen')
-    expect(artDerDatei('original/track.gpx')).toBe('aufzeichnungen')
-    expect(artDerDatei('tour.json')).toBe('aufzeichnungen')
-    expect(artDerDatei('media/unbekannt.xyz')).toBe('sonstiges')
+    expect(artDerDatei('media/m2.poster.jpg')).toBe('photos')
+    expect(artDerDatei('media/mus-nachtfahrt.mp3')).toBe('audio')
+    expect(artDerDatei('original/manifest.json')).toBe('recordings')
+    expect(artDerDatei('original/track.gpx')).toBe('recordings')
+    expect(artDerDatei('tour.json')).toBe('recordings')
+    expect(artDerDatei('media/unbekannt.xyz')).toBe('other')
   })
 
   it('schlüsselt auf, und die Teile ergeben die Summe', async () => {

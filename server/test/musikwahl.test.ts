@@ -214,13 +214,13 @@ async function tourBisBereit(u: TestUmgebung): Promise<string> {
 async function leseEdits(
   u: TestUmgebung,
   id: string,
-): Promise<{ audio?: Array<{ datei: string; typ: string; quelle?: string }> }> {
+): Promise<{ audio?: Array<{ file: string; type: string; quelle?: string }> }> {
   const antwort = await u.app.inject({
     method: 'GET',
     url: `/api/tours/${id}/edits`,
     cookies: u.cookies,
   })
-  return antwort.json() as { audio?: Array<{ datei: string; typ: string; quelle?: string }> }
+  return antwort.json() as { audio?: Array<{ file: string; type: string; quelle?: string }> }
 }
 
 describe('Musik beim ersten Verarbeiten', () => {
@@ -230,8 +230,8 @@ describe('Musik beim ersten Verarbeiten', () => {
       const id = await tourBisBereit(u)
       const edits = await leseEdits(u, id)
       expect(edits.audio).toHaveLength(1)
-      expect(edits.audio?.[0]).toMatchObject({ typ: 'musik', quelle: 'bibliothek' })
-      expect(Object.values(AUTO_MUSIK)).toContain(edits.audio?.[0]?.datei)
+      expect(edits.audio?.[0]).toMatchObject({ type: 'music', source: 'library' })
+      expect(Object.values(AUTO_MUSIK)).toContain(edits.audio?.[0]?.file)
 
       // Und die Tour klingt wirklich: /audio/sfx-Spur über die ganze Strecke.
       const tour = JSON.parse((await u.storage.lese(id, 'tour.json')).toString()) as {
@@ -256,7 +256,7 @@ describe('Musik beim ersten Verarbeiten', () => {
         method: 'PUT',
         url: `/api/tours/${id}/edits`,
         cookies: u.cookies,
-        payload: { schema: 'maptale/edits@1', audio: [] },
+        payload: { schema: 'maptale/edits@2', audio: [] },
       })
       expect(weg.statusCode).toBe(202)
       await u.app.verarbeitungen.get(id)
@@ -298,13 +298,13 @@ describe('Musik beim ersten Verarbeiten', () => {
         url: `/api/tours/${id}/edits`,
         cookies: u.cookies,
         payload: {
-          schema: 'maptale/edits@1',
+          schema: 'maptale/edits@2',
           audio: [
             {
-              datei: 'mus-tropen.mp3',
-              typ: 'musik',
-              ab: '2026-07-04T08:12:31+02:00',
-              quelle: 'bibliothek',
+              file: 'mus-tropen.mp3',
+              type: 'music',
+              from: '2026-07-04T08:12:31+02:00',
+              source: 'library',
             },
           ],
         },
@@ -319,7 +319,7 @@ describe('Musik beim ersten Verarbeiten', () => {
 
       const edits = await leseEdits(u, id)
       expect(edits.audio).toHaveLength(1)
-      expect(edits.audio?.[0]?.datei).toBe('mus-tropen.mp3')
+      expect(edits.audio?.[0]?.file).toBe('mus-tropen.mp3')
     } finally {
       await u.app.close()
     }

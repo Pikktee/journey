@@ -34,13 +34,13 @@ describe('platziereMedien', () => {
       TRACK,
       START_MS,
     )
-    expect(p?.placement).toBe('zeit')
+    expect(p?.placement).toBe('time')
     expect(p?.anchor?.[0]).toBeCloseTo(7.9105, 4) // Trackpunkt bei Offset 600
   })
 
   it('mappt ein Medium ohne Anker über die Aufnahmezeit (zeit)', () => {
     const [p] = platziereMedien([medium({ takenAt: '2026-07-04T08:05:00Z' })], TRACK, START_MS)
-    expect(p?.placement).toBe('zeit')
+    expect(p?.placement).toBe('time')
     // Offset 300 s: zwischen Punkt 0 (t=0) und 1 (t=600), interpoliert
     expect(p?.anchor?.[0]).toBeCloseTo((7.9086 + 7.9105) / 2, 4)
   })
@@ -48,14 +48,14 @@ describe('platziereMedien', () => {
   it('lässt Medien außerhalb der Tour-Zeit unplatziert', () => {
     const vorher = platziereMedien([medium({ takenAt: '2026-07-04T07:00:00Z' })], TRACK, START_MS)
     const nachher = platziereMedien([medium({ takenAt: '2026-07-04T09:00:00Z' })], TRACK, START_MS)
-    expect(vorher[0]?.placement).toBe('unplatziert')
+    expect(vorher[0]?.placement).toBe('unplaced')
     expect(vorher[0]?.anchor).toBeNull()
-    expect(nachher[0]?.placement).toBe('unplatziert')
+    expect(nachher[0]?.placement).toBe('unplaced')
   })
 
   it('lässt bei zu kurzem Track alles unplatziert', () => {
     const [p] = platziereMedien([medium({ anchor: [7.9105, 46.59] })], [TRACK[0]!], START_MS)
-    expect(p?.placement).toBe('unplatziert')
+    expect(p?.placement).toBe('unplaced')
   })
 
   it('platziert korrekt trotz unsortierter Track-Zeiten (Review-Fund)', () => {
@@ -67,7 +67,7 @@ describe('platziereMedien', () => {
     ]
     const [p] = platziereMedien([medium({ takenAt: '2026-07-04T08:10:00Z' })], track, START_MS)
     // Offset 600 s → der (nach Zeit sortiert) passende Punkt ist [7.92, 46.595]
-    expect(p?.placement).toBe('zeit')
+    expect(p?.placement).toBe('time')
     expect(p?.anchor?.[0]).toBeCloseTo(7.92, 4)
   })
 })

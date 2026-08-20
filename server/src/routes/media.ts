@@ -101,12 +101,12 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         return reply.code(404).send({ error: `Unbekannte Medien-ID: ${request.params.mid}` })
       // Tombstone: Was endgültig gelöscht wurde, kommt unter seiner ID nie zurück —
       // die Auslieferung hat für diese Namen `immutable` versprochen.
-      if (medium.entfernt)
+      if (medium.removed)
         return reply.code(409).send({ error: 'Medium wurde endgültig gelöscht' })
       // Nach dem Rendern sind vorhandene Medien unveränderlich (derselbe
       // `immutable`-Grund). NACHGEREICHTE Einträge haben noch keine Datei — für
       // sie ist das PUT auch bei „bereit" erlaubt, sonst bliebe die additive
-      // Route (POST …/medien) bei fertigen Touren wirkungslos.
+      // Route (POST …/media) bei fertigen Touren wirkungslos.
       if (tour.status === 'ready' && (await mediumVorhanden(storage, tour.id, medium))) {
         return reply.code(409).send({ error: 'Medien sind im Status „bereit" unveränderlich' })
       }
@@ -131,8 +131,8 @@ export function registriereMediaRouten(app: FastifyInstance): void {
   // idempotente Wiederholung des Anlegens nötig ist — dafür garantiert die
   // Vergabe hier, dass keine ID kollidiert oder je wiederverwendet wird
   // (Tombstones bleiben im Manifest stehen und zählen mit).
-  app.post<{ Params: { id: string }; Body: { medien: NachreichMedium[] } }>(
-    '/api/tours/:id/medien',
+  app.post<{ Params: { id: string }; Body: { media: NachreichMedium[] } }>(
+    '/api/tours/:id/media',
     { schema: { body: nachreichenJsonSchema } },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
@@ -161,14 +161,14 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         const manifest = JSON.parse(
           (await storage.lese(tour.id, MANIFEST_PFAD)).toString(),
         ) as UploadManifest
-        if (manifest.media.length + request.body.medien.length > MAX_MEDIEN_PRO_TOUR) {
+        if (manifest.media.length + request.body.media.length > MAX_MEDIEN_PRO_TOUR) {
           return reply
             .code(400)
             .send({ error: `Zu viele Medien (max. ${MAX_MEDIEN_PRO_TOUR} je Tour)` })
         }
         // Dateiendung + Zeitstempel-Semantik prüfen, BEVOR irgendetwas geschrieben
         // wird — halbe Batches soll es nicht geben.
-        for (const eintrag of request.body.medien) {
+        for (const eintrag of request.body.media) {
           try {
             mediumDateiname({ ...eintrag, id: 'pruef' })
           } catch (fehler) {
@@ -183,23 +183,23 @@ export function registriereMediaRouten(app: FastifyInstance): void {
 
         // IDs kollisionsfrei vergeben — gegen ALLE Einträge, auch Tombstones
         const vergeben = new Set(manifest.media.map((m) => m.id))
-        // Der Idempotenz-Riegel des Foto-Nachzugs: Was unter derselben `quelle`
+        // Der Idempotenz-Riegel des Foto-Nachzugs: Was unter derselben `source`
         // schon im Manifest steht, wird NICHT ein zweites Mal angelegt — die
         // vorhandene Zuordnung geht zurück. Der Client kann seinen Lauf damit
         // gefahrlos wiederholen, auch wenn er beim ersten Mal mittendrin abbrach
-        // oder das Rendern danach scheiterte (s. `quelle` im Schema).
+        // oder das Rendern danach scheiterte (s. `source` im Schema).
         //
         // Tombstones zählen MIT: Ein endgültig gelöschtes Foto soll nicht beim
         // nächsten Lauf wiederkommen — genau das wäre das Gegenteil von „Löschen
         // ist echt". Die Antwort nennt seine alte ID; das PUT darauf lehnt die
         // Upload-Route mit 409 ab, und der Client hat nichts verloren.
         const nachQuelle = new Map(
-          manifest.media.filter((m) => m.quelle).map((m) => [m.quelle as string, m]),
+          manifest.media.filter((m) => m.source).map((m) => [m.source as string, m]),
         )
         const zuordnung: UploadMedium[] = []
         const neue: UploadMedium[] = []
-        for (const eintrag of request.body.medien) {
-          const bekannt = eintrag.quelle ? nachQuelle.get(eintrag.quelle) : undefined
+        for (const eintrag of request.body.media) {
+          const bekannt = eintrag.source ? nachQuelle.get(eintrag.source) : undefined
           if (bekannt) {
             zuordnung.push(bekannt)
             continue
@@ -208,7 +208,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
           while (vergeben.has(id)) id = neueMediumId()
           vergeben.add(id)
           const angelegt: UploadMedium = { ...eintrag, id }
-          if (eintrag.quelle) nachQuelle.set(eintrag.quelle, angelegt)
+          if (eintrag.source) nachQuelle.set(eintrag.source, angelegt)
           neue.push(angelegt)
           zuordnung.push(angelegt)
         }
@@ -217,20 +217,20 @@ export function registriereMediaRouten(app: FastifyInstance): void {
           await storage.schreibe(tour.id, MANIFEST_PFAD, JSON.stringify(manifest, null, 2))
         }
 
-        // Zuordnung zurückgeben: `datei` ist das PUT-Ziel (media/<datei>).
+        // Zuordnung zurückgeben: `file` ist das PUT-Ziel (media/<file>).
         // Sie hat IMMER so viele Einträge wie die Anfrage und in derselben
         // Reihenfolge — auch für die übersprungenen: Der Client paart sie mit
         // seinen Dateien über den Index, eine kürzere Liste verschöbe alles.
         return reply.code(200).send({
-          medien: zuordnung.map((m) => ({ id: m.id, datei: mediumDateiname(m) })),
-          neu: neue.length,
+          media: zuordnung.map((m) => ({ id: m.id, file: mediumDateiname(m) })),
+          new: neue.length,
         })
       })
     },
   )
 
   // — Endgültig löschen: Rohdatei + alle Ableitungen weg, Speicher frei —
-  // Der Manifest-Eintrag bleibt als Tombstone stehen (`entfernt: true`): Das
+  // Der Manifest-Eintrag bleibt als Tombstone stehen (`removed: true`): Das
   // Manifest ist das Protokoll dessen, was hochgeladen wurde, und nur so wird
   // keine Medien-ID je wiederverwendet. Die `immutable`-Cache-Header stehen dem
   // Löschen nicht entgegen — eine gelöschte Datei wird 404, nie stale.
@@ -247,7 +247,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       }
 
       // Auch hier unter die Sperre: Eine gleichzeitige Zustellung an
-      // `POST …/medien` überschriebe sonst den frisch gesetzten Tombstone und
+      // `POST …/media` überschriebe sonst den frisch gesetzten Tombstone und
       // erweckte einen Eintrag, dessen Dateien gerade gelöscht wurden.
       return mitManifestSperre(tour.id, async () => {
         const manifest = JSON.parse(
@@ -257,7 +257,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         if (!medium)
           return reply.code(404).send({ error: `Unbekannte Medien-ID: ${request.params.mid}` })
         // Idempotent: zweites Löschen desselben Mediums ist kein Fehler
-        if (medium.entfernt) return { ok: true }
+        if (medium.removed) return { ok: true }
 
         // Original UND alle abgeleiteten Dateien: Anzeige-/Kachel-Fassung, bei
         // Videos Web-Fassung und Poster. `loesche` toleriert fehlende Dateien —
@@ -279,7 +279,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         // dazwischen ab, sind die Dateien weg und der Eintrag wirkt wie ein nie
         // hochgeladener (verfuegbareMedien filtert beide gleich).
         manifest.media = manifest.media.map((m) =>
-          m.id === medium.id ? { ...m, entfernt: true } : m,
+          m.id === medium.id ? { ...m, removed: true } : m,
         )
         await storage.schreibe(tour.id, MANIFEST_PFAD, JSON.stringify(manifest, null, 2))
 
@@ -291,12 +291,12 @@ export function registriereMediaRouten(app: FastifyInstance): void {
             (await storage.lese(tour.id, EDITS_PFAD)).toString(),
           ) as EditOverlay
           let geaendert = false
-          if (edits.medien?.[medium.id]) {
-            delete edits.medien[medium.id]
+          if (edits.media?.[medium.id]) {
+            delete edits.media[medium.id]
             geaendert = true
           }
-          if (edits.titelbild === medium.id) {
-            delete edits.titelbild
+          if (edits.cover === medium.id) {
+            delete edits.cover
             geaendert = true
           }
           if (geaendert) await storage.schreibe(tour.id, EDITS_PFAD, JSON.stringify(edits, null, 2))
@@ -391,7 +391,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         const edits = JSON.parse(
           (await storage.lese(tour.id, EDITS_PFAD)).toString(),
         ) as EditOverlay
-        if (edits.audio?.some((a) => a.datei === request.params.file)) {
+        if (edits.audio?.some((a) => a.file === request.params.file)) {
           return reply.code(409).send({
             fehler:
               'Datei wird von den gespeicherten Bearbeitungen genutzt, erst Eintrag entfernen und speichern',

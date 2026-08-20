@@ -126,8 +126,8 @@ describe('Vorlagen-Katalog', () => {
     expect(VORLAGEN.map((v) => v.key)).toEqual([
       'verification',
       'reset',
-      'email-wechsel',
-      'warteliste',
+      'email-change',
+      'waitlist',
       'waitlist-invitation',
       'export',
     ])

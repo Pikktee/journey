@@ -67,19 +67,19 @@ function manifestMitZweiFotos(): UploadManifest {
 async function nachreichen(
   u: TestUmgebung,
   tourId: string,
-  medien: Array<Record<string, unknown>>,
-): Promise<{ statusCode: number; medien: Array<{ id: string; datei: string }>; neu: number }> {
+  media: Array<Record<string, unknown>>,
+): Promise<{ statusCode: number; media: Array<{ id: string; file: string }>; new: number }> {
   const antwort = await u.app.inject({
     method: 'POST',
-    url: `/api/tours/${tourId}/medien`,
+    url: `/api/tours/${tourId}/media`,
     cookies: u.cookies,
-    payload: { medien },
+    payload: { media },
   })
   const koerper =
     antwort.statusCode === 200
-      ? (antwort.json() as { medien: Array<{ id: string; datei: string }>; neu?: number })
-      : { medien: [], neu: 0 }
-  return { statusCode: antwort.statusCode, medien: koerper.medien, neu: koerper.neu ?? 0 }
+      ? (antwort.json() as { media: Array<{ id: string; file: string }>; new?: number })
+      : { media: [], new: 0 }
+  return { statusCode: antwort.statusCode, media: koerper.media, new: koerper.new ?? 0 }
 }
 
 /** Das rohe Manifest der Tour — die Quelle, gegen die der Dedup läuft. */
@@ -118,22 +118,22 @@ async function tourJson(u: TestUmgebung, tourId: string): Promise<TourJson> {
   return antwort.json() as TourJson
 }
 
-describe('Nachreichen (POST /api/tours/:id/medien)', () => {
+describe('Nachreichen (POST /api/tours/:id/media)', () => {
   it('nimmt bei „bereit" neue Medien an: Server-ID, PUT erlaubt, Reprocess rendert sie', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
-    const { statusCode, medien } = await nachreichen(u, id, [
+    const { statusCode, media } = await nachreichen(u, id, [
       { type: 'photo', file: 'IMG_9000.jpeg', takenAt: '2026-07-04T10:30:00+02:00' },
     ])
     expect(statusCode).toBe(200)
-    const neu = medien[0]
+    const neu = media[0]
     expect(neu?.id).toMatch(/^n_/)
     expect(neu?.id).not.toBe('m1')
     // .jpeg wird zur Ablage-Endung .jpg normalisiert
-    expect(neu?.datei).toBe(`${neu?.id}.jpg`)
+    expect(neu?.file).toBe(`${neu?.id}.jpg`)
 
     // Das PUT der NEUEN Datei ist trotz „bereit" erlaubt …
     await ladeMediumHoch(u, id, neu?.id ?? '')
@@ -172,7 +172,7 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
       type: 'photo' as const,
       file: 'IMG_1.jpg',
       takenAt: '2026-07-04T10:30:00+02:00',
-      quelle: 'galerie:4711',
+      source: 'galerie:4711',
     }
     const erst = await nachreichen(u, id, [eintrag])
     const zweit = await nachreichen(u, id, [eintrag])
@@ -180,11 +180,11 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     expect(erst.statusCode).toBe(200)
     expect(zweit.statusCode).toBe(200)
     // Dieselbe Zuordnung zurück — der Client lädt gefahrlos noch einmal hoch.
-    expect(zweit.medien[0]?.id).toBe(erst.medien[0]?.id)
-    expect(erst.neu).toBe(1)
-    expect(zweit.neu).toBe(0)
+    expect(zweit.media[0]?.id).toBe(erst.media[0]?.id)
+    expect(erst.new).toBe(1)
+    expect(zweit.new).toBe(0)
     const manifest = await manifestVon(u, id)
-    expect(manifest.media.filter((m) => m.quelle === 'galerie:4711')).toHaveLength(1)
+    expect(manifest.media.filter((m) => m.source === 'galerie:4711')).toHaveLength(1)
   })
 
   it('behält die Reihenfolge, wenn nur ein Teil des Batches neu ist', async () => {
@@ -199,19 +199,19 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
       type: 'photo' as const,
       file: 'a.jpg',
       takenAt: '2026-07-04T10:30:00+02:00',
-      quelle: 'galerie:1',
+      source: 'galerie:1',
     }
     const b = {
       type: 'photo' as const,
       file: 'b.jpg',
       takenAt: '2026-07-04T10:31:00+02:00',
-      quelle: 'galerie:2',
+      source: 'galerie:2',
     }
     const erst = await nachreichen(u, id, [a])
     const zweit = await nachreichen(u, id, [a, b])
-    expect(zweit.medien).toHaveLength(2)
-    expect(zweit.medien[0]?.id).toBe(erst.medien[0]?.id)
-    expect(zweit.medien[1]?.id).not.toBe(erst.medien[0]?.id)
+    expect(zweit.media).toHaveLength(2)
+    expect(zweit.media[0]?.id).toBe(erst.media[0]?.id)
+    expect(zweit.media[1]?.id).not.toBe(erst.media[0]?.id)
   })
 
   it('ohne `quelle` bleibt jeder Eintrag neu — das Studio wählt bewusst aus', async () => {
@@ -222,7 +222,7 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     const eintrag = { type: 'photo' as const, file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00' }
     const erst = await nachreichen(u, id, [eintrag])
     const zweit = await nachreichen(u, id, [eintrag])
-    expect(zweit.medien[0]?.id).not.toBe(erst.medien[0]?.id)
+    expect(zweit.media[0]?.id).not.toBe(erst.media[0]?.id)
   })
 
   it('verliert bei zwei gleichzeitigen Zustellungen keinen Eintrag', async () => {
@@ -243,10 +243,10 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
 
     const [a, b] = await Promise.all([
       nachreichen(u, id, [
-        { type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00', quelle: 'galerie:A' },
+        { type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00', source: 'galerie:A' },
       ]),
       nachreichen(u, id, [
-        { type: 'photo', file: 'b.jpg', takenAt: '2026-07-04T10:31:00+02:00', quelle: 'galerie:B' },
+        { type: 'photo', file: 'b.jpg', takenAt: '2026-07-04T10:31:00+02:00', source: 'galerie:B' },
       ]),
     ])
     expect(a.statusCode).toBe(200)
@@ -254,12 +254,12 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
 
     // Beide Zusagen müssen im Manifest stehen — jede vergebene ID ist ein
     // Versprechen, dass die Datei dorthin gehört.
-    const quellen = (await manifestVon(u, id)).media.map((m) => m.quelle).filter(Boolean)
+    const quellen = (await manifestVon(u, id)).media.map((m) => m.source).filter(Boolean)
     expect(quellen).toContain('galerie:A')
     expect(quellen).toContain('galerie:B')
     const ids = (await manifestVon(u, id)).media.map((m) => m.id)
-    expect(ids).toContain(a.medien[0]?.id)
-    expect(ids).toContain(b.medien[0]?.id)
+    expect(ids).toContain(a.media[0]?.id)
+    expect(ids).toContain(b.media[0]?.id)
   })
 
   it('lässt einen Tombstone nicht von einer gleichzeitigen Zustellung überschreiben', async () => {
@@ -280,15 +280,15 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
           type: 'photo',
           file: 'neu.jpg',
           takenAt: '2026-07-04T10:32:00+02:00',
-          quelle: 'galerie:N',
+          source: 'galerie:N',
         },
       ]),
     ])
     await u.app.verarbeitungen.get(id)
 
     const manifest = await manifestVon(u, id)
-    expect(manifest.media.find((m) => m.id === 'm1')?.entfernt).toBe(true)
-    expect(manifest.media.map((m) => m.quelle)).toContain('galerie:N')
+    expect(manifest.media.find((m) => m.id === 'm1')?.removed).toBe(true)
+    expect(manifest.media.map((m) => m.source)).toContain('galerie:N')
   })
 
   it('weist während laufender Verarbeitung mit 409 ab', async () => {
@@ -319,11 +319,11 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
   it('vergibt eindeutige IDs, die mit keiner Manifest-ID kollidieren', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
-    const { medien } = await nachreichen(u, id, [
+    const { media } = await nachreichen(u, id, [
       { type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
       { type: 'photo', file: 'b.jpg', takenAt: '2026-07-04T10:31:00+02:00' },
     ])
-    const ids = medien.map((m) => m.id)
+    const ids = media.map((m) => m.id)
     expect(new Set(ids).size).toBe(2)
     expect(ids).not.toContain('m1')
   })
@@ -361,7 +361,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     const manifest = JSON.parse(
       (await u.storage.lese(id, 'original/manifest.json')).toString(),
     ) as UploadManifest
-    expect(manifest.media.find((m) => m.id === 'm1')?.entfernt).toBe(true)
+    expect(manifest.media.find((m) => m.id === 'm1')?.removed).toBe(true)
     // tour.json referenziert m1 nicht mehr; das Cover fällt auf m2 zurück
     const nachher = await tourJson(u, id)
     expect(nachher.media.map((m) => m.id)).not.toContain('m1')
@@ -411,7 +411,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     const werkzeug = new FakeVideoWerkzeug({
       codecVideo: 'h264',
       codecAudio: 'aac',
-      dauerS: 12,
+      durationS: 12,
       breite: 1920,
       hoehe: 1080,
     })
@@ -442,7 +442,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     }
   })
 
-  it('räumt Overlay-Einträge des Mediums mit auf (medien + titelbild)', async () => {
+  it('räumt Overlay-Einträge des Mediums mit auf (media + titelbild)', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u, manifestMitZweiFotos())
     await ladeMediumHoch(u, id, 'm1')
@@ -450,9 +450,9 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await finalisiere(u, id)
 
     const edits = {
-      schema: 'maptale/edits@1',
-      titelbild: 'm1',
-      medien: { m1: { caption: 'Gipfelkreuz' }, m2: { caption: 'Abfahrt' } },
+      schema: 'maptale/edits@2',
+      cover: 'm1',
+      media: { m1: { caption: 'Gipfelkreuz' }, m2: { caption: 'Abfahrt' } },
     }
     const speichern = await u.app.inject({
       method: 'PUT',
@@ -472,12 +472,12 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await u.app.verarbeitungen.get(id)
 
     const gespeichert = JSON.parse((await u.storage.lese(id, 'edits.json')).toString()) as {
-      titelbild?: string
-      medien?: Record<string, unknown>
+      cover?: string
+      media?: Record<string, unknown>
     }
-    expect(gespeichert.titelbild).toBeUndefined()
-    expect(gespeichert.medien?.['m1']).toBeUndefined()
-    expect(gespeichert.medien?.['m2']).toBeDefined()
+    expect(gespeichert.cover).toBeUndefined()
+    expect(gespeichert.media?.['m1']).toBeUndefined()
+    expect(gespeichert.media?.['m2']).toBeDefined()
   })
 
   it('Tombstone blockiert das Finalisieren nicht (Löschen vor dem Finalize)', async () => {
@@ -509,9 +509,9 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     const editor = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
     ).json() as {
-      medien: Array<{ id: string }>
+      media: Array<{ id: string }>
     }
-    expect(editor.medien.map((m) => m.id)).toEqual(['m2'])
+    expect(editor.media.map((m) => m.id)).toEqual(['m2'])
   })
 
   it('nachgereicht, aber nie hochgeladen: der Render überspringt den Eintrag', async () => {
@@ -520,7 +520,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
-    const { medien } = await nachreichen(u, id, [
+    const { media } = await nachreichen(u, id, [
       { type: 'photo', file: 'nie-hochgeladen.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
     ])
     // Kein PUT — direkt neu verarbeiten
@@ -533,7 +533,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await u.app.verarbeitungen.get(id)
 
     const json = await tourJson(u, id)
-    expect(json.media.map((m) => m.id)).not.toContain(medien[0]?.id)
+    expect(json.media.map((m) => m.id)).not.toContain(media[0]?.id)
     // Die Tour ist trotzdem sauber fertig geworden
     expect(u.app.deps.db.prepare('SELECT status FROM tours WHERE id = ?').get(id)).toEqual({
       status: 'ready',
@@ -550,19 +550,19 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
-    const { medien } = await nachreichen(u, id, [
+    const { media } = await nachreichen(u, id, [
       { type: 'photo', file: 'abgebrochen.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
     ])
     const editor = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
     ).json() as {
-      medien: Array<{ id: string }>
+      media: Array<{ id: string }>
     }
-    expect(editor.medien.map((m) => m.id)).toEqual(['m1'])
+    expect(editor.media.map((m) => m.id)).toEqual(['m1'])
     // Das Manifest behält ihn trotzdem — es ist das Protokoll des Hochgeladenen
     const manifest = JSON.parse((await u.app.deps.storage.lese(id, MANIFEST_PFAD)).toString()) as {
       media: Array<{ id: string }>
     }
-    expect(manifest.media.map((m) => m.id)).toContain(medien[0]?.id)
+    expect(manifest.media.map((m) => m.id)).toContain(media[0]?.id)
   })
 })

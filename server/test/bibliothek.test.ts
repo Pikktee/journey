@@ -1,5 +1,5 @@
 // Benutzerweite Audio-Bibliothek: Upload/Liste/Löschen eigener Musik und
-// Effekte (projektübergreifend, quelle 'benutzer'), Lösch-Schutz solange eine
+// Effekte (projektübergreifend, quelle 'user'), Lösch-Schutz solange eine
 // Tour die Datei verwendet, Owner-Streaming fürs Studio-Vorhören und die
 // tour-gebundene Auslieferung, deren Zugriff die Sichtbarkeit der Tour regelt.
 
@@ -60,8 +60,8 @@ async function setzeEin(u: TestUmgebung, tourId: string, datei = 'meine-musik.mp
     url: `/api/tours/${tourId}/edits`,
     cookies: u.cookies,
     payload: {
-      schema: 'maptale/edits@1',
-      audio: [{ datei, typ: 'musik', ab: '2026-07-04T08:12:31+02:00', quelle: 'benutzer' }],
+      schema: 'maptale/edits@2',
+      audio: [{ file: datei, type: 'music', from: '2026-07-04T08:12:31+02:00', source: 'user' }],
     },
   })
   expect(put.statusCode).toBe(202)
@@ -83,7 +83,7 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-library)', () => 
     const u = await baueTestApp()
     const put = await ladeBibliothekHoch(u)
     expect(put.statusCode).toBe(200)
-    expect(put.json()).toEqual({ datei: 'meine-musik.mp3', bytes: 10 })
+    expect(put.json()).toEqual({ file: 'meine-musik.mp3', bytes: 10 })
 
     const liste = await u.app.inject({
       method: 'GET',
@@ -92,7 +92,7 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-library)', () => 
     })
     expect(liste.statusCode).toBe(200)
     expect(liste.json()).toEqual({
-      dateien: [{ datei: 'meine-musik.mp3', groesse: 10, verwendetVon: [] }],
+      files: [{ file: 'meine-musik.mp3', size: 10, usedBy: [] }],
     })
 
     const voll = await u.app.inject({
@@ -136,7 +136,7 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-library)', () => 
       url: '/api/audio-library',
       cookies: fremd,
     })
-    expect((liste.json() as { dateien: unknown[] }).dateien).toEqual([])
+    expect((liste.json() as { files: unknown[] }).files).toEqual([])
     const datei = await u.app.inject({
       method: 'GET',
       url: '/api/audio-library/meine-musik.mp3',
@@ -149,8 +149,8 @@ describe('Audio-Bibliothek: Upload + Liste (PUT/GET /api/audio-library)', () => 
     const u = await baueTestApp()
     await ladeBibliothekHoch(u, 'quota-test.mp3', Buffer.alloc(2048))
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    const quota = (me.json() as { quota: { benutzt: number } }).quota
-    expect(quota.benutzt).toBeGreaterThanOrEqual(2048)
+    const quota = (me.json() as { quota: { used: number } }).quota
+    expect(quota.used).toBeGreaterThanOrEqual(2048)
   })
 })
 
@@ -165,16 +165,16 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
 
     const tourJson = JSON.parse((await u.storage.lese(id, 'tour.json')).toString()) as TourJson
     expect(tourJson.audio).toBeDefined()
-    expect(tourJson.audio?.[0]?.src).toBe(`/api/tours/${id}/bibliothek-audio/meine-musik.mp3`)
+    expect(tourJson.audio?.[0]?.src).toBe(`/api/tours/${id}/library-audio/meine-musik.mp3`)
 
     const liste = await u.app.inject({
       method: 'GET',
       url: '/api/audio-library',
       cookies: u.cookies,
     })
-    const eintrag = (liste.json() as { dateien: Array<{ verwendetVon: Array<{ id: string }> }> })
-      .dateien[0]
-    expect(eintrag?.verwendetVon.map((t) => t.id)).toEqual([id])
+    const eintrag = (liste.json() as { files: Array<{ usedBy: Array<{ id: string }> }> })
+      .files[0]
+    expect(eintrag?.usedBy.map((t) => t.id)).toEqual([id])
   })
 
   it('überspringt Verweise auf gelöschte/fehlende Bibliotheksdateien beim Rendern', async () => {
@@ -202,14 +202,14 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
       cookies: u.cookies,
     })
     expect(del.statusCode).toBe(409)
-    expect((del.json() as { fehler: string }).fehler).toContain('verwendet')
+    expect((del.json() as { error: string }).error).toContain('verwendet')
 
     // Eintrag aus dem Overlay nehmen → Re-Render entfernt auch die tour.json-Referenz
     const leer = await u.app.inject({
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'maptale/edits@1' },
+      payload: { schema: 'maptale/edits@2' },
     })
     expect(leer.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
@@ -221,7 +221,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
     })
     expect(del2.statusCode).toBe(200)
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    const userId = (me.json() as { benutzer: { id: string } }).benutzer.id
+    const userId = (me.json() as { user: { id: string } }).user.id
     expect(await u.benutzerStorage.info(userId, 'audio/meine-musik.mp3')).toBeNull()
   })
 
@@ -249,7 +249,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
   })
 })
 
-describe('Audio-Bibliothek: tour-gebundene Auslieferung (GET /api/tours/:id/bibliothek-audio/:datei)', () => {
+describe('Audio-Bibliothek: tour-gebundene Auslieferung (GET /api/tours/:id/library-audio/:datei)', () => {
   it('folgt der Sichtbarkeit der Tour: privat nur für den Eigentümer, public ohne Anmeldung', async () => {
     const u = await baueTestApp()
     await ladeBibliothekHoch(u)
@@ -257,7 +257,7 @@ describe('Audio-Bibliothek: tour-gebundene Auslieferung (GET /api/tours/:id/bibl
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     await setzeEin(u, id)
-    const url = `/api/tours/${id}/bibliothek-audio/meine-musik.mp3`
+    const url = `/api/tours/${id}/library-audio/meine-musik.mp3`
 
     // privat (Default): anonym 404, Eigentümer 200 mit privatem Cache
     expect((await u.app.inject({ method: 'GET', url })).statusCode).toBe(404)
@@ -299,12 +299,12 @@ describe('Audio-Bibliothek: tour-gebundene Auslieferung (GET /api/tours/:id/bibl
       (
         await u.app.inject({
           method: 'GET',
-          url: `/api/tours/${id}/bibliothek-audio/meine-musik.mp3`,
+          url: `/api/tours/${id}/library-audio/meine-musik.mp3`,
         })
       ).statusCode,
     ).toBe(200)
     expect(
-      (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/bibliothek-audio/geheim.mp3` }))
+      (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/library-audio/geheim.mp3` }))
         .statusCode,
     ).toBe(404)
   })

@@ -168,7 +168,7 @@ export async function legeTourAusTrackAn(
     ...(modus ? { trackMode: modus } : {}),
     // Ohne Modus-Angabe darf die Server-Erkennung arbeiten; mit einer
     // geratenen Sportart-Zuordnung wäre sie stillgelegt.
-    ...(modus ? {} : { modiAutomatisch: true }),
+    ...(modus ? {} : { travelModesAuto: true }),
     media: [],
   }
 

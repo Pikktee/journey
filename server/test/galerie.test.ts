@@ -140,7 +140,7 @@ describe('Öffentliche Profilseite', () => {
 
     const antwort = await u.app.inject({
       method: 'GET',
-      url: `/api/users/${nutzerId(u)}/profil`,
+      url: `/api/users/${nutzerId(u)}/profile`,
     })
     expect(antwort.statusCode).toBe(200)
     const profil = antwort.json() as { displayName: string; bio: string; tours: Karte[] }
@@ -154,7 +154,7 @@ describe('Öffentliche Profilseite', () => {
     const u = await baueTestApp()
     const antwort = await u.app.inject({
       method: 'GET',
-      url: `/api/users/${nutzerId(u)}/profil`,
+      url: `/api/users/${nutzerId(u)}/profile`,
     })
     expect(antwort.statusCode).toBe(404)
   })

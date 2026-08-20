@@ -96,22 +96,22 @@ export interface TourStats {
   km: number
   gainM: number
   /** Anzahl platzierter Aufnahmen — für die Kachel in der Bibliothek */
-  fotos?: number
+  placedMedia?: number
   /** Routen-Signatur (SVG-Pfad im 0..100-Kasten), s. pipeline/signatur.ts */
-  spur?: RoutenSignatur
+  trackSignature?: RoutenSignatur
   /**
    * Länge des FILMS in Sekunden — nicht die der Aufzeichnung.
    *
    * Sie fällt beim Rendern ohnehin an (die Achse steht da), und ohne sie
    * müsste jede Oberfläche, die „wie lang wird das?" beantworten will, die
    * ganze Achse nachbauen: Das Studio-Blatt hat dafür weder die Wegpunkte noch
-   * die Halte. Wie `spur` und `fotos` haben ältere Touren sie erst nach ihrem
+   * die Halte. Wie `trackSignature` und `placedMedia` haben ältere Touren sie erst nach ihrem
    * nächsten Rendern — wer sie liest, muss ohne auskommen können.
    */
   filmS?: number
   /**
    * Hat die Tour einen Endscreen? Kein Messwert, sondern dasselbe Motiv wie
-   * `spur` und `fotos`: Die Bibliothek soll dafür keine Tour-Datei öffnen
+   * `trackSignature` und `placedMedia`: Die Bibliothek soll dafür keine Tour-Datei öffnen
    * müssen. Der Video-Export braucht es, weil das Finale zur Filmlänge zählt.
    */
   finale?: boolean

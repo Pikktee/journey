@@ -18,7 +18,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       "filmBisS": 155.2279531,
       "filmS": 72.40668346,
       "gain": 0.8,
-      "src": "/api/tours/t_vertrag01/bibliothek-audio/mein-stueck.mp3",
+      "src": "/api/tours/t_vertrag01/library-audio/mein-stueck.mp3",
       "type": "music",
     },
     {
@@ -81,7 +81,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -157,12 +157,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 155.2,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -172,7 +172,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -271,13 +271,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f": 0,
       "filmS": 0,
-      "preset": "mittel",
+      "preset": "mid",
     },
     {
       "f": 0.17713750319021987,
       "filmS": 78.40668346,
-      "preset": "weit",
-      "skala": 1.4,
+      "preset": "far",
+      "scale": 1.4,
     },
   ],
   "description": null,
@@ -331,19 +331,19 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   ],
   "moments": [
     {
-      "art": "umkreisen",
       "f": 0.03712044014873121,
       "filmS": 10.71600609,
+      "kind": "orbit",
     },
     {
-      "art": "innehalten",
-      "dauerS": 6,
+      "durationS": 6,
       "f": 0.44511770629870545,
       "filmS": 103.76396069,
+      "kind": "linger",
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -419,12 +419,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 167.2,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -434,7 +434,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -545,8 +545,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
         "kenBurns": true,
       },
       "id": "m1",
+      "order": 1,
       "placement": "gps",
-      "reihe": 1,
       "src": "/api/media/t_vertrag01/m1.w1920.jpg",
       "takenAt": "2026-07-04T08:22:51+02:00",
       "thumb": "/api/media/t_vertrag01/m1.t480.jpg",
@@ -561,7 +561,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       "caption": "",
       "durationS": 34.2,
       "id": "m2",
-      "placement": "manuell",
+      "placement": "manual",
       "poster": "/api/media/t_vertrag01/m2.poster.jpg",
       "src": "/api/media/t_vertrag01/m2.web.mp4",
       "takenAt": "2026-07-04T09:12:31+02:00",
@@ -570,7 +570,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -646,12 +646,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 150,
-    "fotos": 2,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 2,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -661,7 +661,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -806,7 +806,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -910,12 +910,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 148.2,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L7.8 69.4L41.4 51.9L100 28.4L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -925,7 +925,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -1093,7 +1093,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -1169,12 +1169,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 155.2,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -1184,7 +1184,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -1341,13 +1341,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   ],
   "moments": [
     {
-      "art": "umkreisen",
       "f": 0.03712044014873121,
       "filmS": 10.71600609,
+      "kind": "orbit",
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -1423,12 +1423,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 161.2,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -1438,7 +1438,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -1594,7 +1594,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -1652,12 +1652,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 89.8,
-    "fotos": 3,
     "gainM": 0,
     "km": 4.2,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 71.6L0.2 71.3L4.3 75.6L4.3 75.6L13 69.8L100 24.4",
-      "ende": [
+      "end": [
         100,
         24.4,
       ],
@@ -1667,7 +1667,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -1776,7 +1776,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -1852,12 +1852,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 135,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -1867,7 +1867,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -2012,7 +2012,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -2088,12 +2088,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 155.2,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -2103,7 +2103,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -2198,7 +2198,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       "filmBisS": 140.91965165,
       "filmS": 0,
       "gain": 0.8,
-      "src": "/api/tours/t_vertrag01/bibliothek-audio/mein-stueck.mp3",
+      "src": "/api/tours/t_vertrag01/library-audio/mein-stueck.mp3",
       "type": "music",
     },
     {
@@ -2215,8 +2215,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f": 0.05607616471294017,
       "filmS": 25.95091629,
-      "preset": "nah",
-      "skala": 0.8,
+      "preset": "near",
+      "scale": 0.8,
     },
   ],
   "description": null,
@@ -2263,8 +2263,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
       "caption": "",
       "id": "m3",
-      "placement": "manuell",
-      "reihe": 0,
+      "order": 0,
+      "placement": "manual",
       "src": "/api/media/t_vertrag01/m3.w1920.jpg",
       "takenAt": "2026-07-04T10:42:31+02:00",
       "thumb": "/api/media/t_vertrag01/m3.t480.jpg",
@@ -2274,14 +2274,14 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   ],
   "moments": [
     {
-      "art": "aufstieg",
-      "dauerS": 4,
+      "durationS": 4,
       "f": 0.11252908373243974,
       "filmS": 38.19988401,
+      "kind": "ascend",
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -2371,12 +2371,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 140.9,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -2386,7 +2386,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -2501,7 +2501,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -2577,12 +2577,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 155.2,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -2592,7 +2592,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",
@@ -2737,7 +2737,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
   ],
   "no": "NÂ°42",
-  "schema": "maptale/tour@1",
+  "schema": "maptale/tour@2",
   "segments": [
     {
       "f": [
@@ -2813,12 +2813,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "showFinale": false,
   "stats": {
     "filmS": 155.2,
-    "fotos": 3,
     "gainM": 0,
     "km": 10.9,
-    "spur": {
+    "placedMedia": 3,
+    "trackSignature": {
       "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
-      "ende": [
+      "end": [
         100,
         28.4,
       ],
@@ -2828,7 +2828,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       ],
     },
   },
-  "status": "bereit",
+  "status": "ready",
   "stops": [
     "Lauterbrunnen",
     "Grindelwald",

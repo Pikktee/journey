@@ -36,7 +36,7 @@ const eingabe = (patch: Partial<Parameters<typeof reichereAn>[0]> = {}) => ({
 describe('reichereAn', () => {
   it('rendert ein abspielfertiges Tour-JSON', async () => {
     const tour = await reichereAn(eingabe())
-    expect(tour.schema).toBe('maptale/tour@1')
+    expect(tour.schema).toBe('maptale/tour@2')
     expect(tour.no).toBe('N°07')
     expect(tour.brandTitle).toBe('Lauterbrunnen → Grindelwald')
     expect(tour.stops).toEqual(['Lauterbrunnen', 'Grindelwald'])
@@ -168,7 +168,7 @@ describe('reichereAn', () => {
       caption: null,
     })
     const videoMeta = new Map([
-      ['m2', { dauerS: 12.5, videoDatei: 'm2.web.mp4', posterDatei: 'm2.poster.jpg' }],
+      ['m2', { durationS: 12.5, videoDatei: 'm2.web.mp4', posterDatei: 'm2.poster.jpg' }],
     ])
     const tour = await reichereAn(eingabe({ manifest, videoMeta }))
     const v = tour.media.find((m) => m.id === 'm2')
@@ -205,7 +205,7 @@ describe('reichereAn', () => {
     const tour = await reichereAn(eingabe({ manifest }))
     expect(tour.media.map((m) => m.id)).toEqual(['m1', 'm2'])
     const m2 = tour.media.find((m) => m.id === 'm2')
-    expect(m2?.placement).toBe('zeit')
+    expect(m2?.placement).toBe('time')
     expect(m2?.anchor).not.toBeNull()
   })
 
@@ -220,7 +220,7 @@ describe('reichereAn', () => {
     })
     const tour = await reichereAn(eingabe({ manifest }))
     const m2 = tour.media.find((m) => m.id === 'm2')
-    expect(m2?.placement).toBe('unplatziert')
+    expect(m2?.placement).toBe('unplaced')
     expect(m2?.anchor).toBeNull()
   })
 
@@ -373,17 +373,17 @@ describe('reichereAn', () => {
     expect(tour.weather).toEqual([{ f: 0, mode: 'clouds', k: 0.84, source: 'openmeteo' }])
   })
 
-  // — Studio-Wetter (edits.wetter) ersetzt das Auto-Wetter vollständig —
+  // — Studio-Wetter (edits.weather) ersetzt das Auto-Wetter vollständig —
 
   const START_MS = Date.parse(beispielManifest().time.start)
   const abZeit = (offsetS: number): string => new Date(START_MS + offsetS * 1000).toISOString()
 
-  it('edits.wetter ersetzt das Auto-Wetter und ruft die Quelle gar nicht', async () => {
+  it('edits.weather ersetzt das Auto-Wetter und ruft die Quelle gar nicht', async () => {
     const wetter = bewoelkt()
     const tour = await reichereAn(
       eingabe({
         wetter,
-        edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(0), mode: 'rain' }] },
+        edits: { schema: 'maptale/edits@2', weather: [{ from: abZeit(0), mode: 'rain' }] },
       }),
     )
     expect(tour.weather?.every((w) => w.source === 'studio')).toBe(true)
@@ -391,13 +391,13 @@ describe('reichereAn', () => {
     expect(wetter.abfragen).toHaveLength(0) // Auto-Wetter-Pfad übersprungen
   })
 
-  it('überspringt bei edits.wetter auch die Foto-Verfeinerung (M5)', async () => {
+  it('überspringt bei edits.weather auch die Foto-Verfeinerung (M5)', async () => {
     const bildBefunde = new Map<string, BildBefund>([['m1', gewitterBefund]])
     const tour = await reichereAn(
       eingabe({
         wetter: bewoelkt(),
         bildBefunde,
-        edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(0), mode: 'clouds' }] },
+        edits: { schema: 'maptale/edits@2', weather: [{ from: abZeit(0), mode: 'clouds' }] },
       }),
     )
     expect(tour.weather?.some((w) => w.source === 'photo')).toBeFalsy()
@@ -407,7 +407,7 @@ describe('reichereAn', () => {
   it('eine Wetter-Grenze in der Mitte schaltet exakt dort um', async () => {
     const tour = await reichereAn(
       eingabe({
-        edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(10500), mode: 'storm' }] },
+        edits: { schema: 'maptale/edits@2', weather: [{ from: abZeit(10500), mode: 'storm' }] },
       }),
     )
     const w = tour.weather ?? []
@@ -429,7 +429,7 @@ describe('bestimmeCover', () => {
     title: '',
     caption: '',
     anchor,
-    placement: (anchor ? 'gps' : 'unplatziert') as 'gps' | 'unplatziert',
+    placement: (anchor ? 'gps' : 'unplaced') as 'gps' | 'unplaced',
     takenAt: '2026-07-04T09:01:12+02:00',
   })
   const video = (id: string, poster?: string) => ({
@@ -508,7 +508,7 @@ describe('Pausen-Kollaps in der Pipeline (Kette wie in processTour)', () => {
       }
     }
     return {
-      schema: 'maptale/upload@1',
+      schema: 'maptale/upload@2',
       clientTourId: 'pause-e2e-1',
       title: null,
       description: null,

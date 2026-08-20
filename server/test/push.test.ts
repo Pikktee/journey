@@ -238,7 +238,7 @@ describe('Meldung nach einem Import', () => {
       cookies: u.cookies,
     })
     expect((imports.json() as { imports: Array<{ status: string }> }).imports[0]?.status).toBe(
-      'fertig',
+      'done',
     )
     await u.app.close()
   })
@@ -270,7 +270,7 @@ describe('Datenexport', () => {
     await registriere(u)
     const konto = sammleKonto(u.app.deps.db, benutzerId(u))!
     expect(konto.pushGeraete).toEqual([
-      expect.objectContaining({ platform: 'android', token: TOKEN }),
+      expect.objectContaining({ plattform: 'android', token: TOKEN }),
     ])
     // Die Zeile darüber gilt weiter: Zugangsmittel gehören nicht ins Archiv.
     expect(JSON.stringify(konto)).not.toContain('pw_hash')

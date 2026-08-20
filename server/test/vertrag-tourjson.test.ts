@@ -1,7 +1,7 @@
 // VERTRAGSTEST: Bestands-Overlays rendern unverändert.
 //
 // Etappe 4 des Zeitleisten-Umbaus (docs/architecture/zeitleiste-umbau.md §3) erweitert
-// `maptale/edits@1` additiv um Ton-Anker (anker/versatzFilmS/dauerFilmS/einstiegS/
+// `maptale/edits@2` additiv um Ton-Anker (anker/versatzFilmS/dauerFilmS/einstiegS/
 // loop) und Video-Trim. Additiv heißt: ein Overlay OHNE die neuen Felder muss
 // exakt dasselbe Tour-JSON ergeben wie heute — kein Bestandsfilm darf sich beim
 // nächsten Rendern still verändern.
@@ -32,7 +32,7 @@ import type { UploadManifest } from '../src/schema/upload.js'
  */
 function vertragManifest(): UploadManifest {
   return {
-    schema: 'maptale/upload@1',
+    schema: 'maptale/upload@2',
     clientTourId: 'vertrag-tour-1',
     title: null,
     description: null,
@@ -105,19 +105,19 @@ const VIDEO_QUELL_S = 34.2
  * Länge setzen.
  */
 function videoMetaFuer(edits: EditOverlay | null): Map<string, VideoMeta> {
-  const schnitt = klemmeSchnitt(edits?.medien?.['m2']?.trim, VIDEO_QUELL_S)
+  const schnitt = klemmeSchnitt(edits?.media?.['m2']?.trim, VIDEO_QUELL_S)
   return new Map<string, VideoMeta>([
     [
       'm2',
       schnitt
         ? {
-            dauerS: (schnitt.bisS ?? VIDEO_QUELL_S) - schnitt.vonS,
+            durationS: (schnitt.toS ?? VIDEO_QUELL_S) - schnitt.fromS,
             videoDatei: schnittVideoDateiname('m2'),
             posterDatei: 'm2.poster.jpg',
             quellDauerS: VIDEO_QUELL_S,
           }
         : {
-            dauerS: VIDEO_QUELL_S,
+            durationS: VIDEO_QUELL_S,
             videoDatei: 'm2.web.mp4',
             posterDatei: 'm2.poster.jpg',
             quellDauerS: VIDEO_QUELL_S,
@@ -170,70 +170,70 @@ async function rendere(edits: EditOverlay | null) {
  */
 const FAELLE: Array<[name: string, edits: EditOverlay | null]> = [
   ['ohne Overlay', null],
-  ['leeres Overlay', { schema: 'maptale/edits@1' }],
+  ['leeres Overlay', { schema: 'maptale/edits@2' }],
   [
     'Medien-Edits',
     {
-      schema: 'maptale/edits@1',
-      medien: {
-        m1: { caption: 'Blick über das Tal', display: { holdS: 8, kenBurns: true }, reihe: 1 },
+      schema: 'maptale/edits@2',
+      media: {
+        m1: { caption: 'Blick über das Tal', display: { holdS: 8, kenBurns: true }, order: 1 },
         m2: { anchor: [7.92, 46.5895] },
-        m3: { geloescht: true },
+        m3: { removed: true },
       },
-      titelbild: 'm1',
+      cover: 'm1',
     },
   ],
   [
     'Modus-Grenzen',
     {
-      schema: 'maptale/edits@1',
-      modi: [
-        { ab: '2026-07-04T08:12:31+02:00', mode: 'walk' },
-        { ab: '2026-07-04T09:12:31+02:00', mode: 'moped' },
-        { ab: '2026-07-04T11:30:00+02:00', mode: 'ferry' },
+      schema: 'maptale/edits@2',
+      travelModes: [
+        { from: '2026-07-04T08:12:31+02:00', mode: 'walk' },
+        { from: '2026-07-04T09:12:31+02:00', mode: 'moped' },
+        { from: '2026-07-04T11:30:00+02:00', mode: 'ferry' },
       ],
     },
   ],
   [
     'Kamera und Momente',
     {
-      schema: 'maptale/edits@1',
-      kamera: [
-        { ab: '2026-07-04T08:12:31+02:00', preset: 'mittel' },
-        { ab: '2026-07-04T09:30:00+02:00', preset: 'weit', skala: 1.4 },
+      schema: 'maptale/edits@2',
+      camera: [
+        { from: '2026-07-04T08:12:31+02:00', preset: 'mid' },
+        { from: '2026-07-04T09:30:00+02:00', preset: 'far', scale: 1.4 },
       ],
-      momente: [
-        { ab: '2026-07-04T08:22:51+02:00', art: 'umkreisen' },
-        { ab: '2026-07-04T10:42:31+02:00', art: 'innehalten', dauerS: 6 },
+      moments: [
+        { from: '2026-07-04T08:22:51+02:00', kind: 'orbit' },
+        { from: '2026-07-04T10:42:31+02:00', kind: 'linger', durationS: 6 },
       ],
     },
   ],
   [
     'Audio (alle drei Quellen)',
     {
-      schema: 'maptale/edits@1',
+      schema: 'maptale/edits@2',
       audio: [
         // tour-lokal hochgeladen, begrenzter Bereich, eigene Lautstärke
         {
-          datei: 'eigene-spur.mp3',
-          typ: 'musik',
-          ab: '2026-07-04T08:12:31+02:00',
-          bis: '2026-07-04T09:30:00+02:00',
-          lautstaerke: 0.6,
+          file: 'eigene-spur.mp3',
+          type: 'music',
+          from: '2026-07-04T08:12:31+02:00',
+          to: '2026-07-04T09:30:00+02:00',
+          volume: 0.6,
         },
         // benutzerweite Bibliothek, offenes Ende
         {
-          datei: 'mein-stueck.mp3',
-          typ: 'musik',
-          ab: '2026-07-04T09:30:00+02:00',
-          quelle: 'benutzer',
+          file: 'mein-stueck.mp3',
+          type: 'music',
+          from: '2026-07-04T09:30:00+02:00',
+          source: 'user',
         },
         // kuratierter Effekt, One-Shot
         {
-          datei: 'sfx-moewen.mp3',
-          typ: 'sfx',
-          ab: '2026-07-04T10:42:31+02:00',
-          quelle: 'bibliothek',
+          file: 'sfx-moewen.mp3',
+          type: 'sfx',
+          from: '2026-07-04T10:42:31+02:00',
+          source: 'library',
         },
       ],
     },
@@ -241,20 +241,20 @@ const FAELLE: Array<[name: string, edits: EditOverlay | null]> = [
   [
     'Wetter-Override',
     {
-      schema: 'maptale/edits@1',
-      wetter: [
-        { ab: '2026-07-04T08:12:31+02:00', mode: 'fog', staerke: 0.4 },
-        { ab: '2026-07-04T10:00:00+02:00', mode: 'storm' },
-        { ab: '2026-07-04T12:00:00+02:00', mode: 'off' },
+      schema: 'maptale/edits@2',
+      weather: [
+        { from: '2026-07-04T08:12:31+02:00', mode: 'fog', intensity: 0.4 },
+        { from: '2026-07-04T10:00:00+02:00', mode: 'storm' },
+        { from: '2026-07-04T12:00:00+02:00', mode: 'off' },
       ],
     },
   ],
   [
     'Trim (Altbestand, nicht mehr bedienbar)',
     {
-      schema: 'maptale/edits@1',
-      trim: { start: '2026-07-04T08:30:00+02:00', ende: '2026-07-04T13:00:00+02:00' },
-      audio: [{ datei: 'eigene-spur.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00' }],
+      schema: 'maptale/edits@2',
+      trim: { start: '2026-07-04T08:30:00+02:00', end: '2026-07-04T13:00:00+02:00' },
+      audio: [{ file: 'eigene-spur.mp3', type: 'music', from: '2026-07-04T08:12:31+02:00' }],
     },
   ],
   // Ab hier die Formen, die Etappe 4 hinzufügt. Sie stehen mit im Vertrag,
@@ -264,28 +264,28 @@ const FAELLE: Array<[name: string, edits: EditOverlay | null]> = [
   [
     'Ton am Film-Anker (Etappe 4)',
     {
-      schema: 'maptale/edits@1',
+      schema: 'maptale/edits@2',
       audio: [
         {
-          datei: 'eigene-spur.mp3',
-          typ: 'musik',
-          ab: '2026-07-04T08:12:31+02:00',
-          anker: '2026-07-04T08:12:31+02:00',
-          versatzFilmS: 2.5,
-          dauerFilmS: 40,
-          einstiegS: 8,
+          file: 'eigene-spur.mp3',
+          type: 'music',
+          from: '2026-07-04T08:12:31+02:00',
+          anchor: '2026-07-04T08:12:31+02:00',
+          offsetFilmS: 2.5,
+          durationFilmS: 40,
+          startS: 8,
           loop: false,
         },
         // Effekt MIT Länge — als Marke ohne Ausdehnung verschwieg die Leiste,
         // wie lange er klingt
         {
-          datei: 'sfx-brandung.mp3',
-          typ: 'sfx',
-          ab: '2026-07-04T10:00:00+02:00',
-          anker: '2026-07-04T10:00:00+02:00',
-          dauerFilmS: 12,
+          file: 'sfx-brandung.mp3',
+          type: 'sfx',
+          from: '2026-07-04T10:00:00+02:00',
+          anchor: '2026-07-04T10:00:00+02:00',
+          durationFilmS: 12,
           loop: true,
-          quelle: 'bibliothek',
+          source: 'library',
         },
       ],
     },
@@ -293,19 +293,19 @@ const FAELLE: Array<[name: string, edits: EditOverlay | null]> = [
   [
     'Ton am Film-Anker HINTER einem Moment',
     {
-      schema: 'maptale/edits@1',
+      schema: 'maptale/edits@2',
       // Der Fall, in dem sich der Moment-Halt der Film-Achse überhaupt zeigt:
       // ein Versatz, der über den Moment hinwegreicht. Ohne ihn läge der Klip
       // an einer anderen Streckenstelle, als der Editor zeigt.
-      momente: [{ ab: '2026-07-04T08:22:51+02:00', art: 'umkreisen' }],
+      moments: [{ from: '2026-07-04T08:22:51+02:00', kind: 'orbit' }],
       audio: [
         {
-          datei: 'eigene-spur.mp3',
-          typ: 'musik',
-          ab: '2026-07-04T08:12:31+02:00',
-          anker: '2026-07-04T08:12:31+02:00',
-          versatzFilmS: 30,
-          dauerFilmS: 25,
+          file: 'eigene-spur.mp3',
+          type: 'music',
+          from: '2026-07-04T08:12:31+02:00',
+          anchor: '2026-07-04T08:12:31+02:00',
+          offsetFilmS: 30,
+          durationFilmS: 25,
         },
       ],
     },
@@ -313,41 +313,41 @@ const FAELLE: Array<[name: string, edits: EditOverlay | null]> = [
   [
     'Video-Schnitt (Etappe 4)',
     {
-      schema: 'maptale/edits@1',
-      medien: { m2: { trim: { vonS: 6, bisS: 20 } } },
+      schema: 'maptale/edits@2',
+      media: { m2: { trim: { fromS: 6, toS: 20 } } },
     },
   ],
   [
     'durchgearbeitete Tour (alles zusammen)',
     {
-      schema: 'maptale/edits@1',
-      medien: {
+      schema: 'maptale/edits@2',
+      media: {
         m1: { caption: 'Blick über das Tal', display: { holdS: 9 } },
         m2: { caption: 'Abfahrt' },
-        m3: { anchor: [7.96, 46.604], reihe: 0 },
+        m3: { anchor: [7.96, 46.604], order: 0 },
       },
-      titelbild: 'm3',
-      modi: [
-        { ab: '2026-07-04T08:12:31+02:00', mode: 'walk' },
-        { ab: '2026-07-04T09:12:31+02:00', mode: 'jeep' },
+      cover: 'm3',
+      travelModes: [
+        { from: '2026-07-04T08:12:31+02:00', mode: 'walk' },
+        { from: '2026-07-04T09:12:31+02:00', mode: 'jeep' },
       ],
-      kamera: [{ ab: '2026-07-04T08:40:00+02:00', preset: 'nah', skala: 0.8 }],
-      momente: [{ ab: '2026-07-04T09:12:31+02:00', art: 'aufstieg', dauerS: 4 }],
+      camera: [{ from: '2026-07-04T08:40:00+02:00', preset: 'near', scale: 0.8 }],
+      moments: [{ from: '2026-07-04T09:12:31+02:00', kind: 'ascend', durationS: 4 }],
       audio: [
         {
-          datei: 'mein-stueck.mp3',
-          typ: 'musik',
-          ab: '2026-07-04T08:12:31+02:00',
-          quelle: 'benutzer',
+          file: 'mein-stueck.mp3',
+          type: 'music',
+          from: '2026-07-04T08:12:31+02:00',
+          source: 'user',
         },
         {
-          datei: 'sfx-wind.mp3',
-          typ: 'sfx',
-          ab: '2026-07-04T09:12:31+02:00',
-          quelle: 'bibliothek',
+          file: 'sfx-wind.mp3',
+          type: 'sfx',
+          from: '2026-07-04T09:12:31+02:00',
+          source: 'library',
         },
       ],
-      wetter: [{ ab: '2026-07-04T08:12:31+02:00', mode: 'clouds' }],
+      weather: [{ from: '2026-07-04T08:12:31+02:00', mode: 'clouds' }],
     },
   ],
 ]

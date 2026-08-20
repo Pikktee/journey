@@ -16,7 +16,7 @@ export interface RoutenSignatur {
   /** SVG-`d` im Kasten 0..100 (beide Achsen), y bereits nach unten gedreht */
   d: string
   start: [number, number]
-  ende: [number, number]
+  end: [number, number]
 }
 
 /**
@@ -63,7 +63,7 @@ export function baueSignatur(
   return {
     d,
     start: ecken[0] as [number, number],
-    ende: ecken[ecken.length - 1] as [number, number],
+    end: ecken[ecken.length - 1] as [number, number],
   }
 }
 

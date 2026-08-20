@@ -273,7 +273,7 @@ describe('wetterAusOverlay (Studio-Wetter)', () => {
   const ab = (s: number): string => new Date(START + s * 1000).toISOString()
 
   it('eine Grenze schaltet EXAKT an ihrem f (Marken-Paar auf demselben f)', () => {
-    const kf = wetterAusOverlay([{ ab: ab(500), mode: 'rain' }], reihe, START)
+    const kf = wetterAusOverlay([{ from: ab(500), mode: 'rain' }], reihe, START)
     expect(kf).toEqual([
       { f: 0, mode: 'off', k: WETTER_STANDARD_K, source: 'studio' },
       { f: 0.5, mode: 'off', k: WETTER_STANDARD_K, source: 'studio' },
@@ -283,13 +283,13 @@ describe('wetterAusOverlay (Studio-Wetter)', () => {
   })
 
   it('übernimmt die Stärke der Grenze; der Grund bleibt klar mit Standardstärke', () => {
-    const kf = wetterAusOverlay([{ ab: ab(500), mode: 'rain', staerke: 0.5 }], reihe, START)
+    const kf = wetterAusOverlay([{ from: ab(500), mode: 'rain', intensity: 0.5 }], reihe, START)
     expect(kf.filter((k) => k.mode === 'rain').every((k) => k.k === 0.5)).toBe(true)
     expect(kf.filter((k) => k.mode === 'off').every((k) => k.k === WETTER_STANDARD_K)).toBe(true)
   })
 
   it('eine Grenze am/vor dem Track-Anfang ersetzt den klaren Grund', () => {
-    const kf = wetterAusOverlay([{ ab: ab(-100), mode: 'snow' }], reihe, START)
+    const kf = wetterAusOverlay([{ from: ab(-100), mode: 'snow' }], reihe, START)
     expect(kf).toEqual([
       { f: 0, mode: 'snow', k: WETTER_STANDARD_K, source: 'studio' },
       { f: 1, mode: 'snow', k: WETTER_STANDARD_K, source: 'studio' },
@@ -299,8 +299,8 @@ describe('wetterAusOverlay (Studio-Wetter)', () => {
   it('mehrere Grenzen ergeben lückenlose Bänder mit exakten Umschaltungen', () => {
     const kf = wetterAusOverlay(
       [
-        { ab: ab(300), mode: 'rain' },
-        { ab: ab(700), mode: 'snow' },
+        { from: ab(300), mode: 'rain' },
+        { from: ab(700), mode: 'snow' },
       ],
       reihe,
       START,
@@ -340,8 +340,8 @@ describe('wetterZuGrenzen (Auto-Wetter fürs Studio)', () => {
       START,
     )
     expect(grenzen).toEqual([
-      { ab: bei(0), mode: 'off', staerke: 0.7 },
-      { ab: bei(200), mode: 'rain', staerke: 0.6 },
+      { from: bei(0), mode: 'off', intensity: 0.7 },
+      { from: bei(200), mode: 'rain', intensity: 0.6 },
     ])
   })
 
@@ -355,7 +355,7 @@ describe('wetterZuGrenzen (Auto-Wetter fürs Studio)', () => {
       reihe,
       START,
     )
-    expect(grenzen).toEqual([{ ab: bei(0), mode: 'clouds', staerke: 0.5 }])
+    expect(grenzen).toEqual([{ from: bei(0), mode: 'clouds', intensity: 0.5 }])
   })
 
   it('eine reine Stärke-Änderung ist auch eine Grenze', () => {
@@ -367,15 +367,15 @@ describe('wetterZuGrenzen (Auto-Wetter fürs Studio)', () => {
       reihe,
       START,
     )
-    expect(grenzen.map((g) => g.staerke)).toEqual([0.4, 0.9])
+    expect(grenzen.map((g) => g.intensity)).toEqual([0.4, 0.9])
   })
 
   it('ist die Umkehrung von wetterAusOverlay (Rundlauf)', () => {
     // Was der Editor zeigt, muss beim Speichern dieselbe Tour ergeben.
     const original = [
-      { ab: bei(0), mode: 'clouds' as WetterModus, staerke: 0.6 },
-      { ab: bei(400), mode: 'rain' as WetterModus, staerke: 0.8 },
-      { ab: bei(700), mode: 'off' as WetterModus, staerke: 0.7 },
+      { from: bei(0), mode: 'clouds' as WetterModus, intensity: 0.6 },
+      { from: bei(400), mode: 'rain' as WetterModus, intensity: 0.8 },
+      { from: bei(700), mode: 'off' as WetterModus, intensity: 0.7 },
     ]
     const zurueck = wetterZuGrenzen(wetterAusOverlay(original, reihe, START), reihe, START)
     expect(zurueck).toEqual(original)

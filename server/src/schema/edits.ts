@@ -1,12 +1,12 @@
-// Edit-Overlay `maptale/edits@1` (auch `luhambo/edits@1` kompatibel): alle Bearbeitungen einer Tour leben in
+// Edit-Overlay `maptale/edits@2`: alle Bearbeitungen einer Tour leben in
 // EINER Datei (edits.json) neben den unantastbaren Rohdaten unter original/.
 // Die Pipeline rendert das Player-JSON stets aus Rohdaten + Overlay neu —
 // Wetter/Benennung lassen sich jederzeit neu ableiten, ohne Edits zu verlieren.
 
 import { WETTER_MODI, type WetterModus } from '../pipeline/weather.js'
-import { ISO_ZEIT_MAXLAENGE, ISO_ZEIT_PATTERN, MODI, type Modus } from './upload.js'
+import { ISO_ZEIT_MAXLAENGE, ISO_ZEIT_PATTERN, TRAVEL_MODES, type Modus } from './upload.js'
 
-export const EDITS_SCHEMA_ID = 'maptale/edits@1'
+export const EDITS_SCHEMA_ID = 'maptale/edits@2'
 
 // Erlaubter Audio-Dateiname (Basisname + Audio-Endung) — geteilt vom
 // Overlay-Schema, den Audio-Routen (PUT/DELETE) und dem Editor-Filter.
@@ -20,7 +20,7 @@ const AUDIO_DATEI_REGEX = new RegExp(AUDIO_DATEI_PATTERN)
  * Der Player kennt die Vorgabe sonst nicht und spielte mit 1.0 — der Film wäre
  * lauter als der Schnitt.
  */
-export const STUDIO_PEGEL = 0.8
+export const STUDIO_GAIN = 0.8
 
 /** true, wenn der Dateiname eine zulässige Audio-Datei unter media/ bezeichnet. */
 export function istAudioDatei(name: string): boolean {
@@ -40,10 +40,10 @@ export interface MediumEdit {
    * Käme je eine zweite Zeile dazu, hieße sie `untertitel`.
    */
   caption?: string
-  /** Manuell gesetzter Anker [lng,lat] → placement 'manuell' */
+  /** Manuell gesetzter Anker [lng,lat] → placement 'manual' */
   anchor?: [number, number]
   /** true = Medium aus der Wiedergabe nehmen (die Rohdatei bleibt liegen) */
-  geloescht?: boolean
+  removed?: boolean
   /** Anzeige-Optionen des Foto-Stopps: Standzeit (s) + Ken-Burns-Drift an/aus */
   display?: { holdS?: number; kenBurns?: boolean }
   /**
@@ -54,33 +54,33 @@ export interface MediumEdit {
    * Wirkt nur innerhalb eines Stopps; die Reihenfolge der Stopps untereinander
    * bleibt die Strecke (gruppiereStopps in src/geo.ts).
    */
-  reihe?: number
+  order?: number
   /**
    * Schnitt eines Videos in DATEI-Sekunden (nur `type: 'video'`).
    *
-   * Der Anschlag ist an beiden Kanten das MATERIAL: `vonS` ≥ 0, `bisS` ≤ Länge
+   * Der Anschlag ist an beiden Kanten das MATERIAL: `fromS` ≥ 0, `toS` ≤ Länge
    * der Datei — Trimmen legt frei, was da ist, und erfindet nichts. Fehlt
-   * `bisS`, läuft das Video bis zum Dateiende.
+   * `toS`, läuft das Video bis zum Dateiende.
    *
    * Rein additiv: ohne dieses Feld bleibt alles wie bisher (ganze Datei). Der
    * Schnitt wird in der Pipeline ANGEWANDT (video.ts erzeugt eine geschnittene
    * Auslieferungsdatei) — nicht im Player, der nur `durationS` sieht.
    */
-  trim?: { vonS: number; bisS?: number }
+  trim?: { fromS: number; toS?: number }
 }
 
-/** Kamera-Preset ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze (wie modi). */
+/** Kamera-Preset ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze (wie travelModes). */
 export interface KameraGrenze {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
-  ab: string
+  from: string
   /**
-   * `standard` ist ein Wert wie die anderen drei: „hier gilt, was der Zuschauer
+   * `default` ist ein Wert wie die anderen drei: „hier gilt, was der Zuschauer
    * im Player eingestellt hat". Additive Erweiterung des Enums — ältere
    * Overlays kennen ihn schlicht nicht, ihr Verhalten ändert sich nicht.
    */
-  preset: 'nah' | 'mittel' | 'weit' | 'standard'
+  preset: 'near' | 'mid' | 'far' | 'default'
   /** Stufenlose Feinjustierung Abstand+Höhe (0.5..2); fehlt/1 = Preset unverändert */
-  skala?: number
+  scale?: number
 }
 
 /**
@@ -104,28 +104,28 @@ export interface KameraGrenze {
  */
 export interface AudioEdit {
   /** Dateiname unter media/ (hochgeladen) bzw. unter public/audio/sfx/ (Bibliothek) */
-  datei: string
-  typ: 'musik' | 'sfx'
-  ab: string
-  /** Ende (nur bei typ musik erlaubt); fehlt = bis zum Tour-Ende */
-  bis?: string
+  file: string
+  type: 'music' | 'sfx'
+  from: string
+  /** Ende (nur bei type music erlaubt); fehlt = bis zum Tour-Ende */
+  to?: string
   /**
    * NEU: Anker in Aufnahmezeit (ISO) — die Stelle der REISE, an der der Klip
    * hängt. Vorrang vor `ab`; fehlt er, gilt `ab` wie bisher.
    */
-  anker?: string
+  anchor?: string
   /**
    * NEU: Feinlage relativ zum Anker in FILMsekunden (darf in einer Standzeit
    * liegen, negativ = davor). Ohne `anker` wirkungslos.
    */
-  versatzFilmS?: number
+  offsetFilmS?: number
   /**
    * NEU: Länge im Film in Sekunden. Vorrang vor `bis`. Auch für SFX erlaubt —
    * ein Effekt hat eine Länge (die seiner Datei), er ist nur bisher als Marke
    * ohne Ausdehnung gezeichnet worden. Fehlt beides, läuft Musik bis zum
    * Tour-Ende und ein Effekt bleibt der One-Shot, der er heute ist.
    */
-  dauerFilmS?: number
+  durationFilmS?: number
   /**
    * NEU: Einstieg in die DATEI in Sekunden (linker Trim). Default 0.
    *
@@ -133,7 +133,7 @@ export interface AudioEdit {
    * der Inhalt bleibt an seinem Platz im Film, vorne fällt etwas weg. Anschlag
    * ist der Dateianfang; auch mit `loop` gibt es davor nichts zu wiederholen.
    */
-  einstiegS?: number
+  startS?: number
   /**
    * NEU: Wiederholung über das Dateiende hinaus.
    *
@@ -145,16 +145,16 @@ export interface AudioEdit {
    */
   loop?: boolean
   /** 0..1; fehlt = {@link STUDIO_PEGEL} (die Reglerstellung, die der Editor zeigt) */
-  lautstaerke?: number
+  volume?: number
   /**
    * Herkunft. Fehlt = tour-lokal hochgeladen (Datei muss unter media/ liegen).
-   * 'bibliothek' = kuratierter, global ausgelieferter Effekt; die Datei wird
+   * 'library' = kuratierter, global ausgelieferter Effekt; die Datei wird
    * NICHT gegen media/ geprüft und über /audio/sfx/ statt /api/media/ geladen.
-   * 'benutzer' = eigener Upload in der benutzerweiten Audio-Bibliothek
+   * 'user' = eigener Upload in der benutzerweiten Audio-Bibliothek
    * (projektübergreifend, liegt unter <userId>/audio/ und wird über
-   * /api/tours/:id/bibliothek-audio/ im Sichtbarkeits-Kontext der Tour geladen).
+   * /api/tours/:id/library-audio/ im Sichtbarkeits-Kontext der Tour geladen).
    */
-  quelle?: 'bibliothek' | 'benutzer'
+  source?: 'library' | 'user'
 }
 
 /**
@@ -165,14 +165,14 @@ export interface AudioEdit {
  * `loop` verhält sich dadurch exakt wie vorher. Editor, Render, Player und
  * Studio-Abspieler fragen alle hier, sonst driftete der Default auseinander.
  */
-export function loopAktiv(spur: Pick<AudioEdit, 'typ' | 'loop'>): boolean {
-  return spur.loop ?? spur.typ === 'musik'
+export function loopAktiv(spur: Pick<AudioEdit, 'type' | 'loop'>): boolean {
+  return spur.loop ?? spur.type === 'music'
 }
 
 /** Fortbewegung ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
 export interface ModusGrenze {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
-  ab: string
+  from: string
   mode: Modus
 }
 
@@ -184,46 +184,46 @@ export interface ModusGrenze {
  */
 export interface WetterGrenze {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
-  ab: string
+  from: string
   mode: WetterModus
   /** Stärke k (0..1, stufenlos); fehlt = Standardstärke des Players */
-  staerke?: number
+  intensity?: number
 }
 
 /** Moment-Arten — muss mit der Engine (src/tour.ts) synchron bleiben. */
-export const MOMENT_ARTEN = ['umkreisen', 'aufstieg', 'innehalten'] as const
+export const MOMENT_ARTEN = ['orbit', 'ascend', 'linger'] as const
 export type MomentArt = (typeof MOMENT_ARTEN)[number]
 
 /** Kamera-Moment: Punkt-Ereignis, an dem die Fahrt anhält und die Kamera agiert. */
 export interface KameraMoment {
-  ab: string
-  art: MomentArt
+  from: string
+  kind: MomentArt
   /** Dauer in s (1..30); fehlt = Default der Art im Player. */
-  dauerS?: number
+  durationS?: number
 }
 
 export interface EditOverlay {
   schema: typeof EDITS_SCHEMA_ID
   /** Overrides je Medien-ID des Upload-Manifests */
-  medien?: Record<string, MediumEdit>
-  /** Modus-Grenzen, wirksam ab `ab` bis zur nächsten Grenze bzw. zum Tour-Ende */
-  modi?: ModusGrenze[]
-  /** Track auf [start, ende] beschneiden (absolute Zeitstempel, je optional) */
-  trim?: { start?: string; ende?: string }
-  /** Kamera-Presets, wirksam ab `ab` bis zur nächsten Grenze (Punktfunktion wie modi) */
-  kamera?: KameraGrenze[]
+  media?: Record<string, MediumEdit>
+  /** Modus-Grenzen, wirksam ab `from` bis zur nächsten Grenze bzw. zum Tour-Ende */
+  travelModes?: ModusGrenze[]
+  /** Track auf [start, end] beschneiden (absolute Zeitstempel, je optional) */
+  trim?: { start?: string; end?: string }
+  /** Kamera-Presets, wirksam ab `from` bis zur nächsten Grenze (Punktfunktion wie travelModes) */
+  camera?: KameraGrenze[]
   /** Kamera-Momente: Punkt-Ereignisse (Umkreisen/Aufstieg/Innehalten) */
-  momente?: KameraMoment[]
+  moments?: KameraMoment[]
   /** Audio-Spuren/Effekte — f-Bereiche entstehen erst beim Rendern */
   audio?: AudioEdit[]
   /** Wetter-Grenzen — ersetzen (sobald gesetzt) das Auto-Wetter vollständig */
-  wetter?: WetterGrenze[]
+  weather?: WetterGrenze[]
   /**
    * Medien-ID des Bildes, das die Tour in Listen und Galerie vertritt. Fehlt
    * es (oder zeigt es auf ein gelöschtes/unbekanntes Medium), wählt der Render
    * das erste platzierte Foto.
    */
-  titelbild?: string
+  cover?: string
 }
 
 // Gleiche (voll verankerte) ISO-Prüfung wie im Upload-Schema — die Semantik
@@ -236,10 +236,10 @@ export const editsJsonSchema = {
   required: ['schema'],
   properties: {
     schema: { const: EDITS_SCHEMA_ID },
-    // Medien-ID wie in `medien` — auf Existenz wird bewusst nicht geprüft, der
+    // Medien-ID wie in `media` — auf Existenz wird bewusst nicht geprüft, der
     // Render fällt bei einer unbekannten ID auf das erste Foto zurück.
-    titelbild: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' },
-    medien: {
+    cover: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' },
+    media: {
       type: 'object',
       maxProperties: 500,
       // Schlüssel = Medien-IDs (gleiche Form wie im Upload-Schema)
@@ -250,7 +250,7 @@ export const editsJsonSchema = {
         properties: {
           caption: { type: 'string', maxLength: 1000 },
           anchor: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } },
-          geloescht: { type: 'boolean' },
+          removed: { type: 'boolean' },
           display: {
             type: 'object',
             additionalProperties: false,
@@ -259,32 +259,32 @@ export const editsJsonSchema = {
               kenBurns: { type: 'boolean' },
             },
           },
-          reihe: { type: 'integer', minimum: 0, maximum: 499 },
+          order: { type: 'integer', minimum: 0, maximum: 499 },
           // Video-Schnitt in Dateisekunden. Keine Obergrenze im Schema — der
           // Anschlag ist die Länge DIESER Datei, die nur die Pipeline kennt
           // (video.ts klemmt darauf).
           trim: {
             type: 'object',
             additionalProperties: false,
-            required: ['vonS'],
+            required: ['fromS'],
             properties: {
-              vonS: { type: 'number', minimum: 0 },
-              bisS: { type: 'number', minimum: 0 },
+              fromS: { type: 'number', minimum: 0 },
+              toS: { type: 'number', minimum: 0 },
             },
           },
         },
       },
     },
-    modi: {
+    travelModes: {
       type: 'array',
       maxItems: 200,
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['ab', 'mode'],
+        required: ['from', 'mode'],
         properties: {
-          ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          mode: { enum: [...MODI] },
+          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          mode: { enum: [...TRAVEL_MODES] },
         },
       },
     },
@@ -293,34 +293,34 @@ export const editsJsonSchema = {
       additionalProperties: false,
       properties: {
         start: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-        ende: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+        end: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
       },
     },
-    kamera: {
+    camera: {
       type: 'array',
       maxItems: 100,
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['ab', 'preset'],
+        required: ['from', 'preset'],
         properties: {
-          ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          preset: { enum: ['nah', 'mittel', 'weit', 'standard'] },
-          skala: { type: 'number', minimum: 0.5, maximum: 2 },
+          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          preset: { enum: ['near', 'mid', 'far', 'default'] },
+          scale: { type: 'number', minimum: 0.5, maximum: 2 },
         },
       },
     },
-    momente: {
+    moments: {
       type: 'array',
       maxItems: 100,
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['ab', 'art'],
+        required: ['from', 'kind'],
         properties: {
-          ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          art: { enum: [...MOMENT_ARTEN] },
-          dauerS: { type: 'number', minimum: 1, maximum: 30 },
+          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          kind: { enum: [...MOMENT_ARTEN] },
+          durationS: { type: 'number', minimum: 1, maximum: 30 },
         },
       },
     },
@@ -330,35 +330,35 @@ export const editsJsonSchema = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['datei', 'typ', 'ab'],
+        required: ['file', 'type', 'from'],
         properties: {
-          datei: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
-          typ: { enum: ['musik', 'sfx'] },
-          ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          bis: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          lautstaerke: { type: 'number', minimum: 0, maximum: 1 },
-          quelle: { enum: ['bibliothek', 'benutzer'] },
-          anker: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          file: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
+          type: { enum: ['music', 'sfx'] },
+          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          to: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          volume: { type: 'number', minimum: 0, maximum: 1 },
+          source: { enum: ['library', 'user'] },
+          anchor: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           // Versatz darf negativ sein (Klip liegt VOR seinem Anker); die
           // Schranken sind großzügig — geklemmt wird beim Rendern an der Achse.
-          versatzFilmS: { type: 'number', minimum: -86400, maximum: 86400 },
-          dauerFilmS: { type: 'number', exclusiveMinimum: 0, maximum: 86400 },
-          einstiegS: { type: 'number', minimum: 0, maximum: 86400 },
+          offsetFilmS: { type: 'number', minimum: -86400, maximum: 86400 },
+          durationFilmS: { type: 'number', exclusiveMinimum: 0, maximum: 86400 },
+          startS: { type: 'number', minimum: 0, maximum: 86400 },
           loop: { type: 'boolean' },
         },
       },
     },
-    wetter: {
+    weather: {
       type: 'array',
       maxItems: 200,
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['ab', 'mode'],
+        required: ['from', 'mode'],
         properties: {
-          ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           mode: { enum: [...WETTER_MODI] },
-          staerke: { type: 'number', minimum: 0, maximum: 1 },
+          intensity: { type: 'number', minimum: 0, maximum: 1 },
         },
       },
     },
@@ -371,96 +371,96 @@ export const editsJsonSchema = {
  * Liefert die Fehlermeldung oder null.
  */
 export function pruefeEditsSemantik(edits: EditOverlay): string | null {
-  for (const grenze of edits.modi ?? []) {
-    if (!Number.isFinite(Date.parse(grenze.ab))) return `Unparsebare Modus-Grenze: ${grenze.ab}`
+  for (const grenze of edits.travelModes ?? []) {
+    if (!Number.isFinite(Date.parse(grenze.from))) return `Unparsebare Modus-Grenze: ${grenze.from}`
   }
   // JSON.parse('1e999') liefert Infinity — Ajv-Typ "number" lässt das durch,
   // ein unendlicher Anker würde erst im Player als NaN explodieren. Deshalb
   // hier Number.isFinite auf ALLEN Zahlfeldern (auch holdS/lautstaerke).
-  for (const [id, medium] of Object.entries(edits.medien ?? {})) {
+  for (const [id, medium] of Object.entries(edits.media ?? {})) {
     if (medium.anchor && !medium.anchor.every(Number.isFinite))
       return `Ungültiger Anker für Medium ${id}`
     if (medium.display?.holdS !== undefined && !Number.isFinite(medium.display.holdS)) {
       return `Ungültige Standzeit für Medium ${id}`
     }
-    if (medium.reihe !== undefined && !Number.isInteger(medium.reihe)) {
+    if (medium.order !== undefined && !Number.isInteger(medium.order)) {
       return `Ungültiger Platz im Stopp für Medium ${id}`
     }
     if (medium.trim) {
-      const { vonS, bisS } = medium.trim
-      if (!(Number.isFinite(vonS) && vonS >= 0)) return `Ungültiger Video-Schnitt für Medium ${id}`
-      if (bisS !== undefined) {
-        if (!Number.isFinite(bisS)) return `Ungültiger Video-Schnitt für Medium ${id}`
+      const { fromS, toS } = medium.trim
+      if (!(Number.isFinite(fromS) && fromS >= 0)) return `Ungültiger Video-Schnitt für Medium ${id}`
+      if (toS !== undefined) {
+        if (!Number.isFinite(toS)) return `Ungültiger Video-Schnitt für Medium ${id}`
         // Ein Schnitt ohne Inhalt ist keine Geschmacksfrage: er ließe ein
         // Medium zurück, das im Film null Sekunden dauert.
-        if (bisS <= vonS) return `Video-Schnittende muss hinter dem Anfang liegen (${id})`
+        if (toS <= fromS) return `Video-Schnittende muss hinter dem Anfang liegen (${id})`
       }
     }
   }
-  for (const grenze of edits.kamera ?? []) {
-    if (!Number.isFinite(Date.parse(grenze.ab))) return `Unparsebare Kamera-Grenze: ${grenze.ab}`
-    if (grenze.skala !== undefined && !Number.isFinite(grenze.skala))
-      return `Ungültige Kamera-Feinjustierung: ${grenze.ab}`
+  for (const grenze of edits.camera ?? []) {
+    if (!Number.isFinite(Date.parse(grenze.from))) return `Unparsebare Kamera-Grenze: ${grenze.from}`
+    if (grenze.scale !== undefined && !Number.isFinite(grenze.scale))
+      return `Ungültige Kamera-Feinjustierung: ${grenze.from}`
   }
-  for (const moment of edits.momente ?? []) {
-    if (!Number.isFinite(Date.parse(moment.ab))) return `Unparsebarer Kamera-Moment: ${moment.ab}`
-    if (moment.dauerS !== undefined && !Number.isFinite(moment.dauerS))
-      return `Ungültige Moment-Dauer: ${moment.ab}`
+  for (const moment of edits.moments ?? []) {
+    if (!Number.isFinite(Date.parse(moment.from))) return `Unparsebarer Kamera-Moment: ${moment.from}`
+    if (moment.durationS !== undefined && !Number.isFinite(moment.durationS))
+      return `Ungültige Moment-Dauer: ${moment.from}`
   }
   for (const spur of edits.audio ?? []) {
-    if (!Number.isFinite(Date.parse(spur.ab))) return `Unparsebarer Audio-Start: ${spur.ab}`
-    if (spur.bis !== undefined) {
+    if (!Number.isFinite(Date.parse(spur.from))) return `Unparsebarer Audio-Start: ${spur.from}`
+    if (spur.to !== undefined) {
       // Ein SFX ist ein One-Shot ohne Ausdehnung — ein „bis" wäre stille Absicht,
       // die nie wirkt: lieber laut ablehnen als still ignorieren.
-      if (spur.typ !== 'musik') return `„bis" ist nur bei Musik erlaubt (${spur.datei})`
-      if (!Number.isFinite(Date.parse(spur.bis))) return `Unparsebares Audio-Ende: ${spur.bis}`
-      if (Date.parse(spur.bis) <= Date.parse(spur.ab)) {
-        return `Audio-Ende muss nach dem Audio-Start liegen (${spur.datei})`
+      if (spur.type !== 'music') return `„to" ist nur bei Musik erlaubt (${spur.file})`
+      if (!Number.isFinite(Date.parse(spur.to))) return `Unparsebares Audio-Ende: ${spur.to}`
+      if (Date.parse(spur.to) <= Date.parse(spur.from)) {
+        return `Audio-Ende muss nach dem Audio-Start liegen (${spur.file})`
       }
     }
     if (
-      spur.lautstaerke !== undefined &&
-      !(Number.isFinite(spur.lautstaerke) && spur.lautstaerke >= 0 && spur.lautstaerke <= 1)
+      spur.volume !== undefined &&
+      !(Number.isFinite(spur.volume) && spur.volume >= 0 && spur.volume <= 1)
     ) {
-      return `Ungültige Lautstärke (${spur.datei})`
+      return `Ungültige Lautstärke (${spur.file})`
     }
     // Die neue (Film-)Verankerung. `anker` ist die Stelle der Reise, alles
     // andere hängt an ihr — deshalb wird jedes Feld einzeln auf Endlichkeit
     // geprüft (JSON.parse('1e999') ist Infinity und käme durch Ajv „number").
-    if (spur.anker !== undefined && !Number.isFinite(Date.parse(spur.anker))) {
-      return `Unparsebarer Audio-Anker: ${spur.anker}`
+    if (spur.anchor !== undefined && !Number.isFinite(Date.parse(spur.anchor))) {
+      return `Unparsebarer Audio-Anker: ${spur.anchor}`
     }
-    if (spur.versatzFilmS !== undefined && !Number.isFinite(spur.versatzFilmS)) {
-      return `Ungültiger Audio-Versatz (${spur.datei})`
+    if (spur.offsetFilmS !== undefined && !Number.isFinite(spur.offsetFilmS)) {
+      return `Ungültiger Audio-Versatz (${spur.file})`
     }
     if (
-      spur.dauerFilmS !== undefined &&
-      !(Number.isFinite(spur.dauerFilmS) && spur.dauerFilmS > 0)
+      spur.durationFilmS !== undefined &&
+      !(Number.isFinite(spur.durationFilmS) && spur.durationFilmS > 0)
     ) {
-      return `Ungültige Audio-Länge (${spur.datei})`
+      return `Ungültige Audio-Länge (${spur.file})`
     }
     // Der linke Trim hat den Dateianfang als Anschlag — auch mit Loop, denn vor
     // dem Anfang gibt es nichts zu wiederholen. Die Obergrenze (Dateilänge)
     // kennt nur der Editor; hier steht die Hälfte, die immer gilt.
-    if (spur.einstiegS !== undefined && !(Number.isFinite(spur.einstiegS) && spur.einstiegS >= 0)) {
-      return `Ungültiger Datei-Einstieg (${spur.datei})`
+    if (spur.startS !== undefined && !(Number.isFinite(spur.startS) && spur.startS >= 0)) {
+      return `Ungültiger Datei-Einstieg (${spur.file})`
     }
   }
-  for (const grenze of edits.wetter ?? []) {
-    if (!Number.isFinite(Date.parse(grenze.ab))) return `Unparsebare Wetter-Grenze: ${grenze.ab}`
+  for (const grenze of edits.weather ?? []) {
+    if (!Number.isFinite(Date.parse(grenze.from))) return `Unparsebare Wetter-Grenze: ${grenze.from}`
     if (
-      grenze.staerke !== undefined &&
-      !(Number.isFinite(grenze.staerke) && grenze.staerke >= 0 && grenze.staerke <= 1)
+      grenze.intensity !== undefined &&
+      !(Number.isFinite(grenze.intensity) && grenze.intensity >= 0 && grenze.intensity <= 1)
     ) {
-      return `Ungültige Wetter-Stärke: ${grenze.ab}`
+      return `Ungültige Wetter-Stärke: ${grenze.from}`
     }
   }
-  const { start, ende } = edits.trim ?? {}
+  const { start, end } = edits.trim ?? {}
   if (start !== undefined && !Number.isFinite(Date.parse(start)))
     return `Unparsebarer Trim-Start: ${start}`
-  if (ende !== undefined && !Number.isFinite(Date.parse(ende)))
-    return `Unparsebares Trim-Ende: ${ende}`
-  if (start !== undefined && ende !== undefined && Date.parse(start) >= Date.parse(ende)) {
+  if (end !== undefined && !Number.isFinite(Date.parse(end)))
+    return `Unparsebares Trim-Ende: ${end}`
+  if (start !== undefined && end !== undefined && Date.parse(start) >= Date.parse(end)) {
     return 'Trim-Start muss vor dem Trim-Ende liegen'
   }
   return null
