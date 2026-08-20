@@ -77,8 +77,11 @@ das Konzept und die [Abbildungstabelle](abbildungstabelle.tsv).
 
 ## Was offen ist
 
-1. **Der Blick auf die Seiten.** Die Touren sind gegen den Leser des Players
-   geprüft, nicht im laufenden Player angesehen — dafür bräuchte es eine zweite
+1. ~~**Der Blick auf die Seiten.**~~ **Erledigt am 2026-08-20** (s. eigener
+   Abschnitt): Studio, Konto, Verwaltung samt Reitern, Galerie und der Player
+   auf einer migrierten Tour im Browser abgenommen; vier Sorten Nachzügler
+   gefunden und behoben. Ursprünglicher Text: Die Touren sind gegen den Leser
+   des Players geprüft, nicht im laufenden Player angesehen — dafür bräuchte es eine zweite
    Instanz auf der Kopie, und Dev-Server gehören auf diesem Rechner devhub. Der
    Weg dorthin wäre ein eigenes Profil:
    `devhub adopt journey --profil smoke --slot NN` mit
@@ -109,6 +112,37 @@ heilt sich nicht selbst (das Nachrendern schon, aber nur für Touren, die die DB
 noch kennt). Für Prod ist das unkritisch (dort läuft einmal fertiger Code),
 aber ein Kandidat für einen billigen Wächter in einer späteren Welle:
 `.schema` = 2 und trotzdem eine `anreicherung.json` gefunden = laute Warnung.
+
+## Der Smoke, und was er gefunden hat (2026-08-20)
+
+Der Blick auf die laufenden Seiten war der letzte offene §8-Punkt, und er hat
+**vier Sorten Nachzügler** gefunden, die alle Gates passiert hatten:
+
+1. **`src/admin/api.ts` zeigte vollständig auf die alten Adressen** — die
+   Verwaltung war tot. Der Abgleich, den `api.md` für die anderen Clients
+   geleistet hat, erfasste diese Datei nicht.
+2. **Das Sitzungsfeld heißt `user`, gelesen wurde `benutzer`** (admin/api.ts,
+   admin.ts, konto/konto.ts, app-nav.ts). Wirkung: angemeldet sein und
+   trotzdem „nicht angemeldet" lesen.
+3. **Statuswerte im Studio** standen noch auf `bereit`/`fehler`/`verarbeitung`
+   und `tour@1`. Wirkung: jede Tour galt als „arbeitet noch", die Liste fasste
+   alle drei Sekunden ewig nach.
+4. **Zwei DOM-IDs waren versehentlich mitgezogen** (`library`,
+   `editor-media-hinweis`). Die Tabelle führt sie als **Welle 4**; das HTML
+   blieb deutsch, der Selektor lief ins Leere und riss die Seite ab, bevor
+   die Liste überhaupt geladen wurde. Verführt hat der gleichlautende
+   API-Wert `bibliothek` → `library`, der tatsächlich Welle 1 ist: **derselbe
+   Ist-Name, zwei Arten, zwei Wellen** — genau der Fall, für den die Tabelle
+   die Fundort-Spalte hat.
+
+Dazu eine UI-Regression: Die Reiterzähler der Verwaltung zeigten „0 open"
+statt „0 offen" (§2.5 — UI-Strings wandern nicht mit).
+
+**Die Lehre für die Wellen 2 bis 8:** Zwei billige Wächter hätten drei der vier
+Sorten gefunden, und beide sind ein Skript, kein Lesedurchgang — alle
+Client-Pfade gegen die registrierten Fastify-Routen, und alle `$('…')`-Selektoren
+gegen die IDs der zugehörigen HTML-Datei. Der zweite ist vor Welle 4 und 6
+Pflicht, denn dort wandern die DOM-IDs wirklich.
 
 ## Nahtliste §3.3, Zeile für Zeile
 
