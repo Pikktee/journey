@@ -98,7 +98,7 @@ async function api(server, pfad, init = {}) {
     body = text
   }
   if (!res.ok) {
-    const msg = body?.fehler || body?.message || text || res.statusText
+    const msg = body?.error || body?.message || text || res.statusText
     throw new Error(`${init.method || 'GET'} ${pfad} → ${res.status}: ${msg}`)
   }
   return body
@@ -109,8 +109,8 @@ async function warteBereit(server, auth, id) {
   for (;;) {
     await new Promise((r) => setTimeout(r, 800))
     const tour = await api(server, `/api/tours/${id}`, { headers: auth })
-    if (tour.status === 'fehler') throw new Error(tour.fehler || 'Verarbeitung fehlgeschlagen')
-    if (tour.schema === 'maptale/tour@1' || tour.status === 'bereit') {
+    if (tour.status === 'failed') throw new Error(tour.error || 'Verarbeitung fehlgeschlagen')
+    if (tour.schema === 'maptale/tour@2' || tour.status === 'ready') {
       process.stdout.write(' fertig\n')
       return tour
     }
@@ -123,10 +123,10 @@ const args = parseArgs(process.argv.slice(2))
 const login = await api(args.server, '/api/auth/login', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ email: args.email, passwort: args.passwort, tokenLabel: 'Demo-Seed' }),
+  body: JSON.stringify({ email: args.email, password: args.passwort, tokenLabel: 'Demo-Seed' }),
 })
 const auth = { authorization: `Bearer ${login.apiToken}` }
-console.log(`Angemeldet als ${login.benutzer.email}`)
+console.log(`Angemeldet als ${login.user.email}`)
 
 for (const demoId of DEMOids) {
   const cfg = TOURS[demoId]
@@ -162,7 +162,7 @@ for (const demoId of DEMOids) {
   }
 
   const manifest = {
-    schema: 'maptale/upload@1',
+    schema: 'maptale/upload@2',
     clientTourId: `demo:${demoId}`,
     title: cfg.brandTitle,
     description: cfg.kicker ? `${cfg.kicker} ${cfg.brandTitle}.` : null,
@@ -181,7 +181,7 @@ for (const demoId of DEMOids) {
 
   if (angelegt.wiederverwendet) {
     const tour = await api(args.server, `/api/tours/${id}`, { headers: auth })
-    if (tour.schema === 'maptale/tour@1' || tour.status === 'bereit') {
+    if (tour.schema === 'maptale/tour@2' || tour.status === 'ready') {
       console.log(`  bereits bereit (${id}) — übersprungen`)
       if (args.public && tour.visibility !== 'public') {
         await api(args.server, `/api/tours/${id}`, {

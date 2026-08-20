@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // CLI-Importer: GPX-Track (mit Zeitstempeln) + optionaler Fotoordner →
-// Upload-Manifest (maptale/upload@1, trackFile) → Backend-Upload → Finalize.
+// Upload-Manifest (maptale/upload@2, trackFile) → Backend-Upload → Finalize.
 // Ab M6 ein DÜNNER Wrapper um dieselbe API wie das Web-Studio: Der Server parst
 // das GPX (pipeline/gpx.ts) und verortet die Fotos (pipeline/placement.ts) —
 // das CLI liefert nur die Datei, die Zeitspanne und pro Foto EXIF-Zeit/-GPS.
@@ -173,7 +173,7 @@ if (fotoOrdner) {
 }
 
 const manifest = {
-  schema: 'maptale/upload@1',
+  schema: 'maptale/upload@2',
   clientTourId: `gpx:${basename(gpxPfad)}:${startMs}`,
   title: args.title ?? null,
   description: null,
@@ -191,7 +191,7 @@ const manifest = {
 const login = await api(args.server, '/api/auth/login', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ email, passwort, tokenLabel: 'CLI-Importer' }),
+  body: JSON.stringify({ email, password: passwort, tokenLabel: 'CLI-Importer' }),
 })
 const auth = { authorization: `Bearer ${login.apiToken}` }
 
@@ -202,7 +202,7 @@ const { id, wiederverwendet } = await api(args.server, '/api/tours', {
 })
 if (wiederverwendet) {
   const tour = await api(args.server, `/api/tours/${id}`)
-  if (tour.schema === 'maptale/tour@1') {
+  if (tour.schema === 'maptale/tour@2') {
     console.log(`Tour ${id} existiert bereits („${tour.brandTitle}").`)
     console.log(`Abspielen: http://localhost:5173/tour/${id}`)
     process.exit(0)
@@ -236,11 +236,11 @@ process.stdout.write('Verarbeitung')
 for (;;) {
   await new Promise((r) => setTimeout(r, 700))
   const tour = await api(args.server, `/api/tours/${id}`)
-  if (tour.status === 'fehler') {
-    console.error(`\nVerarbeitung fehlgeschlagen: ${tour.fehler}`)
+  if (tour.status === 'failed') {
+    console.error(`\nVerarbeitung fehlgeschlagen: ${tour.error}`)
     exit(1)
   }
-  if (tour.schema === 'maptale/tour@1') {
+  if (tour.schema === 'maptale/tour@2') {
     console.log(
       `\nFertig: „${tour.brandTitle}" — ${tour.stats.km} km, ${tour.stats.gainM} hm, ${tour.media.length} Medien`,
     )

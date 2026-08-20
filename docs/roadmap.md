@@ -57,6 +57,7 @@ Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
 * [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Welle 1 gebaut (2026-08-20): Verträge auf `@2`, alle Leser in Web und App, Start-Migration mit Nachrendern, Specs nachgezogen; alle Gates grün und der Lauf gegen eine Kopie der Prod-Daten durchgeführt ([Stand und Übergabe](specs/welle-1-stand.md)). Der Deploy-Tag steht aus - er ist EIN Tag, und davor gehört der Smoke über die Web-Seiten. Bis dahin keine neuen Einladungen. Danach Welle 2; ganz am Ende Schritt 9: die Env-Variablen als eigener Ops-Schritt.
+* [Konto löschen absichern](concepts/konzept_kontoloeschung_absichern.md) - Passwortpflicht für DELETE /api/auth/me; heute reicht eine offene Sitzung, um Konto, Touren und Medien zu löschen.
 * [Play Store](concepts/konzept_play_store_interner_test.md) - Die App aus dem APK-Versand herausholen. [wartet auf: concepts/konzept_codebase_english_refactoring.md]
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
 * [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]
