@@ -1460,6 +1460,60 @@ das Gerät auf der neuen App lassen und den nächsten Anlauf abwarten.
    (§2.3). Die Start-Migration ist die eine erlaubte Stelle, die alte Schlüssel
    kennt, und sie kennt sie nur beim Start.
 
+### 9.1 Wie umbenannt wird
+
+Aus den Wellen 1 bis 3, jede Zeile ein bezahlter Fehler:
+
+- **Token-basiert, nie per Textersetzung.** Ein Skript über den
+  TypeScript-Language-Service (`findRenameLocations`) fasst nur Bezeichner an.
+  Deutsche Kommentare, Produkttexte und die alten JSON-Schlüssel in
+  `migrations/keys-v2.ts` sind DATEN; ein Lauf über Wortstämme nimmt sie mit.
+- **Zielformen vor dem Bauen gegen den BESTAND greppen.** Das Prüfskript
+  vergleicht Zielformen nur gegeneinander, nicht gegen Namen, die schon englisch
+  sind. So lief `TrackerAnbieter → TrackerProvider` auf ein bestehendes
+  Interface (Welle 2), und `Achse`/`Filmachse` zielten beide auf `FilmAxis`
+  (Welle 3). Zwei Dinge dürfen nie denselben Zielnamen bekommen.
+- **Shorthand-Eigenschaften sind SCHLÜSSEL.** `{ ab }` → `{ from }` benennt
+  nicht nur eine Variable um: Wo das Objekt als `dataset`, `setAttribute`,
+  `JSON.stringify` oder Query weitergereicht wird, heißt danach das FELD anders.
+  Genau so lagen die Bandkanten des Editors einen Tag lang auf Produktion still,
+  ohne dass ein Test rot wurde.
+- **Kommentare bleiben deutsch, ihre Symbol-VERWEISE nicht.** `s.
+  AuthDienst.hebeAdmins` zeigt nach der Umbenennung ins Leere; nach Welle 2
+  waren es 56 solche Stellen. Gezogen wird der Verweis (erkennbar an Backtick,
+  Punkt-Notation, „s. "), nie die Prosa: „von Einladung zu Einladung" in einer
+  Mail-Vorlage bleibt.
+- **Die Tabelle schlägt das Konzept**, wenn beide sich widersprechen: Sie kennt
+  den Fundort. So blieb `stopps.ts` korrekt bei Welle 5, obwohl §5 es zu Welle 3
+  zählt.
+- **Text-Wächter werden rot, und das ist die gute Nachricht.** Angepasst wird
+  der Wächter, nicht der Code. Doku-Links und `betrifft:`-Listen wandern
+  mechanisch mit; Zwillinge aussparen, die in einer anderen Welle liegen.
+
+### 9.2 Was kein Test sieht
+
+Fünf Sorten, alle in Welle 1 gleichzeitig gerissen, während 957 Tests grün
+waren. Drei davon bewacht seither
+[test/client-vertrag.test.ts](../../test/client-vertrag.test.ts):
+
+| Sorte | Wirkung | Wächter |
+|---|---|---|
+| Client-Pfad zeigt auf eine Route, die es nicht mehr gibt | ganze Oberfläche tot | ja (1) |
+| `$('…')` findet sein Element nicht | Modul stirbt beim Start | ja (2) |
+| `value=`/`data-*` trägt einen alten Vertragswert | 400 bei jeder Eingabe | ja (3) |
+| Request-Body sendet deutsche Schlüssel | „Ungültige Anfrage" | nein |
+| Antwortfeld heißt anders, als der handgetippte Typ sagt | leere Felder, falsche Rückfalltexte | **nein** |
+
+Die letzte ist die teuerste: **Ein Typ und sein Test können gemeinsam falsch
+sein.** `GalerieTour.titel` gegen `title` des Servers stand so im Interface UND
+im Fixture; sichtbar wurde es erst auf Produktion als „Namenlose Reise". Dagegen
+hilft nur, die Seite nach jeder Welle wirklich zu benutzen — und zwar die
+angemeldeten Seiten über ein echtes Browserprofil, nicht über eine Pane, die
+MapLibre nicht fertig lädt.
+
+**`GEBAUTE_WELLEN` im Wächter ist Handarbeit** und gehört in denselben Commit
+wie `status` und `stand`.
+
 ---
 
 ## 10. Entscheidungstor

@@ -63,6 +63,6 @@ ungefährlich zu prüfen. Der Preis war der Verlust der lokalen Dev-Daten
 Eintrag.
 
 Die Lehre für künftige Prüfungen steht in
-[welle-1-stand.md](../specs/welle-1-stand.md): Eine löschende Route wird nicht
+[welle-1-stand.md](../archive/welle-1-stand.md): Eine löschende Route wird nicht
 „zur Probe" aufgerufen. Was sie verlangt, liest man im Schema, bevor man sie
 anfasst.

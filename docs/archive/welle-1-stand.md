@@ -1,17 +1,23 @@
 ---
 stand: 2026-08-20
-status: Welle 1 in Arbeit — Verträge, Clients, Start-Migration und Specs stehen; offen ist die Abnahme nach §8
+status: abgearbeitet — Wellen 1 bis 3 sind gebaut, ausgeliefert und abgenommen; die dauerhaften Lehren stehen in §9.1 und §9.2 des Konzepts
 betrifft:
   - server/src/db.ts
   - server/src/routes/
   - docs/concepts/konzept_codebase_english_refactoring.md
   - docs/specs/abbildungstabelle.tsv
-systemteile:
-  - server
+systemteile: [server]
 icon: buchstaben
+archiviert_aus: specs
 ---
 
 # Welle 1: Stand und Übergabe
+
+> **Archiviert am 2026-08-20.** Dieser Arbeitszettel hat die Wellen 1 bis 3
+> begleitet und ist mit ihrer Abnahme erledigt. Was daraus dauerhaft gilt, steht
+> im Konzept: [§9.1 Wie umbenannt wird](../concepts/konzept_codebase_english_refactoring.md)
+> und §9.2 „Was kein Test sieht". Hier bleibt der Verlauf stehen, weil die
+> Messwerte und die Nahtliste sonst verloren gingen.
 
 Arbeitsstand der Englisch-Migration, Welle 1
 ([Konzept](../concepts/konzept_codebase_english_refactoring.md)). Diese Datei ist
