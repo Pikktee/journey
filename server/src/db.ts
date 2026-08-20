@@ -559,6 +559,320 @@ const MIGRATIONEN: Migration[] = [
   `
   ALTER TABLE tours ADD COLUMN dachzeile TEXT;
   `,
+  // Welle 1 der Englisch-Migration: Tabellen, Spalten, Werte und die
+  // JSON-Blobs gehen auf Englisch
+  // ([konzept_codebase_english_refactoring.md](../../docs/concepts/konzept_codebase_english_refactoring.md)
+  // §4.2). Der Schritt ist der teuerste der Leiter und der einzige, der Daten
+  // BEWEGT statt nur Namen zu tauschen.
+  //
+  // **Drei Sorten Arbeit, und nur die erste ist ein reines `RENAME`.**
+  // Tabellen- und Spaltennamen tauscht SQLite in Ort und Stelle, samt der
+  // Verweise in Indizes und `CHECK`-Ausdrücken. Die WERTE einer
+  // `CHECK`-Wertemenge kann es nicht ändern: Dort steht der alte Wortlaut im
+  // Constraint, also wird die Tabelle nach dem SQLite-Rezept neu gebaut (neue
+  // Tabelle, `INSERT … SELECT` mit `CASE`, alte löschen, umbenennen, Indizes
+  // neu). Und die JSON-Blobs in Spalten (`tours.stats_json`,
+  // `rueckmeldungen.kontext`) tragen ihre Schlüssel im Text — die gehen per
+  // `UPDATE` mit.
+  //
+  // **`foreign_keys` muss für diesen Schritt AUS sein**, und das ist keine
+  // Bequemlichkeit: Mit eingeschalteten Fremdschlüsseln führt `DROP TABLE
+  // users` ein implizites `DELETE FROM` aus, und jede `ON DELETE CASCADE` der
+  // Kindtabellen räumt dabei die halbe Datenbank ab. Das Pragma wirkt nicht
+  // innerhalb einer Transaktion, deshalb schaltet `migriere` es aussen um und
+  // prüft danach `foreign_key_check` (s. dort).
+  //
+  // **Zwei Tabellen tragen deutsche Schlüssel als ZEILEN**, ohne `CHECK`:
+  // `settings.key` hält die Betriebs-Schalter, `mail_templates.key` die im
+  // Admin angepassten Vorlagen. Ohne das `UPDATE` fällt der neue Code STILL
+  // zurück — die angepasste Vorlage wird unter `verification` nicht gefunden
+  // und der Code-Standard verschickt, `invitation_required` gilt wieder als
+  // ungesetzt.
+  //
+  // **Und die Platzhalter im gespeicherten Vorlagentext gehen mit.** Sie sind
+  // die eine Stelle, an der diese Migration Produkttext anfasst: `{{frist}}`,
+  // `{{groesse}}` und `{{austragenLink}}` stehen wörtlich in den Zeilen, die
+  // jemand im Admin bearbeitet hat. Nur im Code umbenannt, renderte jede
+  // angepasste Vorlage künftig `{{frist}}` als Klartext in die Mail.
+  `
+  -- 1. Tabellen, die nur ihren Namen wechseln
+  ALTER TABLE einladungen RENAME TO invitations;
+  ALTER TABLE einstellungen RENAME TO settings;
+  ALTER TABLE handles_reserviert RENAME TO reserved_handles;
+  ALTER TABLE mailvorlagen RENAME TO mail_templates;
+  ALTER TABLE push_geraete RENAME TO push_devices;
+  ALTER TABLE warteliste RENAME TO waitlist;
+
+  -- 2. Spalten ohne Wertewechsel
+  ALTER TABLE sessions RENAME COLUMN ip_praefix TO ip_prefix;
+  ALTER TABLE sessions RENAME COLUMN zuletzt_gesehen TO last_seen_at;
+
+  ALTER TABLE mail_tokens RENAME COLUMN zweck TO purpose;
+  ALTER TABLE mail_tokens RENAME COLUMN nutzlast TO payload;
+
+  ALTER TABLE invitations RENAME COLUMN notiz TO note;
+  ALTER TABLE invitations RENAME COLUMN erstellt_von TO created_by;
+  ALTER TABLE invitations RENAME COLUMN erstellt_am TO created_at;
+  ALTER TABLE invitations RENAME COLUMN ablauf TO expires_at;
+  ALTER TABLE invitations RENAME COLUMN eingeloest_von TO redeemed_by;
+  ALTER TABLE invitations RENAME COLUMN eingeloest_am TO redeemed_at;
+
+  ALTER TABLE settings RENAME COLUMN schluessel TO key;
+  ALTER TABLE settings RENAME COLUMN wert TO value;
+
+  ALTER TABLE reserved_handles RENAME COLUMN frei_ab TO free_from;
+
+  ALTER TABLE mail_templates RENAME COLUMN schluessel TO key;
+  ALTER TABLE mail_templates RENAME COLUMN betreff TO subject;
+  ALTER TABLE mail_templates RENAME COLUMN titel TO title;
+  ALTER TABLE mail_templates RENAME COLUMN text TO body;
+  ALTER TABLE mail_templates RENAME COLUMN knopf TO button;
+  ALTER TABLE mail_templates RENAME COLUMN fuss TO footer;
+  ALTER TABLE mail_templates RENAME COLUMN geaendert_am TO updated_at;
+  ALTER TABLE mail_templates RENAME COLUMN geaendert_von TO updated_by;
+
+  ALTER TABLE push_devices RENAME COLUMN benutzer_id TO user_id;
+  ALTER TABLE push_devices RENAME COLUMN plattform TO platform;
+  ALTER TABLE push_devices RENAME COLUMN angelegt_am TO created_at;
+  ALTER TABLE push_devices RENAME COLUMN zuletzt_gesehen_am TO last_seen_at;
+
+  ALTER TABLE waitlist RENAME COLUMN notiz TO note;
+  ALTER TABLE waitlist RENAME COLUMN eingetragen_am TO joined_at;
+  ALTER TABLE waitlist RENAME COLUMN eingetragen_ip TO joined_ip;
+  ALTER TABLE waitlist RENAME COLUMN bestaetigt_am TO confirmed_at;
+  ALTER TABLE waitlist RENAME COLUMN bestaetigt_ip TO confirmed_ip;
+  ALTER TABLE waitlist RENAME COLUMN eingeladen_am TO invited_at;
+  ALTER TABLE waitlist RENAME COLUMN eingeladen_code TO invited_code;
+
+  -- Die Indexnamen tragen die alten Tabellennamen im Wort; sie sind reine
+  -- DDL-Bezeichner ohne Leser ausserhalb dieser Datei.
+  DROP INDEX idx_warteliste_reihe;
+  CREATE INDEX idx_waitlist_order ON waitlist(confirmed_at);
+  DROP INDEX idx_push_benutzer;
+  CREATE INDEX idx_push_devices_user ON push_devices(user_id);
+
+  -- 3. Tabellen mit deutschen Werten in CHECK-Constraints: Neubau
+  CREATE TABLE users_v2 (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    pw_hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    email_verified INTEGER NOT NULL DEFAULT 0,
+    display_name TEXT,
+    bio TEXT,
+    avatar TEXT,
+    profile_visibility TEXT NOT NULL DEFAULT 'private'
+      CHECK (profile_visibility IN ('private','public')),
+    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),
+    handle TEXT,
+    handle_changed_at TEXT,
+    location TEXT,
+    website TEXT,
+    instagram TEXT,
+    banner TEXT,
+    newsletter INTEGER NOT NULL DEFAULT 0,
+    search_indexing INTEGER NOT NULL DEFAULT 0
+  );
+  INSERT INTO users_v2 SELECT
+    id, email, pw_hash, name, created_at, email_verified, anzeigename, bio, avatar,
+    profil_sichtbarkeit,
+    CASE rolle WHEN 'nutzer' THEN 'user' ELSE rolle END,
+    handle, handle_geaendert_am, ort, website, instagram, titelbild, newsletter, suchmaschinen
+    FROM users;
+  DROP TABLE users;
+  ALTER TABLE users_v2 RENAME TO users;
+  CREATE UNIQUE INDEX idx_users_handle ON users(handle COLLATE NOCASE) WHERE handle IS NOT NULL;
+
+  CREATE TABLE tours_v2 (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    no INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('created','processing','ready','failed')),
+    visibility TEXT NOT NULL DEFAULT 'unlisted'
+      CHECK (visibility IN ('private','unlisted','public')),
+    client_tour_id TEXT,
+    title TEXT,
+    description TEXT,
+    stats_json TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    cover TEXT,
+    finale INTEGER NOT NULL DEFAULT 0,
+    finale_target TEXT,
+    cover_thumb TEXT,
+    kicker TEXT
+  );
+  INSERT INTO tours_v2 SELECT
+    id, owner_id, no,
+    CASE status
+      WHEN 'angelegt' THEN 'created'
+      WHEN 'verarbeitung' THEN 'processing'
+      WHEN 'bereit' THEN 'ready'
+      WHEN 'fehler' THEN 'failed'
+      ELSE status END,
+    visibility, client_tour_id, title, description, stats_json, fehler,
+    created_at, updated_at, cover, finale, finale_ziel, cover_thumb, dachzeile
+    FROM tours;
+  DROP TABLE tours;
+  ALTER TABLE tours_v2 RENAME TO tours;
+  CREATE INDEX idx_tours_owner ON tours(owner_id, created_at DESC);
+  CREATE UNIQUE INDEX idx_tours_client ON tours(owner_id, client_tour_id) WHERE client_tour_id IS NOT NULL;
+
+  CREATE TABLE data_exports (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('running','done','failed')),
+    requested_at TEXT NOT NULL,
+    finished_at TEXT,
+    expires_at TEXT,
+    bytes INTEGER,
+    file_count INTEGER,
+    error TEXT
+  );
+  INSERT INTO data_exports SELECT
+    id, benutzer_id,
+    CASE status
+      WHEN 'laeuft' THEN 'running'
+      WHEN 'fertig' THEN 'done'
+      WHEN 'fehler' THEN 'failed'
+      ELSE status END,
+    angefordert_am, fertig_am, laeuft_ab_am, bytes, dateien, fehler
+    FROM exporte;
+  DROP TABLE exporte;
+  CREATE UNIQUE INDEX idx_data_exports_running ON data_exports(user_id) WHERE status = 'running';
+  CREATE INDEX idx_data_exports_user ON data_exports(user_id, requested_at);
+
+  CREATE TABLE newsletter_consents (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    at TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('on','off')),
+    source TEXT NOT NULL CHECK (source IN ('signup','account','unsubscribe_link')),
+    text_version TEXT NOT NULL
+  );
+  INSERT INTO newsletter_consents SELECT
+    id, benutzer_id, zeitpunkt,
+    CASE zustand WHEN 'an' THEN 'on' WHEN 'aus' THEN 'off' ELSE zustand END,
+    CASE quelle
+      WHEN 'registrierung' THEN 'signup'
+      WHEN 'konto' THEN 'account'
+      WHEN 'abmeldelink' THEN 'unsubscribe_link'
+      ELSE quelle END,
+    textfassung
+    FROM newsletter_einwilligungen;
+  DROP TABLE newsletter_einwilligungen;
+  CREATE INDEX idx_newsletter_consents ON newsletter_consents(user_id, at);
+
+  CREATE TABLE feedback (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    email TEXT,
+    text TEXT NOT NULL,
+    context TEXT,
+    source TEXT NOT NULL CHECK (source IN ('web','app')),
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','done')),
+    note TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+  );
+  INSERT INTO feedback SELECT
+    id, benutzer_id, email, text, kontext, quelle,
+    CASE status
+      WHEN 'offen' THEN 'open'
+      WHEN 'in_arbeit' THEN 'in_progress'
+      WHEN 'erledigt' THEN 'done'
+      ELSE status END,
+    notiz, angelegt_am, geaendert_am
+    FROM rueckmeldungen;
+  DROP TABLE rueckmeldungen;
+  CREATE INDEX idx_feedback_status ON feedback(status, created_at DESC);
+
+  CREATE TABLE tracker_links (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    external_user TEXT,
+    tokens TEXT NOT NULL,
+    expires_at TEXT,
+    status TEXT NOT NULL CHECK (status IN ('active','expired','disconnected')),
+    connected_at TEXT NOT NULL,
+    last_sync_at TEXT,
+    last_error TEXT
+  );
+  INSERT INTO tracker_links SELECT
+    id, benutzer_id, anbieter, externer_nutzer, tokens, laeuft_ab_am,
+    CASE status
+      WHEN 'aktiv' THEN 'active'
+      WHEN 'abgelaufen' THEN 'expired'
+      WHEN 'getrennt' THEN 'disconnected'
+      ELSE status END,
+    verbunden_am, zuletzt_sync_am, letzter_fehler
+    FROM tracker_verknuepfungen;
+  DROP TABLE tracker_verknuepfungen;
+  CREATE UNIQUE INDEX idx_tracker_links_account ON tracker_links(user_id, provider);
+  CREATE UNIQUE INDEX idx_tracker_links_external ON tracker_links(provider, external_user)
+    WHERE external_user IS NOT NULL;
+
+  CREATE TABLE tracker_imports (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending','running','done','failed','skipped')),
+    tour_id TEXT REFERENCES tours(id) ON DELETE SET NULL,
+    reported_at TEXT NOT NULL,
+    finished_at TEXT,
+    seen_at TEXT,
+    error TEXT,
+    retryable INTEGER NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 1
+  );
+  INSERT INTO tracker_imports SELECT
+    id, benutzer_id, anbieter, externe_id,
+    CASE status
+      WHEN 'wartet' THEN 'pending'
+      WHEN 'laeuft' THEN 'running'
+      WHEN 'fertig' THEN 'done'
+      WHEN 'fehler' THEN 'failed'
+      WHEN 'uebersprungen' THEN 'skipped'
+      ELSE status END,
+    tour_id, gemeldet_am, fertig_am, gesehen_am, fehler, wiederholbar, versuche
+    FROM tracker_importe;
+  DROP TABLE tracker_importe;
+  CREATE UNIQUE INDEX idx_tracker_imports_dedup ON tracker_imports(user_id, provider, external_id);
+  CREATE INDEX idx_tracker_imports_open ON tracker_imports(user_id, status);
+
+  -- 4. Schlüsselzeilen, Platzhalter und JSON-Blobs
+  UPDATE settings SET key = CASE key
+    WHEN 'einladung_pflicht' THEN 'invitation_required'
+    WHEN 'warteliste_offen' THEN 'waitlist_open'
+    ELSE key END;
+
+  UPDATE mail_templates SET key = CASE key
+    WHEN 'verifikation' THEN 'verification'
+    WHEN 'email-wechsel' THEN 'email-change'
+    WHEN 'warteliste' THEN 'waitlist'
+    WHEN 'warteliste-einladung' THEN 'waitlist-invitation'
+    ELSE key END;
+
+  UPDATE mail_templates SET
+    subject = replace(replace(replace(subject, '{{frist}}', '{{deadline}}'), '{{groesse}}', '{{size}}'), '{{austragenLink}}', '{{leaveLink}}'),
+    title   = replace(replace(replace(title,   '{{frist}}', '{{deadline}}'), '{{groesse}}', '{{size}}'), '{{austragenLink}}', '{{leaveLink}}'),
+    body    = replace(replace(replace(body,    '{{frist}}', '{{deadline}}'), '{{groesse}}', '{{size}}'), '{{austragenLink}}', '{{leaveLink}}'),
+    button  = replace(replace(replace(button,  '{{frist}}', '{{deadline}}'), '{{groesse}}', '{{size}}'), '{{austragenLink}}', '{{leaveLink}}'),
+    footer  = replace(replace(replace(footer,  '{{frist}}', '{{deadline}}'), '{{groesse}}', '{{size}}'), '{{austragenLink}}', '{{leaveLink}}');
+
+  UPDATE tours SET stats_json = replace(replace(replace(
+      stats_json, '"fotos":', '"placedMedia":'), '"spur":', '"trackSignature":'), '"ende":', '"end":')
+    WHERE stats_json IS NOT NULL;
+
+  UPDATE feedback SET context = replace(replace(replace(replace(replace(
+      context, '"geraet":', '"device":'), '"plattform":', '"platform":'),
+      '"schirm":', '"screen":'), '"seite":', '"page":'), '"sprache":', '"language":')
+    WHERE context IS NOT NULL;
+  `,
 ]
 
 /**
@@ -600,15 +914,43 @@ export function oeffneDb(pfad: string): Db {
   return db
 }
 
+/**
+ * Schritte, die OHNE Fremdschlüssel laufen müssen — nach Index in
+ * `MIGRATIONEN`, also 0-basiert.
+ *
+ * Ein Tabellen-Neubau nach dem SQLite-Rezept löscht die alte Tabelle, und
+ * `DROP TABLE` führt bei eingeschalteten Fremdschlüsseln ein implizites
+ * `DELETE FROM` aus: Jede `ON DELETE CASCADE` der Kindtabellen räumt dabei ab,
+ * was an der Zeile hängt. Bei `users` wäre das die halbe Datenbank.
+ *
+ * Das Pragma wirkt NICHT innerhalb einer Transaktion, deshalb steht es hier
+ * aussen um sie herum; `foreign_key_check` danach ist die Gegenprobe.
+ */
+const OHNE_FREMDSCHLUESSEL = new Set<number>([22])
+
 function migriere(db: Db): void {
   const stand = db.pragma('user_version', { simple: true }) as number
   for (let i = stand; i < MIGRATIONEN.length; i++) {
     const schritt = MIGRATIONEN[i]
     if (!schritt) continue
-    db.transaction(() => {
-      if (typeof schritt === 'string') db.exec(schritt)
-      else schritt(db)
-      db.pragma(`user_version = ${i + 1}`)
-    })()
+    const ohneFk = OHNE_FREMDSCHLUESSEL.has(i)
+    if (ohneFk) db.pragma('foreign_keys = OFF')
+    try {
+      db.transaction(() => {
+        if (typeof schritt === 'string') db.exec(schritt)
+        else schritt(db)
+        db.pragma(`user_version = ${i + 1}`)
+      })()
+      if (ohneFk) {
+        const verletzt = db.pragma('foreign_key_check') as unknown[]
+        if (verletzt.length > 0) {
+          throw new Error(
+            `Migration ${i + 1} hat ${verletzt.length} Fremdschlüssel-Verletzungen hinterlassen`,
+          )
+        }
+      }
+    } finally {
+      if (ohneFk) db.pragma('foreign_keys = ON')
+    }
   }
 }
