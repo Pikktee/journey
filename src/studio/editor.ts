@@ -415,8 +415,8 @@ async function ladeDaten(tourId: string): Promise<void> {
   zeigeTitelImKopf()
   ;($('editor-vorschau') as HTMLAnchorElement).href = tourPfad(`srv:${tourId}`)
   ;($('editor-vorschau') as HTMLAnchorElement).style.display =
-    daten.status === 'bereit' ? '' : 'none'
-  ;($('editor-film') as HTMLButtonElement).hidden = daten.status !== 'bereit'
+    daten.status === 'ready' ? '' : 'none'
+  ;($('editor-film') as HTMLButtonElement).hidden = daten.status !== 'ready'
 
   // Streckenmeter einmal je Tour vorrechnen — die km-Anzeige am Abspielkopf
   // fragt sie bei jeder Bewegung ab.
@@ -707,7 +707,7 @@ function renderAlles(): void {
   renderZeitleiste()
   renderAblage()
   $('editor-map').classList.toggle('platzieren', z.platzieren !== null)
-  $('editor-media-hinweis').textContent = z.platzieren
+  $('editor-medien-hinweis').textContent = z.platzieren
     ? 'Auf den Track klicken, um das Medium dort zu verankern, erneut „Platzieren" drücken bricht ab.'
     : ''
 }
@@ -7284,8 +7284,8 @@ function entschaerfeSpeichern(knopf: HTMLButtonElement): void {
 async function warteAufBereit(id: string): Promise<void> {
   for (let i = 0; i < 90; i++) {
     const t = await api.tour(id)
-    if (t.schema === 'maptale/tour@1' || t.status === 'bereit') return
-    if (t.status === 'fehler')
+    if (t.schema === 'maptale/tour@2' || t.status === 'ready') return
+    if (t.status === 'failed')
       throw new Error(`Verarbeitung fehlgeschlagen: ${t.error ?? 'unbekannt'}`)
     await new Promise((weiter) => setTimeout(weiter, 900))
   }
@@ -7373,7 +7373,7 @@ async function speichern(): Promise<void> {
     if (JSON.stringify(z.edits) !== z.gespeichert) {
       status('Bearbeitungen werden gespeichert …')
       const antwort = await api.saveEdits(z.tourId, z.edits)
-      if (antwort.status === 'verarbeitung') await warteAufBereit(z.tourId)
+      if (antwort.status === 'processing') await warteAufBereit(z.tourId)
     }
     // 2. Titel/Beschreibung/Finale (falls geändert) — eigener Endpunkt, eigener Re-Render;
     //    bewusst NACH dem Overlay, damit sich die Renderer nie überlappen
@@ -7401,7 +7401,7 @@ async function speichern(): Promise<void> {
       // einer fehler-Tour würde warteAufBereit sonst den ALTEN Pipeline-
       // Fehler als Speicher-Fehler melden (Review-Fund).
       const stand = await api.tour(z.tourId)
-      if (stand.status === 'verarbeitung') await warteAufBereit(z.tourId)
+      if (stand.status === 'processing') await warteAufBereit(z.tourId)
     }
     await ladeDaten(z.tourId)
     status(

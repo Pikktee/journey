@@ -120,7 +120,7 @@ const els = {
   neuOben: $<HTMLButtonElement>('neu-oben'),
   // Bibliothek
   bibKopf: $('bib-kopf'),
-  bibliothek: $('library'),
+  bibliothek: $('bibliothek'),
   suche: $<HTMLInputElement>('suche'),
   sortierung: $<HTMLSelectElement>('sortierung'),
   ansicht: $('ansicht'),
@@ -831,7 +831,7 @@ async function ladeListe(): Promise<void> {
   renderBibliothek()
   // Entsteht gerade eine Tour, kommt die Liste von selbst wieder — sonst bliebe
   // die schimmernde Kachel stehen, bis jemand neu lädt.
-  const arbeitet = touren.some((t) => t.status !== 'bereit' && t.status !== 'fehler')
+  const arbeitet = touren.some((t) => t.status !== 'ready' && t.status !== 'failed')
   if (nachfassen !== null) clearTimeout(nachfassen)
   nachfassen = arbeitet ? window.setTimeout(() => void ladeListe(), 3000) : null
 }
@@ -929,8 +929,8 @@ function spurSignet(t: api.TourListItem): string {
 
 function baueKarte(t: api.TourListItem): HTMLElement {
   const el = document.createElement('article')
-  const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
-  el.className = `karte${arbeitet ? ' arbeitet' : ''}${t.status === 'fehler' ? ' defekt' : ''}`
+  const arbeitet = t.status !== 'ready' && t.status !== 'failed'
+  el.className = `karte${arbeitet ? ' arbeitet' : ''}${t.status === 'failed' ? ' defekt' : ''}`
   el.dataset['tour'] = t.id
   // Kachel-Fassung, wo es sie gibt: die Bibliothek zog bisher je Kachel das
   // volle Titelfoto (mehrere MB) für ein Bild von wenigen hundert Pixeln.
@@ -944,11 +944,11 @@ function baueKarte(t: api.TourListItem): HTMLElement {
     ? ''
     : `<div class="griffe">
         ${
-          t.status === 'fehler'
+          t.status === 'failed'
             ? '<span class="fehler-punkt" title="Etwas ist schiefgelaufen, zum Öffnen klicken" aria-label="Fehler">!</span>'
             : `<button class="sicht${t.visibility === 'public' ? ' oeffentlich' : ''}" data-sicht aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: ${SICHT_NAMEN[t.visibility] ?? t.visibility}">${icon(SICHT_ICONS[t.visibility] ?? 'schloss')}<span>${SICHT_NAMEN[t.visibility] ?? t.visibility}</span></button>`
         }
-        ${t.status === 'bereit' ? `<button class="stift-knopf" data-film="${t.id}" aria-label="Als Video">${icon('film')}<span>Video</span></button>` : ''}
+        ${t.status === 'ready' ? `<button class="stift-knopf" data-film="${t.id}" aria-label="Als Video">${icon('film')}<span>Video</span></button>` : ''}
         <button class="stift-knopf" data-bearbeiten="${t.id}" aria-label="Bearbeiten">${icon('stift')}<span>Bearbeiten</span></button>
       </div>`
 
@@ -958,7 +958,7 @@ function baueKarte(t: api.TourListItem): HTMLElement {
       <div class="m">${arbeitet ? 'entsteht gerade …' : escape(metaZeile(t))}</div>
     </div>
     ${arbeitet ? '<div class="lauf"><span></span></div>' : '<div class="schleier"></div>'}
-    ${arbeitet || t.status === 'fehler' ? '' : `<button class="play" aria-label="Abspielen">${icon('play')}</button>`}`
+    ${arbeitet || t.status === 'failed' ? '' : `<button class="play" aria-label="Abspielen">${icon('play')}</button>`}`
 
   if (!arbeitet) {
     // Die GANZE Kachel spielt ab — die Taste in der Mitte ist die Ansage dafür,
@@ -971,7 +971,7 @@ function baueKarte(t: api.TourListItem): HTMLElement {
         ziel.closest('[data-film]')
       )
         return
-      if (t.status === 'fehler') void oeffneEditorFuer(t.id)
+      if (t.status === 'failed') void oeffneEditorFuer(t.id)
       else spielAb(t.id)
     })
     el.querySelector('[data-sicht]')?.addEventListener('click', (e) => {
@@ -993,7 +993,7 @@ function baueKarte(t: api.TourListItem): HTMLElement {
 function baueZeile(t: api.TourListItem): HTMLElement {
   const el = document.createElement('div')
   el.className = 'zeile'
-  const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
+  const arbeitet = t.status !== 'ready' && t.status !== 'failed'
   el.innerHTML = `
     <div class="mini">${(t.coverThumb ?? t.cover) ? `<img src="${escape((t.coverThumb ?? t.cover) as string)}" alt="" loading="lazy" />` : icon('route')}</div>
     <div class="txt">
@@ -1005,7 +1005,7 @@ function baueZeile(t: api.TourListItem): HTMLElement {
         arbeitet
           ? '<span class="sichtpille">entsteht</span>'
           : `<span class="sichtpille${t.visibility === 'public' ? ' oeffentlich' : ''}">${SICHT_NAMEN[t.visibility] ?? t.visibility}</span>
-             ${t.status === 'bereit' ? `<button class="akt" data-spielen>${icon('play')}Abspielen</button><button class="akt" data-film aria-label="Als Video">${icon('film')}Video</button>` : ''}
+             ${t.status === 'ready' ? `<button class="akt" data-spielen>${icon('play')}Abspielen</button><button class="akt" data-film aria-label="Als Video">${icon('film')}Video</button>` : ''}
              <button class="akt" data-bearbeiten aria-label="Bearbeiten">${icon('stift')}</button>
              <button class="akt gefahr" data-loeschen aria-label="Tour löschen" title="Tour löschen">${icon('muell')}</button>`
       }
@@ -1662,14 +1662,14 @@ document.addEventListener('drop', (e) => {
 
 // — Bauen: Manifest → PUTs → Finalize —
 
-async function warteAufBereit(id: string): Promise<'bereit' | 'fehler' | 'verarbeitung'> {
+async function warteAufBereit(id: string): Promise<'ready' | 'failed' | 'processing'> {
   for (let i = 0; i < 60; i++) {
     const t = await api.tour(id)
-    if (t.schema === 'maptale/tour@1' || t.status === 'bereit') return 'bereit'
-    if (t.status === 'fehler') return 'fehler'
+    if (t.schema === 'maptale/tour@2' || t.status === 'ready') return 'ready'
+    if (t.status === 'failed') return 'failed'
     await new Promise((r) => setTimeout(r, 1000))
   }
-  return 'verarbeitung'
+  return 'processing'
 }
 
 els.neuBauen.addEventListener('click', async () => {
@@ -1708,7 +1708,7 @@ els.neuBauen.addEventListener('click', async () => {
     const { id, reused } = await api.createTour(manifest)
     if (reused) {
       const vorhanden = await api.tour(id)
-      if (vorhanden.schema === 'maptale/tour@1' || vorhanden.status === 'bereit') {
+      if (vorhanden.schema === 'maptale/tour@2' || vorhanden.status === 'ready') {
         setzeNeuStatus('Diese Tour gibt es bereits.', 'fehler')
         return
       }
@@ -1737,7 +1737,7 @@ els.neuBauen.addEventListener('click', async () => {
     leereAuswahl()
     await ladeListe()
     const status = await warteAufBereit(id)
-    if (status === 'fehler') {
+    if (status === 'failed') {
       const t = await api.tour(id)
       hinweisToast(`Verarbeitung fehlgeschlagen: ${t.error ?? 'unbekannt'}`, true)
     }

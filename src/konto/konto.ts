@@ -102,7 +102,7 @@ function zeigeHinweis(text: string, link?: { text: string; href: string }): void
 }
 
 interface MeAntwort {
-  benutzer: { id: string; email: string; name: string; role: string } | null
+  user: { id: string; email: string; name: string; role: string } | null
   verified?: boolean
   newsletter?: boolean
   profile?: {
@@ -118,7 +118,7 @@ interface MeAntwort {
 
 function zeichneKonto(daten: MeAntwort): void {
   const mail = $('k-email')
-  if (mail) mail.textContent = daten.benutzer?.email ?? ''
+  if (mail) mail.textContent = daten.user?.email ?? ''
 
   const stand = $('k-mailstand')
   if (stand) {
@@ -536,7 +536,7 @@ export async function starteKonto(): Promise<void> {
     zeigeHinweis('Die Kontoeinstellungen ließen sich gerade nicht laden.')
     return
   }
-  if (!daten.benutzer) {
+  if (!daten.user) {
     // Wer aus einer Mail kommt, hat sein Anliegen hier schon erledigt — ihm
     // eine Anmeldemaske hinzustellen, hieße, den Widerruf hinter eine Hürde zu
     // schieben, die er gerade nicht gebraucht hat.
@@ -576,7 +576,7 @@ export async function starteKonto(): Promise<void> {
     // Name und Adresse fließen in die Bewertung ein: Ein Passwort, in dem der
     // eigene Name steht, ist kein gutes.
     const persoenlich = (): string[] =>
-      [daten.benutzer?.name, daten.benutzer?.email, daten.profile?.displayName].filter(
+      [daten.user?.name, daten.user?.email, daten.profile?.displayName].filter(
         (w): w is string => !!w,
       )
     ;(await dialoge()).oeffnePasswortDialog((text) => {

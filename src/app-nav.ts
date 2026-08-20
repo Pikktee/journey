@@ -171,7 +171,7 @@ export function schreibeAppFooter(
 type Quota = { used: number; limit: number }
 
 type MeAntwort = {
-  benutzer?: { name?: string; email?: string; role?: string }
+  user?: { name?: string; email?: string; role?: string }
   profile?: { displayName?: string; avatarUrl?: string; handle?: string | null }
   quota?: Quota
 }
@@ -260,22 +260,22 @@ export async function montiereNavRechts(
   try {
     const r = await fetch('/api/auth/me', { credentials: 'include' })
     const daten = (r.ok ? await r.json() : null) as MeAntwort | null
-    if (!daten?.benutzer) {
+    if (!daten?.user) {
       vergesseAngemeldet()
       return
     }
     merkeAngemeldet()
 
-    const name = daten.profile?.displayName || daten.benutzer.name || 'Profil'
+    const name = daten.profile?.displayName || daten.user.name || 'Profil'
     const initial = (name.trim().charAt(0) || '?').toUpperCase()
     const avatar = daten.profile?.avatarUrl
-    const mail = daten.benutzer.email || ''
+    const mail = daten.user.email || ''
 
     merkeProfilCache({ name, initial, avatarUrl: avatar })
     wendeProfilDatenAn(container, { name, initial, avatarUrl: avatar })
 
     const adminLink =
-      daten.benutzer.role === 'admin'
+      daten.user.role === 'admin'
         ? `<a href="${pfad('verwaltung')}" class="km-eintrag">${ICON_ADMIN}Administration</a>`
         : ''
 

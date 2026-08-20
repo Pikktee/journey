@@ -343,14 +343,14 @@ async function lade(): Promise<void> {
           pages: [],
         })),
       ])
-    z.benutzer = konten.benutzer
+    z.benutzer = konten.users
     z.invitations = einladungen.invitations
     z.invitationRequired = einladungen.invitationRequired
     z.registrationOpen = einladungen.registrationOpen
     z.baseUrl = einladungen.baseUrl || location.origin
     z.warteliste = warteliste.entries
     z.waitlistOpen = warteliste.waitlistOpen
-    z.rueckmeldungen = rueckmeldungen.rueckmeldungen
+    z.rueckmeldungen = rueckmeldungen.feedback
     z.protokoll = protokoll.entries
     z.protokollWartend = []
     z.protokollGestartet = protokoll.startedAt
@@ -440,18 +440,18 @@ async function start(): Promise<void> {
   })
   schreibeAppFooter(document.getElementById('app-footer'), fussLinks())
   const sitzung = await api.me()
-  if (!sitzung.benutzer) {
+  if (!sitzung.user) {
     els.sperreTitel.textContent = 'Nicht angemeldet'
     els.sperreText.textContent = 'Melde dich an, um die Verwaltung zu öffnen.'
     els.sperreWeg.textContent = 'Zur Anmeldung'
     els.sperre.hidden = false
     return
   }
-  if (sitzung.benutzer.role !== 'admin') {
+  if (sitzung.user.role !== 'admin') {
     els.sperre.hidden = false
     return
   }
-  z.ichId = sitzung.benutzer.id
+  z.ichId = sitzung.user.id
   els.admin.hidden = false
   zeigeTab(z.tab)
   render()

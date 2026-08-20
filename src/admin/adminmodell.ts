@@ -30,10 +30,10 @@ export interface Tab {
 
 export const TABS: readonly Tab[] = [
   { id: 'konten', name: 'Konten', zaehlt: 'Konten' },
-  { id: 'einladungen', name: 'Einladungen', zaehlt: 'open' },
+  { id: 'einladungen', name: 'Einladungen', zaehlt: 'offen' },
   { id: 'warteliste', name: 'Warteliste', zaehlt: 'warten' },
   { id: 'statistiken', name: 'Statistiken', zaehlt: 'Live' },
-  { id: 'rueckmeldungen', name: 'Rückmeldungen', zaehlt: 'open' },
+  { id: 'rueckmeldungen', name: 'Rückmeldungen', zaehlt: 'offen' },
   { id: 'protokoll', name: 'Protokoll', zaehlt: 'Fehler' },
   { id: 'mails', name: 'System-Mails', zaehlt: 'Vorlagen' },
 ]

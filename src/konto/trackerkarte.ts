@@ -131,7 +131,7 @@ function anbieterZeile(
  * einer Seite, die nichts zeigt.
  */
 function importZeile(i: ImportStand): HTMLElement {
-  const spielbar = i.tourId && i.tour?.status === 'bereit'
+  const spielbar = i.tourId && i.tour?.status === 'ready'
   const zeile = el(spielbar ? 'a' : 'div', spielbar ? 'zeile klickbar' : 'zeile')
   if (spielbar && i.tourId) (zeile as HTMLAnchorElement).href = tourPfad(i.tourId)
   zeile.appendChild(el('span', `punkt ${importTon(i)}`))
