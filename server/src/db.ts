@@ -928,9 +928,24 @@ export function oeffneDb(pfad: string): Db {
  */
 const OHNE_FREMDSCHLUESSEL = new Set<number>([22])
 
-function migriere(db: Db): void {
+/** Zahl der Schritte — zugleich der `user_version`, den eine frische DB hat. */
+export const MIGRATIONS_STAND = MIGRATIONEN.length
+
+/**
+ * Nur bis zu einem Stand migrieren.
+ *
+ * Für den Leiter-Test: Er füllt die Datenbank auf dem Stand VOR einem Schritt
+ * mit je einer Zeile und lässt dann den Schritt darüber laufen. Ein Test, der
+ * stattdessen `user_version` zurückdreht, prüfte den Schritt gegen ein Schema,
+ * das es so nie gab.
+ */
+export function migriereBis(db: Db, ziel: number): void {
+  migriere(db, ziel)
+}
+
+function migriere(db: Db, bis = MIGRATIONEN.length): void {
   const stand = db.pragma('user_version', { simple: true }) as number
-  for (let i = stand; i < MIGRATIONEN.length; i++) {
+  for (let i = stand; i < bis; i++) {
     const schritt = MIGRATIONEN[i]
     if (!schritt) continue
     const ohneFk = OHNE_FREMDSCHLUESSEL.has(i)

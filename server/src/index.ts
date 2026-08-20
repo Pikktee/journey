@@ -18,6 +18,10 @@ import { FfmpegWerkzeug } from './pipeline/video.js'
 import { OpenRouterKlassifikator, type BildKlassifikator } from './pipeline/vision.js'
 import { OpenMeteoQuelle } from './pipeline/weather.js'
 import { TOURJSON_PFAD } from './routes/tours.js'
+import { trimSignatur, videoSchnittSignatur } from './pipeline/anreicherung.js'
+import type { EditOverlay } from './schema/edits.js'
+import { fuehreStartMigrationAus } from './migrations/start.js'
+import { rendereVeralteteNach } from './migrations/nachrender.js'
 import { FsStorage } from './storage.js'
 
 const konfig = konfigAusEnv()
@@ -30,6 +34,23 @@ const storage = new FsStorage(join(konfig.datenDir, 'tours'))
 const benutzerStorage = new FsStorage(join(konfig.datenDir, 'benutzer'))
 // Datenexport-Archive: eigener Bereich, eigene Lebensdauer (48 h, s. export.ts).
 const archive = new FsStorage(join(konfig.datenDir, 'exporte'))
+// Start-Migration auf Welle 1 (§4.3): die JSON-Dateien auf Platte in die neue
+// Form ziehen, BEVOR die erste Anfrage sie liest. Sie hängt an ihrer eigenen
+// Leiter (`daten/.schema`) und ist damit nach dem ersten Lauf ein Dateizugriff.
+await fuehreStartMigrationAus({
+  datenDir: konfig.datenDir,
+  tourIds: async () =>
+    (db.prepare('SELECT id FROM tours').all() as { id: string }[]).map((z) => z.id),
+  signaturen: {
+    trimSignature: (edits) => trimSignatur(edits as EditOverlay | null),
+    videoCutSignature: (edits) => videoSchnittSignatur(edits as EditOverlay | null),
+  },
+  setzeBanner: (userId, wert) => {
+    db.prepare('UPDATE users SET banner = ? WHERE id = ?').run(wert, userId)
+  },
+  protokoll: (nachricht) => console.log(nachricht),
+})
+
 const geocoder = new NominatimGeocoder()
 const wetter = new OpenMeteoQuelle()
 const videoWerkzeug = new FfmpegWerkzeug()
@@ -135,3 +156,11 @@ void trageTitelbilderNach(db, storage, TOURJSON_PFAD, (n) => app.log.warn(n))
     }
   })
   .catch((fehler: unknown) => app.log.error(fehler, 'Bild-Nachtrag fehlgeschlagen'))
+  // Zuletzt das Nachrendern der Welle 1: Es ist der teuerste der drei Läufe
+  // (voller Pipeline-Durchgang je Tour) und darf den beiden anderen nicht ins
+  // Gehege kommen — der Bild-Nachtrag schreibt dieselben Dateien.
+  .then(() => rendereVeralteteNach(app))
+  .then((anzahl) => {
+    if (anzahl > 0) app.log.info(`${anzahl} Tour(en) auf die neue Kennung nachgerendert`)
+  })
+  .catch((fehler: unknown) => app.log.error(fehler, 'Nachrendern fehlgeschlagen'))
