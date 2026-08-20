@@ -4,7 +4,7 @@
 // Dateien im Storage — das hält die DB klein und den Umzug auf Postgres/R2 trivial.
 
 import Database from 'better-sqlite3'
-import { freierHandle, handleAusEmail } from './handle.js'
+import { findFreeHandle, handleFromEmail } from './handle.js'
 
 export type Db = Database.Database
 
@@ -218,7 +218,7 @@ const MIGRATIONEN: Migration[] = [
   // Anlegedatum, aus der E-Mail abgeleitet, bei Kollision mit Zähler — wer
   // zuerst da war, bekommt den kurzen Namen. Einmal vergeben ist er in der
   // Welt, deshalb läuft das hier und nicht beim nächsten Login.
-  vergibFehlendeHandles,
+  assignMissingHandles,
   // Die übrigen Profilfelder (Etappe 2). Alle optional und alle NULL by default:
   // Ein Profil ist eine Einladung, kein Formular — wer nichts einträgt, hat
   // trotzdem eine vollständige Seite.
@@ -887,7 +887,7 @@ const MIGRATIONEN: Migration[] = [
  * Namen. Wiederholbar ist sie auch (`WHERE handle IS NULL`) — einmal Vergebenes
  * fasst sie nie wieder an, denn der Name ist dann in der Welt.
  */
-export function vergibFehlendeHandles(db: Db): void {
+export function assignMissingHandles(db: Db): void {
   const zeilen = db
     .prepare('SELECT id, email FROM users WHERE handle IS NULL ORDER BY created_at ASC, id ASC')
     .all() as Array<{ id: string; email: string }>
@@ -900,13 +900,13 @@ export function vergibFehlendeHandles(db: Db): void {
   )
   const setze = db.prepare('UPDATE users SET handle = ? WHERE id = ?')
   for (const zeile of zeilen) {
-    const handle = freierHandle(handleAusEmail(zeile.email), (h) => belegt.has(h))
+    const handle = findFreeHandle(handleFromEmail(zeile.email), (h) => belegt.has(h))
     belegt.add(handle)
     setze.run(handle, zeile.id)
   }
 }
 
-export function oeffneDb(pfad: string): Db {
+export function openDb(pfad: string): Db {
   const db = new Database(pfad)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')

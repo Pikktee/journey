@@ -13,15 +13,15 @@
 // FCM ist nicht Ende-zu-Ende-verschlüsselt.
 
 import type { Db } from './db.js'
-import { neueTourId } from './ids.js'
+import { newTourId } from './ids.js'
 
-export type Plattform = 'android' | 'ios'
+export type Platform = 'android' | 'ios'
 
 /** Ein registriertes Gerät — der Token ist die Adresse, alles andere Herkunft. */
-export interface PushGeraet {
+export interface PushDevice {
   id: string
   benutzerId: string
-  platform: Plattform
+  platform: Platform
   token: string
   angelegtAm: string
   zuletztGesehenAm: string
@@ -33,7 +33,7 @@ export interface PushGeraet {
  * anderes, und ein Feld, das unterwegs zu `"undefined"` wird, ist schlimmer
  * als ein fehlendes.
  */
-export interface PushNachricht {
+export interface PushMessage {
   type: 'import-finished'
   tourId: string
   importId: string
@@ -44,7 +44,7 @@ export interface PushNachricht {
  * der Dienst wirklich braucht: Ein Token, den FCM ablehnt, gehört gelöscht —
  * ein Gerätetoken ohne Gerät ist kein Vorfall, sondern eine deinstallierte App.
  */
-export interface Zustellung {
+export interface Delivery {
   token: string
   abgemeldet: boolean
 }
@@ -54,17 +54,17 @@ export interface Zustellung {
  * `MailVersand`, `Geocoder`, `WetterQuelle`: Die Routen kennen nur das
  * Interface, Produktion reicht `FcmPush` herein, Tests eine Fassung ohne Netz.
  */
-export interface PushVersand {
+export interface PushTransport {
   /** Ohne Dienstkonto ist Push aus — der Dienst fragt das, bevor er Geräte sucht. */
   readonly einsatzbereit: boolean
-  sende(tokens: readonly string[], nachricht: PushNachricht): Promise<Zustellung[]>
+  sende(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]>
 }
 
 /** Dev-Versand: schreibt ins Log, statt zu senden. Kein Firebase-Projekt nötig. */
-export class KonsolePush implements PushVersand {
+export class ConsolePush implements PushTransport {
   readonly einsatzbereit = true
   constructor(private readonly log: (zeile: string) => void = console.log) {}
-  async sende(tokens: readonly string[], nachricht: PushNachricht): Promise<Zustellung[]> {
+  async sende(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]> {
     this.log(`\n🔔 Push (${nachricht.type}, Tour ${nachricht.tourId}) an ${tokens.length} Gerät(e)`)
     return tokens.map((token) => ({ token, abgemeldet: false }))
   }
@@ -73,13 +73,13 @@ export class KonsolePush implements PushVersand {
 interface GeraeteZeile {
   id: string
   user_id: string
-  platform: Plattform
+  platform: Platform
   token: string
   created_at: string
   last_seen_at: string
 }
 
-function zuGeraet(z: GeraeteZeile): PushGeraet {
+function zuGeraet(z: GeraeteZeile): PushDevice {
   return {
     id: z.id,
     benutzerId: z.user_id,
@@ -90,10 +90,10 @@ function zuGeraet(z: GeraeteZeile): PushGeraet {
   }
 }
 
-export class PushDienst {
+export class PushService {
   constructor(
     private readonly db: Db,
-    private readonly versand: PushVersand | null,
+    private readonly versand: PushTransport | null,
   ) {}
 
   /** Ohne Versandweg gibt es nichts zu registrieren — die App erfährt das und lässt es. */
@@ -114,9 +114,9 @@ export class PushDienst {
   registriere(
     benutzerId: string,
     token: string,
-    plattform: Plattform,
+    plattform: Platform,
     appTokenId: string | null,
-  ): PushGeraet {
+  ): PushDevice {
     const jetzt = new Date().toISOString()
     this.db
       .prepare(
@@ -128,7 +128,7 @@ export class PushDienst {
            platform = excluded.platform,
            last_seen_at = excluded.last_seen_at`,
       )
-      .run(neueTourId().replace('t_', 'g_'), benutzerId, appTokenId, plattform, token, jetzt, jetzt)
+      .run(newTourId().replace('t_', 'g_'), benutzerId, appTokenId, plattform, token, jetzt, jetzt)
     return zuGeraet(
       this.db.prepare('SELECT * FROM push_devices WHERE token = ?').get(token) as GeraeteZeile,
     )
@@ -151,7 +151,7 @@ export class PushDienst {
   }
 
   /** Alle Geräte eines Kontos — für den Versand und für den Datenexport. */
-  geraete(benutzerId: string): PushGeraet[] {
+  geraete(benutzerId: string): PushDevice[] {
     return (
       this.db
         .prepare('SELECT * FROM push_devices WHERE user_id = ? ORDER BY created_at DESC')
@@ -169,11 +169,11 @@ export class PushDienst {
    *
    * Abgelehnte Tokens werden gelöscht, nicht protokolliert (s. `Zustellung`).
    */
-  async melde(benutzerId: string, nachricht: PushNachricht): Promise<number> {
+  async melde(benutzerId: string, nachricht: PushMessage): Promise<number> {
     if (!this.versand?.einsatzbereit) return 0
     const tokens = this.geraete(benutzerId).map((g) => g.token)
     if (!tokens.length) return 0
-    let zustellungen: Zustellung[]
+    let zustellungen: Delivery[]
     try {
       zustellungen = await this.versand.sende(tokens, nachricht)
     } catch {

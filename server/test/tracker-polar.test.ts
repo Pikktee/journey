@@ -7,13 +7,13 @@
 
 import { createHmac } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { dauerZuSekunden, PolarProvider, startZeitpunkt } from '../src/tracker/provider/polar.js'
+import { durationToSeconds, PolarProvider, startTime } from '../src/tracker/provider/polar.js'
 import {
-  OhneRouteFehler,
-  TokensUngueltigFehler,
+  NoRouteError,
+  InvalidTokensError,
   type ProviderTokens,
   type TrackerProvider,
-} from '../src/tracker/vertrag.js'
+} from '../src/tracker/contract.js'
 
 const ZUGANG = { clientId: 'klient-1', clientSecret: 'geheim-1', webhookGeheimnis: 'wh-geheim' }
 const TOKENS: ProviderTokens = { zugriff: 'zugriff-abc', externerNutzer: '4711', laeuftAb: null }
@@ -68,34 +68,34 @@ function baueHol(antworten: Array<[RegExp, { status?: number; json?: unknown; te
 
 describe('Hilfsrechnungen', () => {
   it('liest ISO-8601-Dauern', () => {
-    expect(dauerZuSekunden('PT1H2M3S')).toBe(3723)
-    expect(dauerZuSekunden('PT44M')).toBe(2640)
-    expect(dauerZuSekunden('PT30S')).toBe(30)
-    expect(dauerZuSekunden('PT1H2M3.5S')).toBe(3723.5)
+    expect(durationToSeconds('PT1H2M3S')).toBe(3723)
+    expect(durationToSeconds('PT44M')).toBe(2640)
+    expect(durationToSeconds('PT30S')).toBe(30)
+    expect(durationToSeconds('PT1H2M3.5S')).toBe(3723.5)
   })
 
   it('meldet Unbrauchbares als null, statt 0 zu behaupten', () => {
     // 0 wäre eine Aussage („dauerte keine Sekunde"), null ist die Wahrheit
-    expect(dauerZuSekunden(undefined)).toBeNull()
-    expect(dauerZuSekunden('PT')).toBeNull()
-    expect(dauerZuSekunden('zwei Stunden')).toBeNull()
+    expect(durationToSeconds(undefined)).toBeNull()
+    expect(durationToSeconds('PT')).toBeNull()
+    expect(durationToSeconds('zwei Stunden')).toBeNull()
   })
 
   it('rechnet Polars lokale Startzeit samt Versatz in den echten Zeitpunkt', () => {
     // 10:40:02 lokal bei +120 min ist 08:40:02 UTC. Wer einfach „Z" anhängt,
     // verschiebt jede Tour um ihren Zonen-Versatz — und die Pipeline hängt
     // Tageszeit und Sonnenstand daran.
-    expect(startZeitpunkt('2026-07-04T10:40:02', 120)).toBe(Date.parse('2026-07-04T08:40:02Z'))
-    expect(startZeitpunkt('2026-07-04T10:40:02', -300)).toBe(Date.parse('2026-07-04T15:40:02Z'))
+    expect(startTime('2026-07-04T10:40:02', 120)).toBe(Date.parse('2026-07-04T08:40:02Z'))
+    expect(startTime('2026-07-04T10:40:02', -300)).toBe(Date.parse('2026-07-04T15:40:02Z'))
   })
 
   it('lässt eine Zeit mit eigener Zonenangabe unangetastet', () => {
-    expect(startZeitpunkt('2026-07-04T08:40:02Z', 0)).toBe(Date.parse('2026-07-04T08:40:02Z'))
+    expect(startTime('2026-07-04T08:40:02Z', 0)).toBe(Date.parse('2026-07-04T08:40:02Z'))
   })
 
   it('meldet fehlende oder kaputte Startzeit als null', () => {
-    expect(startZeitpunkt(undefined, 0)).toBeNull()
-    expect(startZeitpunkt('gestern', 0)).toBeNull()
+    expect(startTime(undefined, 0)).toBeNull()
+    expect(startTime('gestern', 0)).toBeNull()
   })
 })
 
@@ -337,7 +337,7 @@ describe('Track holen', () => {
   it('meldet eine Aktivität ohne Route, BEVOR es die Datei holt', async () => {
     const { hol, aufrufe } = holeMit(uebung({ 'has-route': false }))
     await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
-      OhneRouteFehler,
+      NoRouteError,
     )
     // Eine Krafteinheit hat keine Route — sie trotzdem herunterzuladen wäre
     // ein Aufruf für nichts.
@@ -348,14 +348,14 @@ describe('Track holen', () => {
     // Die Doku sagt zu diesem Fall nichts, also fangen wir beide Wege ab.
     const { hol } = holeMit(uebung(), { status: 404 })
     await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
-      OhneRouteFehler,
+      NoRouteError,
     )
   })
 
   it('meldet abgelaufene Tokens als solche, damit der Kern die Verknüpfung stilllegt', async () => {
     const { hol } = baueHol([[/\/v3\/exercises/, { status: 401 }]])
     await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
-      TokensUngueltigFehler,
+      InvalidTokensError,
     )
   })
 

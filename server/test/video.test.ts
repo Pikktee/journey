@@ -5,17 +5,17 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  bereiteVideosAuf,
-  brauchtTranskodierung,
-  FakeVideoWerkzeug,
-  hatFaststart,
-  klemmeSchnitt,
-  mussWebKonvertiert,
-  posterDateiname,
-  posterZeitpunkt,
-  webVideoDateiname,
+  prepareVideos,
+  needsTranscoding,
+  FakeVideoTool,
+  hasFaststart,
+  clampCut,
+  needsWebConversion,
+  posterFilename,
+  posterTime,
+  webVideoFilename,
   type VideoInfo,
-  type VideoSpeicher,
+  type VideoStorage,
 } from '../src/pipeline/video.js'
 
 /** Ein Atom aus Typ und Nutzlast-Länge (der 8-Byte-Kopf zählt mit). */
@@ -35,7 +35,7 @@ const info = (patch: Partial<VideoInfo> = {}): VideoInfo => ({
   ...patch,
 })
 
-function memSpeicher(): VideoSpeicher & { dateien: Map<string, Buffer> } {
+function memSpeicher(): VideoStorage & { dateien: Map<string, Buffer> } {
   const dateien = new Map<string, Buffer>()
   return {
     dateien,
@@ -59,15 +59,15 @@ function memSpeicher(): VideoSpeicher & { dateien: Map<string, Buffer> } {
 
 describe('brauchtTranskodierung', () => {
   it('lässt web-taugliche Kombinationen durch', () => {
-    expect(brauchtTranskodierung(info({ codecVideo: 'h264', codecAudio: 'aac' }))).toBe(false)
-    expect(brauchtTranskodierung(info({ codecVideo: 'h264', codecAudio: 'mp3' }))).toBe(false)
-    expect(brauchtTranskodierung(info({ codecVideo: 'h264', codecAudio: null }))).toBe(false)
+    expect(needsTranscoding(info({ codecVideo: 'h264', codecAudio: 'aac' }))).toBe(false)
+    expect(needsTranscoding(info({ codecVideo: 'h264', codecAudio: 'mp3' }))).toBe(false)
+    expect(needsTranscoding(info({ codecVideo: 'h264', codecAudio: null }))).toBe(false)
   })
 
   it('erkennt nicht web-taugliche Codecs', () => {
-    expect(brauchtTranskodierung(info({ codecVideo: 'hevc' }))).toBe(true) // neue iPhones/Pixel
-    expect(brauchtTranskodierung(info({ codecVideo: 'vp9' }))).toBe(true)
-    expect(brauchtTranskodierung(info({ codecVideo: 'h264', codecAudio: 'ac3' }))).toBe(true)
+    expect(needsTranscoding(info({ codecVideo: 'hevc' }))).toBe(true) // neue iPhones/Pixel
+    expect(needsTranscoding(info({ codecVideo: 'vp9' }))).toBe(true)
+    expect(needsTranscoding(info({ codecVideo: 'h264', codecAudio: 'ac3' }))).toBe(true)
   })
 })
 
@@ -75,25 +75,25 @@ describe('mussWebKonvertiert', () => {
   it('konvertiert auch web-taugliche Codecs im falschen Container (.mov → .mp4)', () => {
     // h264/aac in .mov ist zwar dekodierbar, wird aber als video/quicktime
     // ausgeliefert (Firefox spielt es nicht) → muss in eine .mp4
-    expect(mussWebKonvertiert(info({ codecVideo: 'h264', codecAudio: 'aac' }), 'm1.mov')).toBe(true)
-    expect(mussWebKonvertiert(info({ codecVideo: 'h264', codecAudio: 'aac' }), 'm1.MOV')).toBe(true)
+    expect(needsWebConversion(info({ codecVideo: 'h264', codecAudio: 'aac' }), 'm1.mov')).toBe(true)
+    expect(needsWebConversion(info({ codecVideo: 'h264', codecAudio: 'aac' }), 'm1.MOV')).toBe(true)
   })
 
   it('lässt eine web-taugliche .mp4 unangetastet', () => {
-    expect(mussWebKonvertiert(info({ codecVideo: 'h264', codecAudio: 'aac' }), 'm1.mp4')).toBe(
+    expect(needsWebConversion(info({ codecVideo: 'h264', codecAudio: 'aac' }), 'm1.mp4')).toBe(
       false,
     )
   })
 
   it('konvertiert nicht web-taugliche Codecs unabhängig vom Container', () => {
-    expect(mussWebKonvertiert(info({ codecVideo: 'hevc' }), 'm1.mp4')).toBe(true)
+    expect(needsWebConversion(info({ codecVideo: 'hevc' }), 'm1.mp4')).toBe(true)
   })
 })
 
 describe('hatFaststart', () => {
   it('erkennt den Index vorn (so schreibt ffmpeg mit +faststart)', () => {
     expect(
-      hatFaststart(Buffer.concat([atom('ftyp', 16), atom('moov', 200), atom('mdat', 4000)])),
+      hasFaststart(Buffer.concat([atom('ftyp', 16), atom('moov', 200), atom('mdat', 4000)])),
     ).toBe(true)
   })
 
@@ -101,7 +101,7 @@ describe('hatFaststart', () => {
     // Genau die Form, die vom Pixel hochgeladen wird: ftyp, ein leerer
     // free-Platzhalter, die Mediendaten, und der Index erst dahinter.
     expect(
-      hatFaststart(Buffer.concat([atom('ftyp', 16), atom('free', 3184), atom('mdat', 4000)])),
+      hasFaststart(Buffer.concat([atom('ftyp', 16), atom('free', 3184), atom('mdat', 4000)])),
     ).toBe(false)
   })
 
@@ -112,33 +112,33 @@ describe('hatFaststart', () => {
     grossesMdat.writeUInt32BE(1, 0)
     grossesMdat.write('mdat', 4, 'latin1')
     grossesMdat.writeBigUInt64BE(8n * 1024n * 1024n * 1024n, 8)
-    expect(hatFaststart(Buffer.concat([atom('ftyp', 16), grossesMdat]))).toBe(false)
+    expect(hasFaststart(Buffer.concat([atom('ftyp', 16), grossesMdat]))).toBe(false)
   })
 
   it('sagt bei unlesbarem Kopf „nein" — umschreiben ist der harmlose Ausgang', () => {
-    expect(hatFaststart(Buffer.alloc(0))).toBe(false)
-    expect(hatFaststart(Buffer.from('kein mp4'))).toBe(false)
+    expect(hasFaststart(Buffer.alloc(0))).toBe(false)
+    expect(hasFaststart(Buffer.from('kein mp4'))).toBe(false)
     // Längenfeld 0 („bis Dateiende"): danach kommt nichts, worauf zu springen wäre
     const endlos = Buffer.alloc(8)
     endlos.write('mdat', 4, 'latin1')
-    expect(hatFaststart(endlos)).toBe(false)
+    expect(hasFaststart(endlos)).toBe(false)
   })
 })
 
 describe('abgeleitete Namen + Poster-Zeitpunkt', () => {
   it('vergibt Namen mit zwei Punkt-Segmenten (kollidieren nie mit Upload-Medien)', () => {
-    expect(posterDateiname('m2')).toBe('m2.poster.jpg')
-    expect(webVideoDateiname('m2')).toBe('m2.web.mp4')
+    expect(posterFilename('m2')).toBe('m2.poster.jpg')
+    expect(webVideoFilename('m2')).toBe('m2.web.mp4')
   })
 
   it('nimmt den ersten Frame — den, mit dem die Wiedergabe beginnt', () => {
     // Der Player zeigt das Poster, bis die Wiedergabe einsetzt, und die beginnt
     // bei null. Jeder spätere Frame ließe das Bild im Moment des Umschaltens
     // sichtbar springen — unabhängig von der Länge des Videos.
-    expect(posterZeitpunkt(0)).toBe(0)
-    expect(posterZeitpunkt(-5)).toBe(0) // unbekannte Dauer
-    expect(posterZeitpunkt(0.4)).toBe(0) // sehr kurzes Video
-    expect(posterZeitpunkt(30)).toBe(0)
+    expect(posterTime(0)).toBe(0)
+    expect(posterTime(-5)).toBe(0) // unbekannte Dauer
+    expect(posterTime(0.4)).toBe(0) // sehr kurzes Video
+    expect(posterTime(30)).toBe(0)
   })
 })
 
@@ -149,9 +149,9 @@ describe('bereiteVideosAuf', () => {
       'media/m1.mp4',
       Buffer.concat([atom('ftyp', 16), atom('moov', 64), atom('mdat', 512)]),
     )
-    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 8.4 }))
+    const werkzeug = new FakeVideoTool(info({ durationS: 8.4 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
       speicher: sp,
       werkzeug,
@@ -179,9 +179,9 @@ describe('bereiteVideosAuf', () => {
       'media/m1.mp4',
       Buffer.concat([atom('ftyp', 16), atom('mdat', 512), atom('moov', 64)]),
     )
-    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 12.7 }))
+    const werkzeug = new FakeVideoTool(info({ durationS: 12.7 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
       speicher: sp,
       werkzeug,
@@ -203,9 +203,9 @@ describe('bereiteVideosAuf', () => {
     )
     sp.dateien.set('media/m1.poster.jpg', Buffer.from('ALT-POSTER'))
     sp.dateien.set('media/m1.web.mp4', Buffer.from('ALT-WEB'))
-    const werkzeug = new FakeVideoWerkzeug(info())
+    const werkzeug = new FakeVideoTool(info())
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
       speicher: sp,
       werkzeug,
@@ -222,9 +222,9 @@ describe('bereiteVideosAuf', () => {
   it('transkodiert HEVC und liefert danach die web.mp4 aus', async () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.mov', Buffer.from('HEVC-ORIGINAL'))
-    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'hevc', durationS: 12 }))
+    const werkzeug = new FakeVideoTool(info({ codecVideo: 'hevc', durationS: 12 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
       speicher: sp,
       werkzeug,
@@ -243,9 +243,9 @@ describe('bereiteVideosAuf', () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
     sp.dateien.set('media/m1.poster.jpg', Buffer.from('POSTER'))
-    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'h264', durationS: 9.5 }))
+    const werkzeug = new FakeVideoTool(info({ codecVideo: 'h264', durationS: 9.5 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
       speicher: sp,
       werkzeug,
@@ -263,9 +263,9 @@ describe('bereiteVideosAuf', () => {
   it('erzeugt beim Wiedereintritt ein fehlendes Poster aus der web.mp4', async () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
-    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 4 }))
+    const werkzeug = new FakeVideoTool(info({ durationS: 4 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
       speicher: sp,
       werkzeug,
@@ -280,10 +280,10 @@ describe('bereiteVideosAuf', () => {
     const sp = memSpeicher()
     const nachrichten: string[] = []
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
       speicher: sp,
-      werkzeug: new FakeVideoWerkzeug(info()),
+      werkzeug: new FakeVideoTool(info()),
       protokoll: (n) => nachrichten.push(n),
     })
 
@@ -294,9 +294,9 @@ describe('bereiteVideosAuf', () => {
   it('konvertiert h264 im .mov-Container in eine web.mp4 (nur wegen des Containers)', async () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.mov', Buffer.from('H264-IN-MOV'))
-    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'h264', codecAudio: 'aac' }))
+    const werkzeug = new FakeVideoTool(info({ codecVideo: 'h264', codecAudio: 'aac' }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
       speicher: sp,
       werkzeug,
@@ -311,9 +311,9 @@ describe('bereiteVideosAuf', () => {
     sp.dateien.set('media/m1.mov', Buffer.from('HEVC-ORIGINAL'))
     sp.dateien.set('media/m1.poster.jpg', Buffer.from('ALT-POSTER'))
     sp.dateien.set('media/m1.web.mp4', Buffer.from('ALT-WEB'))
-    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'hevc' }))
+    const werkzeug = new FakeVideoTool(info({ codecVideo: 'hevc' }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
       speicher: sp,
       werkzeug,
@@ -328,14 +328,14 @@ describe('bereiteVideosAuf', () => {
   it('überspringt ein kaputtes Video, ohne die Tour scheitern zu lassen', async () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.mp4', Buffer.from('KAPUTT'))
-    const werkzeug: FakeVideoWerkzeug = new FakeVideoWerkzeug(info())
+    const werkzeug: FakeVideoTool = new FakeVideoTool(info())
     // probe wirft (z. B. keine Videospur)
     werkzeug.probe = async () => {
       throw new Error('Keine Videospur gefunden')
     }
     const nachrichten: string[] = []
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
       speicher: sp,
       werkzeug,
@@ -352,23 +352,23 @@ describe('bereiteVideosAuf', () => {
 describe('klemmeSchnitt', () => {
   it('hat an BEIDEN Kanten das Material als Anschlag', () => {
     // Trimmen legt frei, was da ist, und erfindet nichts.
-    expect(klemmeSchnitt({ fromS: -5, toS: 100 }, 30)).toBeNull() // = ganze Datei
-    expect(klemmeSchnitt({ fromS: 2, toS: 100 }, 30)).toEqual({ fromS: 2, toS: 30 })
-    expect(klemmeSchnitt({ fromS: 50, toS: 60 }, 30)).toBeNull() // ganz hinter dem Ende
+    expect(clampCut({ fromS: -5, toS: 100 }, 30)).toBeNull() // = ganze Datei
+    expect(clampCut({ fromS: 2, toS: 100 }, 30)).toEqual({ fromS: 2, toS: 30 })
+    expect(clampCut({ fromS: 50, toS: 60 }, 30)).toBeNull() // ganz hinter dem Ende
   })
 
   it('ohne Ende läuft der Schnitt bis zum Dateiende', () => {
-    expect(klemmeSchnitt({ fromS: 4 }, 30)).toEqual({ fromS: 4, toS: 30 })
+    expect(clampCut({ fromS: 4 }, 30)).toEqual({ fromS: 4, toS: 30 })
   })
 
   it('nimmt den Vollschnitt als „kein Schnitt" — er erzwänge einen Transcode ohne Wirkung', () => {
-    expect(klemmeSchnitt({ fromS: 0, toS: 30 }, 30)).toBeNull()
-    expect(klemmeSchnitt(undefined, 30)).toBeNull()
+    expect(clampCut({ fromS: 0, toS: 30 }, 30)).toBeNull()
+    expect(clampCut(undefined, 30)).toBeNull()
   })
 
   it('lehnt eine Spanne ohne Inhalt ab', () => {
-    expect(klemmeSchnitt({ fromS: 10, toS: 10.01 }, 30)).toBeNull()
-    expect(klemmeSchnitt({ fromS: 10, toS: 5 }, 30)).toBeNull()
+    expect(clampCut({ fromS: 10, toS: 10.01 }, 30)).toBeNull()
+    expect(clampCut({ fromS: 10, toS: 5 }, 30)).toBeNull()
   })
 })
 
@@ -385,9 +385,9 @@ describe('bereiteVideosAuf mit Schnitt', () => {
   it('schneidet IMMER per Transcode — nie per Stream-Copy', async () => {
     // Ein `-c copy` schneidet nur an Keyframes und träfe den Punkt um Sekunden.
     const sp = ganzesVideo()
-    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 34 }))
+    const werkzeug = new FakeVideoTool(info({ durationS: 34 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { fromS: 6, toS: 28 } }],
       speicher: sp,
       werkzeug,
@@ -402,10 +402,10 @@ describe('bereiteVideosAuf mit Schnitt', () => {
 
   it('lässt das Material stehen — der Schnitt ist ein Edit, kein Verbrauch', async () => {
     const sp = ganzesVideo()
-    await bereiteVideosAuf({
+    await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { fromS: 6, toS: 28 } }],
       speicher: sp,
-      werkzeug: new FakeVideoWerkzeug(info({ durationS: 34 })),
+      werkzeug: new FakeVideoTool(info({ durationS: 34 })),
     })
     // Ohne die Quelle wäre „Trim zurücknehmen" ein Datenverlust
     expect(sp.dateien.has('media/m1.mp4')).toBe(true)
@@ -415,9 +415,9 @@ describe('bereiteVideosAuf mit Schnitt', () => {
   it('zieht das Poster mit — sonst zeigt es einen Frame, den es nicht mehr gibt', async () => {
     const sp = ganzesVideo()
     sp.dateien.set('media/m1.poster.jpg', Buffer.from('ALTES-POSTER'))
-    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 34 }))
+    const werkzeug = new FakeVideoTool(info({ durationS: 34 }))
 
-    await bereiteVideosAuf({
+    await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { fromS: 6, toS: 28 } }],
       speicher: sp,
       werkzeug,
@@ -430,9 +430,9 @@ describe('bereiteVideosAuf mit Schnitt', () => {
   it('nimmt den Schnitt zurück, wenn er aus dem Overlay verschwindet', async () => {
     const sp = ganzesVideo()
     sp.dateien.set('media/m1.cut.mp4', Buffer.from('ALTER-SCHNITT'))
-    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 34 }))
+    const werkzeug = new FakeVideoTool(info({ durationS: 34 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
       speicher: sp,
       werkzeug,
@@ -447,9 +447,9 @@ describe('bereiteVideosAuf mit Schnitt', () => {
   it('schneidet auch aus der web.mp4, wenn das Original längst verworfen ist', async () => {
     const sp = memSpeicher()
     sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
-    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 20 }))
+    const werkzeug = new FakeVideoTool(info({ durationS: 20 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mov', schnitt: { fromS: 3 } }],
       speicher: sp,
       werkzeug,
@@ -462,9 +462,9 @@ describe('bereiteVideosAuf mit Schnitt', () => {
 
   it('ignoriert einen Schnitt, der das ganze Material meint', async () => {
     const sp = ganzesVideo()
-    const werkzeug = new FakeVideoWerkzeug(info({ durationS: 34 }))
+    const werkzeug = new FakeVideoTool(info({ durationS: 34 }))
 
-    const meta = await bereiteVideosAuf({
+    const meta = await prepareVideos({
       medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { fromS: 0, toS: 34 } }],
       speicher: sp,
       werkzeug,

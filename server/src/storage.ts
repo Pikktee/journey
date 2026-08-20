@@ -10,7 +10,7 @@ import { dirname, join, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-export interface DateiInfo {
+export interface FileStat {
   groesse: number
 }
 
@@ -23,9 +23,9 @@ export interface Storage {
     relPfad: string,
     quelle: Readable,
     maxBytes: number,
-  ): Promise<DateiInfo>
+  ): Promise<FileStat>
   lese(tourId: string, relPfad: string): Promise<Buffer>
-  info(tourId: string, relPfad: string): Promise<DateiInfo | null>
+  info(tourId: string, relPfad: string): Promise<FileStat | null>
   /** Lese-Stream mit optionalem Byte-Bereich (für HTTP-Range/Video-Seeking) */
   leseStream(tourId: string, relPfad: string, bereich?: { start: number; ende: number }): Readable
   /** Einzelne Datei löschen (Audio-Assets, Baukasten); fehlende Datei ist ok */
@@ -49,7 +49,7 @@ export interface Storage {
 }
 
 /** Wird geworfen, wenn ein Upload das Größenlimit überschreitet. */
-export class ZuGrossFehler extends Error {
+export class TooLargeError extends Error {
   constructor(maxBytes: number) {
     super(`Datei überschreitet das Limit von ${maxBytes} Bytes`)
     this.name = 'ZuGrossFehler'
@@ -89,7 +89,7 @@ export class FsStorage implements Storage {
     relPfad: string,
     quelle: Readable,
     maxBytes: number,
-  ): Promise<DateiInfo> {
+  ): Promise<FileStat> {
     const ziel = this.pfad(tourId, relPfad)
     await mkdir(dirname(ziel), { recursive: true })
     // Erst in Temp-Datei (mit Zufallsnamen: parallele PUTs desselben Mediums
@@ -103,7 +103,7 @@ export class FsStorage implements Storage {
         async function* (chunks: AsyncIterable<Buffer>) {
           for await (const chunk of chunks) {
             gross += chunk.length
-            if (gross > maxBytes) throw new ZuGrossFehler(maxBytes)
+            if (gross > maxBytes) throw new TooLargeError(maxBytes)
             yield chunk
           }
         },
@@ -121,7 +121,7 @@ export class FsStorage implements Storage {
     return readFile(this.pfad(tourId, relPfad))
   }
 
-  async info(tourId: string, relPfad: string): Promise<DateiInfo | null> {
+  async info(tourId: string, relPfad: string): Promise<FileStat | null> {
     try {
       const s = await stat(this.pfad(tourId, relPfad))
       return s.isFile() ? { groesse: s.size } : null
@@ -212,13 +212,13 @@ export class MemStorage implements Storage {
     relPfad: string,
     quelle: Readable,
     maxBytes: number,
-  ): Promise<DateiInfo> {
+  ): Promise<FileStat> {
     const teile: Buffer[] = []
     let gross = 0
     for await (const chunk of quelle) {
       const buf = Buffer.from(chunk)
       gross += buf.length
-      if (gross > maxBytes) throw new ZuGrossFehler(maxBytes)
+      if (gross > maxBytes) throw new TooLargeError(maxBytes)
       teile.push(buf)
     }
     this.dateien.set(this.key(tourId, relPfad), Buffer.concat(teile))
@@ -231,7 +231,7 @@ export class MemStorage implements Storage {
     return inhalt
   }
 
-  async info(tourId: string, relPfad: string): Promise<DateiInfo | null> {
+  async info(tourId: string, relPfad: string): Promise<FileStat | null> {
     const inhalt = this.dateien.get(this.key(tourId, relPfad))
     return inhalt ? { groesse: inhalt.length } : null
   }

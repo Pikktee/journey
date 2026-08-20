@@ -41,10 +41,11 @@ Widerspruch oder Kollision).
 | zuzüglich vier aufgespaltener Sammelzeilen | +4 |
 | **Summe** | **3423** |
 
-Verteilt auf die Wellen: 609 in Welle 1 (Verträge), 411 in 2 (Server), 185 in 3
-(Studio-Modelle), 635 in 4 (Studio-Verdrahtung), 387 in 5 (Player), 720 in 6
-(Produktseiten), 371 in 7 (Android), 1 in 9 (die Env-Variablen als Block), 104
-eingefroren.
+Verteilt auf die Wellen (Stand 2026-08-20, nach den Nachträgen der Wellen 1 und 2):
+618 in Welle 1 (Verträge), 427 in 2 (Server), 185 in 3 (Studio-Modelle), 635 in 4
+(Studio-Verdrahtung), 387 in 5 (Player), 721 in 6 (Produktseiten), 371 in 7
+(Android), 1 in 9 (die Env-Variablen als Block), 104 eingefroren. Beim Bau waren
+es 3423; die Differenz sind die Zeilen, die eine gebaute Welle nachgetragen hat.
 
 **1382 Einträge tragen `VORSCHLAG: `** (40 %). Sie sind nicht durch das Glossar gedeckt,
 sondern beim Bauen entstanden, und genau sie sind der Grund, warum das Glossar nach der

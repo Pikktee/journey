@@ -4,10 +4,10 @@
 // ohne XML-Abhängigkeit: <trkpt>-Blöcke sind flach, ein Regex genügt und ist
 // robust gegen Namespaces/Attribut-Reihenfolge.
 
-import type { Modus, UploadPunkt, UploadSegment } from '../schema/upload.js'
-import { distanzM } from './geo.js'
+import type { TravelMode, UploadPoint, UploadSegment } from '../schema/upload.js'
+import { distanceM } from './geo.js'
 
-export interface GpxPunkt {
+export interface GpxPoint {
   lng: number
   lat: number
   ele: number
@@ -25,8 +25,8 @@ const MAX_TRACKPUNKTE = 200_000
  * ist bei fehlenden Schluss-Tags QUADRATISCH und blockiert den Event-Loop
  * (Review-Fund: 3,7 MB → 64 s) — parseGpx läuft synchron in processTour().
  */
-export function parseGpx(xml: string): GpxPunkt[] {
-  const punkte: GpxPunkt[] = []
+export function parseGpx(xml: string): GpxPoint[] {
+  const punkte: GpxPoint[] = []
   const tagRe = /<trkpt\b([^>]*)>/g
   let m: RegExpExecArray | null
   while ((m = tagRe.exec(xml)) && punkte.length < MAX_TRACKPUNKTE) {
@@ -57,13 +57,13 @@ export function parseGpx(xml: string): GpxPunkt[] {
 // eine Tempo-Heuristik würde sie kaum zuverlässig treffen.
 const WALK_MAX_KMH = 7
 
-export function modusAusTempo(streckeM: number, dauerS: number): Modus {
+export function travelModeFromSpeed(streckeM: number, dauerS: number): TravelMode {
   if (dauerS <= 0) return 'bike'
   const kmh = streckeM / 1000 / (dauerS / 3600)
   return kmh < WALK_MAX_KMH ? 'walk' : 'bike'
 }
 
-export interface GpxSegmentErgebnis {
+export interface GpxSegmentResult {
   segment: UploadSegment
   /** true, wenn echte Zeitstempel im GPX standen (sonst distanzbasierte Pseudo-Zeit) */
   hatZeit: boolean
@@ -76,10 +76,10 @@ export interface GpxSegmentErgebnis {
  * distanzproportional über die Spanne start→end verteilt — die Fahrt läuft dann
  * gleichmäßig, Auto-Wetter/Tag-Nacht bleiben Pseudo-Zeit (Plan-Risiko 9).
  */
-export function baueSegmentAusGpx(
-  punkte: GpxPunkt[],
-  opts: { startMs: number; endMs: number; modus?: Modus },
-): GpxSegmentErgebnis {
+export function buildSegmentFromGpx(
+  punkte: GpxPoint[],
+  opts: { startMs: number; endMs: number; modus?: TravelMode },
+): GpxSegmentResult {
   if (punkte.length < 2) throw new Error(`GPX enthält zu wenige Trackpunkte (${punkte.length})`)
 
   const hatZeit = punkte.every((p) => p.timeMs !== null)
@@ -89,12 +89,12 @@ export function baueSegmentAusGpx(
   for (let i = 1; i < punkte.length; i++) {
     const a = punkte[i - 1]!
     const b = punkte[i]!
-    kumDist.push(kumDist[i - 1]! + distanzM([a.lng, a.lat], [b.lng, b.lat]))
+    kumDist.push(kumDist[i - 1]! + distanceM([a.lng, a.lat], [b.lng, b.lat]))
   }
   const gesamtM = kumDist[kumDist.length - 1]!
   const spanneS = Math.max(0, (opts.endMs - opts.startMs) / 1000)
 
-  const pts: UploadPunkt[] = punkte.map((p, i) => {
+  const pts: UploadPoint[] = punkte.map((p, i) => {
     let tOffsetS: number
     if (hatZeit) {
       tOffsetS = Math.round((p.timeMs! - opts.startMs) / 1000)
@@ -108,6 +108,6 @@ export function baueSegmentAusGpx(
   })
 
   const modus =
-    opts.modus ?? modusAusTempo(gesamtM, hatZeit ? (opts.endMs - opts.startMs) / 1000 : 0)
+    opts.modus ?? travelModeFromSpeed(gesamtM, hatZeit ? (opts.endMs - opts.startMs) / 1000 : 0)
   return { segment: { mode: modus, pts }, hatZeit }
 }

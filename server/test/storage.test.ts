@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { FsStorage, MemStorage, ZuGrossFehler, type Storage } from '../src/storage.js'
+import { FsStorage, MemStorage, TooLargeError, type Storage } from '../src/storage.js'
 
 let dir: string
 let storage: FsStorage
@@ -42,7 +42,7 @@ describe('FsStorage', () => {
   it('bricht über dem Limit ab und hinterlässt keine halbe Datei', async () => {
     await expect(
       storage.schreibeStream('t_1', 'media/m1.jpg', alsStream('0123456789'), 5),
-    ).rejects.toBeInstanceOf(ZuGrossFehler)
+    ).rejects.toBeInstanceOf(TooLargeError)
     expect(await storage.info('t_1', 'media/m1.jpg')).toBeNull()
   })
 

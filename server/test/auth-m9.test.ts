@@ -3,7 +3,7 @@
 // gegen Temp-SQLite + Fake-Storage + Fake-Mail.
 
 import { describe, expect, it } from 'vitest'
-import { nameAusEmail } from '../src/auth/auth.js'
+import { nameFromEmail } from '../src/auth/auth.js'
 import { baueTestApp, beispielManifest, oeffneRegistrierung, type TestUmgebung } from './helfer.js'
 
 // Token aus dem letzten Mail-Link ziehen (…#verify=<token> / …#reset=<token>)
@@ -77,19 +77,19 @@ describe('Registrierung ohne Namensfeld', () => {
 
 describe('nameAusEmail', () => {
   it('macht aus dem lokalen Teil einen lesbaren Namen', () => {
-    expect(nameAusEmail('mira.wolf@example.com')).toBe('Mira Wolf')
-    expect(nameAusEmail('mira_wolf@example.com')).toBe('Mira Wolf')
-    expect(nameAusEmail('mira-wolf@example.com')).toBe('Mira Wolf')
-    expect(nameAusEmail('mira@example.com')).toBe('Mira')
-    expect(nameAusEmail('mira+maptale@example.com')).toBe('Mira')
+    expect(nameFromEmail('mira.wolf@example.com')).toBe('Mira Wolf')
+    expect(nameFromEmail('mira_wolf@example.com')).toBe('Mira Wolf')
+    expect(nameFromEmail('mira-wolf@example.com')).toBe('Mira Wolf')
+    expect(nameFromEmail('mira@example.com')).toBe('Mira')
+    expect(nameFromEmail('mira+maptale@example.com')).toBe('Mira')
   })
 
   it('erfindet nichts, wo nichts zu holen ist, und bleibt im Spaltenmaß', () => {
     // Solche Adressen kommen an der Prüfung davor gar nicht vorbei — die
     // Funktion darf trotzdem nichts Leeres liefern, die Spalte ist NOT NULL.
-    expect(nameAusEmail('...@example.com')).toBe('...')
-    expect(nameAusEmail('@example.com')).toBe('@example.com')
-    expect(nameAusEmail(`${'a'.repeat(200)}@example.com`).length).toBe(80)
+    expect(nameFromEmail('...@example.com')).toBe('...')
+    expect(nameFromEmail('@example.com')).toBe('@example.com')
+    expect(nameFromEmail(`${'a'.repeat(200)}@example.com`).length).toBe(80)
   })
 })
 

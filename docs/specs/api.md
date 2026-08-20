@@ -24,9 +24,9 @@ Pfade und Felder nach der Abbildungstabelle um
 ([abbildungstabelle.md](abbildungstabelle.md)) und zieht dieses Dokument im
 selben Commit nach.
 
-Auth-Stufen: **öffentlich** (kein Guard), **Sitzung** (`erfordereBenutzer`,
-Cookie oder Bearer-Token), **Besitzer** (Sitzung plus `nurOwner`), **Admin**
-(`erfordereAdmin`), **Sichtbarkeit** (öffentlich, aber `darfSehen`: private nur
+Auth-Stufen: **öffentlich** (kein Guard), **Sitzung** (`requireUser`,
+Cookie oder Bearer-Token), **Besitzer** (Sitzung plus `requireOwner`), **Admin**
+(`requireAdmin`), **Sichtbarkeit** (öffentlich, aber `canView`: private nur
 für den Besitzer). „Bremse" heißt Rate-Limit.
 
 Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich

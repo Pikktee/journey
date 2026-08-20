@@ -7,11 +7,11 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  abmeldeToken,
-  EINWILLIGUNGSTEXTE,
-  einKlickUrl,
-  newsletterKopfzeilen,
-  pruefeAbmeldeToken,
+  unsubscribeToken,
+  CONSENT_TEXTS,
+  oneClickUrl,
+  newsletterHeaders,
+  checkUnsubscribeToken,
 } from '../src/newsletter.js'
 import { baueTestApp, oeffneRegistrierung, type TestUmgebung } from './helfer.js'
 
@@ -34,7 +34,7 @@ describe('Einwilligung bei der Registrierung', () => {
     expect(verlauf).toHaveLength(1)
     expect(verlauf[0]?.state).toBe('on')
     expect(verlauf[0]?.source).toBe('signup')
-    expect(verlauf[0]?.textVersion).toBe(EINWILLIGUNGSTEXTE.signup.fassung)
+    expect(verlauf[0]?.textVersion).toBe(CONSENT_TEXTS.signup.fassung)
     expect(Date.parse(verlauf[0]?.at ?? '')).not.toBeNaN()
   })
 
@@ -151,7 +151,7 @@ describe('Abmelden ohne Anmeldung', () => {
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/newsletter/unsubscribe',
-      payload: { token: abmeldeToken(id, u.app.deps.konfig.cookieSecret) },
+      payload: { token: unsubscribeToken(id, u.app.deps.konfig.cookieSecret) },
     })
     expect(antwort.statusCode).toBe(200)
     expect(u.app.newsletter.stand(id)).toBe(false)
@@ -163,7 +163,7 @@ describe('Abmelden ohne Anmeldung', () => {
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
 
-    const token = abmeldeToken(id, u.app.deps.konfig.cookieSecret)
+    const token = unsubscribeToken(id, u.app.deps.konfig.cookieSecret)
     const antwort = await u.app.inject({
       method: 'POST',
       url: `/api/newsletter/one-click/${token}`,
@@ -179,7 +179,7 @@ describe('Abmelden ohne Anmeldung', () => {
     const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
 
-    const echt = abmeldeToken(id, u.app.deps.konfig.cookieSecret)
+    const echt = unsubscribeToken(id, u.app.deps.konfig.cookieSecret)
     const gefaelscht = `${echt.split('.')[0]}.${'A'.repeat((echt.split('.')[1] ?? '').length)}`
     const antwort = await u.app.inject({
       method: 'POST',
@@ -193,7 +193,7 @@ describe('Abmelden ohne Anmeldung', () => {
   it('bleibt freundlich, wenn das Konto längst weg ist — das Ziel ist erreicht', async () => {
     const u = await baueTestApp()
     const weg = await u.app.auth.legeBenutzerAn('weg@example.com', 'geheim123', 'Weg')
-    const token = abmeldeToken(weg.id, u.app.deps.konfig.cookieSecret)
+    const token = unsubscribeToken(weg.id, u.app.deps.konfig.cookieSecret)
     u.app.auth.loescheBenutzer(weg.id)
 
     const antwort = await u.app.inject({
@@ -239,21 +239,21 @@ describe('Aufbewahrung', () => {
 
 describe('Signierter Token', () => {
   it('geht auf und hin und zurück, aber nicht mit fremdem Geheimnis', () => {
-    const token = abmeldeToken('u_1', 'geheim')
-    expect(pruefeAbmeldeToken(token, 'geheim')).toBe('u_1')
-    expect(pruefeAbmeldeToken(token, 'anderes')).toBeNull()
-    expect(pruefeAbmeldeToken('unfug', 'geheim')).toBeNull()
-    expect(pruefeAbmeldeToken('', 'geheim')).toBeNull()
+    const token = unsubscribeToken('u_1', 'geheim')
+    expect(checkUnsubscribeToken(token, 'geheim')).toBe('u_1')
+    expect(checkUnsubscribeToken(token, 'anderes')).toBeNull()
+    expect(checkUnsubscribeToken('unfug', 'geheim')).toBeNull()
+    expect(checkUnsubscribeToken('', 'geheim')).toBeNull()
     // Kein Punkt, keine Signatur — und keine Ausnahme.
-    expect(pruefeAbmeldeToken('dTBf', 'geheim')).toBeNull()
+    expect(checkUnsubscribeToken('dTBf', 'geheim')).toBeNull()
   })
 })
 
 describe('List-Unsubscribe', () => {
   it('nennt beide Wege und sagt den Ein-Klick zu', () => {
-    const kopfzeilen = newsletterKopfzeilen('https://maptale.io/', 'tok')
+    const kopfzeilen = newsletterHeaders('https://maptale.io/', 'tok')
     expect(kopfzeilen['List-Unsubscribe']).toContain(
-      `<${einKlickUrl('https://maptale.io', 'tok')}>`,
+      `<${oneClickUrl('https://maptale.io', 'tok')}>`,
     )
     expect(kopfzeilen['List-Unsubscribe']).toContain(
       '<https://maptale.io/konto#newsletter-aus=tok>',
@@ -268,7 +268,7 @@ describe('List-Unsubscribe', () => {
       an: 'wer@example.com',
       betreff: 'Neues von Maptale',
       text: 'Hallo',
-      kopfzeilen: newsletterKopfzeilen('https://maptale.io', 'tok'),
+      kopfzeilen: newsletterHeaders('https://maptale.io', 'tok'),
     })
     expect(u.mail.nachrichten.at(-1)?.kopfzeilen?.['List-Unsubscribe-Post']).toBe(
       'List-Unsubscribe=One-Click',

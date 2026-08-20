@@ -176,7 +176,7 @@ liefert die Seiten statisch aus, nur `/api` geht in den Container. Aus der Tabel
 die Vite-Eingänge, alle Links (`pfad('galerie')`), die Dev-Middleware in
 [vite.config.js](vite.config.js) und die `location`-Blöcke des Vhosts ab; ein Drift-Wächter
 ([test/routen.test.ts](test/routen.test.ts)) hält Vhost und die Server-Kopie
-([server/src/webpfade.ts](server/src/webpfade.ts), Mail-Links — eigener `rootDir`, kann nicht
+([server/src/web-paths.ts](server/src/web-paths.ts), Mail-Links — eigener `rootDir`, kann nicht
 importieren) dagegen. **URLs tragen kein `.html`**; die `…​.html`-Adressen antworten zwar
 weiterhin (die Dateien liegen im Build), aber nichts im Code zeigt mehr dorthin — Nebeneffekt,
 keine Zusage. Drei Pfade zeigen auf `studio.html`, weil dieselbe Seite drei Dinge ist: die Tür
@@ -207,7 +207,7 @@ Interessenten zu fallen. Die alte Form `?id=…` bleibt für immer bedienbar —
 schreibt sie per `replaceState` auf `/@…` um.
 
 **`/@handle` beantwortet seit Etappe 6 der SERVER**, nicht Nginx
-([server/src/routes/seiten.ts](server/src/routes/seiten.ts), Vhost `proxy_pass` statt
+([server/src/routes/pages.ts](server/src/routes/pages.ts), Vhost `proxy_pass` statt
 `rewrite`). Grund ist die eine Sorte Information, die eine statische Datei nicht tragen kann:
 die pro Adresse verschiedene. Der Server holt das gebaute `profil.html` zur Laufzeit über
 denselben Nginx (`MAPTALE_WEB_URL`, fünf Minuten im Speicher) und ersetzt darin **nur den
@@ -311,11 +311,11 @@ importfrei und wird von **Player und Studio gemeinsam** benutzt: Tempo je Modus
 die lower_bound-Interpolation, das Einweben der Halte und die RAMPEN (`RAMPE_M`, s. unten). Vorher stand das Tempo-Modell an
 DREI Stellen, gekoppelt über Tests, die den Quelltext von `tour.ts` nach Zeichenketten
 absuchten — einer prüfte, ob ein Kommentar dasteht. Jetzt sind es zwei: hier und der
-erzwungene Server-Spiegel ([filmtempo.ts](server/src/pipeline/filmtempo.ts) +
-[filmachse.ts](server/src/pipeline/filmachse.ts), eigener `rootDir`), und beide rechnen
+erzwungene Server-Spiegel ([film-tempo.ts](server/src/pipeline/film-tempo.ts) +
+[film-axis.ts](server/src/pipeline/film-axis.ts), eigener `rootDir`), und beide rechnen
 dasselbe **Verhaltens-Fixture** durch ([test/fixtures/filmachse.json](test/fixtures/filmachse.json),
 Web-Hälfte in [test/filmachse.test.ts](test/filmachse.test.ts), Server-Hälfte in
-[server/test/filmtempo.test.ts](server/test/filmtempo.test.ts)).
+[server/test/film-tempo.test.ts](server/test/film-tempo.test.ts)).
 
 **Parametrisiert wird über die STRECKE, nicht über die Aufnahmezeit.** Das ist keine Wahl: Der
 Player braucht Filmsekunde → Streckenposition, und über der Aufnahmezeit endet die Rechnung bei
@@ -448,7 +448,7 @@ den Halt, die rohen Grenzen wissen davon nichts — ein Fußgänger-Marker liefe
 Meter dazwischen mit Fährtempo über die Karte.
 
 **Der Server-Zwilling muss mit**:
-[server/src/pipeline/filmachse.ts](server/src/pipeline/filmachse.ts) rechnet seit derselben
+[server/src/pipeline/film-axis.ts](server/src/pipeline/film-axis.ts) rechnet seit derselben
 Auslieferung über die STRECKE statt über die Aufnahmezeit und kennt dieselben Rampen; bliebe
 er zurück, lösten `anker + versatzFilmS` in Studio und Render verschieden auf.
 
@@ -1017,13 +1017,13 @@ Vier Dinge, die man dabei leicht „vereinfacht":
 - **Der Speicherbalken misst am LIMIT, nicht an der Summe**, und die Teile ergeben das
   Belegte (deshalb der Eimer `sonstiges`). Aufgeschlüsselt wird nach Dateiendung, nicht
   nach Ordner — in `media/` liegen Fotos, Videos, Poster und Klänge nebeneinander
-  (`artDerDatei` in [server/src/quota.ts](server/src/quota.ts)). Eigene Route und nicht
+  (`fileType` in [server/src/quota.ts](server/src/quota.ts)). Eigene Route und nicht
   Teil von `/auth/me`: Die Aufteilung läuft über alle Dateien aller Touren, `/auth/me` ist
   der heißeste Aufruf der API.
 
 - **Der Newsletter-Schalter schaltet die EINWILLIGUNG, nicht den Versand.** Er ist auch
   bei unbestätigter Adresse bedienbar — gesperrt ist, was rausgeht
-  (`NewsletterDienst.empfaenger` filtert auf `email_verified`), und die Zeile sagt es
+  (`NewsletterService.empfaenger` filtert auf `email_verified`), und die Zeile sagt es
   dazu. Ein toter Schalter ließe rätseln, ob die Einwilligung angekommen ist. Kein
   zweites Double-Opt-in: Das DOI beweist, dass die Einwilligung vom INHABER der Adresse
   stammt — hier ist die Adresse längst bestätigt und angemeldet ist man auch. Gespeichert
@@ -1057,13 +1057,13 @@ auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.
   [src/sichtbarkeit.ts](src/sichtbarkeit.ts) — sie erscheinen hier UND im Bearbeiten-Modal
   der Profilseite und waren genau deshalb schon einmal auseinandergelaufen. Was er bewirkt,
   entscheidet der Server: `index` nur bei öffentlichem Profil UND gesetztem Schalter
-  ([server/src/routes/seiten.ts](server/src/routes/seiten.ts)). Das steht so auch in
+  ([server/src/routes/pages.ts](server/src/routes/pages.ts)). Das steht so auch in
   [datenschutz.html](datenschutz.html), Abschnitt 5 — wer es ändert, ändert dort eine Zusage.
 
 - **Der ZIP-Datenexport ist der einzige echte HINTERGRUNDLAUF im Projekt** (Art. 20 DSGVO,
-  [server/src/export.ts](server/src/export.ts) für Aufträge und ZIP-Mechanik,
-  [exportinhalt.ts](server/src/exportinhalt.ts) für das WAS,
-  [exportlauf.ts](server/src/exportlauf.ts) für das Zusammenführen). Die Route antwortet
+  [server/src/data-export.ts](server/src/data-export.ts) für Aufträge und ZIP-Mechanik,
+  [data-export-content.ts](server/src/data-export-content.ts) für das WAS,
+  [data-export-run.ts](server/src/data-export-run.ts) für das Zusammenführen). Die Route antwortet
   sofort und stößt den Bau danach an — ein Archiv über zwei Gigabyte hielte sonst eine
   Verbindung minutenlang offen. Vier Dinge, die man dabei kippt: **Gegen Doppelläufe hilft
   nur die Datenbank** (partieller `UNIQUE`-Index `WHERE status = 'laeuft'`; zwischen „läuft
@@ -1083,7 +1083,7 @@ Eigene Seite ([admin.html](admin.html) + [src/admin/](src/admin/)), nicht Teil d
 Das Studio ist der Schneideraum für Touren, das hier ist Hausverwaltung. Erreichbar über das
 Konto-Menü im Studio — der Eintrag erscheint nur für Admins. Rechnende Teile liegen DOM-frei in
 [adminmodell.ts](src/admin/adminmodell.ts), Server-Seite in
-[server/src/routes/admin.ts](server/src/routes/admin.ts) hinter `erfordereAdmin`.
+[server/src/routes/admin.ts](server/src/routes/admin.ts) hinter `requireAdmin`.
 
 Die Reiter, das Protokoll und die Dialog-Fallen der Oberfläche stehen in
 **[src/admin/CLAUDE.md](src/admin/CLAUDE.md)**; Rollen, Einladungspflicht, Warteliste (DSGVO-
@@ -1209,8 +1209,8 @@ automatisch, sobald unter `android/` gearbeitet wird.
   ([feedbackmodell.ts](src/feedbackmodell.ts)); ein Häkchen ohne Einblick verlangt Vertrauen
   für etwas, das man zeigen kann. Die Seitenangabe trägt nur den PFAD: Query und Fragment
   tragen hier Einlöse-Token (`#email=…`, `#reset=…`). Welche Felder überhaupt ankommen,
-  entscheidet der Server ([server/src/routes/rueckmeldungen.ts](server/src/routes/rueckmeldungen.ts)
-  `saubereKontext`) — sonst wäre das Feld ein offener Kanal und die Aufzählung in
+  entscheidet der Server ([server/src/routes/feedback.ts](server/src/routes/feedback.ts)
+  `cleanContext`) — sonst wäre das Feld ein offener Kanal und die Aufzählung in
   [datenschutz.html](datenschutz.html) (Abschnitt 2, Fristen in 10) eine Zusage, die nicht
   stimmt. Melden geht OHNE Anmeldung: „ich komme nicht rein" kann niemand angemeldet
   schicken.

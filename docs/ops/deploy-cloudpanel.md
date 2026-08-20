@@ -200,7 +200,7 @@ für die Zertifikatserneuerung, `/api/`, `location /` → 301) — Muster:
 > einmal in den Vhost-Editor. Im selben Zug ging die alte Domain aus den drei
 > Stellen, an denen wir uns gegenüber fremden Diensten ausweisen: den
 > User-Agents für Nominatim ([`naming.ts`](../../server/src/pipeline/naming.ts))
-> und Overpass ([`schienen.ts`](../../server/src/pipeline/schienen.ts)) sowie dem
+> und Overpass ([`schienen.ts`](../../server/src/pipeline/rails.ts)) sowie dem
 > `http-referer` an OpenRouter ([`vision.ts`](../../server/src/pipeline/vision.ts)).
 > Sie stecken in Commit `1d16d8e`, dessen Betreff von der Umami-Umstellung
 > spricht — im `git log` ist diese Änderung deshalb nicht zu finden.

@@ -3,10 +3,10 @@
 // der Bestandstouren nachträglich umstellt.
 
 import { describe, expect, it } from 'vitest'
-import { FakeBildWerkzeug } from '../src/pipeline/bild.js'
-import { trageBildfassungenNach } from '../src/pipeline/bildnachtrag.js'
+import { FakeImageTool } from '../src/pipeline/image.js'
+import { backfillImageVariants } from '../src/pipeline/image-addendum.js'
 import type { TourJson } from '../src/pipeline/enrich.js'
-import { TOURJSON_PFAD } from '../src/routes/tours.js'
+import { TOUR_JSON_PATH } from '../src/routes/tours.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 /** Ein Minimal-JPEG — genug, damit die Aufbereitung es als Bild behandelt. */
@@ -33,7 +33,7 @@ async function legeFertigeTourAn(u: TestUmgebung): Promise<string> {
 }
 
 const mitWerkzeug = (): Promise<TestUmgebung> =>
-  baueTestApp(undefined, null, null, {}, null, null, new FakeBildWerkzeug())
+  baueTestApp(undefined, null, null, {}, null, null, new FakeImageTool())
 
 async function tourJson(u: TestUmgebung, id: string): Promise<TourJson> {
   const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
@@ -144,11 +144,11 @@ describe('trageBildfassungenNach', () => {
     const id = await legeFertigeTourAn(u)
     expect(await u.storage.info(id, 'media/m1.jpg')).not.toBeNull()
 
-    const ergebnis = await trageBildfassungenNach(
+    const ergebnis = await backfillImageVariants(
       u.app.deps.db,
       u.storage,
-      TOURJSON_PFAD,
-      new FakeBildWerkzeug(),
+      TOUR_JSON_PATH,
+      new FakeImageTool(),
     )
 
     expect(ergebnis.touren).toBe(1)
@@ -172,14 +172,8 @@ describe('trageBildfassungenNach', () => {
     await legeFertigeTourAn(u)
     // Beim Rendern schon geschehen — es gibt nichts nachzutragen
     expect(
-      (
-        await trageBildfassungenNach(
-          u.app.deps.db,
-          u.storage,
-          TOURJSON_PFAD,
-          new FakeBildWerkzeug(),
-        )
-      ).touren,
+      (await backfillImageVariants(u.app.deps.db, u.storage, TOUR_JSON_PATH, new FakeImageTool()))
+        .touren,
     ).toBe(0)
   })
 
@@ -222,7 +216,7 @@ describe('trageBildfassungenNach', () => {
     await u.app.inject({ method: 'POST', url: `/api/tours/${id.id}/finalize`, cookies: u.cookies })
     await u.app.verarbeitungen.get(id.id)
 
-    await trageBildfassungenNach(u.app.deps.db, u.storage, TOURJSON_PFAD, new FakeBildWerkzeug())
+    await backfillImageVariants(u.app.deps.db, u.storage, TOUR_JSON_PATH, new FakeImageTool())
 
     const zeile = u.app.deps.db.prepare('SELECT cover FROM tours WHERE id = ?').get(id.id) as {
       cover: string
@@ -233,14 +227,14 @@ describe('trageBildfassungenNach', () => {
   it('eine kaputte Tour hält den Start nicht auf', async () => {
     const u = await baueTestApp()
     const id = await legeFertigeTourAn(u)
-    await u.storage.loesche(id, TOURJSON_PFAD)
+    await u.storage.loesche(id, TOUR_JSON_PATH)
 
     const gemeldet: string[] = []
-    const ergebnis = await trageBildfassungenNach(
+    const ergebnis = await backfillImageVariants(
       u.app.deps.db,
       u.storage,
-      TOURJSON_PFAD,
-      new FakeBildWerkzeug(),
+      TOUR_JSON_PATH,
+      new FakeImageTool(),
       (n) => gemeldet.push(n),
     )
     expect(ergebnis.touren).toBe(0)

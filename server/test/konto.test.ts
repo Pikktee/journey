@@ -7,8 +7,8 @@
 // Route nebenbei verrät, wer bei Maptale ein Konto hat.
 
 import { describe, expect, it } from 'vitest'
-import { ipPraefix } from '../src/auth/auth.js'
-import { artDerDatei } from '../src/quota.js'
+import { ipPrefix } from '../src/auth/auth.js'
+import { fileType } from '../src/quota.js'
 import { baueTestApp, type TestUmgebung } from './helfer.js'
 
 const tokenAus = (link: string | null): string => link?.split('#email=')[1] ?? ''
@@ -280,14 +280,14 @@ describe('Angemeldete Geräte', () => {
 
 describe('Speicher', () => {
   it('ordnet jede Datei ihrer Art zu — und der Rest-Eimer bleibt leer, wo er es soll', () => {
-    expect(artDerDatei('media/m1.w1920.jpg')).toBe('photos')
-    expect(artDerDatei('media/m2.web.mp4')).toBe('videos')
-    expect(artDerDatei('media/m2.poster.jpg')).toBe('photos')
-    expect(artDerDatei('media/mus-nachtfahrt.mp3')).toBe('audio')
-    expect(artDerDatei('original/manifest.json')).toBe('recordings')
-    expect(artDerDatei('original/track.gpx')).toBe('recordings')
-    expect(artDerDatei('tour.json')).toBe('recordings')
-    expect(artDerDatei('media/unbekannt.xyz')).toBe('other')
+    expect(fileType('media/m1.w1920.jpg')).toBe('photos')
+    expect(fileType('media/m2.web.mp4')).toBe('videos')
+    expect(fileType('media/m2.poster.jpg')).toBe('photos')
+    expect(fileType('media/mus-nachtfahrt.mp3')).toBe('audio')
+    expect(fileType('original/manifest.json')).toBe('recordings')
+    expect(fileType('original/track.gpx')).toBe('recordings')
+    expect(fileType('tour.json')).toBe('recordings')
+    expect(fileType('media/unbekannt.xyz')).toBe('other')
   })
 
   it('schlüsselt auf, und die Teile ergeben die Summe', async () => {
@@ -331,10 +331,10 @@ describe('Speicher', () => {
 
 describe('ipPraefix', () => {
   it('behält zwei Gruppen — genug zum Wiedererkennen, zu wenig für einen Ort', () => {
-    expect(ipPraefix('84.119.12.7')).toBe('84.119.x.x')
-    expect(ipPraefix('::ffff:84.119.12.7')).toBe('84.119.x.x')
-    expect(ipPraefix('2001:db8:85a3::8a2e')).toBe('2001:db8:x')
-    expect(ipPraefix(null)).toBeNull()
-    expect(ipPraefix('unfug')).toBeNull()
+    expect(ipPrefix('84.119.12.7')).toBe('84.119.x.x')
+    expect(ipPrefix('::ffff:84.119.12.7')).toBe('84.119.x.x')
+    expect(ipPrefix('2001:db8:85a3::8a2e')).toBe('2001:db8:x')
+    expect(ipPrefix(null)).toBeNull()
+    expect(ipPrefix('unfug')).toBeNull()
   })
 })

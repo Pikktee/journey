@@ -42,7 +42,7 @@ Ohne jede sichtbare Änderung an der Oberfläche.
 - Reservierte Wörter **neben** [src/routen.ts](../../src/routen.ts) pflegen, samt
   Drift-Wächter: Ein neuer Pfad darf keinen vergebenen Handle überschreiben.
 - `GET /api/benutzer/:handle/profil` zusätzlich zur ID-Variante
-  ([server/src/routes/galerie.ts](../../server/src/routes/galerie.ts) kennt heute
+  ([server/src/routes/gallery.ts](../../server/src/routes/gallery.ts) kennt heute
   nur `:id`).
 - `PATCH /api/auth/me/profil` um `handle` erweitern, mit Prüfung gegen
   Regeln/Reservierung/Vergabe (dieselbe Logik wie im Mockup, aber serverseitig —
@@ -200,10 +200,10 @@ Was Teil B mitbekommt (Versand, noch nicht gebaut): `NewsletterDienst.empfaenger
 
 ## Etappe 5 — Datenexport ✅
 
-**Umgesetzt am 6. August 2026.** [server/src/export.ts](../../server/src/export.ts)
+**Umgesetzt am 6. August 2026.** [server/src/data-export.ts](../../server/src/data-export.ts)
 (Auftragsverwaltung, Fristen, ZIP-Mechanik über `yazl`),
-[exportinhalt.ts](../../server/src/exportinhalt.ts) (was hineingehört, Ordnernamen,
-Begleittext), [exportlauf.ts](../../server/src/exportlauf.ts) (Sammeln und Packen),
+[data-export-content.ts](../../server/src/data-export-content.ts) (was hineingehört, Ordnernamen,
+Begleittext), [data-export-run.ts](../../server/src/data-export-run.ts) (Sammeln und Packen),
 [routes/export.ts](../../server/src/routes/export.ts), Migration 16, Mail-Vorlage `export`,
 Zeile „Alle Daten exportieren" im Konto, Datenschutzerklärung Abschnitt 11.
 
@@ -315,8 +315,8 @@ Mitgezogen: die drei Demo-Karten der Landing samt Alt-Deeplink-Weiche, Studio
 ## Etappe 6 — Die Profilseite serverseitig ausliefern ✅
 
 **Umgesetzt am 6. August 2026.** Mechanik in
-[server/src/seiten.ts](../../server/src/seiten.ts) (Seite holen, Marker-Block ersetzen,
-Escaping), Route in [server/src/routes/seiten.ts](../../server/src/routes/seiten.ts)
+[server/src/page-meta.ts](../../server/src/page-meta.ts) (Seite holen, Marker-Block ersetzen,
+Escaping), Route in [server/src/routes/pages.ts](../../server/src/routes/pages.ts)
 (`GET /@:handle`, `GET /sitemap-profile.xml`), Migration 15 (`users.suchmaschinen`),
 `POST /api/auth/me/suchmaschinen`, Schalter in [konto.html](../../konto.html), Marker in
 [profil.html](../../profil.html), `proxy_pass` im Vhost, Dev-Proxy in
@@ -335,7 +335,7 @@ Fünf Entscheidungen, die beim Umsetzen dazukamen:
   wird genau, was auch `index` bekommt — liefe das auseinander, stünde in der Sitemap eine
   Einladung, der die Seite selbst widerspricht.
 - **Der Server kennt jetzt die vier Titelbilder** (Kopie in
-  [server/src/titelbilder.ts](../../server/src/titelbilder.ts) mit Drift-Wächter). Ohne das
+  [server/src/profile-banners.ts](../../server/src/profile-banners.ts) mit Drift-Wächter). Ohne das
   zeigte die Vorschaukarte eines Profils ohne eigenes Titelbild etwas anderes als das Banner
   der Seite dahinter. Die PRÜFUNG eines gesetzten Titelbilds sieht weiter nur die Form des
   Namens an.

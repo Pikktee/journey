@@ -392,7 +392,7 @@ describe('Warteliste', () => {
     expect(filtereWarteliste(liste, 'island', 'invited')).toHaveLength(0)
   })
 
-  // Spiegel von `wartelisteAngeboten` in server/src/auth/warteliste.ts — die
+  // Spiegel von `wartelisteAngeboten` in server/src/auth/waitlist.ts — die
   // Wahrheitstabelle steht doppelt (der Server kann hier nicht importiert
   // werden, eigener rootDir). Hier hängt nur ein Satz daran: „angeschaltet,
   // aber ohne Wirkung".

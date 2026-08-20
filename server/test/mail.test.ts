@@ -2,28 +2,28 @@
 // Prüfung und der Dev-Versand.
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { oeffneDb, type Db } from '../src/db.js'
-import { KonsoleMail } from '../src/mail.js'
+import { openDb, type Db } from '../src/db.js'
+import { ConsoleMail } from '../src/mail.js'
 import {
-  findePlatzhalter,
-  rendereMail,
-  setzeWerteEin,
-  type MailBausteine,
-} from '../src/maillayout.js'
+  findPlaceholders,
+  renderMail,
+  fillPlaceholders,
+  type MailParts,
+} from '../src/mail-layout.js'
 import {
-  beispielWerte,
-  istVorlagenSchluessel,
-  MailVorlagenDienst,
-  pruefeBausteine,
-  VORLAGEN,
-  vorlage,
-  weichtAb,
-} from '../src/mailvorlagen.js'
+  exampleValues,
+  isTemplateKey,
+  MailTemplateService,
+  validateParts,
+  TEMPLATES,
+  getTemplate,
+  differs,
+} from '../src/mail-templates.js'
 
 const BASIS = 'https://maptale.test'
 const LINK = 'https://maptale.test/anmelden#verify=abc'
 
-const bausteine = (patch: Partial<MailBausteine> = {}): MailBausteine => ({
+const bausteine = (patch: Partial<MailParts> = {}): MailParts => ({
   subject: 'Hallo {{name}}',
   title: 'Willkommen',
   text: 'Hallo {{name}},\n\nschön, dass du da bist.',
@@ -34,19 +34,19 @@ const bausteine = (patch: Partial<MailBausteine> = {}): MailBausteine => ({
 
 describe('Platzhalter', () => {
   it('setzt bekannte Werte ein und lässt unbekannte stehen', () => {
-    expect(setzeWerteEin('Hallo {{name}}, Code {{code}}', { name: 'Mira' })).toBe(
+    expect(fillPlaceholders('Hallo {{name}}, Code {{code}}', { name: 'Mira' })).toBe(
       'Hallo Mira, Code {{code}}',
     )
   })
 
   it('findet jeden Platzhalter genau einmal', () => {
-    expect(findePlatzhalter('{{a}} {{ b }} {{a}}')).toEqual(['a', 'b'])
+    expect(findPlaceholders('{{a}} {{ b }} {{a}}')).toEqual(['a', 'b'])
   })
 })
 
 describe('Mail-Layout', () => {
   it('rendert Betreff, Text und HTML aus denselben Bausteinen', () => {
-    const mail = rendereMail(bausteine(), { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
+    const mail = renderMail(bausteine(), { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
     expect(mail.betreff).toBe('Hallo Mira')
     expect(mail.text).toContain('Hallo Mira,')
     expect(mail.html).toContain('Hallo Mira,')
@@ -56,7 +56,7 @@ describe('Mail-Layout', () => {
   })
 
   it('legt den Knopf-Link in die Text-Fassung, auf eine eigene Zeile', () => {
-    const mail = rendereMail(bausteine(), { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
+    const mail = renderMail(bausteine(), { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
     // Auf eigener Zeile, damit ein selbst verlinkendes Mail-Programm nicht am
     // nächsten Satzzeichen abschneidet.
     expect(mail.text).toContain(`Los geht’s:\n${LINK}`)
@@ -64,12 +64,12 @@ describe('Mail-Layout', () => {
   })
 
   it('nennt den Link als erste Adresse im Text — daran hängt jeder Bestätigungsfluss', () => {
-    const mail = rendereMail(bausteine(), { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
+    const mail = renderMail(bausteine(), { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
     expect(mail.text.match(/https?:\/\/\S+/)?.[0]).toBe(LINK)
   })
 
   it('zeichnet keinen Knopf, wenn die Beschriftung leer ist', () => {
-    const mail = rendereMail(
+    const mail = renderMail(
       bausteine({ button: '', text: 'Hier entlang:\n\n{{link}}' }),
       { name: 'Mira', link: LINK },
       { basisUrl: BASIS, link: LINK },
@@ -80,7 +80,7 @@ describe('Mail-Layout', () => {
   })
 
   it('macht aus einem Absatz, der nur der Code ist, eine hervorgehobene Box', () => {
-    const mail = rendereMail(
+    const mail = renderMail(
       bausteine({ text: 'Dein Code:\n\n{{code}}\n\nBis gleich.' }),
       { code: 'MAPT-4F7K' },
       { basisUrl: BASIS, link: LINK },
@@ -91,7 +91,7 @@ describe('Mail-Layout', () => {
   })
 
   it('escapt eingesetzte Werte — ein Name ist kein Markup', () => {
-    const mail = rendereMail(
+    const mail = renderMail(
       bausteine(),
       { name: '<script>böse</script>' },
       { basisUrl: BASIS, link: LINK },
@@ -101,7 +101,7 @@ describe('Mail-Layout', () => {
   })
 
   it('trägt Logo, Wortmarke als Alt-Text und die Pflichtlinks der Fußzeile', () => {
-    const mail = rendereMail(bausteine(), { name: 'Mira' }, { basisUrl: `${BASIS}/`, link: LINK })
+    const mail = renderMail(bausteine(), { name: 'Mira' }, { basisUrl: `${BASIS}/`, link: LINK })
     expect(mail.html).toContain(`${BASIS}/branding/mail-logo.png`)
     expect(mail.html).toContain('alt="Maptale"')
     expect(mail.html).toContain(`${BASIS}/impressum`)
@@ -111,7 +111,7 @@ describe('Mail-Layout', () => {
   })
 
   it('trennt Absätze an Leerzeilen und behält einfache Umbrüche', () => {
-    const mail = rendereMail(
+    const mail = renderMail(
       bausteine({ text: 'Eins\nzwei\n\nDrei' }),
       {},
       { basisUrl: BASIS, link: LINK },
@@ -123,7 +123,7 @@ describe('Mail-Layout', () => {
 
 describe('Vorlagen-Katalog', () => {
   it('kennt sechs System-Mails, jede mit Standardtext und Platzhaltern', () => {
-    expect(VORLAGEN.map((v) => v.key)).toEqual([
+    expect(TEMPLATES.map((v) => v.key)).toEqual([
       'verification',
       'reset',
       'email-change',
@@ -131,7 +131,7 @@ describe('Vorlagen-Katalog', () => {
       'waitlist-invitation',
       'export',
     ])
-    for (const v of VORLAGEN) {
+    for (const v of TEMPLATES) {
       expect(v.defaultContent.subject, v.key).toBeTruthy()
       expect(v.defaultContent.title, v.key).toBeTruthy()
       expect(v.placeholders.length, v.key).toBeGreaterThan(0)
@@ -139,19 +139,19 @@ describe('Vorlagen-Katalog', () => {
   })
 
   it('hält jeden Standardtext für versandfähig', () => {
-    for (const v of VORLAGEN) expect(pruefeBausteine(v, v.defaultContent), v.key).toEqual([])
+    for (const v of TEMPLATES) expect(validateParts(v, v.defaultContent), v.key).toEqual([])
   })
 
   it('erkennt fremde Schlüssel', () => {
-    expect(istVorlagenSchluessel('reset')).toBe(true)
-    expect(istVorlagenSchluessel('rechnung')).toBe(false)
-    expect(() => vorlage('rechnung' as 'reset')).toThrow()
+    expect(isTemplateKey('reset')).toBe(true)
+    expect(isTemplateKey('rechnung')).toBe(false)
+    expect(() => getTemplate('rechnung' as 'reset')).toThrow()
   })
 
   it('rendert jeden Standard mit seinen Beispielwerten ohne offenen Platzhalter', () => {
-    for (const v of VORLAGEN) {
-      const werte = beispielWerte(v)
-      const mail = rendereMail(v.defaultContent, werte, {
+    for (const v of TEMPLATES) {
+      const werte = exampleValues(v)
+      const mail = renderMail(v.defaultContent, werte, {
         basisUrl: BASIS,
         link: werte.link ?? BASIS,
       })
@@ -162,10 +162,10 @@ describe('Vorlagen-Katalog', () => {
 })
 
 describe('Vorlagen prüfen', () => {
-  const eintrag = vorlage('verification')
+  const eintrag = getTemplate('verification')
 
   it('lehnt leere Pflichtfelder ab', () => {
-    const probleme = pruefeBausteine(eintrag, bausteine({ subject: ' ', title: '', text: '' }))
+    const probleme = validateParts(eintrag, bausteine({ subject: ' ', title: '', text: '' }))
     expect(probleme).toEqual(
       expect.arrayContaining([
         expect.stringContaining('Betreff'),
@@ -176,7 +176,7 @@ describe('Vorlagen prüfen', () => {
   })
 
   it('meldet einen Platzhalter, den es in dieser Mail nicht gibt', () => {
-    const probleme = pruefeBausteine(eintrag, {
+    const probleme = validateParts(eintrag, {
       ...eintrag.defaultContent,
       text: 'Hallo {{name}}, {{rechnung}}',
     })
@@ -185,65 +185,65 @@ describe('Vorlagen prüfen', () => {
 
   it('verlangt den Link im Text, sobald der Knopf leer ist', () => {
     const ohneKnopf = { ...eintrag.defaultContent, button: '' }
-    expect(pruefeBausteine(eintrag, ohneKnopf).join(' ')).toContain('{{link}}')
+    expect(validateParts(eintrag, ohneKnopf).join(' ')).toContain('{{link}}')
     expect(
-      pruefeBausteine(eintrag, { ...ohneKnopf, text: 'Hallo {{name}}, hier entlang: {{link}}' }),
+      validateParts(eintrag, { ...ohneKnopf, text: 'Hallo {{name}}, hier entlang: {{link}}' }),
     ).toEqual([])
   })
 
   it('meldet jede andere fehlende Angabe', () => {
     expect(
-      pruefeBausteine(eintrag, { ...eintrag.defaultContent, text: 'Ganz ohne Anrede.' }),
+      validateParts(eintrag, { ...eintrag.defaultContent, text: 'Ganz ohne Anrede.' }),
     ).toContain('{{name}} fehlt, diese Angabe geht sonst verloren.')
   })
 })
 
 describe('MailVorlagenDienst', () => {
   let db: Db
-  let dienst: MailVorlagenDienst
+  let dienst: MailTemplateService
 
   beforeEach(() => {
-    db = oeffneDb(':memory:')
-    dienst = new MailVorlagenDienst(db)
+    db = openDb(':memory:')
+    dienst = new MailTemplateService(db)
   })
 
   it('liefert ohne Anpassung den Text aus dem Code', () => {
-    expect(dienst.bausteine('reset')).toEqual(vorlage('reset').defaultContent)
+    expect(dienst.bausteine('reset')).toEqual(getTemplate('reset').defaultContent)
     expect(dienst.alle().every((v) => !v.customized)).toBe(true)
   })
 
   it('speichert eine Anpassung und meldet sie in der Liste', () => {
-    dienst.setze('reset', { ...vorlage('reset').defaultContent, title: 'Neues Kennwort' }, null)
+    dienst.setze('reset', { ...getTemplate('reset').defaultContent, title: 'Neues Kennwort' }, null)
     expect(dienst.bausteine('reset').title).toBe('Neues Kennwort')
     const stand = dienst.alle().find((v) => v.key === 'reset')
     expect(stand?.customized).toBe(true)
     expect(stand?.updatedAt).toBeTruthy()
     // Der Standard bleibt daneben sichtbar — sonst wüsste niemand, wovon die
     // Fassung abweicht.
-    expect(stand?.defaultContent).toEqual(vorlage('reset').defaultContent)
+    expect(stand?.defaultContent).toEqual(getTemplate('reset').defaultContent)
   })
 
   it('behandelt das Speichern des unveränderten Standards als Zurücksetzen', () => {
-    dienst.setze('reset', { ...vorlage('reset').defaultContent, title: 'Anders' }, null)
-    dienst.setze('reset', vorlage('reset').defaultContent, null)
+    dienst.setze('reset', { ...getTemplate('reset').defaultContent, title: 'Anders' }, null)
+    dienst.setze('reset', getTemplate('reset').defaultContent, null)
     expect(dienst.alle().find((v) => v.key === 'reset')?.customized).toBe(false)
   })
 
   it('setzt zurück und hängt die Vorlage wieder an den Code', () => {
     dienst.setze(
       'verification',
-      { ...vorlage('verification').defaultContent, subject: 'Anders' },
+      { ...getTemplate('verification').defaultContent, subject: 'Anders' },
       null,
     )
     expect(dienst.setzeZurueck('verification')).toBe(true)
-    expect(dienst.bausteine('verification')).toEqual(vorlage('verification').defaultContent)
+    expect(dienst.bausteine('verification')).toEqual(getTemplate('verification').defaultContent)
     expect(dienst.setzeZurueck('verification')).toBe(false)
   })
 
   it('rendert über den Dienst mit der angepassten Fassung', () => {
     dienst.setze(
       'verification',
-      { ...vorlage('verification').defaultContent, title: 'Servus' },
+      { ...getTemplate('verification').defaultContent, title: 'Servus' },
       null,
     )
     const mail = dienst.rendere('verification', { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
@@ -252,16 +252,16 @@ describe('MailVorlagenDienst', () => {
   })
 
   it('vergleicht Fassungen ohne Randleerraum', () => {
-    const a = vorlage('reset').defaultContent
-    expect(weichtAb(a, { ...a, title: `  ${a.title}  ` })).toBe(false)
-    expect(weichtAb(a, { ...a, title: 'anders' })).toBe(true)
+    const a = getTemplate('reset').defaultContent
+    expect(differs(a, { ...a, title: `  ${a.title}  ` })).toBe(false)
+    expect(differs(a, { ...a, title: 'anders' })).toBe(true)
   })
 })
 
 describe('KonsoleMail', () => {
   it('schreibt Empfänger, Betreff und Text ins Log statt zu versenden', async () => {
     const zeilen: string[] = []
-    const mail = new KonsoleMail((z) => zeilen.push(z))
+    const mail = new ConsoleMail((z) => zeilen.push(z))
     await mail.sende({ an: 'a@b.de', betreff: 'Hallo', text: 'Zeile 1\nZeile 2' })
     const ausgabe = zeilen.join('\n')
     expect(ausgabe).toContain('a@b.de')

@@ -5,51 +5,51 @@
 
 import fastifyCookie from '@fastify/cookie'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
-import { AuthDienst, type Benutzer } from './auth/auth.js'
-import { EinladungsDienst } from './auth/einladungen.js'
-import { WartelistenDienst } from './auth/warteliste.js'
-import type { Konfig } from './config.js'
+import { AuthService, type User } from './auth/auth.js'
+import { InvitationService } from './auth/invitations.js'
+import { WaitlistService } from './auth/waitlist.js'
+import type { Config } from './config.js'
 import type { Db } from './db.js'
-import type { MailVersand } from './mail.js'
-import { MailVorlagenDienst } from './mailvorlagen.js'
-import { NewsletterDienst } from './newsletter.js'
-import { RueckmeldungsDienst } from './rueckmeldungen.js'
-import { PushDienst, type PushVersand } from './push.js'
-import { registrierePushRouten } from './routes/push.js'
+import type { MailTransport } from './mail.js'
+import { MailTemplateService } from './mail-templates.js'
+import { NewsletterService } from './newsletter.js'
+import { FeedbackService } from './feedback.js'
+import { PushService, type PushTransport } from './push.js'
+import { registerPushRoutes } from './routes/push.js'
 import type { Geocoder } from './pipeline/naming.js'
-import type { SchienenQuelle } from './pipeline/schienen.js'
-import type { BildWerkzeug } from './pipeline/bild.js'
-import type { VideoWerkzeug } from './pipeline/video.js'
-import type { BildKlassifikator } from './pipeline/vision.js'
-import type { WetterQuelle } from './pipeline/weather.js'
-import { registriereAdminRouten } from './routes/admin.js'
-import { registriereAuthRouten } from './routes/auth.js'
-import { registriereBibliotheksRouten } from './routes/bibliothek.js'
-import { registriereGalerieRouten } from './routes/galerie.js'
-import { registriereMediaRouten } from './routes/media.js'
-import { registriereNewsletterRouten } from './routes/newsletter.js'
-import { registriereRueckmeldungsRouten } from './routes/rueckmeldungen.js'
-import { registriereExportRouten } from './routes/export.js'
-import { registriereSeitenRouten } from './routes/seiten.js'
-import { registriereTourRouten } from './routes/tours.js'
-import { registriereWartelistenRouten } from './routes/warteliste.js'
-import { registriereTrackerRouten } from './routes/tracker.js'
-import { registriereTrackerWebhookRouten } from './routes/tracker-webhooks.js'
+import type { RailSource } from './pipeline/rails.js'
+import type { ImageTool } from './pipeline/image.js'
+import type { VideoTool } from './pipeline/video.js'
+import type { ImageClassifier } from './pipeline/vision.js'
+import type { WeatherSource } from './pipeline/weather.js'
+import { registerAdminRoutes } from './routes/admin.js'
+import { registerAuthRoutes } from './routes/auth.js'
+import { registerAudioLibraryRoutes } from './routes/audio-library.js'
+import { registerGalleryRoutes } from './routes/gallery.js'
+import { registerMediaRoutes } from './routes/media.js'
+import { registerNewsletterRoutes } from './routes/newsletter.js'
+import { registerFeedbackRoutes } from './routes/feedback.js'
+import { registerDataExportRoutes } from './routes/export.js'
+import { registerPageRoutes } from './routes/pages.js'
+import { registerTourRoutes } from './routes/tours.js'
+import { registerWaitlistRoutes } from './routes/waitlist.js'
+import { registerTrackerRoutes } from './routes/tracker.js'
+import { registerTrackerWebhookRoutes } from './routes/tracker-webhooks.js'
 import { Registry } from './tracker/registry.js'
-import { TrackerDienst } from './tracker/tracker.js'
-import type { TrackerProvider } from './tracker/vertrag.js'
-import { Protokoll, protokollZiel } from './protokoll.js'
-import { ExportDienst } from './export.js'
-import { SeitenQuelle } from './seiten.js'
+import { TrackerService } from './tracker/tracker.js'
+import type { TrackerProvider } from './tracker/contract.js'
+import { AuditLog, auditLogTarget } from './audit-log.js'
+import { DataExportService } from './data-export.js'
+import { PageSource } from './page-meta.js'
 import type { Storage } from './storage.js'
-import { ZuGrossFehler } from './storage.js'
+import { TooLargeError } from './storage.js'
 
 export const SESSION_COOKIE = 'maptale_session'
 /** JS-lesbarer UX-Hinweis „Sitzung steht" — kein Geheimnis, parallel zur httpOnly-Session. */
-export const SESSION_HINWEIS_COOKIE = 'maptale_dabei'
+export const SESSION_NOTICE_COOKIE = 'maptale_dabei'
 
-export interface AppAbhaengigkeiten {
-  konfig: Konfig
+export interface AppDependencies {
+  konfig: Config
   db: Db
   storage: Storage
   /**
@@ -64,17 +64,17 @@ export interface AppAbhaengigkeiten {
   benutzerStorage: Storage
   geocoder: Geocoder
   /** Auto-Wetter-Quelle (M2); null = Feature aus, Player-Fallback greift */
-  wetter: WetterQuelle | null
+  wetter: WeatherSource | null
   /** Video-Aufbereitung (M4); null = keine Videos verarbeiten (Original ohne Poster) */
-  videoWerkzeug: VideoWerkzeug | null
+  videoWerkzeug: VideoTool | null
   /** Bild-Aufbereitung (Anzeige- und Kachel-Fassung); null = Originale ausliefern */
-  bildWerkzeug: BildWerkzeug | null
+  bildWerkzeug: ImageTool | null
   /** Bild-Klassifikator für die Wetter-Verfeinerung (M5); null = Feature aus */
-  bildKlassifikator: BildKlassifikator | null
+  bildKlassifikator: ImageClassifier | null
   /** OSM-Schienen für die Straßenbahn-Erkennung; null = Feature aus (bleibt bei Rad) */
-  schienen: SchienenQuelle | null
+  schienen: RailSource | null
   /** Mail-Versand (M9): Registrierungs-Bestätigung + Passwort-Reset */
-  mail: MailVersand
+  mail: MailTransport
   /**
    * Ablage der Datenexport-Archive (`daten/exporte/<auftrag>/`).
    *
@@ -90,7 +90,7 @@ export interface AppAbhaengigkeiten {
    * der über `konfig.webUrl` an Nginx geht. Tests reichen eine Fassung mit
    * festem HTML herein und kommen ohne Netz aus.
    */
-  seiten?: SeitenQuelle
+  seiten?: PageSource
   /**
    * Die Tracker-Anbieter (Polar, Wahoo, …) — injiziert wie `geocoder` und
    * `wetter`: Produktion reicht die echten Adapter herein, Tests einen
@@ -104,41 +104,41 @@ export interface AppAbhaengigkeiten {
    * genau diesem Grund weiter gibt. Erforderlich wie `wetter` und
    * `bildKlassifikator`: Ein „aus" soll man beim Verdrahten SEHEN.
    */
-  push: PushVersand | null
+  push: PushTransport | null
 }
 
 // Fastify-Typen um unsere Dekorationen erweitern
 declare module 'fastify' {
   interface FastifyInstance {
-    deps: AppAbhaengigkeiten
-    auth: AuthDienst
-    einladungen: EinladungsDienst
-    warteliste: WartelistenDienst
+    deps: AppDependencies
+    auth: AuthService
+    einladungen: InvitationService
+    warteliste: WaitlistService
     /** Texte der System-Mails — Katalog im Code, Anpassungen in der DB. */
-    mailvorlagen: MailVorlagenDienst
+    mailvorlagen: MailTemplateService
     /** Newsletter-Einwilligung: Zustand, Historie, Empfängerliste. */
-    newsletter: NewsletterDienst
+    newsletter: NewsletterService
     /** Rückmeldungen aus der Alpha: Eingang, Status, Notizen. */
-    rueckmeldungen: RueckmeldungsDienst
+    rueckmeldungen: FeedbackService
     /** Laufende Finalize-Verarbeitungen — Tests können gezielt darauf warten. */
     verarbeitungen: Map<string, Promise<void>>
     /** Die letzten Warnungen und Fehler für die Verwaltung (s. protokoll.ts). */
-    protokoll: Protokoll
+    protokoll: AuditLog
     /** Gebaute HTML-Seiten für die Routen, die der Server selbst beantwortet. */
-    seiten: SeitenQuelle
+    seiten: PageSource
     /** Datenexport: Auftragsverwaltung, Fristen, Aufräumen (Art. 20 DSGVO). */
-    exporte: ExportDienst
+    exporte: DataExportService
     /** Cloud-Verknüpfungen zu Sport-Trackern: Tokens, Importe, Zuordnung. */
-    tracker: TrackerDienst
+    tracker: TrackerService
     /** Welche Tracker-Anbieter es gibt und welche davon konfiguriert sind. */
     trackerRegistry: Registry
     /** Laufende Tracker-Importe — Tests warten gezielt darauf, statt zu pollen. */
     trackerLaeufe: Map<string, Promise<unknown>>
     /** Push-Geräte und der Versand dorthin; ohne Dienstkonto ein No-Op. */
-    push: PushDienst
+    push: PushService
   }
   interface FastifyRequest {
-    benutzer: Benutzer | null
+    benutzer: User | null
     /**
      * Mit WELCHEM App-Token diese Anfrage kam (null bei Sitzungs-Cookie).
      *
@@ -149,14 +149,14 @@ declare module 'fastify' {
   }
 }
 
-export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
+export function buildApp(deps: AppDependencies): FastifyInstance {
   // Mitschrift der Warnungen und Fehler für die Verwaltung. Sie hängt am
   // Logger-Ziel, nicht an einzelnen Aufrufstellen: Sonst gäbe es zwei Wege,
   // etwas zu melden, und der zweite bliebe irgendwann liegen. Im Test ist der
   // Logger aus — dort füllt sich der Puffer nicht von selbst.
-  const protokoll = new Protokoll()
+  const protokoll = new AuditLog()
   const app = Fastify({
-    logger: process.env.NODE_ENV !== 'test' && { level: 'info', stream: protokollZiel(protokoll) },
+    logger: process.env.NODE_ENV !== 'test' && { level: 'info', stream: auditLogTarget(protokoll) },
     // Manifeste langer Aufzeichnungen können mehrere MB JSON sein
     bodyLimit: 64 * 1024 * 1024,
     // Hinter Caddy (Prod): request.ip aus X-Forwarded-For nehmen, damit die
@@ -167,20 +167,20 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   })
 
   app.decorate('deps', deps)
-  app.decorate('auth', new AuthDienst(deps.db))
-  app.decorate('einladungen', new EinladungsDienst(deps.db))
-  app.decorate('warteliste', new WartelistenDienst(deps.db))
-  app.decorate('mailvorlagen', new MailVorlagenDienst(deps.db))
-  app.decorate('newsletter', new NewsletterDienst(deps.db))
-  app.decorate('rueckmeldungen', new RueckmeldungsDienst(deps.db))
+  app.decorate('auth', new AuthService(deps.db))
+  app.decorate('einladungen', new InvitationService(deps.db))
+  app.decorate('warteliste', new WaitlistService(deps.db))
+  app.decorate('mailvorlagen', new MailTemplateService(deps.db))
+  app.decorate('newsletter', new NewsletterService(deps.db))
+  app.decorate('rueckmeldungen', new FeedbackService(deps.db))
   app.decorate('verarbeitungen', new Map())
   app.decorate('protokoll', protokoll)
-  app.decorate('seiten', deps.seiten ?? new SeitenQuelle(deps.konfig))
-  app.decorate('exporte', new ExportDienst(deps.db, deps.archive))
-  app.decorate('tracker', new TrackerDienst(deps.db, deps.konfig.trackerSchluessel))
+  app.decorate('seiten', deps.seiten ?? new PageSource(deps.konfig))
+  app.decorate('exporte', new DataExportService(deps.db, deps.archive))
+  app.decorate('tracker', new TrackerService(deps.db, deps.konfig.trackerSchluessel))
   app.decorate('trackerRegistry', new Registry(deps.trackerProvider ?? []))
   app.decorate('trackerLaeufe', new Map())
-  app.decorate('push', new PushDienst(deps.db, deps.push))
+  app.decorate('push', new PushService(deps.db, deps.push))
   app.decorateRequest('benutzer', null)
   app.decorateRequest('appTokenId', null)
 
@@ -205,7 +205,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
 
   app.setErrorHandler(
     (fehler: Error & { validation?: unknown; statusCode?: number }, _request, reply) => {
-      if (fehler instanceof ZuGrossFehler) {
+      if (fehler instanceof TooLargeError) {
         return reply.code(413).send({ error: fehler.message })
       }
       if (fehler.validation) {
@@ -233,23 +233,23 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
     )
     .run()
 
-  registriereAuthRouten(app)
-  registriereAdminRouten(app)
-  registriereTourRouten(app)
-  registriereMediaRouten(app)
-  registriereBibliotheksRouten(app)
-  registriereGalerieRouten(app)
-  registriereWartelistenRouten(app)
-  registriereNewsletterRouten(app)
-  registriereRueckmeldungsRouten(app)
-  registriereSeitenRouten(app)
-  registriereExportRouten(app)
-  registriereTrackerRouten(app)
-  registrierePushRouten(app)
+  registerAuthRoutes(app)
+  registerAdminRoutes(app)
+  registerTourRoutes(app)
+  registerMediaRoutes(app)
+  registerAudioLibraryRoutes(app)
+  registerGalleryRoutes(app)
+  registerWaitlistRoutes(app)
+  registerNewsletterRoutes(app)
+  registerFeedbackRoutes(app)
+  registerPageRoutes(app)
+  registerDataExportRoutes(app)
+  registerTrackerRoutes(app)
+  registerPushRoutes(app)
   // Als eigener Plugin-Bereich registriert: Die Webhook-Routen brauchen den
   // ROHEN Body für die Signaturprüfung, und ein Content-Type-Parser gilt in
   // Fastify je Bereich — global gesetzt läge der rohe Body an jeder Route.
-  app.register(registriereTrackerWebhookRouten)
+  app.register(registerTrackerWebhookRoutes)
 
   app.get('/api/health', async () => ({ ok: true }))
 
@@ -257,7 +257,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
 }
 
 /** Gemeinsamer Guard: 401, wenn kein Benutzer aufgelöst wurde. */
-export function erfordereBenutzer(request: FastifyRequest, reply: FastifyReply): Benutzer | null {
+export function requireUser(request: FastifyRequest, reply: FastifyReply): User | null {
   if (!request.benutzer) {
     reply.code(401).send({ error: 'Nicht angemeldet' })
     return null
@@ -273,8 +273,8 @@ export function erfordereBenutzer(request: FastifyRequest, reply: FastifyReply):
  * ist für jeden aufrufbar. Das 403 sagt dem Angemeldeten stattdessen klar, dass
  * er an der richtigen Stelle, aber nicht berechtigt ist.
  */
-export function erfordereAdmin(request: FastifyRequest, reply: FastifyReply): Benutzer | null {
-  const benutzer = erfordereBenutzer(request, reply)
+export function requireAdmin(request: FastifyRequest, reply: FastifyReply): User | null {
+  const benutzer = requireUser(request, reply)
   if (!benutzer) return null
   if (benutzer.role !== 'admin') {
     reply.code(403).send({ error: 'Nur für Administratoren' })

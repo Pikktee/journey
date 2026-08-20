@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-20
-status: Wellen 0 und 1 abgeschlossen. Welle 1 am 2026-08-20 als v0.67.0 AUSGELIEFERT (Start-Migration auf Produktion gelaufen: 15 Touren auf tour@2, Marker 2, user_version 23), Nachbesserung v0.67.1. Wellen 2 bis 8 offen, Schritt 9 (Env) ganz am Ende.
+status: Wellen 0 bis 2 abgeschlossen. Welle 1 am 2026-08-20 als v0.67.0 AUSGELIEFERT (Start-Migration auf Produktion gelaufen: 15 Touren auf tour@2, Marker 2, user_version 23), Nachbesserung v0.67.1. Welle 2 (Server-Internals) am 2026-08-20 gebaut: 427 Tabellenzeilen, 36 Modul- und 16 Testdateien umbenannt, Gates grün; noch nicht ausgeliefert. Wellen 3 bis 8 offen, Schritt 9 (Env) ganz am Ende.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -212,7 +212,7 @@ Grenze hinweg fängt niemand. Eine Ausnahme gilt auch INNERHALB der Server-Welt:
 SQL steht als roher String in Hunderten `db.prepare(…)`-Aufrufen, Spalten wie
 Werte (`SET status = 'fehler' WHERE status = 'verarbeitung'` in
 [app.ts](../../server/src/app.ts), `KARTEN_SPALTEN` in
-[galerie.ts](../../server/src/routes/galerie.ts), viele weitere). `tsc` bleibt
+[gallery.ts](../../server/src/routes/gallery.ts), viele weitere). `tsc` bleibt
 dabei grün; der Halt ist die Testsuite plus der Abnahme-Grep aus §8.
 
 ### 3.2 Die Verträge und ihre Leser
@@ -277,7 +277,7 @@ zugehörigen Test laufen:
   `anreicherung.json` wird zu `enrichment.json` (§4.3).
 - **Die WERTE der mitgelieferten Titelbilder** (`serpentinen.jpg`, `kueste.jpg`,
   `nachtstadt.jpg`, `wueste.jpg` unter `public/titelbilder/`): `users.titelbild`
-  trägt sie als blanken Dateinamen, [profilfelder.ts](../../server/src/profilfelder.ts)
+  trägt sie als blanken Dateinamen, [profile-fields.ts](../../server/src/profile-fields.ts)
   baut daraus `/titelbilder/<name>`. Die Spalte wird umbenannt (§6.8), die
   Dateinamen selbst bleiben: Sie sind Daten, keine Bezeichner. Der ORDNER
   `public/titelbilder/` bleibt ebenfalls wortgleich: Sein Präfix baut der
@@ -291,7 +291,7 @@ zugehörigen Test laufen:
   PERSISTIERT; der Katalog steht in
   [sfxbibliothek.ts](../../src/studio/sfxbibliothek.ts), die acht
   Auto-Musik-Stücke gespiegelt in
-  [musikwahl.ts](../../server/src/pipeline/musikwahl.ts) (Drift-Wächter in
+  [music-choice.ts](../../server/src/pipeline/music-choice.ts) (Drift-Wächter in
   `test/studio-baukasten.test.ts`), `mus-nachtfahrt.mp3` zusätzlich in
   [tours.ts](../../src/tours.ts). Wer sie in Welle 5 oder 6 „mitnimmt", bricht
   jede Bestandstour mit Ton. Daten, keine Bezeichner. Die Motorloops
@@ -323,7 +323,7 @@ zugehörigen Test laufen:
   `#newsletter-aus=`, `#email=`, `#reset=`, `#verify=`): Sie stehen in bereits
   verschickten Mails, und der Abmeldelink ist ausdrücklich ohne Frist
   (Art. 7 Abs. 3 DSGVO). Gebaut vom Server
-  ([warteliste.ts](../../server/src/routes/warteliste.ts),
+  ([waitlist.ts](../../server/src/routes/waitlist.ts),
   [newsletter.ts](../../server/src/newsletter.ts), [auth.ts](../../server/src/routes/auth.ts)),
   geparst im Web ([konto.ts](../../src/konto/konto.ts),
   [studio.ts](../../src/studio/studio.ts)), ein drittes Mal gebaut in
@@ -423,7 +423,7 @@ Fall.
 `mailvorlagen.schluessel` (nach §6.8 `mail_templates.key`) hält die
 Admin-Abweichungen unter den Code-Schlüsseln `verifikation`, `email-wechsel`,
 `warteliste`, `warteliste-einladung`
-([mailvorlagen.ts](../../server/src/mailvorlagen.ts));
+([mail-templates.ts](../../server/src/mail-templates.ts));
 `einstellungen.schluessel` (`settings.key`) die Betriebs-Schalter
 `einladung_pflicht` und `warteliste_offen`. Beide bekommen im selben
 Migrationsschritt ein `UPDATE … SET key = CASE …` und je eine Zeile im
@@ -505,8 +505,8 @@ alte Form genau einmal, in Ruhe, vor dem ersten Request. Sechs Regeln:
   dahin antwortet `/api/tours/:id` für DIESE Tour mit `processing`, der Player
   zeigt das wie heute. Alle gleichzeitig umzustellen legt nicht nur den Player
   still: Galerie, Profile und die Tour-Sitemap filtern hart auf
-  `status = 'bereit'` ([galerie.ts](../../server/src/routes/galerie.ts),
-  [seiten.ts](../../server/src/routes/seiten.ts)), also wäre die öffentliche
+  `status = 'bereit'` ([gallery.ts](../../server/src/routes/gallery.ts),
+  [pages.ts](../../server/src/routes/pages.ts)), also wäre die öffentliche
   Galerie leer, jedes Profil zeigte null Touren, und jeder geteilte
   `/tour/t_…`-Link samt seiner Vorschaukarte antwortete mit Fehler. Gestaffelt
   ist immer nur eine Tour unsichtbar.
@@ -522,7 +522,7 @@ alte Form genau einmal, in Ruhe, vor dem ersten Request. Sechs Regeln:
   Bildanalyse der teuerste Posten der Pipeline ist.
 - **Die Signaturen werden NEU BERECHNET, nicht abgebildet.** `trimSignatur` und
   `videoSchnittSignatur` sind kein Schlüssel, sondern stringifiziertes JSON der
-  Edits (`JSON.stringify(edits.trim)`, [anreicherung.ts](../../server/src/pipeline/anreicherung.ts)).
+  Edits (`JSON.stringify(edits.trim)`, [enrichment.ts](../../server/src/pipeline/enrichment.ts)).
   Nach der Umbenennung `start/ende` und `vonS/bisS` passt die gespeicherte
   Zeichenkette nie wieder zur neu gerechneten: Jede Tour liefe in die volle
   Anreicherung, Geocoding und Bildanalyse inklusive. Die Start-Migration ruft
@@ -604,7 +604,7 @@ mit Leser.
 |------:|--------|--------|
 | **0** ✅ | Zahlen aus §4.5, **Abbildungstabelle** gebaut und abgenommen (§11), Glossar eingefroren, Sprachregel in `CLAUDE.md`, DB-Snapshot, Abnahme-Checkliste, Roadmap sortiert | keins |
 | **1** ✅ | **Verträge und ihre Leser**: SQLite (Spalten, Tabellen, Werte, Blobs), `upload@2`, `edits@2`, `enrichment@2`, `tour@2`, **HTTP-API** (Pfade und Felder), Room v4, Start-Migration, Re-Render, plus aller Code, der dadurch rot wird, plus die Nähte aus §3.3; die beiden Specs | mittel, und heute am billigsten |
-| **2** | Server-Internals: Pipeline, Routen-Handler, Mail-Bausteine, Auth, Dateiumbenennungen in `server/src` | mittel |
+| **2** ✅ | Server-Internals: Pipeline, Routen-Handler, Mail-Bausteine, Auth, Dateiumbenennungen in `server/src` | mittel |
 | **3** | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `stopps`, `pruefung`) | niedrig |
 | **4** | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `abspielen`, `exportblatt`, `nachreichen`, `sfxbibliothek`, `tipp`, `kartenstimmung`) + Dateiumbenennungen | mittel |
 | **5** | Player-Engine (`tour`, `filmachse`, `filmuhr`, `kartenmaler`, `kartenschicht`, `einblendung`, `streckenanker`, `ui`, `main`, `exportfilm`, `exportformat`, `vollbild`, `karteninfo`, `tourtexte`, `wetterhimmel`, `pinmodell`) + `window.__j` + `scripts/messungen` + `test/fixtures/filmachse.json` mit Server-Spiegel | mittel |
@@ -689,6 +689,39 @@ Findet die Messung aus §4.5 ein FREMDES App-Gerät, ist es das nicht mehr, und
 dann wird vorher eine tolerante App-Fassung ausgeliefert, die beide Feld- und
 Wortmengen liest. Das ist ein Vorwärtsleser im eigenen Client für zwei Wochen
 und kein Rückwärtsleser im Server.
+
+### Welle 2: gebaut am 2026-08-20
+
+427 Zeilen der Abbildungstabelle, 36 Moduldateien unter `server/src` und 16
+Testdateien daneben. Umbenannt wurde token-basiert über den TypeScript-Scanner
+und nicht per Textersetzung: Deutsche Kommentare, Mail-Texte und die alten
+JSON-Schlüssel in `migrations/keys-v2.ts` sind Daten und mussten stehen bleiben.
+Vier Dinge, die dabei aufgefallen sind:
+
+- **`TrackerAnbieter` konnte nicht `TrackerProvider` heißen.** Unter dem Namen
+  steht in derselben Datei seit je das Adapter-Interface, das der Tabellenbau
+  als schon englisch überging. Die Union heißt `TrackerProviderId` (sie IST
+  eine Kennung, §6.0 Regel 7), das Interface behält seinen Namen. 56 Typfehler
+  in einem Zug, also der laute Fall. Der leise wäre gewesen, wenn beide Namen
+  in verschiedenen Dateien gelegen hätten.
+- **Der Tabellen-Prüfer sieht diese Sorte Kollision nicht.** Er vergleicht
+  Zielformen gegeneinander, nicht gegen den Bestand. Wer eine Welle baut,
+  prüft die Zielformen zusätzlich gegen die Namen, die schon englisch sind.
+- **`PlatzhalterInfo` war schon halb gewandert.** Welle 1 hat den Typ als
+  Beiwerk der Mail-Vorlagen-Antwort auf `PlaceholderInfo` gezogen; die Zeile
+  dieser Welle sagt `PlaceholderDescription` (§6.0 verbietet `info`), und die
+  gilt.
+- **Die Testdateien folgen ihrem Modul**, wie §6.6 es verlangt, und haben jetzt
+  ihre eigenen Tabellenzeilen. Ohne Zeile bleiben die fünf ohne eindeutiges
+  Modul: `bildfassungen`, `medien-nachreichen`, `vertrag-tourjson`, `leiter`
+  und der Helfer.
+
+Rot geworden sind vier Text-Wächter im Web, und das war die gute Nachricht:
+`routen.test.ts` (Server-Kopie `web-paths.ts`, `HANDLE_PATTERN`,
+`MARKER_OPEN`/`MARKER_CLOSE`), `studio-baukasten.test.ts` (`WEATHER_MODES`,
+`AUTO_MUSIC`), `newsletter-einwilligung.test.ts` (`CONSENT_TEXTS`) und
+`markdown-links.test.ts` mit 60 toten Doku-Links. Angepasst wurde der Wächter,
+nicht der Code.
 
 ### Wellen 3 bis 6: Namen
 

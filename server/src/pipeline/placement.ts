@@ -4,16 +4,16 @@
 // „unplaced" (wird nicht abgespielt, im Editor manuell setzbar, M7).
 // Reine Geometrie über den Rohdaten → direkt unit-testbar.
 
-import type { UploadMedium, UploadPunkt } from '../schema/upload.js'
-import { distanzM } from './geo.js'
+import type { UploadMedium, UploadPoint } from '../schema/upload.js'
+import { distanceM } from './geo.js'
 
-export type Platzierung = 'gps' | 'time' | 'manual' | 'unplaced'
+export type Placement = 'gps' | 'time' | 'manual' | 'unplaced'
 
-export interface PlatziertesMedium {
+export interface PlacedMedium {
   medium: UploadMedium
   /** Anker [lng,lat] auf dem Track; null = unplatziert */
   anchor: [number, number] | null
-  placement: Platzierung
+  placement: Placement
 }
 
 // Ab dieser Entfernung gilt ein GPS-Anker als „nicht am Track" (Abstecher, oder
@@ -21,17 +21,17 @@ export interface PlatziertesMedium {
 const MAX_ABSTAND_M = 500
 
 /** Kleinster Abstand eines Punkts zu irgendeinem Trackpunkt. */
-function abstandZumTrack(anchor: readonly number[], track: readonly UploadPunkt[]): number {
+function abstandZumTrack(anchor: readonly number[], track: readonly UploadPoint[]): number {
   let best = Infinity
   for (const p of track) {
-    const d = distanzM(anchor, [p[0], p[1]])
+    const d = distanceM(anchor, [p[0], p[1]])
     if (d < best) best = d
   }
   return best
 }
 
 /** Trackpunkt (interpoliert) zum Zeit-Offset; null, wenn außerhalb der Tour-Zeit. */
-function ankerZurZeit(track: readonly UploadPunkt[], offsetS: number): [number, number] | null {
+function ankerZurZeit(track: readonly UploadPoint[], offsetS: number): [number, number] | null {
   const erster = track[0]!
   const letzter = track[track.length - 1]!
   if (offsetS < erster[3] || offsetS > letzter[3]) return null
@@ -48,10 +48,10 @@ function ankerZurZeit(track: readonly UploadPunkt[], offsetS: number): [number, 
 
 function bestimmePlatzierung(
   medium: UploadMedium,
-  track: readonly UploadPunkt[],
-  nachZeit: readonly UploadPunkt[],
+  track: readonly UploadPoint[],
+  nachZeit: readonly UploadPoint[],
   startMs: number,
-): PlatziertesMedium {
+): PlacedMedium {
   // 1. GPS-Anker nah genug am Track → direkt verankern (Reihenfolge egal)
   if (medium.anchor && abstandZumTrack(medium.anchor, track) <= MAX_ABSTAND_M) {
     return { medium, anchor: medium.anchor, placement: 'gps' }
@@ -70,11 +70,11 @@ function bestimmePlatzierung(
  * Alle Medien einer Tour verorten. `track` sind die Trackpunkte über ALLE
  * Segmente (flach, in Fahrreihenfolge), `startMs` = time.start.
  */
-export function platziereMedien(
+export function placeMedia(
   medien: readonly UploadMedium[],
-  track: readonly UploadPunkt[],
+  track: readonly UploadPoint[],
   startMs: number,
-): PlatziertesMedium[] {
+): PlacedMedium[] {
   if (track.length < 2) {
     return medien.map((medium) => ({ medium, anchor: null, placement: 'unplaced' as const }))
   }

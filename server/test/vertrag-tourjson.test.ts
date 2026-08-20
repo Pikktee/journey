@@ -16,11 +16,11 @@
 // und Wetterquelle sind fest, die Pipeline zieht weder Uhr noch Zufall.
 
 import { describe, expect, it } from 'vitest'
-import { reichereAn } from '../src/pipeline/enrich.js'
-import { FesterGeocoder } from '../src/pipeline/naming.js'
-import { klemmeSchnitt, schnittVideoDateiname, type VideoMeta } from '../src/pipeline/video.js'
-import type { FotoMeta } from '../src/pipeline/bild.js'
-import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
+import { enrichTour } from '../src/pipeline/enrich.js'
+import { FixedGeocoder } from '../src/pipeline/naming.js'
+import { clampCut, cutVideoFilename, type VideoMeta } from '../src/pipeline/video.js'
+import type { PhotoMeta } from '../src/pipeline/image.js'
+import { FixedWeatherSource, testGrid } from '../src/pipeline/weather.js'
 import type { EditOverlay } from '../src/schema/edits.js'
 import type { UploadManifest } from '../src/schema/upload.js'
 
@@ -105,14 +105,14 @@ const VIDEO_QUELL_S = 34.2
  * Länge setzen.
  */
 function videoMetaFuer(edits: EditOverlay | null): Map<string, VideoMeta> {
-  const schnitt = klemmeSchnitt(edits?.media?.['m2']?.trim, VIDEO_QUELL_S)
+  const schnitt = clampCut(edits?.media?.['m2']?.trim, VIDEO_QUELL_S)
   return new Map<string, VideoMeta>([
     [
       'm2',
       schnitt
         ? {
             durationS: (schnitt.toS ?? VIDEO_QUELL_S) - schnitt.fromS,
-            videoDatei: schnittVideoDateiname('m2'),
+            videoDatei: cutVideoFilename('m2'),
             posterDatei: 'm2.poster.jpg',
             quellDauerS: VIDEO_QUELL_S,
           }
@@ -125,7 +125,7 @@ function videoMetaFuer(edits: EditOverlay | null): Map<string, VideoMeta> {
     ],
   ])
 }
-const fotoMeta = new Map<string, FotoMeta>([
+const fotoMeta = new Map<string, PhotoMeta>([
   ['m1', { anzeigeDatei: 'm1.w1920.jpg', thumbDatei: 'm1.t480.jpg' }],
   ['m3', { anzeigeDatei: 'm3.w1920.jpg', thumbDatei: 'm3.t480.jpg' }],
 ])
@@ -133,8 +133,8 @@ const fotoMeta = new Map<string, FotoMeta>([
 // Bedeckt mit einem nassen Fenster am Vormittag (UTC 06:00 … 13:00) — genug,
 // damit das Auto-Wetter überhaupt Keyframes erzeugt und die Stufen sichtbar sind.
 const wetterQuelle = () =>
-  new FesteWetterQuelle(
-    testRaster('2026-07-04T06', [
+  new FixedWeatherSource(
+    testGrid('2026-07-04T06', [
       { wolken: 20 },
       { wolken: 60 },
       { code: 61, regenMm: 1.2, wolken: 95 },
@@ -147,14 +147,14 @@ const wetterQuelle = () =>
   )
 
 async function rendere(edits: EditOverlay | null) {
-  return reichereAn({
+  return enrichTour({
     tourId: 't_vertrag01',
     nummer: 42,
     manifest: vertragManifest(),
     titelOverride: null,
     beschreibungOverride: null,
     edits,
-    geocoder: new FesterGeocoder(['Lauterbrunnen', 'Grindelwald']),
+    geocoder: new FixedGeocoder(['Lauterbrunnen', 'Grindelwald']),
     wetter: wetterQuelle(),
     videoMeta: videoMetaFuer(edits),
     fotoMeta,

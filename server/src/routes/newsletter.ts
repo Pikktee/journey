@@ -21,14 +21,14 @@
 // den schickt kein Scanner.
 
 import type { FastifyInstance } from 'fastify'
-import { baueBremse } from '../bremse.js'
-import { pruefeAbmeldeToken } from '../newsletter.js'
+import { buildRateLimit } from '../rate-limit.js'
+import { checkUnsubscribeToken } from '../newsletter.js'
 
 const tokenSchema = { type: 'string', maxLength: 400 } as const
 
-export function registriereNewsletterRouten(app: FastifyInstance): void {
+export function registerNewsletterRoutes(app: FastifyInstance): void {
   const { konfig } = app.deps
-  const gebremst = baueBremse(20, 10 * 60_000)
+  const gebremst = buildRateLimit(20, 10 * 60_000)
 
   /**
    * Austragen — und immer „ok".
@@ -39,7 +39,7 @@ export function registriereNewsletterRouten(app: FastifyInstance): void {
    * etwas tun (der Schalter steht in den Kontoeinstellungen).
    */
   const trageAus = (token: string): boolean => {
-    const userId = pruefeAbmeldeToken(token, konfig.cookieSecret)
+    const userId = checkUnsubscribeToken(token, konfig.cookieSecret)
     if (!userId) return false
     // Der Zustand wird auch dann geschrieben, wenn er schon „aus" war: Die
     // zweite Zeile in der Historie ist der Beleg, dass jemand es noch einmal

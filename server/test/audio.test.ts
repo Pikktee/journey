@@ -7,7 +7,7 @@ import type { TourJson } from '../src/pipeline/enrich.js'
 import { STUDIO_GAIN } from '../src/schema/edits.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
-async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
+async function createTour(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
   const antwort = await u.app.inject({
     method: 'POST',
     url: '/api/tours',
@@ -72,7 +72,7 @@ async function fremdeCookies(u: TestUmgebung): Promise<{ maptale_session: string
 describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
   it('lädt hoch und liefert mit Audio-Content-Type und Range aus', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const put = await ladeAudioHoch(u, id, 'a1.mp3', '0123456789')
     expect(put.statusCode).toBe(200)
     expect(put.json()).toEqual({ file: 'a1.mp3', bytes: 10 })
@@ -100,7 +100,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
   it('kennt die Content-Types aller Audio-Endungen', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const erwartet: Record<string, string> = {
       m4a: 'audio/mp4',
       ogg: 'audio/ogg',
@@ -119,7 +119,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
   it('erlaubt Audio auch bei Status „bereit" (der Editor rüstet nach)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     expect((await ladeAudioHoch(u, id)).statusCode).toBe(200)
@@ -127,7 +127,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
   it('verweigert Überschreiben (immutable-Cache) mit 409', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     expect((await ladeAudioHoch(u, id)).statusCode).toBe(200)
     const nochmal = await ladeAudioHoch(u, id, 'a1.mp3', 'neue-bytes')
     expect(nochmal.statusCode).toBe(409)
@@ -136,7 +136,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
   it('verweigert Upload und Löschen während laufender Verarbeitung (409)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeAudioHoch(u, id, 'alt.mp3')
     u.app.deps.db.prepare(`UPDATE tours SET status = 'processing' WHERE id = ?`).run(id)
     expect((await ladeAudioHoch(u, id, 'neu.mp3')).statusCode).toBe(409)
@@ -150,7 +150,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
   it('behandelt fremde Touren als nicht existent (404, nie 403)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeAudioHoch(u, id)
     const fremd = await fremdeCookies(u)
     const put = await u.app.inject({
@@ -171,7 +171,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
   it('lehnt Uploads über dem Audio-Limit ab (413)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const antwort = await ladeAudioHoch(u, id, 'gross.mp3', Buffer.alloc(2 * 1024 * 1024)) // TEST_KONFIG-Limit: 1 MiB
     expect(antwort.statusCode).toBe(413)
     // Kein halber Upload liegen geblieben
@@ -180,7 +180,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
   it('lehnt unzulässige Dateinamen am Params-Schema ab (400)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     for (const datei of ['boese.exe', 'x.MP3', 'ohne-endung']) {
       expect((await ladeAudioHoch(u, id, datei)).statusCode).toBe(400)
     }
@@ -190,7 +190,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
   it('löscht die Datei; danach 404 bei GET und erneutem DELETE', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeAudioHoch(u, id)
     const del = await u.app.inject({
       method: 'DELETE',
@@ -212,7 +212,7 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
 
   it('verweigert das Löschen einer von den gespeicherten Edits genutzten Datei (409)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await ladeAudioHoch(u, id, 'a1.mp3')
     await finalisiere(u, id)
@@ -245,7 +245,7 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
 describe('Editor-Daten mit Audio (Baukasten)', () => {
   it('listet hochgeladene Audio-Dateien mit Größe — Fotos/Videos nicht', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id) // m1.jpg liegt ebenfalls unter media/
     await ladeAudioHoch(u, id, 'a1.mp3', '0123456789')
     await ladeAudioHoch(u, id, 'wind.wav', 'wav-bytes')
@@ -266,7 +266,7 @@ describe('Editor-Daten mit Audio (Baukasten)', () => {
 describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukasten)', () => {
   it('kamera/audio/display aus dem Overlay erreichen das Tour-JSON', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await ladeAudioHoch(u, id, 'a1.mp3')
     await finalisiere(u, id)
@@ -312,7 +312,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
 
   it('überspringt Verweise auf fehlende Audio-Dateien statt zu scheitern', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     const put = await u.app.inject({
@@ -335,7 +335,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
 
   it('weist kaputte Formen am Schema ab (400) — falsch getypte bekannte Felder', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const faelle = [
       { schema: 'maptale/edits@2', camera: 'quatsch' },
       { schema: 'maptale/edits@2', camera: [{ from: '2026-07-04T09:00:00Z', preset: 'ultra' }] },
@@ -370,7 +370,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
 
   it('weist kaputte Semantik ab (400 mit Ursache)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const faelle: Array<{ payload: Record<string, unknown>; fehler: RegExp }> = [
       {
         payload: {

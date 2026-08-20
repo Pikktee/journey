@@ -17,14 +17,14 @@ const lies = (datei: string): string =>
   readFileSync(new URL(`../${datei}`, import.meta.url), 'utf8')
 
 /**
- * Die Sätze aus `EINWILLIGUNGSTEXTE` — aus der Quelle gelesen statt
+ * Die Sätze aus `CONSENT_TEXTS` — aus der Quelle gelesen statt
  * nachgeschrieben. Ein zweites Mal hingeschrieben wäre dieser Wächter genau die
  * Kopie, die er verhindern soll.
  */
 function einwilligungstexte(): Record<string, { fassung: string; text: string }> {
   const quelle = lies('server/src/newsletter.ts')
-  const block = /export const EINWILLIGUNGSTEXTE = \{([\s\S]*?)\n\} as const/.exec(quelle)?.[1]
-  expect(block, 'EINWILLIGUNGSTEXTE in server/src/newsletter.ts nicht gefunden').toBeTruthy()
+  const block = /export const CONSENT_TEXTS = \{([\s\S]*?)\n\} as const/.exec(quelle)?.[1]
+  expect(block, 'CONSENT_TEXTS in server/src/newsletter.ts nicht gefunden').toBeTruthy()
   const texte: Record<string, { fassung: string; text: string }> = {}
   for (const eintrag of (block as string).matchAll(
     /(\w+): \{\s*fassung: '([^']+)',\s*text:([\s\S]*?),\s*\},/g,

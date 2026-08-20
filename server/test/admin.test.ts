@@ -5,7 +5,7 @@
 // einmal mit ihm angeklopft, damit die Rechteprüfung nicht nur behauptet wird.
 
 import { describe, expect, it } from 'vitest'
-import { vorlage } from '../src/mailvorlagen.js'
+import { getTemplate } from '../src/mail-templates.js'
 import {
   baueTestApp,
   beispielManifest,
@@ -645,7 +645,7 @@ describe('Registrierung mit Einladung', () => {
 })
 
 describe('System-Mails verwalten', () => {
-  const defaultContent = () => vorlage('verification').defaultContent
+  const defaultContent = () => getTemplate('verification').defaultContent
 
   it('verwehrt gewöhnlichen Konten jeden Zugriff (403)', async () => {
     const u = await baueTestApp()
@@ -777,7 +777,7 @@ describe('System-Mails verwalten', () => {
       method: 'PATCH',
       url: '/api/admin/mail-templates/reset',
       cookies: admin.cookies,
-      payload: { ...vorlage('reset').defaultContent, title: 'Anders' },
+      payload: { ...getTemplate('reset').defaultContent, title: 'Anders' },
     })
     const antwort = await u.app.inject({
       method: 'DELETE',
@@ -798,7 +798,7 @@ describe('System-Mails verwalten', () => {
       method: 'POST',
       url: '/api/admin/mail-templates/waitlist-invitation/preview',
       cookies: admin.cookies,
-      payload: vorlage('waitlist-invitation').defaultContent,
+      payload: getTemplate('waitlist-invitation').defaultContent,
     })
     expect(antwort.statusCode).toBe(200)
     const erg = antwort.json() as { html: string; subject: string; issues: string[] }
@@ -815,7 +815,7 @@ describe('System-Mails verwalten', () => {
       method: 'POST',
       url: '/api/admin/mail-templates/reset/preview',
       cookies: admin.cookies,
-      payload: { ...vorlage('reset').defaultContent, subject: '' },
+      payload: { ...getTemplate('reset').defaultContent, subject: '' },
     })
     expect(antwort.statusCode).toBe(200)
     expect((antwort.json() as { issues: string[] }).issues.join(' ')).toContain('Betreff')
@@ -848,7 +848,7 @@ describe('System-Mails verwalten', () => {
       method: 'PATCH',
       url: '/api/admin/mail-templates/reset',
       cookies: admin.cookies,
-      payload: { ...vorlage('reset').defaultContent, title: 'Gespeichert' },
+      payload: { ...getTemplate('reset').defaultContent, title: 'Gespeichert' },
     })
     await u.app.inject({
       method: 'POST',

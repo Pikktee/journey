@@ -4,16 +4,16 @@
 // physisches Löschen samt Ableitungen, Cover-Fallback, Overlay-Hygiene.
 
 import { describe, expect, it } from 'vitest'
-import { FakeBildWerkzeug } from '../src/pipeline/bild.js'
-import { FakeVideoWerkzeug } from '../src/pipeline/video.js'
+import { FakeImageTool } from '../src/pipeline/image.js'
+import { FakeVideoTool } from '../src/pipeline/video.js'
 import type { TourJson } from '../src/pipeline/enrich.js'
 import type { UploadManifest } from '../src/schema/upload.js'
-import { MANIFEST_PFAD } from '../src/routes/tours.js'
+import { MANIFEST_PATH } from '../src/routes/tours.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 // — Helfer wie in api.test.ts, plus ein Manifest mit zwei verankerten Fotos —
 
-async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
+async function createTour(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
   const antwort = await u.app.inject({
     method: 'POST',
     url: '/api/tours',
@@ -85,7 +85,7 @@ async function nachreichen(
 /** Das rohe Manifest der Tour — die Quelle, gegen die der Dedup läuft. */
 async function manifestVon(u: TestUmgebung, tourId: string): Promise<UploadManifest> {
   return JSON.parse(
-    (await u.app.deps.storage.lese(tourId, MANIFEST_PFAD)).toString(),
+    (await u.app.deps.storage.lese(tourId, MANIFEST_PATH)).toString(),
   ) as UploadManifest
 }
 
@@ -101,7 +101,7 @@ async function manifestVon(u: TestUmgebung, tourId: string): Promise<UploadManif
 function verzoegereManifestLesen(u: TestUmgebung, ms = 20): void {
   const echtesLesen = u.storage.lese.bind(u.storage)
   u.storage.lese = async (tourId: string, pfad: string) => {
-    if (pfad !== MANIFEST_PFAD) return echtesLesen(tourId, pfad)
+    if (pfad !== MANIFEST_PATH) return echtesLesen(tourId, pfad)
     const daten = await echtesLesen(tourId, pfad)
     await new Promise((r) => setTimeout(r, ms))
     return daten
@@ -121,7 +121,7 @@ async function tourJson(u: TestUmgebung, tourId: string): Promise<TourJson> {
 describe('Nachreichen (POST /api/tours/:id/media)', () => {
   it('nimmt bei „bereit" neue Medien an: Server-ID, PUT erlaubt, Reprocess rendert sie', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
@@ -164,7 +164,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
     // Rendern. Scheitert das (409, Netz weg), wiederholt sie den Lauf — und
     // ohne diesen Riegel stünde danach jedes Bild zweimal in der Tour.
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
@@ -191,7 +191,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
     // Der Client paart Antwort und Dateien über den INDEX. Eine kürzere Liste
     // verschöbe die Zuordnung — und er lüde Bild B unter der ID von A hoch.
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
@@ -216,7 +216,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
 
   it('ohne `quelle` bleibt jeder Eintrag neu — das Studio wählt bewusst aus', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
     const eintrag = { type: 'photo' as const, file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00' }
@@ -235,7 +235,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
     // antwortet, überleben auch zwei ungeschützte Läufe. Erst ein realistisches
     // Lesen (Datei, Netz) reißt das Fenster auf.
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
@@ -266,7 +266,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
     // Die teuerste Paarung: DELETE gegen POST. Ohne Sperre erweckt die
     // Zustellung einen Eintrag, dessen Dateien der Server gerade gelöscht hat.
     const u = await baueTestApp()
-    const id = await legeTourAn(u, manifestMitZweiFotos())
+    const id = await createTour(u, manifestMitZweiFotos())
     await ladeMediumHoch(u, id, 'm1')
     await ladeMediumHoch(u, id, 'm2')
     await finalisiere(u, id)
@@ -293,7 +293,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
 
   it('weist während laufender Verarbeitung mit 409 ab', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     u.app.deps.db.prepare(`UPDATE tours SET status = 'processing' WHERE id = ?`).run(id)
     const { statusCode } = await nachreichen(u, id, [
       { type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
@@ -303,7 +303,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
 
   it('lehnt einen Batch ganz ab, wenn ein Eintrag ungültig ist (keine halben Batches)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const { statusCode } = await nachreichen(u, id, [
       { type: 'photo', file: 'ok.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
       { type: 'photo', file: 'kaputt.gif', takenAt: '2026-07-04T10:31:00+02:00' },
@@ -318,7 +318,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
 
   it('vergibt eindeutige IDs, die mit keiner Manifest-ID kollidieren', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const { media } = await nachreichen(u, id, [
       { type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
       { type: 'photo', file: 'b.jpg', takenAt: '2026-07-04T10:31:00+02:00' },
@@ -332,8 +332,8 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
 describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
   it('löscht Rohdatei + Fassungen, setzt den Tombstone und rendert neu (Cover-Fallback)', async () => {
     // Mit Bild-Werkzeug: der Render erzeugt Fassungen und verwirft Originale
-    const u = await baueTestApp([], null, null, {}, null, null, new FakeBildWerkzeug())
-    const id = await legeTourAn(u, manifestMitZweiFotos())
+    const u = await baueTestApp([], null, null, {}, null, null, new FakeImageTool())
+    const id = await createTour(u, manifestMitZweiFotos())
     await ladeMediumHoch(u, id, 'm1')
     await ladeMediumHoch(u, id, 'm2')
     await finalisiere(u, id)
@@ -373,7 +373,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
 
   it('ist idempotent und sperrt das PUT auf den Tombstone', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
@@ -408,14 +408,14 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
   })
 
   it('löscht bei Videos auch Web-Fassung, Poster und Kachel', async () => {
-    const werkzeug = new FakeVideoWerkzeug({
+    const werkzeug = new FakeVideoTool({
       codecVideo: 'h264',
       codecAudio: 'aac',
       durationS: 12,
       breite: 1920,
       hoehe: 1080,
     })
-    const u = await baueTestApp([], null, werkzeug, {}, null, null, new FakeBildWerkzeug())
+    const u = await baueTestApp([], null, werkzeug, {}, null, null, new FakeImageTool())
     const manifest = beispielManifest()
     manifest.media.push({
       id: 'v1',
@@ -425,7 +425,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       anchor: [7.9142, 46.5872],
       caption: null,
     })
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     await ladeMediumHoch(u, id, 'm1')
     await ladeMediumHoch(u, id, 'v1', 'fake-video-bytes')
     await finalisiere(u, id)
@@ -444,7 +444,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
 
   it('räumt Overlay-Einträge des Mediums mit auf (media + titelbild)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u, manifestMitZweiFotos())
+    const id = await createTour(u, manifestMitZweiFotos())
     await ladeMediumHoch(u, id, 'm1')
     await ladeMediumHoch(u, id, 'm2')
     await finalisiere(u, id)
@@ -482,7 +482,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
 
   it('Tombstone blockiert das Finalisieren nicht (Löschen vor dem Finalize)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u, manifestMitZweiFotos())
+    const id = await createTour(u, manifestMitZweiFotos())
     await ladeMediumHoch(u, id, 'm2')
     // m1 wurde nie hochgeladen und wird bei „angelegt" gelöscht
     const antwort = await u.app.inject({
@@ -499,7 +499,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
 
   it('blendet den Tombstone aus den Editor-Daten aus', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u, manifestMitZweiFotos())
+    const id = await createTour(u, manifestMitZweiFotos())
     await ladeMediumHoch(u, id, 'm1')
     await ladeMediumHoch(u, id, 'm2')
     await finalisiere(u, id)
@@ -516,7 +516,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
 
   it('nachgereicht, aber nie hochgeladen: der Render überspringt den Eintrag', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
@@ -546,7 +546,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     // eine Aufnahme, die es nicht gibt (Bild 404). Bei „angelegt" bleibt er
     // sichtbar: dort läuft der Upload gerade erst.
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1')
     await finalisiere(u, id)
 
@@ -560,7 +560,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     }
     expect(editor.media.map((m) => m.id)).toEqual(['m1'])
     // Das Manifest behält ihn trotzdem — es ist das Protokoll des Hochgeladenen
-    const manifest = JSON.parse((await u.app.deps.storage.lese(id, MANIFEST_PFAD)).toString()) as {
+    const manifest = JSON.parse((await u.app.deps.storage.lese(id, MANIFEST_PATH)).toString()) as {
       media: Array<{ id: string }>
     }
     expect(manifest.media.map((m) => m.id)).toContain(media[0]?.id)

@@ -1,9 +1,9 @@
 // Zentrale Konfiguration aus der Umgebung. Alle Werte haben Dev-taugliche
 // Defaults; in Produktion (Docker Compose) kommen sie aus dem Environment.
 
-import { VISION_MODELL_DEFAULT } from './pipeline/vision.js'
+import { VISION_MODEL_DEFAULT } from './pipeline/vision.js'
 
-export interface Konfig {
+export interface Config {
   /** TCP-Port der API */
   port: number
   /** Datenverzeichnis: SQLite-Datei + Tour-Ablage (Medien, Manifeste, tour.json) */
@@ -79,7 +79,7 @@ export interface Konfig {
    */
   trackerSchluessel: string | null
   /** Zugangsdaten je Tracker-Anbieter; fehlen sie, ist der Anbieter aus (nicht kaputt). */
-  polar: AnbieterZugang
+  polar: ProviderCredentials
   /**
    * Dienstkonto-JSON eines Firebase-Projekts für den Push-Versand (FCM
    * HTTP v1). Fehlt es, ist Push aus — die App fällt auf ihren periodischen
@@ -98,7 +98,7 @@ export interface Konfig {
 }
 
 /** Client-ID/-Secret plus Webhook-Geheimnis eines OAuth-Anbieters. */
-export interface AnbieterZugang {
+export interface ProviderCredentials {
   clientId: string | null
   clientSecret: string | null
   /** Signatur-Schlüssel des Webhooks; bei Polar die Antwort auf `POST /v3/webhooks`. */
@@ -141,7 +141,7 @@ const adressen = (wert: string | undefined, standard: string): string[] =>
     .map((a) => a.trim().toLowerCase())
     .filter(Boolean)
 
-export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
+export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     port: zahl(env.PORT, 8787),
     datenDir: text(env.MAPTALE_DATEN_DIR, './daten'),
@@ -159,7 +159,7 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     mailAbsender: text(env.MAPTALE_MAIL_ABSENDER, 'Maptale <noreply@maptale.io>'),
     // Leer (docker-compose ${VAR:-}) wie „nicht gesetzt" behandeln → Feature aus.
     openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,
-    visionModell: text(env.MAPTALE_VISION_MODELL, VISION_MODELL_DEFAULT),
+    visionModell: text(env.MAPTALE_VISION_MODELL, VISION_MODEL_DEFAULT),
     umamiDbPasswort: env.MAPTALE_UMAMI_DB_PASSWORT?.trim()
       ? env.MAPTALE_UMAMI_DB_PASSWORT.trim()
       : null,

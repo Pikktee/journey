@@ -117,12 +117,12 @@ describe('Leiter bis Welle 1', () => {
     ).map((z) => z.key)
     expect(schluessel).toEqual(['invitation_required', 'waitlist_open'])
 
-    const vorlage = db.prepare('SELECT * FROM mail_templates').get() as Record<string, unknown>
-    expect(vorlage['key']).toBe('waitlist-invitation')
+    const getTemplate = db.prepare('SELECT * FROM mail_templates').get() as Record<string, unknown>
+    expect(getTemplate['key']).toBe('waitlist-invitation')
     // Auch die Platzhalter IM Text — eine Vorlage mit `{{groesse}}` bliebe
     // stehen, und die Mail ginge mit der rohen Klammer heraus.
-    expect(vorlage['body']).toBe('Dein Export ist {{size}} groß und {{deadline}} gültig.')
-    expect(vorlage['footer']).toBe('Abmelden: {{leaveLink}}')
+    expect(getTemplate['body']).toBe('Dein Export ist {{size}} groß und {{deadline}} gültig.')
+    expect(getTemplate['footer']).toBe('Abmelden: {{leaveLink}}')
 
     const einwilligung = db.prepare('SELECT * FROM newsletter_consents').get() as Record<
       string,

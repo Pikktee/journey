@@ -4,16 +4,16 @@
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
-import type { BildWerkzeug } from '../src/pipeline/bild.js'
+import type { ImageTool } from '../src/pipeline/image.js'
 import type { TourJson } from '../src/pipeline/enrich.js'
-import { FesteSchienen } from '../src/pipeline/schienen.js'
-import { FakeVideoWerkzeug } from '../src/pipeline/video.js'
-import { FesterKlassifikator, type BildKlassifikator } from '../src/pipeline/vision.js'
-import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
+import { FixedRails } from '../src/pipeline/rails.js'
+import { FakeVideoTool } from '../src/pipeline/video.js'
+import { FixedClassifier, type ImageClassifier } from '../src/pipeline/vision.js'
+import { FixedWeatherSource, testGrid } from '../src/pipeline/weather.js'
 import type { UploadManifest } from '../src/schema/upload.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
-async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
+async function createTour(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
   const antwort = await u.app.inject({
     method: 'POST',
     url: '/api/tours',
@@ -139,7 +139,7 @@ describe('Auth', () => {
 describe('Tour-Lebenszyklus', () => {
   it('durchläuft Anlegen → Upload → Finalize → Auslieferung', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
@@ -156,14 +156,14 @@ describe('Tour-Lebenszyklus', () => {
   })
 
   it('reichert timeline und Auto-Wetter an (M2)', async () => {
-    const wetter = new FesteWetterQuelle(
-      testRaster(
+    const wetter = new FixedWeatherSource(
+      testGrid(
         '2026-07-04T06',
         Array.from({ length: 7 }, () => ({ code: 61, regenMm: 1, wolken: 95 })),
       ),
     )
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter)
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
@@ -176,20 +176,20 @@ describe('Tour-Lebenszyklus', () => {
   })
 
   it('verfeinert das Auto-Wetter per Bildanalyse, wenn ein Klassifikator konfiguriert ist (M5)', async () => {
-    const wetter = new FesteWetterQuelle(
-      testRaster(
+    const wetter = new FixedWeatherSource(
+      testGrid(
         '2026-07-04T06',
         Array.from({ length: 7 }, () => ({ wolken: 80 })),
       ), // bewölkt
     )
-    const klass = new FesterKlassifikator({
+    const klass = new FixedClassifier({
       himmel: 'bedeckt',
       niederschlag: 'gewitter',
       himmelSichtbar: true,
       konfidenz: 0.9,
     })
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter, null, {}, klass)
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id) // m1 (Foto)
     await finalisiere(u, id)
 
@@ -210,7 +210,7 @@ describe('Tour-Lebenszyklus', () => {
     let offen = 0
     let maxGleichzeitig = 0
     const gelesen: string[] = []
-    const klass: BildKlassifikator = {
+    const klass: ImageClassifier = {
       async klassifiziere({ daten }) {
         // Marke aus dem Bild-Fake: „<Kante>#<Bildnummer>" hinter dem JPEG-Gerüst
         const [, kante, roh] = /(\d+)#(\d)/.exec(Buffer.from(daten).toString('latin1')) ?? []
@@ -230,7 +230,7 @@ describe('Tour-Lebenszyklus', () => {
     }
     // Bild-Fake, der Fassung UND Bildnummer in die Zieldatei schreibt: nur so
     // ist nachprüfbar, welche der beiden Fassungen bei der Analyse ankommt.
-    const bildWerkzeug: BildWerkzeug = {
+    const bildWerkzeug: ImageTool = {
       async skaliere(quellPfad, zielPfad, { kante }) {
         const quelle = await readFile(quellPfad, 'latin1')
         const nummer = quelle.slice(-1)
@@ -259,7 +259,7 @@ describe('Tour-Lebenszyklus', () => {
       null,
       bildWerkzeug,
     )
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     for (const i of [1, 2, 3, 4]) await ladeMediumHoch(u, id, `m${i}`, `foto-${i}`)
     await finalisiere(u, id)
 
@@ -276,14 +276,14 @@ describe('Tour-Lebenszyklus', () => {
   })
 
   it('lässt das Wetter ohne konfigurierten Klassifikator unberührt (M5 No-Op)', async () => {
-    const wetter = new FesteWetterQuelle(
-      testRaster(
+    const wetter = new FixedWeatherSource(
+      testGrid(
         '2026-07-04T06',
         Array.from({ length: 7 }, () => ({ wolken: 80 })),
       ),
     )
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter) // kein Klassifikator
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
@@ -294,7 +294,7 @@ describe('Tour-Lebenszyklus', () => {
   })
 
   it('bereitet Videos auf: Poster + Transcode landen im tour.json und werden ausgeliefert (M4)', async () => {
-    const werkzeug = new FakeVideoWerkzeug({
+    const werkzeug = new FakeVideoTool({
       codecVideo: 'hevc', // neues iPhone/Pixel → muss transkodiert werden
       codecAudio: 'aac',
       durationS: 9.2,
@@ -311,7 +311,7 @@ describe('Tour-Lebenszyklus', () => {
       anchor: [7.9142, 46.5872],
       caption: null,
     })
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     await ladeMediumHoch(u, id, 'm1')
     await ladeMediumHoch(u, id, 'm2', 'fake-hevc-bytes') // Original .mov
     await finalisiere(u, id)
@@ -420,7 +420,7 @@ describe('Tour-Lebenszyklus', () => {
 
   it('verweigert Finalize bei fehlenden Medien', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const antwort = await u.app.inject({
       method: 'POST',
       url: `/api/tours/${id}/finalize`,
@@ -432,7 +432,7 @@ describe('Tour-Lebenszyklus', () => {
 
   it('legt Touren mit gleicher clientTourId nur einmal an', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const nochmal = await u.app.inject({
       method: 'POST',
       url: '/api/tours',
@@ -470,7 +470,7 @@ describe('Tour-Lebenszyklus', () => {
 
   it('aktualisiert Titel per PATCH und rendert das Tour-JSON neu', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
@@ -489,14 +489,14 @@ describe('Tour-Lebenszyklus', () => {
 
   it('listet nur eigene Touren', async () => {
     const u = await baueTestApp()
-    await legeTourAn(u)
+    await createTour(u)
     const liste = await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })
     expect((liste.json() as { tours: unknown[] }).tours).toHaveLength(1)
   })
 
   it('liefert anonym eine leere Liste (kein 401-Konsole-Rauschen im Player)', async () => {
     const u = await baueTestApp()
-    await legeTourAn(u)
+    await createTour(u)
     const anonym = await u.app.inject({ method: 'GET', url: '/api/tours' })
     expect(anonym.statusCode).toBe(200)
     expect((anonym.json() as { tours: unknown[] }).tours).toHaveLength(0)
@@ -514,7 +514,7 @@ describe('Tour-Lebenszyklus', () => {
 
   it('löscht Tour samt Dateien', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     const del = await u.app.inject({
       method: 'DELETE',
@@ -531,7 +531,7 @@ describe('Tour-Lebenszyklus', () => {
 describe('Titelbild', () => {
   it('die Liste liefert nach dem Rendern ein Titelbild', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
 
     // Vor dem Rendern gibt es noch keins
@@ -556,7 +556,7 @@ describe('Titelbild', () => {
       anchor: [7.9142, 46.5872],
       caption: null,
     })
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     await ladeMediumHoch(u, id, 'm1')
     await ladeMediumHoch(u, id, 'm2')
     await finalisiere(u, id)
@@ -580,7 +580,7 @@ describe('Titelbild', () => {
 describe('Session aus API-Token (App-Player)', () => {
   it('tauscht das Token gegen eine Sitzung, die private Touren sehen darf', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     await u.app.inject({
@@ -620,7 +620,7 @@ describe('Sichtbarkeit', () => {
   it('eine neu angelegte Tour ist privat', async () => {
     // Geteilt wird bewusst, nicht als Nebenwirkung des Hochladens.
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const liste = (
       await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })
     ).json() as {
@@ -634,7 +634,7 @@ describe('Sichtbarkeit', () => {
     // Touren dürfen nicht nachträglich privat werden — verschickte Links
     // würden sonst ins Leere laufen.
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const db = u.app.deps.db
     // Zustand vor der Umstellung nachstellen: INSERT ohne visibility-Spalte
     db.prepare('DELETE FROM tours WHERE id = ?').run(id)
@@ -652,7 +652,7 @@ describe('Sichtbarkeit', () => {
 
   it('unlisted: jeder mit Link sieht Tour und Medien', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     // Neue Touren sind privat — geteilt wird bewusst
@@ -671,7 +671,7 @@ describe('Sichtbarkeit', () => {
 
   it('private: nur der Owner sieht Tour und Medien (anonym = 404)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     await u.app.inject({
@@ -693,7 +693,7 @@ describe('Sichtbarkeit', () => {
 
   it('fremde Benutzer können fremde Touren nicht ändern oder löschen', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await u.app.auth.legeBenutzerAn('andere@example.com', 'geheim456', 'Andere')
     const login = await u.app.inject({
       method: 'POST',
@@ -724,7 +724,7 @@ describe('Sichtbarkeit', () => {
 describe('Review-Fixes (Races, Header, Limits)', () => {
   it('startet die Verarbeitung bei parallelem finalize nur einmal', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     const [a, b] = await Promise.all([
       u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies }),
@@ -736,7 +736,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
 
   it('vergibt Tour-Nummern PRO Benutzer (kein Cross-Tenant-Leck)', async () => {
     const u = await baueTestApp(['A', 'B', 'A', 'B'])
-    await legeTourAn(u)
+    await createTour(u)
     await u.app.auth.legeBenutzerAn('zweite@example.com', 'geheim456', 'Zweite')
     const login = await u.app.inject({
       method: 'POST',
@@ -764,7 +764,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
 
   it('verweigert Medien-PUT nach dem Rendern (immutable)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     const antwort = await u.app.inject({
@@ -779,7 +779,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
 
   it('zeigt Pipeline-Fehlertexte nur dem Owner', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     u.app.deps.db
       .prepare(
         `UPDATE tours SET status = 'failed', error = 'interner Stacktrace', visibility = 'unlisted' WHERE id = ?`,
@@ -797,7 +797,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
 
   it('cached private Medien nie public', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     await u.app.inject({
@@ -834,7 +834,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
 describe('Medien-Auslieferung', () => {
   it('bedient Range-Requests mit 206 und korrektem Ausschnitt', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1', '0123456789')
     await finalisiere(u, id)
 
@@ -851,7 +851,7 @@ describe('Medien-Auslieferung', () => {
 
   it('weist unerfüllbare Ranges mit 416 ab', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1', '0123456789')
     const antwort = await u.app.inject({
       method: 'GET',
@@ -864,7 +864,7 @@ describe('Medien-Auslieferung', () => {
 
   it('ignoriert unverstandene Range-Syntax (Multi-Range) und antwortet voll (RFC 9110)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id, 'm1', '0123456789')
     const antwort = await u.app.inject({
       method: 'GET',
@@ -878,7 +878,7 @@ describe('Medien-Auslieferung', () => {
 
   it('lehnt Uploads über dem Größenlimit ab (413)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const antwort = await u.app.inject({
       method: 'PUT',
       url: `/api/tours/${id}/media/m1`,
@@ -903,7 +903,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('liefert ein leeres Overlay, solange keins gespeichert ist', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const antwort = await u.app.inject({
       method: 'GET',
       url: `/api/tours/${id}/edits`,
@@ -915,7 +915,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('PUT speichert, rendert neu — Caption, Modus-Grenze, Trim und manueller Anker erreichen das Tour-JSON', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     const vorher = (
@@ -959,7 +959,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Reprocess rendert neu, ohne Edits zu verlieren (Plan-Kriterium)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     await u.app.inject({
@@ -987,7 +987,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('weist kaputte Overlays ab (Form + Semantik)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     // Hinweis: UNBEKANNTE Felder strippt Fastifys Ajv (removeAdditional) —
     // den 400 gibt es für falsch getypte bekannte Felder.
     const form = await u.app.inject({
@@ -1015,7 +1015,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
     // Fastifys removeAdditional es still entfernen → der Effekt gälte als
     // tour-lokal, würde gegen media/ geprüft und als fehlend verworfen.
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     const put = await u.app.inject({
@@ -1058,7 +1058,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Reprocess braucht eine finalisierte Tour', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const antwort = await u.app.inject({
       method: 'POST',
       url: `/api/tours/${id}/reprocess`,
@@ -1069,7 +1069,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Editor-Daten: Original-Track mit Zeiten, Auto-Platzierung, Overlay', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
 
@@ -1110,7 +1110,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       file: 'x.jpg',
       takenAt: '2026-07-04T10:00:00+02:00',
     })
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     const antwort = await u.app.inject({
       method: 'GET',
       url: `/api/tours/${id}/editor`,
@@ -1124,7 +1124,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Editor-Daten: ein Video bringt seine echte Länge mit (dauerS)', async () => {
     // Ohne sie rechnet die Zeitleiste ein 34-s-Video wie ein Foto mit 5,2 s.
-    const werkzeug = new FakeVideoWerkzeug({
+    const werkzeug = new FakeVideoTool({
       codecVideo: 'h264',
       codecAudio: 'aac',
       durationS: 34,
@@ -1141,7 +1141,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       anchor: [7.9142, 46.5872],
       caption: null,
     })
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     await ladeMediumHoch(u, id, 'm1')
     await ladeMediumHoch(u, id, 'm2', 'fake-video-bytes')
     await finalisiere(u, id)
@@ -1165,7 +1165,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       file: 'clip.mp4',
       takenAt: '2026-07-04T10:15:00+02:00',
     })
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     const daten = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
     ).json() as {
@@ -1188,7 +1188,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       takenAt: '2026-07-04T10:15:00+02:00',
       durationS: 21.5,
     })
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     const daten = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
     ).json() as {
@@ -1199,7 +1199,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Editor-Daten funktionieren auch für GPX-Quellen', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u, gpxManifest())
+    const id = await createTour(u, gpxManifest())
     await ladeTrackHoch(u, id, BEISPIEL_GPX)
     const antwort = await u.app.inject({
       method: 'GET',
@@ -1234,7 +1234,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       zone: 'Europe/Zurich',
     }
 
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     const antwort = await u.app.inject({
       method: 'GET',
       url: `/api/tours/${id}/editor`,
@@ -1279,7 +1279,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       zone: 'Europe/Zurich',
     }
 
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     const antwort = await u.app.inject({
       method: 'GET',
       url: `/api/tours/${id}/editor`,
@@ -1304,7 +1304,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       zone: 'Europe/Zurich',
     }
 
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     const antwort = await u.app.inject({
       method: 'GET',
       url: `/api/tours/${id}/editor`,
@@ -1316,7 +1316,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Beschreibung leeren erreicht das Tour-JSON (Review-Fund)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     await u.app.inject({
@@ -1341,7 +1341,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Endscreen ist standardmäßig aus und per PATCH einschaltbar', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
     const editor = (
@@ -1370,7 +1370,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('Editor-Daten melden kaputtes GPX als 409 mit Ursache statt 500 (Review-Fund)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u, gpxManifest())
+    const id = await createTour(u, gpxManifest())
     await ladeTrackHoch(
       u,
       id,
@@ -1399,7 +1399,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
         })
       ).statusCode,
     ).toBe(400)
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const edits = await u.app.inject({
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
@@ -1414,7 +1414,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
   it('fremde Benutzer sehen weder Edits noch Editor-Daten (404)', async () => {
     const u = await baueTestApp()
-    const id = await legeTourAn(u)
+    const id = await createTour(u)
     const fremd = await fremdeCookies(u)
     expect(
       (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: fremd }))
@@ -1488,9 +1488,9 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
   }
 
   it('macht aus der geratenen Radfahrt eine Straßenbahn — als Grenze im Overlay', async () => {
-    const schienen = new FesteSchienen(gleis())
+    const schienen = new FixedRails(gleis())
     const u = await baueTestApp(undefined, null, null, {}, null, schienen)
-    const id = await legeTourAn(u, tramManifest())
+    const id = await createTour(u, tramManifest())
     await finalisiere(u, id)
 
     // Das Ergebnis steht im Overlay: dort ist es im Studio sichtbar und
@@ -1507,12 +1507,12 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
   })
 
   it('überstimmt keine eigene Angabe des Nutzers', async () => {
-    const schienen = new FesteSchienen(gleis())
+    const schienen = new FixedRails(gleis())
     const u = await baueTestApp(undefined, null, null, {}, null, schienen)
     const manifest = tramManifest()
     // Wer „Moped" gewählt hat, ist Moped gefahren — auch auf Gleisen
     manifest.segments = [{ ...manifest.segments![0]!, mode: 'moped' }]
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     await finalisiere(u, id)
 
     expect((await ediereOverlay(u, id)).travelModes).toBeUndefined()
@@ -1520,9 +1520,9 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
   })
 
   it('rührt eine im Studio gezogene Modus-Kante nicht an', async () => {
-    const schienen = new FesteSchienen(gleis())
+    const schienen = new FixedRails(gleis())
     const u = await baueTestApp(undefined, null, null, {}, null, schienen)
-    const id = await legeTourAn(u, tramManifest())
+    const id = await createTour(u, tramManifest())
     await u.app.inject({
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
@@ -1545,7 +1545,7 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
       },
     }
     const u = await baueTestApp(undefined, null, null, {}, null, kaputt)
-    const id = await legeTourAn(u, tramManifest())
+    const id = await createTour(u, tramManifest())
     await finalisiere(u, id)
 
     expect((await ediereOverlay(u, id)).travelModes).toBeUndefined()
@@ -1595,9 +1595,9 @@ describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
   it('verfeinert ein erkanntes Fahrzeug auf der Trasse zur Straßenbahn', async () => {
     // Welches Fahrzeug es war, weiß kein Sensor — die App schickt „jeep" als
     // generisches Kraftfahrzeug und überlässt dem Server die Verfeinerung.
-    const schienen = new FesteSchienen(gleis())
+    const schienen = new FixedRails(gleis())
     const u = await baueTestApp(undefined, null, null, {}, null, schienen)
-    const id = await legeTourAn(u, appManifest())
+    const id = await createTour(u, appManifest())
     await finalisiere(u, id)
 
     const tour = (
@@ -1607,8 +1607,8 @@ describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
   })
 
   it('lässt die erkannte Aufteilung stehen, wo keine Gleise liegen', async () => {
-    const u = await baueTestApp(undefined, null, null, {}, null, new FesteSchienen([]))
-    const id = await legeTourAn(u, appManifest())
+    const u = await baueTestApp(undefined, null, null, {}, null, new FixedRails([]))
+    const id = await createTour(u, appManifest())
     await finalisiere(u, id)
 
     const tour = (
@@ -1619,11 +1619,11 @@ describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
   })
 
   it('überstimmt dieselben Segmente NICHT, wenn sie vom Nutzer stammen', async () => {
-    const schienen = new FesteSchienen(gleis())
+    const schienen = new FixedRails(gleis())
     const u = await baueTestApp(undefined, null, null, {}, null, schienen)
     const manifest = appManifest()
     delete manifest.travelModesAuto // = jemand hat die Modi selbst gesetzt
-    const id = await legeTourAn(u, manifest)
+    const id = await createTour(u, manifest)
     await finalisiere(u, id)
 
     expect(schienen.abfragen).toHaveLength(0)

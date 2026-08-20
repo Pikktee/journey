@@ -25,16 +25,16 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { Db } from './db.js'
-import { neueSessionId } from './ids.js'
-import { WEB_PFADE } from './webpfade.js'
+import { newSessionId } from './ids.js'
+import { WEB_PATHS } from './web-paths.js'
 
 /** Woher eine Ein- oder Austragung kam — steht so in der Historie. */
-export type EinwilligungsQuelle = 'signup' | 'account' | 'unsubscribe_link'
+export type ConsentSource = 'signup' | 'account' | 'unsubscribe_link'
 
-export interface Einwilligung {
+export interface Consent {
   at: string
   state: 'on' | 'off'
-  source: EinwilligungsQuelle
+  source: ConsentSource
   textVersion: string
 }
 
@@ -53,7 +53,7 @@ export interface Einwilligung {
  * `unsubscribe_link` hat keinen eigenen Satz — man widerruft, was man zugesagt hat;
  * die Zeile hält fest, WORAUS man aussteigt.
  */
-export const EINWILLIGUNGSTEXTE = {
+export const CONSENT_TEXTS = {
   // Kurz wie überall sonst: Zweck und Widerruf, mehr trägt ein Kästchen neben
   // einem Formular nicht. Die Bedingungen dahinter (wie oft, worüber, wo man
   // abbestellt) stehen in der Datenschutzerklärung, die unter dem Formular
@@ -75,7 +75,7 @@ export const EINWILLIGUNGSTEXTE = {
 } as const
 
 /** Ein Empfänger des Versands (Teil B) — mehr braucht eine Mail nicht. */
-export interface Empfaenger {
+export interface Recipient {
   id: string
   email: string
   name: string
@@ -92,7 +92,7 @@ export interface Empfaenger {
  * Abmeldelinks — dann bleibt der Schalter in den Kontoeinstellungen, und genau
  * darauf zeigt die Fehlermeldung.
  */
-export function abmeldeToken(userId: string, geheimnis: string): string {
+export function unsubscribeToken(userId: string, geheimnis: string): string {
   const signatur = createHmac('sha256', geheimnis)
     .update(`newsletter:${userId}`)
     .digest('base64url')
@@ -100,7 +100,7 @@ export function abmeldeToken(userId: string, geheimnis: string): string {
 }
 
 /** Token → Benutzer-ID; null bei Unfug oder falscher Signatur. */
-export function pruefeAbmeldeToken(token: string, geheimnis: string): string | null {
+export function checkUnsubscribeToken(token: string, geheimnis: string): string | null {
   const [kopf, signatur] = token.split('.')
   if (!kopf || !signatur) return null
   const userId = Buffer.from(kopf, 'base64url').toString('utf8')
@@ -115,11 +115,11 @@ export function pruefeAbmeldeToken(token: string, geheimnis: string): string | n
 }
 
 /** Die Adresse, unter der ein Abmeldelink liegt — eine Stelle für Mail und Kopfzeile. */
-export const abmeldeUrl = (basisUrl: string, token: string): string =>
-  `${basisUrl.replace(/\/+$/, '')}${WEB_PFADE.konto}#newsletter-aus=${token}`
+export const unsubscribeUrl = (basisUrl: string, token: string): string =>
+  `${basisUrl.replace(/\/+$/, '')}${WEB_PATHS.konto}#newsletter-aus=${token}`
 
 /** Die Adresse, die der Ein-Klick-Widerruf der Mail-Programme anspricht. */
-export const einKlickUrl = (basisUrl: string, token: string): string =>
+export const oneClickUrl = (basisUrl: string, token: string): string =>
   `${basisUrl.replace(/\/+$/, '')}/api/newsletter/one-click/${token}`
 
 /**
@@ -135,14 +135,14 @@ export const einKlickUrl = (basisUrl: string, token: string): string =>
  * keine Werbung, und ein „Abbestellen" an einem Passwort-Reset wäre eine
  * Zusage, die niemand einhalten will.
  */
-export function newsletterKopfzeilen(basisUrl: string, token: string): Record<string, string> {
+export function newsletterHeaders(basisUrl: string, token: string): Record<string, string> {
   return {
-    'List-Unsubscribe': `<${einKlickUrl(basisUrl, token)}>, <${abmeldeUrl(basisUrl, token)}>`,
+    'List-Unsubscribe': `<${oneClickUrl(basisUrl, token)}>, <${unsubscribeUrl(basisUrl, token)}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   }
 }
 
-export class NewsletterDienst {
+export class NewsletterService {
   constructor(private readonly db: Db) {}
 
   /** Steht der Schalter an? (Der Wunsch — ob etwas rausgeht, sagt `empfaenger`.) */
@@ -160,9 +160,9 @@ export class NewsletterDienst {
    * dass jemand es noch einmal versucht hat — und genau die will man haben,
    * wenn später jemand behauptet, der Link habe nicht gewirkt.
    */
-  setze(userId: string, an: boolean, quelle: EinwilligungsQuelle): void {
+  setze(userId: string, an: boolean, quelle: ConsentSource): void {
     const textfassung =
-      quelle === 'unsubscribe_link' ? 'abmeldelink' : EINWILLIGUNGSTEXTE[quelle].fassung
+      quelle === 'unsubscribe_link' ? 'abmeldelink' : CONSENT_TEXTS[quelle].fassung
     this.db.transaction(() => {
       this.db.prepare('UPDATE users SET newsletter = ? WHERE id = ?').run(an ? 1 : 0, userId)
       this.db
@@ -171,7 +171,7 @@ export class NewsletterDienst {
            VALUES (?, ?, ?, ?, ?, ?)`,
         )
         .run(
-          neueSessionId(),
+          newSessionId(),
           userId,
           new Date().toISOString(),
           an ? 'on' : 'off',
@@ -182,13 +182,13 @@ export class NewsletterDienst {
   }
 
   /** Die Historie eines Kontos, jüngste zuerst — der Nachweis nach Art. 7 Abs. 1. */
-  verlauf(userId: string): Einwilligung[] {
+  verlauf(userId: string): Consent[] {
     return this.db
       .prepare(
         `SELECT at, state, source, text_version AS textVersion FROM newsletter_consents
          WHERE user_id = ? ORDER BY at DESC, rowid DESC`,
       )
-      .all(userId) as Einwilligung[]
+      .all(userId) as Consent[]
   }
 
   /**
@@ -230,12 +230,12 @@ export class NewsletterDienst {
    * `email_verified = 1`. Setzt ein Admin den Haken ab (Benutzerverwaltung),
    * ruht der Versand, bis er wieder steht.
    */
-  empfaenger(): Empfaenger[] {
+  empfaenger(): Recipient[] {
     return this.db
       .prepare(
         `SELECT id, email, name FROM users
          WHERE newsletter = 1 AND email_verified = 1 ORDER BY created_at ASC`,
       )
-      .all() as Empfaenger[]
+      .all() as Recipient[]
   }
 }

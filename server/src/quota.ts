@@ -7,7 +7,7 @@
 import type { Db } from './db.js'
 import type { Storage } from './storage.js'
 
-export interface QuotaStand {
+export interface QuotaStatus {
   used: number
   limit: number
   free: number
@@ -25,7 +25,7 @@ export interface QuotaStand {
  * dass die Summe der Teile die Gesamtsumme IST: Eine Aufschlüsselung, die
  * weniger ergibt als der Balken zeigt, ist schlimmer als keine.
  */
-export interface SpeicherAufteilung {
+export interface StorageBreakdown {
   /** Fotos: Anzeige- und Kachelfassungen der Bilder. */
   photos: number
   /** Videos samt Poster-Standbild. */
@@ -50,7 +50,7 @@ const AUDIO_ENDUNGEN = /\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i
  * selbst (Manifest, Track, `edits.json`, `tour.json`, `enrichment.json`); sie
  * ist winzig, steht aber im Balken, damit die Teile die Summe ergeben.
  */
-export function artDerDatei(pfad: string): keyof SpeicherAufteilung {
+export function fileType(pfad: string): keyof StorageBreakdown {
   if (AUDIO_ENDUNGEN.test(pfad)) return 'audio'
   if (!pfad.startsWith('media/')) return 'recordings'
   if (BILD_ENDUNGEN.test(pfad)) return 'photos'
@@ -58,7 +58,7 @@ export function artDerDatei(pfad: string): keyof SpeicherAufteilung {
   return 'other'
 }
 
-const LEERE_AUFTEILUNG = (): SpeicherAufteilung => ({
+const LEERE_AUFTEILUNG = (): StorageBreakdown => ({
   photos: 0,
   videos: 0,
   audio: 0,
@@ -72,7 +72,7 @@ const LEERE_AUFTEILUNG = (): SpeicherAufteilung => ({
  * sie belegt VPS-Platz, sonst wäre sie ein Quota-Schlupfloch. Der Avatar bleibt
  * bewusst außen vor (fixe Obergrenze, kein nennenswerter Platz).
  */
-export async function benutzteBytes(
+export async function usedBytes(
   db: Db,
   storage: Storage,
   benutzerStorage: Storage,
@@ -87,14 +87,14 @@ export async function benutzteBytes(
   return summe
 }
 
-export async function quotaStand(
+export async function quotaStatus(
   db: Db,
   storage: Storage,
   benutzerStorage: Storage,
   userId: string,
   limit: number,
-): Promise<QuotaStand> {
-  const benutzt = await benutzteBytes(db, storage, benutzerStorage, userId)
+): Promise<QuotaStatus> {
+  const benutzt = await usedBytes(db, storage, benutzerStorage, userId)
   return { used: benutzt, limit, free: Math.max(0, limit - benutzt) }
 }
 
@@ -105,19 +105,19 @@ export async function quotaStand(
  * benutzerweite Klangbibliothek —, damit die Summe der Teile dem Balken
  * entspricht. Avatar und Titelbild bleiben wie dort außen vor.
  */
-export async function speicherAufteilung(
+export async function storageBreakdown(
   db: Db,
   storage: Storage,
   benutzerStorage: Storage,
   userId: string,
-): Promise<SpeicherAufteilung> {
+): Promise<StorageBreakdown> {
   const aufteilung = LEERE_AUFTEILUNG()
   const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{
     id: string
   }>
   for (const { id } of zeilen) {
     for (const datei of await storage.alleDateien(id)) {
-      aufteilung[artDerDatei(datei.pfad)] += datei.groesse
+      aufteilung[fileType(datei.pfad)] += datei.groesse
     }
   }
   for (const datei of await benutzerStorage.listeDateien(userId, 'audio'))
@@ -131,7 +131,7 @@ export async function speicherAufteilung(
  * mit 413. Bewusst eine Vorab-Prüfung: der eigentliche Stream-Guard
  * (maxMediumBytes) bleibt die harte Grenze pro Datei.
  */
-export async function pruefeQuota(
+export async function checkQuota(
   db: Db,
   storage: Storage,
   benutzerStorage: Storage,
@@ -139,7 +139,7 @@ export async function pruefeQuota(
   limit: number,
   zusatzBytes: number,
 ): Promise<string | null> {
-  const benutzt = await benutzteBytes(db, storage, benutzerStorage, userId)
+  const benutzt = await usedBytes(db, storage, benutzerStorage, userId)
   if (benutzt + zusatzBytes > limit) {
     const mb = (b: number): string => (b / (1024 * 1024)).toFixed(0)
     return `Speicherplatz erschöpft: ${mb(benutzt)} von ${mb(limit)} MB belegt`

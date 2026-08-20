@@ -100,8 +100,8 @@ describe('routen', () => {
       // importieren. Läuft die Kopie auseinander, ist ein Handle im Browser
       // grün und wird vom Server abgelehnt — oder umgekehrt.
       const quelle = lies('server/src/handle.ts')
-      expect(quelle).toContain(`export const HANDLE_REGELN = ${HANDLE_REGELN.toString()}`)
-      const liste = quelle.match(/RESERVIERTE_HANDLES[^[]*\[([\s\S]*?)\]/)?.[1] ?? ''
+      expect(quelle).toContain(`export const HANDLE_PATTERN = ${HANDLE_REGELN.toString()}`)
+      const liste = quelle.match(/RESERVED_HANDLES[^[]*\[([\s\S]*?)\]/)?.[1] ?? ''
       const serverWorte = new Set([...liste.matchAll(/'([^']+)'/g)].map((t) => t[1]))
       expect(serverWorte).toEqual(RESERVIERTE_HANDLES)
     })
@@ -221,7 +221,7 @@ describe('routen', () => {
 
   // — Server-Kopie —
   describe('Mail-Pfade im Server', () => {
-    const quelle = lies('server/src/webpfade.ts')
+    const quelle = lies('server/src/web-paths.ts')
     const auth = lies('server/src/routes/auth.ts')
 
     it('nennt dieselben Pfade wie die Tabelle', () => {
@@ -230,9 +230,9 @@ describe('routen', () => {
       }
     })
 
-    it('baut Bestätigung und Reset aus WEB_PFADE statt aus einer getippten Adresse', () => {
-      expect(auth).toContain('${WEB_PFADE.anmelden}#verify=')
-      expect(auth).toContain('${WEB_PFADE.anmelden}#reset=')
+    it('baut Bestätigung und Reset aus WEB_PATHS statt aus einer getippten Adresse', () => {
+      expect(auth).toContain('${WEB_PATHS.anmelden}#verify=')
+      expect(auth).toContain('${WEB_PATHS.anmelden}#reset=')
       expect(auth).not.toContain('studio.html#')
     })
   })
@@ -276,7 +276,7 @@ describe('routen', () => {
     it('nennt beide Sitemaps unter ihrer echten Adresse', () => {
       expect(robots).toContain(`Sitemap: ${BASIS}/sitemap.xml`)
       expect(existsSync(join(wurzel, 'public/sitemap.xml'))).toBe(true)
-      // Die zweite kommt aus der Datenbank (server/src/routes/seiten.ts) und
+      // Die zweite kommt aus der Datenbank (server/src/routes/pages.ts) und
       // liegt deshalb NICHT im Build — der Vhost reicht sie an die API durch.
       expect(robots).toContain(`Sitemap: ${BASIS}/sitemap-profile.xml`)
       expect(robots).toContain(`Sitemap: ${BASIS}/sitemap-touren.xml`)
@@ -289,7 +289,7 @@ describe('routen', () => {
 
     it('hält die Meta-Blöcke ersetzbar — und den Titel darin', () => {
       // Die Marker sind der Vertrag zwischen den Seiten und dem Server
-      // (server/src/seiten.ts). Verschwinden sie beim Aufräumen, reicht der
+      // (server/src/page-meta.ts). Verschwinden sie beim Aufräumen, reicht der
       // Server die Seite stumm unverändert durch: jedes Profil und jede Tour
       // wieder mit demselben Kopf und festem noindex — und niemand merkt es.
       for (const datei of ['profil.html', 'erlebnis.html'] as const) {
@@ -306,9 +306,9 @@ describe('routen', () => {
         expect(html.split('<title>').length - 1, `${datei}: genau ein <title>`).toBe(1)
       }
       // Der Server-seitige Vertrag: dieselben Zeichenketten dort.
-      const quelle = lies('server/src/seiten.ts')
-      expect(quelle).toContain("MARKE_AUF = '<!-- maptale:meta -->'")
-      expect(quelle).toContain("MARKE_ZU = '<!-- /maptale:meta -->'")
+      const quelle = lies('server/src/page-meta.ts')
+      expect(quelle).toContain("MARKER_OPEN = '<!-- maptale:meta -->'")
+      expect(quelle).toContain("MARKER_CLOSE = '<!-- /maptale:meta -->'")
     })
 
     it('bedient /@handle im Dev über denselben Weg wie in Produktion', () => {

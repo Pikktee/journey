@@ -12,11 +12,11 @@
 // (Schlüsselreihenfolge, Zahlenformat, Unicode-Escapes).
 
 import type { FastifyInstance, FastifyRequest } from 'fastify'
-import { fuehreImporteAus, type ImportAuftrag } from '../tracker/importlauf.js'
-import type { WebhookAnfrage } from '../tracker/vertrag.js'
+import { runImports, type ImportJob } from '../tracker/import-run.js'
+import type { WebhookRequest } from '../tracker/contract.js'
 
 /** Fastify-Request → die anbieterneutrale Form aus dem Vertrag. */
-function zuAnfrage(request: FastifyRequest & { rohBody?: string }): WebhookAnfrage {
+function zuAnfrage(request: FastifyRequest & { rohBody?: string }): WebhookRequest {
   return {
     rohBody: request.rohBody ?? '',
     kopfzeilen: request.headers as Record<string, string | undefined>,
@@ -35,7 +35,7 @@ function zuAnfrage(request: FastifyRequest & { rohBody?: string }): WebhookAnfra
  */
 const WEBHOOK_BODY_MAX = 64 * 1024
 
-export async function registriereTrackerWebhookRouten(app: FastifyInstance): Promise<void> {
+export async function registerTrackerWebhookRoutes(app: FastifyInstance): Promise<void> {
   // Eigener JSON-Parser NUR in diesem Bereich: Er hebt den rohen Text auf und
   // parst ihn zusätzlich. Global gesetzt hinge der rohe Body an jeder Route
   // (Manifeste sind mehrere MB).
@@ -84,7 +84,7 @@ export async function registriereTrackerWebhookRouten(app: FastifyInstance): Pro
       }
 
       const ereignisse = provider.webhook.parseEreignisse(anfrage)
-      const auftraege: ImportAuftrag[] = []
+      const auftraege: ImportJob[] = []
       for (const ereignis of ereignisse) {
         const verknuepfung = app.tracker.ausExternerKennung(provider.id, ereignis.externerNutzer)
         // Zustellung für ein Konto, das wir nicht (mehr) kennen: still
@@ -110,7 +110,7 @@ export async function registriereTrackerWebhookRouten(app: FastifyInstance): Pro
         const schluessel = `${provider.id}:${auftraege.map((a) => a.externeId).join(',')}`
         app.trackerLaeufe.set(
           schluessel,
-          fuehreImporteAus(app, app.tracker, auftraege).finally(() =>
+          runImports(app, app.tracker, auftraege).finally(() =>
             app.trackerLaeufe.delete(schluessel),
           ),
         )

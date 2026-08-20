@@ -549,8 +549,8 @@ describe('Wetter-Grenzen', () => {
       new URL('../server/src/pipeline/weather.ts', import.meta.url),
       'utf8',
     )
-    const block = quelle.match(/WETTER_MODI = \[([^\]]*)\]/)
-    expect(block, 'WETTER_MODI in server/src/pipeline/weather.ts nicht gefunden').not.toBeNull()
+    const block = quelle.match(/WEATHER_MODES = \[([^\]]*)\]/)
+    expect(block, 'WEATHER_MODES in server/src/pipeline/weather.ts nicht gefunden').not.toBeNull()
     const server = [...(block?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map((m) => m[1] as string)
     expect(server).toEqual([...WETTER_MODI])
   })
@@ -634,13 +634,13 @@ describe('Musik- und Klangbibliothek', () => {
   // Referenz, die es nicht gibt — im Player bliebe es still.
   it('die Auto-Musik des Servers steht wirklich im Katalog', () => {
     const quelle = readFileSync(
-      new URL('../server/src/pipeline/musikwahl.ts', import.meta.url),
+      new URL('../server/src/pipeline/music-choice.ts', import.meta.url),
       'utf8',
     )
-    const block = quelle.match(/AUTO_MUSIK = \{([\s\S]*?)\} as const/)
-    expect(block, 'AUTO_MUSIK in server/src/pipeline/musikwahl.ts nicht gefunden').not.toBeNull()
+    const block = quelle.match(/AUTO_MUSIC = \{([\s\S]*?)\} as const/)
+    expect(block, 'AUTO_MUSIC in server/src/pipeline/music-choice.ts nicht gefunden').not.toBeNull()
     const dateien = [...(block?.[1] ?? '').matchAll(/'([^']+\.mp3)'/g)].map((m) => m[1] as string)
-    expect(dateien.length, 'AUTO_MUSIK ist leer').toBeGreaterThanOrEqual(5)
+    expect(dateien.length, 'AUTO_MUSIC ist leer').toBeGreaterThanOrEqual(5)
     for (const datei of dateien) {
       expect(SFX_DATEIEN.has(datei), `${datei} fehlt im Studio-Katalog`).toBe(true)
       expect(sfxEffekt(datei)?.kategorie, `${datei} ist keine Musik`).toBe('music')

@@ -5,40 +5,34 @@
 // Später ergänzt (gleiche Stelle, gleiche Signatur): Bildanalyse (M5),
 // GPX-Quelle + Medien-Platzierung (M6), Edit-Overlay (M7).
 
-import { STUDIO_GAIN, type EditOverlay, type MomentArt } from '../schema/edits.js'
-import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
-import { mediumDateiname } from '../schema/upload.js'
-import { wendeEditsAufSegmenteAn, wendeMedienEditsAn } from './edits.js'
+import { STUDIO_GAIN, type EditOverlay, type CameraMomentKind } from '../schema/edits.js'
+import type { UploadManifest, UploadPoint } from '../schema/upload.js'
+import { mediumFilename } from '../schema/upload.js'
+import { applyEditsToSegments, applyMediaEdits } from './edits.js'
 import {
-  type AchsenHalt,
-  baueAchsenHalte,
-  baueFilmAchse,
-  baueMomentHalte,
-  filmBeiZeit,
-  projiziereAufReihe,
-  zeitBeiFilm,
-} from './filmachse.js'
-import { berechneStats, vereinfacheIndizes, type TourStats } from './geo.js'
-import { baueSignatur } from './signatur.js'
-import {
-  baueBenennung,
-  benenneTour,
-  type Benennung,
-  type Endpunkte,
-  type Geocoder,
-} from './naming.js'
-import { platziereMedien, type Platzierung } from './placement.js'
-import type { FotoMeta } from './bild.js'
+  type AxisStop,
+  buildAxisStops,
+  buildFilmAxis,
+  buildMomentStops,
+  filmTimeAtRecordingTime,
+  projectOntoTimeSeries,
+  recordingTimeAtFilmTime,
+} from './film-axis.js'
+import { computeStats, simplifyIndices, type TourStats } from './geo.js'
+import { buildSignature } from './signature.js'
+import { buildNaming, nameTour, type Naming, type Endpoints, type Geocoder } from './naming.js'
+import { placeMedia, type Placement } from './placement.js'
+import type { PhotoMeta } from './image.js'
 import type { VideoMeta } from './video.js'
-import type { BildBefund } from './vision.js'
-import { verfeinereWetterMitFotos } from './vision.js'
+import type { ImageFinding } from './vision.js'
+import { refineWeatherWithPhotos } from './vision.js'
 import {
-  berechneWetter,
-  wetterAusOverlay,
-  type WetterKeyframe,
-  type WetterQuelle,
+  computeWeather,
+  weatherFromOverlay,
+  type WeatherKeyframe,
+  type WeatherSource,
 } from './weather.js'
-import { baueZeitreihe, destilliereTimeline, positionZurZeit } from './zeit.js'
+import { buildTimeSeries, distillTimeline, positionAtTime } from './time.js'
 
 export const TOUR_SCHEMA_ID = 'maptale/tour@2'
 
@@ -78,7 +72,7 @@ export interface TourJson {
     /** Anker [lng,lat] auf dem Track; null = unplatziert (Player überspringt, Editor setzt, M6/M7) */
     anchor: [number, number] | null
     /** Herkunft des Ankers (M6): gps | time | manual | unplaced */
-    placement: Platzierung
+    placement: Placement
     takenAt: string
     durationS?: number
     /** Video-Standbild fürs Foto-Overlay (M4) */
@@ -139,7 +133,7 @@ const MODE_LABELS: Record<string, string> = {
 }
 
 /** Titelbild in zwei Größen: groß für Detailansichten, Kachel für Listen. */
-export interface Titelbild {
+export interface Cover {
   /** Anzeigegröße (Foto-Fassung bzw. Video-Standbild) */
   cover: string
   /** Kachel-Fassung; null bei Altbestand ohne aufbereitete Fassungen */
@@ -156,9 +150,9 @@ export interface Titelbild {
  * Reihenfolge liefe irgendwann auseinander und zeigte in der Liste ein anderes
  * Bild als in der Ansicht.
  */
-export function bestimmeCover(media: TourJson['media'], titelbild?: string): Titelbild | null {
+export function chooseCover(media: TourJson['media'], titelbild?: string): Cover | null {
   const gewaehlt = titelbild ? media.find((m) => m.id === titelbild) : undefined
-  const alsTitel = (m: TourJson['media'][number] | undefined): Titelbild | null => {
+  const alsTitel = (m: TourJson['media'][number] | undefined): Cover | null => {
     if (!m) return null
     const gross = m.type === 'photo' ? m.src : m.poster
     return gross ? { cover: gross, thumb: m.thumb ?? null } : null
@@ -184,7 +178,7 @@ const uhrzeit = (iso: string, zone: string): string => {
   }
 }
 
-export interface EnrichEingabe {
+export interface EnrichmentInput {
   tourId: string
   /** Fortlaufende Nummer aus der DB */
   nummer: number
@@ -213,22 +207,22 @@ export interface EnrichEingabe {
   geocoder?: Geocoder
   /** Vorgegebene Ortsnamen aus dem Anreicherungs-Cache. Ist es gesetzt, wird die
    *  Benennung daraus + dem aktuellen Titel lokal gebaut (kein Netz). */
-  places?: Endpunkte
+  places?: Endpoints
   /** Auto-Wetter-Quelle; fehlt sie, bleibt `weather` weg (Client-Fallback) */
-  wetter?: WetterQuelle | null
+  wetter?: WeatherSource | null
   /** Vorgegebene rohe Wetter-Keyframes aus dem Cache. `undefined` = aus der
    *  Quelle berechnen; `null`/`[]` = kein Auto-Wetter. Die Foto-Verfeinerung
    *  (M5) läuft danach IMMER lokal, weil sie an den platzierten Fotos hängt. */
-  weatherRaw?: WetterKeyframe[] | null
+  weatherRaw?: WeatherKeyframe[] | null
   /** Aufbereitete Video-Metadaten je Medien-ID (M4; Dauer/Poster/Auslieferungspfad) */
   videoMeta?: Map<string, VideoMeta>
   /** Aufbereitete Bild-Fassungen je Medien-ID (bild.ts; Anzeige + Kachel).
    *  Fehlt der Eintrag, bleibt es beim Original — so bleibt Altbestand spielbar. */
-  fotoMeta?: Map<string, FotoMeta>
+  fotoMeta?: Map<string, PhotoMeta>
   /** Bild-Befunde je Medien-ID (M5; vom Aufrufer per Klassifikator vorbereitet) —
    *  verfeinern das Auto-Wetter lokal am Foto-Anker. Fehlt die Map, bleibt das
    *  Wetter exakt wie in M2 (No-Op ohne konfigurierten Klassifikator). */
-  bildBefunde?: Map<string, BildBefund>
+  bildBefunde?: Map<string, ImageFinding>
   /** Hinweis-Kanal für nicht-fatale Ausfälle (z. B. Wetterdienst down) */
   protokoll?: (nachricht: string) => void
 }
@@ -238,7 +232,7 @@ export interface EnrichEingabe {
  * Manifest lesen, tour.json schreiben, Status setzen). Dadurch vollständig
  * ohne Netz und Dateisystem testbar.
  */
-export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
+export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
   const {
     tourId,
     nummer,
@@ -268,21 +262,21 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // rechnet auf dem bearbeiteten Stand.
   const startMs = Date.parse(manifest.time.start)
   const endeMs = Date.parse(manifest.time.end)
-  const rohSegmente = wendeEditsAufSegmenteAn(manifest.segments ?? [], edits, startMs)
+  const rohSegmente = applyEditsToSegments(manifest.segments ?? [], edits, startMs)
   if (!rohSegmente.length)
     throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
   const erstesSegment = rohSegmente[0]
   const letztesSegment = rohSegmente[rohSegmente.length - 1]
   if (!erstesSegment || !letztesSegment) throw new Error('Manifest ohne Segmente')
-  const startPunkt = erstesSegment.pts[0] as UploadPunkt
-  const zielPunkt = letztesSegment.pts[letztesSegment.pts.length - 1] as UploadPunkt
+  const startPunkt = erstesSegment.pts[0] as UploadPoint
+  const zielPunkt = letztesSegment.pts[letztesSegment.pts.length - 1] as UploadPoint
 
   // Benennung: bevorzugt aus gecachten Ortsnamen + aktuellem Titel lokal bauen
   // (kein Netz); nur ohne Cache wird direkt geocodiert (Direktaufruf/Test).
   const nutzerTitel = titelOverride ?? manifest.title ?? null
-  let benennung: Benennung
+  let benennung: Naming
   if (places) {
-    benennung = baueBenennung({
+    benennung = buildNaming({
       ...places,
       nutzerTitel,
       dachzeile: dachzeileOverride ?? null,
@@ -291,7 +285,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     })
   } else {
     if (!geocoder) throw new Error('reichereAn: weder places noch geocoder übergeben')
-    benennung = await benenneTour({
+    benennung = await nameTour({
       nutzerTitel,
       dachzeile: dachzeileOverride ?? null,
       startPunkt: [startPunkt[0], startPunkt[1]],
@@ -305,10 +299,10 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // Zeitreihe der ROHEN (getrimmten) Punkte: Sie trägt die kumulierte Distanz,
   // aus der jedes `f` dieses Tour-JSONs entsteht — Timeline, Kamera-Keyframes,
   // Ton-Bereiche, Wetter UND seit E11 der Wegpunkt selbst.
-  const reihe = baueZeitreihe(rohSegmente)
+  const reihe = buildTimeSeries(rohSegmente)
 
   // Statistik auf den ROHDATEN (volle Auflösung), Ausgabe-Punkte vereinfacht.
-  const stats = berechneStats(rohSegmente)
+  const stats = computeStats(rohSegmente)
   // Je ausgeliefertem Wegpunkt sein `f` (E11, Gleichlauf-Konzept §8D). Ohne das
   // Feld muss der Player `f × route.total` rechnen — und seine Route ist durch
   // Catmull-Rom + 14-m-Resampling 2,2–3,0 % länger als die Rohgeometrie, in der
@@ -320,12 +314,12 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   const segments = rohSegmente.map((seg) => {
     const basis = punktIndex
     punktIndex += seg.pts.length
-    const indizes = vereinfacheIndizes(seg.pts)
+    const indizes = simplifyIndices(seg.pts)
     const eintrag: TourJson['segments'][number] = {
       mode: seg.mode,
       label: seg.label ?? MODE_LABELS[seg.mode] ?? seg.mode,
       pts: indizes.map((i): [number, number, number] => {
-        const p = seg.pts[i] as UploadPunkt
+        const p = seg.pts[i] as UploadPoint
         return [p[0], p[1], p[2]]
       }),
     }
@@ -350,7 +344,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // Track, sonst Zeit-Mapping, sonst unplatziert). Unplatzierte bleiben mit im
   // tour.json (fürs Studio/den Editor), der Player überspringt sie (kein Anker).
   const alleTrackpunkte = rohSegmente.flatMap((s) => s.pts)
-  const media = wendeMedienEditsAn(platziereMedien(manifest.media, alleTrackpunkte, startMs), edits)
+  const media = applyMediaEdits(placeMedia(manifest.media, alleTrackpunkte, startMs), edits)
     // `|| 0`: ein (schema-durchgerutschtes) unparsebares takenAt darf die
     // Sortierung nicht in NaN-Vergleiche kippen (undefinierte Reihenfolge)
     .sort((a, b) => (Date.parse(a.medium.takenAt) || 0) - (Date.parse(b.medium.takenAt) || 0))
@@ -363,7 +357,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // Original ist danach verworfen. Ohne Fassung — Altbestand oder
       // fehlgeschlagene Aufbereitung — bleibt der Originalname stehen.
       const fassungen = fotoMeta?.get(m.id)
-      const datei = meta?.videoDatei ?? fassungen?.anzeigeDatei ?? mediumDateiname(m)
+      const datei = meta?.videoDatei ?? fassungen?.anzeigeDatei ?? mediumFilename(m)
       // Der Nutzertext ist der TITEL der Aufnahme, und er ist der einzige Text,
       // den eine Aufnahme trägt.
       //
@@ -405,7 +399,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // Nichtlineare Pseudo-Zeit: Stützstellen f→Zeit mit komprimierten Pausen.
   // Auto-Wetter ist eine ANREICHERUNG, kein Muss — fällt die Quelle aus, wird
   // `weather` weggelassen und der Player nutzt sein Client-Auto-Wetter.
-  const timeline = destilliereTimeline(reihe, manifest.time.start)
+  const timeline = distillTimeline(reihe, manifest.time.start)
 
   // Kamera-Keyframes (Baukasten): absolute `ab`-Zeiten → Streckenanteil f über
   // die Zeitreihe des GETRIMMTEN Tracks (tSek relativ zu manifest.time.start,
@@ -419,10 +413,10 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // an, seine Standzeit ist Achsenbreite. Ein hinter dem Track-Ende verworfener
   // Moment darf die Achse nicht verlängern — deshalb ist es genau die gefilterte
   // Liste, die unten in die Halte geht.
-  let momentHalte: AchsenHalt[] = []
+  let momentHalte: AxisStop[] = []
   let gefilterteMomente: Array<{
     offsetS: number
-    kind: MomentArt
+    kind: CameraMomentKind
     durationS: number | undefined
   }> = []
   if (edits?.moments?.length) {
@@ -440,7 +434,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         return false
       })
       .sort((a, b) => a.offsetS - b.offsetS)
-    momentHalte = baueMomentHalte(
+    momentHalte = buildMomentStops(
       gefilterteMomente.map((m) => ({ offsetS: m.offsetS, art: m.kind, dauerS: m.durationS })),
     )
   }
@@ -460,12 +454,12 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
    */
   const achse =
     reihe.punkte.length > 0
-      ? baueFilmAchse(reihe, [
-          ...baueAchsenHalte(
+      ? buildFilmAxis(reihe, [
+          ...buildAxisStops(
             media
               .filter((m) => m.anchor)
               .map((m) => {
-                const ort = projiziereAufReihe(
+                const ort = projectOntoTimeSeries(
                   reihe,
                   (m.anchor as [number, number])[0],
                   (m.anchor as [number, number])[1],
@@ -498,7 +492,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
    */
   const filmZahl = (filmS: number): number => Number(filmS.toFixed(8))
   const filmFeld = (tSek: number): number | undefined =>
-    achse ? filmZahl(filmBeiZeit(achse, tSek)) : undefined
+    achse ? filmZahl(filmTimeAtRecordingTime(achse, tSek)) : undefined
 
   let camera: TourJson['camera']
   if (edits?.camera?.length) {
@@ -521,7 +515,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         const tSek = (g.abMs - startMs) / 1000
         const filmS = filmFeld(tSek)
         return {
-          f: positionZurZeit(reihe, tSek).f,
+          f: positionAtTime(reihe, tSek).f,
           preset: g.preset,
           ...(g.scale !== undefined && g.scale !== 1 ? { scale: g.scale } : {}),
           ...(filmS !== undefined ? { filmS } : {}),
@@ -548,7 +542,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     moments = gefilterteMomente.map((m) => {
       const filmS = filmFeld(m.offsetS)
       return {
-        f: positionZurZeit(reihe, m.offsetS).f,
+        f: positionAtTime(reihe, m.offsetS).f,
         kind: m.kind,
         ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
         // Die Filmsekunde des Moments ist eine AUSKUNFT, kein Eingang: Der
@@ -572,7 +566,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     const letzterPunkt = reihe.punkte[reihe.punkte.length - 1]
     /** Streckenanteil zu einer Filmsekunde (über die Achse zurück in die Zeit). */
     const fBeiFilm = (filmS: number): number =>
-      positionZurZeit(reihe, zeitBeiFilm(achse as NonNullable<typeof achse>, filmS)).f
+      positionAtTime(reihe, recordingTimeAtFilmTime(achse as NonNullable<typeof achse>, filmS)).f
     const spuren: NonNullable<TourJson['audio']> = []
     for (const spur of edits.audio) {
       const ausBibliothek = spur.source === 'library'
@@ -606,27 +600,27 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       let filmBisS: number | undefined
       if (filmVerankert) {
         // Anker → Filmsekunde → Versatz drauf → zurück in Zeit und Anteil.
-        const filmVon = filmBeiZeit(achse, tAb) + (spur.offsetFilmS ?? 0)
+        const filmVon = filmTimeAtRecordingTime(achse, tAb) + (spur.offsetFilmS ?? 0)
         f0 = fBeiFilm(filmVon)
         filmVonS = filmVon
         if (spur.durationFilmS !== undefined) {
           filmBisS = filmVon + spur.durationFilmS
           f1 = fBeiFilm(filmBisS)
         } else if (spur.type === 'music') {
-          filmBisS = tBis !== undefined ? filmBeiZeit(achse, tBis) : achse.gesamtS
-          f1 = tBis !== undefined ? positionZurZeit(reihe, tBis).f : 1
+          filmBisS = tBis !== undefined ? filmTimeAtRecordingTime(achse, tBis) : achse.gesamtS
+          f1 = tBis !== undefined ? positionAtTime(reihe, tBis).f : 1
         } else {
           filmBisS = filmVon
           f1 = f0
         }
       } else {
-        f0 = positionZurZeit(reihe, tAb).f
-        filmVonS = achse ? filmBeiZeit(achse, tAb) : undefined
+        f0 = positionAtTime(reihe, tAb).f
+        filmVonS = achse ? filmTimeAtRecordingTime(achse, tAb) : undefined
         if (spur.type === 'music') {
-          f1 = tBis !== undefined ? positionZurZeit(reihe, tBis).f : 1
+          f1 = tBis !== undefined ? positionAtTime(reihe, tBis).f : 1
           filmBisS = achse
             ? tBis !== undefined
-              ? filmBeiZeit(achse, tBis)
+              ? filmTimeAtRecordingTime(achse, tBis)
               : achse.gesamtS
             : undefined
         } else {
@@ -699,7 +693,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     // Studio-Wetter (Baukasten): eine bewusst gesetzte Stufenfunktion ersetzt
     // das Auto-Wetter VOLLSTÄNDIG — auch die Foto-Verfeinerung entfällt, weil der
     // Nutzer hier korrigiert, was Open-Meteo/Bildanalyse falsch hatten.
-    const keyframes = wetterAusOverlay(edits.weather, reihe, startMs)
+    const keyframes = weatherFromOverlay(edits.weather, reihe, startMs)
     if (keyframes.length) weather = keyframes
   } else {
     // Roh-Wetter: bevorzugt vorgegeben (Anreicherungs-Cache, kein Netz); sonst aus
@@ -707,11 +701,11 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     // „nicht im Cache" → berechnen; `null`/`[]` heißt „berechnet, aber kein Wetter".
     const wetterVorgegeben = weatherRaw !== undefined
     try {
-      let keyframes: WetterKeyframe[]
+      let keyframes: WeatherKeyframe[]
       if (wetterVorgegeben) {
         keyframes = weatherRaw ?? []
       } else if (wetter) {
-        keyframes = await berechneWetter({ reihe, startIso: manifest.time.start, quelle: wetter })
+        keyframes = await computeWeather({ reihe, startIso: manifest.time.start, quelle: wetter })
       } else {
         keyframes = []
       }
@@ -719,16 +713,16 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // abbilden (Aufnahmezeit → Zeitreihe, wie die Kamera-Keyframes) und das
       // API-Wetter dort verfeinern. Ohne Befunde bleibt `keyframes` unberührt.
       if (keyframes.length && bildBefunde?.size) {
-        const fotos: Array<{ f: number; befund: BildBefund }> = []
+        const fotos: Array<{ f: number; befund: ImageFinding }> = []
         for (const m of media) {
           if (m.type !== 'photo' || m.anchor === null) continue // nur platzierte Fotos
           const befund = bildBefunde.get(m.id)
           if (!befund) continue
           const tSek = (Date.parse(m.takenAt) - startMs) / 1000
           if (!Number.isFinite(tSek)) continue
-          fotos.push({ f: positionZurZeit(reihe, tSek).f, befund })
+          fotos.push({ f: positionAtTime(reihe, tSek).f, befund })
         }
-        if (fotos.length) keyframes = verfeinereWetterMitFotos(keyframes, fotos)
+        if (fotos.length) keyframes = refineWeatherWithPhotos(keyframes, fotos)
       }
       if (keyframes.length) weather = keyframes
     } catch (fehler) {
@@ -763,7 +757,9 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       ...stats,
       placedMedia: media.filter((m) => m.anchor).length,
       ...(() => {
-        const spur = baueSignatur(segments.flatMap((s) => s.pts.map((p) => [p[0], p[1]] as const)))
+        const spur = buildSignature(
+          segments.flatMap((s) => s.pts.map((p) => [p[0], p[1]] as const)),
+        )
         return spur ? { trackSignature: spur } : {}
       })(),
       ...(achse ? { filmS: Math.round(achse.gesamtS * 10) / 10 } : {}),

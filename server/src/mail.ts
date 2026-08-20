@@ -4,7 +4,7 @@
 // hereingereicht. Damit sind die Registrierungs-/Reset-Flüsse ohne echten
 // Mailserver testbar, und ein Anbieterwechsel zieht keine Ringe durch den Code.
 
-export interface MailNachricht {
+export interface MailMessage {
   an: string
   betreff: string
   text: string
@@ -26,8 +26,8 @@ export interface MailNachricht {
   kopfzeilen?: Record<string, string>
 }
 
-export interface MailVersand {
-  sende(nachricht: MailNachricht): Promise<void>
+export interface MailTransport {
+  sende(nachricht: MailMessage): Promise<void>
 }
 
 // Die TEXTE der System-Mails stehen nicht mehr hier, sondern im Katalog
@@ -40,9 +40,9 @@ export interface MailVersand {
  * So lässt sich der komplette Registrierungs-/Reset-Fluss lokal ohne Mailserver
  * durchspielen — der Bestätigungslink steht im Server-Terminal.
  */
-export class KonsoleMail implements MailVersand {
+export class ConsoleMail implements MailTransport {
   constructor(private readonly log: (zeile: string) => void = console.log) {}
-  async sende(nachricht: MailNachricht): Promise<void> {
+  async sende(nachricht: MailMessage): Promise<void> {
     this.log(
       `\n📧 Mail an ${nachricht.an}\n   Betreff: ${nachricht.betreff}\n   ${nachricht.text.replace(/\n/g, '\n   ')}\n`,
     )
@@ -55,13 +55,13 @@ export class KonsoleMail implements MailVersand {
  * Abhängigkeit, kein SMTP-Betrieb. Fällt der Versand aus, wirft `sende` und der
  * Aufrufer entscheidet (Registrierung schlägt dann sichtbar fehl).
  */
-export class ResendMail implements MailVersand {
+export class ResendMail implements MailTransport {
   constructor(
     private readonly apiKey: string,
     private readonly absender: string,
   ) {}
 
-  async sende(nachricht: MailNachricht): Promise<void> {
+  async sende(nachricht: MailMessage): Promise<void> {
     const antwort = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },

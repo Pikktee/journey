@@ -57,7 +57,7 @@ Ein bestehendes Passwort zu benoten ändert nichts mehr.
 
 **Die Bibliothek ist die Bühne.** Kacheln mit Titelbild statt Zeilen; über dem Bild liegt die
 **Routen-Signatur** — die Form DIESER Tour. Fotos sehen einander ähnlich, Routen nicht.
-Sie entsteht beim Anreichern ([server/src/pipeline/signatur.ts](../../server/src/pipeline/signatur.ts))
+Sie entsteht beim Anreichern ([server/src/pipeline/signature.ts](../../server/src/pipeline/signature.ts))
 und liegt als `stats.spur` neben `stats.fotos` in der Tour-Liste; ältere Touren haben beides
 erst nach dem nächsten Rendern, die Kachel muss ohne auskommen. Die ganze Kachel spielt ab —
 die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben genau zwei Griffe
@@ -177,7 +177,7 @@ offen = hat noch keinen Ort). `STREIFEN_RAND` in [editor.ts](editor.ts) und
 ihrer Achse.
 `wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
 gesetzt, **ersetzt** es das Auto-Wetter (Open-Meteo + Foto-Verfeinerung) der ganzen Tour
-vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `wetterAusOverlay`
+vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `weatherFromOverlay`
 ([server/src/pipeline/weather.ts](../../server/src/pipeline/weather.ts)) baut daraus eine
 Stufenfunktion; Marken-PAARE auf demselben `f` legen die Umschaltung (Player: Mitte zweier
 Marken) exakt auf die Grenze. Rein render-seitig → der Anreicherungs-Cache bleibt gültig
@@ -186,9 +186,9 @@ Marken) exakt auf die Grenze. Rein render-seitig → der Anreicherungs-Cache ble
 **Die Wetterspur zeigt das echte Wetter, nicht das Wort „automatisch".** Weil das Overlay das
 Auto-Wetter vollständig ersetzt, hätte die erste eigene Grenze früher den Rest der Tour
 schlagartig klar gemacht. Deshalb liefert `/api/tours/:id/editor` das **ermittelte** Wetter als
-Zeitgrenzen mit (`autoWetter`): `wetterZuGrenzen` ist die Umkehrung von `wetterAusOverlay` —
+Zeitgrenzen mit (`autoWetter`): `weatherToBoundaries` ist die Umkehrung von `weatherFromOverlay` —
 Keyframes → Grenzen, die Bandkante auf die MITTE zweier Marken (dort schaltet `weatherAt` im
-Player), `f` → Zeit über `zeitZurPosition`. Quelle ist das gerenderte `tour.json` (enthält die
+Player), `f` → Zeit über `timeAtPosition`. Quelle ist das gerenderte `tour.json` (enthält die
 Foto-Verfeinerung), ersatzweise `wetterRoh` aus dem Anreicherungs-Cache; rein lesend, keine
 externen Aufrufe. Der Editor zeigt diese Grenzen als normale Bänder und schreibt sie beim
 ERSTEN Eingriff ins Overlay (`schreibeWetterFest`) — genau das Muster von `materialisiereModi`
@@ -197,7 +197,7 @@ bei der Fortbewegung. Die Kamera-Spur bleibt dagegen ohne Vorgabe: ihr Grundband
 
 **Eine neue Tour bekommt Musik, aber nur einmal.** Beim ERSTEN Verarbeiten (`finalize`, erkannt
 am Status VOR dem Claim → `erstmals` in `processTour`) wählt
-[musikwahl.ts](../../server/src/pipeline/musikwahl.ts) aus Uhrzeit, Wetter, Höhen, Fortbewegung und
+[music-choice.ts](../../server/src/pipeline/music-choice.ts) aus Uhrzeit, Wetter, Höhen, Fortbewegung und
 Breitengrad ein Stück der Bibliothek und schreibt es ins **Overlay** — nicht direkt ins
 Tour-JSON, denn dort wäre es im Studio unsichtbar und unabänderlich. Reihenfolge der Regeln
 (erste gewinnt): Nacht → Nachtfahrt, nasses Drittel → Regentag, Höhenmeter/Höhe → Bergpass,
@@ -210,7 +210,7 @@ Mal; ein Drift-Wächter prüft, dass jede davon im Katalog steht und Musik ist.
 
 **Die Audio-Bibliothek „Musik & Effekte" ist benutzerweit.** Eigene Dateien landen NICHT
 mehr tour-lokal, sondern in der Bibliothek des Kontos (`<userId>/audio/` im benutzerStorage,
-[server/src/routes/bibliothek.ts](../../server/src/routes/bibliothek.ts)): einmal hochgeladen, in
+[server/src/routes/audio-library.ts](../../server/src/routes/audio-library.ts)): einmal hochgeladen, in
 jeder Tour einsetzbar (`source: 'user'` im Overlay), zur Quota zählend, löschbar nur
 solange KEINE Tour sie referenziert (edits.json ODER gerendertes tour.json). Ausgeliefert
 wird über die Tour (`/api/tours/:id/library-audio/:file`, Sichtbarkeit + Referenz-Check
@@ -263,7 +263,7 @@ Vorgabe der Rolle abweicht. Gemessen wird VOR dem Einfügen — so entsteht gena
 Overlay-Stand (ein Undo-Schritt) und der Klip steht sofort in seiner endgültigen Form da,
 statt nach dem Erscheinen zu zucken. Ohne messbare Länge bleibt es bei der Vorgabe: `loop:
 false` ohne bekanntes Ende erzeugte wieder den stummen Rest. **Die Auto-Musikwahl des Servers
-([musikwahl.ts](../../server/src/pipeline/musikwahl.ts)) ist davon nicht betroffen** — sie schlägt
+([music-choice.ts](../../server/src/pipeline/music-choice.ts)) ist davon nicht betroffen** — sie schlägt
 ein Stück vor, das die GANZE Tour tragen soll, und schreibt weiter nur `datei`/`typ`/`ab`.
 
 **`musik` vs. `sfx` beschreibt seit Etappe 4 die ROLLE, nicht die Form.** Beide sind Klips mit

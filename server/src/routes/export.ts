@@ -17,13 +17,13 @@
  *   Link sogar das ganze Konto öffnet.
  */
 import type { FastifyInstance } from 'fastify'
-import { erfordereBenutzer } from '../app.js'
-import { baueBremse } from '../bremse.js'
-import { ARCHIV_DATEI, ExportDienst, FRIST_STUNDEN } from '../export.js'
-import { baueUndLege } from '../exportlauf.js'
+import { requireUser } from '../app.js'
+import { buildRateLimit } from '../rate-limit.js'
+import { ARCHIVE_FILE, DataExportService, EXPIRY_HOURS } from '../data-export.js'
+import { buildAndStore } from '../data-export-run.js'
 
 /** „1,4 GB" — für die Mail, nicht für Maschinen. */
-export function alsGroesse(bytes: number): string {
+export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} Bytes`
   const einheiten = ['KB', 'MB', 'GB', 'TB']
   let wert = bytes / 1024
@@ -39,16 +39,16 @@ export function alsGroesse(bytes: number): string {
 export const exportUrl = (basisUrl: string, token: string): string =>
   `${basisUrl.replace(/\/+$/, '')}/api/export/${token}`
 
-export function registriereExportRouten(app: FastifyInstance): void {
+export function registerDataExportRoutes(app: FastifyInstance): void {
   const { konfig, mail, db, storage } = app.deps
 
   // Ein Archiv kostet CPU und Platz. Die Bremse ist der Schutz gegen den
   // Fall, den der UNIQUE-Index NICHT abdeckt: schnell hintereinander
   // anfordern, während der vorige Lauf schon fertig ist.
-  const exportGebremst = baueBremse(5, 60 * 60_000) // 5 pro Stunde je Konto
+  const exportGebremst = buildRateLimit(5, 60 * 60_000) // 5 pro Stunde je Konto
 
   app.post('/api/auth/me/export', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     if (exportGebremst(benutzer.id)) {
       return reply
@@ -79,21 +79,21 @@ export function registriereExportRouten(app: FastifyInstance): void {
    * Zwecks.
    */
   app.get<{ Params: { token: string } }>('/api/export/:token', async (request, reply) => {
-    const id = ExportDienst.ausToken(request.params.token, konfig.cookieSecret)
+    const id = DataExportService.ausToken(request.params.token, konfig.cookieSecret)
     const stand = id ? app.exporte.abrufbar(id) : null
     // Abgelaufen und gefälscht sind dieselbe Antwort: Ein eigener Text für
     // „abgelaufen" verriete, dass es diesen Auftrag gab.
     if (!id || !stand) {
       return reply.code(404).send({ error: 'Dieser Link ist abgelaufen oder ungültig.' })
     }
-    const info = await app.deps.archive.info(id, ARCHIV_DATEI)
+    const info = await app.deps.archive.info(id, ARCHIVE_FILE)
     if (!info) return reply.code(404).send({ error: 'Dieser Link ist abgelaufen oder ungültig.' })
 
     reply.header('content-type', 'application/zip')
     reply.header('content-length', String(info.groesse))
     reply.header('content-disposition', 'attachment; filename="maptale-export.zip"')
     reply.header('cache-control', 'private, no-store')
-    return reply.send(app.deps.archive.leseStream(id, ARCHIV_DATEI))
+    return reply.send(app.deps.archive.leseStream(id, ARCHIVE_FILE))
   })
 
   /**
@@ -112,7 +112,7 @@ export function registriereExportRouten(app: FastifyInstance): void {
     name: string,
   ): Promise<void> {
     try {
-      const { bytes, dateien } = await baueUndLege(
+      const { bytes, dateien } = await buildAndStore(
         { db, storage, archive: app.deps.archive, maxBytes: konfig.maxSpeicherProBenutzer * 2 },
         auftragId,
         benutzerId,
@@ -127,10 +127,13 @@ export function registriereExportRouten(app: FastifyInstance): void {
       // Stünde es im äußeren Block, machte eine hakende Mail aus einem
       // gelungenen Export einen gescheiterten.
       try {
-        const link = exportUrl(konfig.basisUrl, ExportDienst.token(auftragId, konfig.cookieSecret))
+        const link = exportUrl(
+          konfig.basisUrl,
+          DataExportService.token(auftragId, konfig.cookieSecret),
+        )
         const { betreff, text, html } = app.mailvorlagen.rendere(
           'export',
-          { name, groesse: alsGroesse(bytes), frist: `${FRIST_STUNDEN} Stunden` },
+          { name, groesse: formatSize(bytes), frist: `${EXPIRY_HOURS} Stunden` },
           { basisUrl: konfig.basisUrl, link },
         )
         await mail.sende({ an: email, betreff, text, html })

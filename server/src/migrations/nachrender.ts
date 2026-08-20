@@ -12,7 +12,7 @@
 // auf `processing` — wer währenddessen im Studio steht, sieht „wird
 // verarbeitet" statt einer halben Tour.
 import type { FastifyInstance } from 'fastify'
-import { processTour, TOURJSON_PFAD } from '../routes/tours.js'
+import { processTour, TOUR_JSON_PATH } from '../routes/tours.js'
 import { TOUR_SCHEMA_ID } from '../pipeline/enrich.js'
 
 /** Touren mit veralteter `tour.json` neu rendern. Gibt zurück, wie viele liefen. */
@@ -26,7 +26,7 @@ export async function rendereVeralteteNach(app: FastifyInstance): Promise<number
     let kennung: unknown
     try {
       kennung = (
-        JSON.parse((await storage.lese(id, TOURJSON_PFAD)).toString()) as { schema?: unknown }
+        JSON.parse((await storage.lese(id, TOUR_JSON_PATH)).toString()) as { schema?: unknown }
       ).schema
     } catch {
       // Keine oder kaputte tour.json — dann gibt es nichts nachzuziehen; das

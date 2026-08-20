@@ -265,7 +265,7 @@ ist ein Fehler.
 
 | Was | Warum unvermeidbar | Absicherung |
 |---|---|---|
-| Server-Kopie des Tempo-Modells ([filmtempo.ts](../../server/src/pipeline/filmtempo.ts)) | `server/tsconfig.json` hat `rootDir: "."` — ein Import aus `../../src/` fällt heraus | Heute Regex auf den Quelltext von `tour.ts`. Künftig ein **gemeinsames Verhaltens-Fixture**, das beide Seiten durchrechnen |
+| Server-Kopie des Tempo-Modells ([film-tempo.ts](../../server/src/pipeline/film-tempo.ts)) | `server/tsconfig.json` hat `rootDir: "."` — ein Import aus `../../src/` fällt heraus | Heute Regex auf den Quelltext von `tour.ts`. Künftig ein **gemeinsames Verhaltens-Fixture**, das beide Seiten durchrechnen |
 
 Das ist die einzige Kopie, die bleiben **muss**. Alle anderen sind Gewohnheit.
 
@@ -593,7 +593,7 @@ dort, wo dieses Vorhaben sie braucht. Dieses Blatt ist die Übergabe zwischen ih
 | **G** | Etappe 5 — die Leiste | M | **gebaut** (14.08.) |
 
 **Was nicht geteilt werden darf, ist die AUSLIEFERUNG — nicht die Arbeit.** Etappe 4 und die
-Rampen in [server/src/pipeline/filmachse.ts](../../server/src/pipeline/filmachse.ts) gehen in
+Rampen in [server/src/pipeline/film-axis.ts](../../server/src/pipeline/film-axis.ts) gehen in
 DERSELBEN Auslieferung raus (s. Etappe 4). Zwischen E und F ist der Zustand konsistent, nur
 noch nicht taktgenau — das ist die einzige zulässige Naht im Release-Block.
 
@@ -829,7 +829,7 @@ m/s² danach — und 560 ist der Spitzenwert, den eine volle Fähr-Rampe von Nat
 Fuß wirkte einen Tick zu träge. Das ändert die Dauer jeder Tour mit Fußabschnitten.
 
 **Die Rampen brauchen ihren Zwilling auf dem Server in DERSELBEN Auslieferung.**
-[filmachse.ts](../../server/src/pipeline/filmachse.ts) kennt sie heute nicht (sie summiert nur
+[film-axis.ts](../../server/src/pipeline/film-axis.ts) kennt sie heute nicht (sie summiert nur
 `meter / tempoMs` plus Halte). Bleibt sie zurück, lösen `anker + versatzFilmS` in Studio und
 Render verschieden auf — exakt die Drift, die Etappe 3 gerade beendet hat.
 
@@ -855,7 +855,7 @@ Deshalb gehören beide Teile in **dieselbe** Etappe:
 
 > **Warum NACH Etappe 4 und nicht vorher.** Eine Filmsekunde ist keine absolute Größe — sie
 > bedeutet, was die Achse sagt. Die Server-Achse kennt heute keine Rampen
-> ([filmachse.ts](../../server/src/pipeline/filmachse.ts) summiert nur `meter / tempoMs` plus
+> ([film-axis.ts](../../server/src/pipeline/film-axis.ts) summiert nur `meter / tempoMs` plus
 > Halte); Etappe 4 legt sie hinein, und die Filmdauer wächst dadurch um 2,7–7,8 % (§14).
 > „Filmsekunde 120,0" heißt vorher und nachher also etwas anderes, kumulativ über die Tour.
 > Stünde Etappe 4b davor, trügen alle bis dahin gerenderten Touren still veraltete Anker —

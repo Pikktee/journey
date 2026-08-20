@@ -22,25 +22,25 @@
 // API-Doku: https://www.polar.com/accesslink-api/
 
 import { createHmac } from 'node:crypto'
-import type { AnbieterZugang } from '../../config.js'
-import { gleichSicher } from '../krypto.js'
+import type { ProviderCredentials } from '../../config.js'
+import { timingSafeEquals } from '../crypto.js'
 import {
-  OhneRouteFehler,
-  TokensUngueltigFehler,
-  ZuKleinFehler,
+  NoRouteError,
+  InvalidTokensError,
+  TooSmallError,
   type ProviderTokens,
-  type RohTrack,
-  type TrackerEreignis,
+  type RawTrack,
+  type TrackerEvent,
   type TrackerProvider,
-  type WebhookAnfrage,
-} from '../vertrag.js'
+  type WebhookRequest,
+} from '../contract.js'
 
 const AUTORISIERUNG = 'https://flow.polar.com/oauth2/authorization'
 const TOKEN = 'https://polarremote.com/v2/oauth2/token'
 const API = 'https://www.polaraccesslink.com'
 
 /** Die Netz-Funktion ist injizierbar — Produktion reicht `fetch` herein, Tests Fixtures. */
-export type HolFunktion = (url: string, init?: RequestInit) => Promise<Response>
+export type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>
 
 /**
  * Polar schreibt seine JSON-Felder uneinheitlich: Die Nutzer-Ressource nutzt
@@ -62,7 +62,7 @@ function feld<T = unknown>(objekt: Record<string, unknown>, name: string): T | u
  * Nur Stunden/Minuten/Sekunden — Tage und Monate kommen bei einer
  * Trainingsdauer nicht vor, und ein vollständiger Parser wäre Beiwerk.
  */
-export function dauerZuSekunden(dauer: string | undefined): number | null {
+export function durationToSeconds(dauer: string | undefined): number | null {
   if (!dauer) return null
   const m = /^PT(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?$/.exec(dauer.trim())
   if (!m || (!m[1] && !m[2] && !m[3])) return null
@@ -76,7 +76,7 @@ export function dauerZuSekunden(dauer: string | undefined): number | null {
  * Sonnenstand und Foto-Platzierung hängt, fällt es als „falsches Licht" auf,
  * nicht als Zeitfehler.
  */
-export function startZeitpunkt(
+export function startTime(
   startTime: string | undefined,
   versatzMinuten: number | undefined,
 ): number | null {
@@ -92,8 +92,8 @@ export class PolarProvider implements TrackerProvider {
   readonly konfiguriert: boolean
 
   constructor(
-    private readonly zugang: AnbieterZugang,
-    private readonly hol: HolFunktion = fetch,
+    private readonly zugang: ProviderCredentials,
+    private readonly hol: FetchFunction = fetch,
   ) {
     // Ohne Client-ID/-Secret kann der Adapter nicht arbeiten. Das
     // Webhook-Geheimnis fehlt anfangs absichtlich — es entsteht erst beim
@@ -200,7 +200,7 @@ export class PolarProvider implements TrackerProvider {
      * Aktivitätskennung. Damit lässt sich über diesen Weg nichts anstoßen —
      * wer unsignierte Pings schickt, bekommt eine 200 und sonst nichts.
      */
-    istPing: (anfrage: WebhookAnfrage): boolean => {
+    istPing: (anfrage: WebhookRequest): boolean => {
       try {
         const daten = JSON.parse(anfrage.rohBody || '{}') as Record<string, unknown>
         return (
@@ -213,7 +213,7 @@ export class PolarProvider implements TrackerProvider {
       }
     },
 
-    verifiziere: (anfrage: WebhookAnfrage): boolean => {
+    verifiziere: (anfrage: WebhookRequest): boolean => {
       const geheimnis = this.zugang.webhookGeheimnis
       // Ohne hinterlegtes Geheimnis wird NICHTS akzeptiert. Die Alternative
       // („noch kein Geheimnis, also durchlassen") wäre ein offener Eingang,
@@ -221,10 +221,10 @@ export class PolarProvider implements TrackerProvider {
       if (!geheimnis) return false
       const mitgeschickt = anfrage.kopfzeilen['polar-webhook-signature'] ?? ''
       const erwartet = createHmac('sha256', geheimnis).update(anfrage.rohBody).digest('hex')
-      return gleichSicher(mitgeschickt.toLowerCase(), erwartet)
+      return timingSafeEquals(mitgeschickt.toLowerCase(), erwartet)
     },
 
-    parseEreignisse: (anfrage: WebhookAnfrage): TrackerEreignis[] => {
+    parseEreignisse: (anfrage: WebhookRequest): TrackerEvent[] => {
       let daten: Record<string, unknown>
       try {
         daten = JSON.parse(anfrage.rohBody || '{}') as Record<string, unknown>
@@ -249,7 +249,7 @@ export class PolarProvider implements TrackerProvider {
     const antwort = await this.hol(`${API}${pfad}`, {
       headers: { authorization: `Bearer ${tokens.zugriff}`, accept: 'application/json' },
     })
-    if (antwort.status === 401 || antwort.status === 403) throw new TokensUngueltigFehler()
+    if (antwort.status === 401 || antwort.status === 403) throw new InvalidTokensError()
     if (!antwort.ok) throw new Error(`Polar antwortete ${antwort.status} auf ${pfad}`)
     return (await antwort.json()) as Record<string, unknown>
   }
@@ -276,14 +276,14 @@ export class PolarProvider implements TrackerProvider {
    * Polar hält nur ein begrenztes Fenster vor und kennt keine Historie vor der
    * Registrierung.
    */
-  async listeNeue(tokens: ProviderTokens, _seit: string | null): Promise<TrackerEreignis[]> {
+  async listeNeue(tokens: ProviderTokens, _seit: string | null): Promise<TrackerEvent[]> {
     const roh = await this.json('/v3/exercises', tokens)
     // Je nach Fassung antwortet Polar mit einer Liste oder mit einem Objekt,
     // das sie unter `exercises` trägt.
     const liste = Array.isArray(roh)
       ? roh
       : ((feld<unknown[]>(roh, 'exercises') ?? []) as unknown[])
-    const ereignisse: TrackerEreignis[] = []
+    const ereignisse: TrackerEvent[] = []
     for (const eintrag of liste) {
       if (!eintrag || typeof eintrag !== 'object') continue
       const uebung = eintrag as Record<string, unknown>
@@ -298,33 +298,33 @@ export class PolarProvider implements TrackerProvider {
     return ereignisse
   }
 
-  async holeTrack(tokens: ProviderTokens, externeId: string): Promise<RohTrack> {
+  async holeTrack(tokens: ProviderTokens, externeId: string): Promise<RawTrack> {
     const uebung = await this.json(`/v3/exercises/${encodeURIComponent(externeId)}`, tokens)
 
     // `has-route` sagt VOR dem Download, ob es überhaupt eine Route gibt —
     // eine Krafteinheit hat keine, und sie deshalb erst herunterzuladen und am
     // leeren GPX scheitern zu lassen wäre ein Aufruf für nichts.
-    if (feld<boolean>(uebung, 'has-route') === false) throw new OhneRouteFehler()
+    if (feld<boolean>(uebung, 'has-route') === false) throw new NoRouteError()
 
-    const startMs = startZeitpunkt(
+    const startMs = startTime(
       feld<string>(uebung, 'start-time'),
       Number(feld(uebung, 'start-time-utc-offset') ?? 0),
     )
-    const dauerS = dauerZuSekunden(feld<string>(uebung, 'duration'))
+    const dauerS = durationToSeconds(feld<string>(uebung, 'duration'))
     if (startMs === null || dauerS === null)
       throw new Error('Aktivität ohne brauchbare Start- oder Dauerangabe')
     // Dauer null heißt: gestartet und sofort gestoppt. Das ist eine Aussage
     // über die Aktivität und keine Störung — als Fehler geführt liefe sie
     // dreimal durch den Wiederhol-Weg, obwohl sich daran nie etwas ändert.
-    if (dauerS <= 0) throw new ZuKleinFehler('Aufzeichnung ohne Dauer')
+    if (dauerS <= 0) throw new TooSmallError('Aufzeichnung ohne Dauer')
 
     const antwort = await this.hol(`${API}/v3/exercises/${encodeURIComponent(externeId)}/gpx`, {
       headers: { authorization: `Bearer ${tokens.zugriff}`, accept: 'application/gpx+xml' },
     })
-    if (antwort.status === 401 || antwort.status === 403) throw new TokensUngueltigFehler()
+    if (antwort.status === 401 || antwort.status === 403) throw new InvalidTokensError()
     // 404 auf die GPX-Datei heißt in der Praxis dasselbe wie `has-route: false`
     // — die Doku sagt zu diesem Fall nichts, also fangen wir beide Wege ab.
-    if (antwort.status === 404) throw new OhneRouteFehler()
+    if (antwort.status === 404) throw new NoRouteError()
     if (!antwort.ok) throw new Error(`GPX-Abruf fehlgeschlagen (${antwort.status})`)
     const gpx = new Uint8Array(await antwort.arrayBuffer())
 

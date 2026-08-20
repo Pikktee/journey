@@ -8,7 +8,7 @@
 // **Die Pfade sind englisch** wie die der Tracker-Routen: Sie sind Außenfläche.
 
 import type { FastifyInstance } from 'fastify'
-import { erfordereBenutzer } from '../app.js'
+import { requireUser } from '../app.js'
 
 const geraetSchema = {
   type: 'object',
@@ -23,13 +23,13 @@ const geraetSchema = {
   },
 } as const
 
-export function registrierePushRouten(app: FastifyInstance): void {
+export function registerPushRoutes(app: FastifyInstance): void {
   // — Gerät anmelden (auch zum Erneuern: die Route schreibt um) —
   app.post<{ Body: { token: string; platform: 'android' | 'ios' } }>(
     '/api/push/devices',
     { schema: { body: geraetSchema } },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       // Ohne Dienstkonto gibt es keinen Versandweg. Das ist KEIN Fehler,
       // sondern eine Auskunft: Die App hört auf, es zu versuchen, und bleibt
@@ -68,7 +68,7 @@ export function registrierePushRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       // Auch ein unbekannter Token antwortet mit `ok` — die App hat dann
       // erreicht, was sie wollte, und ein 404 machte aus dem Abmelden eines

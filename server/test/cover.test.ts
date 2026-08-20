@@ -1,7 +1,7 @@
 // Nachtrag der Titelbilder für Bestandstouren (einmalig beim Start).
 import { describe, expect, it } from 'vitest'
-import { trageTitelbilderNach } from '../src/pipeline/cover.js'
-import { TOURJSON_PFAD } from '../src/routes/tours.js'
+import { backfillCovers } from '../src/pipeline/cover.js'
+import { TOUR_JSON_PATH } from '../src/routes/tours.js'
 import { baueTestApp } from './helfer.js'
 
 describe('trageTitelbilderNach', () => {
@@ -11,7 +11,7 @@ describe('trageTitelbilderNach', () => {
     // Zustand vor Einführung der Spalte nachstellen
     u.app.deps.db.prepare('UPDATE tours SET cover = NULL WHERE id = ?').run(id)
 
-    expect(await trageTitelbilderNach(u.app.deps.db, u.storage, TOURJSON_PFAD)).toBe(1)
+    expect(await backfillCovers(u.app.deps.db, u.storage, TOUR_JSON_PATH)).toBe(1)
     expect(cover(u, id)).toBe(`/api/media/${id}/m1.jpg`)
   })
 
@@ -19,18 +19,18 @@ describe('trageTitelbilderNach', () => {
     const u = await baueTestApp()
     await legeFertigeTourAn(u)
     // Die Tour hat ihr Titelbild schon vom Rendern — nichts nachzutragen
-    expect(await trageTitelbilderNach(u.app.deps.db, u.storage, TOURJSON_PFAD)).toBe(0)
+    expect(await backfillCovers(u.app.deps.db, u.storage, TOUR_JSON_PATH)).toBe(0)
   })
 
   it('eine kaputte Tour hält den Start nicht auf', async () => {
     const u = await baueTestApp()
     const id = await legeFertigeTourAn(u)
     u.app.deps.db.prepare('UPDATE tours SET cover = NULL WHERE id = ?').run(id)
-    await u.storage.loesche(id, TOURJSON_PFAD)
+    await u.storage.loesche(id, TOUR_JSON_PATH)
 
     const gemeldet: string[] = []
     expect(
-      await trageTitelbilderNach(u.app.deps.db, u.storage, TOURJSON_PFAD, (n) => gemeldet.push(n)),
+      await backfillCovers(u.app.deps.db, u.storage, TOUR_JSON_PATH, (n) => gemeldet.push(n)),
     ).toBe(0)
     expect(gemeldet).toHaveLength(1)
     expect(cover(u, id)).toBeNull()

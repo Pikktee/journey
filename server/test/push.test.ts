@@ -6,10 +6,10 @@
 
 import { generateKeyPairSync } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { sammleKonto } from '../src/exportlauf.js'
-import { FcmPush, istAbgemeldet, leseDienstkonto } from '../src/fcm.js'
-import { KonsolePush, PushDienst } from '../src/push.js'
-import { beispielRohTrack, TestProvider, testSignatur } from '../src/tracker/testprovider.js'
+import { collectAccount } from '../src/data-export-run.js'
+import { FcmPush, isUnregistered, parseServiceAccount } from '../src/fcm.js'
+import { ConsolePush, PushService } from '../src/push.js'
+import { exampleRawTrack, TestProvider, testSignature } from '../src/tracker/test-provider.js'
 import { baueTestApp, SammelPush, type TestUmgebung } from './helfer.js'
 
 const WEBHOOK_GEHEIMNIS = 'geheim-fuer-tests'
@@ -46,7 +46,7 @@ async function baueMitPush(): Promise<{
 }> {
   const provider = new TestProvider({
     webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-    tracks: { a1: beispielRohTrack() },
+    tracks: { a1: exampleRawTrack() },
   })
   const push = new SammelPush()
   const u = await baueTestApp([], null, null, {}, null, null, null, [provider], push)
@@ -77,7 +77,7 @@ async function melde(u: TestUmgebung, externeId: string): Promise<void> {
     url: '/api/webhooks/tracker/polar',
     headers: {
       'content-type': 'application/json',
-      'polar-webhook-signature': testSignatur(rohBody, WEBHOOK_GEHEIMNIS),
+      'polar-webhook-signature': testSignature(rohBody, WEBHOOK_GEHEIMNIS),
     },
     payload: rohBody,
   })
@@ -268,7 +268,7 @@ describe('Datenexport', () => {
     // genau dort unvollständig, wo sie am wenigsten selbstverständlich ist.
     const { u } = await baueMitPush()
     await registriere(u)
-    const konto = sammleKonto(u.app.deps.db, benutzerId(u))!
+    const konto = collectAccount(u.app.deps.db, benutzerId(u))!
     expect(konto.pushGeraete).toEqual([
       expect.objectContaining({ plattform: 'android', token: TOKEN }),
     ])
@@ -280,9 +280,9 @@ describe('Datenexport', () => {
 
 describe('FCM-Versand (ohne Netz)', () => {
   it('liest ein Dienstkonto und meckert verständlich, wenn es fehlt', () => {
-    expect(() => leseDienstkonto('kein json')).toThrow(/lesbares JSON/)
-    expect(() => leseDienstkonto('{"project_id":"x"}')).toThrow(/client_email/)
-    expect(leseDienstkonto(DIENSTKONTO).projekt).toBe('maptale-test')
+    expect(() => parseServiceAccount('kein json')).toThrow(/lesbares JSON/)
+    expect(() => parseServiceAccount('{"project_id":"x"}')).toThrow(/client_email/)
+    expect(parseServiceAccount(DIENSTKONTO).projekt).toBe('maptale-test')
   })
 
   it('holt einen Access-Token, sendet je Gerät einmal und cacht die Anmeldung', async () => {
@@ -362,12 +362,12 @@ describe('FCM-Versand (ohne Netz)', () => {
     // Die v1-API kann UNREGISTERED auch mit 400 melden; umgekehrt ist ein 404
     // mit ausdrücklich anderem Code kein Grund zu löschen.
     const mit = (code: string) => JSON.stringify({ error: { details: [{ errorCode: code }] } })
-    expect(istAbgemeldet(400, mit('UNREGISTERED'))).toBe(true)
-    expect(istAbgemeldet(404, mit('INVALID_ARGUMENT'))).toBe(false)
+    expect(isUnregistered(400, mit('UNREGISTERED'))).toBe(true)
+    expect(isUnregistered(404, mit('INVALID_ARGUMENT'))).toBe(false)
     // Ohne lesbaren Körper bleibt es beim Status — mehr weiß man dann nicht.
-    expect(istAbgemeldet(404, 'kein json')).toBe(true)
-    expect(istAbgemeldet(400, '')).toBe(false)
-    expect(istAbgemeldet(503, mit('UNAVAILABLE'))).toBe(false)
+    expect(isUnregistered(404, 'kein json')).toBe(true)
+    expect(isUnregistered(400, '')).toBe(false)
+    expect(isUnregistered(503, mit('UNAVAILABLE'))).toBe(false)
   })
 
   it('erneuert den Access-Token nach Ablauf', async () => {
@@ -408,7 +408,7 @@ describe('FCM-Versand (ohne Netz)', () => {
 describe('Dienst ohne Versandweg', () => {
   it('ist nicht einsatzbereit und meldet nichts', async () => {
     const u = await baueTestApp()
-    const dienst = new PushDienst(u.app.deps.db, null)
+    const dienst = new PushService(u.app.deps.db, null)
     expect(dienst.einsatzbereit).toBe(false)
     expect(
       await dienst.melde(benutzerId(u), {
@@ -422,7 +422,7 @@ describe('Dienst ohne Versandweg', () => {
 
   it('der Konsolen-Versand schreibt ins Log und meldet niemanden ab', async () => {
     const zeilen: string[] = []
-    const ergebnis = await new KonsolePush((z) => zeilen.push(z)).sende(['a', 'b'], {
+    const ergebnis = await new ConsolePush((z) => zeilen.push(z)).sende(['a', 'b'], {
       type: 'import-finished',
       tourId: 't_1',
       importId: 'i_1',

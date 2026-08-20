@@ -4,8 +4,8 @@
 // Nachgelagerte rechnet dadurch automatisch auf dem bearbeiteten Track.
 
 import type { EditOverlay } from '../schema/edits.js'
-import type { Modus, UploadPunkt, UploadSegment } from '../schema/upload.js'
-import type { PlatziertesMedium } from './placement.js'
+import type { TravelMode, UploadPoint, UploadSegment } from '../schema/upload.js'
+import type { PlacedMedium } from './placement.js'
 
 /** ISO-Zeitstempel → Sekunden-Offset ab time.start; null bei Unparsebarem. */
 function offsetS(iso: string | undefined, startMs: number): number | null {
@@ -19,7 +19,7 @@ function offsetS(iso: string | undefined, startMs: number): number | null {
  * Overlays, umgerechnet auf tOffsets). Segmente mit < 2 Restpunkten entfallen.
  * Medien-Anker bleiben unberührt — sie hängen an Koordinaten/Zeiten, nie an f.
  */
-export function wendeTrimAn(
+export function applyTourTrim(
   segmente: readonly UploadSegment[],
   trim: EditOverlay['trim'],
   startMs: number,
@@ -42,19 +42,19 @@ export function wendeTrimAn(
  * `modusZu(t)` — exakt dieselbe Regel wie in der Editor-Anzeige
  * (src/studio/editmodell.ts), damit Anzeige und Render nie auseinanderlaufen.
  */
-export function wendeModiAn(
+export function applyTravelModes(
   segmente: readonly UploadSegment[],
   modi: EditOverlay['travelModes'],
   startMs: number,
 ): UploadSegment[] {
   const grenzen = (modi ?? [])
     .map((g) => ({ abS: offsetS(g.from, startMs), mode: g.mode }))
-    .filter((g): g is { abS: number; mode: Modus } => g.abS !== null)
+    .filter((g): g is { abS: number; mode: TravelMode } => g.abS !== null)
     .sort((a, b) => a.abS - b.abS)
   if (!grenzen.length) return [...segmente]
 
-  const modusZu = (t: number): Modus | null => {
-    let m: Modus | null = null
+  const modusZu = (t: number): TravelMode | null => {
+    let m: TravelMode | null = null
     for (const g of grenzen) {
       if (g.abS <= t) m = g.mode
       else break
@@ -65,7 +65,7 @@ export function wendeModiAn(
   const ergebnis: UploadSegment[] = []
   for (const seg of segmente) {
     // In Scheiben gleichen (effektiven) Modus schneiden
-    const scheiben: Array<{ mode: Modus; pts: UploadPunkt[] }> = []
+    const scheiben: Array<{ mode: TravelMode; pts: UploadPoint[] }> = []
     for (const p of seg.pts) {
       const mode = modusZu(p[3]) ?? seg.mode
       const letzte = scheiben[scheiben.length - 1]
@@ -90,7 +90,7 @@ export function wendeModiAn(
   // Nachbar denselben Modus hat und den Punkt bereits trägt — weg damit.
   return ergebnis.filter((s, i) => {
     if (s.pts.length > 1) return true
-    const p = s.pts[0] as UploadPunkt
+    const p = s.pts[0] as UploadPoint
     const traegt = (nachbar: UploadSegment | undefined): boolean =>
       !!nachbar &&
       nachbar.mode === s.mode &&
@@ -100,13 +100,13 @@ export function wendeModiAn(
 }
 
 /** Trim + Modus-Grenzen in der festen Reihenfolge Trim → Modi anwenden. */
-export function wendeEditsAufSegmenteAn(
+export function applyEditsToSegments(
   segmente: readonly UploadSegment[],
   edits: EditOverlay | null | undefined,
   startMs: number,
 ): UploadSegment[] {
   if (!edits) return [...segmente]
-  return wendeModiAn(wendeTrimAn(segmente, edits.trim, startMs), edits.travelModes, startMs)
+  return applyTravelModes(applyTourTrim(segmente, edits.trim, startMs), edits.travelModes, startMs)
 }
 
 /**
@@ -114,10 +114,10 @@ export function wendeEditsAufSegmenteAn(
  * raus (Rohdatei bleibt liegen), Caption-Overrides ersetzen den Text, ein
  * manueller Anker übersteuert die Auto-Regel → placement 'manuell'.
  */
-export function wendeMedienEditsAn(
-  platziert: readonly PlatziertesMedium[],
+export function applyMediaEdits(
+  platziert: readonly PlacedMedium[],
   edits: EditOverlay | null | undefined,
-): PlatziertesMedium[] {
+): PlacedMedium[] {
   const medien = edits?.media
   if (!medien) return [...platziert]
   return platziert

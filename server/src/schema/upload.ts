@@ -12,15 +12,15 @@ export const UPLOAD_SCHEMA_ID = 'maptale/upload@2'
  */
 export const TRAVEL_MODES = ['walk', 'moped', 'bike', 'jeep', 'tram', 'ferry'] as const
 
-export type Modus = (typeof TRAVEL_MODES)[number]
+export type TravelMode = (typeof TRAVEL_MODES)[number]
 
 /** Trackpunkt: [lng, lat, ele(m), tOffset(s ab time.start)] */
-export type UploadPunkt = [number, number, number, number]
+export type UploadPoint = [number, number, number, number]
 
 export interface UploadSegment {
-  mode: Modus
+  mode: TravelMode
   label?: string
-  pts: UploadPunkt[]
+  pts: UploadPoint[]
 }
 
 export interface UploadMedium {
@@ -64,7 +64,7 @@ export interface UploadMedium {
 }
 
 /** Ein nachzureichendes Medium: wie UploadMedium, aber die ID vergibt der SERVER. */
-export type NachreichMedium = Omit<UploadMedium, 'id' | 'removed'>
+export type AddedMedium = Omit<UploadMedium, 'id' | 'removed'>
 
 export interface UploadManifest {
   schema: typeof UPLOAD_SCHEMA_ID
@@ -78,7 +78,7 @@ export interface UploadManifest {
   /** Referenz auf ein per PUT hochzuladendes GPX (statt segments), M6 */
   trackFile?: string
   /** Gewünschter Modus fürs GPX-Segment; fehlt er, rät der Server aus dem Tempo */
-  trackMode?: Modus
+  trackMode?: TravelMode
   /**
    * Wurde die Aufteilung von der App ERKANNT statt vom Nutzer angegeben?
    *
@@ -97,9 +97,9 @@ export interface UploadManifest {
 // VOLL verankert (^…$): ein unverankertes Präfix-Pattern ließe beliebige
 // Anhängsel durch — Zeitstempel landen in Editor/Doku, HTML hat dort nichts
 // verloren (Review-Fund M7). Erlaubt: Sekundenbruchteile, `Z` oder `±HH:MM`.
-export const ISO_ZEIT_PATTERN =
+export const ISO_TIME_PATTERN =
   '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$'
-export const ISO_ZEIT_MAXLAENGE = 40
+export const ISO_TIME_MAX_LENGTH = 40
 
 // Eigenschaften eines Medien-Eintrags OHNE die ID — geteilt zwischen dem
 // Manifest (Client vergibt die ID) und dem Nachreichen (Server vergibt sie).
@@ -107,7 +107,7 @@ export const ISO_ZEIT_MAXLAENGE = 40
 const medienEigenschaften = {
   type: { enum: ['photo', 'video'] },
   file: { type: 'string', minLength: 1, maxLength: 255 },
-  takenAt: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+  takenAt: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
   anchor: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } },
   caption: { type: ['string', 'null'], maxLength: 1000 },
   durationS: { type: 'number', minimum: 0 },
@@ -135,8 +135,8 @@ export const uploadManifestJsonSchema = {
       additionalProperties: false,
       required: ['start', 'end', 'zone'],
       properties: {
-        start: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-        end: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+        start: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
+        end: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
         zone: { type: 'string', maxLength: 60 },
       },
     },
@@ -182,13 +182,13 @@ export const uploadManifestJsonSchema = {
 } as const
 
 /** Obergrenze der Medien je Tour — gilt fürs Manifest UND übers Nachreichen hinweg. */
-export const MAX_MEDIEN_PRO_TOUR = 500
+export const MAX_MEDIA_PER_TOUR = 500
 
 // Body von `POST /api/tours/:id/media` (additives Nachreichen): dieselben
 // Einträge wie im Manifest, nur ohne ID — die vergibt der Server und gibt sie
 // in der Antwort zurück. `entfernt` ist hier wie im Manifest-Schema bewusst
 // nicht zugelassen: Tombstones schreibt nur die DELETE-Route.
-export const nachreichenJsonSchema = {
+export const addMediaJsonSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['media'],
@@ -196,7 +196,7 @@ export const nachreichenJsonSchema = {
     media: {
       type: 'array',
       minItems: 1,
-      maxItems: MAX_MEDIEN_PRO_TOUR,
+      maxItems: MAX_MEDIA_PER_TOUR,
       items: {
         type: 'object',
         additionalProperties: false,
@@ -217,7 +217,7 @@ const ENDUNGEN: Record<UploadMedium['type'], string[]> = {
 }
 
 /** Ablage-Dateiname eines Mediums: aus ID + geprüfter Endung (nie Client-Pfade). */
-export function mediumDateiname(medium: UploadMedium): string {
+export function mediumFilename(medium: UploadMedium): string {
   const roh = medium.file.toLowerCase().split('.').pop() ?? ''
   const endung = roh === 'jpeg' ? 'jpg' : roh
   const erlaubt = ENDUNGEN[medium.type]

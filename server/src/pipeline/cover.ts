@@ -8,10 +8,10 @@
 
 import type { Db } from '../db.js'
 import type { Storage } from '../storage.js'
-import { bestimmeCover, type TourJson } from './enrich.js'
+import { chooseCover, type TourJson } from './enrich.js'
 
 /** Titelbilder für alle bereiten Touren ohne cover nachtragen. Gibt die Anzahl zurück. */
-export async function trageTitelbilderNach(
+export async function backfillCovers(
   db: Db,
   storage: Storage,
   tourJsonPfad: string,
@@ -31,7 +31,7 @@ export async function trageTitelbilderNach(
       ) as TourJson
       // Nur die Anzeigegröße: Die Kachel-Fassung entsteht erst im
       // Bild-Nachtrag, der direkt danach läuft und `cover_thumb` füllt.
-      const titelbild = bestimmeCover(tourJson.media)
+      const titelbild = chooseCover(tourJson.media)
       if (titelbild) {
         setzen.run(titelbild.cover, id)
         getan++

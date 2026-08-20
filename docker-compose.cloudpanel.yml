@@ -37,7 +37,7 @@ services:
       # Mehrbenutzer-Betrieb (M9)
       MAPTALE_BASIS_URL: ${MAPTALE_BASIS_URL:-}
       # Woher der Container das GEBAUTE profil.html holt, wenn er /@handle
-      # selbst beantwortet (server/src/seiten.ts). Leer = wie MAPTALE_BASIS_URL,
+      # selbst beantwortet (server/src/page-meta.ts). Leer = wie MAPTALE_BASIS_URL,
       # und das ist der Normalfall: Es ist derselbe Nginx, der die Datei auch
       # dem Browser ausliefert — ein Abruf alle fünf Minuten.
       #

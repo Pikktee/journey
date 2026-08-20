@@ -9,8 +9,8 @@
 // Bewusst konservativ: aus dem Tempo lässt sich Gehen von Fahren
 // unterscheiden, aber nicht Moped von Jeep von Tram.
 
-import { distanzM } from './geo.js'
-import type { Modus, UploadPunkt, UploadSegment } from '../schema/upload.js'
+import { distanceM } from './geo.js'
+import type { TravelMode, UploadPoint, UploadSegment } from '../schema/upload.js'
 
 /** Halbe Fensterbreite für den gleitenden Median (s). */
 const FENSTER_S = 30
@@ -69,7 +69,7 @@ const AUFNAHME_ANTEIL = 0.8
  * Tunnel ohne Empfang oder ein kurz pausierter Track reißt sonst jede
  * Aufzeichnung aus der Wertung.
  */
-export function istAufzeichnung(segmente: readonly UploadSegment[]): boolean {
+export function isRecording(segmente: readonly UploadSegment[]): boolean {
   const zeiten = segmente.flatMap((s) => s.pts.map((p) => p[3]))
   if (zeiten.length < AUFNAHME_MIN_PUNKTE) return false
   let imTakt = 0
@@ -87,18 +87,18 @@ export function istAufzeichnung(segmente: readonly UploadSegment[]): boolean {
  * 80 km/h schleudern und dort einen Fahrabschnitt erfinden würden.
  */
 /** Momentantempo je Punkt aus dem Abstand zu seinen Nachbarn (km/h). */
-function rohTempoKmh(pts: readonly UploadPunkt[]): number[] {
+function rohTempoKmh(pts: readonly UploadPoint[]): number[] {
   const roh: number[] = []
   for (let i = 0; i < pts.length; i++) {
     const a = pts[Math.max(0, i - 1)]!
     const b = pts[Math.min(pts.length - 1, i + 1)]!
     const dt = b[3] - a[3]
-    roh.push(dt > 0 ? (distanzM([a[0], a[1]], [b[0], b[1]]) / dt) * 3.6 : 0)
+    roh.push(dt > 0 ? (distanceM([a[0], a[1]], [b[0], b[1]]) / dt) * 3.6 : 0)
   }
   return roh
 }
 
-export function tempoVerlaufKmh(pts: readonly UploadPunkt[]): number[] {
+export function speedProfileKmh(pts: readonly UploadPoint[]): number[] {
   if (pts.length < 2) return pts.map(() => 0)
 
   const roh = rohTempoKmh(pts)
@@ -176,14 +176,14 @@ function schaerfeGrenzen(abschnitte: Abschnitt[], roh: readonly number[]): Absch
  *    Median nach einer Pause kippt, ist die halbe Ausfahrt als „zu Fuß"
  *    markiert — es sei denn, man misst am Ende nach.
  */
-function istGlaubwuerdig(a: Abschnitt, pts: readonly UploadPunkt[]): boolean {
+function istGlaubwuerdig(a: Abschnitt, pts: readonly UploadPoint[]): boolean {
   const dauerS = pts[a.bisIndex]![3] - pts[a.vonIndex]![3]
   if (dauerS < (a.gehen ? MIN_GEHEN_S : MIN_FAHREN_S)) return false
   if (!a.gehen) return true
 
   const von = pts[a.vonIndex]!
   const bis = pts[a.bisIndex]!
-  if (distanzM([von[0], von[1]], [bis[0], bis[1]]) < MIN_GEH_VERDRAENGUNG_M) return false
+  if (distanceM([von[0], von[1]], [bis[0], bis[1]]) < MIN_GEH_VERDRAENGUNG_M) return false
 
   // Fürs Tempo zählt dagegen der zurückgelegte Weg — sonst spräche eine Kurve
   // einen zu schnellen Abschnitt frei, nur weil sie zum Ausgangspunkt zurückführt.
@@ -191,13 +191,13 @@ function istGlaubwuerdig(a: Abschnitt, pts: readonly UploadPunkt[]): boolean {
   for (let i = a.vonIndex + 1; i <= a.bisIndex; i++) {
     const v = pts[i - 1]!
     const n = pts[i]!
-    weg += distanzM([v[0], v[1]], [n[0], n[1]])
+    weg += distanceM([v[0], v[1]], [n[0], n[1]])
   }
   return dauerS <= 0 || (weg / dauerS) * 3.6 <= GEHEN_AUS
 }
 
 /** Unglaubwürdige Abschnitte im (zeitlich) größeren Nachbarn aufgehen lassen. */
-function verschmelzeKurze(abschnitte: Abschnitt[], pts: readonly UploadPunkt[]): Abschnitt[] {
+function verschmelzeKurze(abschnitte: Abschnitt[], pts: readonly UploadPoint[]): Abschnitt[] {
   const dauer = (a: Abschnitt): number => pts[a.bisIndex]![3] - pts[a.vonIndex]![3]
   let liste = abschnitte
   let geaendert = true
@@ -237,7 +237,7 @@ function verschmelzeKurze(abschnitte: Abschnitt[], pts: readonly UploadPunkt[]):
  * Moped, Jeep, Tram und Fähre lassen sich am Tempo nicht auseinanderhalten —
  * sie bleiben Sache des Nutzers.
  */
-function primaerOhneAngabe(tempo: readonly number[]): Modus {
+function primaerOhneAngabe(tempo: readonly number[]): TravelMode {
   const fahrend = tempo.filter((t) => t >= GEHEN_EIN).sort((a, b) => a - b)
   if (!fahrend.length) return 'walk'
   const median = fahrend[Math.floor(fahrend.length / 2)]!
@@ -251,11 +251,11 @@ function primaerOhneAngabe(tempo: readonly number[]): Modus {
  * Modus-Grenzen aus dem Editor, sonst entsteht beim Verketten eine Lücke.
  * Ändert sich nichts, kommt das Segment unverändert zurück.
  */
-export function trenneGehabschnitte(segment: UploadSegment): UploadSegment[] {
+export function splitWalkSegments(segment: UploadSegment): UploadSegment[] {
   if (segment.pts.length < 4) return [segment]
 
-  const tempo = tempoVerlaufKmh(segment.pts)
-  const primaer: Modus = segment.mode === 'walk' ? primaerOhneAngabe(tempo) : segment.mode
+  const tempo = speedProfileKmh(segment.pts)
+  const primaer: TravelMode = segment.mode === 'walk' ? primaerOhneAngabe(tempo) : segment.mode
   // Ohne erkennbare Fahrt bleibt alles, wie es ist
   if (primaer === 'walk') return [segment]
 
@@ -266,12 +266,12 @@ export function trenneGehabschnitte(segment: UploadSegment): UploadSegment[] {
   if (abschnitte.length < 2) {
     // Ein einziger Abschnitt: nur der Modus kann sich noch geändert haben.
     // Das Label des Originals fällt dabei weg — es beschrieb den alten Modus.
-    const mode: Modus = abschnitte[0]?.gehen ? 'walk' : primaer
+    const mode: TravelMode = abschnitte[0]?.gehen ? 'walk' : primaer
     return mode === segment.mode ? [segment] : [{ mode, pts: segment.pts }]
   }
 
   return abschnitte.map((a) => ({
-    mode: a.gehen ? ('walk' as Modus) : primaer,
+    mode: a.gehen ? ('walk' as TravelMode) : primaer,
     pts: segment.pts.slice(a.vonIndex, a.bisIndex + 1),
   }))
 }
@@ -284,9 +284,7 @@ export function trenneGehabschnitte(segment: UploadSegment): UploadSegment[] {
  * Chip-Reihe, oder ein GPX-Import mit Vorgabe) — diese Entscheidung wird nicht
  * überschrieben.
  */
-export function trenneGehabschnitteInSegmenten(
-  segmente: readonly UploadSegment[],
-): UploadSegment[] {
+export function splitWalkSegmentsInSegments(segmente: readonly UploadSegment[]): UploadSegment[] {
   if (segmente.length !== 1) return [...segmente]
-  return trenneGehabschnitte(segmente[0]!)
+  return splitWalkSegments(segmente[0]!)
 }

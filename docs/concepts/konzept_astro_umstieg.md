@@ -15,7 +15,7 @@ betrifft:
   - feedback.html
   - src/app-nav.ts
   - src/routen.ts
-  - server/src/seiten.ts
+  - server/src/page-meta.ts
   - scripts/docs-viewer/
 icon: module
 ---
@@ -177,7 +177,7 @@ seiner Falle.
 `mode: 'middleware'`, und die Dokumentation zeigt das Einhängen für Express UND
 Fastify. Es kommt also **kein zweiter Prozess** dazu. Damit könnten `/@handle`
 und `/tour/<kennung>` als echte Server-Routen entstehen, statt dass
-[seiten.ts](../../server/src/seiten.ts) das gebaute HTML über Nginx holt und
+[page-meta.ts](../../server/src/page-meta.ts) das gebaute HTML über Nginx holt und
 zwischen zwei Kommentaren Text ersetzt. Der Marker-Vertrag, der
 Fünf-Minuten-Cache und die Abhängigkeit „Container muss Nginx erreichen" fielen
 weg.

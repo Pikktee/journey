@@ -1,9 +1,9 @@
 // Welche Anbieter es gibt — und welche davon tatsächlich benutzbar sind.
 
-import type { TrackerAnbieter, TrackerProvider } from './vertrag.js'
+import type { TrackerProviderId, TrackerProvider } from './contract.js'
 
 export class Registry {
-  private readonly anbieter = new Map<TrackerAnbieter, TrackerProvider>()
+  private readonly anbieter = new Map<TrackerProviderId, TrackerProvider>()
 
   constructor(provider: readonly TrackerProvider[] = []) {
     for (const p of provider) this.anbieter.set(p.id, p)
@@ -32,7 +32,7 @@ export class Registry {
    * des Anbieters statt auf eine verständliche Meldung bei uns.
    */
   hole(id: string): TrackerProvider | null {
-    const p = this.anbieter.get(id as TrackerAnbieter)
+    const p = this.anbieter.get(id as TrackerProviderId)
     return p?.konfiguriert ? p : null
   }
 }

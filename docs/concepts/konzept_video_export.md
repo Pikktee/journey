@@ -112,7 +112,7 @@ die MP4 nach dem Rendern nicht.
 7. **Autor, nicht Besucher.** Knopf im Studio (Bibliothek und Editor). Der
    öffentliche Player bleibt ein Player. Fremde bekommen den Link.
 8. **Am Handy: Auftrag, Mail, Download.** Wie der ZIP-Export
-   ([server/src/export.ts](../../server/src/export.ts)). Datei mit Frist, nicht
+   ([server/src/data-export.ts](../../server/src/data-export.ts)). Datei mit Frist, nicht
    ewig im Quota. Worker öffnet dieselbe Export-Seite. Scale-to-zero GPU:
    Cloud Run L4 in der EU (Datenschutz), nicht RunPod/Vast, nicht Hetzner-GEX
    auf Vorrat.

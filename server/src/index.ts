@@ -2,32 +2,32 @@
 
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { baueApp } from './app.js'
-import { konfigAusEnv } from './config.js'
-import { oeffneDb } from './db.js'
+import { buildApp } from './app.js'
+import { configFromEnv } from './config.js'
+import { openDb } from './db.js'
 import { FcmPush } from './fcm.js'
-import { KonsoleMail, ResendMail, type MailVersand } from './mail.js'
-import type { PushVersand } from './push.js'
-import { trageTitelbilderNach } from './pipeline/cover.js'
-import { FfmpegBildWerkzeug } from './pipeline/bild.js'
-import { trageBildfassungenNach } from './pipeline/bildnachtrag.js'
+import { ConsoleMail, ResendMail, type MailTransport } from './mail.js'
+import type { PushTransport } from './push.js'
+import { backfillCovers } from './pipeline/cover.js'
+import { FfmpegImageTool } from './pipeline/image.js'
+import { backfillImageVariants } from './pipeline/image-addendum.js'
 import { NominatimGeocoder } from './pipeline/naming.js'
-import { OverpassSchienen } from './pipeline/schienen.js'
+import { OverpassRails } from './pipeline/rails.js'
 import { PolarProvider } from './tracker/provider/polar.js'
-import { FfmpegWerkzeug } from './pipeline/video.js'
-import { OpenRouterKlassifikator, type BildKlassifikator } from './pipeline/vision.js'
-import { OpenMeteoQuelle } from './pipeline/weather.js'
-import { TOURJSON_PFAD } from './routes/tours.js'
-import { trimSignatur, videoSchnittSignatur } from './pipeline/anreicherung.js'
+import { FfmpegVideoTool } from './pipeline/video.js'
+import { OpenRouterClassifier, type ImageClassifier } from './pipeline/vision.js'
+import { OpenMeteoSource } from './pipeline/weather.js'
+import { TOUR_JSON_PATH } from './routes/tours.js'
+import { trimSignature, videoCutSignature } from './pipeline/enrichment.js'
 import type { EditOverlay } from './schema/edits.js'
 import { fuehreStartMigrationAus } from './migrations/start.js'
 import { rendereVeralteteNach } from './migrations/nachrender.js'
 import { FsStorage } from './storage.js'
 
-const konfig = konfigAusEnv()
+const konfig = configFromEnv()
 await mkdir(konfig.datenDir, { recursive: true })
 
-const db = oeffneDb(join(konfig.datenDir, 'maptale.db'))
+const db = openDb(join(konfig.datenDir, 'maptale.db'))
 const storage = new FsStorage(join(konfig.datenDir, 'tours'))
 // Benutzerdateien (Avatare) liegen getrennt von den Touren, mit der Benutzer-ID
 // als Bereichsnamen — so räumt das Konto-Löschen sie mit einem Aufruf weg.
@@ -42,8 +42,8 @@ await fuehreStartMigrationAus({
   tourIds: async () =>
     (db.prepare('SELECT id FROM tours').all() as { id: string }[]).map((z) => z.id),
   signaturen: {
-    trimSignature: (edits) => trimSignatur(edits as EditOverlay | null),
-    videoCutSignature: (edits) => videoSchnittSignatur(edits as EditOverlay | null),
+    trimSignature: (edits) => trimSignature(edits as EditOverlay | null),
+    videoCutSignature: (edits) => videoCutSignature(edits as EditOverlay | null),
   },
   setzeBanner: (userId, wert) => {
     db.prepare('UPDATE users SET banner = ? WHERE id = ?').run(wert, userId)
@@ -52,18 +52,18 @@ await fuehreStartMigrationAus({
 })
 
 const geocoder = new NominatimGeocoder()
-const wetter = new OpenMeteoQuelle()
-const videoWerkzeug = new FfmpegWerkzeug()
-const bildWerkzeug = new FfmpegBildWerkzeug()
-const schienen = new OverpassSchienen()
+const wetter = new OpenMeteoSource()
+const videoWerkzeug = new FfmpegVideoTool()
+const bildWerkzeug = new FfmpegImageTool()
+const schienen = new OverpassRails()
 // Bildanalyse (M5) nur mit Key — sonst null (No-Op, Wetter exakt wie M2).
-const bildKlassifikator: BildKlassifikator | null = konfig.openRouterKey
-  ? new OpenRouterKlassifikator(konfig.openRouterKey, undefined, konfig.visionModell)
+const bildKlassifikator: ImageClassifier | null = konfig.openRouterKey
+  ? new OpenRouterClassifier(konfig.openRouterKey, undefined, konfig.visionModell)
   : null
 // Mit RESEND_API_KEY: echter Versand; ohne (Dev/kleine Instanz): Link ins Log.
-const mail: MailVersand = process.env.RESEND_API_KEY
+const mail: MailTransport = process.env.RESEND_API_KEY
   ? new ResendMail(process.env.RESEND_API_KEY, konfig.mailAbsender)
-  : new KonsoleMail()
+  : new ConsoleMail()
 // Tracker-Anbieter. Sie werden IMMER registriert, auch ohne Zugangsdaten:
 // Die Registry meldet einen unkonfigurierten Anbieter als „nicht verfügbar",
 // und die Kontoseite kann „Polar (noch nicht eingerichtet)" zeigen. Verschwiege
@@ -73,9 +73,9 @@ const trackerProvider = [new PolarProvider(konfig.polar)]
 // derselbe Weg, der auch mit Push für Geräte ohne Play Services weiterläuft.
 // Ein kaputtes Dienstkonto ist dagegen ein Einrichtungsfehler und soll laut
 // sein: `FcmPush` wirft im Konstruktor mit einer Meldung, die sagt, was fehlt.
-const push: PushVersand | null = konfig.fcmDienstkonto ? new FcmPush(konfig.fcmDienstkonto) : null
+const push: PushTransport | null = konfig.fcmDienstkonto ? new FcmPush(konfig.fcmDienstkonto) : null
 
-const app = baueApp({
+const app = buildApp({
   konfig,
   db,
   storage,
@@ -138,7 +138,7 @@ app.log.info(`Maptale-API läuft auf Port ${konfig.port}`)
 
 // Titelbilder der Bestandstouren nachtragen — nach dem listen, damit ein
 // langsamer Durchlauf die Bereitschaft der API nicht verzögert.
-void trageTitelbilderNach(db, storage, TOURJSON_PFAD, (n) => app.log.warn(n))
+void backfillCovers(db, storage, TOUR_JSON_PATH, (n) => app.log.warn(n))
   .then((anzahl) => {
     if (anzahl > 0) app.log.info(`Titelbild nachgetragen für ${anzahl} Tour(en)`)
   })
@@ -146,7 +146,7 @@ void trageTitelbilderNach(db, storage, TOURJSON_PFAD, (n) => app.log.warn(n))
   // Danach, nicht daneben: Der Bild-Nachtrag liest das Titelbild aus der
   // Datenbank — läuft er zeitgleich, greift er bei Bestandstouren ins Leere.
   .then(() =>
-    trageBildfassungenNach(db, storage, TOURJSON_PFAD, bildWerkzeug, (n) => app.log.warn(n)),
+    backfillImageVariants(db, storage, TOUR_JSON_PATH, bildWerkzeug, (n) => app.log.warn(n)),
   )
   .then(({ touren, gespart }) => {
     if (touren > 0) {

@@ -93,7 +93,7 @@ Web-App nicht. Drei Wege:
 - **Manifest ausliefern und Android in Kauf nehmen**, dafür aber im Produkt
   erklären, was welches Icon tut.
 - **Manifest nur an iOS ausliefern.** Technisch möglich (der Server beantwortet
-  ohnehin schon Seiten, s. [server/src/routes/seiten.ts](../../server/src/routes/seiten.ts)),
+  ohnehin schon Seiten, s. [server/src/routes/pages.ts](../../server/src/routes/pages.ts)),
   aber es ist User-Agent-Sniffing an einer Stelle, die Nginx statisch bedient.
   Zuletzt zu prüfen, nicht zuerst.
 

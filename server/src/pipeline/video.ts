@@ -26,7 +26,7 @@ export interface VideoInfo {
   hoehe: number
 }
 
-export interface VideoWerkzeug {
+export interface VideoTool {
   /** Codec, Dauer und Auflösung auslesen. */
   probe(pfad: string): Promise<VideoInfo>
   /** Nach H.264/AAC, max. 1080p, faststart transkodieren (Web-Kompatibilität). */
@@ -53,7 +53,7 @@ export interface VideoWerkzeug {
 const WEB_VIDEO_CODEC = 'h264'
 const WEB_AUDIO_CODECS = new Set(['aac', 'mp3'])
 
-export function brauchtTranskodierung(info: VideoInfo): boolean {
+export function needsTranscoding(info: VideoInfo): boolean {
   if (info.codecVideo !== WEB_VIDEO_CODEC) return true
   if (info.codecAudio !== null && !WEB_AUDIO_CODECS.has(info.codecAudio)) return true
   return false
@@ -65,8 +65,8 @@ export function brauchtTranskodierung(info: VideoInfo): boolean {
  * ausgeliefert, das manche Browser (Firefox) nicht abspielen. Nur eine echte
  * .mp4 bleibt unangetastet.
  */
-export function mussWebKonvertiert(info: VideoInfo, originalDatei: string): boolean {
-  return brauchtTranskodierung(info) || !originalDatei.toLowerCase().endsWith('.mp4')
+export function needsWebConversion(info: VideoInfo, originalDatei: string): boolean {
+  return needsTranscoding(info) || !originalDatei.toLowerCase().endsWith('.mp4')
 }
 
 /**
@@ -87,7 +87,7 @@ export function mussWebKonvertiert(info: VideoInfo, originalDatei: string): bool
  * für keins von beidem, lautet die Antwort „nein" — dann wird umgeschrieben,
  * und das ist der harmlose Ausgang.
  */
-export function hatFaststart(daten: Buffer): boolean {
+export function hasFaststart(daten: Buffer): boolean {
   let pos = 0
   // 8 Byte Kopf: 4 Länge + 4 Typ. Weniger ist kein Atom mehr.
   while (pos + 8 <= daten.length) {
@@ -110,12 +110,12 @@ export function hatFaststart(daten: Buffer): boolean {
 }
 
 /** Ablage-Name des Posters (zwei Punkt-Segmente → nie ein Upload-Medienname). */
-export function posterDateiname(mediumId: string): string {
+export function posterFilename(mediumId: string): string {
   return `${mediumId}.poster.jpg`
 }
 
 /** Ablage-Name des transkodierten Videos (nur wenn transkodiert wurde). */
-export function webVideoDateiname(mediumId: string): string {
+export function webVideoFilename(mediumId: string): string {
   return `${mediumId}.web.mp4`
 }
 
@@ -128,12 +128,12 @@ export function webVideoDateiname(mediumId: string): string {
  * den ersten — das Overlay rechnet aber in DATEI-Sekunden des Originals, und
  * „Trim zurücknehmen" fände das Weggeschnittene nirgends wieder.
  */
-export function schnittVideoDateiname(mediumId: string): string {
+export function cutVideoFilename(mediumId: string): string {
   return `${mediumId}.cut.mp4`
 }
 
 /** Video-Schnitt in Dateisekunden, wie er aus dem Edit-Overlay kommt. */
-export interface VideoSchnitt {
+export interface VideoCut {
   fromS: number
   toS?: number
 }
@@ -146,10 +146,7 @@ export interface VideoSchnitt {
  * Spanne übrig (oder war gar keine gefordert), ist die Antwort `null` = ganze
  * Datei — ein leerer Schnitt darf kein Video von null Sekunden erzeugen.
  */
-export function klemmeSchnitt(
-  schnitt: VideoSchnitt | undefined,
-  durationS: number,
-): VideoSchnitt | null {
+export function clampCut(schnitt: VideoCut | undefined, durationS: number): VideoCut | null {
   if (!schnitt || !(durationS > 0)) return null
   const vonS = Math.min(Math.max(0, schnitt.fromS), durationS)
   const bisS = schnitt.toS === undefined ? durationS : Math.min(Math.max(0, schnitt.toS), durationS)
@@ -167,7 +164,7 @@ export function klemmeSchnitt(
  * Umschalten sprang das Bild sichtbar. Ein zum Anfang passendes Standbild ist
  * mehr wert als ein schöneres, das nicht zum nächsten Moment passt.
  */
-export function posterZeitpunkt(_dauerS: number): number {
+export function posterTime(_dauerS: number): number {
   return 0
 }
 
@@ -188,7 +185,7 @@ export interface VideoMeta {
 }
 
 /** Schmaler Storage-Ausschnitt, den die Aufbereitung braucht (Storage erfüllt ihn). */
-export interface VideoSpeicher {
+export interface VideoStorage {
   lese(relPfad: string): Promise<Buffer>
   schreibe(relPfad: string, inhalt: Buffer): Promise<void>
   info(relPfad: string): Promise<{ groesse: number } | null>
@@ -196,7 +193,7 @@ export interface VideoSpeicher {
 }
 
 /** Die echte ffmpeg/ffprobe-Anbindung (nur in Produktion; Tests nutzen den Fake). */
-export class FfmpegWerkzeug implements VideoWerkzeug {
+export class FfmpegVideoTool implements VideoTool {
   constructor(
     private readonly ffmpeg = 'ffmpeg',
     private readonly ffprobe = 'ffprobe',
@@ -319,7 +316,7 @@ export class FfmpegWerkzeug implements VideoWerkzeug {
  * Zielpfade (die Orchestrierung liest sie gleich wieder zurück in den Storage).
  * Protokolliert die Aufrufe, damit Tests „wurde transkodiert?" prüfen können.
  */
-export class FakeVideoWerkzeug implements VideoWerkzeug {
+export class FakeVideoTool implements VideoTool {
   public readonly aufrufe: string[] = []
   constructor(private readonly info: VideoInfo) {}
 
@@ -363,13 +360,13 @@ export class FakeVideoWerkzeug implements VideoWerkzeug {
 async function bereiteEinVideoAuf(
   mediumId: string,
   originalDatei: string,
-  speicher: VideoSpeicher,
-  werkzeug: VideoWerkzeug,
-  schnitt?: VideoSchnitt,
+  speicher: VideoStorage,
+  werkzeug: VideoTool,
+  schnitt?: VideoCut,
 ): Promise<VideoMeta> {
-  const posterName = posterDateiname(mediumId)
-  const webName = webVideoDateiname(mediumId)
-  const schnittName = schnittVideoDateiname(mediumId)
+  const posterName = posterFilename(mediumId)
+  const webName = webVideoFilename(mediumId)
+  const schnittName = cutVideoFilename(mediumId)
   const originalDa = !!(await speicher.info(`media/${originalDatei}`))
   if (!originalDa && !(await speicher.info(`media/${webName}`))) {
     throw new Error(`Videodatei fehlt: ${originalDatei}`)
@@ -388,7 +385,7 @@ async function bereiteEinVideoAuf(
     // nicht jedes Mal ffmpeg anwerfen — Poster/Transcode sind deterministisch).
     if (!(await speicher.info(`media/${posterName}`))) {
       const posterTemp = join(arbeitsdir, 'poster.jpg')
-      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterZeitpunkt(info.durationS))
+      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterTime(info.durationS))
       await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
     }
 
@@ -400,14 +397,14 @@ async function bereiteEinVideoAuf(
     // und wurde deshalb unangetastet durchgereicht — samt `moov` am Ende, das
     // jede Wiedergabe um Sekunden verzögerte (s. hatFaststart).
     let videoDatei = quellDatei
-    if (originalDa && mussWebKonvertiert(info, originalDatei)) {
+    if (originalDa && needsWebConversion(info, originalDatei)) {
       videoDatei = webName
       if (!(await speicher.info(`media/${webName}`))) {
         const webTemp = join(arbeitsdir, 'web.mp4')
         await werkzeug.transkodiere(quellTemp, webTemp)
         await speicher.schreibe(`media/${webName}`, await readFile(webTemp))
       }
-    } else if (originalDa && !hatFaststart(rohdaten)) {
+    } else if (originalDa && !hasFaststart(rohdaten)) {
       videoDatei = webName
       if (!(await speicher.info(`media/${webName}`))) {
         const webTemp = join(arbeitsdir, 'web.mp4')
@@ -432,7 +429,7 @@ async function bereiteEinVideoAuf(
     // Video-Schnitt (Etappe 4): eine eigene Auslieferungsdatei aus dem Master.
     // Geklemmt wird auf das Material — Trimmen legt frei, was da ist. Ohne
     // wirksamen Schnitt bleibt alles, wie es war (kein Transcode, keine Datei).
-    const wirksam = klemmeSchnitt(schnitt, info.durationS)
+    const wirksam = clampCut(schnitt, info.durationS)
     if (wirksam) {
       const schnittTemp = join(arbeitsdir, 'schnitt.mp4')
       await werkzeug.schneide(quellTemp, schnittTemp, wirksam.fromS, wirksam.toS)
@@ -440,7 +437,7 @@ async function bereiteEinVideoAuf(
       // Das Poster zeigt den ersten Frame der AUSGELIEFERTEN Fassung — sonst
       // stünde dort ein Bild, das im Film gar nicht mehr vorkommt.
       const posterTemp = join(arbeitsdir, 'poster-schnitt.jpg')
-      await werkzeug.erzeugePoster(schnittTemp, posterTemp, posterZeitpunkt(0))
+      await werkzeug.erzeugePoster(schnittTemp, posterTemp, posterTime(0))
       await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
       return {
         durationS: (wirksam.toS ?? info.durationS) - wirksam.fromS,
@@ -455,7 +452,7 @@ async function bereiteEinVideoAuf(
     if (await speicher.info(`media/${schnittName}`)) {
       await speicher.loesche(`media/${schnittName}`)
       const posterTemp = join(arbeitsdir, 'poster-ganz.jpg')
-      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterZeitpunkt(info.durationS))
+      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterTime(info.durationS))
       await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
     }
 
@@ -475,10 +472,10 @@ async function bereiteEinVideoAuf(
  * Video lässt die Tour nicht scheitern (protokoll-Hinweis, Eintrag fehlt in der
  * Map → enrich.ts liefert dann das Original ohne Poster aus).
  */
-export async function bereiteVideosAuf(eingabe: {
-  medien: Array<{ id: string; originalDatei: string; schnitt?: VideoSchnitt }>
-  speicher: VideoSpeicher
-  werkzeug: VideoWerkzeug
+export async function prepareVideos(eingabe: {
+  medien: Array<{ id: string; originalDatei: string; schnitt?: VideoCut }>
+  speicher: VideoStorage
+  werkzeug: VideoTool
   protokoll?: (nachricht: string) => void
 }): Promise<Map<string, VideoMeta>> {
   const { medien, speicher, werkzeug, protokoll } = eingabe

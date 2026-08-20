@@ -6,8 +6,8 @@
 // werden im Web-Projekt geprüft (test/handle.test.ts) — der Drift-Wächter in
 // test/routen.test.ts hält beide Kopien zusammen.
 import { describe, expect, it } from 'vitest'
-import { oeffneDb, vergibFehlendeHandles } from '../src/db.js'
-import { freierHandle, handleAusEmail } from '../src/handle.js'
+import { openDb, assignMissingHandles } from '../src/db.js'
+import { findFreeHandle, handleFromEmail } from '../src/handle.js'
 import { baueTestApp, type TestUmgebung } from './helfer.js'
 
 async function patch(u: TestUmgebung, payload: Record<string, unknown>) {
@@ -25,34 +25,34 @@ function nutzerId(u: TestUmgebung): string {
 
 describe('handleAusEmail', () => {
   it('nimmt den lokalen Teil ohne Plus-Zusatz', () => {
-    expect(handleAusEmail('mira.wolf@example.com')).toBe('mira.wolf')
-    expect(handleAusEmail('mira+maptale@example.com')).toBe('mira')
-    expect(handleAusEmail('Henrik.Süd@example.com')).toBe('henrik.sued')
+    expect(handleFromEmail('mira.wolf@example.com')).toBe('mira.wolf')
+    expect(handleFromEmail('mira+maptale@example.com')).toBe('mira')
+    expect(handleFromEmail('Henrik.Süd@example.com')).toBe('henrik.sued')
   })
 
   it('erfindet einen Stamm, wo nichts Brauchbares übrig bleibt', () => {
     // „ä@…" ergäbe sonst einen leeren Handle — der Zähler macht daraus
     // „reisende", „reisende2" …
-    expect(handleAusEmail('ä@example.com')).toBe('reisende')
-    expect(handleAusEmail('ab@example.com')).toBe('reisende')
+    expect(handleFromEmail('ä@example.com')).toBe('reisende')
+    expect(handleFromEmail('ab@example.com')).toBe('reisende')
   })
 })
 
 describe('freierHandle', () => {
   it('hängt erst bei Kollision einen Zähler an', () => {
     const belegt = new Set(['henrik', 'henrik2'])
-    expect(freierHandle('anna', (h) => belegt.has(h))).toBe('anna')
-    expect(freierHandle('henrik', (h) => belegt.has(h))).toBe('henrik3')
+    expect(findFreeHandle('anna', (h) => belegt.has(h))).toBe('anna')
+    expect(findFreeHandle('henrik', (h) => belegt.has(h))).toBe('henrik3')
   })
 
   it('weicht reservierten Wörtern aus', () => {
     // `admin@maptale.io` darf nicht zu `/@admin` werden
-    expect(freierHandle('admin', () => false)).toBe('admin2')
+    expect(findFreeHandle('admin', () => false)).toBe('admin2')
   })
 
   it('hält die 30 Zeichen ein, indem der Zähler hineinschneidet', () => {
     const lang = 'a'.repeat(30)
-    const ergebnis = freierHandle(lang, (h) => h === lang)
+    const ergebnis = findFreeHandle(lang, (h) => h === lang)
     expect(ergebnis).toHaveLength(30)
     expect(ergebnis.endsWith('2')).toBe(true)
   })
@@ -204,7 +204,7 @@ describe('Migration für Bestandskonten', () => {
     // Der Zustand vor der Migration: Konten ohne Handle. Geprüft wird die
     // Funktion, die der Migrationsschritt aufruft — `user_version`
     // zurückzudrehen ließe die FOLGENDEN Migrationen ein zweites Mal laufen.
-    const db = oeffneDb(':memory:')
+    const db = openDb(':memory:')
     const anlegen = db.prepare(
       "INSERT INTO users (id, email, pw_hash, name, created_at) VALUES (?, ?, 'x', ?, ?)",
     )
@@ -213,7 +213,7 @@ describe('Migration für Bestandskonten', () => {
     anlegen.run('u_alt3', 'admin@example.com', 'Chef', '2026-03-01T00:00:00.000Z')
     db.exec('UPDATE users SET handle = NULL')
 
-    vergibFehlendeHandles(db)
+    assignMissingHandles(db)
     const handles = Object.fromEntries(
       (
         db.prepare('SELECT id, handle FROM users').all() as Array<{ id: string; handle: string }>
@@ -226,11 +226,11 @@ describe('Migration für Bestandskonten', () => {
 
   it('fasst einen einmal vergebenen Handle nie wieder an', () => {
     // Er ist dann in der Welt — ein zweiter Lauf darf ihn nicht umbenennen.
-    const db = oeffneDb(':memory:')
+    const db = openDb(':memory:')
     db.prepare(
       "INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_1','mira@x.de','x','M','2026-01-01','eigenwahl')",
     ).run()
-    vergibFehlendeHandles(db)
+    assignMissingHandles(db)
     expect(
       (db.prepare("SELECT handle FROM users WHERE id = 'u_1'").get() as { handle: string }).handle,
     ).toBe('eigenwahl')
@@ -240,7 +240,7 @@ describe('Migration für Bestandskonten', () => {
   it('legt den UNIQUE-Index ohne Rücksicht auf Groß/Klein an', () => {
     // Zwei Konten „@Henrik" und „@henrik" wären dieselbe Adresse mit zwei
     // Besitzern — die Datenbank muss das ausschließen, nicht erst der Code.
-    const db = oeffneDb(':memory:')
+    const db = openDb(':memory:')
     const anlegen = db.prepare(
       "INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES (?, ?, 'x', 'N', '2026-01-01', ?)",
     )

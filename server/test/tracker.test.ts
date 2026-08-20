@@ -5,13 +5,13 @@
 // Adapters, wie FesterGeocoder und FesteWetterQuelle es für ihre Dienste sind.
 
 import { describe, expect, it } from 'vitest'
-import { entschluessele, gleichSicher, verschluessele } from '../src/tracker/krypto.js'
-import { punkteZuGpx, zuGpx } from '../src/tracker/normalisierer.js'
+import { decrypt, timingSafeEquals, encrypt } from '../src/tracker/crypto.js'
+import { pointsToGpx, toGpx } from '../src/tracker/normalizer.js'
 import { Registry } from '../src/tracker/registry.js'
-import { beispielRohTrack, TestProvider, testSignatur } from '../src/tracker/testprovider.js'
-import { modusAusSportart } from '../src/tracker/touranleger.js'
-import { MAX_VERSUCHE, TrackerDienst } from '../src/tracker/tracker.js'
-import { OhneRouteFehler, type RohTrack } from '../src/tracker/vertrag.js'
+import { exampleRawTrack, TestProvider, testSignature } from '../src/tracker/test-provider.js'
+import { travelModeFromSport } from '../src/tracker/tour-creator.js'
+import { MAX_ATTEMPTS, TrackerService } from '../src/tracker/tracker.js'
+import { NoRouteError, type RawTrack } from '../src/tracker/contract.js'
 import { baueTestApp, type TestUmgebung } from './helfer.js'
 
 const WEBHOOK_GEHEIMNIS = 'geheim-fuer-tests'
@@ -19,7 +19,7 @@ const WEBHOOK_GEHEIMNIS = 'geheim-fuer-tests'
 async function baueMitProvider(
   provider = new TestProvider({
     webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-    tracks: { a1: beispielRohTrack() },
+    tracks: { a1: exampleRawTrack() },
   }),
 ): Promise<{ u: TestUmgebung; provider: TestProvider }> {
   const u = await baueTestApp([], null, null, {}, null, null, null, [provider])
@@ -56,7 +56,7 @@ async function melde(
     url: '/api/webhooks/tracker/polar',
     headers: {
       'content-type': 'application/json',
-      'polar-webhook-signature': testSignatur(rohBody, geheimnis),
+      'polar-webhook-signature': testSignature(rohBody, geheimnis),
     },
     payload: rohBody,
   })
@@ -69,38 +69,38 @@ async function melde(
 
 describe('Token-Verschlüsselung', () => {
   it('verschlüsselt und entschlüsselt verlustfrei', () => {
-    const gepackt = verschluessele('zugriff-token-123', 'schluessel')
+    const gepackt = encrypt('zugriff-token-123', 'schluessel')
     expect(gepackt).not.toContain('zugriff-token-123')
     expect(gepackt.startsWith('v1.')).toBe(true)
-    expect(entschluessele(gepackt, 'schluessel')).toBe('zugriff-token-123')
+    expect(decrypt(gepackt, 'schluessel')).toBe('zugriff-token-123')
   })
 
   it('erzeugt bei gleichem Klartext verschiedene Geheimtexte (eigenes IV)', () => {
-    expect(verschluessele('gleich', 's')).not.toBe(verschluessele('gleich', 's'))
+    expect(encrypt('gleich', 's')).not.toBe(encrypt('gleich', 's'))
   })
 
   it('erkennt falschen Schlüssel und veränderte Daten', () => {
-    const gepackt = verschluessele('geheim', 'richtig')
-    expect(() => entschluessele(gepackt, 'falsch')).toThrow()
+    const gepackt = encrypt('geheim', 'richtig')
+    expect(() => decrypt(gepackt, 'falsch')).toThrow()
     // Ein gekipptes Byte im Geheimtext muss auffallen — dafür GCM statt CBC
     const teile = gepackt.split('.')
     const daten = Buffer.from(teile[3] as string, 'base64url')
     daten[0] = (daten[0] ?? 0) ^ 0xff
     expect(() =>
-      entschluessele([...teile.slice(0, 3), daten.toString('base64url')].join('.'), 'richtig'),
+      decrypt([...teile.slice(0, 3), daten.toString('base64url')].join('.'), 'richtig'),
     ).toThrow()
   })
 
   it('vergleicht Geheimnisse ohne Zeitleck', () => {
-    expect(gleichSicher('abc', 'abc')).toBe(true)
-    expect(gleichSicher('abc', 'abd')).toBe(false)
-    expect(gleichSicher('abc', 'abcd')).toBe(false)
+    expect(timingSafeEquals('abc', 'abc')).toBe(true)
+    expect(timingSafeEquals('abc', 'abd')).toBe(false)
+    expect(timingSafeEquals('abc', 'abcd')).toBe(false)
   })
 })
 
 describe('Normalisierer', () => {
   it('macht aus Punkten GPX mit Höhe und Zeit', () => {
-    const gpx = punkteZuGpx(
+    const gpx = pointsToGpx(
       [
         { lat: 46.5934, lng: 7.9086, ele: 800, zeit: '2026-07-04T08:00:00Z' },
         { lat: 46.59, lng: 7.9105, ele: 830, zeit: '2026-07-04T08:10:00Z' },
@@ -114,7 +114,7 @@ describe('Normalisierer', () => {
   })
 
   it('wirft XML-Sonderzeichen im Titel nicht roh ins Dokument', () => {
-    const gpx = punkteZuGpx(
+    const gpx = pointsToGpx(
       [
         { lat: 1, lng: 1, zeit: '2026-07-04T08:00:00Z' },
         { lat: 2, lng: 2, zeit: '2026-07-04T08:10:00Z' },
@@ -126,17 +126,17 @@ describe('Normalisierer', () => {
 
   it('verwirft unbrauchbare Punkte und meldet „ohne Route", wenn nichts bleibt', () => {
     expect(() =>
-      punkteZuGpx([
+      pointsToGpx([
         { lat: NaN, lng: 7.9, zeit: 'x' },
         { lat: 99, lng: 500, zeit: 'x' },
       ]),
-    ).toThrow(OhneRouteFehler)
+    ).toThrow(NoRouteError)
   })
 
   it('reicht fertiges GPX durch, statt es neu zu schreiben', () => {
     const original =
       '<gpx><trk><trkseg><trkpt lat="1" lon="2"><eigenes>x</eigenes></trkpt></trkseg></trk></gpx>'
-    const track: RohTrack = {
+    const track: RawTrack = {
       format: 'gpx',
       bytes: new TextEncoder().encode(original),
       start: '2026-07-04T08:00:00Z',
@@ -144,26 +144,26 @@ describe('Normalisierer', () => {
     }
     // Unbekannte Angaben (hier `<eigenes>`) bleiben erhalten — Neuschreiben
     // verlöre sie, und die Pipeline liest ohnehin nur, was sie braucht.
-    expect(zuGpx(track)).toBe(original)
+    expect(toGpx(track)).toBe(original)
   })
 
   it('sagt bei FIT, dass es noch nicht gelesen wird (statt still nichts zu tun)', () => {
     expect(() =>
-      zuGpx({ format: 'fit', bytes: new Uint8Array([1, 2]), start: 'a', ende: 'b' }),
+      toGpx({ format: 'fit', bytes: new Uint8Array([1, 2]), start: 'a', ende: 'b' }),
     ).toThrow(/Etappe 2/)
   })
 })
 
 describe('Sportart → Fortbewegung', () => {
   it('ordnet die geläufigen Arten zu', () => {
-    expect(modusAusSportart('Ride')).toBe('bike')
-    expect(modusAusSportart('VirtualRun')).toBe('walk')
-    expect(modusAusSportart('Kayaking')).toBe('ferry')
+    expect(travelModeFromSport('Ride')).toBe('bike')
+    expect(travelModeFromSport('VirtualRun')).toBe('walk')
+    expect(travelModeFromSport('Kayaking')).toBe('ferry')
   })
 
   it('lässt Unbekanntes offen, damit die Server-Erkennung arbeiten darf', () => {
-    expect(modusAusSportart('Unterwasserhockey')).toBeNull()
-    expect(modusAusSportart(null)).toBeNull()
+    expect(travelModeFromSport('Unterwasserhockey')).toBeNull()
+    expect(travelModeFromSport(null)).toBeNull()
   })
 })
 
@@ -238,7 +238,7 @@ describe('Verknüpfen (OAuth)', () => {
     // Datum. Mit eigener Uhr geprüft, sonst fällt beides in dieselbe
     // Millisekunde und der Test bewiese nichts.
     const spaeter = new Date(Date.parse(vorher ?? '') + 86_400_000)
-    const dienst = new TrackerDienst(u.app.deps.db, 'test-schluessel', () => spaeter)
+    const dienst = new TrackerService(u.app.deps.db, 'test-schluessel', () => spaeter)
     dienst.trenne(uid, 'polar')
     dienst.verknuepfe(uid, 'polar', { zugriff: 'neu', externerNutzer: 'extern-1' })
     expect(dienst.verknuepfung(uid, 'polar')?.connectedAt).toBe(spaeter.toISOString())
@@ -441,7 +441,7 @@ describe('Webhook → Tour', () => {
   it('überspringt eine Aktivität ohne GPS-Route, statt sie als Fehler zu führen', async () => {
     const provider = new TestProvider({
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-      tracks: { leer: beispielRohTrack({ punkte: [] }) },
+      tracks: { leer: exampleRawTrack({ punkte: [] }) },
     })
     const { u } = await baueMitProvider(provider)
     await verknuepfe(u)
@@ -454,7 +454,7 @@ describe('Webhook → Tour', () => {
   })
 
   it('überspringt eine zu kurze Aktivität (kein Müll im Konto)', async () => {
-    const kurz = beispielRohTrack({
+    const kurz = exampleRawTrack({
       punkte: [
         { lat: 46.5934, lng: 7.9086, ele: 800, zeit: '2026-07-04T08:00:00Z' },
         { lat: 46.5935, lng: 7.9087, ele: 800, zeit: '2026-07-04T08:01:00Z' },
@@ -480,7 +480,7 @@ describe('Webhook → Tour', () => {
     // ob man sie behalten will. Wer dort ja sagt und sie hier trotzdem nicht
     // wiederfindet, sucht den Fehler bei uns — zu Recht. Verworfen wird nur,
     // was NIEMAND entschieden hat (Uhr in der Jackentasche).
-    const kurzAberEcht: RohTrack = {
+    const kurzAberEcht: RawTrack = {
       format: 'punkte',
       // ~500 m in sechs Minuten
       punkte: [
@@ -533,7 +533,7 @@ describe('Webhook → Tour', () => {
   it('überspringt den Import, wenn der Speicher voll ist', async () => {
     const provider = new TestProvider({
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-      tracks: { a1: beispielRohTrack() },
+      tracks: { a1: exampleRawTrack() },
     })
     const u = await baueTestApp([], null, null, { maxSpeicherProBenutzer: 1 }, null, null, null, [
       provider,
@@ -591,7 +591,7 @@ describe('Importliste und Benachrichtigung', () => {
     // werden konnte, darf nicht durch bloßes Lesen verschwinden.
     const provider = new TestProvider({
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-      tracks: { a1: beispielRohTrack() },
+      tracks: { a1: exampleRawTrack() },
     })
     const { u } = await baueMitProvider(provider)
     await verknuepfe(u)
@@ -650,7 +650,7 @@ describe('Importliste und Benachrichtigung', () => {
   it('zieht über den Polling-Weg nach, wenn ein Anbieter nicht pusht', async () => {
     const provider = new TestProvider({
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-      tracks: { p1: beispielRohTrack() },
+      tracks: { p1: exampleRawTrack() },
       neue: [{ externerNutzer: 'extern-1', externeId: 'p1', art: 'aktivitaet' }],
     })
     const { u } = await baueMitProvider(provider)
@@ -673,7 +673,7 @@ describe('Importliste und Benachrichtigung', () => {
   it('legt nichts doppelt an, wenn derselbe Abruf dieselbe Aktivität erneut meldet', async () => {
     const provider = new TestProvider({
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-      tracks: { p1: beispielRohTrack() },
+      tracks: { p1: exampleRawTrack() },
       neue: [{ externerNutzer: 'extern-1', externeId: 'p1', art: 'aktivitaet' }],
     })
     const { u } = await baueMitProvider(provider)
@@ -731,7 +731,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
       cookies: u.cookies,
     })
 
-    provider.setzeTrack('a1', beispielRohTrack())
+    provider.setzeTrack('a1', exampleRawTrack())
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
     expect(importZeile(u)).toMatchObject({ status: 'done', attempts: 2 })
     // Genau EINE Tour — der zweite Anlauf ist ein Nachholen, kein Duplikat
@@ -755,11 +755,11 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
     const provider = new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: {} })
     const { u } = await baueMitProvider(provider)
     await verknuepfe(u)
-    for (let i = 0; i < MAX_VERSUCHE + 2; i++) {
+    for (let i = 0; i < MAX_ATTEMPTS + 2; i++) {
       await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
     }
     const zeile = importZeile(u)
-    expect(zeile.attempts).toBe(MAX_VERSUCHE)
+    expect(zeile.attempts).toBe(MAX_ATTEMPTS)
     // Kein stiller Deckel: Dass Schluss ist, steht in den FELDERN (die
     // Oberfläche macht daraus „aufgegeben nach 3 Versuchen") und der Grund
     // bleibt der Grund — im Text stünde beides doppelt.
@@ -789,7 +789,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
   it('nimmt einen vollen Speicher dagegen wieder auf — der geht vorbei', async () => {
     const provider = new TestProvider({
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-      tracks: { a1: beispielRohTrack() },
+      tracks: { a1: exampleRawTrack() },
     })
     const u = await baueTestApp([], null, null, { maxSpeicherProBenutzer: 1 }, null, null, null, [
       provider,
@@ -809,7 +809,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
     const offen = u.app.deps.db.prepare('SELECT last_sync_at FROM tracker_links').get()
     expect(offen).toEqual({ last_sync_at: null })
 
-    provider.setzeTrack('a1', beispielRohTrack())
+    provider.setzeTrack('a1', exampleRawTrack())
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
     const fertig = u.app.deps.db.prepare('SELECT last_sync_at FROM tracker_links').get() as {
       last_sync_at: string | null
@@ -874,7 +874,7 @@ describe('Nachziehen von Hand', () => {
     const viele = Array.from({ length: 5 }, (_, i) => `p${i}`)
     const provider = new TestProvider({
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
-      tracks: Object.fromEntries(viele.map((id) => [id, beispielRohTrack()])),
+      tracks: Object.fromEntries(viele.map((id) => [id, exampleRawTrack()])),
       neue: viele.map((id) => ({
         externerNutzer: 'extern-1',
         externeId: id,

@@ -6,23 +6,23 @@
 
 import { createHash, timingSafeEqual } from 'node:crypto'
 import type { Db } from '../db.js'
-import { freierHandle, handleAusEmail, pruefeHandleForm, type HandleFehler } from '../handle.js'
-import { neueSessionId, neuesTokenSecret, neueUserId } from '../ids.js'
-import { nacktesInstagram, nacktesWeb } from '../profilfelder.js'
-import { hashePasswort, pruefePasswort } from './passwort.js'
+import { findFreeHandle, handleFromEmail, validateHandleForm, type HandleError } from '../handle.js'
+import { newSessionId, newTokenSecret, newUserId } from '../ids.js'
+import { normalizeInstagram, normalizeWebsite } from '../profile-fields.js'
+import { hashPassword, checkPassword } from './password.js'
 
 /** Zwei Rollen genügen: wer verwalten darf, und wer seine eigenen Touren hat. */
-export type Rolle = 'user' | 'admin'
+export type Role = 'user' | 'admin'
 
-export interface Benutzer {
+export interface User {
   id: string
   email: string
   name: string
-  role: Rolle
+  role: Role
 }
 
 /** Eine Zeile der Benutzerverwaltung — Konto plus das, was daran hängt. */
-export interface BenutzerZeile extends Benutzer {
+export interface UserRow extends User {
   verified: boolean
   createdAt: string
   displayName: string | null
@@ -30,22 +30,22 @@ export interface BenutzerZeile extends Benutzer {
 }
 
 /** Änderungswunsch am Konto; fehlende Felder bleiben, wie sie sind. */
-export interface KontoAenderung {
+export interface AccountUpdate {
   email?: string
   name?: string
-  role?: Rolle
+  role?: Role
   verified?: boolean
 }
 
 /** Doppelte E-Mail — vom Aufrufer in eine 409-Antwort übersetzt. */
-export class EmailVergebenFehler extends Error {
+export class EmailTakenError extends Error {
   constructor() {
     super('Diese E-Mail ist bereits registriert')
     this.name = 'EmailVergebenFehler'
   }
 }
 
-const alsRolle = (wert: unknown): Rolle => (wert === 'admin' ? 'admin' : 'user')
+const alsRolle = (wert: unknown): Role => (wert === 'admin' ? 'admin' : 'user')
 
 /**
  * Das öffentliche Profil — bewusst getrennt vom Konto.
@@ -54,7 +54,7 @@ const alsRolle = (wert: unknown): Rolle => (wert === 'admin' ? 'admin' : 'user')
  * seinem echten Namen anmeldet, soll ihn nicht nebenbei veröffentlichen. Ohne
  * gesetzten Anzeigenamen erscheint eine öffentliche Tour ohne Urheber.
  */
-export interface Profil {
+export interface Profile {
   /** Die Adresse der Person: `maptale.io/@henrik`. Immer gesetzt (s. handle.ts). */
   handle: string | null
   displayName: string | null
@@ -72,7 +72,7 @@ export interface Profil {
 }
 
 /** Änderungswunsch am Profil; fehlende Felder bleiben, wie sie sind. */
-export interface ProfilAenderung {
+export interface ProfileUpdate {
   displayName?: string
   bio?: string
   location?: string
@@ -84,7 +84,7 @@ export interface ProfilAenderung {
 /** Leerer oder nur aus Leerraum bestehender Text heißt: Feld leeren. */
 const leerAlsNull = (wert: string): string | null => wert.trim() || null
 
-export type MailZweck = 'verify' | 'reset' | 'email'
+export type MailPurpose = 'verify' | 'reset' | 'email'
 
 /**
  * Woher eine Sitzung kommt — so viel, wie zum Wiedererkennen nötig ist.
@@ -95,7 +95,7 @@ export type MailZweck = 'verify' | 'reset' | 'email'
  * Bewegungsprofil, „84.119.x.x" beantwortet die einzige Frage, die hier
  * gestellt wird.
  */
-export interface SitzungsKennzeichen {
+export interface SessionFingerprint {
   userAgent?: string | null
   ip?: string | null
   /**
@@ -108,7 +108,7 @@ export interface SitzungsKennzeichen {
 }
 
 /** Ein angemeldetes Gerät — Browser-Sitzung oder App-Token. */
-export interface Geraet {
+export interface Device {
   /** `session:<id>` oder `app:<id>` — beide Listen haben eigene Tabellen. */
   id: string
   kind: 'session' | 'app'
@@ -123,7 +123,7 @@ const SESSION_DAUER_MS = 30 * 24 * 60 * 60 * 1000 // 30 Tage
 /** Wie lange ein aufgegebener Handle für seinen früheren Besitzer gesperrt bleibt. */
 const HANDLE_SPERRE_MS = 90 * 24 * 60 * 60 * 1000
 // Lebensdauer der Einmal-Token: E-Mail-Bestätigung großzügig, Passwort-Reset kurz.
-const MAIL_TOKEN_DAUER_MS: Record<MailZweck, number> = {
+const MAIL_TOKEN_DAUER_MS: Record<MailPurpose, number> = {
   verify: 24 * 60 * 60 * 1000, // 24 h
   reset: 60 * 60 * 1000, // 1 h
   // Der Wechsel der Adresse liegt dazwischen: Er ist nicht so dringlich wie ein
@@ -145,7 +145,7 @@ const GESEHEN_TAKT_MS = 5 * 60 * 1000
  * Zwei Gruppen genügen, um ein fremdes Gerät zu erkennen („das war nicht mein
  * Anschluss"), und sie sind zu grob, um daraus einen Aufenthaltsort zu machen.
  */
-export function ipPraefix(ip: string | null | undefined): string | null {
+export function ipPrefix(ip: string | null | undefined): string | null {
   if (!ip) return null
   const wert = ip.replace(/^::ffff:/, '')
   if (wert.includes(':')) {
@@ -174,7 +174,7 @@ const sha256 = (wert: string): string => createHash('sha256').update(wert).diges
  * das Feld nicht einfach leer bleibt: Ein Pflichtfeld weniger im Formular darf
  * nicht als „Hallo ," in der Bestätigungsmail wieder auftauchen.
  */
-export function nameAusEmail(email: string): string {
+export function nameFromEmail(email: string): string {
   const lokal = email.split('@')[0] ?? ''
   const ohneZusatz = lokal.split('+')[0] ?? lokal
   const worte = ohneZusatz
@@ -186,7 +186,7 @@ export function nameAusEmail(email: string): string {
   return (worte.join(' ') || ohneZusatz || lokal || email).slice(0, 80)
 }
 
-export class AuthDienst {
+export class AuthService {
   constructor(private readonly db: Db) {}
 
   /** Legt den Seed-Benutzer an, falls die Datenbank noch leer ist (Erststart). */
@@ -225,19 +225,19 @@ export class AuthDienst {
     passwort: string,
     name: string,
     verifiziert = true,
-    rolle: Rolle = 'user',
-  ): Promise<Benutzer> {
-    const benutzer: Benutzer = {
-      id: neueUserId(),
+    rolle: Role = 'user',
+  ): Promise<User> {
+    const benutzer: User = {
+      id: newUserId(),
       email: email.toLowerCase().trim(),
       name,
       role: rolle,
     }
-    const pwHash = await hashePasswort(passwort)
+    const pwHash = await hashPassword(passwort)
     // Jedes Konto bekommt sofort eine Adresse — ein Profil ohne Handle wäre
     // nicht verlinkbar, und ein nachgereichter Handle hieße, dass die halbe
     // Anwendung mit „vielleicht keiner" rechnen müsste.
-    const handle = freierHandle(handleAusEmail(benutzer.email), (h) => !this.handleFrei(h, null))
+    const handle = findFreeHandle(handleFromEmail(benutzer.email), (h) => !this.handleFrei(h, null))
     try {
       this.db
         .prepare(
@@ -256,7 +256,7 @@ export class AuthDienst {
     } catch (fehler) {
       // Die UNIQUE-Verletzung ist der einzige erwartbare Fall — als eigener
       // Fehlertyp, damit die Route 409 statt 500 antworten kann.
-      if (String(fehler).includes('UNIQUE')) throw new EmailVergebenFehler()
+      if (String(fehler).includes('UNIQUE')) throw new EmailTakenError()
       throw fehler
     }
     return benutzer
@@ -274,20 +274,20 @@ export class AuthDienst {
   }
 
   /** E-Mail + Passwort prüfen; null bei Fehlschlag (bewusst ohne Grund-Detail). */
-  async login(email: string, passwort: string): Promise<Benutzer | null> {
+  async login(email: string, passwort: string): Promise<User | null> {
     const zeile = this.db
       .prepare('SELECT id, email, pw_hash, name, role FROM users WHERE email = ?')
       .get(email.toLowerCase().trim()) as
       { id: string; email: string; pw_hash: string; name: string; role: string } | undefined
     if (!zeile) {
       // Dummy-Prüfung gegen Timing-Unterschied „Benutzer existiert (nicht)"
-      await pruefePasswort(
+      await checkPassword(
         '$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
         passwort,
       )
       return null
     }
-    const ok = await pruefePasswort(zeile.pw_hash, passwort)
+    const ok = await checkPassword(zeile.pw_hash, passwort)
     return ok
       ? { id: zeile.id, email: zeile.email, name: zeile.name, role: alsRolle(zeile.role) }
       : null
@@ -297,9 +297,9 @@ export class AuthDienst {
 
   erzeugeSession(
     userId: string,
-    kennzeichen: SitzungsKennzeichen = {},
+    kennzeichen: SessionFingerprint = {},
   ): { id: string; ablauf: Date } {
-    const id = neueSessionId()
+    const id = newSessionId()
     const jetzt = Date.now()
     const ablauf = new Date(jetzt + SESSION_DAUER_MS)
     this.db
@@ -313,7 +313,7 @@ export class AuthDienst {
         new Date(jetzt).toISOString(),
         ablauf.toISOString(),
         kennzeichen.userAgent?.slice(0, 300) ?? null,
-        ipPraefix(kennzeichen.ip),
+        ipPrefix(kennzeichen.ip),
         new Date(jetzt).toISOString(),
         kennzeichen.tokenId ?? null,
       )
@@ -342,7 +342,7 @@ export class AuthDienst {
     return zeile ? { id: zeile.id, ablauf: new Date(zeile.expires_at) } : null
   }
 
-  benutzerAusSession(sessionId: string): Benutzer | null {
+  benutzerAusSession(sessionId: string): User | null {
     const zeile = this.db
       .prepare(
         `SELECT u.id, u.email, u.name, u.role, s.expires_at, s.last_seen_at FROM sessions s
@@ -397,7 +397,7 @@ export class AuthDienst {
    * Wer ein fremdes Gerät sucht, fand eine Handvoll „Unbekanntes Gerät", die
    * alle ihm selbst gehörten.
    */
-  geraete(userId: string): Geraet[] {
+  geraete(userId: string): Device[] {
     const jetzt = new Date().toISOString()
     const sitzungen = this.db
       .prepare(
@@ -471,10 +471,10 @@ export class AuthDienst {
 
   /** Erzeugt ein Token; der Klartext wird NUR hier zurückgegeben. */
   erzeugeToken(userId: string, label: string): string {
-    const klartext = neuesTokenSecret()
+    const klartext = newTokenSecret()
     this.db
       .prepare('INSERT INTO tokens (id, hash, user_id, label, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(neueSessionId(), sha256(klartext), userId, label, new Date().toISOString())
+      .run(newSessionId(), sha256(klartext), userId, label, new Date().toISOString())
     return klartext
   }
 
@@ -486,7 +486,7 @@ export class AuthDienst {
    * Kontoeinstellungen die Meldungen dorthin mit beendet. Die App kann das
    * nicht selbst aufräumen — sie ist in diesem Moment gerade ausgesperrt worden.
    */
-  anmeldungAusToken(klartext: string): { benutzer: Benutzer; tokenId: string } | null {
+  anmeldungAusToken(klartext: string): { benutzer: User; tokenId: string } | null {
     const hash = sha256(klartext)
     const zeile = this.db
       .prepare(
@@ -513,7 +513,7 @@ export class AuthDienst {
     }
   }
 
-  benutzerAusToken(klartext: string): Benutzer | null {
+  benutzerAusToken(klartext: string): User | null {
     return this.anmeldungAusToken(klartext)?.benutzer ?? null
   }
 
@@ -528,18 +528,18 @@ export class AuthDienst {
    * Klartext wandert direkt in die Mail. Frühere offene Token desselben Zwecks
    * werden verworfen (ein angefordertes Reset entwertet das vorige).
    */
-  erzeugeMailToken(userId: string, zweck: MailZweck, nutzlast: string | null = null): string {
+  erzeugeMailToken(userId: string, zweck: MailPurpose, nutzlast: string | null = null): string {
     this.db
       .prepare('DELETE FROM mail_tokens WHERE user_id = ? AND purpose = ? AND used_at IS NULL')
       .run(userId, zweck)
-    const klartext = neuesTokenSecret()
+    const klartext = newTokenSecret()
     const jetzt = Date.now()
     this.db
       .prepare(
         'INSERT INTO mail_tokens (id, user_id, purpose, hash, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
-        neueSessionId(),
+        newSessionId(),
         userId,
         zweck,
         sha256(klartext),
@@ -555,7 +555,7 @@ export class AuthDienst {
    * ihn als verbraucht und gibt die user_id zurück (null bei ungültig/abgelaufen/
    * schon benutzt). Bewusst atomar in einer Transaktion gegen Doppel-Einlösung.
    */
-  loeseMailToken(klartext: string, zweck: MailZweck): string | null {
+  loeseMailToken(klartext: string, zweck: MailPurpose): string | null {
     return this.loeseMailTokenMitNutzlast(klartext, zweck)?.userId ?? null
   }
 
@@ -568,7 +568,7 @@ export class AuthDienst {
    */
   loeseMailTokenMitNutzlast(
     klartext: string,
-    zweck: MailZweck,
+    zweck: MailPurpose,
   ): { userId: string; payload: string | null } | null {
     const hash = sha256(klartext)
     return this.db.transaction(() => {
@@ -616,7 +616,7 @@ export class AuthDienst {
    * wechselt, weil er sich Sorgen macht, meint auch das Telefon.
    */
   async setzePasswort(userId: string, passwort: string, behalteSession?: string): Promise<void> {
-    const pwHash = await hashePasswort(passwort)
+    const pwHash = await hashPassword(passwort)
     this.db.prepare('UPDATE users SET pw_hash = ? WHERE id = ?').run(pwHash, userId)
     if (behalteSession) {
       this.db
@@ -707,9 +707,9 @@ export class AuthDienst {
    * die Links miterben. Derselbe Handle noch einmal ist ein No-op, kein Fehler —
    * sonst müsste jedes Formular vorher vergleichen.
    */
-  setzeHandle(userId: string, wunsch: string): HandleFehler | null {
+  setzeHandle(userId: string, wunsch: string): HandleError | null {
     const handle = wunsch.trim().toLowerCase()
-    const formfehler = pruefeHandleForm(handle)
+    const formfehler = validateHandleForm(handle)
     if (formfehler) return formfehler
     const alt = this.handleVon(userId)
     if (alt && alt.toLowerCase() === handle) return null
@@ -743,7 +743,7 @@ export class AuthDienst {
   }
 
   /** Öffentliches Profil eines Benutzers; null, wenn es ihn nicht gibt. */
-  profil(userId: string): Profil | null {
+  profil(userId: string): Profile | null {
     const zeile = this.db
       .prepare(
         `SELECT handle, display_name, bio, location, website, instagram, avatar, banner, profile_visibility
@@ -785,7 +785,7 @@ export class AuthDienst {
    * Anzeigename bliebe stehen. (Die Spaltennamen stammen aus dem Code, nicht
    * aus der Anfrage.)
    */
-  setzeProfil(userId: string, aenderung: ProfilAenderung): void {
+  setzeProfil(userId: string, aenderung: ProfileUpdate): void {
     const zuweisungen: string[] = []
     const werte: Array<string | null> = []
     if (aenderung.displayName !== undefined) {
@@ -805,11 +805,11 @@ export class AuthDienst {
     // Feld heißt hier wie überall „löschen".
     if (aenderung.website !== undefined) {
       zuweisungen.push('website = ?')
-      werte.push(nacktesWeb(aenderung.website))
+      werte.push(normalizeWebsite(aenderung.website))
     }
     if (aenderung.instagram !== undefined) {
       zuweisungen.push('instagram = ?')
-      werte.push(nacktesInstagram(aenderung.instagram))
+      werte.push(normalizeInstagram(aenderung.instagram))
     }
     if (aenderung.visibility !== undefined) {
       zuweisungen.push('profile_visibility = ?')
@@ -866,7 +866,7 @@ export class AuthDienst {
    * Speicher steht bewusst NICHT hier — er liegt im Storage, nicht in der DB,
    * und wird von der Route nachgereicht.
    */
-  alleBenutzer(): BenutzerZeile[] {
+  alleBenutzer(): UserRow[] {
     const zeilen = this.db
       .prepare(
         `SELECT id, email, name, role, email_verified, created_at, display_name,
@@ -896,7 +896,7 @@ export class AuthDienst {
   }
 
   /** Ein Konto der Verwaltung; null, wenn es die ID nicht gibt. */
-  benutzerNachId(userId: string): BenutzerZeile | null {
+  benutzerNachId(userId: string): UserRow | null {
     return this.alleBenutzer().find((b) => b.id === userId) ?? null
   }
 
@@ -918,7 +918,7 @@ export class AuthDienst {
    * NICHT automatisch zurückgesetzt, weil ein Admin die Adresse gerade
    * bewusst korrigiert hat — er kann den Haken selbst setzen.
    */
-  aendereKonto(userId: string, aenderung: KontoAenderung): void {
+  aendereKonto(userId: string, aenderung: AccountUpdate): void {
     const zuweisungen: string[] = []
     const werte: Array<string | number> = []
     if (aenderung.email !== undefined) {
@@ -943,7 +943,7 @@ export class AuthDienst {
         .prepare(`UPDATE users SET ${zuweisungen.join(', ')} WHERE id = ?`)
         .run(...werte, userId)
     } catch (fehler) {
-      if (String(fehler).includes('UNIQUE')) throw new EmailVergebenFehler()
+      if (String(fehler).includes('UNIQUE')) throw new EmailTakenError()
       throw fehler
     }
   }

@@ -352,7 +352,7 @@ nicht zwei Achsen.
 ## 11. Die Pause als erzähltes Ereignis
 
 **Neu am 2026-08-01**, aus dem Befund einer Testtour: drei Stunden Aufnahme, davon zwei
-im Kino. Seit dem Zeitraffer-Umbau ([zeit.ts](../../server/src/pipeline/zeit.ts),
+im Kino. Seit dem Zeitraffer-Umbau ([time.ts](../../server/src/pipeline/time.ts),
 `raffePausen`) läuft die Uhr über die Pause ehrlich weiter, und der Himmel dreht auf
 dem Rampenfenster sichtbar von Dämmerung auf Nacht. Das ist die halbe Miete: Der
 Zuschauer *sieht*, dass Zeit vergangen ist. Er erfährt aber nicht, **wie viel** und

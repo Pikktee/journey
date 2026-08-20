@@ -3,11 +3,11 @@
 // Helfer würde Number('')===0 die Quota auf null setzen und alle Uploads sperren.
 
 import { describe, expect, it } from 'vitest'
-import { konfigAusEnv } from '../src/config.js'
+import { configFromEnv } from '../src/config.js'
 
 describe('konfigAusEnv', () => {
   it('nutzt Defaults, wenn Variablen fehlen', () => {
-    const k = konfigAusEnv({})
+    const k = configFromEnv({})
     expect(k.port).toBe(8787)
     expect(k.maxSpeicherProBenutzer).toBe(2 * 1024 * 1024 * 1024)
     expect(k.basisUrl).toBe('http://localhost:5173')
@@ -18,7 +18,7 @@ describe('konfigAusEnv', () => {
   })
 
   it('behandelt LEERE Strings (docker-compose ${VAR:-}) wie „nicht gesetzt"', () => {
-    const k = konfigAusEnv({
+    const k = configFromEnv({
       PORT: '',
       MAPTALE_MAX_SPEICHER_PRO_BENUTZER: '',
       MAPTALE_BASIS_URL: '',
@@ -35,7 +35,7 @@ describe('konfigAusEnv', () => {
   })
 
   it('übernimmt gesetzte Werte', () => {
-    const k = konfigAusEnv({
+    const k = configFromEnv({
       MAPTALE_BASIS_URL: 'https://maptale.henrikheil.net',
       MAPTALE_MAX_SPEICHER_PRO_BENUTZER: '1048576',
       MAPTALE_REGISTRIERUNG_OFFEN: '0',

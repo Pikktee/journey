@@ -60,7 +60,7 @@ export class NominatimGeocoder implements Geocoder {
 
   async ortsebenen(lng: number, lat: number): Promise<string[]> {
     const a = await this.adresse(lng, lat)
-    return a ? ebenenAusAdresse(a) : []
+    return a ? levelsFromAddress(a) : []
   }
 }
 
@@ -72,7 +72,7 @@ export class NominatimGeocoder implements Geocoder {
  * Sehenswürdigkeits-Name wäre (`tourism`, `attraction`), kommt bei `zoom=14`
  * ohnehin nicht mit — wer ihn will, schreibt ihn selbst hinein.
  */
-export function ebenenAusAdresse(a: Record<string, string>): string[] {
+export function levelsFromAddress(a: Record<string, string>): string[] {
   const kandidaten = [
     a.village,
     a.hamlet,
@@ -92,7 +92,7 @@ export function ebenenAusAdresse(a: Record<string, string>): string[] {
   return aus
 }
 
-export class FesterGeocoder implements Geocoder {
+export class FixedGeocoder implements Geocoder {
   /** Zahl der ortsname-Aufrufe — Tests prüfen damit die Geocoding-Vermeidung. */
   public aufrufe = 0
   constructor(private readonly antworten: ReadonlyArray<string | null>) {}
@@ -103,7 +103,7 @@ export class FesterGeocoder implements Geocoder {
   }
 }
 
-export interface Benennung {
+export interface Naming {
   title: string
   brandTitle: string
   titleHtml: string
@@ -136,7 +136,7 @@ const datumDeutsch = (iso: string, zone: string): string => {
 
 /** Reverse-Geocoding-Ergebnis der beiden Endpunkte — reine Funktion der
  *  Koordinaten (unabhängig von Trim/Titel), daher der cachebare Teil. */
-export interface Endpunkte {
+export interface Endpoints {
   startOrt: string | null
   zielOrt: string | null
   /**
@@ -152,11 +152,11 @@ export interface Endpunkte {
  * auflösen. Bewusst getrennt vom Zusammenbau der Texte, damit die Anreicherung
  * das Ergebnis cachen kann (Ortsname einer Koordinate ist ein fixer Fakt).
  */
-export async function geocodiereEndpunkte(
+export async function geocodeEndpoints(
   geocoder: Geocoder,
   startPunkt: [number, number],
   zielPunkt: [number, number],
-): Promise<Endpunkte> {
+): Promise<Endpoints> {
   const startOrt = await geocoder.ortsname(startPunkt[0], startPunkt[1])
   // Die Ebenen VOR dem Zielpunkt holen: Der Nominatim-Geocoder hält genau eine
   // Antwort vor, ein Aufruf für den Zielpunkt dazwischen würfe sie weg und
@@ -173,7 +173,7 @@ export async function geocodiereEndpunkte(
  * zusammengebaut (der Titel kann sich per PATCH ändern, ohne dass neu geocodiert
  * werden muss).
  */
-export function baueBenennung(args: {
+export function buildNaming(args: {
   startOrt: string | null
   zielOrt: string | null
   nutzerTitel: string | null
@@ -186,7 +186,7 @@ export function baueBenennung(args: {
   dachzeile?: string | null
   zeitStart: string
   zone: string
-}): Benennung {
+}): Naming {
   const { startOrt, zielOrt, nutzerTitel, dachzeile, zeitStart, zone } = args
   const datum = datumDeutsch(zeitStart, zone)
 
@@ -224,7 +224,7 @@ export function baueBenennung(args: {
   return {
     title,
     brandTitle: title,
-    titleHtml: titleZuHtml(title),
+    titleHtml: titleToHtml(title),
     kicker,
     stops: stops.length ? stops : [title],
     finaleTitle: zielOrt ?? stops[stops.length - 1] ?? title,
@@ -236,7 +236,7 @@ export function baueBenennung(args: {
  * Direktaufrufe und Tests. Der Produktionspfad (Anreicherung) nutzt stattdessen
  * `geocodiereEndpunkte` (gecacht) + `baueBenennung` (pro Render).
  */
-export async function benenneTour(args: {
+export async function nameTour(args: {
   nutzerTitel: string | null
   dachzeile?: string | null
   startPunkt: [number, number]
@@ -244,10 +244,10 @@ export async function benenneTour(args: {
   zeitStart: string
   zone: string
   geocoder: Geocoder
-}): Promise<Benennung> {
+}): Promise<Naming> {
   const { nutzerTitel, dachzeile, startPunkt, zielPunkt, zeitStart, zone, geocoder } = args
-  const orte = await geocodiereEndpunkte(geocoder, startPunkt, zielPunkt)
-  return baueBenennung({ ...orte, nutzerTitel, dachzeile: dachzeile ?? null, zeitStart, zone })
+  const orte = await geocodeEndpoints(geocoder, startPunkt, zielPunkt)
+  return buildNaming({ ...orte, nutzerTitel, dachzeile: dachzeile ?? null, zeitStart, zone })
 }
 
 /**
@@ -255,7 +255,7 @@ export async function benenneTour(args: {
  * die die Zeilen am ausgewogensten teilt. Namen werden HTML-escaped — nur
  * unser <br /> ist Markup.
  */
-export function titleZuHtml(title: string): string {
+export function titleToHtml(title: string): string {
   const pfeil = title.indexOf('→')
   if (pfeil > 0) {
     const links = escapeHtml(title.slice(0, pfeil).trim())

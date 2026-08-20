@@ -1,15 +1,15 @@
 // Gehabschnitts-Erkennung an synthetischen Tracks: gerade Strecke nach Osten,
 // die Punkte im gewünschten Tempo gesetzt.
 import { describe, expect, it } from 'vitest'
-import { wendeModiAn } from '../src/pipeline/edits.js'
-import { kollabierePausen } from '../src/pipeline/zeit.js'
+import { applyTravelModes } from '../src/pipeline/edits.js'
+import { collapsePauses } from '../src/pipeline/time.js'
 import {
-  istAufzeichnung,
-  tempoVerlaufKmh,
-  trenneGehabschnitte,
-  trenneGehabschnitteInSegmenten,
+  isRecording,
+  speedProfileKmh,
+  splitWalkSegments,
+  splitWalkSegmentsInSegments,
 } from '../src/pipeline/tempo.js'
-import type { Modus, UploadPunkt, UploadSegment } from '../src/schema/upload.js'
+import type { TravelMode, UploadPoint, UploadSegment } from '../src/schema/upload.js'
 
 /** Grad Länge je Meter auf ~46,6° Nord (Berner Oberland). */
 const GRAD_PRO_METER = 1 / (111_320 * Math.cos((46.59 * Math.PI) / 180))
@@ -19,8 +19,8 @@ const GRAD_PRO_METER = 1 / (111_320 * Math.cos((46.59 * Math.PI) / 180))
  * Die Punkte liegen auf einer Linie nach Osten — die Distanz ist damit exakt
  * berechenbar und das Tempo genau das gewünschte.
  */
-function track(abschnitte: Array<[number, number]>): UploadPunkt[] {
-  const pts: UploadPunkt[] = []
+function track(abschnitte: Array<[number, number]>): UploadPoint[] {
+  const pts: UploadPoint[] = []
   let lng = 7.9
   let t = 0
   pts.push([Number(lng.toFixed(6)), 46.59, 800, 0])
@@ -40,13 +40,13 @@ function track(abschnitte: Array<[number, number]>): UploadPunkt[] {
 // entstehen die Fehler, die `track` (ein Punkt je 5 s) nie zeigen würde.
 
 /** Ein Streckenteil, der dort anschließt, wo der vorige endete. */
-type Teil = (lng: number, t: number) => UploadPunkt[]
+type Teil = (lng: number, t: number) => UploadPoint[]
 
 /** Stillstand mit GPS-Rauschen: Punkte im 10-s-Takt, ±3 m um denselben Ort. */
 const halt =
   (dauerS: number): Teil =>
   (lng, t0) => {
-    const pts: UploadPunkt[] = []
+    const pts: UploadPoint[] = []
     for (let t = 10; t <= dauerS; t += 10) {
       pts.push([Number((lng + Math.sin(t) * 3 * GRAD_PRO_METER).toFixed(6)), 46.59, 800, t0 + t])
     }
@@ -57,7 +57,7 @@ const halt =
 const fahrt =
   (kmh: number, dauerS: number, taktS: number): Teil =>
   (lngStart, t0) => {
-    const pts: UploadPunkt[] = []
+    const pts: UploadPoint[] = []
     let lng = lngStart
     for (let t = taktS; t <= dauerS; t += taktS) {
       lng += (kmh / 3.6) * taktS * GRAD_PRO_METER
@@ -70,8 +70,8 @@ const fahrt =
 const gehen = (dauerS: number): Teil => fahrt(4.5, dauerS, 5)
 
 /** Teile aneinanderhängen; jeder beginnt an Ort und Zeit des vorigen. */
-function kette(...teile: Teil[]): UploadPunkt[] {
-  const pts: UploadPunkt[] = [[7.9, 46.59, 800, 0]]
+function kette(...teile: Teil[]): UploadPoint[] {
+  const pts: UploadPoint[] = [[7.9, 46.59, 800, 0]]
   for (const teil of teile) {
     const letzter = pts[pts.length - 1]!
     pts.push(...teil(letzter[0], letzter[3]))
@@ -79,16 +79,16 @@ function kette(...teile: Teil[]): UploadPunkt[] {
   return pts
 }
 
-const segment = (mode: Modus, pts: UploadPunkt[]): UploadSegment => ({ mode, pts })
+const segment = (mode: TravelMode, pts: UploadPoint[]): UploadSegment => ({ mode, pts })
 
 /** Modi und ihre Dauer in Sekunden — so lassen sich Ergebnisse knapp prüfen. */
-function verlauf(segmente: UploadSegment[]): Array<[Modus, number]> {
+function verlauf(segmente: UploadSegment[]): Array<[TravelMode, number]> {
   return segmente.map((s) => [s.mode, s.pts[s.pts.length - 1]![3] - s.pts[0]![3]])
 }
 
 describe('tempoVerlaufKmh', () => {
   it('misst gleichmäßige Fahrt korrekt', () => {
-    const tempo = tempoVerlaufKmh(track([[20, 300]]))
+    const tempo = speedProfileKmh(track([[20, 300]]))
     const mitte = tempo[Math.floor(tempo.length / 2)]!
     expect(mitte).toBeGreaterThan(19)
     expect(mitte).toBeLessThan(21)
@@ -100,7 +100,7 @@ describe('tempoVerlaufKmh', () => {
     const pts = track([[4, 600]])
     const ausreisser = pts[40]!
     pts[40] = [ausreisser[0] + 300 * GRAD_PRO_METER, ausreisser[1], ausreisser[2], ausreisser[3]]
-    const tempo = tempoVerlaufKmh(pts)
+    const tempo = speedProfileKmh(pts)
     expect(Math.max(...tempo)).toBeLessThan(8)
   })
 })
@@ -115,13 +115,13 @@ describe('trenneGehabschnitte', () => {
         [20, 600],
       ]),
     )
-    expect(verlauf(trenneGehabschnitte(s)).map((v) => v[0])).toEqual(['bike', 'walk', 'bike'])
+    expect(verlauf(splitWalkSegments(s)).map((v) => v[0])).toEqual(['bike', 'walk', 'bike'])
   })
 
   it('der Grenzpunkt gehört beiden Abschnitten', () => {
     // Sonst entsteht beim Verketten eine Lücke im Track (Konvention wie bei
     // den Modus-Grenzen aus dem Editor).
-    const teile = trenneGehabschnitte(
+    const teile = splitWalkSegments(
       segment(
         'bike',
         track([
@@ -144,7 +144,7 @@ describe('trenneGehabschnitte', () => {
         [20, 400],
       ]),
     )
-    expect(trenneGehabschnitte(s)).toHaveLength(1)
+    expect(splitWalkSegments(s)).toHaveLength(1)
   })
 
   it('ein kurzes Rollstück unterbricht das Wandern nicht', () => {
@@ -156,7 +156,7 @@ describe('trenneGehabschnitte', () => {
         [4, 500],
       ]),
     )
-    expect(trenneGehabschnitte(s)).toHaveLength(1)
+    expect(splitWalkSegments(s)).toHaveLength(1)
   })
 
   it('flackert nicht bei Tempo um die Schwelle herum', () => {
@@ -171,7 +171,7 @@ describe('trenneGehabschnitte', () => {
         [7, 200],
       ]),
     )
-    expect(trenneGehabschnitte(s)).toHaveLength(1)
+    expect(splitWalkSegments(s)).toHaveLength(1)
   })
 
   it('ein Fotostopp ist kein Gehabschnitt', () => {
@@ -179,7 +179,7 @@ describe('trenneGehabschnitte', () => {
     // legt nur GPS-Rauschen zurück. Ohne die Strecken-Schranke bekäme jedes
     // Foto einer Mopedtour seinen eigenen „Zu Fuß"-Abschnitt.
     const s = segment('moped', kette(fahrt(30, 600, 60), halt(600), fahrt(30, 600, 60)))
-    expect(trenneGehabschnitte(s).map((t) => t.mode)).toEqual(['moped'])
+    expect(splitWalkSegments(s).map((t) => t.mode)).toEqual(['moped'])
   })
 
   it('markiert keine Fahrt als Gehen, weil der Median nachhinkt', () => {
@@ -187,7 +187,7 @@ describe('trenneGehabschnitte', () => {
     // gleitende Median kippt deshalb erst nach etlichen hundert Metern Fahrt.
     // Ohne geschärfte Grenze fiele diese Strecke in den Gehabschnitt.
     const s = segment('moped', kette(gehen(300), halt(600), fahrt(30, 900, 60)))
-    for (const teil of trenneGehabschnitte(s)) {
+    for (const teil of splitWalkSegments(s)) {
       if (teil.mode !== 'walk') continue
       const dauerS = teil.pts[teil.pts.length - 1]![3] - teil.pts[0]![3]
       let meter = 0
@@ -208,29 +208,29 @@ describe('trenneGehabschnitte', () => {
         [45, 600],
       ]),
     )
-    expect(verlauf(trenneGehabschnitte(s)).map((v) => v[0])).toEqual(['moped', 'walk', 'moped'])
+    expect(verlauf(splitWalkSegments(s)).map((v) => v[0])).toEqual(['moped', 'walk', 'moped'])
   })
 
   it('ohne Angabe wird aus schnellem walk ein bike', () => {
     const s = segment('walk', track([[22, 900]]))
-    expect(trenneGehabschnitte(s).map((t) => t.mode)).toEqual(['bike'])
+    expect(splitWalkSegments(s).map((t) => t.mode)).toEqual(['bike'])
   })
 
   it('ohne Angabe bleibt langsames walk unangetastet', () => {
     const s = segment('walk', track([[4, 900]]))
-    const teile = trenneGehabschnitte(s)
+    const teile = splitWalkSegments(s)
     expect(teile).toHaveLength(1)
     expect(teile[0]).toBe(s) // unverändert durchgereicht
   })
 
   it('eine reine Fahrt bleibt ein Segment', () => {
     const s = segment('bike', track([[20, 900]]))
-    expect(trenneGehabschnitte(s)).toEqual([s])
+    expect(splitWalkSegments(s)).toEqual([s])
   })
 
   it('sehr kurze Tracks bleiben unangetastet', () => {
     const s = segment('bike', track([[20, 10]]))
-    expect(trenneGehabschnitte(s)).toEqual([s])
+    expect(splitWalkSegments(s)).toEqual([s])
   })
 
   it('deckt den Track lückenlos ab', () => {
@@ -243,7 +243,7 @@ describe('trenneGehabschnitte', () => {
         [3, 400],
       ]),
     )
-    const teile = trenneGehabschnitte(s)
+    const teile = splitWalkSegments(s)
     expect(teile[0]!.pts[0]).toEqual(s.pts[0])
     expect(teile[teile.length - 1]!.pts.at(-1)).toEqual(s.pts.at(-1))
     for (let i = 1; i < teile.length; i++) {
@@ -261,7 +261,7 @@ describe('trenneGehabschnitteInSegmenten', () => {
         [4, 600],
       ]),
     )
-    expect(trenneGehabschnitteInSegmenten([s]).length).toBe(2)
+    expect(splitWalkSegmentsInSegments([s]).length).toBe(2)
   })
 
   it('lässt bewusst gesetzte Modus-Wechsel in Ruhe', () => {
@@ -277,11 +277,11 @@ describe('trenneGehabschnitteInSegmenten', () => {
       ),
       segment('ferry', track([[30, 600]])),
     ]
-    expect(trenneGehabschnitteInSegmenten(segmente)).toEqual(segmente)
+    expect(splitWalkSegmentsInSegments(segmente)).toEqual(segmente)
   })
 
   it('verträgt eine leere Liste', () => {
-    expect(trenneGehabschnitteInSegmenten([])).toEqual([])
+    expect(splitWalkSegmentsInSegments([])).toEqual([])
   })
 })
 
@@ -292,14 +292,14 @@ describe('Zusammenspiel mit dem Pausen-Kollaps (ladeOriginalSegmente-Reihenfolge
     // Verdrängung bleibt unter der Schranke — die Erkennung darf sich davon
     // nicht anders verhalten als vorher.
     const s = segment('moped', kette(fahrt(30, 600, 10), halt(1200), fahrt(30, 600, 10)))
-    const erg = trenneGehabschnitteInSegmenten(kollabierePausen([s]))
+    const erg = splitWalkSegmentsInSegments(collapsePauses([s]))
     expect(erg.map((t) => t.mode)).toEqual(['moped'])
   })
 
   it('der Kollaps nimmt der Median-Nachhinker-Falle die Nahrung, ändert aber nichts am Ergebnis', () => {
     const s = segment('moped', kette(gehen(300), halt(1200), fahrt(30, 900, 60)))
-    const mit = verlauf(trenneGehabschnitteInSegmenten(kollabierePausen([s])))
-    const ohne = verlauf(trenneGehabschnitteInSegmenten([s]))
+    const mit = verlauf(splitWalkSegmentsInSegments(collapsePauses([s])))
+    const ohne = verlauf(splitWalkSegmentsInSegments([s]))
     expect(mit.map((v) => v[0])).toEqual(ohne.map((v) => v[0]))
   })
 })
@@ -309,7 +309,7 @@ describe('Zusammenspiel mit den Modus-Grenzen des Editors', () => {
     // Die Automatik ist ein Vorschlag auf den Rohdaten; wer im Editor eine
     // Grenze zieht, hat das letzte Wort.
     const startMs = Date.parse('2026-07-04T08:00:00Z')
-    const roh = trenneGehabschnitteInSegmenten([
+    const roh = splitWalkSegmentsInSegments([
       segment(
         'bike',
         track([
@@ -320,7 +320,7 @@ describe('Zusammenspiel mit den Modus-Grenzen des Editors', () => {
     ])
     expect(roh.map((s) => s.mode)).toEqual(['bike', 'walk'])
 
-    const mitGrenze = wendeModiAn(
+    const mitGrenze = applyTravelModes(
       roh,
       [{ from: new Date(startMs).toISOString(), mode: 'ferry' }],
       startMs,
@@ -331,7 +331,7 @@ describe('Zusammenspiel mit den Modus-Grenzen des Editors', () => {
 
   it('ohne Grenzen bleibt die erkannte Aufteilung stehen', () => {
     const startMs = Date.parse('2026-07-04T08:00:00Z')
-    const roh = trenneGehabschnitteInSegmenten([
+    const roh = splitWalkSegmentsInSegments([
       segment(
         'bike',
         track([
@@ -340,35 +340,35 @@ describe('Zusammenspiel mit den Modus-Grenzen des Editors', () => {
         ]),
       ),
     ])
-    expect(wendeModiAn(roh, [], startMs).map((s) => s.mode)).toEqual(['bike', 'walk'])
+    expect(applyTravelModes(roh, [], startMs).map((s) => s.mode)).toEqual(['bike', 'walk'])
   })
 })
 
 describe('istAufzeichnung', () => {
   it('erkennt einen aufgezeichneten Track am dichten Zeitraster', () => {
     // `track` legt einen Punkt je 5 s — genau die Form, die die App liefert
-    expect(istAufzeichnung([segment('walk', track([[5, 900]]))])).toBe(true)
+    expect(isRecording([segment('walk', track([[5, 900]]))])).toBe(true)
   })
 
   it('verwirft gesetzte Wegpunkte einer Foto-Tour', () => {
     // Foto-Orte liegen Minuten auseinander; jedes Tempo dazwischen ist Zufall
-    const pts: UploadPunkt[] = []
+    const pts: UploadPoint[] = []
     for (let i = 0; i < 40; i++) pts.push([7.9 + i * 300 * GRAD_PRO_METER, 46.59, 800, i * 420])
-    expect(istAufzeichnung([{ mode: 'walk', pts }])).toBe(false)
+    expect(isRecording([{ mode: 'walk', pts }])).toBe(false)
   })
 
   it('verwirft zu kurze Spuren, deren Takt nichts aussagt', () => {
-    expect(istAufzeichnung([segment('walk', track([[5, 60]]))])).toBe(false)
-    expect(istAufzeichnung([])).toBe(false)
+    expect(isRecording([segment('walk', track([[5, 60]]))])).toBe(false)
+    expect(isRecording([])).toBe(false)
   })
 
   it('erträgt Lücken (Tunnel, kurz pausierter Track)', () => {
     const pts = kette(fahrt(20, 600, 10), fahrt(20, 600, 10))
     // Eine 4-min-Lücke mittendrin darf die Aufzeichnung nicht disqualifizieren
-    const mitLuecke: UploadPunkt[] = pts.map((p, i) =>
+    const mitLuecke: UploadPoint[] = pts.map((p, i) =>
       i > pts.length / 2 ? [p[0], p[1], p[2], p[3] + 240] : p,
     )
-    expect(istAufzeichnung([{ mode: 'walk', pts: mitLuecke }])).toBe(true)
+    expect(isRecording([{ mode: 'walk', pts: mitLuecke }])).toBe(true)
   })
 })
 
@@ -380,12 +380,12 @@ describe('Aufnahme ohne Modus-Angabe (der Tram-Fall)', () => {
   // „zu Fuß" über die ganze Tour.
   it('trennt Fahrt und Fußweg, obwohl „zu Fuß" angegeben war', () => {
     const s = segment('walk', kette(fahrt(22, 420, 10), gehen(600), fahrt(22, 420, 10)))
-    const erg = trenneGehabschnitteInSegmenten([s])
+    const erg = splitWalkSegmentsInSegments([s])
     expect(erg.map((t) => t.mode)).toEqual(['bike', 'walk', 'bike'])
   })
 
   it('lässt eine echte Wanderung in Ruhe', () => {
-    const erg = trenneGehabschnitteInSegmenten([segment('walk', kette(gehen(1800)))])
+    const erg = splitWalkSegmentsInSegments([segment('walk', kette(gehen(1800)))])
     expect(erg.map((t) => t.mode)).toEqual(['walk'])
   })
 })

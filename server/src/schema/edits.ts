@@ -3,15 +3,15 @@
 // Die Pipeline rendert das Player-JSON stets aus Rohdaten + Overlay neu —
 // Wetter/Benennung lassen sich jederzeit neu ableiten, ohne Edits zu verlieren.
 
-import { WETTER_MODI, type WetterModus } from '../pipeline/weather.js'
-import { ISO_ZEIT_MAXLAENGE, ISO_ZEIT_PATTERN, TRAVEL_MODES, type Modus } from './upload.js'
+import { WEATHER_MODES, type WeatherMode } from '../pipeline/weather.js'
+import { ISO_TIME_MAX_LENGTH, ISO_TIME_PATTERN, TRAVEL_MODES, type TravelMode } from './upload.js'
 
 export const EDITS_SCHEMA_ID = 'maptale/edits@2'
 
 // Erlaubter Audio-Dateiname (Basisname + Audio-Endung) — geteilt vom
 // Overlay-Schema, den Audio-Routen (PUT/DELETE) und dem Editor-Filter.
-export const AUDIO_DATEI_PATTERN = '^[A-Za-z0-9_-]{1,64}\\.(mp3|m4a|ogg|wav)$'
-const AUDIO_DATEI_REGEX = new RegExp(AUDIO_DATEI_PATTERN)
+export const AUDIO_FILE_PATTERN = '^[A-Za-z0-9_-]{1,64}\\.(mp3|m4a|ogg|wav)$'
+const AUDIO_DATEI_REGEX = new RegExp(AUDIO_FILE_PATTERN)
 
 /**
  * Reglerstellung eines Ton-Klips ohne eigenen Wert. Der Studio-Abspieler hört
@@ -23,11 +23,11 @@ const AUDIO_DATEI_REGEX = new RegExp(AUDIO_DATEI_PATTERN)
 export const STUDIO_GAIN = 0.8
 
 /** true, wenn der Dateiname eine zulässige Audio-Datei unter media/ bezeichnet. */
-export function istAudioDatei(name: string): boolean {
+export function isAudioFile(name: string): boolean {
   return AUDIO_DATEI_REGEX.test(name)
 }
 
-export interface MediumEdit {
+export interface MediaEdit {
   /**
    * DER Nutzertext des Mediums ('' = leeren; fehlt = Original behalten).
    *
@@ -70,7 +70,7 @@ export interface MediumEdit {
 }
 
 /** Kamera-Preset ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze (wie travelModes). */
-export interface KameraGrenze {
+export interface CameraBoundary {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
   from: string
   /**
@@ -165,15 +165,15 @@ export interface AudioEdit {
  * `loop` verhält sich dadurch exakt wie vorher. Editor, Render, Player und
  * Studio-Abspieler fragen alle hier, sonst driftete der Default auseinander.
  */
-export function loopAktiv(spur: Pick<AudioEdit, 'type' | 'loop'>): boolean {
+export function loopEnabled(spur: Pick<AudioEdit, 'type' | 'loop'>): boolean {
   return spur.loop ?? spur.type === 'music'
 }
 
 /** Fortbewegung ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
-export interface ModusGrenze {
+export interface TravelModeBoundary {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
   from: string
-  mode: Modus
+  mode: TravelMode
 }
 
 /**
@@ -182,22 +182,22 @@ export interface ModusGrenze {
  * ERSETZT das Overlay das Auto-Wetter der Tour vollständig (Grund vor der ersten
  * Grenze = klar). Bewusste Korrektur, wenn das automatische Wetter danebenlag.
  */
-export interface WetterGrenze {
+export interface WeatherBoundary {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
   from: string
-  mode: WetterModus
+  mode: WeatherMode
   /** Stärke k (0..1, stufenlos); fehlt = Standardstärke des Players */
   intensity?: number
 }
 
 /** Moment-Arten — muss mit der Engine (src/tour.ts) synchron bleiben. */
-export const MOMENT_ARTEN = ['orbit', 'ascend', 'linger'] as const
-export type MomentArt = (typeof MOMENT_ARTEN)[number]
+export const CAMERA_MOMENT_KINDS = ['orbit', 'ascend', 'linger'] as const
+export type CameraMomentKind = (typeof CAMERA_MOMENT_KINDS)[number]
 
 /** Kamera-Moment: Punkt-Ereignis, an dem die Fahrt anhält und die Kamera agiert. */
-export interface KameraMoment {
+export interface CameraMoment {
   from: string
-  kind: MomentArt
+  kind: CameraMomentKind
   /** Dauer in s (1..30); fehlt = Default der Art im Player. */
   durationS?: number
 }
@@ -205,19 +205,19 @@ export interface KameraMoment {
 export interface EditOverlay {
   schema: typeof EDITS_SCHEMA_ID
   /** Overrides je Medien-ID des Upload-Manifests */
-  media?: Record<string, MediumEdit>
+  media?: Record<string, MediaEdit>
   /** Modus-Grenzen, wirksam ab `from` bis zur nächsten Grenze bzw. zum Tour-Ende */
-  travelModes?: ModusGrenze[]
+  travelModes?: TravelModeBoundary[]
   /** Track auf [start, end] beschneiden (absolute Zeitstempel, je optional) */
   trim?: { start?: string; end?: string }
   /** Kamera-Presets, wirksam ab `from` bis zur nächsten Grenze (Punktfunktion wie travelModes) */
-  camera?: KameraGrenze[]
+  camera?: CameraBoundary[]
   /** Kamera-Momente: Punkt-Ereignisse (Umkreisen/Aufstieg/Innehalten) */
-  moments?: KameraMoment[]
+  moments?: CameraMoment[]
   /** Audio-Spuren/Effekte — f-Bereiche entstehen erst beim Rendern */
   audio?: AudioEdit[]
   /** Wetter-Grenzen — ersetzen (sobald gesetzt) das Auto-Wetter vollständig */
-  weather?: WetterGrenze[]
+  weather?: WeatherBoundary[]
   /**
    * Medien-ID des Bildes, das die Tour in Listen und Galerie vertritt. Fehlt
    * es (oder zeigt es auf ein gelöschtes/unbekanntes Medium), wählt der Render
@@ -283,7 +283,7 @@ export const editsJsonSchema = {
         additionalProperties: false,
         required: ['from', 'mode'],
         properties: {
-          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          from: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
           mode: { enum: [...TRAVEL_MODES] },
         },
       },
@@ -292,8 +292,8 @@ export const editsJsonSchema = {
       type: 'object',
       additionalProperties: false,
       properties: {
-        start: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-        end: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+        start: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
+        end: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
       },
     },
     camera: {
@@ -304,7 +304,7 @@ export const editsJsonSchema = {
         additionalProperties: false,
         required: ['from', 'preset'],
         properties: {
-          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          from: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
           preset: { enum: ['near', 'mid', 'far', 'default'] },
           scale: { type: 'number', minimum: 0.5, maximum: 2 },
         },
@@ -318,8 +318,8 @@ export const editsJsonSchema = {
         additionalProperties: false,
         required: ['from', 'kind'],
         properties: {
-          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          kind: { enum: [...MOMENT_ARTEN] },
+          from: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
+          kind: { enum: [...CAMERA_MOMENT_KINDS] },
           durationS: { type: 'number', minimum: 1, maximum: 30 },
         },
       },
@@ -332,13 +332,13 @@ export const editsJsonSchema = {
         additionalProperties: false,
         required: ['file', 'type', 'from'],
         properties: {
-          file: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
+          file: { type: 'string', pattern: AUDIO_FILE_PATTERN },
           type: { enum: ['music', 'sfx'] },
-          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          to: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          from: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
+          to: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
           volume: { type: 'number', minimum: 0, maximum: 1 },
           source: { enum: ['library', 'user'] },
-          anchor: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          anchor: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
           // Versatz darf negativ sein (Klip liegt VOR seinem Anker); die
           // Schranken sind großzügig — geklemmt wird beim Rendern an der Achse.
           offsetFilmS: { type: 'number', minimum: -86400, maximum: 86400 },
@@ -356,8 +356,8 @@ export const editsJsonSchema = {
         additionalProperties: false,
         required: ['from', 'mode'],
         properties: {
-          from: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          mode: { enum: [...WETTER_MODI] },
+          from: { type: 'string', pattern: ISO_TIME_PATTERN, maxLength: ISO_TIME_MAX_LENGTH },
+          mode: { enum: [...WEATHER_MODES] },
           intensity: { type: 'number', minimum: 0, maximum: 1 },
         },
       },
@@ -370,7 +370,7 @@ export const editsJsonSchema = {
  * Trim-Spanne echt (start < ende), Audio-Spannen echt, Zahlen endlich.
  * Liefert die Fehlermeldung oder null.
  */
-export function pruefeEditsSemantik(edits: EditOverlay): string | null {
+export function validateEditsSemantics(edits: EditOverlay): string | null {
   for (const grenze of edits.travelModes ?? []) {
     if (!Number.isFinite(Date.parse(grenze.from))) return `Unparsebare Modus-Grenze: ${grenze.from}`
   }

@@ -5,12 +5,12 @@
 // zuordnen, Importe protokollieren. Ein Adapter kennt davon nichts.
 
 import type { Db } from '../db.js'
-import { neueTourId } from '../ids.js'
-import { entschluessele, verschluessele } from './krypto.js'
-import type { ProviderTokens, TrackerAnbieter, TrackerProvider } from './vertrag.js'
-import { TokensUngueltigFehler } from './vertrag.js'
+import { newTourId } from '../ids.js'
+import { decrypt, encrypt } from './crypto.js'
+import type { ProviderTokens, TrackerProviderId, TrackerProvider } from './contract.js'
+import { InvalidTokensError } from './contract.js'
 
-export type VerknuepfungsStatus = 'active' | 'expired' | 'disconnected'
+export type TrackerLinkStatus = 'active' | 'expired' | 'disconnected'
 export type ImportStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped'
 
 interface VerknuepfungsZeile {
@@ -20,25 +20,25 @@ interface VerknuepfungsZeile {
   external_user: string | null
   tokens: string
   expires_at: string | null
-  status: VerknuepfungsStatus
+  status: TrackerLinkStatus
   connected_at: string
   last_sync_at: string | null
   last_error: string | null
 }
 
-export interface Verknuepfung {
+export interface TrackerLink {
   id: string
   userId: string
-  provider: TrackerAnbieter
+  provider: TrackerProviderId
   externalUser: string | null
-  status: VerknuepfungsStatus
+  status: TrackerLinkStatus
   connectedAt: string
   lastSyncAt: string | null
   lastError: string | null
 }
 
 /** So viel Tour, wie eine Chronik-Zeile braucht — nicht mehr. */
-export interface TourKurz {
+export interface TourSummary {
   title: string | null
   km: number | null
   placedMedia: number | null
@@ -47,10 +47,10 @@ export interface TourKurz {
   visibility: string | null
 }
 
-export interface ImportZeile {
+export interface ImportRow {
   id: string
   userId: string
-  provider: TrackerAnbieter
+  provider: TrackerProviderId
   externalId: string
   status: ImportStatus
   tourId: string | null
@@ -64,11 +64,11 @@ export interface ImportZeile {
   retryable: boolean
 }
 
-function zuVerknuepfung(z: VerknuepfungsZeile): Verknuepfung {
+function zuVerknuepfung(z: VerknuepfungsZeile): TrackerLink {
   return {
     id: z.id,
     userId: z.user_id,
-    provider: z.provider as TrackerAnbieter,
+    provider: z.provider as TrackerProviderId,
     externalUser: z.external_user,
     status: z.status,
     connectedAt: z.connected_at,
@@ -80,7 +80,7 @@ function zuVerknuepfung(z: VerknuepfungsZeile): Verknuepfung {
 /** Kurzlebiger `state` einer laufenden Autorisierung (OAuth-CSRF-Schutz). */
 interface ZustandsEintrag {
   benutzerId: string
-  anbieter: TrackerAnbieter
+  anbieter: TrackerProviderId
   ziel: 'web' | 'app'
   redirectUri: string
   laeuftAbMs: number
@@ -100,9 +100,9 @@ const ZUSTAND_GILT_MS = 15 * 60 * 1000
  * mehrfach zu. Drei ist die Zahl, ab der ein Fehler nicht mehr nach einem
  * Aussetzer aussieht; der Import bleibt danach als `fehler` sichtbar stehen.
  */
-export const MAX_VERSUCHE = 3
+export const MAX_ATTEMPTS = 3
 
-export class TrackerDienst {
+export class TrackerService {
   /**
    * Die offenen `state`-Werte liegen IM SPEICHER, nicht in der Datenbank.
    *
@@ -133,12 +133,12 @@ export class TrackerDienst {
    */
   merkeZustand(
     benutzerId: string,
-    anbieter: TrackerAnbieter,
+    anbieter: TrackerProviderId,
     ziel: 'web' | 'app',
     redirectUri: string,
   ): string {
     this.raeumeZustaendeAuf()
-    const zustand = neueTourId().replace('t_', 'z_')
+    const zustand = newTourId().replace('t_', 'z_')
     this.zustaende.set(zustand, {
       benutzerId,
       anbieter,
@@ -182,10 +182,10 @@ export class TrackerDienst {
    * erneuert werden. Beim echten Neuverbinden nach dem Trennen gibt es keine
    * Zeile mehr, dort setzt der INSERT-Zweig das Datum frisch.
    */
-  verknuepfe(benutzerId: string, anbieter: TrackerAnbieter, tokens: ProviderTokens): Verknuepfung {
+  verknuepfe(benutzerId: string, anbieter: TrackerProviderId, tokens: ProviderTokens): TrackerLink {
     if (!this.schluessel) throw new Error('Tracker-Schlüssel fehlt')
     const jetztIso = this.jetzt().toISOString()
-    const gepackt = verschluessele(JSON.stringify(tokens), this.schluessel)
+    const gepackt = encrypt(JSON.stringify(tokens), this.schluessel)
     this.db
       .prepare(
         `INSERT INTO tracker_links
@@ -199,7 +199,7 @@ export class TrackerDienst {
            last_error = NULL`,
       )
       .run(
-        neueTourId().replace('t_', 'v_'),
+        newTourId().replace('t_', 'v_'),
         benutzerId,
         anbieter,
         tokens.externerNutzer ?? null,
@@ -212,14 +212,14 @@ export class TrackerDienst {
     return zeile
   }
 
-  verknuepfung(benutzerId: string, anbieter: TrackerAnbieter): Verknuepfung | null {
+  verknuepfung(benutzerId: string, anbieter: TrackerProviderId): TrackerLink | null {
     const z = this.db
       .prepare('SELECT * FROM tracker_links WHERE user_id = ? AND provider = ?')
       .get(benutzerId, anbieter) as VerknuepfungsZeile | undefined
     return z ? zuVerknuepfung(z) : null
   }
 
-  verknuepfungen(benutzerId: string): Verknuepfung[] {
+  verknuepfungen(benutzerId: string): TrackerLink[] {
     const zeilen = this.db
       .prepare('SELECT * FROM tracker_links WHERE user_id = ? ORDER BY provider')
       .all(benutzerId) as VerknuepfungsZeile[]
@@ -230,7 +230,7 @@ export class TrackerDienst {
    * Der Zuordnungsweg vom Webhook zum Konto: Der Anbieter schickt SEINE
    * Nutzerkennung, nicht unsere.
    */
-  ausExternerKennung(anbieter: TrackerAnbieter, externerNutzer: string): Verknuepfung | null {
+  ausExternerKennung(anbieter: TrackerProviderId, externerNutzer: string): TrackerLink | null {
     const z = this.db
       .prepare('SELECT * FROM tracker_links WHERE provider = ? AND external_user = ?')
       .get(anbieter, externerNutzer) as VerknuepfungsZeile | undefined
@@ -242,11 +242,11 @@ export class TrackerDienst {
     if (!this.schluessel) throw new Error('Tracker-Schlüssel fehlt')
     const z = this.db
       .prepare('SELECT tokens, status FROM tracker_links WHERE id = ?')
-      .get(verknuepfungId) as { tokens: string; status: VerknuepfungsStatus } | undefined
-    if (!z) throw new TokensUngueltigFehler('Verknüpfung nicht gefunden')
-    if (z.status !== 'active') throw new TokensUngueltigFehler()
+      .get(verknuepfungId) as { tokens: string; status: TrackerLinkStatus } | undefined
+    if (!z) throw new InvalidTokensError('Verknüpfung nicht gefunden')
+    if (z.status !== 'active') throw new InvalidTokensError()
     try {
-      return JSON.parse(entschluessele(z.tokens, this.schluessel)) as ProviderTokens
+      return JSON.parse(decrypt(z.tokens, this.schluessel)) as ProviderTokens
     } catch {
       // Falscher Schlüssel (rotiert) oder beschädigte Zeile: Das ist keine
       // Serverstörung, sondern eine tote Verknüpfung — sichtbar machen.
@@ -255,7 +255,7 @@ export class TrackerDienst {
         'expired',
         'Zugang ließ sich nicht lesen, bitte neu verbinden',
       )
-      throw new TokensUngueltigFehler()
+      throw new InvalidTokensError()
     }
   }
 
@@ -268,7 +268,7 @@ export class TrackerDienst {
    * zerstörter Zustand; deshalb genau eine.
    */
   async gueltigeTokens(
-    verknuepfung: Verknuepfung,
+    verknuepfung: TrackerLink,
     provider: TrackerProvider,
   ): Promise<ProviderTokens> {
     const tokens = this.tokens(verknuepfung.id)
@@ -279,7 +279,7 @@ export class TrackerDienst {
     if (!faellig) return tokens
     if (!provider.erneuereTokens || !tokens.erneuerung) {
       this.setzeStatus(verknuepfung.id, 'expired', 'Zugang abgelaufen, bitte neu verbinden')
-      throw new TokensUngueltigFehler()
+      throw new InvalidTokensError()
     }
     try {
       const neu = await provider.erneuereTokens(tokens.erneuerung)
@@ -294,11 +294,11 @@ export class TrackerDienst {
       return zusammen
     } catch (fehler) {
       this.setzeStatus(verknuepfung.id, 'expired', (fehler as Error).message)
-      throw new TokensUngueltigFehler()
+      throw new InvalidTokensError()
     }
   }
 
-  setzeStatus(verknuepfungId: string, status: VerknuepfungsStatus, fehler?: string | null): void {
+  setzeStatus(verknuepfungId: string, status: TrackerLinkStatus, fehler?: string | null): void {
     this.db
       .prepare('UPDATE tracker_links SET status = ?, last_error = ? WHERE id = ?')
       .run(status, fehler ?? null, verknuepfungId)
@@ -316,7 +316,7 @@ export class TrackerDienst {
    * Bereits importierte Touren BLEIBEN — sie gehören dem Nutzer, nicht der
    * Verknüpfung. Das ist eine Aussage, die auch in der Oberfläche steht.
    */
-  trenne(benutzerId: string, anbieter: TrackerAnbieter): void {
+  trenne(benutzerId: string, anbieter: TrackerProviderId): void {
     // Auch das Abruf-Protokoll geht — es beschreibt die VERBINDUNG, nicht die
     // Touren. Das ist die Zusage aus datenschutz.html Abschnitt 10 („bis zum
     // Trennen"); bliebe es liegen, stünde dort eine Frist, die die Datenbank
@@ -352,10 +352,10 @@ export class TrackerDienst {
    */
   beanspruche(
     benutzerId: string,
-    anbieter: TrackerAnbieter,
+    anbieter: TrackerProviderId,
     externeId: string,
-  ): ImportZeile | null {
-    const id = neueTourId().replace('t_', 'i_')
+  ): ImportRow | null {
+    const id = newTourId().replace('t_', 'i_')
     const jetztIso = this.jetzt().toISOString()
     const ergebnis = this.db
       .prepare(
@@ -373,7 +373,7 @@ export class TrackerDienst {
            seen_at = NULL
          WHERE tracker_imports.retryable = 1 AND tracker_imports.attempts < ?`,
       )
-      .run(id, benutzerId, anbieter, externeId, jetztIso, MAX_VERSUCHE)
+      .run(id, benutzerId, anbieter, externeId, jetztIso, MAX_ATTEMPTS)
     if (ergebnis.changes === 0) return null
     // Beim erneuten Anlauf gilt die VORHANDENE Zeile — `reported_at` bleibt der
     // Zeitpunkt der ersten Meldung, sonst wanderte die Aktivität in der Liste
@@ -383,9 +383,9 @@ export class TrackerDienst {
 
   private importZeileNach(
     benutzerId: string,
-    anbieter: TrackerAnbieter,
+    anbieter: TrackerProviderId,
     externeId: string,
-  ): ImportZeile | null {
+  ): ImportRow | null {
     const z = this.db
       .prepare(
         'SELECT id FROM tracker_imports WHERE user_id = ? AND provider = ? AND external_id = ?',
@@ -394,14 +394,14 @@ export class TrackerDienst {
     return z ? this.importZeile(z.id) : null
   }
 
-  importZeile(id: string): ImportZeile | null {
+  importZeile(id: string): ImportRow | null {
     const z = this.db.prepare('SELECT * FROM tracker_imports WHERE id = ?').get(id) as
       Record<string, string | number | null> | undefined
     if (!z) return null
     return {
       id: z['id'] as string,
       userId: z['user_id'] as string,
-      provider: z['provider'] as TrackerAnbieter,
+      provider: z['provider'] as TrackerProviderId,
       externalId: z['external_id'] as string,
       status: z['status'] as ImportStatus,
       tourId: (z['tour_id'] as string | null) ?? null,
@@ -443,11 +443,11 @@ export class TrackerDienst {
       )
   }
 
-  importe(benutzerId: string, grenze = 30): ImportZeile[] {
+  importe(benutzerId: string, grenze = 30): ImportRow[] {
     const zeilen = this.db
       .prepare('SELECT id FROM tracker_imports WHERE user_id = ? ORDER BY reported_at DESC LIMIT ?')
       .all(benutzerId, grenze) as Array<{ id: string }>
-    return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportZeile => z !== null)
+    return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportRow => z !== null)
   }
 
   /**
@@ -465,7 +465,7 @@ export class TrackerDienst {
    * Die Statistik wird HIER aufgelöst und nicht in der Oberfläche: `stats_json`
    * ist ein internes Format, und die Chronik braucht daraus zwei Zahlen.
    */
-  chronik(benutzerId: string, grenze = 200): Array<ImportZeile & { tour: TourKurz | null }> {
+  chronik(benutzerId: string, grenze = 200): Array<ImportRow & { tour: TourSummary | null }> {
     const zeilen = this.db
       .prepare(
         `SELECT i.id, t.title AS titel, t.stats_json, t.status AS tour_status, t.visibility
@@ -480,7 +480,7 @@ export class TrackerDienst {
       tour_status: string | null
       visibility: string | null
     }>
-    type ChronikZeile = ImportZeile & { tour: TourKurz | null }
+    type ChronikZeile = ImportRow & { tour: TourSummary | null }
     return zeilen.flatMap<ChronikZeile>((z) => {
       const zeile = this.importZeile(z.id)
       if (!zeile) return []
@@ -509,7 +509,7 @@ export class TrackerDienst {
    * `seen_at` steht auf dem SERVER und nicht als Flag im Client: Zwei Geräte
    * am selben Konto sollen dieselbe Tour nicht doppelt melden.
    */
-  offeneImporte(benutzerId: string): ImportZeile[] {
+  offeneImporte(benutzerId: string): ImportRow[] {
     const zeilen = this.db
       .prepare(
         `SELECT id FROM tracker_imports
@@ -517,7 +517,7 @@ export class TrackerDienst {
          ORDER BY reported_at`,
       )
       .all(benutzerId) as Array<{ id: string }>
-    return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportZeile => z !== null)
+    return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportRow => z !== null)
   }
 
   markiereGesehen(benutzerId: string, ids: readonly string[]): void {

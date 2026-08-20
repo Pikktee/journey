@@ -5,15 +5,15 @@
 
 import type { Readable } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
-import { erfordereBenutzer, SESSION_COOKIE, SESSION_HINWEIS_COOKIE } from '../app.js'
-import { nameAusEmail, type ProfilAenderung } from '../auth/auth.js'
-import { HANDLE_TEXTE } from '../handle.js'
-import { istTitelbildVorschlag, titelbildUrl } from '../profilfelder.js'
-import type { EinladungsFehler } from '../auth/einladungen.js'
-import { wartelisteAngeboten } from '../auth/warteliste.js'
-import { baueBremse } from '../bremse.js'
-import { quotaStand, speicherAufteilung } from '../quota.js'
-import { WEB_PFADE } from '../webpfade.js'
+import { requireUser, SESSION_COOKIE, SESSION_NOTICE_COOKIE } from '../app.js'
+import { nameFromEmail, type ProfileUpdate } from '../auth/auth.js'
+import { HANDLE_ERROR_TEXTS } from '../handle.js'
+import { isBannerSuggestion, bannerUrl } from '../profile-fields.js'
+import type { InvitationError } from '../auth/invitations.js'
+import { waitlistOffered } from '../auth/waitlist.js'
+import { buildRateLimit } from '../rate-limit.js'
+import { quotaStatus, storageBreakdown } from '../quota.js'
+import { WEB_PATHS } from '../web-paths.js'
 
 interface LoginBody {
   email: string
@@ -27,7 +27,7 @@ interface LoginBody {
  * `ProfilAenderung`: Beide können scheitern bzw. brauchen eine eigene Behandlung
  * (Aufräumen der alten Datei) und laufen deshalb an `setzeProfil` vorbei — s. Route.
  */
-type ProfilBody = ProfilAenderung & { handle?: string; banner?: string }
+type ProfilBody = ProfileUpdate & { handle?: string; banner?: string }
 
 /**
  * Ein Profilbild ist ein Vorschaubild, kein Foto-Upload — die App skaliert vor
@@ -67,7 +67,7 @@ function alsProfilAntwort(app: FastifyInstance, userId: string) {
     instagram: profil?.instagram ?? null,
     avatarUrl: profil?.avatar ? avatarUrl(userId, profil.avatar) : null,
     banner: profil?.banner ?? null,
-    bannerUrl: titelbildUrl(userId, profil?.banner ?? null),
+    bannerUrl: bannerUrl(userId, profil?.banner ?? null),
     visibility: profil?.visibility ?? 'private',
     // Zweiter, unabhängiger Zustand neben der Sichtbarkeit: „über den Link
     // erreichbar" und „unter dem eigenen Namen auffindbar" sind verschiedene
@@ -89,21 +89,21 @@ const passwortSchema = { type: 'string', minLength: 8, maxLength: 1024 } as cons
  * was er tun kann. „Ungültig" allein ließe ihn zwischen Tippfehler und
  * abgelaufener Einladung raten.
  */
-const CODE_FEHLER: Record<EinladungsFehler, string> = {
+const CODE_FEHLER: Record<InvitationError, string> = {
   unbekannt: 'Diesen Einladungscode gibt es nicht. Bitte prüfe die Schreibweise.',
   verbraucht: 'Dieser Einladungscode wurde bereits eingelöst.',
   abgelaufen: 'Dieser Einladungscode ist abgelaufen.',
 }
 
-export function registriereAuthRouten(app: FastifyInstance): void {
+export function registerAuthRoutes(app: FastifyInstance): void {
   const { konfig, mail, storage, benutzerStorage, db } = app.deps
-  const loginGebremst = baueBremse(10)
-  const registrierGebremst = baueBremse(5, 10 * 60_000) // 5 pro 10 min je IP
-  const resetGebremst = baueBremse(5, 10 * 60_000)
+  const loginGebremst = buildRateLimit(10)
+  const registrierGebremst = buildRateLimit(5, 10 * 60_000) // 5 pro 10 min je IP
+  const resetGebremst = buildRateLimit(5, 10 * 60_000)
   // Großzügiger als die Registrierung: Diese Route wird beim Abtippen eines
   // Codes mehrfach getroffen. Gegen Raten reicht es trotzdem — bei 25^8
   // Möglichkeiten sind zwölf Versuche je zehn Minuten kein Angriffsweg.
-  const codeGebremst = baueBremse(12, 10 * 60_000)
+  const codeGebremst = buildRateLimit(12, 10 * 60_000)
 
   const setzeSessionCookie = (
     reply: import('fastify').FastifyReply,
@@ -133,13 +133,13 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     }
     reply.setCookie(SESSION_COOKIE, session.id, { ...cookieBasis, httpOnly: true })
     // Lesbar für studio.html: Boot-Splash überspringen, solange die Sitzung steht.
-    reply.setCookie(SESSION_HINWEIS_COOKIE, '1', { ...cookieBasis, httpOnly: false })
+    reply.setCookie(SESSION_NOTICE_COOKIE, '1', { ...cookieBasis, httpOnly: false })
     return session
   }
 
   const loescheSessionCookies = (reply: import('fastify').FastifyReply): void => {
     reply.clearCookie(SESSION_COOKIE, { path: '/' })
-    reply.clearCookie(SESSION_HINWEIS_COOKIE, { path: '/' })
+    reply.clearCookie(SESSION_NOTICE_COOKIE, { path: '/' })
   }
 
   // — Login —
@@ -251,7 +251,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       if (app.auth.emailVergeben(email))
         return reply.code(409).send({ error: 'Für diese E-Mail gibt es schon ein Konto.' })
 
-      const name = request.body.name?.trim() || nameAusEmail(email)
+      const name = request.body.name?.trim() || nameFromEmail(email)
       const benutzer = await app.auth.legeBenutzerAn(email, request.body.password, name, false)
       if (codePflicht && !app.einladungen.loeseEin(code, benutzer.id)) {
         app.auth.loescheBenutzer(benutzer.id)
@@ -262,7 +262,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       // Zeitpunkt, Quelle und Textfassung in einem Zug.
       if (request.body.newsletter === true) app.newsletter.setze(benutzer.id, true, 'signup')
       const token = app.auth.erzeugeMailToken(benutzer.id, 'verify')
-      const link = `${konfig.basisUrl}${WEB_PFADE.anmelden}#verify=${token}`
+      const link = `${konfig.basisUrl}${WEB_PATHS.anmelden}#verify=${token}`
       // Die Bestätigungsmail bleibt WERBEFREI: kein Satz über den Newsletter,
       // keine List-Unsubscribe-Kopfzeile. Ein „Übrigens, unser Newsletter …"
       // machte aus der transaktionalen Mail selbst eine Werbemail — und
@@ -369,7 +369,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       const userId = app.auth.benutzerIdFuerEmail(email)
       if (userId) {
         const token = app.auth.erzeugeMailToken(userId, 'reset')
-        const link = `${konfig.basisUrl}${WEB_PFADE.anmelden}#reset=${token}`
+        const link = `${konfig.basisUrl}${WEB_PATHS.anmelden}#reset=${token}`
         // Der Name des KONTOS, nicht der Adress-Anfang: Die Mail geht ohnehin
         // nur an die eigene Adresse, und „Hallo mira.wolf," liest sich wie ein
         // Datenbankfeld.
@@ -433,7 +433,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // eine neue Sitzung an — sichtbar als Reihe von „Unbekanntes Gerät", denn
   // OkHttp schickt keinen Browser-User-Agent.
   app.post('/api/auth/session-from-token', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const session = setzeSessionCookie(reply, benutzer.id, request, request.appTokenId)
     return { sessionId: session.id, expiresAt: session.ablauf.toISOString() }
@@ -468,7 +468,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       if (loginGebremst(`pw:${benutzer.id}`)) {
         return reply.code(429).send({ error: 'Zu viele Versuche. Bitte warte einen Moment.' })
@@ -508,7 +508,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       if (resetGebremst(`mailwechsel:${benutzer.id}`)) {
         return reply
@@ -527,7 +527,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       }
       if (!app.auth.emailVergeben(email)) {
         const token = app.auth.erzeugeMailToken(benutzer.id, 'email', email)
-        const link = `${konfig.basisUrl}${WEB_PFADE.konto}#email=${token}`
+        const link = `${konfig.basisUrl}${WEB_PATHS.konto}#email=${token}`
         const { betreff, text, html } = app.mailvorlagen.rendere(
           'email-change',
           { name: benutzer.name },
@@ -586,7 +586,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // Abmelden-Knopf — wer sich selbst hier abmeldet, hat nichts gewonnen, außer
   // sich noch einmal anmelden zu dürfen.
   app.get('/api/auth/me/devices', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const eigene = request.cookies[SESSION_COOKIE]
     return {
@@ -597,7 +597,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   })
 
   app.delete<{ Params: { id: string } }>('/api/auth/me/devices/:id', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     if (!app.auth.meldeGeraetAb(benutzer.id, request.params.id)) {
       return reply.code(404).send({ error: 'Dieses Gerät ist nicht (mehr) angemeldet.' })
@@ -636,7 +636,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       app.newsletter.setze(benutzer.id, request.body.enabled, 'account')
       return {
@@ -670,7 +670,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       db.prepare('UPDATE users SET search_indexing = ? WHERE id = ?').run(
         request.body.enabled ? 1 : 0,
@@ -690,11 +690,11 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // Eigene Route und nicht Teil von `/auth/me`: Die Aufteilung läuft über ALLE
   // Dateien aller Touren, und `/auth/me` ist der heißeste Aufruf der API.
   app.get('/api/auth/me/storage', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const [stand, aufteilung] = await Promise.all([
-      quotaStand(db, storage, benutzerStorage, benutzer.id, konfig.maxSpeicherProBenutzer),
-      speicherAufteilung(db, storage, benutzerStorage, benutzer.id),
+      quotaStatus(db, storage, benutzerStorage, benutzer.id, konfig.maxSpeicherProBenutzer),
+      storageBreakdown(db, storage, benutzerStorage, benutzer.id),
     ])
     return { ...stand, breakdown: aufteilung }
   })
@@ -702,7 +702,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // — Konto samt aller Daten löschen (DSGVO) — Storage-Dateien zuerst (die DB
   // kennt sie nicht mehr, sobald der Cascade greift), dann die DB-Zeile.
   app.delete('/api/auth/me', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     for (const tourId of app.auth.tourIds(benutzer.id)) await storage.loescheTour(tourId)
     // Auch die Benutzerdateien (Avatar) — sie hängen an keiner Tour und
@@ -734,7 +734,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     const registrierung = {
       open: konfig.registrierungOffen,
       invitationRequired: app.einladungen.pflicht(),
-      waitlist: wartelisteAngeboten(
+      waitlist: waitlistOffered(
         app.warteliste.offen(),
         app.einladungen.pflicht(),
         konfig.registrierungOffen,
@@ -742,9 +742,9 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     }
     if (!request.benutzer) return { user: null, registration: registrierung }
     const sessionId = request.cookies[SESSION_COOKIE]
-    if (sessionId && request.cookies[SESSION_HINWEIS_COOKIE] !== '1') {
+    if (sessionId && request.cookies[SESSION_NOTICE_COOKIE] !== '1') {
       // Ablauf kennen wir hier nicht exakt — Max-Age wie Session-Dauer reicht.
-      reply.setCookie(SESSION_HINWEIS_COOKIE, '1', {
+      reply.setCookie(SESSION_NOTICE_COOKIE, '1', {
         path: '/',
         httpOnly: false,
         sameSite: 'lax',
@@ -752,7 +752,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
         maxAge: 30 * 24 * 60 * 60,
       })
     }
-    const quota = await quotaStand(
+    const quota = await quotaStatus(
       db,
       storage,
       benutzerStorage,
@@ -809,17 +809,19 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       const { handle, banner: titelbild, ...rest } = request.body
       if (handle !== undefined) {
         const fehler = app.auth.setzeHandle(benutzer.id, handle)
         if (fehler)
-          return reply.code(fehler === 'vergeben' ? 409 : 400).send({ error: HANDLE_TEXTE[fehler] })
+          return reply
+            .code(fehler === 'vergeben' ? 409 : 400)
+            .send({ error: HANDLE_ERROR_TEXTS[fehler] })
       }
       if (titelbild !== undefined) {
         const wert = titelbild.trim()
-        if (wert && !istTitelbildVorschlag(wert)) {
+        if (wert && !isBannerSuggestion(wert)) {
           return reply.code(400).send({ error: 'Dieses Titelbild gibt es nicht.' })
         }
         // Der Wechsel auf einen Vorschlag räumt ein vorher hochgeladenes Bild
@@ -841,7 +843,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // Wechsel aus dem Browser-Cache weiter das alte Bild liefern. Zählt nicht
   // gegen die Tour-Quota — ein Profilbild ist kein Reise-Inhalt.
   app.put('/api/auth/me/avatar', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const alt = app.auth.profil(benutzer.id)?.avatar ?? null
     const datei = `avatar/${Date.now()}.jpg`
@@ -859,7 +861,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   })
 
   app.delete('/api/auth/me/avatar', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const alt = app.auth.profil(benutzer.id)?.avatar
     if (alt) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
@@ -878,7 +880,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // Mitte). Eine Zuschnitt-Oberfläche wäre ein eigenes Stück Arbeit, und ohne
   // sie ist das Ergebnis bei einem querformatigen Bild dasselbe.
   app.put('/api/auth/me/banner', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const alt = app.auth.profil(benutzer.id)?.banner ?? null
     const datei = `banner/${Date.now()}.jpg`
@@ -893,11 +895,11 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     // allen (er hat keinen Schrägstrich, s. profilfelder.ts).
     if (alt?.includes('/') && alt !== datei)
       await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
-    return { bannerUrl: titelbildUrl(benutzer.id, datei) }
+    return { bannerUrl: bannerUrl(benutzer.id, datei) }
   })
 
   app.delete('/api/auth/me/banner', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const alt = app.auth.profil(benutzer.id)?.banner
     if (alt?.includes('/')) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)

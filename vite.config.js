@@ -430,7 +430,7 @@ export default defineConfig({
     proxy: {
       '/api': process.env.MAPTALE_API || 'http://localhost:8787',
       // `/@henrik` beantwortet seit Etappe 6 die API selbst (Meta-Kopf aus der
-      // Datenbank, s. server/src/routes/seiten.ts) — im Dev muss das denselben
+      // Datenbank, s. server/src/routes/pages.ts) — im Dev muss das denselben
       // Weg nehmen, sonst liefe der Dev-Server auf einem anderen URL-Raum als
       // Produktion und der Unterschied fiele erst nach dem Deploy auf.
       //

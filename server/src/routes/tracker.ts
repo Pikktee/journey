@@ -5,15 +5,15 @@
 // ein — ein späterer Umzug auf englische Pfade bräche alle Verknüpfungen.
 
 import type { FastifyInstance } from 'fastify'
-import { erfordereBenutzer } from '../app.js'
-import { baueBremse } from '../bremse.js'
-import { fuehreImporteAus } from '../tracker/importlauf.js'
+import { requireUser } from '../app.js'
+import { buildRateLimit } from '../rate-limit.js'
+import { runImports } from '../tracker/import-run.js'
 import {
-  ANBIETER_NAMEN,
-  TokensUngueltigFehler,
-  type TrackerAnbieter,
+  PROVIDER_NAMES,
+  InvalidTokensError,
+  type TrackerProviderId,
   type TrackerProvider,
-} from '../tracker/vertrag.js'
+} from '../tracker/contract.js'
 
 /**
  * Wie viele Aktivitäten ein „Jetzt abrufen" abwartet, bevor der Rest in den
@@ -23,7 +23,7 @@ import {
 const SYNC_SOFORT = 3
 
 /** Die Adresse, an die der Anbieter zurückschickt — muss dort hinterlegt sein. */
-export function rueckkehrUrl(basisUrl: string, anbieter: string): string {
+export function returnUrl(basisUrl: string, anbieter: string): string {
   return `${basisUrl.replace(/\/$/, '')}/api/tracker/${anbieter}/callback`
 }
 
@@ -33,7 +33,7 @@ const zielSchema = {
   properties: { target: { enum: ['web', 'app'] } },
 } as const
 
-export function registriereTrackerRouten(app: FastifyInstance): void {
+export function registerTrackerRoutes(app: FastifyInstance): void {
   const { konfig } = app.deps
 
   /** Ein Anbieter für die Oberfläche: was er ist, ob er kann, wie es steht. */
@@ -44,7 +44,7 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
     const verknuepfung = benutzerId ? app.tracker.verknuepfung(benutzerId, provider.id) : null
     return {
       id: provider.id,
-      name: ANBIETER_NAMEN[provider.id],
+      name: PROVIDER_NAMES[provider.id],
       // Ohne Zugangsdaten ODER ohne Token-Schlüssel kann niemand verbinden.
       // Beides zusammen, weil ein Anbieter mit Client-ID, aber ohne
       // Schlüssel Tokens im Klartext ablegen müsste — und das tun wir nicht.
@@ -59,7 +59,7 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
 
   // — Liste: welche Anbieter es gibt und wie es um sie steht —
   app.get('/api/tracker/providers', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     return { providers: app.trackerRegistry.alle().map((p) => zeigeAnbieter(p, benutzer.id)) }
   })
@@ -69,13 +69,13 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
     '/api/tracker/:provider/connect',
     { schema: { body: zielSchema } },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       const provider = app.trackerRegistry.hole(request.params.provider)
       if (!provider || !app.tracker.einsatzbereit) {
         return reply.code(404).send({ error: 'Anbieter nicht verfügbar' })
       }
-      const redirectUri = rueckkehrUrl(konfig.basisUrl, provider.id)
+      const redirectUri = returnUrl(konfig.basisUrl, provider.id)
       // Der `state` ist Pflicht und wird SERVERSEITIG gehalten: Ohne ihn ließe
       // sich einem Angemeldeten ein fremdes Anbieter-Konto unterschieben.
       const zustand = app.tracker.merkeZustand(
@@ -128,9 +128,9 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
 
   // — Trennen —
   app.delete<{ Params: { provider: string } }>('/api/tracker/:provider', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    const anbieter = request.params.provider as TrackerAnbieter
+    const anbieter = request.params.provider as TrackerProviderId
     const verknuepfung = app.tracker.verknuepfung(benutzer.id, anbieter)
     if (!verknuepfung) return reply.code(404).send({ error: 'Nicht verbunden' })
     const provider = app.trackerRegistry.hole(anbieter)
@@ -158,11 +158,11 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
   // Ein Klick kostet einen Anbieter-Aufruf und je Aktivität einen vollen
   // Pipeline-Lauf (Geocoding, Wetter, Video) — dieselbe Sorte Last wie ein
   // Datenexport, und der hat aus demselben Grund eine Bremse.
-  const syncGebremst = baueBremse(6, 10 * 60_000) // 6 pro 10 min je Konto
+  const syncGebremst = buildRateLimit(6, 10 * 60_000) // 6 pro 10 min je Konto
   app.post<{ Params: { provider: string } }>(
     '/api/tracker/:provider/sync',
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       if (syncGebremst(benutzer.id)) {
         return reply
@@ -189,7 +189,7 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
         tokens = await app.tracker.gueltigeTokens(verknuepfung, provider)
         ereignisse = await provider.listeNeue(tokens, verknuepfung.lastSyncAt)
       } catch (fehler) {
-        if (fehler instanceof TokensUngueltigFehler) {
+        if (fehler instanceof InvalidTokensError) {
           return reply.code(409).send({ error: 'Zugang abgelaufen, bitte neu verbinden' })
         }
         app.log.warn(`Tracker-Abruf fehlgeschlagen (${provider.id}): ${(fehler as Error).message}`)
@@ -208,14 +208,12 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
       // Nutzer sähe 504). Der Rest läuft im Hintergrund weiter, wie beim Webhook.
       const sofort = auftraege.slice(0, SYNC_SOFORT)
       const rest = auftraege.slice(SYNC_SOFORT)
-      const ergebnisse = await fuehreImporteAus(app, app.tracker, sofort)
+      const ergebnisse = await runImports(app, app.tracker, sofort)
       if (rest.length) {
         const schluessel = `sync:${verknuepfung.id}`
         app.trackerLaeufe.set(
           schluessel,
-          fuehreImporteAus(app, app.tracker, rest).finally(() =>
-            app.trackerLaeufe.delete(schluessel),
-          ),
+          runImports(app, app.tracker, rest).finally(() => app.trackerLaeufe.delete(schluessel)),
         )
       }
       // Der Sync-Zeitpunkt kommt aus `fuehreImporteAus` (nur wenn nichts offen
@@ -234,7 +232,7 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
   // weil sie im Dialog vollständig gezeigt wird; die Seite schneidet für ihre
   // Vorschau selbst zu.
   app.get('/api/tracker/imports', async (request, reply) => {
-    const benutzer = erfordereBenutzer(request, reply)
+    const benutzer = requireUser(request, reply)
     if (!benutzer) return
     return { imports: app.tracker.chronik(benutzer.id) }
   })
@@ -243,7 +241,7 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
   app.get<{ Querystring: { seen?: string } }>(
     '/api/tracker/imports/pending',
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       const offen = app.tracker.offeneImporte(benutzer.id)
       // Erst mit `?seen=1` gelten sie als abgeholt. Ohne diesen Schritt
@@ -283,7 +281,7 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = erfordereBenutzer(request, reply)
+      const benutzer = requireUser(request, reply)
       if (!benutzer) return
       // `markiereGesehen` filtert selbst auf das eigene Konto — fremde IDs
       // laufen ins Leere, statt eine Auskunft darüber zu geben, dass es sie gibt.

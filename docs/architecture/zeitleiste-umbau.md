@@ -337,7 +337,7 @@ Folgen außerhalb des Schemas:
 - **Enrich** ([enrich.ts](../../server/src/pipeline/enrich.ts)): Audio-Anker
   `anker + versatzFilmS + dauerFilmS` beim Rendern über die Film-Achse in die
   `f0/f1`-Anteile des Tour-JSON übersetzen (die Achse steht der Pipeline über
-  [filmtempo.ts](../../server/src/pipeline/filmtempo.ts) zur Verfügung).
+  [film-tempo.ts](../../server/src/pipeline/film-tempo.ts) zur Verfügung).
 - **Player** ([audiotracks.js](../../src/audiotracks.ts),
   [abspielen.ts](../../src/studio/abspielen.ts)): `loop` aus dem Overlay statt
   pauschal `el.loop = true` für Musik; SFX mit `loop: true` brauchen ein
@@ -654,7 +654,7 @@ gerenderten Film an der richtigen Stelle schneidet.
   wäre auf dem Papier identisch, in Gleitkomma aber nicht — und hätte die
   Schnappschüsse aller Bestandsformen verschoben.
 - **Die Pipeline braucht eine eigene Film-Achse**
-  ([server/src/pipeline/filmachse.ts](../../server/src/pipeline/filmachse.ts)):
+  ([server/src/pipeline/film-axis.ts](../../server/src/pipeline/film-axis.ts)):
   Ein Versatz in Filmsekunden ist ohne die Halte nicht auffindbar. Sie ist der
   Spiegel von `baueAchse` — gleiche Gruppierung (120 m), gleiche Halt-Dauern,
   gleiche lower_bound-Konvention; Drift-Wächter halten beides zusammen.

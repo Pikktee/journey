@@ -28,7 +28,7 @@ Grundprinzipien:
   die Regel eine halbe: Der Server misst `f` auf der ROHEN Zeitreihe, die Route
   des Players ist 2,2–3,0 % länger — und die Dehnung verteilt sich
   ungleichmäßig, ein Anker lag deshalb bis zu 9 Filmsekunden neben seiner
-  Stelle. Nachrechnen kann der Client das nicht: `vereinfacheSegment` wirft
+  Stelle. Nachrechnen kann der Client das nicht: `simplifySegment` wirft
   Punkte weg, die Länge tragen.
   **Die eine begründete Ausnahme ist die FILMSEKUNDE je Ereignis** (`audio[].filmS`
   / `filmToS`, `camera[].filmS`, `moments[].filmS` — E10, s. u.). Sie ist keine
@@ -140,7 +140,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   (`tours.kicker`), nicht mehr aus einem erzeugten Satz. Bis 2026-08-18 stand
   dort „Aufgezeichnet am 4. Juli 2026"; das Datum steht jetzt in der
   Herkunftszeile neben dem Namen des Aufnehmers. Drei Zustände: Spalte `NULL` =
-  nie gesetzt, dann nimmt `baueBenennung` die Vorbelegung (bei einer Rundtour den
+  nie gesetzt, dann nimmt `buildNaming` die Vorbelegung (bei einer Rundtour den
   Startort, sonst nichts); leerer String = ausdrücklich keine Zeile; sonst der
   Text. Ohne die Unterscheidung ließe sich eine einmal gesetzte Zeile nie wieder
   loswerden. Die Vorschläge im Studio (`kickerSuggestions` im Editor-
@@ -339,7 +339,7 @@ sondern kreative Zutaten mit eigenem Lebenszyklus:
 - Ablage unter `media/`, Auslieferung über die normale Medien-Route
   (Range-Support fürs Seeking, korrekte audio/*-Content-Types).
 
-Beim Rendern bildet die Pipeline die Zeit-Anker über `positionZurZeit` auf
+Beim Rendern bildet die Pipeline die Zeit-Anker über `positionAtTime` auf
 den **bearbeiteten** (getrimmten) Track ab: `camera.from → camera[].f`,
 `audio.from/to → f0/f1` (Musik ohne `to` → f1 = 1; Einträge, die komplett
 außerhalb der Wiedergabespanne liegen, entfallen mit Warnung). Parallel dazu

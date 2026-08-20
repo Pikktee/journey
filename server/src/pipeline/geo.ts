@@ -7,14 +7,14 @@
 // hier dient nur der Payload-Größe; Streckenpositionen tauschen wir als
 // Bruchteil f (0..1), nie als absolute Meter.
 
-import type { UploadPunkt, UploadSegment } from '../schema/upload.js'
-import type { RoutenSignatur } from './signatur.js'
+import type { UploadPoint, UploadSegment } from '../schema/upload.js'
+import type { TrackSignature } from './signature.js'
 
 const ERDRADIUS_M = 6371000
 const RAD = Math.PI / 180
 
 /** Haversine-Distanz zweier [lng,lat]-Punkte in Metern. */
-export function distanzM(a: readonly number[], b: readonly number[]): number {
+export function distanceM(a: readonly number[], b: readonly number[]): number {
   const [lng1 = 0, lat1 = 0] = a
   const [lng2 = 0, lat2 = 0] = b
   const dLat = (lat2 - lat1) * RAD
@@ -26,7 +26,7 @@ export function distanzM(a: readonly number[], b: readonly number[]): number {
 
 // Für Douglas-Peucker reicht eine lokale Plattkarte (äquirektangular um die
 // mittlere Breite) — auf Tour-Skalen (<100 km) ist der Fehler vernachlässigbar.
-function projiziere(pts: readonly UploadPunkt[]): Array<[number, number]> {
+function projiziere(pts: readonly UploadPoint[]): Array<[number, number]> {
   const latMittel = (pts.reduce((s, p) => s + p[1], 0) / pts.length) * RAD
   const kx = ERDRADIUS_M * RAD * Math.cos(latMittel)
   const ky = ERDRADIUS_M * RAD
@@ -48,8 +48,8 @@ function abstandZurStrecke(p: [number, number], a: [number, number], b: [number,
  * überlebenden Originalpunkte. Iterativ (Stack) statt rekursiv — lange
  * Aufzeichnungen sollen keinen Callstack sprengen.
  */
-export function vereinfacheSegment(pts: readonly UploadPunkt[], toleranzM = 5): UploadPunkt[] {
-  return vereinfacheIndizes(pts, toleranzM).map((i) => pts[i] as UploadPunkt)
+export function simplifySegment(pts: readonly UploadPoint[], toleranzM = 5): UploadPoint[] {
+  return simplifyIndices(pts, toleranzM).map((i) => pts[i] as UploadPoint)
 }
 
 /**
@@ -60,7 +60,7 @@ export function vereinfacheSegment(pts: readonly UploadPunkt[], toleranzM = 5): 
  * allein ist es nicht rekonstruierbar. Über den Index findet enrich.ts jeden
  * überlebenden Punkt in der Zeitreihe wieder.
  */
-export function vereinfacheIndizes(pts: readonly UploadPunkt[], toleranzM = 5): number[] {
+export function simplifyIndices(pts: readonly UploadPoint[], toleranzM = 5): number[] {
   if (pts.length <= 2) return pts.map((_, i) => i)
   const xy = projiziere(pts)
   const behalten = new Array<boolean>(pts.length).fill(false)
@@ -98,7 +98,7 @@ export interface TourStats {
   /** Anzahl platzierter Aufnahmen — für die Kachel in der Bibliothek */
   placedMedia?: number
   /** Routen-Signatur (SVG-Pfad im 0..100-Kasten), s. pipeline/signatur.ts */
-  trackSignature?: RoutenSignatur
+  trackSignature?: TrackSignature
   /**
    * Länge des FILMS in Sekunden — nicht die der Aufzeichnung.
    *
@@ -127,14 +127,14 @@ const GAIN_HYSTERESE_M = 5
  * mehr als GAIN_HYSTERESE_M bergauf ging, zählt der Anstieg. Lange Steigungen
  * verlieren dadurch nichts (sie kommen in >5-m-Schritten), Zickzack fällt raus.
  */
-export function berechneStats(segments: readonly UploadSegment[]): TourStats {
+export function computeStats(segments: readonly UploadSegment[]): TourStats {
   let meter = 0
   let gain = 0
   for (const seg of segments) {
     for (let i = 1; i < seg.pts.length; i++) {
-      meter += distanzM(seg.pts[i - 1] as UploadPunkt, seg.pts[i] as UploadPunkt)
+      meter += distanceM(seg.pts[i - 1] as UploadPoint, seg.pts[i] as UploadPoint)
     }
-    const geglaettet = glaette(
+    const geglaettet = smooth(
       seg.pts.map((p) => p[2]),
       5,
     )
@@ -152,7 +152,7 @@ export function berechneStats(segments: readonly UploadSegment[]): TourStats {
 }
 
 /** Gleitendes Mittel mit Fenster ±n. */
-export function glaette(werte: readonly number[], n: number): number[] {
+export function smooth(werte: readonly number[], n: number): number[] {
   return werte.map((_, i) => {
     let summe = 0
     let anzahl = 0

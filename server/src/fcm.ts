@@ -13,13 +13,13 @@
 // Doku: https://firebase.google.com/docs/cloud-messaging/auth-server
 
 import { createSign } from 'node:crypto'
-import type { PushNachricht, PushVersand, Zustellung } from './push.js'
+import type { PushMessage, PushTransport, Delivery } from './push.js'
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const SCOPE = 'https://www.googleapis.com/auth/firebase.messaging'
 
 /** Die Netz-Funktion ist injizierbar — Produktion reicht `fetch` herein, Tests Fixtures. */
-export type HolFunktion = (url: string, init?: RequestInit) => Promise<Response>
+export type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>
 
 /**
  * Wie lange ein geholter Access-Token benutzt wird.
@@ -45,7 +45,7 @@ interface Dienstkonto {
  * Moment, in dem sie jemand liest. „Unexpected token" aus `JSON.parse` sagt
  * nichts darüber, dass eine Base64-Zeile beim Kopieren abgeschnitten wurde.
  */
-export function leseDienstkonto(json: string): Dienstkonto {
+export function parseServiceAccount(json: string): Dienstkonto {
   let objekt: Record<string, unknown>
   try {
     objekt = JSON.parse(json) as Record<string, unknown>
@@ -118,7 +118,7 @@ function baueJwt(konto: Dienstkonto, jetztSek: number): string {
  * geparst werden kann. Der Status 404 bleibt als Rückfall, falls der Körper
  * fehlt oder unlesbar ist.
  */
-export function istAbgemeldet(status: number, koerper: string): boolean {
+export function isUnregistered(status: number, koerper: string): boolean {
   try {
     const daten = JSON.parse(koerper) as {
       error?: { status?: string; details?: Array<{ errorCode?: string }> }
@@ -133,17 +133,17 @@ export function istAbgemeldet(status: number, koerper: string): boolean {
   return status === 404
 }
 
-export class FcmPush implements PushVersand {
+export class FcmPush implements PushTransport {
   readonly einsatzbereit = true
   private readonly konto: Dienstkonto
   private zugriff: { token: string; laeuftAbMs: number } | null = null
 
   constructor(
     dienstkontoJson: string,
-    private readonly hol: HolFunktion = fetch,
+    private readonly hol: FetchFunction = fetch,
     private readonly jetzt: () => number = () => Date.now(),
   ) {
-    this.konto = leseDienstkonto(dienstkontoJson)
+    this.konto = parseServiceAccount(dienstkontoJson)
   }
 
   /** Access-Token, gecacht bis kurz vor Ablauf. */
@@ -178,10 +178,10 @@ export class FcmPush implements PushVersand {
    * Ein einzelner Fehlschlag beendet den Lauf NICHT — sonst bekäme das zweite
    * Gerät nichts mehr, weil beim ersten die App deinstalliert wurde.
    */
-  async sende(tokens: readonly string[], nachricht: PushNachricht): Promise<Zustellung[]> {
+  async sende(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]> {
     const zugriff = await this.accessToken()
     const url = `https://fcm.googleapis.com/v1/projects/${this.konto.projekt}/messages:send`
-    const ergebnisse: Zustellung[] = []
+    const ergebnisse: Delivery[] = []
     for (const token of tokens) {
       const antwort = await this.hol(url, {
         method: 'POST',
@@ -215,7 +215,7 @@ export class FcmPush implements PushVersand {
         ergebnisse.push({ token, abgemeldet: false })
         continue
       }
-      ergebnisse.push({ token, abgemeldet: istAbgemeldet(antwort.status, await antwort.text()) })
+      ergebnisse.push({ token, abgemeldet: isUnregistered(antwort.status, await antwort.text()) })
     }
     return ergebnisse
   }

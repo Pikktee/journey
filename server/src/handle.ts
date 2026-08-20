@@ -13,9 +13,9 @@
  * `routen.ts` liegen.
  */
 
-export const HANDLE_REGELN = /^[a-z0-9](?:[a-z0-9._-]{1,28})[a-z0-9]$/
+export const HANDLE_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28})[a-z0-9]$/
 
-export const RESERVIERTE_HANDLES: ReadonlySet<string> = new Set([
+export const RESERVED_HANDLES: ReadonlySet<string> = new Set([
   // Die Seiten, die es gibt (s. routen.ts)
   'app',
   'anmelden',
@@ -61,9 +61,9 @@ export const RESERVIERTE_HANDLES: ReadonlySet<string> = new Set([
   'wir',
 ])
 
-export type HandleFehler = 'leer' | 'kurz' | 'form' | 'reserviert' | 'vergeben'
+export type HandleError = 'leer' | 'kurz' | 'form' | 'reserviert' | 'vergeben'
 
-export const HANDLE_TEXTE: Readonly<Record<HandleFehler, string>> = {
+export const HANDLE_ERROR_TEXTS: Readonly<Record<HandleError, string>> = {
   leer: 'Ohne Adresse ist dein Profil nicht verlinkbar.',
   kurz: 'Mindestens 3 Zeichen.',
   form: 'Erlaubt sind a–z, 0–9, Punkt, Bindestrich und Unterstrich; nicht am Anfang oder Ende.',
@@ -71,19 +71,19 @@ export const HANDLE_TEXTE: Readonly<Record<HandleFehler, string>> = {
   vergeben: 'Diese Adresse ist schon vergeben.',
 }
 
-export function pruefeHandleForm(wert: string): HandleFehler | null {
+export function validateHandleForm(wert: string): HandleError | null {
   const w = wert.trim().toLowerCase()
   if (!w) return 'leer'
   if (w.length < 3) return 'kurz'
-  if (!HANDLE_REGELN.test(w)) return 'form'
+  if (!HANDLE_PATTERN.test(w)) return 'form'
   // Benutzer-IDs beginnen mit `u_` (ids.ts) — der Präfix bleibt frei, damit
   // `/api/users/:wen/profile` ID und Handle auseinanderhalten kann.
   if (w.startsWith('u_')) return 'reserviert'
-  if (RESERVIERTE_HANDLES.has(w)) return 'reserviert'
+  if (RESERVED_HANDLES.has(w)) return 'reserviert'
   return null
 }
 
-export function zuHandle(roh: string): string {
+export function toHandle(roh: string): string {
   return roh
     .toLowerCase()
     .replace(/ä/g, 'ae')
@@ -107,9 +107,9 @@ export function zuHandle(roh: string): string {
  * `reisende` als Stamm — der Zähler in `vergebeHandle` macht daraus einen
  * eigenen Namen.
  */
-export function handleAusEmail(email: string): string {
+export function handleFromEmail(email: string): string {
   const lokal = email.split('@')[0] ?? ''
-  const stamm = zuHandle(lokal.split('+')[0] ?? lokal)
+  const stamm = toHandle(lokal.split('+')[0] ?? lokal)
   return stamm.length >= 3 ? stamm : 'reisende'
 }
 
@@ -124,9 +124,9 @@ export function handleAusEmail(email: string): string {
  * Der Zähler hat kein Limit: Bei jedem Durchgang wächst er, also endet die
  * Schleife zwangsläufig.
  */
-export function freierHandle(stamm: string, belegt: (handle: string) => boolean): string {
+export function findFreeHandle(stamm: string, belegt: (handle: string) => boolean): string {
   const basis = stamm.length >= 3 ? stamm.slice(0, 30) : 'reisende'
-  const geht = (h: string): boolean => pruefeHandleForm(h) === null && !belegt(h)
+  const geht = (h: string): boolean => validateHandleForm(h) === null && !belegt(h)
   if (geht(basis)) return basis
   for (let n = 2; ; n++) {
     const kandidat = `${basis.slice(0, 30 - String(n).length)}${n}`

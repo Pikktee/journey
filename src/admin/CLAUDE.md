@@ -8,7 +8,7 @@ Eigene Seite ([admin.html](../../admin.html) + [src/admin/](./)), nicht Teil des
 Das Studio ist der Schneideraum für Touren, das hier ist Hausverwaltung. Erreichbar über das
 Konto-Menü im Studio — der Eintrag erscheint nur für Admins. Rechnende Teile liegen DOM-frei in
 [adminmodell.ts](adminmodell.ts), Server-Seite in
-[server/src/routes/admin.ts](../../server/src/routes/admin.ts) hinter `erfordereAdmin`.
+[server/src/routes/admin.ts](../../server/src/routes/admin.ts) hinter `requireAdmin`.
 
 **Sechs Reiter, und die Regel steht bei dem, was sie regelt.** Konten · Einladungen ·
 Warteliste · Statistiken · Protokoll · System-Mails; alle sechs Panels liegen im DOM, sichtbar ist eins
@@ -28,12 +28,12 @@ denn nur dort wartet Arbeit. Bei Statistiken steht „Live", bei den Vorlagen ih
 die Angabe jeweils zählt, steht im `aria-label`.
 
 **Das Protokoll zeigt, was die API zuletzt gemeldet hat** — die letzten 500 Warnungen und
-Fehler aus einem Ringpuffer im Arbeitsspeicher ([server/src/protokoll.ts](../../server/src/protokoll.ts)).
+Fehler aus einem Ringpuffer im Arbeitsspeicher ([server/src/audit-log.ts](../../server/src/audit-log.ts)).
 Bewusst keine Tabelle: Ein Protokoll in der Datenbank will Fristen, Indizes und eine
 Aufräumerei, und die Frage dahinter ist fast immer „was ist gerade eben schiefgegangen?".
 Der Preis steht offen im Reiter, denn Leere ist hier die GUTE Nachricht und darf nicht
 wie ein Ausfall klingen: „Nichts vorgefallen seit dem Start der API am … um …".
-Gefüllt wird der Puffer am **Logger-Ziel** (`protokollZiel` als pino-Stream in
+Gefüllt wird der Puffer am **Logger-Ziel** (`auditLogTarget` als pino-Stream in
 [app.ts](../../server/src/app.ts)), nicht an den Aufrufstellen — sonst gäbe es zwei Wege, etwas
 zu melden, und der zweite bliebe liegen; die Zeile geht dabei unverändert weiter nach
 stdout, das Docker-Log bleibt also die vollständige Quelle. Drei Feinheiten: Der Zähler am

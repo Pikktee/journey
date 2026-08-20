@@ -9,12 +9,12 @@
 // Server-Keyframes und Client-Fallback müssen dieselbe Wetterwelt erzählen.
 
 import {
-  anteilZurUhrzeit,
-  positionZurZeit,
-  pseudoZeiten,
-  zeitZurPosition,
-  type Zeitreihe,
-} from './zeit.js'
+  clockTimeAtFraction,
+  positionAtTime,
+  pseudoTimes,
+  timeAtPosition,
+  type TimeSeries,
+} from './time.js'
 
 /**
  * Die Wetterwelt des Players (src/weather.js) als Liste — Einzelquelle für den
@@ -22,10 +22,10 @@ import {
  * und die Studio-Auswahl. Ein Drift-Wächter (test/studio-baukasten.test.ts)
  * hält die Client-Kopie in editmodell.ts damit deckungsgleich.
  */
-export const WETTER_MODI = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm'] as const
-export type WetterModus = (typeof WETTER_MODI)[number]
+export const WEATHER_MODES = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm'] as const
+export type WeatherMode = (typeof WEATHER_MODES)[number]
 
-export interface WetterStunde {
+export interface WeatherHour {
   code: number
   /** Bewölkung in % */
   wolken: number
@@ -36,7 +36,7 @@ export interface WetterStunde {
 }
 
 /** Stundenraster einer Position: parallele Arrays, Zeiten als ISO-Stunde (UTC). */
-export interface StundenRaster {
+export interface HourlyGrid {
   zeiten: string[]
   code: number[]
   wolken: number[]
@@ -45,13 +45,13 @@ export interface StundenRaster {
 }
 
 /** Wetterdaten-Anbieter hinter Interface (DI) — Tests nutzen FesteWetterQuelle. */
-export interface WetterQuelle {
+export interface WeatherSource {
   /** Stundenwerte je Position über einen UTC-Datumsbereich (YYYY-MM-DD). */
   stunden(
     punkte: ReadonlyArray<{ lat: number; lng: number }>,
     startTag: string,
     endeTag: string,
-  ): Promise<StundenRaster[]>
+  ): Promise<HourlyGrid[]>
 }
 
 const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, x))
@@ -61,7 +61,7 @@ const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.m
  * Reihenfolge: Gewitter schlägt Schnee schlägt Regen schlägt Nebel schlägt
  * Bewölkung — identisch zu src/autoweather.ts.
  */
-export function wmoZuWetter(w: WetterStunde): { mode: WetterModus; k: number } {
+export function wmoToWeather(w: WeatherHour): { mode: WeatherMode; k: number } {
   if (w.code >= 95) return { mode: 'storm', k: clamp(0.5 + w.regenMm / 8, 0.4, 1) }
   if (w.schneeCm > 0.05 || (w.code >= 71 && w.code <= 77) || w.code === 85 || w.code === 86) {
     return { mode: 'snow', k: clamp(0.4 + w.schneeCm / 2.5, 0.4, 1) }
@@ -82,7 +82,7 @@ export function wmoZuWetter(w: WetterStunde): { mode: WetterModus; k: number } {
  * Übergänge ([wolkig, regen, klar]) und die Ränder bleiben unangetastet:
  * gerade das letzte Sample trägt oft ein echtes Aufklaren vorm Tour-Ende.
  */
-export function glaetteSamples<T extends { mode: WetterModus; k: number }>(
+export function smoothSamples<T extends { mode: WeatherMode; k: number }>(
   samples: readonly T[],
 ): T[] {
   return samples.map((s, i) => {
@@ -95,9 +95,9 @@ export function glaetteSamples<T extends { mode: WetterModus; k: number }>(
   })
 }
 
-export interface WetterKeyframe {
+export interface WeatherKeyframe {
   f: number
-  mode: WetterModus
+  mode: WeatherMode
   k: number
   source: string
 }
@@ -123,11 +123,11 @@ const K_SCHWELLE = 0.15
  * Wirft bei Quellen-Fehlern — der Aufrufer (enrich) lässt `weather` dann weg
  * und der Player fällt auf sein Client-Auto-Wetter zurück.
  */
-export async function berechneWetter(eingabe: {
-  reihe: Zeitreihe
+export async function computeWeather(eingabe: {
+  reihe: TimeSeries
   startIso: string
-  quelle: WetterQuelle
-}): Promise<WetterKeyframe[]> {
+  quelle: WeatherSource
+}): Promise<WeatherKeyframe[]> {
   const { reihe, startIso, quelle } = eingabe
   const startMs = Date.parse(startIso)
   const erster = reihe.punkte[0]
@@ -156,9 +156,9 @@ export async function berechneWetter(eingabe: {
   // Zeitraffer-Rampe. Ohne diese Trennung fielen sie auf ein einziges f und nur
   // die letzte überlebte die Dedup unten — ein Regen, der während der Pause kam
   // und ging, verschwand spurlos.
-  const orte = zeiten.map((ms) => positionZurZeit(reihe, (ms - startMs) / 1000))
-  const pseudo = pseudoZeiten(reihe)
-  const anteile = zeiten.map((ms) => anteilZurUhrzeit(reihe, pseudo, (ms - startMs) / 1000))
+  const orte = zeiten.map((ms) => positionAtTime(reihe, (ms - startMs) / 1000))
+  const pseudo = pseudoTimes(reihe)
+  const anteile = zeiten.map((ms) => clockTimeAtFraction(reihe, pseudo, (ms - startMs) / 1000))
   const raster = await quelle.stunden(orte, isoTag(vonMs), isoTag(bisMs))
 
   const samples = zeiten.map((ms, i) => {
@@ -167,7 +167,7 @@ export async function berechneWetter(eingabe: {
     // Sample-Stunde im Raster suchen (abgerundet); außerhalb wird geklemmt
     let hi = r.zeiten.findIndex((z) => z.slice(0, 13) === isoStunde(ms))
     if (hi < 0) hi = ms < Date.parse(`${r.zeiten[0]}Z`) ? 0 : r.zeiten.length - 1
-    const wx = wmoZuWetter({
+    const wx = wmoToWeather({
       code: r.code[hi] ?? 0,
       wolken: r.wolken[hi] ?? 0,
       regenMm: r.regen[hi] ?? 0,
@@ -176,7 +176,7 @@ export async function berechneWetter(eingabe: {
     return { f: anteile[i] as number, mode: wx.mode, k: wx.k }
   })
 
-  const geglaettet = glaetteSamples(samples)
+  const geglaettet = smoothSamples(samples)
 
   // Keyframes: erstes Sample immer; danach das letzte Sample VOR jedem
   // Modus-Wechsel plus das erste danach (der Player legt die Umschalt-Grenze
@@ -186,8 +186,8 @@ export async function berechneWetter(eingabe: {
   behalten[0] = true
   let letztK = (geglaettet[0] as { k: number }).k
   for (let i = 1; i < geglaettet.length; i++) {
-    const s = geglaettet[i] as { mode: WetterModus; k: number }
-    const vorher = geglaettet[i - 1] as { mode: WetterModus; k: number }
+    const s = geglaettet[i] as { mode: WeatherMode; k: number }
+    const vorher = geglaettet[i - 1] as { mode: WeatherMode; k: number }
     if (s.mode !== vorher.mode) {
       behalten[i - 1] = true
       behalten[i] = true
@@ -198,11 +198,11 @@ export async function berechneWetter(eingabe: {
     }
   }
 
-  const keyframes: WetterKeyframe[] = []
+  const keyframes: WeatherKeyframe[] = []
   for (let i = 0; i < geglaettet.length; i++) {
     if (!behalten[i]) continue
-    const s = geglaettet[i] as { f: number; mode: WetterModus; k: number }
-    const eintrag: WetterKeyframe = {
+    const s = geglaettet[i] as { f: number; mode: WeatherMode; k: number }
+    const eintrag: WeatherKeyframe = {
       f: rund(s.f, 4),
       mode: s.mode,
       k: rund(s.k, 2),
@@ -219,7 +219,7 @@ export async function berechneWetter(eingabe: {
 }
 
 /** Standard-Stärke k eines Wetter-Overrides ohne eigene `intensity` (mittlere Intensität). */
-export const WETTER_STANDARD_K = 0.7
+export const WEATHER_DEFAULT_K = 0.7
 
 /**
  * Nutzer-Wetter aus dem Studio-Overlay (`edits.weather`) in Player-Keyframes
@@ -236,16 +236,16 @@ export const WETTER_STANDARD_K = 0.7
  * zwei Marken um — bei gleichem f liegt die Umschaltgrenze so EXAKT auf der
  * Nutzer-Grenze (statt auf halber Bandbreite).
  */
-export function wetterAusOverlay(
-  grenzen: ReadonlyArray<{ from: string; mode: WetterModus; intensity?: number }>,
-  reihe: Zeitreihe,
+export function weatherFromOverlay(
+  grenzen: ReadonlyArray<{ from: string; mode: WeatherMode; intensity?: number }>,
+  reihe: TimeSeries,
   startMs: number,
-): WetterKeyframe[] {
+): WeatherKeyframe[] {
   const marken = grenzen
     .map((g) => ({
-      f: positionZurZeit(reihe, (Date.parse(g.from) - startMs) / 1000).f,
+      f: positionAtTime(reihe, (Date.parse(g.from) - startMs) / 1000).f,
       mode: g.mode,
-      k: g.intensity ?? WETTER_STANDARD_K,
+      k: g.intensity ?? WEATHER_DEFAULT_K,
     }))
     .filter((m) => Number.isFinite(m.f))
     .sort((a, b) => a.f - b.f)
@@ -253,9 +253,9 @@ export function wetterAusOverlay(
   // Bänder: Grund = klar bis zur ersten Grenze; jede Grenze eröffnet ein Band
   // bis zur nächsten, das letzte reicht bis f=1. Eine Grenze am/vor dem
   // Track-Anfang (f ≤ 0, etwa vor den Trim geklemmt) ersetzt den Grund direkt.
-  const baender: Array<{ von: number; bis: number; mode: WetterModus; k: number }> = []
+  const baender: Array<{ von: number; bis: number; mode: WeatherMode; k: number }> = []
   let von = 0
-  let cur: { mode: WetterModus; k: number } = { mode: 'off', k: WETTER_STANDARD_K }
+  let cur: { mode: WeatherMode; k: number } = { mode: 'off', k: WEATHER_DEFAULT_K }
   for (const m of marken) {
     if (m.f <= von) {
       cur = { mode: m.mode, k: m.k }
@@ -267,14 +267,14 @@ export function wetterAusOverlay(
   }
   baender.push({ von, bis: 1, ...cur })
 
-  const roh: WetterKeyframe[] = []
+  const roh: WeatherKeyframe[] = []
   for (const b of baender) {
     roh.push({ f: rund(b.von, 4), mode: b.mode, k: rund(b.k, 2), source: 'studio' })
     roh.push({ f: rund(b.bis, 4), mode: b.mode, k: rund(b.k, 2), source: 'studio' })
   }
   // Aufeinanderfolgende identische Keyframes (gleiches f, gleicher Zustand) weg —
   // sie tragen nichts bei und blähen das Tour-JSON nur auf.
-  const keyframes: WetterKeyframe[] = []
+  const keyframes: WeatherKeyframe[] = []
   for (const kf of roh) {
     const v = keyframes[keyframes.length - 1]
     if (v && v.f === kf.f && v.mode === kf.mode && v.k === kf.k) continue
@@ -297,24 +297,24 @@ export function wetterAusOverlay(
  * zwischen zwei Marken (`weatherAt` in src/autoweather.ts). Aufeinanderfolgende
  * Marken mit gleichem Zustand sind dieselbe Aussage und werden zusammengefasst.
  */
-export function wetterZuGrenzen(
-  keyframes: readonly WetterKeyframe[],
-  reihe: Zeitreihe,
+export function weatherToBoundaries(
+  keyframes: readonly WeatherKeyframe[],
+  reihe: TimeSeries,
   startMs: number,
-): Array<{ from: string; mode: WetterModus; intensity: number }> {
+): Array<{ from: string; mode: WeatherMode; intensity: number }> {
   const sortiert = [...keyframes].sort((a, b) => a.f - b.f)
   const erster = sortiert[0]
   if (!erster) return []
-  const grenzen: Array<{ from: string; mode: WetterModus; intensity: number }> = []
+  const grenzen: Array<{ from: string; mode: WeatherMode; intensity: number }> = []
   const zeitBei = (f: number): string =>
-    new Date(startMs + zeitZurPosition(reihe, f) * 1000).toISOString()
+    new Date(startMs + timeAtPosition(reihe, f) * 1000).toISOString()
 
-  let letzter: { mode: WetterModus; k: number } = { mode: erster.mode, k: erster.k }
+  let letzter: { mode: WeatherMode; k: number } = { mode: erster.mode, k: erster.k }
   grenzen.push({ from: zeitBei(erster.f), mode: erster.mode, intensity: erster.k })
   for (let i = 1; i < sortiert.length; i++) {
-    const kf = sortiert[i] as WetterKeyframe
+    const kf = sortiert[i] as WeatherKeyframe
     if (kf.mode === letzter.mode && kf.k === letzter.k) continue
-    const vorher = sortiert[i - 1] as WetterKeyframe
+    const vorher = sortiert[i - 1] as WeatherKeyframe
     grenzen.push({ from: zeitBei((vorher.f + kf.f) / 2), mode: kf.mode, intensity: kf.k })
     letzter = { mode: kf.mode, k: kf.k }
   }
@@ -349,7 +349,7 @@ interface OpenMeteoAntwort {
   }
 }
 
-export class OpenMeteoQuelle implements WetterQuelle {
+export class OpenMeteoSource implements WeatherSource {
   // `jetzt` injizierbar: die Forecast/Archiv-Weiche ist sonst nicht testbar
   constructor(private readonly jetzt: () => Date = () => new Date()) {}
 
@@ -357,11 +357,11 @@ export class OpenMeteoQuelle implements WetterQuelle {
     punkte: ReadonlyArray<{ lat: number; lng: number }>,
     startTag: string,
     endeTag: string,
-  ): Promise<StundenRaster[]> {
+  ): Promise<HourlyGrid[]> {
     const alterTage = (this.jetzt().getTime() - Date.parse(`${endeTag}T00:00:00Z`)) / 86_400_000
     const basisUrl = alterTage < ARCHIV_VERZUG_TAGE ? FORECAST_URL : ARCHIVE_URL
 
-    const ergebnisse: StundenRaster[] = []
+    const ergebnisse: HourlyGrid[] = []
     for (let von = 0; von < punkte.length; von += MAX_ORTE_JE_ABFRAGE) {
       const gruppe = punkte.slice(von, von + MAX_ORTE_JE_ABFRAGE)
       const params = new URLSearchParams({
@@ -394,7 +394,7 @@ export class OpenMeteoQuelle implements WetterQuelle {
 }
 
 /** Test-Fake: liefert allen Positionen dasselbe vorgegebene Stundenraster. */
-export class FesteWetterQuelle implements WetterQuelle {
+export class FixedWeatherSource implements WeatherSource {
   /** Mitschnitt der Abfragen — Tests prüfen damit den Sample-Plan. */
   public abfragen: Array<{
     punkte: Array<{ lat: number; lng: number }>
@@ -402,23 +402,20 @@ export class FesteWetterQuelle implements WetterQuelle {
     endeTag: string
   }> = []
 
-  constructor(private readonly raster: StundenRaster) {}
+  constructor(private readonly raster: HourlyGrid) {}
 
   async stunden(
     punkte: ReadonlyArray<{ lat: number; lng: number }>,
     startTag: string,
     endeTag: string,
-  ): Promise<StundenRaster[]> {
+  ): Promise<HourlyGrid[]> {
     this.abfragen.push({ punkte: punkte.map((p) => ({ ...p })), startTag, endeTag })
     return punkte.map(() => this.raster)
   }
 }
 
 /** Bequemer Raster-Bau für Tests: Stunden ab `startIsoStunde` (UTC). */
-export function testRaster(
-  startIsoStunde: string,
-  stunden: Array<Partial<WetterStunde>>,
-): StundenRaster {
+export function testGrid(startIsoStunde: string, stunden: Array<Partial<WeatherHour>>): HourlyGrid {
   const startMs = Date.parse(`${startIsoStunde}:00:00Z`)
   return {
     zeiten: stunden.map((_, i) => new Date(startMs + i * 3600_000).toISOString().slice(0, 16)),

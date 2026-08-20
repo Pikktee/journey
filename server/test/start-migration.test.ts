@@ -10,7 +10,7 @@ import { FELDER, SCHEMA_KENNUNGEN, WERTE } from '../src/migrations/keys-v2.js'
 import { bildeAb } from '../src/migrations/start.js'
 import { UPLOAD_SCHEMA_ID, uploadManifestJsonSchema } from '../src/schema/upload.js'
 import { EDITS_SCHEMA_ID, editsJsonSchema } from '../src/schema/edits.js'
-import { ANREICHERUNG_SCHEMA_ID } from '../src/pipeline/anreicherung.js'
+import { ENRICHMENT_SCHEMA_ID } from '../src/pipeline/enrichment.js'
 import { TOUR_SCHEMA_ID } from '../src/pipeline/enrich.js'
 
 /** Alle Eigenschaftsnamen eines JSON-Schemas, beliebig tief. */
@@ -89,7 +89,7 @@ describe('keys-v2 gegen die JSON-Schemata', () => {
   it('die Kennungen zeigen auf die Konstanten, die der Server heute schreibt', () => {
     expect(SCHEMA_KENNUNGEN['maptale/upload@1']).toBe(UPLOAD_SCHEMA_ID)
     expect(SCHEMA_KENNUNGEN['maptale/edits@1']).toBe(EDITS_SCHEMA_ID)
-    expect(SCHEMA_KENNUNGEN['maptale/anreicherung@1']).toBe(ANREICHERUNG_SCHEMA_ID)
+    expect(SCHEMA_KENNUNGEN['maptale/anreicherung@1']).toBe(ENRICHMENT_SCHEMA_ID)
     expect(SCHEMA_KENNUNGEN['maptale/tour@1']).toBe(TOUR_SCHEMA_ID)
     // Die Alt-Marke wird genauso erkannt — sie steht in jeder Datei, die vor
     // der Umbenennung des Produkts entstanden ist.

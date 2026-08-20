@@ -3,19 +3,19 @@
 // in index.ts — nur eben ohne Netz und Dateisystem.
 
 import type { FastifyInstance } from 'fastify'
-import { baueApp } from '../src/app.js'
-import type { Konfig } from '../src/config.js'
-import { oeffneDb } from '../src/db.js'
-import type { MailNachricht, MailVersand } from '../src/mail.js'
-import type { PushNachricht, PushVersand, Zustellung } from '../src/push.js'
-import { FesterGeocoder } from '../src/pipeline/naming.js'
-import type { BildWerkzeug } from '../src/pipeline/bild.js'
-import type { VideoWerkzeug } from '../src/pipeline/video.js'
-import type { SchienenQuelle } from '../src/pipeline/schienen.js'
-import type { BildKlassifikator } from '../src/pipeline/vision.js'
-import type { WetterQuelle } from '../src/pipeline/weather.js'
-import { SeitenQuelle } from '../src/seiten.js'
-import type { TrackerProvider } from '../src/tracker/vertrag.js'
+import { buildApp } from '../src/app.js'
+import type { Config } from '../src/config.js'
+import { openDb } from '../src/db.js'
+import type { MailMessage, MailTransport } from '../src/mail.js'
+import type { PushMessage, PushTransport, Delivery } from '../src/push.js'
+import { FixedGeocoder } from '../src/pipeline/naming.js'
+import type { ImageTool } from '../src/pipeline/image.js'
+import type { VideoTool } from '../src/pipeline/video.js'
+import type { RailSource } from '../src/pipeline/rails.js'
+import type { ImageClassifier } from '../src/pipeline/vision.js'
+import type { WeatherSource } from '../src/pipeline/weather.js'
+import { PageSource } from '../src/page-meta.js'
+import type { TrackerProvider } from '../src/tracker/contract.js'
 import { MemStorage } from '../src/storage.js'
 import type { UploadManifest } from '../src/schema/upload.js'
 
@@ -35,7 +35,7 @@ export const TEST_PLAYER_HTML = TEST_PROFIL_HTML.replace(
   '<title>Maptale — 3D-Reiseflug</title>',
 ).replace('profil-abc123.css', 'erlebnis-def456.css')
 
-export const TEST_KONFIG: Konfig = {
+export const TEST_KONFIG: Config = {
   port: 0,
   datenDir: '/nirgendwo',
   cookieSecret: 'test',
@@ -74,14 +74,14 @@ export const TEST_KONFIG: Konfig = {
  * erreicht: FCM lehnt einen Token ab, weil die App deinstalliert wurde — und
  * die Zeile muss dann verschwinden, nicht ins Protokoll.
  */
-export class SammelPush implements PushVersand {
+export class SammelPush implements PushTransport {
   readonly einsatzbereit = true
-  gesendet: Array<{ tokens: string[]; nachricht: PushNachricht }> = []
+  gesendet: Array<{ tokens: string[]; nachricht: PushMessage }> = []
   abgemeldeteTokens = new Set<string>()
   /** Auf `true` gesetzt wirft der Versand — der Import darf davon nicht kippen. */
   faelltAus = false
 
-  async sende(tokens: readonly string[], nachricht: PushNachricht): Promise<Zustellung[]> {
+  async sende(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]> {
     if (this.faelltAus) throw new Error('FCM antwortet nicht')
     this.gesendet.push({ tokens: [...tokens], nachricht })
     return tokens.map((token) => ({ token, abgemeldet: this.abgemeldeteTokens.has(token) }))
@@ -89,9 +89,9 @@ export class SammelPush implements PushVersand {
 }
 
 /** Mail-Fake: sammelt Nachrichten, statt sie zu versenden (Auth-Flüsse testbar). */
-export class SammelMail implements MailVersand {
-  nachrichten: MailNachricht[] = []
-  async sende(nachricht: MailNachricht): Promise<void> {
+export class SammelMail implements MailTransport {
+  nachrichten: MailMessage[] = []
+  async sende(nachricht: MailMessage): Promise<void> {
     this.nachrichten.push(nachricht)
   }
   /** Letzten Link (verify/reset) aus dem Mail-Text ziehen — für die Token-Einlösung. */
@@ -118,22 +118,22 @@ export async function baueTestApp(
   geocoderAntworten: Array<string | null> = ['Lauterbrunnen', 'Grindelwald'],
   // Default null: Wetter aus — Tests, die Keyframes brauchen, geben eine
   // FesteWetterQuelle herein (Spiegelbild der OpenMeteoQuelle in index.ts)
-  weather: WetterQuelle | null = null,
+  weather: WeatherSource | null = null,
   // Default null: keine Video-Aufbereitung — Video-Tests geben einen
   // FakeVideoWerkzeug herein (Spiegelbild des FfmpegWerkzeug in index.ts)
-  videoWerkzeug: VideoWerkzeug | null = null,
+  videoWerkzeug: VideoTool | null = null,
   // M9: einzelne Konfig-Werte übersteuern (Quota, Registrierung offen/zu …)
-  konfigPatch: Partial<Konfig> = {},
+  konfigPatch: Partial<Config> = {},
   // Default null: keine Bildanalyse (M5) — Vision-Tests geben einen
   // FesterKlassifikator herein (Spiegelbild des OpenRouterKlassifikator in index.ts)
-  bildKlassifikator: BildKlassifikator | null = null,
+  bildKlassifikator: ImageClassifier | null = null,
   // Default null: kein Schienen-Abgleich — Tram-Tests geben FesteSchienen
   // herein (Spiegelbild der OverpassSchienen in index.ts)
-  schienen: SchienenQuelle | null = null,
+  schienen: RailSource | null = null,
   // Default null: keine Bild-Aufbereitung — Medien bleiben Originale. Tests zu
   // den Fassungen geben ein FakeBildWerkzeug herein (Spiegelbild des
   // FfmpegBildWerkzeug in index.ts)
-  bildWerkzeug: BildWerkzeug | null = null,
+  bildWerkzeug: ImageTool | null = null,
   // Default leer: keine Tracker-Anbieter — die Routen antworten mit einer
   // leeren Liste. Tracker-Tests geben einen TestProvider herein (Spiegelbild
   // der echten Adapter in index.ts).
@@ -141,20 +141,20 @@ export async function baueTestApp(
   // Default null: kein Push — die Registrier-Route antwortet mit `push: false`
   // und der Importlauf meldet nichts. Push-Tests geben einen SammelPush herein
   // (Spiegelbild des FcmPush in index.ts).
-  push: PushVersand | null = null,
+  push: PushTransport | null = null,
 ): Promise<TestUmgebung> {
-  const db = oeffneDb(':memory:')
+  const db = openDb(':memory:')
   const storage = new MemStorage()
   const benutzerStorage = new MemStorage()
   const archive = new MemStorage()
   const mail = new SammelMail()
-  const app = baueApp({
+  const app = buildApp({
     konfig: { ...TEST_KONFIG, ...konfigPatch },
     db,
     storage,
     benutzerStorage,
     archive,
-    geocoder: new FesterGeocoder(geocoderAntworten),
+    geocoder: new FixedGeocoder(geocoderAntworten),
     wetter: weather,
     videoWerkzeug,
     bildWerkzeug,
@@ -164,7 +164,7 @@ export async function baueTestApp(
     push,
     mail,
     // Ohne Netz: Der Server holt die gebaute Seite sonst über konfig.webUrl.
-    seiten: new SeitenQuelle({ webUrl: 'https://maptale.test' }, async (url) =>
+    seiten: new PageSource({ webUrl: 'https://maptale.test' }, async (url) =>
       url.endsWith('erlebnis.html') ? TEST_PLAYER_HTML : TEST_PROFIL_HTML,
     ),
   })

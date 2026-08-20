@@ -90,7 +90,7 @@ Ein Zeitstempel (`2026-05-14T13:17:19+02:00`) und eine Medien-ID (`m3`)
 bedeuten dagegen immer dasselbe. Deshalb gilt: **im Overlay nie `f`** — nur
 Medien-IDs, Koordinaten und absolute ISO-Zeitstempel. Die Umrechnung in `f`
 macht die Pipeline bei jedem Render neu
-([positionZurZeit](../../server/src/pipeline/zeit.ts)).
+([positionZurZeit](../../server/src/pipeline/time.ts)).
 
 Aus demselben Grund zeigt die Zeitleiste im Studio **Aufnahmezeit** und nicht
 Streckenanteil: Was man dort anfasst, wird direkt zum Anker im Overlay.
@@ -121,7 +121,7 @@ Auto-Wetter und Auto-Musik sind beides. Die Regel dafür: **Was jemand
 das Überstimmen stehen könnte.
 
 - **Auto-Musik** schreibt die Pipeline beim allerersten Verarbeiten ins Overlay
-  ([musikwahl.ts](../../server/src/pipeline/musikwahl.ts)) und rührt es danach nie
+  ([music-choice.ts](../../server/src/pipeline/music-choice.ts)) und rührt es danach nie
   wieder an. Läge sie nur im Tour-JSON, wäre sie im Studio unsichtbar und
   unlöschbar — die Pipeline schriebe sie bei jedem Render zurück. Man bräuchte
   dann ein „diesmal wirklich keine Musik"-Flag, also doch wieder ein Overlay.
