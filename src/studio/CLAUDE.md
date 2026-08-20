@@ -104,7 +104,7 @@ fahrende Kamera) steht noch aus: [docs/concepts/foto-tour.md](../../docs/concept
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
 sondern schreibt ein **Edit-Overlay** (`maptale/edits@1`, [server/src/schema/edits.ts](../../server/src/schema/edits.ts)):
 `medien` (Caption, Anker, gelöscht, Anzeigeoptionen, Video-Schnitt), `modi`, `kamera`, `audio`,
-`wetter`, `titelbild` (dazu das TOUR-`trim` — im Format erhalten und serverseitig angewandt,
+`wetter`, `cover` (dazu das TOUR-`trim` — im Format erhalten und serverseitig angewandt,
 aber **nicht mehr bedienbar**: die Griffe an den Leistenrändern sind entfallen, eine Tour
 beginnt und endet, wo sie aufgezeichnet wurde; nicht zu verwechseln mit `medien[].trim`, dem
 Video-Schnitt aus Etappe 4).
@@ -130,7 +130,7 @@ darin — Studio-Sprache, kein `confirm()`-Kasten; die Beschriftung davor wird b
 gesichert und nirgends sonst gelesen — beim zweiten Klick steht im Knopf längst die
 Löschfrage, ein erneutes `innerHTML` schriebe sie als Ruhezustand fest); **gelöscht wird VOR
 dem Overlay**, weil der
-Server dabei seine eigene Overlay-Fassung mitstutzt (`medien`-Eintrag, `titelbild`) und ein
+Server dabei seine eigene Overlay-Fassung mitstutzt (`medien`-Eintrag, `cover`) und ein
 danach geschriebenes Overlay toten Zustand zurückschriebe; **`gespeichert` wird mitgezogen**
 (`ohneMedien` in [editmodell.ts](editmodell.ts) auch auf den Schnappschuss anwenden), sonst
 liefe direkt danach ein Speichern für eine Änderung, die keine mehr ist; und **nacheinander**,
@@ -196,7 +196,7 @@ bei der Fortbewegung. Die Kamera-Spur bleibt dagegen ohne Vorgabe: ihr Grundband
 **„Standard"**, weil dort gilt, was der Zuschauer im Player einstellt (Nah/Mittel/Weit).
 
 **Eine neue Tour bekommt Musik, aber nur einmal.** Beim ERSTEN Verarbeiten (`finalize`, erkannt
-am Status VOR dem Claim → `erstmals` in `verarbeite`) wählt
+am Status VOR dem Claim → `erstmals` in `processTour`) wählt
 [musikwahl.ts](../../server/src/pipeline/musikwahl.ts) aus Uhrzeit, Wetter, Höhen, Fortbewegung und
 Breitengrad ein Stück der Bibliothek und schreibt es ins **Overlay** — nicht direkt ins
 Tour-JSON, denn dort wäre es im Studio unsichtbar und unabänderlich. Reihenfolge der Regeln
@@ -211,12 +211,12 @@ Mal; ein Drift-Wächter prüft, dass jede davon im Katalog steht und Musik ist.
 **Die Audio-Bibliothek „Musik & Effekte" ist benutzerweit.** Eigene Dateien landen NICHT
 mehr tour-lokal, sondern in der Bibliothek des Kontos (`<userId>/audio/` im benutzerStorage,
 [server/src/routes/bibliothek.ts](../../server/src/routes/bibliothek.ts)): einmal hochgeladen, in
-jeder Tour einsetzbar (`quelle: 'benutzer'` im Overlay), zur Quota zählend, löschbar nur
+jeder Tour einsetzbar (`source: 'user'` im Overlay), zur Quota zählend, löschbar nur
 solange KEINE Tour sie referenziert (edits.json ODER gerendertes tour.json). Ausgeliefert
 wird über die Tour (`/api/tours/:id/library-audio/:file`, Sichtbarkeit + Referenz-Check
 — sonst wäre die Route ein Orakel über fremde Bibliotheken); das Studio hört über die
 Owner-Route `/api/audio-library/:datei` vor. Tour-lokale `media/`-Audios bleiben als
-Altbestand unterstützt (Verweis ohne `quelle`). Im Studio ist die Bibliothek ein **Katalog
+Altbestand unterstützt (Verweis ohne `source`). Im Studio ist die Bibliothek ein **Katalog
 zum Durchhören** in einem Dialog mit FESTEM Format (springt beim Filtern nicht): Suche über
 die GANZE Bibliothek (Reiter treten zurück), Reiter nach Art (Musik · Atmosphäre · Effekte ·
 Eigene, bewusst kein „Alle"), dichte Zeilen; die Kategorie bestimmt beim Einsetzen die

@@ -37,21 +37,21 @@ braucht den Rückfall auf `src`. Die App verkleinert schon vor dem Upload auf 25
 größer als die Anzeige-Fassung, denn der Server rechnet aus DIESER Datei.
 
 **Das Manifest wächst, es ändert sich nicht.** Medien kommen auch NACH dem Anlegen dazu
-(`POST /api/tours/:id/medien` — Studio-Nachreichen und der Foto-Nachzug zu Cloud-Touren):
+(`POST /api/tours/:id/media` — Studio-Nachreichen und der Foto-Nachzug zu Cloud-Touren):
 Die Route hängt Einträge an, fasst vorhandene nie an und lässt **den Server die IDs vergeben**
-(`n_…`), damit keine kollidiert und keine je wiederverwendet wird. **Ein Eintrag mit `quelle`
+(`n_…`), damit keine kollidiert und keine je wiederverwendet wird. **Ein Eintrag mit `source`
 kommt genau einmal ins Manifest** (`galerie:<MediaStore-ID>`): Die App kann nicht wissen, was
 eine Tour schon hat — sie sieht das gerenderte `tour.json`, und das kennt Nachgereichtes erst
 NACH dem Rendern. Scheitert das (409 während einer Verarbeitung, Netz weg), wiederholt sie
 den Lauf, und ohne diesen Riegel stünde danach jedes Bild doppelt in der Tour. Die Antwort
 behält Länge und Reihenfolge der Anfrage, auch für Übersprungene — der Client paart sie über
 den Index. Tombstones zählen mit: Ein endgültig gelöschtes Foto soll nicht beim nächsten Lauf
-wiederkommen. Ohne `quelle` (Studio) bleibt jeder Eintrag neu, dort wählt ein Mensch aus. Gelöscht wird endgültig
+wiederkommen. Ohne `source` (Studio) bleibt jeder Eintrag neu, dort wählt ein Mensch aus. Gelöscht wird endgültig
 (`DELETE …/media/:mid`): Rohdatei und alle Ableitungen sind weg, der Speicher ist frei — der
-Manifest-Eintrag bleibt aber als **Tombstone** (`entfernt: true`) stehen, denn das Manifest ist
+Manifest-Eintrag bleibt aber als **Tombstone** (`removed: true`) stehen, denn das Manifest ist
 das Protokoll dessen, was hochgeladen wurde. Vier Regeln hängen daran: **`verfuegbareMedien`
 ([tours.ts](src/routes/tours.ts)) ist die EINE Filterstelle** — sie nimmt Tombstones und
-angekündigte Einträge ohne Datei aus `verarbeite()`, weshalb Platzierung, Fassungen,
+angekündigte Einträge ohne Datei aus `processTour()`, weshalb Platzierung, Fassungen,
 Bildanalyse, Render und Cover-Wahl sie gar nicht erst sehen (der Cover-Fallback beim gelöschten
 Titelbild fällt dadurch von selbst an). **finalize überspringt Tombstones**, sonst blockierte
 ein vor dem Finalisieren gelöschtes Medium die Tour für immer mit „Medien fehlen". **Die
@@ -62,14 +62,14 @@ Manifest behält sie in beiden Fällen, es ist das Protokoll des Hochgeladenen. 
 409-Riegel bei „bereit" gilt nur dem ÜBERSCHREIBEN** — ein nachgereichter Eintrag hat noch
 keine Datei und darf ankommen; ein Tombstone nie wieder (die Auslieferung hat für diesen Namen
 `immutable` versprochen). Und **gelöscht wird auch bei „bereit"**, nur nicht während
-`verarbeitung`: Eine verschwundene Datei wird 404, nicht stale — der Riegel schützt vor einer
+`processing`: Eine verschwundene Datei wird 404, nicht stale — der Riegel schützt vor einer
 neuen Version unter altem Namen, nicht vor dem Verschwinden.
 **Am Manifest schreibt immer nur EINER je Tour** ([manifestsperre.ts](src/manifestsperre.ts)):
 Nachreichen und Löschen arbeiten beide „lesen → ändern → schreiben", und zwischen Lesen und
 Schreiben liegt echte Wartezeit. Zwei gleichzeitige Läufe lesen denselben Stand, der zweite
 schreibt den ersten weg — und verloren ist nicht bloß ein Eintrag: Der Client hat für ihn eine
 Medien-ID bekommen und lädt die Bytes hoch, die dann gegen die Quota zählen und zu keiner Tour
-gehören; der `quelle`-Riegel greift für sie nicht mehr, weil ihr Eintrag fehlt. Bei `DELETE`
+gehören; der `source`-Riegel greift für sie nicht mehr, weil ihr Eintrag fehlt. Bei `DELETE`
 gegen `POST` erweckt die Zustellung sogar einen Eintrag, dessen Dateien gerade gelöscht wurden.
 Solange nur das Studio nachreichte, war das theoretisch (ein Mensch klickt nicht zweimal
 gleichzeitig); mit dem Foto-Nachzug gibt es automatische Aufrufer. Der Mutex in der App deckt
@@ -90,7 +90,7 @@ Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](../docs/conc
    Rolling-Median über ±30 s, Hysterese 5,5/8 km/h, Mindestdauern gegen Ampel-Fehlalarme. Sie
    läuft in `ladeOriginalSegmente` — der einen Stelle, die sich Editor und Render teilen;
    nur beim Rendern angewandt, zeigte der Editor eine andere Aufteilung als das Video.
-   `edits.modi` wird darübergelegt und behält Vorrang; mehrere Segmente im Manifest bleiben
+   `edits.travelModes` wird darübergelegt und behält Vorrang; mehrere Segmente im Manifest bleiben
    unangetastet (jemand hat dann selbst umgeschaltet). **Sie gilt für echte Aufzeichnungen,
    nicht für gesetzte Wegpunkte** — zwischen zwei Foto-Orten liegt eine Luftlinie, jedes
    daraus gerechnete Tempo wäre Zufall. Die Unterscheidung trifft `istAufzeichnung` an der
@@ -110,14 +110,14 @@ Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](../docs/conc
    Stadtfahrt kalibriert (`5f15531`); wer sie im Kopf hat, prüft sie dort nach. Drei Schutzregeln: Das läuft nur bei
    `frisch` (finalize/„Neu verarbeiten", also nie bei einem Edit-Speichern), nur wenn die
    Fortbewegung überhaupt GERATEN wurde (`trackMode` leer und alles `walk`), und nur solange
-   `edits.modi` leer ist — eine im Studio gezogene Kante wird nie überstimmt. Das Ergebnis geht
+   `edits.travelModes` leer ist — eine im Studio gezogene Kante wird nie überstimmt. Das Ergebnis geht
    als Modus-Grenzen ins **Overlay**, nicht ins Tour-JSON: dort ist es sichtbar und
    korrigierbar (dasselbe Muster wie die Auto-Musikwahl). Fällt OSM aus, bleibt es bei „Rad" —
    eine Anreicherung, kein Muss.
 
    Erkennt die **App** die Fortbewegung selbst (Activity Recognition, s.
    [android/CLAUDE.md](../android/CLAUDE.md)), schickt sie fertige Abschnitte und setzt
-   `modiAutomatisch` im Manifest. Nur dieses Feld unterscheidet „erkannt" von „angegeben" —
+   `travelModesAuto` im Manifest. Nur dieses Feld unterscheidet „erkannt" von „angegeben" —
    `walk` heißt in der App beides. Ein Fahrzeug schickt sie als `jeep`; welches es war, klärt
    auch dort erst der Schienenabgleich.
 3. **Eine Pause wird GERAFFT, nicht herausgekürzt** ([zeit.ts](src/pipeline/zeit.ts),
@@ -238,12 +238,12 @@ allgemeine Fehler-Handler seit demselben Zug durch: Fastifys Client-Fehler trage
 selbst (413, 400 bei kaputtem JSON, 415), und alle auf 500 zu werfen hieß, dem Aufrufer einen
 Serverfehler zu melden, den es nicht gibt — und ihn ins Log zu schreiben.
 
-**Quittiert wird, was ANKAM.** `?gesehen=1` an `…/imports/pending` hakt alles ab, was gerade
+**Quittiert wird, was ANKAM.** `?seen=1` an `…/imports/pending` hakt alles ab, was gerade
 offen ist — brauchbar für eine Ansicht, die sofort alles zeigt. Wer erst meldet und dann
 abhakt (die App), holt OHNE und quittiert danach namentlich über
-`POST …/imports/gesehen` mit den IDs. Sonst verschwindet eine Meldung dadurch, dass ein
+`POST …/imports/seen` mit den IDs. Sonst verschwindet eine Meldung dadurch, dass ein
 Hintergrundlauf sie gelesen hat: Genau das passierte, als der Android-Worker mit
-`?gesehen=1` holte und die Benachrichtigung anschließend an einer fehlenden Berechtigung
+`?seen=1` holte und die Benachrichtigung anschließend an einer fehlenden Berechtigung
 scheiterte.
 
 **Der `state` ist Pflicht, einmalig und liegt im Speicher.** Ohne ihn ließe sich einem
@@ -270,7 +270,7 @@ die Tour liegt spielbar im Konto, ob Google sie ausliefert oder nicht. Fünf Din
 dabei kippt: **Die Nachricht trägt keine Inhalte, nur einen Anlass** (`{typ, tourId,
 importId}`) — sie läuft über Googles Server und läge sonst auf dem Sperrbildschirm, und FCM
 ist nicht Ende-zu-Ende-verschlüsselt. **Kein `notification`-Block**, nur `data`: Android
-zeigte den sonst selbst an, am Quittieren (`…/imports/gesehen`) vorbei und doppelt zum
+zeigte den sonst selbst an, am Quittieren (`…/imports/seen`) vorbei und doppelt zum
 periodischen Abruf der App. **Die Adresse ist die FID, nicht der Registrierungs-Token** —
 FCM hat ihn mit SDK 25.1.0 (Juni 2026) abgelöst, die v1-API führt `token` als deprecated und
 will `fid`; die Spalte heißt trotzdem neutral `token`, weil dort später der
@@ -294,7 +294,7 @@ Vertrag ohne Netz erfüllbar ist, und weil sich der erste echte Adapter an ihm m
 
 ## Konten, Registrierung, Warteliste
 
-**Es gibt zwei Rollen** (`users.rolle`), keine Rechtematrix: wer verwalten darf und wer seine
+**Es gibt zwei Rollen** (`users.role`), keine Rechtematrix: wer verwalten darf und wer seine
 eigenen Touren hat. `Benutzer.rolle` hängt an jeder aufgelösten Sitzung und kommt über
 `/auth/me` bis in die Oberfläche.
 
@@ -309,7 +309,7 @@ eigene Admin-Rolle ist nicht ablegbar, und der letzte Admin bleibt Admin. Alle d
 stehen doppelt (Server + `rolleGesperrt`/`loeschenGesperrt` im Modell): Der Server MUSS sie
 durchsetzen, die Oberfläche SOLL den Knopf gar nicht erst anbieten.
 
-**Registrierung: ein Schalter, zwei Ebenen.** Die DB-Einstellung `einladung_pflicht`
+**Registrierung: ein Schalter, zwei Ebenen.** Die DB-Einstellung `invitation_required`
 (Vorgabe AN, [einladungen.ts](src/auth/einladungen.ts)) entscheidet, ob ein Code nötig
 ist — sie liegt in der Datenbank und nicht in der Umgebung, weil sie zur Laufzeit umgelegt wird.
 Darüber steht weiterhin der harte Env-Riegel `MAPTALE_REGISTRIERUNG_OFFEN`: Ist der zu, hilft
@@ -325,7 +325,7 @@ zweite (zwei Anmeldungen mit demselben Code in derselben Sekunde), wird das eben
 Konto wieder zurückgenommen.
 
 **Die Registrierung ist zweistufig: erst die Einladung, dann die Person.** Schritt 1 fragt nur
-den Code und prüft ihn über `POST /api/auth/einladung-pruefen` — rein lesend, eigene Bremse
+den Code und prüft ihn über `POST /api/auth/check-invitation` — rein lesend, eigene Bremse
 (12 Versuche je 10 min), verbraucht nichts. Erst danach kommt das Formular — und das fragt
 **nur E-Mail und Passwort**: Jedes weitere Pflichtfeld kostet Anmeldungen, und für ein Konto
 gebraucht wurde der Name nie. `users.name` ist trotzdem NOT NULL und trägt zwei sichtbare
@@ -379,7 +379,7 @@ bereit: `empfaenger()` und `newsletterKopfzeilen()`.
 
 **Ein Boolean allein wäre kein Nachweis.** `users.newsletter` trägt den aktuellen Zustand
 (der Versand fragt ihn je Empfänger), daneben steht die Historie
-`newsletter_einwilligungen` mit Zeitpunkt, Zustand, Quelle (`registrierung` · `konto` ·
+`newsletter_consents` mit Zeitpunkt, Zustand, Quelle (`registrierung` · `konto` ·
 `abmeldelink`) und Textfassung — Art. 7 Abs. 1 DSGVO. Gespeichert wird ein LABEL
 (`konto-2026-08-06`), nicht der Satz; **wer den Wortlaut ändert, hebt das Datum im
 Label**, sonst behauptet die Zeile eine Zustimmung zu einem Text, den niemand gelesen hat.
@@ -400,7 +400,7 @@ transaktionale Mail selbst zur Werbemail (im Test festgehalten).
 Einwilligung (Art. 7 Abs. 3). Der Token ist SIGNIERT (HMAC über die Benutzer-ID mit dem
 Cookie-Geheimnis), steht in keiner Tabelle und läuft nicht ab: Eine Frist wäre in der Mail,
 die jemand ein Jahr später aus dem Archiv holt, genau dort tot, wo sie gebraucht wird.
-Zwei Eingänge — die Seite (`/konto#newsletter-aus=…`, POST auf `/api/newsletter/abmelden`)
+Zwei Eingänge — die Seite (`/konto#newsletter-aus=…`, POST auf `/api/newsletter/unsubscribe`)
 und der Ein-Klick-Widerruf der Mail-Programme (`/api/newsletter/ein-klick/:token`,
 RFC 8058). `newsletterKopfzeilen` liefert beide Kopfzeilen zusammen: Ohne
 `List-Unsubscribe-Post` ist die URL nur ein Link, den der Client öffnet. Seit 2024
@@ -435,13 +435,13 @@ s. [scripts/gen-logo.mjs](../scripts/gen-logo.mjs)): SVG zeigt kein Mail-Program
 Bilder oft erst auf Klick geladen werden, ist der Alt-Text so gesetzt, dass an seiner Stelle
 die Wortmarke steht.
 **Die Texte stehen im Katalog** [mailvorlagen.ts](src/mailvorlagen.ts) — die Tabelle
-`mailvorlagen` hält nur ABWEICHUNGEN. Eine bessere Formulierung im Code erreicht damit alle,
+`mail_templates` hält nur ABWEICHUNGEN. Eine bessere Formulierung im Code erreicht damit alle,
 die nichts angepasst haben; „Zurücksetzen" ist folgerichtig ein DELETE, und wer den Standard
 von Hand zurücktippt, bekommt ebenfalls die Zeile gelöscht (sonst hinge die Vorlage still vom
 Code ab). Bearbeitbar sind die WORTE (Betreff, Überschrift, Absätze, Knopf, Kleingedrucktes),
 nicht das HTML: Freies Markup wäre erst im Postfach als kaputt zu sehen, ginge an jeder
 Layout-Verbesserung vorbei und wäre ein Eingabefeld, aus dem HTML in fremde Mails fließt.
-Platzhalter (`{{name}}`, `{{link}}`, `{{code}}`, `{{austragenLink}}`) sind pro Vorlage
+Platzhalter (`{{name}}`, `{{link}}`, `{{code}}`, `{{leaveLink}}`) sind pro Vorlage
 deklariert; `pruefeBausteine` lehnt eine Fassung ab, in der eine Angabe fehlt — eine Mail
 ohne ihren Link ist keine Geschmacksfrage, sondern eine Sackgasse. Ein Absatz, der NUR aus
 `{{code}}` besteht, wird zur hervorgehobenen Code-Box (ein Feld „Code hervorheben" wäre ein

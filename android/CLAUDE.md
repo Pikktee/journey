@@ -179,7 +179,7 @@ hochgeladen. Ohne ihn platziert der Server über die Zeit, und das ist der Norma
 nicht im Film — sein Fehlschlag ist aber kein Drama, s. unten.
 
 **Gegen doppelte Fotos stehen ZWEI Riegel, und sie decken verschiedene Wege.** Der eine liegt
-beim Server: Jeder Eintrag trägt eine `quelle` (`galerie:<MediaStore-ID>`), und was darunter
+beim Server: Jeder Eintrag trägt eine `source` (`galerie:<MediaStore-ID>`), und was darunter
 schon im Manifest steht, wird kein zweites Mal angelegt. Das ist nötig, weil der Dedup über
 `tourDetail` allein NICHT trägt — der liest das gerenderte `tour.json`, und das kennt
 nachgereichte Bilder erst nach `reprocess`; scheitert der, schlüge der nächste Lauf dieselben
@@ -209,7 +209,7 @@ von vier Anläufen meldet die Tour notfalls ohne Bilder — er greift NICHT bei 
 Netz, denn dann läuft der Auftrag wegen `NetworkType.CONNECTED` gar nicht erst, und ohne
 Netz hätte die App von der Tour ohnehin nie erfahren. WorkManager überlebt den Prozess, wartet auf Netz und
 wiederholt — dieselbe Wahl wie beim `UploadWorker`. **`suchePassendeFotos` trennt „nichts gefunden" von „noch nicht zu beantworten"** (leere Liste vs. `null`): Eine Tour, die noch rendert, hat kein Zeitfenster — wer das als „nichts gefunden" liest, gibt auf, statt zu warten. Am Gerät kostete genau das eine Tour ihre Fotos: Der Nachzug startete EINE SEKUNDE bevor sie fertig war; zwei andere Touren derselben Runde hatten nur Glück mit dem Zeitpunkt. `null` führt jetzt zu `Result.retry`. Ein Wiederanlauf ist gefahrlos, weil
-die `quelle` den Server nichts doppelt anlegen lässt. Aus demselben Grund läuft der
+die `source` den Server nichts doppelt anlegen lässt. Aus demselben Grund läuft der
 Knopf „Hinzufügen" im `appScope` statt im `viewModelScope`: Wer den Screen verlässt, riss
 den Lauf sonst entzwei. Ohne sie wartet in der Tour selbst eine
 FRAGE (`ServerTourScreen`), und die Screen-Suche läuft genau dann nicht, wenn die Automatik

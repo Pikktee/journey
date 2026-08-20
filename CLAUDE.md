@@ -202,7 +202,7 @@ reserviert sein). Drei Dinge, die man dabei zerstört: `encodeURIComponent('@')`
 daraus (deshalb baut `profilPfad` den Pfad selbst); die Dev-Middleware muss gegen
 `HANDLE_REGELN` prüfen statt bloß auf `/@`, weil Vite unter genau diesem Präfix seine eigenen
 Adressen bedient (`/@vite/client`, `/@fs/…`); und ein geänderter Handle wandert 90 Tage in
-`handles_reserviert`, damit alte Links weiter zur Person führen, statt an den nächsten
+`reserved_handles`, damit alte Links weiter zur Person führen, statt an den nächsten
 Interessenten zu fallen. Die alte Form `?id=…` bleibt für immer bedienbar — die Profilseite
 schreibt sie per `replaceState` auf `/@…` um.
 
@@ -511,7 +511,7 @@ Engine, Komposition und Encode zusammen 1,2 ms. Wer die Auflösung senkt, spart 
 Stellen deckungsgleich bleiben: `MODUS_TEMPO` ([src/filmachse.ts](src/filmachse.ts)) samt
 `MODE_SCALE` ([src/tour.ts](src/tour.ts)),
 `MODE_ICONS` ([src/map.ts](src/map.ts)), `MODE_SOUND` ([src/vehicle.ts](src/vehicle.ts), nur
-die drei mit Motorgeräusch: moped/jeep/ferry — die Tram fährt lautlos) und `MODI` ([server/src/schema/upload.ts](server/src/schema/upload.ts), von
+die drei mit Motorgeräusch: moped/jeep/ferry — die Tram fährt lautlos) und `TRAVEL_MODES` ([server/src/schema/upload.ts](server/src/schema/upload.ts), von
 dort beziehen Studio-Typ und alle JSON-Schema-Enums ihre Werte). Sie **lief schon einmal
 auseinander** — Studio und Server kannten `moped`/`jeep` nicht, obwohl Engine, Icons und
 Motorsound sie längst unterstützten; aufgezeichnete Touren konnten diese Modi deshalb nie
@@ -521,7 +521,7 @@ Der Modus wird bei der Aufnahme EINMAL angegeben; wo jemand stattdessen zu Fuß 
 [server/src/pipeline/tempo.ts](server/src/pipeline/tempo.ts) beim Rendern selbst ab (s. unten).
 Im Editor ist **jeder Modus-Wechsel eine ziehbare Kante** — auch die von der Automatik
 erkannte. Beim ersten Zug schreibt `materialisiereModi` ([editmodell.ts](src/studio/editmodell.ts))
-die ganze erkannte Aufteilung als Grenzen fest: `edits.modi` ist eine Stufenfunktion, die AB
+die ganze erkannte Aufteilung als Grenzen fest: `edits.travelModes` ist eine Stufenfunktion, die AB
 ihrem Punkt alles Folgende übersteuert — eine einzelne neue Grenze mitten in der Automatik
 risse die späteren Abschnitte mit. `klemmeGrenze` hält jede Kante zwischen ihren Nachbarn UND
 lässt mindestens einen Trackpunkt im Abschnitt: sonst gälte der Zustand für keinen Punkt, das
