@@ -85,7 +85,7 @@ export function oeffneMailDialog(meldung: (text: string) => void): void {
     fehler.hidden = true
     const ergebnis = await sende('/api/auth/me/email', {
       email: mail.eingabe.value.trim(),
-      passwort: pw.eingabe.value,
+      password: pw.eingabe.value,
     })
     if (!ergebnis.ok) {
       fehler.textContent = ergebnis.fehler
@@ -157,8 +157,8 @@ export function oeffnePasswortDialog(
     aendern.disabled = true
     fehler.hidden = true
     const ergebnis = await sende('/api/auth/me/password', {
-      alt: alt.eingabe.value,
-      neu: neu.eingabe.value,
+      old: alt.eingabe.value,
+      new: neu.eingabe.value,
     })
     if (!ergebnis.ok) {
       fehler.textContent = ergebnis.fehler

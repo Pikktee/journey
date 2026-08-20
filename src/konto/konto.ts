@@ -335,7 +335,7 @@ function verdrahteSuche(daten: MeAntwort): void {
     const antwort = await fetch('/api/auth/me/search-indexing', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ an: gewuenscht }),
+      body: JSON.stringify({ enabled: gewuenscht }),
     }).catch(() => null)
     schalter.disabled = false
     if (!antwort?.ok) {
@@ -430,7 +430,7 @@ function verdrahteNewsletter(daten: MeAntwort): void {
     const antwort = await fetch('/api/auth/me/newsletter', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ an: gewuenscht }),
+      body: JSON.stringify({ enabled: gewuenscht }),
     }).catch(() => null)
     schalter.disabled = false
     if (!antwort?.ok) {
