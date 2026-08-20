@@ -461,6 +461,8 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 ### 2. `specs/` (Spezifikationen)
 * [`austauschformat.md`](specs/austauschformat.md) — `.maptale`-Export/Import-Format und `tour.json`.
 * [`overlay-und-tourjson.md`](specs/overlay-und-tourjson.md) — Rollenverteilung zwischen `edits.json`, `anreicherung.json` und `tour.json`.
+* [`api.md`](specs/api.md) — der HTTP-Vertrag: alle 95 Routen mit Auth-Stufe, Feldern und Aufrufern.
+* [`abbildungstabelle.md`](specs/abbildungstabelle.md) — deutscher Bezeichner zu englischem, je Eintrag mit Fundort und Welle; das Werkstück der Englisch-Migration.
 
 ### 3. `architecture/` (Umgesetzte Entscheidungen)
 * [`systemuebersicht.md`](architecture/systemuebersicht.md) — Tech-Stack & High-Level-Systemarchitektur (Einstieg mit Diagrammen).

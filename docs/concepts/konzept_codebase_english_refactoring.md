@@ -1,6 +1,6 @@
 ---
-stand: 2026-08-19
-status: beschlossen am 2026-08-19, dritte Fassung nach den Reviews aus §0; Werkzeug-Vorstufe gebaut, Wellen nicht begonnen
+stand: 2026-08-20
+status: Welle 0 gebaut (Zahlen aus §4.5 erhoben, Abbildungstabelle steht mit 3423 Einträgen), Abnahme der Tabelle offen; Welle 1 nicht begonnen
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -19,6 +19,8 @@ betrifft:
   - CLAUDE.md
   - docs/specs/austauschformat.md
   - docs/specs/overlay-und-tourjson.md
+  - docs/specs/abbildungstabelle.md
+  - docs/specs/api.md
 icon: buchstaben
 ---
 
@@ -1429,7 +1431,13 @@ keine Zeile Code. Konkret und in dieser Reihenfolge:
    wird dann trotzdem gebraucht, aber für einen anderen Plan.
 2. **Roadmap**: Play Store hinter dieses Vorhaben; Einladungen bis Ende
    Welle 1 pausieren.
-3. **Tabelle bauen**, maschinenlesbar und an einer Stelle. Sie führt je
+3. **Tabelle bauen** — **erledigt am 2026-08-20**:
+   [docs/specs/abbildungstabelle.tsv](../specs/abbildungstabelle.tsv) mit 3423
+   Einträgen, beschrieben in
+   [abbildungstabelle.md](../specs/abbildungstabelle.md), geprüft von
+   `scripts/abbildungstabelle-pruefen.mjs` (keine Widersprüche, keine
+   Kollisionen). Nebenprodukt [api.md](../specs/api.md) steht: 95 Routen mit
+   Feldern und Aufrufern. Drei Befunde daraus stehen in §11a. Maschinenlesbar und an einer Stelle. Sie führt je
    Eintrag: Ist-Name, Zielform, Art, **Fundort**, Welle, Bemerkung. Quellen sind
    §6.1 bis §6.10 und die Liste aller deutschen Exporte in `src/`,
    `server/src`, `android/` samt aller API-Felder je Route, die ein Agent
@@ -1463,11 +1471,37 @@ keine Zeile Code. Konkret und in dieser Reihenfolge:
      Tabelle, damit die Entscheidung lesbar bleibt und niemand sie als Lücke
      nachträgt.
 4. **Tabelle abnehmen.** Der Betreiber liest sie durch, bevor sie eingefroren
-   wird. Streitpunkte, die dabei fallen müssen: `Halt` → `stop` neben `holdS`,
-   `mid` gegen `medium` (§6.9), die drei Bedeutungen von „Spur" (§6.1), die
-   Pegel-Wörter (`volume`/`gain`/`masterGain`, §6.1), und ob die CSS-Tokens
-   mitgehen (§6.10). Ergebnis: ein eingefrorenes §6.
+   wird. Die Streitpunkte stehen als eigener Abschnitt in
+   [abbildungstabelle.md](../specs/abbildungstabelle.md): zehn Spiegel, deren
+   Zielformen in Server und Web auseinandergelaufen sind (darunter beide
+   `handle.ts`-Zwillinge und `HALT_AUSBLEND_S`), `Halt` als drittes Ding in
+   `filmachse.ts`, und ob die CSS-Tokens mitgehen (§6.10). Erledigt haben sich
+   `mid` gegen `medium`, die drei Bedeutungen von „Spur" und die Pegel-Wörter:
+   Das Glossar entscheidet sie, und die Tabelle folgt ihm ohne Abweichung.
+   Ergebnis: ein eingefrorenes §6.
 5. **Sprachregel in `CLAUDE.md`** anpassen (§2).
 6. **DB-Snapshot und Kopie** des Datenordners (§8).
 7. Erst danach Welle 1, Schritt 1 (§5): SQLite + die Felder, die direkt aus
    Zeilen kommen. Sie beginnt mit der Migration, nicht mit dem Rename.
+
+## 11a. Drei Befunde aus dem Bau der Tabelle
+
+**Die Begründung in §4.2 zum `tokens`-Blob stimmt nicht.** Dort steht, er trage
+„nur fremde Schlüssel". Die Inventur findet deutsche (`zugriff`, `erneuerung`,
+`laeuftAb`, `externerNutzer`). Die Entscheidung „bleibt" ist trotzdem richtig,
+nur die Begründung ist eine andere: Der Blob liegt AES-verschlüsselt in der
+Zeile und ist per `UPDATE` gar nicht umschreibbar. Der Satz gehört
+ausgetauscht, wenn Welle 1 die Stelle öffnet.
+
+**Die Nahtliste in §3.3 ist unvollständig, und zwar systematisch.** Sie nennt
+die Server-Spiegel, die jemandem eingefallen sind. Maschinell erhoben leben
+**126 Namen in zwei getrennt kompilierten Welten**, bei elf sind die
+Zielvorschläge auseinandergelaufen. Für Welle 1 heißt das: Der Spiegel-Abgleich
+gehört in die Abnahme jeder Welle, nicht nur in die Liste. Er ist eine Zeile:
+`node scripts/abbildungstabelle-pruefen.mjs`.
+
+**Eine Route hat keinen Aufrufer.** `POST /api/tracker/:provider/sync` ist samt
+Bremse und Antwortfeldern registriert, wird aber weder vom Web noch von der App
+gerufen: Der „Jetzt abrufen"-Knopf, für den sie gebaut wurde, fehlt in jeder
+Oberfläche. Kein Migrations-Thema, aber es fiel bei der Vollzählung auf und
+stand sonst nirgends.
