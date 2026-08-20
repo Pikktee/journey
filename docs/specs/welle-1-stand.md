@@ -125,6 +125,29 @@ noch kennt). Für Prod ist das unkritisch (dort läuft einmal fertiger Code),
 aber ein Kandidat für einen billigen Wächter in einer späteren Welle:
 `.schema` = 2 und trotzdem eine `anreicherung.json` gefunden = laute Warnung.
 
+## Ausgeliefert am 2026-08-20 als v0.67.0
+
+Der Deploy-Tag ist gelaufen: Gate grün (Web, Server mit Coverage, Android), Image
+nach GHCR, `dist/` in den Docroot, APK am Release. Die Start-Migration lief beim
+ersten Start des neuen Containers **auf Produktion**: 15 Tour-Ordner abgebildet,
+15 Touren auf `maptale/tour@2` nachgerendert, `daten/.schema` = 2,
+`user_version` = 23, keine `anreicherung.json` und keine `@1`-Kennung mehr.
+Statuswerte und Schlüsselzeilen englisch. Vorher gezogen und unberührt als
+Rückweg: `~/Dev/.maptale-deploy-20260820-2016/daten` (404 MB).
+
+**Ein Fehler ist dabei durchgerutscht und wurde als v0.67.1 nachgereicht:** Die
+Galerie und die Profilseite zeigten „Namenlose Reise" statt der Titel.
+`galeriemodell.ts` las `tour.titel`, der Server schickt `title` — und der
+handgetippte Typ `GalerieTour` deklarierte selbst das deutsche Feld, das
+Fixture im Test benutzte es ebenfalls. **Ein Typ und sein Test können gemeinsam
+falsch sein**; das ist genau die fünfte Sorte, gegen die es keinen mechanischen
+Wächter gibt. Sie war auf Prod sichtbar, bevor sie irgendwo rot wurde.
+
+Was der Deploy NICHT beweist: den Flug selbst. Die Browser-Pane bekommt
+MapLibre nicht fertig geladen (`map.loaded()` bleibt false, bekannte Grenze der
+Umgebung). Geprüft ist, dass der Player `tour@2` liest, Route und Filmachse
+baut und den Startscreen aus den migrierten Daten füllt.
+
 ## Der Smoke, und was er gefunden hat (2026-08-20)
 
 Der Blick auf die laufenden Seiten war der letzte offene §8-Punkt, und er hat

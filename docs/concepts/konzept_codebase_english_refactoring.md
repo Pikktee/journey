@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-20
-status: Welle 1 gebaut am 2026-08-20 (Verträge @2, alle Leser in Web und App, Start-Migration samt Nachrendern, Specs; Gates grün, Migrationslauf gegen die Prod-Kopie durchgeführt). Offen ist der Deploy-Tag — er steht aus, bis Henrik den Smoke über die Web-Seiten abgenommen hat. Welle 2 nicht begonnen.
+status: Wellen 0 und 1 abgeschlossen. Welle 1 am 2026-08-20 als v0.67.0 AUSGELIEFERT (Start-Migration auf Produktion gelaufen: 15 Touren auf tour@2, Marker 2, user_version 23), Nachbesserung v0.67.1. Wellen 2 bis 8 offen, Schritt 9 (Env) ganz am Ende.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -602,8 +602,8 @@ mit Leser.
 
 | Welle | Inhalt | Risiko |
 |------:|--------|--------|
-| **0** | Zahlen aus §4.5, **Abbildungstabelle** gebaut und abgenommen (§11), Glossar eingefroren, Sprachregel in `CLAUDE.md`, DB-Snapshot, Abnahme-Checkliste, Roadmap sortiert | keins |
-| **1** | **Verträge und ihre Leser**: SQLite (Spalten, Tabellen, Werte, Blobs), `upload@2`, `edits@2`, `enrichment@2`, `tour@2`, **HTTP-API** (Pfade und Felder), Room v4, Start-Migration, Re-Render, plus aller Code, der dadurch rot wird, plus die Nähte aus §3.3; die beiden Specs | mittel, und heute am billigsten |
+| **0** ✅ | Zahlen aus §4.5, **Abbildungstabelle** gebaut und abgenommen (§11), Glossar eingefroren, Sprachregel in `CLAUDE.md`, DB-Snapshot, Abnahme-Checkliste, Roadmap sortiert | keins |
+| **1** ✅ | **Verträge und ihre Leser**: SQLite (Spalten, Tabellen, Werte, Blobs), `upload@2`, `edits@2`, `enrichment@2`, `tour@2`, **HTTP-API** (Pfade und Felder), Room v4, Start-Migration, Re-Render, plus aller Code, der dadurch rot wird, plus die Nähte aus §3.3; die beiden Specs | mittel, und heute am billigsten |
 | **2** | Server-Internals: Pipeline, Routen-Handler, Mail-Bausteine, Auth, Dateiumbenennungen in `server/src` | mittel |
 | **3** | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `stopps`, `pruefung`) | niedrig |
 | **4** | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `abspielen`, `exportblatt`, `nachreichen`, `sfxbibliothek`, `tipp`, `kartenstimmung`) + Dateiumbenennungen | mittel |
