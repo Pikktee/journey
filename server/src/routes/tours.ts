@@ -342,7 +342,7 @@ export async function finalisiereTour(
   // Pipeline ein Musikstück vor. `tour` hält noch den Status VOR dem Claim.
   app.verarbeitungen.set(
     tour.id,
-    verarbeite(app, tour.id, { frisch: true, erstmals: tour.status === 'angelegt' }).finally(() =>
+    processTour(app, tour.id, { frisch: true, erstmals: tour.status === 'angelegt' }).finally(() =>
       app.verarbeitungen.delete(tour.id),
     ),
   )
@@ -462,7 +462,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
           // Nur Texte nachziehen — Anreicherung aus dem Cache (kein Netz).
           app.verarbeitungen.set(
             tour.id,
-            verarbeite(app, tour.id, { frisch: false }).finally(() =>
+            processTour(app, tour.id, { frisch: false }).finally(() =>
               app.verarbeitungen.delete(tour.id),
             ),
           )
@@ -823,7 +823,7 @@ export function starteVerarbeitung(app: FastifyInstance, tourId: string, frisch 
   if (claim.changes === 0) return false
   app.verarbeitungen.set(
     tourId,
-    verarbeite(app, tourId, { frisch }).finally(() => app.verarbeitungen.delete(tourId)),
+    processTour(app, tourId, { frisch }).finally(() => app.verarbeitungen.delete(tourId)),
   )
   return true
 }
@@ -980,7 +980,7 @@ async function ermittleAutoWetter(
  * soweit gültig — aus dem Cache übernommen, sodass nur das Overlay lokal
  * angewandt wird (Sekundenbruchteil statt zig Sekunden).
  */
-async function verarbeite(
+export async function processTour(
   app: FastifyInstance,
   tourId: string,
   opts: { frisch?: boolean; erstmals?: boolean } = {},

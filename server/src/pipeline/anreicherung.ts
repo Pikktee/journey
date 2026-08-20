@@ -80,7 +80,7 @@ export const recordZuMap = <V>(r: Record<string, V> | undefined): Map<string, V>
 /**
  * Die trim-abhängigen Roh-Ergebnisse frisch beschaffen: Endpunkte geocodieren
  * und das Auto-Wetter der (getrimmten) Strecke aus der Quelle ziehen. Beides sind
- * die externen Aufrufe — der Aufrufer (verarbeite) ruft das nur bei `frisch` oder
+ * die externen Aufrufe — der Aufrufer (processTour) ruft das nur bei `frisch` oder
  * geänderter Trim-Signatur. Wirft nur, wenn der Track leer ist (wie reichereAn);
  * ein Wetterdienst-Ausfall führt zu `wetterRoh: null` (Client-Fallback).
  */

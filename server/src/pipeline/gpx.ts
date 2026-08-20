@@ -23,7 +23,7 @@ const MAX_TRACKPUNKTE = 200_000
  * öffnende <trkpt …>-Tag wird gematcht (durch `>` begrenzt), der Inhalt bis zum
  * nächsten </trkpt> per indexOf gegriffen. Eine lazy `([\s\S]*?)</trkpt>`-Gruppe
  * ist bei fehlenden Schluss-Tags QUADRATISCH und blockiert den Event-Loop
- * (Review-Fund: 3,7 MB → 64 s) — parseGpx läuft synchron in verarbeite().
+ * (Review-Fund: 3,7 MB → 64 s) — parseGpx läuft synchron in processTour().
  */
 export function parseGpx(xml: string): GpxPunkt[] {
   const punkte: GpxPunkt[] = []

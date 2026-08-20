@@ -487,7 +487,7 @@ describe('mediumDateiname', () => {
   })
 })
 
-describe('Pausen-Kollaps in der Pipeline (Kette wie in verarbeite)', () => {
+describe('Pausen-Kollaps in der Pipeline (Kette wie in processTour)', () => {
   const GRAD_PRO_M = 1 / (111_320 * Math.cos((46.59 * Math.PI) / 180))
 
   /** Marsch mit 25-min-Drift-Pause (GPS-Zickzack ±60 m) und Foto mittendrin. */
@@ -533,7 +533,7 @@ describe('Pausen-Kollaps in der Pipeline (Kette wie in verarbeite)', () => {
 
   it('Drift wird keine Strecke; das Pausen-Foto ankert am Schwerpunkt', async () => {
     const roh = manifestMitPause()
-    // verarbeite() setzt manifest.segments = ladeOriginalSegmente(...) — hier
+    // processTour() setzt manifest.segments = ladeOriginalSegmente(...) — hier
     // dieselbe Kette ohne HTTP: kollabieren, dann rendern.
     const kollabiert = { ...roh, segments: kollabierePausen(roh.segments ?? []) }
 

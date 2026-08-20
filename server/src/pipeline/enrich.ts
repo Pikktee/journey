@@ -262,7 +262,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   } = eingabe
 
   // Segmente kommen entweder direkt aus dem Manifest oder — bei GPX-Quelle —
-  // vom Aufrufer bereits geparst hineingereicht (verarbeite in tours.ts).
+  // vom Aufrufer bereits geparst hineingereicht (processTour in tours.ts).
   // Das Edit-Overlay (M7) greift direkt danach: Trim + Modus-Grenzen formen
   // den Track, ALLES Nachgelagerte (Benennung, Timeline, Wetter, Platzierung)
   // rechnet auf dem bearbeiteten Stand.
