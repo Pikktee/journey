@@ -151,7 +151,10 @@ describe('Vorlagen-Katalog', () => {
   it('rendert jeden Standard mit seinen Beispielwerten ohne offenen Platzhalter', () => {
     for (const v of VORLAGEN) {
       const werte = beispielWerte(v)
-      const mail = rendereMail(v.defaultContent, werte, { basisUrl: BASIS, link: werte.link ?? BASIS })
+      const mail = rendereMail(v.defaultContent, werte, {
+        basisUrl: BASIS,
+        link: werte.link ?? BASIS,
+      })
       expect(mail.text, v.key).not.toMatch(/\{\{/)
       expect(mail.html, v.key).not.toMatch(/\{\{/)
     }
@@ -189,9 +192,9 @@ describe('Vorlagen prüfen', () => {
   })
 
   it('meldet jede andere fehlende Angabe', () => {
-    expect(pruefeBausteine(eintrag, { ...eintrag.defaultContent, text: 'Ganz ohne Anrede.' })).toContain(
-      '{{name}} fehlt, diese Angabe geht sonst verloren.',
-    )
+    expect(
+      pruefeBausteine(eintrag, { ...eintrag.defaultContent, text: 'Ganz ohne Anrede.' }),
+    ).toContain('{{name}} fehlt, diese Angabe geht sonst verloren.')
   })
 })
 
@@ -227,14 +230,22 @@ describe('MailVorlagenDienst', () => {
   })
 
   it('setzt zurück und hängt die Vorlage wieder an den Code', () => {
-    dienst.setze('verification', { ...vorlage('verification').defaultContent, subject: 'Anders' }, null)
+    dienst.setze(
+      'verification',
+      { ...vorlage('verification').defaultContent, subject: 'Anders' },
+      null,
+    )
     expect(dienst.setzeZurueck('verification')).toBe(true)
     expect(dienst.bausteine('verification')).toEqual(vorlage('verification').defaultContent)
     expect(dienst.setzeZurueck('verification')).toBe(false)
   })
 
   it('rendert über den Dienst mit der angepassten Fassung', () => {
-    dienst.setze('verification', { ...vorlage('verification').defaultContent, title: 'Servus' }, null)
+    dienst.setze(
+      'verification',
+      { ...vorlage('verification').defaultContent, title: 'Servus' },
+      null,
+    )
     const mail = dienst.rendere('verification', { name: 'Mira' }, { basisUrl: BASIS, link: LINK })
     expect(mail.html).toContain('Servus')
     expect(mail.text.startsWith('Servus')).toBe(true)
