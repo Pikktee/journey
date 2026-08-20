@@ -18,7 +18,7 @@ export async function trageTitelbilderNach(
   protokoll?: (nachricht: string) => void,
 ): Promise<number> {
   const offen = db
-    .prepare(`SELECT id FROM tours WHERE status = 'bereit' AND cover IS NULL`)
+    .prepare(`SELECT id FROM tours WHERE status = 'ready' AND cover IS NULL`)
     .all() as Array<{ id: string }>
   if (offen.length === 0) return 0
 

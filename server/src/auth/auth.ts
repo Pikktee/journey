@@ -12,29 +12,29 @@ import { nacktesInstagram, nacktesWeb } from '../profilfelder.js'
 import { hashePasswort, pruefePasswort } from './passwort.js'
 
 /** Zwei Rollen genügen: wer verwalten darf, und wer seine eigenen Touren hat. */
-export type Rolle = 'nutzer' | 'admin'
+export type Rolle = 'user' | 'admin'
 
 export interface Benutzer {
   id: string
   email: string
   name: string
-  rolle: Rolle
+  role: Rolle
 }
 
 /** Eine Zeile der Benutzerverwaltung — Konto plus das, was daran hängt. */
 export interface BenutzerZeile extends Benutzer {
-  verifiziert: boolean
-  angelegtAm: string
-  anzeigename: string | null
-  touren: number
+  verified: boolean
+  createdAt: string
+  displayName: string | null
+  tours: number
 }
 
 /** Änderungswunsch am Konto; fehlende Felder bleiben, wie sie sind. */
 export interface KontoAenderung {
   email?: string
   name?: string
-  rolle?: Rolle
-  verifiziert?: boolean
+  role?: Rolle
+  verified?: boolean
 }
 
 /** Doppelte E-Mail — vom Aufrufer in eine 409-Antwort übersetzt. */
@@ -45,7 +45,7 @@ export class EmailVergebenFehler extends Error {
   }
 }
 
-const alsRolle = (wert: unknown): Rolle => (wert === 'admin' ? 'admin' : 'nutzer')
+const alsRolle = (wert: unknown): Rolle => (wert === 'admin' ? 'admin' : 'user')
 
 /**
  * Das öffentliche Profil — bewusst getrennt vom Konto.
@@ -57,28 +57,28 @@ const alsRolle = (wert: unknown): Rolle => (wert === 'admin' ? 'admin' : 'nutzer
 export interface Profil {
   /** Die Adresse der Person: `maptale.io/@henrik`. Immer gesetzt (s. handle.ts). */
   handle: string | null
-  anzeigename: string | null
+  displayName: string | null
   bio: string | null
   /** Freitext („Frankfurt am Main"), keine Koordinate — er wird gelesen, nicht gerechnet. */
-  ort: string | null
+  location: string | null
   /** NACKTE Formen ohne Schema bzw. ohne `@` — s. Migration 13. */
   website: string | null
   instagram: string | null
   /** Dateiname im Benutzer-Storage; null = kein Bild */
   avatar: string | null
-  /** Vorschlag (`serpentinen.jpg`) oder eigener Pfad (`titelbild/…`) — s. Migration 13. */
-  titelbild: string | null
-  sichtbarkeit: 'private' | 'public'
+  /** Vorschlag (`serpentinen.jpg`) oder eigener Pfad (`banner/…`) — s. Migration 13. */
+  banner: string | null
+  visibility: 'private' | 'public'
 }
 
 /** Änderungswunsch am Profil; fehlende Felder bleiben, wie sie sind. */
 export interface ProfilAenderung {
-  anzeigename?: string
+  displayName?: string
   bio?: string
-  ort?: string
+  location?: string
   website?: string
   instagram?: string
-  sichtbarkeit?: 'private' | 'public'
+  visibility?: 'private' | 'public'
 }
 
 /** Leerer oder nur aus Leerraum bestehender Text heißt: Feld leeren. */
@@ -109,14 +109,14 @@ export interface SitzungsKennzeichen {
 
 /** Ein angemeldetes Gerät — Browser-Sitzung oder App-Token. */
 export interface Geraet {
-  /** `sitzung:<id>` oder `app:<id>` — beide Listen haben eigene Tabellen. */
+  /** `session:<id>` oder `app:<id>` — beide Listen haben eigene Tabellen. */
   id: string
-  art: 'sitzung' | 'app'
+  kind: 'session' | 'app'
   /** Roher User-Agent (Sitzung) bzw. das bei der Anmeldung gesetzte Label (App). */
-  kennung: string | null
-  ipPraefix: string | null
-  angemeldetAm: string
-  zuletztGesehen: string | null
+  label: string | null
+  ipPrefix: string | null
+  signedInAt: string
+  lastSeenAt: string | null
 }
 
 const SESSION_DAUER_MS = 30 * 24 * 60 * 60 * 1000 // 30 Tage
@@ -209,7 +209,7 @@ export class AuthDienst {
     const platzhalter = emails.map(() => '?').join(', ')
     const erg = this.db
       .prepare(
-        `UPDATE users SET rolle = 'admin' WHERE rolle != 'admin' AND email IN (${platzhalter})`,
+        `UPDATE users SET role = 'admin' WHERE role != 'admin' AND email IN (${platzhalter})`,
       )
       .run(...emails.map((e) => e.toLowerCase().trim()))
     return erg.changes
@@ -225,9 +225,9 @@ export class AuthDienst {
     passwort: string,
     name: string,
     verifiziert = true,
-    rolle: Rolle = 'nutzer',
+    rolle: Rolle = 'user',
   ): Promise<Benutzer> {
-    const benutzer: Benutzer = { id: neueUserId(), email: email.toLowerCase().trim(), name, rolle }
+    const benutzer: Benutzer = { id: neueUserId(), email: email.toLowerCase().trim(), name, role: rolle }
     const pwHash = await hashePasswort(passwort)
     // Jedes Konto bekommt sofort eine Adresse — ein Profil ohne Handle wäre
     // nicht verlinkbar, und ein nachgereichter Handle hieße, dass die halbe
@@ -236,7 +236,7 @@ export class AuthDienst {
     try {
       this.db
         .prepare(
-          'INSERT INTO users (id, email, pw_hash, name, created_at, email_verified, rolle, handle) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO users (id, email, pw_hash, name, created_at, email_verified, role, handle) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .run(
           benutzer.id,
@@ -271,9 +271,9 @@ export class AuthDienst {
   /** E-Mail + Passwort prüfen; null bei Fehlschlag (bewusst ohne Grund-Detail). */
   async login(email: string, passwort: string): Promise<Benutzer | null> {
     const zeile = this.db
-      .prepare('SELECT id, email, pw_hash, name, rolle FROM users WHERE email = ?')
+      .prepare('SELECT id, email, pw_hash, name, role FROM users WHERE email = ?')
       .get(email.toLowerCase().trim()) as
-      { id: string; email: string; pw_hash: string; name: string; rolle: string } | undefined
+      { id: string; email: string; pw_hash: string; name: string; role: string } | undefined
     if (!zeile) {
       // Dummy-Prüfung gegen Timing-Unterschied „Benutzer existiert (nicht)"
       await pruefePasswort(
@@ -284,7 +284,7 @@ export class AuthDienst {
     }
     const ok = await pruefePasswort(zeile.pw_hash, passwort)
     return ok
-      ? { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) }
+      ? { id: zeile.id, email: zeile.email, name: zeile.name, role: alsRolle(zeile.role) }
       : null
   }
 
@@ -299,7 +299,7 @@ export class AuthDienst {
     const ablauf = new Date(jetzt + SESSION_DAUER_MS)
     this.db
       .prepare(
-        `INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, ip_praefix, zuletzt_gesehen, token_id)
+        `INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, ip_prefix, last_seen_at, token_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
@@ -340,7 +340,7 @@ export class AuthDienst {
   benutzerAusSession(sessionId: string): Benutzer | null {
     const zeile = this.db
       .prepare(
-        `SELECT u.id, u.email, u.name, u.rolle, s.expires_at, s.zuletzt_gesehen FROM sessions s
+        `SELECT u.id, u.email, u.name, u.role, s.expires_at, s.last_seen_at FROM sessions s
          JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
       )
       .get(sessionId) as
@@ -348,9 +348,9 @@ export class AuthDienst {
           id: string
           email: string
           name: string
-          rolle: string
+          role: string
           expires_at: string
-          zuletzt_gesehen: string | null
+          last_seen_at: string | null
         }
       | undefined
     if (!zeile) return null
@@ -360,13 +360,13 @@ export class AuthDienst {
     }
     // Gedrosselt: „zuletzt gerade eben" braucht keine Auflösung von
     // Millisekunden, ein Schreibvorgang je Anfrage aber sehr wohl eine Platte.
-    const zuletzt = zeile.zuletzt_gesehen ? Date.parse(zeile.zuletzt_gesehen) : 0
+    const zuletzt = zeile.last_seen_at ? Date.parse(zeile.last_seen_at) : 0
     if (Date.now() - zuletzt > GESEHEN_TAKT_MS) {
       this.db
-        .prepare('UPDATE sessions SET zuletzt_gesehen = ? WHERE id = ?')
+        .prepare('UPDATE sessions SET last_seen_at = ? WHERE id = ?')
         .run(new Date().toISOString(), sessionId)
     }
-    return { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) }
+    return { id: zeile.id, email: zeile.email, name: zeile.name, role: alsRolle(zeile.role) }
   }
 
   beendeSession(sessionId: string): void {
@@ -396,15 +396,15 @@ export class AuthDienst {
     const jetzt = new Date().toISOString()
     const sitzungen = this.db
       .prepare(
-        `SELECT id, created_at, user_agent, ip_praefix, zuletzt_gesehen FROM sessions
+        `SELECT id, created_at, user_agent, ip_prefix, last_seen_at FROM sessions
          WHERE user_id = ? AND expires_at > ? AND token_id IS NULL ORDER BY created_at DESC`,
       )
       .all(userId, jetzt) as Array<{
       id: string
       created_at: string
       user_agent: string | null
-      ip_praefix: string | null
-      zuletzt_gesehen: string | null
+      ip_prefix: string | null
+      last_seen_at: string | null
     }>
     const tokens = this.db
       .prepare(
@@ -418,20 +418,20 @@ export class AuthDienst {
     }>
     return [
       ...sitzungen.map((s) => ({
-        id: `sitzung:${s.id}`,
-        art: 'sitzung' as const,
-        kennung: s.user_agent,
-        ipPraefix: s.ip_praefix,
-        angemeldetAm: s.created_at,
-        zuletztGesehen: s.zuletzt_gesehen,
+        id: `session:${s.id}`,
+        kind: 'session' as const,
+        label: s.user_agent,
+        ipPrefix: s.ip_prefix,
+        signedInAt: s.created_at,
+        lastSeenAt: s.last_seen_at,
       })),
       ...tokens.map((t) => ({
         id: `app:${t.id}`,
-        art: 'app' as const,
-        kennung: t.label,
-        ipPraefix: null,
-        angemeldetAm: t.created_at,
-        zuletztGesehen: t.last_used_at,
+        kind: 'app' as const,
+        label: t.label,
+        ipPrefix: null,
+        signedInAt: t.created_at,
+        lastSeenAt: t.last_used_at,
       })),
     ]
   }
@@ -447,7 +447,7 @@ export class AuthDienst {
       geraetId.slice(geraetId.indexOf(':') + 1),
     ]
     if (!id) return false
-    if (art === 'sitzung') {
+    if (art === 'session') {
       return (
         this.db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').run(id, userId)
           .changes > 0
@@ -485,11 +485,11 @@ export class AuthDienst {
     const hash = sha256(klartext)
     const zeile = this.db
       .prepare(
-        `SELECT u.id, u.email, u.name, u.rolle, t.id AS token_id, t.hash FROM tokens t
+        `SELECT u.id, u.email, u.name, u.role, t.id AS token_id, t.hash FROM tokens t
          JOIN users u ON u.id = t.user_id WHERE t.hash = ?`,
       )
       .get(hash) as
-      | { id: string; email: string; name: string; rolle: string; token_id: string; hash: string }
+      | { id: string; email: string; name: string; role: string; token_id: string; hash: string }
       | undefined
     if (!zeile) return null
     // Vergleich in konstanter Zeit (Hash-Lookup wäre theoretisch genug, kostet nichts)
@@ -502,7 +502,7 @@ export class AuthDienst {
         id: zeile.id,
         email: zeile.email,
         name: zeile.name,
-        rolle: alsRolle(zeile.rolle),
+        role: alsRolle(zeile.role),
       },
       tokenId: zeile.token_id,
     }
@@ -525,13 +525,13 @@ export class AuthDienst {
    */
   erzeugeMailToken(userId: string, zweck: MailZweck, nutzlast: string | null = null): string {
     this.db
-      .prepare('DELETE FROM mail_tokens WHERE user_id = ? AND zweck = ? AND used_at IS NULL')
+      .prepare('DELETE FROM mail_tokens WHERE user_id = ? AND purpose = ? AND used_at IS NULL')
       .run(userId, zweck)
     const klartext = neuesTokenSecret()
     const jetzt = Date.now()
     this.db
       .prepare(
-        'INSERT INTO mail_tokens (id, user_id, zweck, hash, nutzlast, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO mail_tokens (id, user_id, purpose, hash, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         neueSessionId(),
@@ -564,18 +564,18 @@ export class AuthDienst {
   loeseMailTokenMitNutzlast(
     klartext: string,
     zweck: MailZweck,
-  ): { userId: string; nutzlast: string | null } | null {
+  ): { userId: string; payload: string | null } | null {
     const hash = sha256(klartext)
     return this.db.transaction(() => {
       const zeile = this.db
         .prepare(
-          'SELECT id, user_id, nutzlast, expires_at, used_at FROM mail_tokens WHERE hash = ? AND zweck = ?',
+          'SELECT id, user_id, payload, expires_at, used_at FROM mail_tokens WHERE hash = ? AND purpose = ?',
         )
         .get(hash, zweck) as
         | {
             id: string
             user_id: string
-            nutzlast: string | null
+            payload: string | null
             expires_at: string
             used_at: string | null
           }
@@ -584,7 +584,7 @@ export class AuthDienst {
       this.db
         .prepare('UPDATE mail_tokens SET used_at = ? WHERE id = ?')
         .run(new Date().toISOString(), zeile.id)
-      return { userId: zeile.user_id, nutzlast: zeile.nutzlast }
+      return { userId: zeile.user_id, payload: zeile.payload }
     })()
   }
 
@@ -656,7 +656,7 @@ export class AuthDienst {
    */
   private raeumeHandleReservierungen(): void {
     this.db
-      .prepare('DELETE FROM handles_reserviert WHERE frei_ab <= ?')
+      .prepare('DELETE FROM reserved_handles WHERE free_from <= ?')
       .run(new Date().toISOString())
   }
 
@@ -672,7 +672,7 @@ export class AuthDienst {
       .get(handle) as { id: string } | undefined
     if (belegtVon && belegtVon.id !== fuerUserId) return false
     const gesperrtFuer = this.db
-      .prepare('SELECT user_id FROM handles_reserviert WHERE handle = ? COLLATE NOCASE')
+      .prepare('SELECT user_id FROM reserved_handles WHERE handle = ? COLLATE NOCASE')
       .get(handle) as { user_id: string } | undefined
     return !gesperrtFuer || gesperrtFuer.user_id === fuerUserId
   }
@@ -689,7 +689,7 @@ export class AuthDienst {
       .get(handle) as { id: string } | undefined
     if (zeile) return zeile.id
     const alt = this.db
-      .prepare('SELECT user_id FROM handles_reserviert WHERE handle = ? COLLATE NOCASE')
+      .prepare('SELECT user_id FROM reserved_handles WHERE handle = ? COLLATE NOCASE')
       .get(handle) as { user_id: string } | undefined
     return alt?.user_id ?? null
   }
@@ -716,15 +716,15 @@ export class AuthDienst {
       if (alt) {
         this.db
           .prepare(
-            'INSERT OR REPLACE INTO handles_reserviert (handle, user_id, frei_ab) VALUES (?, ?, ?)',
+            'INSERT OR REPLACE INTO reserved_handles (handle, user_id, free_from) VALUES (?, ?, ?)',
           )
           .run(alt, userId, freiAb)
       }
       // Die eigene alte Reservierung geht weg — sonst zeigte der Handle
       // gleichzeitig auf den Benutzer und auf sich selbst als „aufgegeben".
-      this.db.prepare('DELETE FROM handles_reserviert WHERE handle = ? COLLATE NOCASE').run(handle)
+      this.db.prepare('DELETE FROM reserved_handles WHERE handle = ? COLLATE NOCASE').run(handle)
       this.db
-        .prepare('UPDATE users SET handle = ?, handle_geaendert_am = ? WHERE id = ?')
+        .prepare('UPDATE users SET handle = ?, handle_changed_at = ? WHERE id = ?')
         .run(handle, jetzt.toISOString(), userId)
     })()
     return null
@@ -741,33 +741,33 @@ export class AuthDienst {
   profil(userId: string): Profil | null {
     const zeile = this.db
       .prepare(
-        `SELECT handle, anzeigename, bio, ort, website, instagram, avatar, titelbild, profil_sichtbarkeit
+        `SELECT handle, display_name, bio, location, website, instagram, avatar, banner, profile_visibility
          FROM users WHERE id = ?`,
       )
       .get(userId) as
       | {
           handle: string | null
-          anzeigename: string | null
+          display_name: string | null
           bio: string | null
-          ort: string | null
+          location: string | null
           website: string | null
           instagram: string | null
           avatar: string | null
-          titelbild: string | null
-          profil_sichtbarkeit: string
+          banner: string | null
+          profile_visibility: string
         }
       | undefined
     if (!zeile) return null
     return {
       handle: zeile.handle,
-      anzeigename: zeile.anzeigename,
+      displayName: zeile.display_name,
       bio: zeile.bio,
-      ort: zeile.ort,
+      location: zeile.location,
       website: zeile.website,
       instagram: zeile.instagram,
       avatar: zeile.avatar,
-      titelbild: zeile.titelbild,
-      sichtbarkeit: zeile.profil_sichtbarkeit === 'public' ? 'public' : 'private',
+      banner: zeile.banner,
+      visibility: zeile.profile_visibility === 'public' ? 'public' : 'private',
     }
   }
 
@@ -783,17 +783,17 @@ export class AuthDienst {
   setzeProfil(userId: string, aenderung: ProfilAenderung): void {
     const zuweisungen: string[] = []
     const werte: Array<string | null> = []
-    if (aenderung.anzeigename !== undefined) {
-      zuweisungen.push('anzeigename = ?')
-      werte.push(leerAlsNull(aenderung.anzeigename))
+    if (aenderung.displayName !== undefined) {
+      zuweisungen.push('display_name = ?')
+      werte.push(leerAlsNull(aenderung.displayName))
     }
     if (aenderung.bio !== undefined) {
       zuweisungen.push('bio = ?')
       werte.push(leerAlsNull(aenderung.bio))
     }
-    if (aenderung.ort !== undefined) {
-      zuweisungen.push('ort = ?')
-      werte.push(leerAlsNull(aenderung.ort))
+    if (aenderung.location !== undefined) {
+      zuweisungen.push('location = ?')
+      werte.push(leerAlsNull(aenderung.location))
     }
     // Website und Instagram werden auf die nackte Form gebracht; was keine
     // Adresse ist, wird zu NULL statt geraten (s. profilfelder.ts). Ein leeres
@@ -806,9 +806,9 @@ export class AuthDienst {
       zuweisungen.push('instagram = ?')
       werte.push(nacktesInstagram(aenderung.instagram))
     }
-    if (aenderung.sichtbarkeit !== undefined) {
-      zuweisungen.push('profil_sichtbarkeit = ?')
-      werte.push(aenderung.sichtbarkeit)
+    if (aenderung.visibility !== undefined) {
+      zuweisungen.push('profile_visibility = ?')
+      werte.push(aenderung.visibility)
     }
     if (zuweisungen.length === 0) return
     this.db.prepare(`UPDATE users SET ${zuweisungen.join(', ')} WHERE id = ?`).run(...werte, userId)
@@ -821,7 +821,7 @@ export class AuthDienst {
 
   /** Titelbild vermerken — Name eines Vorschlags ODER Pfad im Benutzer-Storage. */
   setzeTitelbild(userId: string, wert: string | null): void {
-    this.db.prepare('UPDATE users SET titelbild = ? WHERE id = ?').run(wert, userId)
+    this.db.prepare('UPDATE users SET banner = ? WHERE id = ?').run(wert, userId)
   }
 
   /**
@@ -837,17 +837,17 @@ export class AuthDienst {
    * und so bleibt es eine Abfrage. Touren ohne Statistik zählen als Tour, aber
    * mit 0 km — `SUM` überspringt NULL von selbst.
    */
-  kennzahlen(userId: string): { touren: number; km: number; hm: number } {
+  kennzahlen(userId: string): { tours: number; km: number; elevationGain: number } {
     const zeile = this.db
       .prepare(
-        `SELECT COUNT(*) AS touren,
+        `SELECT COUNT(*) AS tours,
                 COALESCE(SUM(json_extract(stats_json, '$.km')), 0) AS km,
-                COALESCE(SUM(json_extract(stats_json, '$.gainM')), 0) AS hm
+                COALESCE(SUM(json_extract(stats_json, '$.gainM')), 0) AS elevationGain
          FROM tours
-         WHERE owner_id = ? AND visibility = 'public' AND status = 'bereit'`,
+         WHERE owner_id = ? AND visibility = 'public' AND status = 'ready'`,
       )
-      .get(userId) as { touren: number; km: number; hm: number }
-    return { touren: zeile.touren, km: zeile.km, hm: Math.round(zeile.hm) }
+      .get(userId) as { tours: number; km: number; elevationGain: number }
+    return { tours: zeile.tours, km: zeile.km, elevationGain: Math.round(zeile.elevationGain) }
   }
 
   // — Benutzerverwaltung (Admin) —
@@ -864,29 +864,29 @@ export class AuthDienst {
   alleBenutzer(): BenutzerZeile[] {
     const zeilen = this.db
       .prepare(
-        `SELECT id, email, name, rolle, email_verified, created_at, anzeigename,
-                (SELECT COUNT(*) FROM tours WHERE tours.owner_id = users.id) AS touren
+        `SELECT id, email, name, role, email_verified, created_at, display_name,
+                (SELECT COUNT(*) FROM tours WHERE tours.owner_id = users.id) AS tours
          FROM users ORDER BY created_at ASC`,
       )
       .all() as Array<{
       id: string
       email: string
       name: string
-      rolle: string
+      role: string
       email_verified: number
       created_at: string
-      anzeigename: string | null
-      touren: number
+      display_name: string | null
+      tours: number
     }>
     return zeilen.map((z) => ({
       id: z.id,
       email: z.email,
       name: z.name,
-      rolle: alsRolle(z.rolle),
-      verifiziert: !!z.email_verified,
-      angelegtAm: z.created_at,
-      anzeigename: z.anzeigename,
-      touren: z.touren,
+      role: alsRolle(z.role),
+      verified: !!z.email_verified,
+      createdAt: z.created_at,
+      displayName: z.display_name,
+      tours: z.tours,
     }))
   }
 
@@ -898,7 +898,7 @@ export class AuthDienst {
   /** Wie viele Konten haben die Admin-Rolle? (Schutz vor dem letzten Abgang.) */
   anzahlAdmins(): number {
     return (
-      this.db.prepare(`SELECT COUNT(*) AS n FROM users WHERE rolle = 'admin'`).get() as {
+      this.db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`).get() as {
         n: number
       }
     ).n
@@ -924,13 +924,13 @@ export class AuthDienst {
       zuweisungen.push('name = ?')
       werte.push(aenderung.name.trim())
     }
-    if (aenderung.rolle !== undefined) {
-      zuweisungen.push('rolle = ?')
-      werte.push(aenderung.rolle)
+    if (aenderung.role !== undefined) {
+      zuweisungen.push('role = ?')
+      werte.push(aenderung.role)
     }
-    if (aenderung.verifiziert !== undefined) {
+    if (aenderung.verified !== undefined) {
       zuweisungen.push('email_verified = ?')
-      werte.push(aenderung.verifiziert ? 1 : 0)
+      werte.push(aenderung.verified ? 1 : 0)
     }
     if (!zuweisungen.length) return
     try {

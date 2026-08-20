@@ -37,8 +37,8 @@ export type LaufAbhaengigkeiten = {
 export function sammleKonto(db: Db, benutzerId: string): KontoAngaben | null {
   const u = db
     .prepare(
-      `SELECT email, name, handle, created_at, email_verified, rolle, anzeigename, bio, ort, website,
-              instagram, profil_sichtbarkeit, suchmaschinen, newsletter
+      `SELECT email, name, handle, created_at, email_verified, role, display_name, bio, location, website,
+              instagram, profile_visibility, search_indexing, newsletter
        FROM users WHERE id = ?`,
     )
     .get(benutzerId) as
@@ -48,22 +48,22 @@ export function sammleKonto(db: Db, benutzerId: string): KontoAngaben | null {
         handle: string | null
         created_at: string
         email_verified: number
-        rolle: string
-        anzeigename: string | null
+        role: string
+        display_name: string | null
         bio: string | null
-        ort: string | null
+        location: string | null
         website: string | null
         instagram: string | null
-        profil_sichtbarkeit: string
-        suchmaschinen: number
+        profile_visibility: string
+        search_indexing: number
         newsletter: number
       }
     | undefined
   if (!u) return null
   const historie = db
     .prepare(
-      `SELECT zeitpunkt, zustand, quelle, textfassung FROM newsletter_einwilligungen
-       WHERE benutzer_id = ? ORDER BY zeitpunkt`,
+      `SELECT at AS zeitpunkt, state AS zustand, source AS quelle, text_version AS textfassung
+       FROM newsletter_consents WHERE user_id = ? ORDER BY at`,
     )
     .all(benutzerId) as Array<{
     zeitpunkt: string
@@ -73,14 +73,14 @@ export function sammleKonto(db: Db, benutzerId: string): KontoAngaben | null {
   }>
   const pushGeraete = db
     .prepare(
-      `SELECT plattform, token, angelegt_am, zuletzt_gesehen_am FROM push_geraete
-       WHERE benutzer_id = ? ORDER BY angelegt_am`,
+      `SELECT platform, token, created_at, last_seen_at FROM push_devices
+       WHERE user_id = ? ORDER BY created_at`,
     )
     .all(benutzerId) as Array<{
-    plattform: string
+    platform: string
     token: string
-    angelegt_am: string
-    zuletzt_gesehen_am: string
+    created_at: string
+    last_seen_at: string
   }>
   return {
     email: u.email,
@@ -88,22 +88,22 @@ export function sammleKonto(db: Db, benutzerId: string): KontoAngaben | null {
     handle: u.handle,
     angelegtAm: u.created_at,
     emailBestaetigt: !!u.email_verified,
-    rolle: u.rolle,
+    rolle: u.role,
     profil: {
-      anzeigename: u.anzeigename,
+      anzeigename: u.display_name,
       bio: u.bio,
-      ort: u.ort,
+      ort: u.location,
       website: u.website,
       instagram: u.instagram,
-      sichtbarkeit: u.profil_sichtbarkeit,
-      inSuchmaschinen: !!u.suchmaschinen,
+      sichtbarkeit: u.profile_visibility,
+      inSuchmaschinen: !!u.search_indexing,
     },
     newsletter: { aktuell: !!u.newsletter, historie },
     pushGeraete: pushGeraete.map((g) => ({
-      plattform: g.plattform,
+      plattform: g.platform,
       token: g.token,
-      angelegtAm: g.angelegt_am,
-      zuletztGesehenAm: g.zuletzt_gesehen_am,
+      angelegtAm: g.created_at,
+      zuletztGesehenAm: g.last_seen_at,
     })),
   }
 }

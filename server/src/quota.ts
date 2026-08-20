@@ -8,9 +8,9 @@ import type { Db } from './db.js'
 import type { Storage } from './storage.js'
 
 export interface QuotaStand {
-  benutzt: number
+  used: number
   limit: number
-  frei: number
+  free: number
 }
 
 /**
@@ -27,14 +27,14 @@ export interface QuotaStand {
  */
 export interface SpeicherAufteilung {
   /** Fotos: Anzeige- und Kachelfassungen der Bilder. */
-  fotos: number
+  photos: number
   /** Videos samt Poster-Standbild. */
   videos: number
   /** Eigene Klänge — Bibliothek des Kontos und in Touren gelegte Audiodateien. */
-  klaenge: number
+  audio: number
   /** Aufzeichnung: Manifest, GPS-Track, Overlay und gerendertes Tour-JSON. */
-  aufzeichnungen: number
-  sonstiges: number
+  recordings: number
+  other: number
 }
 
 const BILD_ENDUNGEN = /\.(jpe?g|png|webp|avif|heic)$/i
@@ -47,23 +47,23 @@ const AUDIO_ENDUNGEN = /\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i
  * Nach der ENDUNG und nicht nach dem Ordner: In `media/` liegen Fotos, Videos,
  * Poster und die im Editor gelegten Klänge nebeneinander — der Ordner sagt nur,
  * dass es kein Datensatz ist. Alles außerhalb von `media/` ist die Aufzeichnung
- * selbst (Manifest, Track, `edits.json`, `tour.json`, `anreicherung.json`); sie
+ * selbst (Manifest, Track, `edits.json`, `tour.json`, `enrichment.json`); sie
  * ist winzig, steht aber im Balken, damit die Teile die Summe ergeben.
  */
 export function artDerDatei(pfad: string): keyof SpeicherAufteilung {
-  if (AUDIO_ENDUNGEN.test(pfad)) return 'klaenge'
-  if (!pfad.startsWith('media/')) return 'aufzeichnungen'
-  if (BILD_ENDUNGEN.test(pfad)) return 'fotos'
+  if (AUDIO_ENDUNGEN.test(pfad)) return 'audio'
+  if (!pfad.startsWith('media/')) return 'recordings'
+  if (BILD_ENDUNGEN.test(pfad)) return 'photos'
   if (VIDEO_ENDUNGEN.test(pfad)) return 'videos'
-  return 'sonstiges'
+  return 'other'
 }
 
 const LEERE_AUFTEILUNG = (): SpeicherAufteilung => ({
-  fotos: 0,
+  photos: 0,
   videos: 0,
-  klaenge: 0,
-  aufzeichnungen: 0,
-  sonstiges: 0,
+  audio: 0,
+  recordings: 0,
+  other: 0,
 })
 
 /**
@@ -95,7 +95,7 @@ export async function quotaStand(
   limit: number,
 ): Promise<QuotaStand> {
   const benutzt = await benutzteBytes(db, storage, benutzerStorage, userId)
-  return { benutzt, limit, frei: Math.max(0, limit - benutzt) }
+  return { used: benutzt, limit, free: Math.max(0, limit - benutzt) }
 }
 
 /**
@@ -121,7 +121,7 @@ export async function speicherAufteilung(
     }
   }
   for (const datei of await benutzerStorage.listeDateien(userId, 'audio'))
-    aufteilung.klaenge += datei.groesse
+    aufteilung.audio += datei.groesse
   return aufteilung
 }
 

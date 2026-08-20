@@ -206,10 +206,10 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.setErrorHandler(
     (fehler: Error & { validation?: unknown; statusCode?: number }, _request, reply) => {
       if (fehler instanceof ZuGrossFehler) {
-        return reply.code(413).send({ fehler: fehler.message })
+        return reply.code(413).send({ error: fehler.message })
       }
       if (fehler.validation) {
-        return reply.code(400).send({ fehler: 'Ungültige Anfrage', details: fehler.message })
+        return reply.code(400).send({ error: 'Ungültige Anfrage', details: fehler.message })
       }
       // Fastifys eigene Client-Fehler tragen ihren Code SELBST — zu großer Body
       // (413), kaputtes JSON (400), unbekannter Content-Type (415). Alles auf 500
@@ -217,19 +217,19 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
       // kaputt": Der Aufrufer sucht dann bei uns, und im Log steht eine Störung,
       // die keine ist. Nur die Serverfehler bleiben stumm und geloggt.
       const code = fehler.statusCode ?? 500
-      if (code >= 400 && code < 500) return reply.code(code).send({ fehler: fehler.message })
+      if (code >= 400 && code < 500) return reply.code(code).send({ error: fehler.message })
       app.log.error(fehler)
-      return reply.code(500).send({ fehler: 'Interner Fehler' })
+      return reply.code(500).send({ error: 'Interner Fehler' })
     },
   )
 
-  // Verwaiste Verarbeitungen aufräumen: 'verarbeitung' lebt nur im Prozess —
+  // Verwaiste Verarbeitungen aufräumen: 'processing' lebt nur im Prozess —
   // nach einem Crash/Neustart wäre die Tour sonst für immer blockiert
   // (finalize antwortet 409). Beim Start ehrlich als Fehler markieren;
   // ein erneutes finalize startet die Anreicherung sauber neu.
   deps.db
     .prepare(
-      `UPDATE tours SET status = 'fehler', fehler = 'Verarbeitung unterbrochen (Neustart)' WHERE status = 'verarbeitung'`,
+      `UPDATE tours SET status = 'failed', error = 'Verarbeitung unterbrochen (Neustart)' WHERE status = 'processing'`,
     )
     .run()
 
@@ -251,7 +251,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   // Fastify je Bereich — global gesetzt läge der rohe Body an jeder Route.
   app.register(registriereTrackerWebhookRouten)
 
-  app.get('/api/gesundheit', async () => ({ ok: true }))
+  app.get('/api/health', async () => ({ ok: true }))
 
   return app
 }
@@ -259,7 +259,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
 /** Gemeinsamer Guard: 401, wenn kein Benutzer aufgelöst wurde. */
 export function erfordereBenutzer(request: FastifyRequest, reply: FastifyReply): Benutzer | null {
   if (!request.benutzer) {
-    reply.code(401).send({ fehler: 'Nicht angemeldet' })
+    reply.code(401).send({ error: 'Nicht angemeldet' })
     return null
   }
   return request.benutzer
@@ -276,8 +276,8 @@ export function erfordereBenutzer(request: FastifyRequest, reply: FastifyReply):
 export function erfordereAdmin(request: FastifyRequest, reply: FastifyReply): Benutzer | null {
   const benutzer = erfordereBenutzer(request, reply)
   if (!benutzer) return null
-  if (benutzer.rolle !== 'admin') {
-    reply.code(403).send({ fehler: 'Nur für Administratoren' })
+  if (benutzer.role !== 'admin') {
+    reply.code(403).send({ error: 'Nur für Administratoren' })
     return null
   }
   return benutzer

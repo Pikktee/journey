@@ -24,15 +24,15 @@ import { WEB_PFADE } from './webpfade.js'
 
 /** Die vom Betreiber bearbeitbaren Teile einer Mail. Alles andere ist Layout. */
 export interface MailBausteine {
-  betreff: string
+  subject: string
   /** Überschrift im Mail-Körper — im Text die erste Zeile. */
-  titel: string
+  title: string
   /** Absätze vor dem Knopf. Leerzeile trennt, einfacher Umbruch bleibt einer. */
   text: string
   /** Beschriftung des Knopfs; leer = kein Knopf (der Link steht dann im Text). */
-  knopf: string
+  button: string
   /** Kleingedrucktes unter dem Knopf — Gültigkeit, Widerspruch, „war ich das nicht?". */
-  fuss: string
+  footer: string
 }
 
 export interface LayoutKontext {
@@ -166,9 +166,9 @@ export function rendereMail(
   const basis = kontext.basisUrl.replace(/\/+$/, '')
   const fuelle = (s: string): string => setzeWerteEin(s, werte)
 
-  const betreff = fuelle(bausteine.betreff).replace(/\s+/g, ' ').trim()
-  const titel = fuelle(bausteine.titel).trim()
-  const knopf = bausteine.knopf.trim()
+  const betreff = fuelle(bausteine.subject).replace(/\s+/g, ' ').trim()
+  const titel = fuelle(bausteine.title).trim()
+  const knopf = bausteine.button.trim()
   const zeigeKnopf = Boolean(knopf && kontext.link)
 
   // — HTML-Körper —
@@ -182,7 +182,7 @@ export function rendereMail(
   }
   if (zeigeKnopf) koerper.push(knopfHtml(knopf, kontext.link as string))
 
-  const fussBloecke = absaetze(bausteine.fuss).map(
+  const fussBloecke = absaetze(bausteine.footer).map(
     (roh) =>
       `<p style="margin:0 0 12px;font-family:${SCHRIFT};font-size:13.5px;line-height:1.6;color:${FARBEN.gedaempft};">` +
       `${verlinke(escape(fuelle(roh)).replace(/\n/g, '<br />'))}</p>`,
@@ -195,7 +195,7 @@ export function rendereMail(
   // verlinken, schneiden sonst am nächsten Satzzeichen ab — und ein Token mit
   // angehängtem Punkt löst nichts ein.
   if (zeigeKnopf) textTeile.push(`${knopf}:\n${kontext.link}`)
-  for (const roh of absaetze(bausteine.fuss)) textTeile.push(fuelle(roh))
+  for (const roh of absaetze(bausteine.footer)) textTeile.push(fuelle(roh))
   textTeile.push(`Maptale\n${basis}`)
   const text = textTeile.filter(Boolean).join('\n\n')
 

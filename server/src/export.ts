@@ -40,33 +40,33 @@ export const FRIST_STUNDEN = 48
 /** Zustand eines Auftrags, wie ihn die Oberfläche sieht. */
 export type ExportStand = {
   id: string
-  status: 'laeuft' | 'fertig' | 'fehler'
-  angefordertAm: string
-  fertigAm: string | null
-  laeuftAbAm: string | null
+  status: 'running' | 'done' | 'failed'
+  requestedAt: string
+  finishedAt: string | null
+  expiresAt: string | null
   bytes: number | null
-  dateien: number | null
+  files: number | null
 }
 
 type Zeile = {
   id: string
-  benutzer_id: string
-  status: 'laeuft' | 'fertig' | 'fehler'
-  angefordert_am: string
-  fertig_am: string | null
-  laeuft_ab_am: string | null
+  user_id: string
+  status: 'running' | 'done' | 'failed'
+  requested_at: string
+  finished_at: string | null
+  expires_at: string | null
   bytes: number | null
-  dateien: number | null
+  file_count: number | null
 }
 
 const alsStand = (z: Zeile): ExportStand => ({
   id: z.id,
   status: z.status,
-  angefordertAm: z.angefordert_am,
-  fertigAm: z.fertig_am,
-  laeuftAbAm: z.laeuft_ab_am,
+  requestedAt: z.requested_at,
+  finishedAt: z.finished_at,
+  expiresAt: z.expires_at,
   bytes: z.bytes,
-  dateien: z.dateien,
+  files: z.file_count,
 })
 
 /** Die Datei im Archiv-Ablagebereich — ein Bereich je Auftrag. */
@@ -83,7 +83,7 @@ export class ExportDienst {
   /** Der jüngste Auftrag eines Kontos — für die Anzeige im Konto. */
   stand(benutzerId: string): ExportStand | null {
     const z = this.db
-      .prepare('SELECT * FROM exporte WHERE benutzer_id = ? ORDER BY angefordert_am DESC LIMIT 1')
+      .prepare('SELECT * FROM data_exports WHERE user_id = ? ORDER BY requested_at DESC LIMIT 1')
       .get(benutzerId) as Zeile | undefined
     return z ? alsStand(z) : null
   }
@@ -101,14 +101,14 @@ export class ExportDienst {
     try {
       this.db
         .prepare(
-          `INSERT INTO exporte (id, benutzer_id, status, angefordert_am) VALUES (?, ?, 'laeuft', ?)`,
+          `INSERT INTO data_exports (id, user_id, status, requested_at) VALUES (?, ?, 'running', ?)`,
         )
         .run(id, benutzerId, jetzt)
     } catch {
       // Der partielle UNIQUE-Index hat zugeschlagen: Es läuft schon einer.
       // Kein Fehler nach außen — der Wunsch ist ja bereits erfüllt.
       const laufend = this.db
-        .prepare(`SELECT * FROM exporte WHERE benutzer_id = ? AND status = 'laeuft'`)
+        .prepare(`SELECT * FROM data_exports WHERE user_id = ? AND status = 'running'`)
         .get(benutzerId) as Zeile | undefined
       if (laufend) return { stand: alsStand(laufend), neu: false }
       throw new Error('Export konnte nicht angelegt werden')
@@ -122,11 +122,11 @@ export class ExportDienst {
     const ablauf = new Date(fertig.getTime() + FRIST_STUNDEN * 60 * 60 * 1000)
     this.db
       .prepare(
-        `UPDATE exporte SET status = 'fertig', fertig_am = ?, laeuft_ab_am = ?, bytes = ?, dateien = ?
-         WHERE id = ? AND status = 'laeuft'`,
+        `UPDATE data_exports SET status = 'done', finished_at = ?, expires_at = ?, bytes = ?, file_count = ?
+         WHERE id = ? AND status = 'running'`,
       )
       .run(fertig.toISOString(), ablauf.toISOString(), bytes, dateien, id)
-    const z = this.db.prepare('SELECT * FROM exporte WHERE id = ?').get(id) as Zeile | undefined
+    const z = this.db.prepare('SELECT * FROM data_exports WHERE id = ?').get(id) as Zeile | undefined
     return z ? alsStand(z) : null
   }
 
@@ -134,7 +134,7 @@ export class ExportDienst {
   meldeFehler(id: string, grund: string): void {
     this.db
       .prepare(
-        `UPDATE exporte SET status = 'fehler', fehler = ? WHERE id = ? AND status = 'laeuft'`,
+        `UPDATE data_exports SET status = 'failed', error = ? WHERE id = ? AND status = 'running'`,
       )
       .run(grund.slice(0, 500), id)
   }
@@ -142,10 +142,10 @@ export class ExportDienst {
   /** Ein abrufbares Archiv: fertig UND innerhalb der Frist. */
   abrufbar(id: string): ExportStand | null {
     const z = this.db
-      .prepare(`SELECT * FROM exporte WHERE id = ? AND status = 'fertig'`)
+      .prepare(`SELECT * FROM data_exports WHERE id = ? AND status = 'done'`)
       .get(id) as Zeile | undefined
-    if (!z?.laeuft_ab_am) return null
-    return new Date(z.laeuft_ab_am) > this.jetzt() ? alsStand(z) : null
+    if (!z?.expires_at) return null
+    return new Date(z.expires_at) > this.jetzt() ? alsStand(z) : null
   }
 
   /**
@@ -168,15 +168,15 @@ export class ExportDienst {
     const haenger = new Date(jetzt.getTime() - 6 * 60 * 60 * 1000).toISOString()
     this.db
       .prepare(
-        `UPDATE exporte SET status = 'fehler', fehler = 'Abgebrochen (Neustart oder Absturz)'
-                WHERE status = 'laeuft' AND angefordert_am < ?`,
+        `UPDATE data_exports SET status = 'failed', error = 'Abgebrochen (Neustart oder Absturz)'
+                WHERE status = 'running' AND requested_at < ?`,
       )
       .run(haenger)
     const alt = this.db
       .prepare(
-        `SELECT id FROM exporte
-         WHERE (status = 'fertig' AND laeuft_ab_am <= ?)
-            OR (status = 'fehler' AND angefordert_am <= ?)`,
+        `SELECT id FROM data_exports
+         WHERE (status = 'done' AND expires_at <= ?)
+            OR (status = 'failed' AND requested_at <= ?)`,
       )
       .all(
         grenze,
@@ -184,7 +184,7 @@ export class ExportDienst {
       ) as Array<{ id: string }>
     for (const { id } of alt) {
       await this.archive.loescheTour(id).catch(() => undefined)
-      this.db.prepare('DELETE FROM exporte WHERE id = ?').run(id)
+      this.db.prepare('DELETE FROM data_exports WHERE id = ?').run(id)
     }
     return alt.length
   }

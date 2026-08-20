@@ -1,7 +1,7 @@
 // Einladungen und der Schalter „Registrierung nur mit Code".
 //
 // Beides gehört zusammen: Der Schalter entscheidet, ob eine Einladung nötig
-// ist, die Einladung ist der Schlüssel dazu. Er liegt in der `einstellungen`-
+// ist, die Einladung ist der Schlüssel dazu. Er liegt in der `settings`-
 // Tabelle und nicht in der Umgebung, weil er zur LAUFZEIT umgelegt wird — eine
 // Env-Variable bräuchte für jede Änderung einen Neustart des Containers.
 //
@@ -17,33 +17,33 @@ import { neuerEinladungsCode } from '../ids.js'
 /** Vorgabe, wenn der Aufrufer keine Gültigkeit nennt: ein Monat. */
 export const GUELTIG_TAGE_STANDARD = 30
 
-export type EinladungsZustand = 'offen' | 'eingeloest' | 'abgelaufen'
+export type EinladungsZustand = 'open' | 'redeemed' | 'expired'
 
 export interface Einladung {
   code: string
-  notiz: string | null
-  erstelltAm: string
+  note: string | null
+  createdAt: string
   /** E-Mail des Erstellers; null, wenn das Konto inzwischen weg ist */
-  erstelltVon: string | null
+  createdBy: string | null
   /** ISO-Zeitpunkt oder null = läuft nicht ab */
-  ablauf: string | null
-  eingeloestAm: string | null
-  eingeloestVon: string | null
-  zustand: EinladungsZustand
+  expiresAt: string | null
+  redeemedAt: string | null
+  redeemedBy: string | null
+  state: EinladungsZustand
 }
 
 /** Warum ein Code nicht zieht — Klartext für die Antwort an den Anmelder. */
 export type EinladungsFehler = 'unbekannt' | 'verbraucht' | 'abgelaufen'
 
-const SCHLUESSEL_PFLICHT = 'einladung_pflicht'
+const SCHLUESSEL_PFLICHT = 'invitation_required'
 
 interface EinladungsZeile {
   code: string
-  notiz: string | null
-  erstellt_am: string
+  note: string | null
+  created_at: string
   ersteller: string | null
-  ablauf: string | null
-  eingeloest_am: string | null
+  expires_at: string | null
+  redeemed_at: string | null
   einloeser: string | null
 }
 
@@ -60,16 +60,16 @@ export class EinladungsDienst {
    */
   pflicht(): boolean {
     const zeile = this.db
-      .prepare('SELECT wert FROM einstellungen WHERE schluessel = ?')
-      .get(SCHLUESSEL_PFLICHT) as { wert: string } | undefined
-    return zeile ? zeile.wert === '1' : true
+      .prepare('SELECT value FROM settings WHERE key = ?')
+      .get(SCHLUESSEL_PFLICHT) as { value: string } | undefined
+    return zeile ? zeile.value === '1' : true
   }
 
   setzePflicht(wert: boolean): void {
     this.db
       .prepare(
-        `INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?)
-         ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert`,
+        `INSERT INTO settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
       )
       .run(SCHLUESSEL_PFLICHT, wert ? '1' : '0')
   }
@@ -89,7 +89,7 @@ export class EinladungsDienst {
         : null
     this.db
       .prepare(
-        'INSERT INTO einladungen (code, notiz, erstellt_von, erstellt_am, ablauf) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO invitations (code, note, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?)',
       )
       .run(code, notiz?.trim() || null, erstellerId, jetzt.toISOString(), ablauf)
     return this.alle().find((e) => e.code === code) as Einladung
@@ -98,34 +98,34 @@ export class EinladungsDienst {
   alle(): Einladung[] {
     const zeilen = this.db
       .prepare(
-        `SELECT e.code, e.notiz, e.erstellt_am, e.ablauf, e.eingeloest_am,
+        `SELECT e.code, e.note, e.created_at, e.expires_at, e.redeemed_at,
                 ersteller.email AS ersteller, einloeser.email AS einloeser
-         FROM einladungen e
-         LEFT JOIN users ersteller ON ersteller.id = e.erstellt_von
-         LEFT JOIN users einloeser ON einloeser.id = e.eingeloest_von
-         ORDER BY e.erstellt_am DESC`,
+         FROM invitations e
+         LEFT JOIN users ersteller ON ersteller.id = e.created_by
+         LEFT JOIN users einloeser ON einloeser.id = e.redeemed_by
+         ORDER BY e.created_at DESC`,
       )
       .all() as EinladungsZeile[]
     const jetzt = Date.now()
     return zeilen.map((z) => ({
       code: z.code,
-      notiz: z.notiz,
-      erstelltAm: z.erstellt_am,
-      erstelltVon: z.ersteller,
-      ablauf: z.ablauf,
-      eingeloestAm: z.eingeloest_am,
-      eingeloestVon: z.einloeser,
-      zustand: z.eingeloest_am
-        ? 'eingeloest'
-        : z.ablauf && Date.parse(z.ablauf) < jetzt
-          ? 'abgelaufen'
-          : ('offen' as EinladungsZustand),
+      note: z.note,
+      createdAt: z.created_at,
+      createdBy: z.ersteller,
+      expiresAt: z.expires_at,
+      redeemedAt: z.redeemed_at,
+      redeemedBy: z.einloeser,
+      state: z.redeemed_at
+        ? 'redeemed'
+        : z.expires_at && Date.parse(z.expires_at) < jetzt
+          ? 'expired'
+          : ('open' as EinladungsZustand),
     }))
   }
 
   /** Entfernt eine Einladung; false, wenn es den Code nicht (mehr) gibt. */
   widerrufe(code: string): boolean {
-    return this.db.prepare('DELETE FROM einladungen WHERE code = ?').run(normiere(code)).changes > 0
+    return this.db.prepare('DELETE FROM invitations WHERE code = ?').run(normiere(code)).changes > 0
   }
 
   /**
@@ -134,11 +134,13 @@ export class EinladungsDienst {
    */
   pruefe(code: string): EinladungsFehler | null {
     const zeile = this.db
-      .prepare('SELECT ablauf, eingeloest_am FROM einladungen WHERE code = ?')
-      .get(normiere(code)) as { ablauf: string | null; eingeloest_am: string | null } | undefined
+      .prepare('SELECT expires_at, redeemed_at FROM invitations WHERE code = ?')
+      .get(normiere(code)) as
+      | { expires_at: string | null; redeemed_at: string | null }
+      | undefined
     if (!zeile) return 'unbekannt'
-    if (zeile.eingeloest_am) return 'verbraucht'
-    if (zeile.ablauf && Date.parse(zeile.ablauf) < Date.now()) return 'abgelaufen'
+    if (zeile.redeemed_at) return 'verbraucht'
+    if (zeile.expires_at && Date.parse(zeile.expires_at) < Date.now()) return 'abgelaufen'
     return null
   }
 
@@ -153,8 +155,8 @@ export class EinladungsDienst {
   loeseEin(code: string, userId: string): boolean {
     const erg = this.db
       .prepare(
-        `UPDATE einladungen SET eingeloest_von = ?, eingeloest_am = ?
-         WHERE code = ? AND eingeloest_am IS NULL AND (ablauf IS NULL OR ablauf > ?)`,
+        `UPDATE invitations SET redeemed_by = ?, redeemed_at = ?
+         WHERE code = ? AND redeemed_at IS NULL AND (expires_at IS NULL OR expires_at > ?)`,
       )
       .run(userId, new Date().toISOString(), normiere(code), new Date().toISOString())
     return erg.changes > 0

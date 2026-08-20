@@ -53,7 +53,7 @@ export interface TourZeile {
   id: string
   owner_id: string
   no: number
-  status: 'angelegt' | 'verarbeitung' | 'bereit' | 'fehler'
+  status: 'created' | 'processing' | 'ready' | 'failed'
   visibility: 'private' | 'unlisted' | 'public'
   client_tour_id: string | null
   title: string | null
@@ -62,17 +62,17 @@ export interface TourZeile {
    * Die Dachzeile über dem Titel. NULL = nie gesetzt (die Benennung nimmt ihre
    * Vorbelegung), '' = ausdrücklich keine Zeile.
    */
-  dachzeile: string | null
+  kicker: string | null
   /** 0/1: Endscreen „Ziel erreicht" zeigen (Default 0) */
   finale: number
   /** Zielname für den Endscreen; null/leer = geocodierter Ortsname am Ende */
-  finale_ziel: string | null
+  finale_target: string | null
   stats_json: string | null
   /** Titelbild-Pfad (wie media[].src); beim Rendern gesetzt, NULL vor dem ersten Render */
   cover: string | null
   /** Kachel-Fassung des Titelbilds; NULL ohne aufbereitete Fassungen */
   cover_thumb: string | null
-  fehler: string | null
+  error: string | null
   created_at: string
   updated_at: string
 }
@@ -164,7 +164,7 @@ function tourOderFehler(
 ): TourZeile | null {
   const tour = ladeTour(app, id)
   if (!tour || !darfSehen(tour, benutzerId)) {
-    reply.code(404).send({ fehler: 'Tour nicht gefunden' })
+    reply.code(404).send({ error: 'Tour nicht gefunden' })
     return null
   }
   return tour
@@ -179,7 +179,7 @@ function nurOwner(
   const tour = ladeTour(app, id)
   if (!tour || tour.owner_id !== benutzerId) {
     // Fremde private Touren sind ununterscheidbar von nicht existierenden
-    reply.code(404).send({ fehler: 'Tour nicht gefunden' })
+    reply.code(404).send({ error: 'Tour nicht gefunden' })
     return null
   }
   return tour
@@ -200,8 +200,8 @@ export async function legeTourAn(
   benutzerId: string,
   manifest: UploadManifest,
 ): Promise<
-  | { ok: true; id: string; wiederverwendet: boolean }
-  | { ok: false; code: 400 | 403; fehler: string }
+  | { ok: true; id: string; reused: boolean }
+  | { ok: false; code: 400 | 403; error: string }
 > {
   const { db, storage } = app.deps
 
@@ -209,7 +209,7 @@ export async function legeTourAn(
   // die daran hängenden Speicher-/Vision-Kosten. Gilt für den Cloud-Import
   // genauso: Er IST ein Upload, nur ohne Handgriff.
   if (!app.auth.istVerifiziert(benutzerId)) {
-    return { ok: false, code: 403, fehler: 'Bitte bestätige zuerst deine E-Mail-Adresse' }
+    return { ok: false, code: 403, error: 'Bitte bestätige zuerst deine E-Mail-Adresse' }
   }
 
   // Idempotenz: dieselbe App-Tour erneut angelegt → vorhandene ID zurück.
@@ -220,19 +220,19 @@ export async function legeTourAn(
     const vorhanden = db
       .prepare('SELECT id FROM tours WHERE owner_id = ? AND client_tour_id = ?')
       .get(benutzerId, clientId) as { id: string } | undefined
-    if (vorhanden) return { ok: true, id: vorhanden.id, wiederverwendet: true }
+    if (vorhanden) return { ok: true, id: vorhanden.id, reused: true }
   }
 
   // Medien-IDs müssen tour-eindeutig sein, Dateiendungen zulässig
   const ids = new Set<string>()
   for (const medium of manifest.media) {
     if (ids.has(medium.id))
-      return { ok: false, code: 400, fehler: `Doppelte Medien-ID: ${medium.id}` }
+      return { ok: false, code: 400, error: `Doppelte Medien-ID: ${medium.id}` }
     ids.add(medium.id)
     try {
       mediumDateiname(medium)
     } catch (fehler) {
-      return { ok: false, code: 400, fehler: (fehler as Error).message }
+      return { ok: false, code: 400, error: (fehler as Error).message }
     }
   }
 
@@ -245,12 +245,12 @@ export async function legeTourAn(
     !Number.isFinite(Date.parse(end)) ||
     Date.parse(start) >= Date.parse(end)
   ) {
-    return { ok: false, code: 400, fehler: 'Ungültige Zeitspanne (start/end)' }
+    return { ok: false, code: 400, error: 'Ungültige Zeitspanne (start/end)' }
   }
   try {
     new Intl.DateTimeFormat('de-DE', { timeZone: zone })
   } catch {
-    return { ok: false, code: 400, fehler: `Unbekannte Zeitzone: ${zone}` }
+    return { ok: false, code: 400, error: `Unbekannte Zeitzone: ${zone}` }
   }
 
   const id = neueTourId()
@@ -266,7 +266,7 @@ export async function legeTourAn(
     // jemand verschickt hat) unangetastet bleiben.
     db.prepare(
       `INSERT INTO tours (id, owner_id, no, status, visibility, client_tour_id, title, description, created_at, updated_at)
-       VALUES (?, ?, (SELECT COALESCE(MAX(no), 0) + 1 FROM tours WHERE owner_id = ?), 'angelegt', 'private', ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, (SELECT COALESCE(MAX(no), 0) + 1 FROM tours WHERE owner_id = ?), 'created', 'private', ?, ?, ?, ?, ?)`,
     ).run(
       id,
       benutzerId,
@@ -285,12 +285,12 @@ export async function legeTourAn(
       const vorhanden = db
         .prepare('SELECT id FROM tours WHERE owner_id = ? AND client_tour_id = ?')
         .get(benutzerId, clientId) as { id: string } | undefined
-      if (vorhanden) return { ok: true, id: vorhanden.id, wiederverwendet: true }
+      if (vorhanden) return { ok: true, id: vorhanden.id, reused: true }
     }
     throw fehler
   }
 
-  return { ok: true, id, wiederverwendet: false }
+  return { ok: true, id, reused: false }
 }
 
 /**
@@ -303,14 +303,14 @@ export async function legeTourAn(
 export async function finalisiereTour(
   app: FastifyInstance,
   tour: TourZeile,
-): Promise<{ ok: true } | { ok: false; code: 409; fehler: string; fehlend?: string[] }> {
+): Promise<{ ok: true } | { ok: false; code: 409; error: string; missing?: string[] }> {
   const { db, storage } = app.deps
   const claim = db
     .prepare(
-      `UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status != 'verarbeitung'`,
+      `UPDATE tours SET status = 'processing', updated_at = ? WHERE id = ? AND status != 'processing'`,
     )
     .run(new Date().toISOString(), tour.id)
-  if (claim.changes === 0) return { ok: false, code: 409, fehler: 'Verarbeitung läuft bereits' }
+  if (claim.changes === 0) return { ok: false, code: 409, error: 'Verarbeitung läuft bereits' }
 
   const manifest = JSON.parse(
     (await storage.lese(tour.id, MANIFEST_PFAD)).toString(),
@@ -318,7 +318,7 @@ export async function finalisiereTour(
   // Bei GPX-Quelle muss die Track-Datei da sein, bevor die Pipeline sie parst
   if (manifest.trackFile && !(await storage.info(tour.id, TRACK_PFAD))) {
     setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
-    return { ok: false, code: 409, fehler: 'Track (GPX) fehlt', fehlend: ['track.gpx'] }
+    return { ok: false, code: 409, error: 'Track (GPX) fehlt', missing: ['track.gpx'] }
   }
   // Ein Medium gilt als da, wenn das Original ODER eine daraus abgeleitete
   // Fassung liegt (mediumVorhanden): Nach dem ersten Render ist das Original
@@ -333,7 +333,7 @@ export async function finalisiereTour(
   }
   if (fehlend.length) {
     setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
-    return { ok: false, code: 409, fehler: 'Medien fehlen', fehlend }
+    return { ok: false, code: 409, error: 'Medien fehlen', missing: fehlend }
   }
 
   // Erst-Render: alle externen Schritte laufen und füllen den Anreicherungs-Cache.
@@ -342,7 +342,7 @@ export async function finalisiereTour(
   // Pipeline ein Musikstück vor. `tour` hält noch den Status VOR dem Claim.
   app.verarbeitungen.set(
     tour.id,
-    processTour(app, tour.id, { frisch: true, erstmals: tour.status === 'angelegt' }).finally(() =>
+    processTour(app, tour.id, { frisch: true, erstmals: tour.status === 'created' }).finally(() =>
       app.verarbeitungen.delete(tour.id),
     ),
   )
@@ -360,9 +360,9 @@ export function registriereTourRouten(app: FastifyInstance): void {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
       const ergebnis = await legeTourAn(app, benutzer.id, request.body)
-      if (!ergebnis.ok) return reply.code(ergebnis.code).send({ fehler: ergebnis.fehler })
-      return ergebnis.wiederverwendet
-        ? reply.code(200).send({ id: ergebnis.id, wiederverwendet: true })
+      if (!ergebnis.ok) return reply.code(ergebnis.code).send({ error: ergebnis.error })
+      return ergebnis.reused
+        ? reply.code(200).send({ id: ergebnis.id, reused: true })
         : reply.code(201).send({ id: ergebnis.id })
     },
   )
@@ -376,11 +376,11 @@ export function registriereTourRouten(app: FastifyInstance): void {
     const ergebnis = await finalisiereTour(app, tour)
     if (!ergebnis.ok) {
       return reply.code(ergebnis.code).send({
-        fehler: ergebnis.fehler,
-        ...(ergebnis.fehlend ? { fehlend: ergebnis.fehlend } : {}),
+        error: ergebnis.error,
+        ...(ergebnis.missing ? { missing: ergebnis.missing } : {}),
       })
     }
-    return reply.code(202).send({ id: tour.id, status: 'verarbeitung' })
+    return reply.code(202).send({ id: tour.id, status: 'processing' })
   })
 
   // — Metadaten ändern (Titel/Beschreibung/Finale/Sichtbarkeit) —
@@ -389,9 +389,9 @@ export function registriereTourRouten(app: FastifyInstance): void {
     Body: {
       title?: string
       description?: string
-      dachzeile?: string
+      kicker?: string
       finale?: boolean
-      finaleZiel?: string
+      finaleTarget?: string
       visibility?: TourZeile['visibility']
     }
   }>(
@@ -407,9 +407,9 @@ export function registriereTourRouten(app: FastifyInstance): void {
             // Die Dachzeile darf LEER sein: Das ist die Art, sie loszuwerden.
             // Ohne den leeren String bliebe eine einmal gesetzte Zeile für
             // immer stehen, so wie es dem Titel bis heute geht.
-            dachzeile: { type: 'string', maxLength: 80 },
+            kicker: { type: 'string', maxLength: 80 },
             finale: { type: 'boolean' },
-            finaleZiel: { type: 'string', maxLength: 200 },
+            finaleTarget: { type: 'string', maxLength: 200 },
             visibility: { enum: ['private', 'unlisted', 'public'] },
           },
         },
@@ -421,20 +421,20 @@ export function registriereTourRouten(app: FastifyInstance): void {
       const tour = nurOwner(app, request.params.id, benutzer.id, reply)
       if (!tour) return
 
-      const { title, description, dachzeile, finale, finaleZiel, visibility } = request.body
+      const { title, description, kicker, finale, finaleTarget, visibility } = request.body
       // finale: undefined → NULL → COALESCE behält den alten Wert; false → 0, true → 1.
       const finaleWert = finale === undefined ? null : finale ? 1 : 0
       db.prepare(
         `UPDATE tours SET title = COALESCE(?, title), description = COALESCE(?, description),
-         dachzeile = COALESCE(?, dachzeile),
-         finale = COALESCE(?, finale), finale_ziel = COALESCE(?, finale_ziel),
+         kicker = COALESCE(?, kicker),
+         finale = COALESCE(?, finale), finale_target = COALESCE(?, finale_target),
          visibility = COALESCE(?, visibility), updated_at = ? WHERE id = ?`,
       ).run(
         title ?? null,
         description ?? null,
-        dachzeile ?? null,
+        kicker ?? null,
         finaleWert,
-        finaleZiel ?? null,
+        finaleTarget ?? null,
         visibility ?? null,
         new Date().toISOString(),
         tour.id,
@@ -449,13 +449,13 @@ export function registriereTourRouten(app: FastifyInstance): void {
       const textGeaendert =
         title !== undefined ||
         description !== undefined ||
-        dachzeile !== undefined ||
+        kicker !== undefined ||
         finale !== undefined ||
-        finaleZiel !== undefined
-      if (tour.status === 'bereit' && textGeaendert) {
+        finaleTarget !== undefined
+      if (tour.status === 'ready' && textGeaendert) {
         const claim = db
           .prepare(
-            `UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status = 'bereit'`,
+            `UPDATE tours SET status = 'processing', updated_at = ? WHERE id = ? AND status = 'ready'`,
           )
           .run(new Date().toISOString(), tour.id)
         if (claim.changes === 1) {
@@ -494,20 +494,20 @@ export function registriereTourRouten(app: FastifyInstance): void {
       const tour = nurOwner(app, request.params.id, benutzer.id, reply)
       if (!tour) return
       const fehler = pruefeEditsSemantik(request.body)
-      if (fehler) return reply.code(400).send({ fehler })
+      if (fehler) return reply.code(400).send({ error: fehler })
       // Während laufender Verarbeitung nicht speichern: sie hätte das Overlay
       // ggf. schon gelesen — das Ergebnis wäre undefiniert. Restrisiko: startet
       // zwischen dieser Prüfung und dem Schreiben ein anderer Handler (finalize)
       // den Renderer, kann tour.json einen Render hinter edits.json liegen —
       // selbstheilend beim nächsten Render/Reprocess, kein Doppel-Renderer.
-      if (tour.status === 'verarbeitung') {
-        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut speichern' })
+      if (tour.status === 'processing') {
+        return reply.code(409).send({ error: 'Verarbeitung läuft, bitte gleich erneut speichern' })
       }
       await storage.schreibe(tour.id, EDITS_PFAD, JSON.stringify(request.body, null, 2))
       // Fertige (oder gescheiterte) Tour direkt neu rendern — gleicher
       // Status-Claim wie finalize, nie zwei Renderer parallel.
       if (starteVerarbeitung(app, tour.id))
-        return reply.code(202).send({ ok: true, status: 'verarbeitung' })
+        return reply.code(202).send({ ok: true, status: 'processing' })
       // angelegt: das Overlay fließt beim Finalize ein
       return { ok: true, status: ladeTour(app, tour.id)?.status ?? tour.status }
     },
@@ -519,12 +519,12 @@ export function registriereTourRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const tour = nurOwner(app, request.params.id, benutzer.id, reply)
     if (!tour) return
-    if (tour.status === 'angelegt')
-      return reply.code(409).send({ fehler: 'Tour ist noch nicht finalisiert' })
+    if (tour.status === 'created')
+      return reply.code(409).send({ error: 'Tour ist noch nicht finalisiert' })
     // „Neu verarbeiten" holt die Anreicherung bewusst frisch (verwirft den Cache).
     if (!starteVerarbeitung(app, tour.id, true))
-      return reply.code(409).send({ fehler: 'Verarbeitung läuft bereits' })
-    return reply.code(202).send({ id: tour.id, status: 'verarbeitung' })
+      return reply.code(409).send({ error: 'Verarbeitung läuft bereits' })
+    return reply.code(202).send({ id: tour.id, status: 'processing' })
   })
 
   // — Editor-Daten (M7): Original-Track MIT Zeiten + Auto-Platzierung + Overlay —
@@ -540,7 +540,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
       (await storage.lese(tour.id, MANIFEST_PFAD)).toString(),
     ) as UploadManifest
     if (manifest.trackFile && !(await storage.info(tour.id, TRACK_PFAD))) {
-      return reply.code(409).send({ fehler: 'Track (GPX) fehlt noch' })
+      return reply.code(409).send({ error: 'Track (GPX) fehlt noch' })
     }
     // Kaputtes GPX als 409 mit Ursache melden — gerade fehler-Touren sollen
     // im Editor sehen, WORAN es liegt, nicht „Interner Fehler" (Review-Fund).
@@ -548,10 +548,10 @@ export function registriereTourRouten(app: FastifyInstance): void {
     try {
       segmente = await ladeOriginalSegmente(app, tour.id, manifest)
     } catch (fehler) {
-      return reply.code(409).send({ fehler: `Track nicht lesbar: ${(fehler as Error).message}` })
+      return reply.code(409).send({ error: `Track nicht lesbar: ${(fehler as Error).message}` })
     }
     if (!segmente.some((s) => s.pts.length >= 2))
-      return reply.code(409).send({ fehler: 'Tour hat keinen Track' })
+      return reply.code(409).send({ error: 'Tour hat keinen Track' })
     const startMs = Date.parse(manifest.time.start)
 
     // Auto-Platzierung auf dem ORIGINAL-Track (ohne Overlay): die Basis, auf
@@ -566,7 +566,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
     // Zeitleiste zu setzen, die es nicht gibt (Bild 404, nichts dahinter);
     // das Manifest behält ihn trotzdem, das Protokoll bleibt vollständig.
     const sichtbareMedien =
-      tour.status === 'bereit'
+      tour.status === 'ready'
         ? await verfuegbareMedien(storage, tour.id, manifest.media)
         : manifest.media.filter((m) => !m.entfernt)
     const platziert = platziereMedien(
@@ -595,7 +595,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
         // Roher GPS-Anker aus dem Manifest (nur wenn vorhanden): der Editor
         // bietet damit „GPS-Ort verwenden" an, wenn die Auto-Platzierung auf
         // zeit zurückfiel oder ein manueller Anker zurückgenommen werden soll.
-        ...(medium.anchor ? { gpsAnker: medium.anchor } : {}),
+        ...(medium.anchor ? { gpsAnchor: medium.anchor } : {}),
       }
       if (medium.type === 'video') {
         const poster = `${medium.id}.poster.jpg`
@@ -604,7 +604,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
         // Die echte Länge: ohne sie rechnet die Zeitleiste ein 34-s-Video wie
         // ein Foto mit 5,2 s und zeigt ~34 px statt ~200 px Achsenbreite.
         const dauerS = videoDauern.get(medium.id)
-        if (dauerS !== undefined) eintrag['dauerS'] = dauerS
+        if (dauerS !== undefined) eintrag['durationS'] = dauerS
       }
       // Kachel für Zeitleiste und Inspector — die Miniatur zog bisher das volle
       // Foto (mehrere MB je Aufnahme, bei jedem Öffnen des Editors)
@@ -627,18 +627,18 @@ export function registriereTourRouten(app: FastifyInstance): void {
     // Poster — der Dateinamen-Filter lässt nur echte Audio-Dateien durch.
     const audio = (await storage.listeDateien(tour.id, 'media'))
       .filter((d) => istAudioDatei(d.name))
-      .map((d) => ({ datei: d.name, groesse: d.groesse }))
+      .map((d) => ({ file: d.name, size: d.groesse }))
 
     // Die Vorschläge für die Dachzeile: die Adress-Ebenen des Startpunkts, wie
     // sie beim Geocoding ohnehin anfielen. Aus dem Cache und nie frisch geholt —
     // eine Netzabfrage beim Öffnen des Editors wäre ein Aufruf pro Klick.
-    let dachzeileVorschlaege: string[] = []
+    let kickerSuggestions: string[] = []
     if (await storage.info(tour.id, ANREICHERUNG_PFAD)) {
       try {
         const cache = JSON.parse(
           (await storage.lese(tour.id, ANREICHERUNG_PFAD)).toString(),
         ) as AnreicherungsCache
-        dachzeileVorschlaege = cache.orte?.startEbenen ?? []
+        kickerSuggestions = cache.orte?.startEbenen ?? []
       } catch {
         // Ein kaputter Cache kostet die Vorschläge, nicht den Editor.
       }
@@ -649,16 +649,16 @@ export function registriereTourRouten(app: FastifyInstance): void {
       status: tour.status,
       title: tour.title,
       description: tour.description,
-      dachzeile: tour.dachzeile,
-      dachzeileVorschlaege,
+      kicker: tour.kicker,
+      kickerSuggestions,
       finale: !!tour.finale,
-      finaleZiel: tour.finale_ziel,
+      finaleTarget: tour.finale_target,
       time: manifest.time,
       // Original-Segmente, fürs Netz vereinfacht — behält [lng,lat,ele,tOffsetS]
-      segmente: segmente.map((s) => ({ mode: s.mode, pts: vereinfacheSegment(s.pts) })),
-      medien,
+      segments: segmente.map((s) => ({ mode: s.mode, pts: vereinfacheSegment(s.pts) })),
+      media: medien,
       audio,
-      autoWetter: await ermittleAutoWetter(app, tour.id, segmente, edits, startMs),
+      autoWeather: await ermittleAutoWetter(app, tour.id, segmente, edits, startMs),
       edits,
     }
   })
@@ -680,7 +680,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const zeilen = db
       .prepare(
-        `SELECT id, no, status, visibility, title, stats_json, cover, cover_thumb, fehler, created_at
+        `SELECT id, no, status, visibility, title, stats_json, cover, cover_thumb, error, created_at
          FROM tours WHERE owner_id = ? ORDER BY created_at DESC`,
       )
       .all(benutzer.id) as Array<
@@ -694,7 +694,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
         | 'stats_json'
         | 'cover'
         | 'cover_thumb'
-        | 'fehler'
+        | 'error'
         | 'created_at'
       >
     >
@@ -709,7 +709,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
         cover: z.cover,
         // Kachel-Fassung; fehlt sie (Altbestand), fällt die Anzeige auf `cover` zurück
         coverThumb: z.cover_thumb,
-        fehler: z.fehler,
+        error: z.error,
         createdAt: z.created_at,
       })),
     }
@@ -719,13 +719,13 @@ export function registriereTourRouten(app: FastifyInstance): void {
   app.get<{ Params: { id: string } }>('/api/tours/:id', async (request, reply) => {
     const tour = tourOderFehler(app, request.params.id, request.benutzer?.id ?? null, reply)
     if (!tour) return
-    if (tour.status !== 'bereit') {
+    if (tour.status !== 'ready') {
       // Interne Fehlertexte (Pipeline-Exceptions) nur dem Owner zeigen —
       // jeder mit Link sieht nur den Status.
       const istOwner = request.benutzer?.id === tour.owner_id
       return reply
         .code(200)
-        .send({ id: tour.id, status: tour.status, ...(istOwner ? { fehler: tour.fehler } : {}) })
+        .send({ id: tour.id, status: tour.status, ...(istOwner ? { error: tour.error } : {}) })
     }
     // Der Autor kommt NICHT aus der Datei, sondern frisch aus der Datenbank:
     // Eingebacken wäre er beim nächsten Namens- oder Handle-Wechsel veraltet,
@@ -744,28 +744,28 @@ export function registriereTourRouten(app: FastifyInstance): void {
     // Ein Re-Render aller Touren nur dafür wäre unverhältnismäßig, also fällt
     // er hier weg — solange niemand eine eigene Dachzeile gesetzt hat. Beim
     // nächsten Render der Tour entsteht der Wert regulär in `baueBenennung`.
-    if (tour.dachzeile === null && /^Aufgezeichnet am /.test(String(tourJson.kicker ?? '')))
+    if (tour.kicker === null && /^Aufgezeichnet am /.test(String(tourJson.kicker ?? '')))
       tourJson.kicker = ''
 
     const besitzer = app.deps.db
       .prepare(
-        'SELECT id, handle, anzeigename, avatar, profil_sichtbarkeit FROM users WHERE id = ?',
+        'SELECT id, handle, display_name, avatar, profile_visibility FROM users WHERE id = ?',
       )
       .get(tour.owner_id) as
       | {
           id: string
           handle: string | null
-          anzeigename: string | null
+          display_name: string | null
           avatar: string | null
-          profil_sichtbarkeit: string
+          profile_visibility: string
         }
       | undefined
-    if (besitzer?.anzeigename) {
-      const oeffentlich = besitzer.profil_sichtbarkeit === 'public'
-      tourJson.autor = {
-        anzeigename: besitzer.anzeigename,
+    if (besitzer?.display_name) {
+      const oeffentlich = besitzer.profile_visibility === 'public'
+      tourJson.author = {
+        displayName: besitzer.display_name,
         avatarUrl: besitzer.avatar
-          ? `/api/benutzer/${besitzer.id}/avatar?v=${encodeURIComponent(besitzer.avatar)}`
+          ? `/api/users/${besitzer.id}/avatar?v=${encodeURIComponent(besitzer.avatar)}`
           : null,
         ...(oeffentlich ? { id: besitzer.id, handle: besitzer.handle } : {}),
       }
@@ -792,7 +792,7 @@ function setzeStatus(
   fehler?: string,
 ): void {
   app.deps.db
-    .prepare('UPDATE tours SET status = ?, fehler = ?, updated_at = ? WHERE id = ?')
+    .prepare('UPDATE tours SET status = ?, error = ?, updated_at = ? WHERE id = ?')
     .run(status, fehler ?? null, new Date().toISOString(), id)
 }
 
@@ -809,7 +809,7 @@ function bildMedientyp(datei: string): string {
 }
 
 /**
- * Verarbeitung atomar beanspruchen (nur aus bereit/fehler heraus) und starten.
+ * Verarbeitung atomar beanspruchen (nur aus ready/failed heraus) und starten.
  * false = eine andere Verarbeitung läuft bereits oder die Tour ist angelegt.
  * Exportiert für die Medien-Routen: endgültiges Löschen rendert direkt neu,
  * damit das tour.json nicht auf verschwundene Dateien zeigt.
@@ -817,7 +817,7 @@ function bildMedientyp(datei: string): string {
 export function starteVerarbeitung(app: FastifyInstance, tourId: string, frisch = false): boolean {
   const claim = app.deps.db
     .prepare(
-      `UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status IN ('bereit', 'fehler')`,
+      `UPDATE tours SET status = 'processing', updated_at = ? WHERE id = ? AND status IN ('ready', 'failed')`,
     )
     .run(new Date().toISOString(), tourId)
   if (claim.changes === 0) return false
@@ -1252,9 +1252,9 @@ export async function processTour(
       manifest,
       titelOverride: tour.title,
       beschreibungOverride: tour.description,
-      dachzeileOverride: tour.dachzeile,
+      dachzeileOverride: tour.kicker,
       showFinale: !!tour.finale,
-      finaleZielOverride: tour.finale_ziel,
+      finaleZielOverride: tour.finale_target,
       ...(edits ? { edits } : {}),
       audioDateien,
       benutzerAudioDateien,
@@ -1284,9 +1284,9 @@ export async function processTour(
     const titelbild = bestimmeCover(tourJson.media, edits?.titelbild)
     db.prepare(
       `UPDATE tours SET status = ?, title = COALESCE(title, ?), stats_json = ?, cover = ?, cover_thumb = ?,
-       fehler = NULL, updated_at = ? WHERE id = ?`,
+       error = NULL, updated_at = ? WHERE id = ?`,
     ).run(
-      'bereit',
+      'ready',
       tourJson.brandTitle,
       JSON.stringify(tourJson.stats),
       titelbild?.cover ?? null,
@@ -1296,6 +1296,6 @@ export async function processTour(
     )
   } catch (fehler) {
     app.log.error(fehler, `Anreicherung fehlgeschlagen: ${tourId}`)
-    setzeStatus(app, tourId, 'fehler', (fehler as Error).message)
+    setzeStatus(app, tourId, 'failed', (fehler as Error).message)
   }
 }

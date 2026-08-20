@@ -6,8 +6,8 @@
 // Play Services, von der Herstellersoftware verschluckte Nachrichten und die
 // Zeit zwischen „Konto verknüpft" und „Push-Token registriert".
 //
-// **Die Nachricht trägt keine Inhalte, nur einen Anlass.** `{ typ:
-// 'import-fertig', tourId }` — den Rest holt die App über die vorhandenen
+// **Die Nachricht trägt keine Inhalte, nur einen Anlass.** `{ type:
+// 'import-finished', tourId }` — den Rest holt die App über die vorhandenen
 // Routen. Ein Push mit Titel und Ort der Tour liefe über Googles Server und
 // läge auf dem Sperrbildschirm; beides ist unnötig, wenn ein Wecken genügt.
 // FCM ist nicht Ende-zu-Ende-verschlüsselt.
@@ -21,7 +21,7 @@ export type Plattform = 'android' | 'ios'
 export interface PushGeraet {
   id: string
   benutzerId: string
-  plattform: Plattform
+  platform: Plattform
   token: string
   angelegtAm: string
   zuletztGesehenAm: string
@@ -34,7 +34,7 @@ export interface PushGeraet {
  * als ein fehlendes.
  */
 export interface PushNachricht {
-  typ: 'import-fertig'
+  type: 'import-finished'
   tourId: string
   importId: string
 }
@@ -65,28 +65,28 @@ export class KonsolePush implements PushVersand {
   readonly einsatzbereit = true
   constructor(private readonly log: (zeile: string) => void = console.log) {}
   async sende(tokens: readonly string[], nachricht: PushNachricht): Promise<Zustellung[]> {
-    this.log(`\n🔔 Push (${nachricht.typ}, Tour ${nachricht.tourId}) an ${tokens.length} Gerät(e)`)
+    this.log(`\n🔔 Push (${nachricht.type}, Tour ${nachricht.tourId}) an ${tokens.length} Gerät(e)`)
     return tokens.map((token) => ({ token, abgemeldet: false }))
   }
 }
 
 interface GeraeteZeile {
   id: string
-  benutzer_id: string
-  plattform: Plattform
+  user_id: string
+  platform: Plattform
   token: string
-  angelegt_am: string
-  zuletzt_gesehen_am: string
+  created_at: string
+  last_seen_at: string
 }
 
 function zuGeraet(z: GeraeteZeile): PushGeraet {
   return {
     id: z.id,
-    benutzerId: z.benutzer_id,
-    plattform: z.plattform,
+    benutzerId: z.user_id,
+    platform: z.platform,
     token: z.token,
-    angelegtAm: z.angelegt_am,
-    zuletztGesehenAm: z.zuletzt_gesehen_am,
+    angelegtAm: z.created_at,
+    zuletztGesehenAm: z.last_seen_at,
   }
 }
 
@@ -120,17 +120,17 @@ export class PushDienst {
     const jetzt = new Date().toISOString()
     this.db
       .prepare(
-        `INSERT INTO push_geraete (id, benutzer_id, token_id, plattform, token, angelegt_am, zuletzt_gesehen_am)
+        `INSERT INTO push_devices (id, user_id, token_id, platform, token, created_at, last_seen_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(token) DO UPDATE SET
-           benutzer_id = excluded.benutzer_id,
+           user_id = excluded.user_id,
            token_id = excluded.token_id,
-           plattform = excluded.plattform,
-           zuletzt_gesehen_am = excluded.zuletzt_gesehen_am`,
+           platform = excluded.platform,
+           last_seen_at = excluded.last_seen_at`,
       )
       .run(neueTourId().replace('t_', 'g_'), benutzerId, appTokenId, plattform, token, jetzt, jetzt)
     return zuGeraet(
-      this.db.prepare('SELECT * FROM push_geraete WHERE token = ?').get(token) as GeraeteZeile,
+      this.db.prepare('SELECT * FROM push_devices WHERE token = ?').get(token) as GeraeteZeile,
     )
   }
 
@@ -145,7 +145,7 @@ export class PushDienst {
   entferne(benutzerId: string, token: string): boolean {
     return (
       this.db
-        .prepare('DELETE FROM push_geraete WHERE benutzer_id = ? AND token = ?')
+        .prepare('DELETE FROM push_devices WHERE user_id = ? AND token = ?')
         .run(benutzerId, token).changes > 0
     )
   }
@@ -154,7 +154,7 @@ export class PushDienst {
   geraete(benutzerId: string): PushGeraet[] {
     return (
       this.db
-        .prepare('SELECT * FROM push_geraete WHERE benutzer_id = ? ORDER BY angelegt_am DESC')
+        .prepare('SELECT * FROM push_devices WHERE user_id = ? ORDER BY created_at DESC')
         .all(benutzerId) as GeraeteZeile[]
     ).map(zuGeraet)
   }
@@ -181,7 +181,7 @@ export class PushDienst {
     }
     const abgemeldet = zustellungen.filter((z) => z.abgemeldet).map((z) => z.token)
     if (abgemeldet.length) {
-      const loesche = this.db.prepare('DELETE FROM push_geraete WHERE token = ?')
+      const loesche = this.db.prepare('DELETE FROM push_devices WHERE token = ?')
       this.db.transaction(() => abgemeldet.forEach((t) => loesche.run(t)))()
     }
     return zustellungen.length - abgemeldet.length

@@ -27,14 +27,14 @@ const EMAIL_FORM = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
  * Datenschutzerklärung nennt dann eine Aufzählung, die nicht mehr stimmt.
  */
 const KONTEXT_FELDER = [
-  'seite',
+  'page',
   'version',
   'browser',
-  'plattform',
-  'schirm',
-  'sprache',
+  'platform',
+  'screen',
+  'language',
   'appVersion',
-  'geraet',
+  'device',
   'androidVersion',
 ] as const
 
@@ -55,7 +55,7 @@ export function saubereKontext(roh: unknown): RueckmeldungKontext | null {
   return Object.keys(sauber).length ? sauber : null
 }
 
-const STATUS: RueckmeldungStatus[] = ['offen', 'in_arbeit', 'erledigt']
+const STATUS: RueckmeldungStatus[] = ['open', 'in_progress', 'done']
 
 export function registriereRueckmeldungsRouten(app: FastifyInstance): void {
   // Großzügiger als die Warteliste: Wer drei Fehler hintereinander findet, soll
@@ -63,9 +63,9 @@ export function registriereRueckmeldungsRouten(app: FastifyInstance): void {
   const gebremst = baueBremse(10, 10 * 60_000)
 
   app.post<{
-    Body: { text: string; email?: string; kontext?: unknown; quelle?: 'web' | 'app' }
+    Body: { text: string; email?: string; context?: unknown; source?: 'web' | 'app' }
   }>(
-    '/api/rueckmeldung',
+    '/api/feedback',
     {
       schema: {
         body: {
@@ -75,19 +75,19 @@ export function registriereRueckmeldungsRouten(app: FastifyInstance): void {
           properties: {
             text: { type: 'string', minLength: 1, maxLength: MAX_TEXT },
             email: { type: 'string', maxLength: MAX_EMAIL },
-            kontext: { type: 'object' },
-            quelle: { type: 'string', enum: ['web', 'app'] },
+            context: { type: 'object' },
+            source: { type: 'string', enum: ['web', 'app'] },
           },
         },
       },
     },
     async (request, reply) => {
       const text = request.body.text.trim()
-      if (!text) return reply.code(400).send({ fehler: 'Bitte schreib kurz, worum es geht.' })
+      if (!text) return reply.code(400).send({ error: 'Bitte schreib kurz, worum es geht.' })
       if (gebremst(`ip:${request.ip}`)) {
         return reply
           .code(429)
-          .send({ fehler: 'Zu viele Meldungen. Bitte versuche es später erneut.' })
+          .send({ error: 'Zu viele Meldungen. Bitte versuche es später erneut.' })
       }
       // Eine unbrauchbare Adresse wird verworfen und nicht bemängelt: Sie ist
       // freiwillig, und die Meldung ist auch ohne sie etwas wert.
@@ -95,9 +95,9 @@ export function registriereRueckmeldungsRouten(app: FastifyInstance): void {
       app.rueckmeldungen.nimmAn({
         text,
         email: email && EMAIL_FORM.test(email) ? email : null,
-        benutzerId: request.benutzer?.id ?? null,
-        kontext: saubereKontext(request.body.kontext),
-        quelle: request.body.quelle ?? 'web',
+        userId: request.benutzer?.id ?? null,
+        context: saubereKontext(request.body.context),
+        source: request.body.source ?? 'web',
       })
       return reply.send({ ok: true })
     },
@@ -106,24 +106,24 @@ export function registriereRueckmeldungsRouten(app: FastifyInstance): void {
   // — Verwaltung —
 
   app.get<{ Querystring: { status?: RueckmeldungStatus } }>(
-    '/api/admin/rueckmeldungen',
+    '/api/admin/feedback',
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
       const status = request.query.status
       return {
-        rueckmeldungen: app.rueckmeldungen.liste(
+        feedback: app.rueckmeldungen.liste(
           status && STATUS.includes(status) ? { status } : undefined,
         ),
-        zaehlung: app.rueckmeldungen.zaehlung(),
+        counts: app.rueckmeldungen.zaehlung(),
       }
     },
   )
 
   app.patch<{
     Params: { id: string }
-    Body: { status?: RueckmeldungStatus; notiz?: string | null }
+    Body: { status?: RueckmeldungStatus; note?: string | null }
   }>(
-    '/api/admin/rueckmeldungen/:id',
+    '/api/admin/feedback/:id',
     {
       schema: {
         body: {
@@ -131,28 +131,28 @@ export function registriereRueckmeldungsRouten(app: FastifyInstance): void {
           additionalProperties: false,
           properties: {
             status: { type: 'string', enum: STATUS },
-            notiz: { type: ['string', 'null'], maxLength: 4000 },
+            note: { type: ['string', 'null'], maxLength: 4000 },
           },
         },
       },
     },
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
-      const aenderung: { status?: RueckmeldungStatus; notiz?: string | null } = {}
+      const aenderung: { status?: RueckmeldungStatus; note?: string | null } = {}
       if (request.body.status !== undefined) aenderung.status = request.body.status
-      if (request.body.notiz !== undefined) aenderung.notiz = request.body.notiz
+      if (request.body.note !== undefined) aenderung.note = request.body.note
       const gespeichert = app.rueckmeldungen.aktualisiere(request.params.id, aenderung)
-      if (!gespeichert) return reply.code(404).send({ fehler: 'Diese Rückmeldung gibt es nicht.' })
-      return reply.send({ rueckmeldung: gespeichert })
+      if (!gespeichert) return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
+      return reply.send({ feedback: gespeichert })
     },
   )
 
   app.delete<{ Params: { id: string } }>(
-    '/api/admin/rueckmeldungen/:id',
+    '/api/admin/feedback/:id',
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
       if (!app.rueckmeldungen.loesche(request.params.id)) {
-        return reply.code(404).send({ fehler: 'Diese Rückmeldung gibt es nicht.' })
+        return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
       }
       return reply.send({ ok: true })
     },

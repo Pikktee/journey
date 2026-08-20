@@ -9,9 +9,9 @@
 //
 // Zwei Eingänge für dieselbe Sache:
 //
-//   - `POST /api/newsletter/abmelden` — der Knopf auf der Seite, die der Link
+//   - `POST /api/newsletter/unsubscribe` — der Knopf auf der Seite, die der Link
 //     aus der Mail öffnet.
-//   - `POST /api/newsletter/ein-klick/:token` — der Ein-Klick-Widerruf, den
+//   - `POST /api/newsletter/one-click/:token` — der Ein-Klick-Widerruf, den
 //     Gmail und Apple Mail neben dem Absender einblenden (RFC 8058). Er kommt
 //     ohne Zutun des Empfängers durch, sobald der auf „Abbestellen" tippt.
 //
@@ -44,12 +44,12 @@ export function registriereNewsletterRouten(app: FastifyInstance): void {
     // Der Zustand wird auch dann geschrieben, wenn er schon „aus" war: Die
     // zweite Zeile in der Historie ist der Beleg, dass jemand es noch einmal
     // versucht hat.
-    if (app.auth.benutzerNachId(userId)) app.newsletter.setze(userId, false, 'abmeldelink')
+    if (app.auth.benutzerNachId(userId)) app.newsletter.setze(userId, false, 'unsubscribe_link')
     return true
   }
 
   app.post<{ Body: { token: string } }>(
-    '/api/newsletter/abmelden',
+    '/api/newsletter/unsubscribe',
     {
       schema: {
         body: {
@@ -64,11 +64,11 @@ export function registriereNewsletterRouten(app: FastifyInstance): void {
       if (gebremst(`ip:${request.ip}`)) {
         return reply
           .code(429)
-          .send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
+          .send({ error: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
       if (!trageAus(request.body.token)) {
         return reply.code(400).send({
-          fehler:
+          error:
             'Dieser Abmeldelink gilt nicht mehr. In den Kontoeinstellungen kannst du den Schalter selbst umlegen.',
         })
       }
@@ -84,7 +84,7 @@ export function registriereNewsletterRouten(app: FastifyInstance): void {
   // die Antwort ist absichtlich leer — sie geht an ein Programm, nicht an einen
   // Menschen.
   app.post<{ Params: { token: string } }>(
-    '/api/newsletter/ein-klick/:token',
+    '/api/newsletter/one-click/:token',
     async (request, reply) => {
       if (gebremst(`ip:${request.ip}`)) return reply.code(429).send()
       if (!trageAus(request.params.token)) return reply.code(400).send()

@@ -206,7 +206,7 @@ export class FcmPush implements PushVersand {
             // abgekündigtes Feld zu bauen hieße, den Umzug später ein zweites
             // Mal zu bezahlen. Was die App schickt, IST eine FID.
             fid: token,
-            data: { typ: nachricht.typ, tourId: nachricht.tourId, importId: nachricht.importId },
+            data: { type: nachricht.type, tourId: nachricht.tourId, importId: nachricht.importId },
             android: { priority: 'high' },
           },
         }),

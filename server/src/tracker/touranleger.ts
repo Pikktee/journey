@@ -173,14 +173,14 @@ export async function legeTourAusTrackAn(
   }
 
   const angelegt = await legeTourAn(app, benutzerId, manifest)
-  if (!angelegt.ok) throw new Error(angelegt.fehler)
-  if (angelegt.wiederverwendet) return { tourId: angelegt.id, wiederverwendet: true }
+  if (!angelegt.ok) throw new Error(angelegt.error)
+  if (angelegt.reused) return { tourId: angelegt.id, wiederverwendet: true }
 
   await storage.schreibe(angelegt.id, TRACK_PFAD, gpx)
   const tour = ladeTour(app, angelegt.id)
   if (!tour) throw new Error('Tour verschwand zwischen Anlegen und Finalisieren')
   const fertig = await finalisiereTour(app, tour)
-  if (!fertig.ok) throw new Error(fertig.fehler)
+  if (!fertig.ok) throw new Error(fertig.error)
   return { tourId: angelegt.id, wiederverwendet: false }
 }
 

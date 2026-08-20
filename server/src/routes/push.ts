@@ -12,21 +12,21 @@ import { erfordereBenutzer } from '../app.js'
 
 const geraetSchema = {
   type: 'object',
-  required: ['token', 'plattform'],
+  required: ['token', 'platform'],
   additionalProperties: false,
   properties: {
     // 4 KB Deckel: FCM-Tokens liegen bei ~160 Zeichen. Die Grenze steht hier
     // nicht gegen einen Angriff (die Route ist angemeldet), sondern gegen eine
     // kaputte App-Fassung, die versehentlich ein ganzes JSON hereinschiebt.
     token: { type: 'string', minLength: 8, maxLength: 4096 },
-    plattform: { enum: ['android', 'ios'] },
+    platform: { enum: ['android', 'ios'] },
   },
 } as const
 
 export function registrierePushRouten(app: FastifyInstance): void {
   // — Gerät anmelden (auch zum Erneuern: die Route schreibt um) —
-  app.post<{ Body: { token: string; plattform: 'android' | 'ios' } }>(
-    '/api/push/geraete',
+  app.post<{ Body: { token: string; platform: 'android' | 'ios' } }>(
+    '/api/push/devices',
     { schema: { body: geraetSchema } },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
@@ -39,14 +39,14 @@ export function registrierePushRouten(app: FastifyInstance): void {
       const geraet = app.push.registriere(
         benutzer.id,
         request.body.token,
-        request.body.plattform,
+        request.body.platform,
         // Das Gerät hängt am Zugang, mit dem es kam: Wer die App in
         // „Angemeldete Geräte" abmeldet, beendet damit auch die Meldungen
         // dorthin. Bei einer Sitzung (Web) gibt es nichts zu binden — dort
         // wird heute ohnehin nicht registriert.
         request.appTokenId,
       )
-      return { ok: true, push: true, geraetId: geraet.id }
+      return { ok: true, push: true, deviceId: geraet.id }
     },
   )
 
@@ -56,7 +56,7 @@ export function registrierePushRouten(app: FastifyInstance): void {
   // und enthält `:` und `-`; in einer URL landete er in Server-Logs und
   // Zugriffsprotokollen, wo er nichts zu suchen hat.
   app.delete<{ Body: { token: string } }>(
-    '/api/push/geraete',
+    '/api/push/devices',
     {
       schema: {
         body: {

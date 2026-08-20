@@ -30,7 +30,7 @@ export const FRIST_WARTEND_TAGE = 365
 /** Nach der Einladung ist der Zweck erfüllt; der Code selbst läuft ohnehin früher ab. */
 export const FRIST_EINGELADEN_TAGE = 90
 
-const SCHLUESSEL_OFFEN = 'warteliste_offen'
+const SCHLUESSEL_OFFEN = 'waitlist_open'
 
 /**
  * Wird die Warteliste vor der Tür angeboten?
@@ -46,19 +46,19 @@ export const wartelisteAngeboten = (
   registrierungOffen: boolean,
 ): boolean => offen && (einladungPflicht || !registrierungOffen)
 
-export type WartelistenZustand = 'unbestaetigt' | 'wartend' | 'eingeladen'
+export type WartelistenZustand = 'unconfirmed' | 'pending' | 'invited'
 
 export interface WartelistenEintrag {
   id: string
   email: string
   /** Freiwillige Angabe des Anmelders („Was willst du aufnehmen?") */
-  notiz: string | null
-  eingetragenAm: string
-  bestaetigtAm: string | null
-  eingeladenAm: string | null
+  note: string | null
+  joinedAt: string
+  confirmedAt: string | null
+  invitedAt: string | null
   /** Der erzeugte Einladungscode — der Faden zur Einladungs-Liste */
-  eingeladenCode: string | null
-  zustand: WartelistenZustand
+  invitedCode: string | null
+  state: WartelistenZustand
 }
 
 /** Was der Aufrufer nach einem Eintragungsversuch tun soll. */
@@ -70,26 +70,26 @@ export interface Eintragung {
 interface Zeile {
   id: string
   email: string
-  notiz: string | null
-  eingetragen_am: string
-  bestaetigt_am: string | null
-  eingeladen_am: string | null
-  eingeladen_code: string | null
+  note: string | null
+  joined_at: string
+  confirmed_at: string | null
+  invited_at: string | null
+  invited_code: string | null
 }
 
 const sha256 = (wert: string): string => createHash('sha256').update(wert).digest('hex')
 
-const SPALTEN = 'id, email, notiz, eingetragen_am, bestaetigt_am, eingeladen_am, eingeladen_code'
+const SPALTEN = 'id, email, note, joined_at, confirmed_at, invited_at, invited_code'
 
 const zuEintrag = (z: Zeile): WartelistenEintrag => ({
   id: z.id,
   email: z.email,
-  notiz: z.notiz,
-  eingetragenAm: z.eingetragen_am,
-  bestaetigtAm: z.bestaetigt_am,
-  eingeladenAm: z.eingeladen_am,
-  eingeladenCode: z.eingeladen_code,
-  zustand: z.eingeladen_am ? 'eingeladen' : z.bestaetigt_am ? 'wartend' : 'unbestaetigt',
+  note: z.note,
+  joinedAt: z.joined_at,
+  confirmedAt: z.confirmed_at,
+  invitedAt: z.invited_at,
+  invitedCode: z.invited_code,
+  state: z.invited_at ? 'invited' : z.confirmed_at ? 'pending' : 'unconfirmed',
 })
 
 const vorTagen = (tage: number): string =>
@@ -109,16 +109,16 @@ export class WartelistenDienst {
    */
   offen(): boolean {
     const zeile = this.db
-      .prepare('SELECT wert FROM einstellungen WHERE schluessel = ?')
-      .get(SCHLUESSEL_OFFEN) as { wert: string } | undefined
-    return zeile ? zeile.wert === '1' : true
+      .prepare('SELECT value FROM settings WHERE key = ?')
+      .get(SCHLUESSEL_OFFEN) as { value: string } | undefined
+    return zeile ? zeile.value === '1' : true
   }
 
   setzeOffen(wert: boolean): void {
     this.db
       .prepare(
-        `INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?)
-         ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert`,
+        `INSERT INTO settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
       )
       .run(SCHLUESSEL_OFFEN, wert ? '1' : '0')
   }
@@ -140,9 +140,9 @@ export class WartelistenDienst {
   trageEin(email: string, notiz: string | null, ip: string | null): Eintragung {
     const adresse = email.toLowerCase().trim()
     const vorhanden = this.db
-      .prepare(`SELECT ${SPALTEN} FROM warteliste WHERE email = ?`)
+      .prepare(`SELECT ${SPALTEN} FROM waitlist WHERE email = ?`)
       .get(adresse) as Zeile | undefined
-    if (vorhanden && (vorhanden.bestaetigt_am || vorhanden.eingeladen_am)) return { token: null }
+    if (vorhanden && (vorhanden.confirmed_at || vorhanden.invited_at)) return { token: null }
 
     const token = neuesTokenSecret()
     const jetzt = new Date().toISOString()
@@ -152,7 +152,7 @@ export class WartelistenDienst {
       // leerem Feld soll den ersten Satz nicht wegwischen.
       this.db
         .prepare(
-          `UPDATE warteliste SET token_hash = ?, eingetragen_am = ?, eingetragen_ip = ?, notiz = COALESCE(?, notiz)
+          `UPDATE waitlist SET token_hash = ?, joined_at = ?, joined_ip = ?, note = COALESCE(?, note)
            WHERE id = ?`,
         )
         .run(sha256(token), jetzt, ip, gestutzt, vorhanden.id)
@@ -160,7 +160,7 @@ export class WartelistenDienst {
     }
     this.db
       .prepare(
-        `INSERT INTO warteliste (id, email, notiz, token_hash, eingetragen_am, eingetragen_ip)
+        `INSERT INTO waitlist (id, email, note, token_hash, joined_at, joined_ip)
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
       .run(neueSessionId(), adresse, gestutzt, sha256(token), jetzt, ip)
@@ -176,21 +176,21 @@ export class WartelistenDienst {
    */
   bestaetige(token: string, ip: string | null): WartelistenEintrag | null {
     const zeile = this.db
-      .prepare(`SELECT ${SPALTEN} FROM warteliste WHERE token_hash = ?`)
+      .prepare(`SELECT ${SPALTEN} FROM waitlist WHERE token_hash = ?`)
       .get(sha256(token)) as Zeile | undefined
     if (!zeile) return null
-    if (zeile.bestaetigt_am) return zuEintrag(zeile)
+    if (zeile.confirmed_at) return zuEintrag(zeile)
     const jetzt = new Date().toISOString()
     this.db
-      .prepare('UPDATE warteliste SET bestaetigt_am = ?, bestaetigt_ip = ? WHERE id = ?')
+      .prepare('UPDATE waitlist SET confirmed_at = ?, confirmed_ip = ? WHERE id = ?')
       .run(jetzt, ip, zeile.id)
-    return zuEintrag({ ...zeile, bestaetigt_am: jetzt })
+    return zuEintrag({ ...zeile, confirmed_at: jetzt })
   }
 
   /** Austragen über den Link aus der Mail — der Weg zur Löschung ohne Konto. */
   trageAus(token: string): boolean {
     return (
-      this.db.prepare('DELETE FROM warteliste WHERE token_hash = ?').run(sha256(token)).changes > 0
+      this.db.prepare('DELETE FROM waitlist WHERE token_hash = ?').run(sha256(token)).changes > 0
     )
   }
 
@@ -204,7 +204,7 @@ export class WartelistenDienst {
    */
   erneuereToken(id: string): string {
     const token = neuesTokenSecret()
-    this.db.prepare('UPDATE warteliste SET token_hash = ? WHERE id = ?').run(sha256(token), id)
+    this.db.prepare('UPDATE waitlist SET token_hash = ? WHERE id = ?').run(sha256(token), id)
     return token
   }
 
@@ -219,13 +219,13 @@ export class WartelistenDienst {
    */
   alle(): WartelistenEintrag[] {
     const zeilen = this.db
-      .prepare(`SELECT ${SPALTEN} FROM warteliste ORDER BY eingetragen_am ASC`)
+      .prepare(`SELECT ${SPALTEN} FROM waitlist ORDER BY joined_at ASC`)
       .all() as Zeile[]
     return zeilen.map(zuEintrag)
   }
 
   nachId(id: string): WartelistenEintrag | null {
-    const zeile = this.db.prepare(`SELECT ${SPALTEN} FROM warteliste WHERE id = ?`).get(id) as
+    const zeile = this.db.prepare(`SELECT ${SPALTEN} FROM waitlist WHERE id = ?`).get(id) as
       Zeile | undefined
     return zeile ? zuEintrag(zeile) : null
   }
@@ -233,7 +233,7 @@ export class WartelistenDienst {
   /** Wer hinter einem Mail-Token steckt — für das Aufräumen VOR dem Austragen. */
   nachToken(token: string): WartelistenEintrag | null {
     const zeile = this.db
-      .prepare(`SELECT ${SPALTEN} FROM warteliste WHERE token_hash = ?`)
+      .prepare(`SELECT ${SPALTEN} FROM waitlist WHERE token_hash = ?`)
       .get(sha256(token)) as Zeile | undefined
     return zeile ? zuEintrag(zeile) : null
   }
@@ -241,12 +241,12 @@ export class WartelistenDienst {
   /** Hält fest, dass für diesen Eintrag ein Code erzeugt und verschickt wurde. */
   markiereEingeladen(id: string, code: string): void {
     this.db
-      .prepare('UPDATE warteliste SET eingeladen_am = ?, eingeladen_code = ? WHERE id = ?')
+      .prepare('UPDATE waitlist SET invited_at = ?, invited_code = ? WHERE id = ?')
       .run(new Date().toISOString(), code, id)
   }
 
   loesche(id: string): boolean {
-    return this.db.prepare('DELETE FROM warteliste WHERE id = ?').run(id).changes > 0
+    return this.db.prepare('DELETE FROM waitlist WHERE id = ?').run(id).changes > 0
   }
 
   /**
@@ -259,10 +259,10 @@ export class WartelistenDienst {
   raeumeAuf(): number {
     const erg = this.db
       .prepare(
-        `DELETE FROM warteliste WHERE
-           (bestaetigt_am IS NULL AND eingetragen_am < ?)
-           OR (bestaetigt_am IS NOT NULL AND eingeladen_am IS NULL AND bestaetigt_am < ?)
-           OR (eingeladen_am IS NOT NULL AND eingeladen_am < ?)`,
+        `DELETE FROM waitlist WHERE
+           (confirmed_at IS NULL AND joined_at < ?)
+           OR (confirmed_at IS NOT NULL AND invited_at IS NULL AND confirmed_at < ?)
+           OR (invited_at IS NOT NULL AND invited_at < ?)`,
       )
       .run(
         vorTagen(FRIST_UNBESTAETIGT_TAGE),

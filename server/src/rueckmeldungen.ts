@@ -32,7 +32,7 @@ export const MAX_TEXT = 4000
 /** Die Adresse ist freiwillig; die Länge folgt der Spezifikation für Mail-Adressen. */
 export const MAX_EMAIL = 254
 
-export type RueckmeldungStatus = 'offen' | 'in_arbeit' | 'erledigt'
+export type RueckmeldungStatus = 'open' | 'in_progress' | 'done'
 export type RueckmeldungQuelle = 'web' | 'app'
 
 /**
@@ -44,61 +44,61 @@ export type RueckmeldungKontext = Record<string, string | number | boolean | nul
 
 export interface Rueckmeldung {
   id: string
-  benutzerId: string | null
+  userId: string | null
   /** Anzeigename des Kontos, falls die Meldung von einem Angemeldeten kam. */
-  benutzerName: string | null
+  userName: string | null
   email: string | null
   text: string
-  kontext: RueckmeldungKontext | null
-  quelle: RueckmeldungQuelle
+  context: RueckmeldungKontext | null
+  source: RueckmeldungQuelle
   status: RueckmeldungStatus
-  notiz: string | null
-  angelegtAm: string
-  geaendertAm: string | null
+  note: string | null
+  createdAt: string
+  updatedAt: string | null
 }
 
 type Zeile = {
   id: string
-  benutzer_id: string | null
-  benutzer_name: string | null
+  user_id: string | null
+  user_name: string | null
   email: string | null
   text: string
-  kontext: string | null
-  quelle: RueckmeldungQuelle
+  context: string | null
+  source: RueckmeldungQuelle
   status: RueckmeldungStatus
-  notiz: string | null
-  angelegt_am: string
-  geaendert_am: string | null
+  note: string | null
+  created_at: string
+  updated_at: string | null
 }
 
 function zuRueckmeldung(z: Zeile): Rueckmeldung {
   let kontext: RueckmeldungKontext | null = null
-  if (z.kontext) {
+  if (z.context) {
     // Kaputtes JSON darf die Liste nicht sprengen: Eine unlesbare Angabe ist
     // dasselbe wie keine — der Text der Meldung bleibt lesbar.
     try {
-      kontext = JSON.parse(z.kontext) as RueckmeldungKontext
+      kontext = JSON.parse(z.context) as RueckmeldungKontext
     } catch {
       kontext = null
     }
   }
   return {
     id: z.id,
-    benutzerId: z.benutzer_id,
-    benutzerName: z.benutzer_name,
+    userId: z.user_id,
+    userName: z.user_name,
     email: z.email,
     text: z.text,
-    kontext,
-    quelle: z.quelle,
+    context: kontext,
+    source: z.source,
     status: z.status,
-    notiz: z.notiz,
-    angelegtAm: z.angelegt_am,
-    geaendertAm: z.geaendert_am,
+    note: z.note,
+    createdAt: z.created_at,
+    updatedAt: z.updated_at,
   }
 }
 
-const SPALTEN = `r.id, r.benutzer_id, u.name AS benutzer_name, r.email, r.text, r.kontext,
-  r.quelle, r.status, r.notiz, r.angelegt_am, r.geaendert_am`
+const SPALTEN = `r.id, r.user_id, u.name AS user_name, r.email, r.text, r.context,
+  r.source, r.status, r.note, r.created_at, r.updated_at`
 
 export class RueckmeldungsDienst {
   constructor(private db: Db) {}
@@ -107,9 +107,9 @@ export class RueckmeldungsDienst {
   nimmAn(eingang: {
     text: string
     email?: string | null
-    benutzerId?: string | null
-    kontext?: RueckmeldungKontext | null
-    quelle?: RueckmeldungQuelle
+    userId?: string | null
+    context?: RueckmeldungKontext | null
+    source?: RueckmeldungQuelle
   }): Rueckmeldung {
     const id = neueSessionId()
     const jetzt = new Date().toISOString()
@@ -117,16 +117,16 @@ export class RueckmeldungsDienst {
     const email = eingang.email?.trim().slice(0, MAX_EMAIL) || null
     this.db
       .prepare(
-        `INSERT INTO rueckmeldungen (id, benutzer_id, email, text, kontext, quelle, status, angelegt_am)
-         VALUES (?, ?, ?, ?, ?, ?, 'offen', ?)`,
+        `INSERT INTO feedback (id, user_id, email, text, context, source, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
       )
       .run(
         id,
-        eingang.benutzerId ?? null,
+        eingang.userId ?? null,
         email,
         text,
-        eingang.kontext ? JSON.stringify(eingang.kontext) : null,
-        eingang.quelle ?? 'web',
+        eingang.context ? JSON.stringify(eingang.context) : null,
+        eingang.source ?? 'web',
         jetzt,
       )
     return this.eine(id) as Rueckmeldung
@@ -135,8 +135,8 @@ export class RueckmeldungsDienst {
   eine(id: string): Rueckmeldung | null {
     const z = this.db
       .prepare(
-        `SELECT ${SPALTEN} FROM rueckmeldungen r
-         LEFT JOIN users u ON u.id = r.benutzer_id WHERE r.id = ?`,
+        `SELECT ${SPALTEN} FROM feedback r
+         LEFT JOIN users u ON u.id = r.user_id WHERE r.id = ?`,
       )
       .get(id) as Zeile | undefined
     return z ? zuRueckmeldung(z) : null
@@ -154,23 +154,23 @@ export class RueckmeldungsDienst {
     const wo = filter?.status ? 'WHERE r.status = ?' : ''
     const zeilen = this.db
       .prepare(
-        `SELECT ${SPALTEN} FROM rueckmeldungen r
-         LEFT JOIN users u ON u.id = r.benutzer_id
-         ${wo} ORDER BY r.angelegt_am DESC, r.rowid DESC LIMIT 500`,
+        `SELECT ${SPALTEN} FROM feedback r
+         LEFT JOIN users u ON u.id = r.user_id
+         ${wo} ORDER BY r.created_at DESC, r.rowid DESC LIMIT 500`,
       )
       .all(...(filter?.status ? [filter.status] : [])) as Zeile[]
     return zeilen.map(zuRueckmeldung)
   }
 
   /** Zähler je Status — die Verwaltung zeigt sie an den Filtern. */
-  zaehlung(): Record<RueckmeldungStatus | 'gesamt', number> {
+  zaehlung(): Record<RueckmeldungStatus | 'total', number> {
     const zeilen = this.db
-      .prepare(`SELECT status, COUNT(*) AS n FROM rueckmeldungen GROUP BY status`)
+      .prepare(`SELECT status, COUNT(*) AS n FROM feedback GROUP BY status`)
       .all() as Array<{ status: RueckmeldungStatus; n: number }>
-    const z = { offen: 0, in_arbeit: 0, erledigt: 0, gesamt: 0 }
+    const z = { open: 0, in_progress: 0, done: 0, total: 0 }
     for (const zeile of zeilen) {
       z[zeile.status] = zeile.n
-      z.gesamt += zeile.n
+      z.total += zeile.n
     }
     return z
   }
@@ -178,25 +178,25 @@ export class RueckmeldungsDienst {
   /** Status und/oder Notiz setzen. Gibt `null` zurück, wenn es die Meldung nicht gibt. */
   aktualisiere(
     id: string,
-    aenderung: { status?: RueckmeldungStatus; notiz?: string | null },
+    aenderung: { status?: RueckmeldungStatus; note?: string | null },
   ): Rueckmeldung | null {
     if (!this.eine(id)) return null
     const jetzt = new Date().toISOString()
     if (aenderung.status !== undefined) {
       this.db
-        .prepare(`UPDATE rueckmeldungen SET status = ?, geaendert_am = ? WHERE id = ?`)
+        .prepare(`UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?`)
         .run(aenderung.status, jetzt, id)
     }
-    if (aenderung.notiz !== undefined) {
+    if (aenderung.note !== undefined) {
       this.db
-        .prepare(`UPDATE rueckmeldungen SET notiz = ?, geaendert_am = ? WHERE id = ?`)
-        .run(aenderung.notiz?.trim() || null, jetzt, id)
+        .prepare(`UPDATE feedback SET note = ?, updated_at = ? WHERE id = ?`)
+        .run(aenderung.note?.trim() || null, jetzt, id)
     }
     return this.eine(id)
   }
 
   loesche(id: string): boolean {
-    return this.db.prepare(`DELETE FROM rueckmeldungen WHERE id = ?`).run(id).changes > 0
+    return this.db.prepare(`DELETE FROM feedback WHERE id = ?`).run(id).changes > 0
   }
 
   /**
@@ -207,10 +207,10 @@ export class RueckmeldungsDienst {
     const grenze = (tage: number): string =>
       new Date(jetzt.getTime() - tage * 86_400_000).toISOString()
     const a = this.db
-      .prepare(`DELETE FROM rueckmeldungen WHERE status = 'erledigt' AND angelegt_am < ?`)
+      .prepare(`DELETE FROM feedback WHERE status = 'done' AND created_at < ?`)
       .run(grenze(FRIST_ERLEDIGT_TAGE)).changes
     const b = this.db
-      .prepare(`DELETE FROM rueckmeldungen WHERE status <> 'erledigt' AND angelegt_am < ?`)
+      .prepare(`DELETE FROM feedback WHERE status <> 'done' AND created_at < ?`)
       .run(grenze(FRIST_OFFEN_TAGE)).changes
     return a + b
   }

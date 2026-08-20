@@ -47,7 +47,7 @@ export interface TourJson {
   schema: typeof TOUR_SCHEMA_ID
   id: string
   no: string
-  status: 'bereit'
+  status: 'ready'
   brandTitle: string
   kicker: string
   titleHtml: string
@@ -652,7 +652,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         src: ausBibliothek
           ? `/audio/sfx/${spur.datei}`
           : ausBenutzer
-            ? `/api/tours/${tourId}/bibliothek-audio/${spur.datei}`
+            ? `/api/tours/${tourId}/library-audio/${spur.datei}`
             : `/api/media/${tourId}/${spur.datei}`,
         f0,
         f1,
@@ -730,7 +730,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     schema: TOUR_SCHEMA_ID,
     id: tourId,
     no: `N°${String(nummer).padStart(2, '0')}`,
-    status: 'bereit',
+    status: 'ready',
     brandTitle: benennung.brandTitle,
     kicker: benennung.kicker,
     titleHtml: benennung.titleHtml,

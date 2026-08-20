@@ -53,7 +53,7 @@ export async function registriereTrackerWebhookRouten(app: FastifyInstance): Pro
     '/api/webhooks/tracker/:provider',
     async (request, reply) => {
       const provider = app.trackerRegistry.hole(request.params.provider)
-      if (!provider?.webhook?.antwort) return reply.code(404).send({ fehler: 'Nicht gefunden' })
+      if (!provider?.webhook?.antwort) return reply.code(404).send({ error: 'Nicht gefunden' })
       return provider.webhook.antwort(zuAnfrage(request))
     },
   )
@@ -65,7 +65,7 @@ export async function registriereTrackerWebhookRouten(app: FastifyInstance): Pro
     },
     async (request, reply) => {
       const provider = app.trackerRegistry.hole(request.params.provider)
-      if (!provider?.webhook) return reply.code(404).send({ fehler: 'Nicht gefunden' })
+      if (!provider?.webhook) return reply.code(404).send({ error: 'Nicht gefunden' })
       const anfrage = zuAnfrage(request)
 
       // Der Erreichbarkeits-Test des Anbieters läuft VOR der Signaturprüfung und
@@ -80,7 +80,7 @@ export async function registriereTrackerWebhookRouten(app: FastifyInstance): Pro
       // 401, kein Eintrag, kein Log-Spam (sonst wäre schon das Protokoll ein
       // Ziel für Müll von außen).
       if (!(await provider.webhook.verifiziere(anfrage))) {
-        return reply.code(401).send({ fehler: 'Signatur ungültig' })
+        return reply.code(401).send({ error: 'Signatur ungültig' })
       }
 
       const ereignisse = provider.webhook.parseEreignisse(anfrage)
@@ -95,10 +95,10 @@ export async function registriereTrackerWebhookRouten(app: FastifyInstance): Pro
           // Von außen abgemeldet (Strava sendet das ausdrücklich): sichtbar
           // machen statt still verstummen — der Nutzer wartet sonst auf
           // Touren, die nie kommen.
-          app.tracker.setzeStatus(verknuepfung.id, 'abgelaufen', 'Zugriff beim Anbieter widerrufen')
+          app.tracker.setzeStatus(verknuepfung.id, 'expired', 'Zugriff beim Anbieter widerrufen')
           continue
         }
-        if (verknuepfung.status !== 'aktiv') continue
+        if (verknuepfung.status !== 'active') continue
         auftraege.push({ verknuepfung, provider, externeId: ereignis.externeId })
       }
 

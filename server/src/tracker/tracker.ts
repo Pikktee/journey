@@ -10,70 +10,70 @@ import { entschluessele, verschluessele } from './krypto.js'
 import type { ProviderTokens, TrackerAnbieter, TrackerProvider } from './vertrag.js'
 import { TokensUngueltigFehler } from './vertrag.js'
 
-export type VerknuepfungsStatus = 'aktiv' | 'abgelaufen' | 'getrennt'
-export type ImportStatus = 'wartet' | 'laeuft' | 'fertig' | 'fehler' | 'uebersprungen'
+export type VerknuepfungsStatus = 'active' | 'expired' | 'disconnected'
+export type ImportStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped'
 
 interface VerknuepfungsZeile {
   id: string
-  benutzer_id: string
-  anbieter: string
-  externer_nutzer: string | null
+  user_id: string
+  provider: string
+  external_user: string | null
   tokens: string
-  laeuft_ab_am: string | null
+  expires_at: string | null
   status: VerknuepfungsStatus
-  verbunden_am: string
-  zuletzt_sync_am: string | null
-  letzter_fehler: string | null
+  connected_at: string
+  last_sync_at: string | null
+  last_error: string | null
 }
 
 export interface Verknuepfung {
   id: string
-  benutzerId: string
-  anbieter: TrackerAnbieter
-  externerNutzer: string | null
+  userId: string
+  provider: TrackerAnbieter
+  externalUser: string | null
   status: VerknuepfungsStatus
-  verbundenAm: string
-  zuletztSyncAm: string | null
-  letzterFehler: string | null
+  connectedAt: string
+  lastSyncAt: string | null
+  lastError: string | null
 }
 
 /** So viel Tour, wie eine Chronik-Zeile braucht — nicht mehr. */
 export interface TourKurz {
-  titel: string | null
+  title: string | null
   km: number | null
-  fotos: number | null
-  /** `angelegt` · `verarbeitung` · `bereit` · `fehler` — „schon spielbar?" */
+  placedMedia: number | null
+  /** `created` · `processing` · `ready` · `failed` — „schon spielbar?" */
   status: string
-  sichtbarkeit: string | null
+  visibility: string | null
 }
 
 export interface ImportZeile {
   id: string
-  benutzerId: string
-  anbieter: TrackerAnbieter
-  externeId: string
+  userId: string
+  provider: TrackerAnbieter
+  externalId: string
   status: ImportStatus
   tourId: string | null
-  gemeldetAm: string
-  fertigAm: string | null
-  gesehenAm: string | null
-  fehler: string | null
+  reportedAt: string
+  finishedAt: string | null
+  seenAt: string | null
+  error: string | null
   /** Wie oft angelaufen (≥ 1) — steht in der Liste, damit ein Deckel sichtbar ist. */
-  versuche: number
+  attempts: number
   /** Wartet die Aktivität noch auf einen neuen Anlauf? (s. `beanspruche`) */
-  wiederholbar: boolean
+  retryable: boolean
 }
 
 function zuVerknuepfung(z: VerknuepfungsZeile): Verknuepfung {
   return {
     id: z.id,
-    benutzerId: z.benutzer_id,
-    anbieter: z.anbieter as TrackerAnbieter,
-    externerNutzer: z.externer_nutzer,
+    userId: z.user_id,
+    provider: z.provider as TrackerAnbieter,
+    externalUser: z.external_user,
     status: z.status,
-    verbundenAm: z.verbunden_am,
-    zuletztSyncAm: z.zuletzt_sync_am,
-    letzterFehler: z.letzter_fehler,
+    connectedAt: z.connected_at,
+    lastSyncAt: z.last_sync_at,
+    lastError: z.last_error,
   }
 }
 
@@ -175,7 +175,7 @@ export class TrackerDienst {
    * keine zweite anlegen — und zwischen SELECT und INSERT läge sonst wieder
    * ein Fenster.
    *
-   * `verbunden_am` bleibt beim UPDATE ABSICHTLICH stehen: Die Funktion legt
+   * `connected_at` bleibt beim UPDATE ABSICHTLICH stehen: Die Funktion legt
    * nicht nur beim Verbinden an, sondern auch bei jeder Token-Erneuerung
    * (`gueltigeTokens`) — mitgeschrieben stünde auf der Kontoseite dauerhaft
    * „verbunden seit vor ein paar Minuten", weil OAuth-Tokens stündlich
@@ -188,15 +188,15 @@ export class TrackerDienst {
     const gepackt = verschluessele(JSON.stringify(tokens), this.schluessel)
     this.db
       .prepare(
-        `INSERT INTO tracker_verknuepfungen
-           (id, benutzer_id, anbieter, externer_nutzer, tokens, laeuft_ab_am, status, verbunden_am)
-         VALUES (?, ?, ?, ?, ?, ?, 'aktiv', ?)
-         ON CONFLICT(benutzer_id, anbieter) DO UPDATE SET
-           externer_nutzer = excluded.externer_nutzer,
+        `INSERT INTO tracker_links
+           (id, user_id, provider, external_user, tokens, expires_at, status, connected_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
+         ON CONFLICT(user_id, provider) DO UPDATE SET
+           external_user = excluded.external_user,
            tokens = excluded.tokens,
-           laeuft_ab_am = excluded.laeuft_ab_am,
-           status = 'aktiv',
-           letzter_fehler = NULL`,
+           expires_at = excluded.expires_at,
+           status = 'active',
+           last_error = NULL`,
       )
       .run(
         neueTourId().replace('t_', 'v_'),
@@ -214,14 +214,14 @@ export class TrackerDienst {
 
   verknuepfung(benutzerId: string, anbieter: TrackerAnbieter): Verknuepfung | null {
     const z = this.db
-      .prepare('SELECT * FROM tracker_verknuepfungen WHERE benutzer_id = ? AND anbieter = ?')
+      .prepare('SELECT * FROM tracker_links WHERE user_id = ? AND provider = ?')
       .get(benutzerId, anbieter) as VerknuepfungsZeile | undefined
     return z ? zuVerknuepfung(z) : null
   }
 
   verknuepfungen(benutzerId: string): Verknuepfung[] {
     const zeilen = this.db
-      .prepare('SELECT * FROM tracker_verknuepfungen WHERE benutzer_id = ? ORDER BY anbieter')
+      .prepare('SELECT * FROM tracker_links WHERE user_id = ? ORDER BY provider')
       .all(benutzerId) as VerknuepfungsZeile[]
     return zeilen.map(zuVerknuepfung)
   }
@@ -232,7 +232,7 @@ export class TrackerDienst {
    */
   ausExternerKennung(anbieter: TrackerAnbieter, externerNutzer: string): Verknuepfung | null {
     const z = this.db
-      .prepare('SELECT * FROM tracker_verknuepfungen WHERE anbieter = ? AND externer_nutzer = ?')
+      .prepare('SELECT * FROM tracker_links WHERE provider = ? AND external_user = ?')
       .get(anbieter, externerNutzer) as VerknuepfungsZeile | undefined
     return z ? zuVerknuepfung(z) : null
   }
@@ -241,10 +241,10 @@ export class TrackerDienst {
   tokens(verknuepfungId: string): ProviderTokens {
     if (!this.schluessel) throw new Error('Tracker-Schlüssel fehlt')
     const z = this.db
-      .prepare('SELECT tokens, status FROM tracker_verknuepfungen WHERE id = ?')
+      .prepare('SELECT tokens, status FROM tracker_links WHERE id = ?')
       .get(verknuepfungId) as { tokens: string; status: VerknuepfungsStatus } | undefined
     if (!z) throw new TokensUngueltigFehler('Verknüpfung nicht gefunden')
-    if (z.status !== 'aktiv') throw new TokensUngueltigFehler()
+    if (z.status !== 'active') throw new TokensUngueltigFehler()
     try {
       return JSON.parse(entschluessele(z.tokens, this.schluessel)) as ProviderTokens
     } catch {
@@ -252,7 +252,7 @@ export class TrackerDienst {
       // Serverstörung, sondern eine tote Verknüpfung — sichtbar machen.
       this.setzeStatus(
         verknuepfungId,
-        'abgelaufen',
+        'expired',
         'Zugang ließ sich nicht lesen, bitte neu verbinden',
       )
       throw new TokensUngueltigFehler()
@@ -278,7 +278,7 @@ export class TrackerDienst {
     const faellig = Number.isFinite(laeuftAbMs) && laeuftAbMs - 60_000 <= this.jetzt().getTime()
     if (!faellig) return tokens
     if (!provider.erneuereTokens || !tokens.erneuerung) {
-      this.setzeStatus(verknuepfung.id, 'abgelaufen', 'Zugang abgelaufen, bitte neu verbinden')
+      this.setzeStatus(verknuepfung.id, 'expired', 'Zugang abgelaufen, bitte neu verbinden')
       throw new TokensUngueltigFehler()
     }
     try {
@@ -290,24 +290,24 @@ export class TrackerDienst {
         ...neu,
         externerNutzer: neu.externerNutzer ?? tokens.externerNutzer ?? null,
       }
-      this.verknuepfe(verknuepfung.benutzerId, verknuepfung.anbieter, zusammen)
+      this.verknuepfe(verknuepfung.userId, verknuepfung.provider, zusammen)
       return zusammen
     } catch (fehler) {
-      this.setzeStatus(verknuepfung.id, 'abgelaufen', (fehler as Error).message)
+      this.setzeStatus(verknuepfung.id, 'expired', (fehler as Error).message)
       throw new TokensUngueltigFehler()
     }
   }
 
   setzeStatus(verknuepfungId: string, status: VerknuepfungsStatus, fehler?: string | null): void {
     this.db
-      .prepare('UPDATE tracker_verknuepfungen SET status = ?, letzter_fehler = ? WHERE id = ?')
+      .prepare('UPDATE tracker_links SET status = ?, last_error = ? WHERE id = ?')
       .run(status, fehler ?? null, verknuepfungId)
   }
 
   merkeSync(verknuepfungId: string): void {
     this.db
       .prepare(
-        'UPDATE tracker_verknuepfungen SET zuletzt_sync_am = ?, letzter_fehler = NULL WHERE id = ?',
+        'UPDATE tracker_links SET last_sync_at = ?, last_error = NULL WHERE id = ?',
       )
       .run(this.jetzt().toISOString(), verknuepfungId)
   }
@@ -326,10 +326,10 @@ export class TrackerDienst {
     // Nutzer, nicht der Verknüpfung.
     this.db.transaction(() => {
       this.db
-        .prepare('DELETE FROM tracker_importe WHERE benutzer_id = ? AND anbieter = ?')
+        .prepare('DELETE FROM tracker_imports WHERE user_id = ? AND provider = ?')
         .run(benutzerId, anbieter)
       this.db
-        .prepare('DELETE FROM tracker_verknuepfungen WHERE benutzer_id = ? AND anbieter = ?')
+        .prepare('DELETE FROM tracker_links WHERE user_id = ? AND provider = ?')
         .run(benutzerId, anbieter)
     })()
   }
@@ -361,23 +361,23 @@ export class TrackerDienst {
     const jetztIso = this.jetzt().toISOString()
     const ergebnis = this.db
       .prepare(
-        `INSERT INTO tracker_importe (id, benutzer_id, anbieter, externe_id, status, gemeldet_am, wiederholbar, versuche)
-         VALUES (?, ?, ?, ?, 'laeuft', ?, 0, 1)
-         ON CONFLICT(benutzer_id, anbieter, externe_id) DO UPDATE SET
-           status = 'laeuft',
-           versuche = tracker_importe.versuche + 1,
-           wiederholbar = 0,
+        `INSERT INTO tracker_imports (id, user_id, provider, external_id, status, reported_at, retryable, attempts)
+         VALUES (?, ?, ?, ?, 'running', ?, 0, 1)
+         ON CONFLICT(user_id, provider, external_id) DO UPDATE SET
+           status = 'running',
+           attempts = tracker_imports.attempts + 1,
+           retryable = 0,
            fehler = NULL,
-           fertig_am = NULL,
+           finished_at = NULL,
            -- Auch wieder ungesehen: Der Ausgang des neuen Anlaufs ist eine
            -- NEUE Nachricht. Bliebe die Quittung des gescheiterten stehen,
            -- erschiene die geglückte Tour nie in der Benachrichtigung.
-           gesehen_am = NULL
-         WHERE tracker_importe.wiederholbar = 1 AND tracker_importe.versuche < ?`,
+           seen_at = NULL
+         WHERE tracker_imports.retryable = 1 AND tracker_imports.attempts < ?`,
       )
       .run(id, benutzerId, anbieter, externeId, jetztIso, MAX_VERSUCHE)
     if (ergebnis.changes === 0) return null
-    // Beim erneuten Anlauf gilt die VORHANDENE Zeile — `gemeldet_am` bleibt der
+    // Beim erneuten Anlauf gilt die VORHANDENE Zeile — `reported_at` bleibt der
     // Zeitpunkt der ersten Meldung, sonst wanderte die Aktivität in der Liste
     // bei jedem Versuch nach oben.
     return this.importZeileNach(benutzerId, anbieter, externeId)
@@ -390,29 +390,29 @@ export class TrackerDienst {
   ): ImportZeile | null {
     const z = this.db
       .prepare(
-        'SELECT id FROM tracker_importe WHERE benutzer_id = ? AND anbieter = ? AND externe_id = ?',
+        'SELECT id FROM tracker_imports WHERE user_id = ? AND provider = ? AND external_id = ?',
       )
       .get(benutzerId, anbieter, externeId) as { id: string } | undefined
     return z ? this.importZeile(z.id) : null
   }
 
   importZeile(id: string): ImportZeile | null {
-    const z = this.db.prepare('SELECT * FROM tracker_importe WHERE id = ?').get(id) as
+    const z = this.db.prepare('SELECT * FROM tracker_imports WHERE id = ?').get(id) as
       Record<string, string | number | null> | undefined
     if (!z) return null
     return {
       id: z['id'] as string,
-      benutzerId: z['benutzer_id'] as string,
-      anbieter: z['anbieter'] as TrackerAnbieter,
-      externeId: z['externe_id'] as string,
+      userId: z['user_id'] as string,
+      provider: z['provider'] as TrackerAnbieter,
+      externalId: z['external_id'] as string,
       status: z['status'] as ImportStatus,
       tourId: (z['tour_id'] as string | null) ?? null,
-      gemeldetAm: z['gemeldet_am'] as string,
-      fertigAm: (z['fertig_am'] as string | null) ?? null,
-      gesehenAm: (z['gesehen_am'] as string | null) ?? null,
-      fehler: (z['fehler'] as string | null) ?? null,
-      versuche: Number(z['versuche'] ?? 1),
-      wiederholbar: Number(z['wiederholbar'] ?? 0) === 1,
+      reportedAt: z['reported_at'] as string,
+      finishedAt: (z['finished_at'] as string | null) ?? null,
+      seenAt: (z['seen_at'] as string | null) ?? null,
+      error: (z['error'] as string | null) ?? null,
+      attempts: Number(z['attempts'] ?? 1),
+      retryable: Number(z['retryable'] ?? 0) === 1,
     }
   }
 
@@ -433,7 +433,7 @@ export class TrackerDienst {
   ): void {
     this.db
       .prepare(
-        'UPDATE tracker_importe SET status = ?, tour_id = ?, fertig_am = ?, fehler = ?, wiederholbar = ? WHERE id = ?',
+        'UPDATE tracker_imports SET status = ?, tour_id = ?, finished_at = ?, error = ?, retryable = ? WHERE id = ?',
       )
       .run(
         status,
@@ -448,7 +448,7 @@ export class TrackerDienst {
   importe(benutzerId: string, grenze = 30): ImportZeile[] {
     const zeilen = this.db
       .prepare(
-        'SELECT id FROM tracker_importe WHERE benutzer_id = ? ORDER BY gemeldet_am DESC LIMIT ?',
+        'SELECT id FROM tracker_imports WHERE user_id = ? ORDER BY reported_at DESC LIMIT ?',
       )
       .all(benutzerId, grenze) as Array<{ id: string }>
     return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportZeile => z !== null)
@@ -473,9 +473,9 @@ export class TrackerDienst {
     const zeilen = this.db
       .prepare(
         `SELECT i.id, t.title AS titel, t.stats_json, t.status AS tour_status, t.visibility
-         FROM tracker_importe i
+         FROM tracker_imports i
          LEFT JOIN tours t ON t.id = i.tour_id
-         WHERE i.benutzer_id = ? ORDER BY i.gemeldet_am DESC LIMIT ?`,
+         WHERE i.user_id = ? ORDER BY i.reported_at DESC LIMIT ?`,
       )
       .all(benutzerId, grenze) as Array<{
       id: string
@@ -490,17 +490,17 @@ export class TrackerDienst {
       if (!zeile) return []
       if (!z.tour_status) return [{ ...zeile, tour: null }]
       const stats = z.stats_json
-        ? (JSON.parse(z.stats_json) as { km?: number; fotos?: number })
+        ? (JSON.parse(z.stats_json) as { km?: number; placedMedia?: number })
         : null
       return [
         {
           ...zeile,
           tour: {
-            titel: z.titel,
+            title: z.titel,
             km: typeof stats?.km === 'number' ? stats.km : null,
-            fotos: typeof stats?.fotos === 'number' ? stats.fotos : null,
+            placedMedia: typeof stats?.placedMedia === 'number' ? stats.placedMedia : null,
             status: z.tour_status,
-            sichtbarkeit: z.visibility,
+            visibility: z.visibility,
           },
         },
       ]
@@ -510,15 +510,15 @@ export class TrackerDienst {
   /**
    * Was der Client noch nicht gesehen hat — die Grundlage der Benachrichtigung.
    *
-   * `gesehen_am` steht auf dem SERVER und nicht als Flag im Client: Zwei Geräte
+   * `seen_at` steht auf dem SERVER und nicht als Flag im Client: Zwei Geräte
    * am selben Konto sollen dieselbe Tour nicht doppelt melden.
    */
   offeneImporte(benutzerId: string): ImportZeile[] {
     const zeilen = this.db
       .prepare(
-        `SELECT id FROM tracker_importe
-         WHERE benutzer_id = ? AND gesehen_am IS NULL AND status IN ('fertig', 'fehler')
-         ORDER BY gemeldet_am`,
+        `SELECT id FROM tracker_imports
+         WHERE user_id = ? AND seen_at IS NULL AND status IN ('done', 'failed')
+         ORDER BY reported_at`,
       )
       .all(benutzerId) as Array<{ id: string }>
     return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportZeile => z !== null)
@@ -528,7 +528,7 @@ export class TrackerDienst {
     if (!ids.length) return
     const jetztIso = this.jetzt().toISOString()
     const setze = this.db.prepare(
-      'UPDATE tracker_importe SET gesehen_am = ? WHERE id = ? AND benutzer_id = ? AND gesehen_am IS NULL',
+      'UPDATE tracker_imports SET seen_at = ? WHERE id = ? AND user_id = ? AND seen_at IS NULL',
     )
     this.db.transaction(() => {
       for (const id of ids) setze.run(jetztIso, id, benutzerId)

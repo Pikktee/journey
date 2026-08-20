@@ -36,13 +36,13 @@ export function istTitelbildVorschlag(wert: string): boolean {
  * Öffentliche Adresse des Titelbilds — statische Datei oder eigener Upload.
  *
  * Unterschieden wird am Schrägstrich: Ein Vorschlag ist ein blanker Dateiname,
- * ein eigenes Bild liegt unter `titelbild/<zeitstempel>.jpg` im Benutzer-Storage.
+ * ein eigenes Bild liegt unter `banner/<zeitstempel>.jpg` im Benutzer-Storage.
  * Der Dateiname hängt wie beim Avatar als `?v=` dran und bricht den Cache.
  */
 export function titelbildUrl(userId: string, wert: string | null): string | null {
   if (!wert) return null
   if (!wert.includes('/')) return `/titelbilder/${wert}`
-  return `/api/benutzer/${userId}/titelbild?v=${encodeURIComponent(wert)}`
+  return `/api/users/${userId}/banner?v=${encodeURIComponent(wert)}`
 }
 
 /**

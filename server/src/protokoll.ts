@@ -14,15 +14,15 @@
 // Gespeichert wird ab `warn`. Alles darunter ist Verkehr (jede Anfrage zweimal),
 // das wäre nach zwei Minuten Betrieb der einzige Inhalt.
 
-export type ProtokollStufe = 'warnung' | 'fehler'
+export type ProtokollStufe = 'warning' | 'failed'
 
 export interface ProtokollEintrag {
   /** Fortlaufend, überlebt das Herausfallen aus dem Puffer — die Oberfläche
    *  erkennt daran neue Einträge, ohne Zeitstempel vergleichen zu müssen. */
-  nr: number
+  no: number
   /** ISO-Zeitpunkt (UTC) */
-  zeit: string
-  stufe: ProtokollStufe
+  at: string
+  level: ProtokollStufe
   text: string
   /** Zusatz, wenn die Meldung an einer Anfrage oder einem Fehlerobjekt hängt */
   detail?: string
@@ -41,9 +41,9 @@ export class Protokoll {
 
   schreibe(stufe: ProtokollStufe, text: string, detail?: string): void {
     this.eintraege.push({
-      nr: this.naechsteNr++,
-      zeit: new Date().toISOString(),
-      stufe,
+      no: this.naechsteNr++,
+      at: new Date().toISOString(),
+      level: stufe,
       text: text.slice(0, MAX_TEXT),
       ...(detail ? { detail: detail.slice(0, MAX_TEXT) } : {}),
     })
@@ -55,16 +55,16 @@ export class Protokoll {
   /** Neueste zuerst — die Frage ist immer „was ist gerade passiert?". */
   liste(opt: { stufe?: ProtokollStufe; limit?: number } = {}): ProtokollEintrag[] {
     const gefiltert = opt.stufe
-      ? this.eintraege.filter((e) => e.stufe === opt.stufe)
+      ? this.eintraege.filter((e) => e.level === opt.stufe)
       : this.eintraege
     const umgekehrt = [...gefiltert].reverse()
     return opt.limit ? umgekehrt.slice(0, opt.limit) : umgekehrt
   }
 
-  zaehle(): { gesamt: number; fehler: number } {
+  zaehle(): { total: number; errorCount: number } {
     return {
-      gesamt: this.eintraege.length,
-      fehler: this.eintraege.filter((e) => e.stufe === 'fehler').length,
+      total: this.eintraege.length,
+      errorCount: this.eintraege.filter((e) => e.level === 'failed').length,
     }
   }
 }
@@ -72,8 +72,8 @@ export class Protokoll {
 /** pino-Level → unsere zwei Stufen; alles unter 40 (info/debug) fällt weg. */
 function stufeAusLevel(level: unknown): ProtokollStufe | null {
   if (typeof level !== 'number') return null
-  if (level >= 50) return 'fehler' // error + fatal
-  if (level >= 40) return 'warnung'
+  if (level >= 50) return 'failed' // error + fatal
+  if (level >= 40) return 'warning'
   return null
 }
 

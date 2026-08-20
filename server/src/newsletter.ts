@@ -29,13 +29,13 @@ import { neueSessionId } from './ids.js'
 import { WEB_PFADE } from './webpfade.js'
 
 /** Woher eine Ein- oder Austragung kam — steht so in der Historie. */
-export type EinwilligungsQuelle = 'registrierung' | 'konto' | 'abmeldelink'
+export type EinwilligungsQuelle = 'signup' | 'account' | 'unsubscribe_link'
 
 export interface Einwilligung {
-  zeitpunkt: string
-  zustand: 'an' | 'aus'
-  quelle: EinwilligungsQuelle
-  textfassung: string
+  at: string
+  state: 'on' | 'off'
+  source: EinwilligungsQuelle
+  textVersion: string
 }
 
 /**
@@ -50,7 +50,7 @@ export interface Einwilligung {
  * als hier, behauptete die Historie eine Zustimmung zu einem Text, den niemand
  * gelesen hat.
  *
- * `abmeldelink` hat keinen eigenen Satz — man widerruft, was man zugesagt hat;
+ * `unsubscribe_link` hat keinen eigenen Satz — man widerruft, was man zugesagt hat;
  * die Zeile hält fest, WORAUS man aussteigt.
  */
 export const EINWILLIGUNGSTEXTE = {
@@ -60,7 +60,7 @@ export const EINWILLIGUNGSTEXTE = {
   // verlinkt ist, und ausführlich in den Kontoeinstellungen — ein Absatz an
   // dieser Stelle wird nicht gelesen, und ungelesen ist er kein besserer
   // Nachweis als ein Satz, den man erfasst.
-  registrierung: {
+  signup: {
     fassung: 'registrierung-2026-08-06',
     text: 'Schick mir Neuigkeiten zu Maptale. Abbestellen jederzeit.',
   },
@@ -68,7 +68,7 @@ export const EINWILLIGUNGSTEXTE = {
   // ändert, ohne die Kennung mitzuziehen, behauptet für alte Einträge einen
   // Satz, der so nie dastand. (Der Kommentar steht VOR dem Eintrag, weil der
   // Wächter in test/newsletter-einwilligung.test.ts den Block roh liest.)
-  konto: {
+  account: {
     fassung: 'konto-2026-08-06-2',
     text: 'Ein paar Mal im Jahr Neues von Maptale. Abbestellen jederzeit.',
   },
@@ -120,7 +120,7 @@ export const abmeldeUrl = (basisUrl: string, token: string): string =>
 
 /** Die Adresse, die der Ein-Klick-Widerruf der Mail-Programme anspricht. */
 export const einKlickUrl = (basisUrl: string, token: string): string =>
-  `${basisUrl.replace(/\/+$/, '')}/api/newsletter/ein-klick/${token}`
+  `${basisUrl.replace(/\/+$/, '')}/api/newsletter/one-click/${token}`
 
 /**
  * `List-Unsubscribe` samt Ein-Klick-Zusage (RFC 8058) — für jede Werbemail.
@@ -162,19 +162,19 @@ export class NewsletterDienst {
    */
   setze(userId: string, an: boolean, quelle: EinwilligungsQuelle): void {
     const textfassung =
-      quelle === 'abmeldelink' ? 'abmeldelink' : EINWILLIGUNGSTEXTE[quelle].fassung
+      quelle === 'unsubscribe_link' ? 'abmeldelink' : EINWILLIGUNGSTEXTE[quelle].fassung
     this.db.transaction(() => {
       this.db.prepare('UPDATE users SET newsletter = ? WHERE id = ?').run(an ? 1 : 0, userId)
       this.db
         .prepare(
-          `INSERT INTO newsletter_einwilligungen (id, benutzer_id, zeitpunkt, zustand, quelle, textfassung)
+          `INSERT INTO newsletter_consents (id, user_id, at, state, source, text_version)
            VALUES (?, ?, ?, ?, ?, ?)`,
         )
         .run(
           neueSessionId(),
           userId,
           new Date().toISOString(),
-          an ? 'an' : 'aus',
+          an ? 'on' : 'off',
           quelle,
           textfassung,
         )
@@ -185,8 +185,8 @@ export class NewsletterDienst {
   verlauf(userId: string): Einwilligung[] {
     return this.db
       .prepare(
-        `SELECT zeitpunkt, zustand, quelle, textfassung FROM newsletter_einwilligungen
-         WHERE benutzer_id = ? ORDER BY zeitpunkt DESC, rowid DESC`,
+        `SELECT at, state, source, text_version AS textVersion FROM newsletter_consents
+         WHERE user_id = ? ORDER BY at DESC, rowid DESC`,
       )
       .all(userId) as Einwilligung[]
   }
@@ -207,10 +207,10 @@ export class NewsletterDienst {
     const grenze = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString()
     return this.db
       .prepare(
-        `DELETE FROM newsletter_einwilligungen WHERE zeitpunkt < ? AND id NOT IN (
-           SELECT id FROM newsletter_einwilligungen e
-           WHERE e.zeitpunkt = (SELECT MAX(zeitpunkt) FROM newsletter_einwilligungen
-                                WHERE benutzer_id = e.benutzer_id)
+        `DELETE FROM newsletter_consents WHERE at < ? AND id NOT IN (
+           SELECT id FROM newsletter_consents e
+           WHERE e.at = (SELECT MAX(at) FROM newsletter_consents
+                         WHERE user_id = e.user_id)
          )`,
       )
       .run(grenze).changes

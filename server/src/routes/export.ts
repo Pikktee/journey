@@ -53,20 +53,20 @@ export function registriereExportRouten(app: FastifyInstance): void {
     if (exportGebremst(benutzer.id)) {
       return reply
         .code(429)
-        .send({ fehler: 'Zu viele Anforderungen. Versuch es später noch einmal.' })
+        .send({ error: 'Zu viele Anforderungen. Versuch es später noch einmal.' })
     }
 
     const { stand, neu } = app.exporte.fordereAn(benutzer.id)
     // Läuft schon einer: Der Wunsch ist erfüllt, es passiert nichts weiter —
     // insbesondere geht keine zweite Mail raus. Die Antwort ist dieselbe,
     // damit die Oberfläche keinen Sonderfall zeichnen muss.
-    if (!neu) return { ok: true, export: stand }
+    if (!neu) return { ok: true, dataExport: stand }
 
     // Erst nach der Antwort. `void` ist Absicht: Niemand wartet, und ein
     // `await` machte aus der Route genau den blockierenden Aufruf, den diese
     // Aufteilung vermeidet.
     void baueUndSchicke(app, stand.id, benutzer.id, benutzer.email, benutzer.name)
-    return { ok: true, export: stand }
+    return { ok: true, dataExport: stand }
   })
 
   /**
@@ -84,10 +84,10 @@ export function registriereExportRouten(app: FastifyInstance): void {
     // Abgelaufen und gefälscht sind dieselbe Antwort: Ein eigener Text für
     // „abgelaufen" verriete, dass es diesen Auftrag gab.
     if (!id || !stand) {
-      return reply.code(404).send({ fehler: 'Dieser Link ist abgelaufen oder ungültig.' })
+      return reply.code(404).send({ error: 'Dieser Link ist abgelaufen oder ungültig.' })
     }
     const info = await app.deps.archive.info(id, ARCHIV_DATEI)
-    if (!info) return reply.code(404).send({ fehler: 'Dieser Link ist abgelaufen oder ungültig.' })
+    if (!info) return reply.code(404).send({ error: 'Dieser Link ist abgelaufen oder ungültig.' })
 
     reply.header('content-type', 'application/zip')
     reply.header('content-length', String(info.groesse))

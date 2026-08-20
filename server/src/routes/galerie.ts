@@ -24,9 +24,9 @@ interface GalerieZeile {
   created_at: string
   autor_id: string
   autor_handle: string | null
-  anzeigename: string | null
+  display_name: string | null
   avatar: string | null
-  profil_sichtbarkeit: string
+  profile_visibility: string
 }
 
 /**
@@ -35,19 +35,19 @@ interface GalerieZeile {
  * der beiden Seiten erst in der Anzeige auffiele.
  */
 const KARTEN_SPALTEN = `t.id, t.title, t.cover, t.cover_thumb, t.stats_json, t.created_at,
-        u.id AS autor_id, u.handle AS autor_handle, u.anzeigename, u.avatar, u.profil_sichtbarkeit`
+        u.id AS autor_id, u.handle AS autor_handle, u.display_name, u.avatar, u.profile_visibility`
 
 /** Karte, wie sie die Galerie ausliefert. */
 function alsKarte(z: GalerieZeile) {
   const stats = z.stats_json ? (JSON.parse(z.stats_json) as { km?: number }) : null
   // Autor nur mit gesetztem Anzeigenamen — ohne ihn bleibt die Tour anonym,
   // statt ersatzweise den Klarnamen oder die E-Mail zu zeigen.
-  const profilOeffentlich = z.profil_sichtbarkeit === 'public'
-  const autor = z.anzeigename
+  const profilOeffentlich = z.profile_visibility === 'public'
+  const autor = z.display_name
     ? {
-        anzeigename: z.anzeigename,
+        displayName: z.display_name,
         avatarUrl: z.avatar
-          ? `/api/benutzer/${z.autor_id}/avatar?v=${encodeURIComponent(z.avatar)}`
+          ? `/api/users/${z.autor_id}/avatar?v=${encodeURIComponent(z.avatar)}`
           : null,
         // Der Link auf die Profilseite entsteht nur, wenn es sie gibt. Die ID
         // bleibt neben dem Handle stehen: Sie ist der Rückfall für Konten, die
@@ -57,13 +57,13 @@ function alsKarte(z: GalerieZeile) {
     : null
   return {
     id: z.id,
-    titel: z.title,
+    title: z.title,
     cover: z.cover,
     // Kachel-Fassung; fehlt sie (Altbestand), fällt die Anzeige auf `cover` zurück
     coverThumb: z.cover_thumb,
     km: stats?.km ?? null,
-    erstelltAm: z.created_at,
-    autor,
+    createdAt: z.created_at,
+    author: autor,
   }
 }
 
@@ -71,7 +71,7 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
   const { db } = app.deps
 
   // — Galerie: alle öffentlichen, fertig gerenderten Touren —
-  app.get<{ Querystring: { limit?: string; offset?: string } }>('/api/galerie', async (request) => {
+  app.get<{ Querystring: { limit?: string; offset?: string } }>('/api/gallery', async (request) => {
     const limit = Math.min(Math.max(Number(request.query.limit) || SEITE_STANDARD, 1), SEITE_MAX)
     const offset = Math.max(Number(request.query.offset) || 0, 0)
     // Eine Zeile mehr holen, als ausgeliefert wird: daran hängt „mehr“, ohne
@@ -80,15 +80,15 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
       .prepare(
         `SELECT ${KARTEN_SPALTEN}
          FROM tours t JOIN users u ON u.id = t.owner_id
-         WHERE t.visibility = 'public' AND t.status = 'bereit'
+         WHERE t.visibility = 'public' AND t.status = 'ready'
          ORDER BY t.created_at DESC
          LIMIT ? OFFSET ?`,
       )
       .all(limit + 1, offset) as GalerieZeile[]
 
     return {
-      touren: zeilen.slice(0, limit).map(alsKarte),
-      mehr: zeilen.length > limit,
+      tours: zeilen.slice(0, limit).map(alsKarte),
+      hasMore: zeilen.length > limit,
     }
   })
 
@@ -104,7 +104,7 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
   // Der Parameter heißt `:id` wie in der Avatar-Route daneben: Fastify legt
   // Pfade mit gleichem Aufbau in denselben Baum, und zwei Namen an derselben
   // Stelle wären eine Stolperstelle ohne Gewinn.
-  app.get<{ Params: { id: string } }>('/api/benutzer/:id/profil', async (request, reply) => {
+  app.get<{ Params: { id: string } }>('/api/users/:id/profile', async (request, reply) => {
     const wen = request.params.id
     const userId = wen.startsWith('u_') ? wen : app.auth.benutzerIdFuerHandle(wen)
     const person = userId
@@ -118,40 +118,40 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
     // verrät nicht einmal, dass es existiert (dieselbe Linie wie bei privaten
     // Touren).
     const istBesitzer = !!person && request.benutzer?.id === person.id
-    if (!person || !profil || (profil.sichtbarkeit !== 'public' && !istBesitzer)) {
-      return reply.code(404).send({ fehler: 'Profil nicht gefunden' })
+    if (!person || !profil || (profil.visibility !== 'public' && !istBesitzer)) {
+      return reply.code(404).send({ error: 'Profil nicht gefunden' })
     }
 
     const zeilen = db
       .prepare(
         `SELECT ${KARTEN_SPALTEN}
          FROM tours t JOIN users u ON u.id = t.owner_id
-         WHERE t.owner_id = ? AND t.visibility = 'public' AND t.status = 'bereit'
+         WHERE t.owner_id = ? AND t.visibility = 'public' AND t.status = 'ready'
          ORDER BY t.created_at DESC`,
       )
       .all(person.id) as GalerieZeile[]
 
     return {
       handle: profil.handle,
-      anzeigename: profil.anzeigename,
+      displayName: profil.displayName,
       bio: profil.bio,
-      ort: profil.ort,
+      location: profil.location,
       website: profil.website,
       instagram: profil.instagram,
       avatarUrl: profil.avatar
-        ? `/api/benutzer/${person.id}/avatar?v=${encodeURIComponent(profil.avatar)}`
+        ? `/api/users/${person.id}/avatar?v=${encodeURIComponent(profil.avatar)}`
         : null,
-      titelbildUrl: titelbildUrl(person.id, profil.titelbild),
+      bannerUrl: titelbildUrl(person.id, profil.banner),
       /** Monatsgenau — auf den Tag genau wäre es eine Angabe über die Person, die niemand braucht. */
-      dabeiSeit: person.created_at,
-      kennzahlen: app.auth.kennzahlen(person.id),
+      memberSince: person.created_at,
+      stats: app.auth.kennzahlen(person.id),
       /**
        * Nur für den Besitzer und nur, wenn sein Profil privat steht: Die Seite
        * zeigt dann statt des Teilen-Knopfes, dass hier gerade niemand sonst
        * hineinsieht.
        */
-      nurFuerDich: profil.sichtbarkeit !== 'public',
-      touren: zeilen.map(alsKarte),
+      ownerOnly: profil.visibility !== 'public',
+      tours: zeilen.map(alsKarte),
     }
   })
 }

@@ -29,12 +29,12 @@ import { promisify } from 'util'
 const execFileAsync = promisify(execFile)
 
 export type AdminStatistiken = {
-  echtzeit: number
-  heute: { aufrufe: number; besucher: number }
-  letzte7Tage: { aufrufe: number; besucher: number }
-  gesamt: number
-  referrer: Array<{ quelle: string; anzahl: number }>
-  seiten: Array<{ pfad: string; anzahl: number }>
+  realtime: number
+  today: { pageviews: number; visitors: number }
+  last7Days: { pageviews: number; visitors: number }
+  total: number
+  referrer: Array<{ source: string; count: number }>
+  pages: Array<{ path: string; count: number }>
 }
 
 /**
@@ -48,12 +48,12 @@ export type AdminStatistiken = {
  */
 async function holeUmamiStatistiken(dbPasswort: string | null): Promise<AdminStatistiken> {
   const leeresErgebnis: AdminStatistiken = {
-    echtzeit: 0,
-    heute: { aufrufe: 0, besucher: 0 },
-    letzte7Tage: { aufrufe: 0, besucher: 0 },
-    gesamt: 0,
+    realtime: 0,
+    today: { pageviews: 0, visitors: 0 },
+    last7Days: { pageviews: 0, visitors: 0 },
+    total: 0,
     referrer: [],
-    seiten: [],
+    pages: [],
   }
   if (!dbPasswort) return leeresErgebnis
   try {
@@ -97,20 +97,20 @@ async function holeUmamiStatistiken(dbPasswort: string | null): Promise<AdminSta
 
     const heuteTeile = (zeilen[1] || '').split('|')
     const heute = {
-      aufrufe: parseInt(heuteTeile[0] || '0', 10) || 0,
-      besucher: parseInt(heuteTeile[1] || '0', 10) || 0,
+      pageviews: parseInt(heuteTeile[0] || '0', 10) || 0,
+      visitors: parseInt(heuteTeile[1] || '0', 10) || 0,
     }
 
     const tage7Teile = (zeilen[2] || '').split('|')
     const letzte7Tage = {
-      aufrufe: parseInt(tage7Teile[0] || '0', 10) || 0,
-      besucher: parseInt(tage7Teile[1] || '0', 10) || 0,
+      pageviews: parseInt(tage7Teile[0] || '0', 10) || 0,
+      visitors: parseInt(tage7Teile[1] || '0', 10) || 0,
     }
 
     const gesamt = parseInt(zeilen[3] || '0', 10) || 0
 
-    const referrer: Array<{ quelle: string; anzahl: number }> = []
-    const seiten: Array<{ pfad: string; anzahl: number }> = []
+    const referrer: Array<{ source: string; count: number }> = []
+    const seiten: Array<{ path: string; count: number }> = []
 
     for (let i = 4; i < zeilen.length; i++) {
       const z = zeilen[i]
@@ -120,13 +120,13 @@ async function holeUmamiStatistiken(dbPasswort: string | null): Promise<AdminSta
       const name = teile[0] || ''
       const anzahl = parseInt(teile[1] || '0', 10) || 0
       if (name.startsWith('/')) {
-        seiten.push({ pfad: name, anzahl })
+        seiten.push({ path: name, count: anzahl })
       } else {
-        referrer.push({ quelle: name, anzahl })
+        referrer.push({ source: name, count: anzahl })
       }
     }
 
-    return { echtzeit, heute, letzte7Tage, gesamt, referrer, seiten }
+    return { realtime: echtzeit, today: heute, last7Days: letzte7Tage, total: gesamt, referrer, pages: seiten }
   } catch {
     return leeresErgebnis
   }
@@ -140,7 +140,7 @@ export function registriereAdminRouten(app: FastifyInstance): void {
     konfig.adminEmails.includes(email.toLowerCase().trim())
 
   // — Statistiken —
-  app.get('/api/admin/statistiken', async (request, reply) => {
+  app.get('/api/admin/stats', async (request, reply) => {
     if (!erfordereAdmin(request, reply)) return
     return holeUmamiStatistiken(konfig.umamiDbPasswort)
   })
@@ -151,18 +151,18 @@ export function registriereAdminRouten(app: FastifyInstance): void {
   // /auth/me). Das ist ein Verzeichnis-Durchlauf je Tour — bei der Größenordnung
   // dieser Instanz vernachlässigbar, und die Alternative wäre eine mitgeführte
   // Zählung, die driften kann.
-  app.get('/api/admin/benutzer', async (request, reply) => {
+  app.get('/api/admin/users', async (request, reply) => {
     if (!erfordereAdmin(request, reply)) return
     const zeilen = app.auth.alleBenutzer()
     const benutzer = []
     for (const z of zeilen) {
       benutzer.push({
         ...z,
-        fest: festerAdmin(z.email),
-        speicher: await benutzteBytes(db, storage, benutzerStorage, z.id),
+        fixed: festerAdmin(z.email),
+        storage: await benutzteBytes(db, storage, benutzerStorage, z.id),
       })
     }
-    return { benutzer, quotaLimit: konfig.maxSpeicherProBenutzer }
+    return { users: benutzer, quotaLimit: konfig.maxSpeicherProBenutzer }
   })
 
   // Ein vom Admin angelegtes Konto gilt sofort als bestätigt: Die Bestätigung
@@ -171,21 +171,21 @@ export function registriereAdminRouten(app: FastifyInstance): void {
   // getippt hat, beweist nichts zusätzlich. Der Haken ist im Formular trotzdem
   // umschaltbar.
   app.post<{
-    Body: { email: string; passwort: string; name: string; rolle?: Rolle; verifiziert?: boolean }
+    Body: { email: string; password: string; name: string; role?: Rolle; verified?: boolean }
   }>(
-    '/api/admin/benutzer',
+    '/api/admin/users',
     {
       schema: {
         body: {
           type: 'object',
           additionalProperties: false,
-          required: ['email', 'passwort', 'name'],
+          required: ['email', 'password', 'name'],
           properties: {
             email: emailSchema,
-            passwort: { type: 'string', minLength: 8, maxLength: 1024 },
+            password: { type: 'string', minLength: 8, maxLength: 1024 },
             name: { type: 'string', minLength: 1, maxLength: 80 },
-            rolle: { enum: ['nutzer', 'admin'] },
-            verifiziert: { type: 'boolean' },
+            role: { enum: ['user', 'admin'] },
+            verified: { type: 'boolean' },
           },
         },
       },
@@ -194,19 +194,19 @@ export function registriereAdminRouten(app: FastifyInstance): void {
       if (!erfordereAdmin(request, reply)) return
       const email = request.body.email.toLowerCase().trim()
       if (!EMAIL_FORM.test(email))
-        return reply.code(400).send({ fehler: 'Ungültige E-Mail-Adresse' })
+        return reply.code(400).send({ error: 'Ungültige E-Mail-Adresse' })
       try {
         const benutzer = await app.auth.legeBenutzerAn(
           email,
-          request.body.passwort,
+          request.body.password,
           request.body.name.trim(),
-          request.body.verifiziert ?? true,
-          request.body.rolle ?? 'nutzer',
+          request.body.verified ?? true,
+          request.body.role ?? 'user',
         )
-        return reply.code(201).send({ benutzer })
+        return reply.code(201).send({ user: benutzer })
       } catch (fehler) {
         if (fehler instanceof EmailVergebenFehler)
-          return reply.code(409).send({ fehler: fehler.message })
+          return reply.code(409).send({ error: fehler.message })
         throw fehler
       }
     },
@@ -214,9 +214,9 @@ export function registriereAdminRouten(app: FastifyInstance): void {
 
   app.patch<{
     Params: { id: string }
-    Body: KontoAenderung & { passwort?: string }
+    Body: KontoAenderung & { password?: string }
   }>(
-    '/api/admin/benutzer/:id',
+    '/api/admin/users/:id',
     {
       schema: {
         body: {
@@ -225,9 +225,9 @@ export function registriereAdminRouten(app: FastifyInstance): void {
           properties: {
             email: emailSchema,
             name: { type: 'string', minLength: 1, maxLength: 80 },
-            rolle: { enum: ['nutzer', 'admin'] },
-            verifiziert: { type: 'boolean' },
-            passwort: { type: 'string', minLength: 8, maxLength: 1024 },
+            role: { enum: ['user', 'admin'] },
+            verified: { type: 'boolean' },
+            password: { type: 'string', minLength: 8, maxLength: 1024 },
           },
         },
       },
@@ -236,39 +236,39 @@ export function registriereAdminRouten(app: FastifyInstance): void {
       const admin = erfordereAdmin(request, reply)
       if (!admin) return
       const ziel = app.auth.benutzerNachId(request.params.id)
-      if (!ziel) return reply.code(404).send({ fehler: 'Unbekanntes Konto' })
+      if (!ziel) return reply.code(404).send({ error: 'Unbekanntes Konto' })
 
-      const entzug = request.body.rolle === 'nutzer' && ziel.rolle === 'admin'
+      const entzug = request.body.role === 'user' && ziel.role === 'admin'
       if (entzug && festerAdmin(ziel.email)) {
         return reply
           .code(409)
-          .send({ fehler: 'Diese Adresse ist in der Konfiguration als Admin gesetzt' })
+          .send({ error: 'Diese Adresse ist in der Konfiguration als Admin gesetzt' })
       }
       if (entzug && ziel.id === admin.id) {
-        return reply.code(409).send({ fehler: 'Die eigene Admin-Rolle lässt sich nicht ablegen' })
+        return reply.code(409).send({ error: 'Die eigene Admin-Rolle lässt sich nicht ablegen' })
       }
       if (entzug && app.auth.anzahlAdmins() <= 1) {
-        return reply.code(409).send({ fehler: 'Es muss mindestens einen Administrator geben' })
+        return reply.code(409).send({ error: 'Es muss mindestens einen Administrator geben' })
       }
       if (
         request.body.email !== undefined &&
         !EMAIL_FORM.test(request.body.email.toLowerCase().trim())
       ) {
-        return reply.code(400).send({ fehler: 'Ungültige E-Mail-Adresse' })
+        return reply.code(400).send({ error: 'Ungültige E-Mail-Adresse' })
       }
 
-      const { passwort, ...felder } = request.body
+      const { password: passwort, ...felder } = request.body
       try {
         app.auth.aendereKonto(ziel.id, felder)
       } catch (fehler) {
         if (fehler instanceof EmailVergebenFehler)
-          return reply.code(409).send({ fehler: fehler.message })
+          return reply.code(409).send({ error: fehler.message })
         throw fehler
       }
       // Ein neu gesetztes Passwort wirft alle Sitzungen und Token des Kontos
       // ab (setzePasswort) — genau richtig, wenn ein Admin es zurücksetzt.
       if (passwort) await app.auth.setzePasswort(ziel.id, passwort)
-      return { benutzer: app.auth.benutzerNachId(ziel.id) }
+      return { user: app.auth.benutzerNachId(ziel.id) }
     },
   )
 
@@ -276,20 +276,20 @@ export function registriereAdminRouten(app: FastifyInstance): void {
   // Touren, Sitzungen und Token mit) — dieselbe Reihenfolge wie beim
   // Selbst-Löschen in /auth/me, aus demselben Grund: danach weiß niemand mehr,
   // welche Dateien zu diesem Konto gehörten.
-  app.delete<{ Params: { id: string } }>('/api/admin/benutzer/:id', async (request, reply) => {
+  app.delete<{ Params: { id: string } }>('/api/admin/users/:id', async (request, reply) => {
     const admin = erfordereAdmin(request, reply)
     if (!admin) return
     const ziel = app.auth.benutzerNachId(request.params.id)
-    if (!ziel) return reply.code(404).send({ fehler: 'Unbekanntes Konto' })
+    if (!ziel) return reply.code(404).send({ error: 'Unbekanntes Konto' })
     if (ziel.id === admin.id)
-      return reply.code(409).send({ fehler: 'Das eigene Konto lässt sich hier nicht löschen' })
+      return reply.code(409).send({ error: 'Das eigene Konto lässt sich hier nicht löschen' })
     if (festerAdmin(ziel.email)) {
       return reply
         .code(409)
-        .send({ fehler: 'Diese Adresse ist in der Konfiguration als Admin gesetzt' })
+        .send({ error: 'Diese Adresse ist in der Konfiguration als Admin gesetzt' })
     }
-    if (ziel.rolle === 'admin' && app.auth.anzahlAdmins() <= 1) {
-      return reply.code(409).send({ fehler: 'Es muss mindestens einen Administrator geben' })
+    if (ziel.role === 'admin' && app.auth.anzahlAdmins() <= 1) {
+      return reply.code(409).send({ error: 'Es muss mindestens einen Administrator geben' })
     }
     for (const tourId of app.auth.tourIds(ziel.id)) await storage.loescheTour(tourId)
     await benutzerStorage.loescheTour(ziel.id).catch(() => undefined)
@@ -299,27 +299,27 @@ export function registriereAdminRouten(app: FastifyInstance): void {
 
   // — Einladungen + Schalter —
 
-  app.get('/api/admin/einladungen', async (request, reply) => {
+  app.get('/api/admin/invitations', async (request, reply) => {
     if (!erfordereAdmin(request, reply)) return
     return {
-      einladungen: app.einladungen.alle(),
-      einladungPflicht: app.einladungen.pflicht(),
-      registrierungOffen: konfig.registrierungOffen,
-      basisUrl: konfig.basisUrl,
+      invitations: app.einladungen.alle(),
+      invitationRequired: app.einladungen.pflicht(),
+      registrationOpen: konfig.registrierungOffen,
+      baseUrl: konfig.basisUrl,
     }
   })
 
-  app.post<{ Body: { notiz?: string; gueltigTage?: number } }>(
-    '/api/admin/einladungen',
+  app.post<{ Body: { note?: string; validDays?: number } }>(
+    '/api/admin/invitations',
     {
       schema: {
         body: {
           type: 'object',
           additionalProperties: false,
           properties: {
-            notiz: { type: 'string', maxLength: 120 },
+            note: { type: 'string', maxLength: 120 },
             // 0 = läuft nicht ab
-            gueltigTage: { type: 'integer', minimum: 0, maximum: 365 },
+            validDays: { type: 'integer', minimum: 0, maximum: 365 },
           },
         },
       },
@@ -327,22 +327,22 @@ export function registriereAdminRouten(app: FastifyInstance): void {
     async (request, reply) => {
       const admin = erfordereAdmin(request, reply)
       if (!admin) return
-      const tage = request.body?.gueltigTage ?? GUELTIG_TAGE_STANDARD
+      const tage = request.body?.validDays ?? GUELTIG_TAGE_STANDARD
       const einladung = app.einladungen.erstelle(
         admin.id,
-        request.body?.notiz ?? null,
+        request.body?.note ?? null,
         tage || null,
       )
-      return reply.code(201).send({ einladung })
+      return reply.code(201).send({ invitation: einladung })
     },
   )
 
   app.delete<{ Params: { code: string } }>(
-    '/api/admin/einladungen/:code',
+    '/api/admin/invitations/:code',
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
       if (!app.einladungen.widerrufe(request.params.code)) {
-        return reply.code(404).send({ fehler: 'Unbekannter Code' })
+        return reply.code(404).send({ error: 'Unbekannter Code' })
       }
       return { ok: true }
     },
@@ -351,29 +351,29 @@ export function registriereAdminRouten(app: FastifyInstance): void {
   // Beide Schalter über eine Route, beide optional: Der Aufrufer schickt, was
   // er umlegen will, und bekommt den ganzen Stand zurück — so kann die
   // Oberfläche nach jeder Änderung dasselbe rendern.
-  app.patch<{ Body: { einladungPflicht?: boolean; wartelisteOffen?: boolean } }>(
-    '/api/admin/einstellungen',
+  app.patch<{ Body: { invitationRequired?: boolean; waitlistOpen?: boolean } }>(
+    '/api/admin/settings',
     {
       schema: {
         body: {
           type: 'object',
           additionalProperties: false,
           properties: {
-            einladungPflicht: { type: 'boolean' },
-            wartelisteOffen: { type: 'boolean' },
+            invitationRequired: { type: 'boolean' },
+            waitlistOpen: { type: 'boolean' },
           },
         },
       },
     },
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
-      if (request.body.einladungPflicht !== undefined)
-        app.einladungen.setzePflicht(request.body.einladungPflicht)
-      if (request.body.wartelisteOffen !== undefined)
-        app.warteliste.setzeOffen(request.body.wartelisteOffen)
+      if (request.body.invitationRequired !== undefined)
+        app.einladungen.setzePflicht(request.body.invitationRequired)
+      if (request.body.waitlistOpen !== undefined)
+        app.warteliste.setzeOffen(request.body.waitlistOpen)
       return {
-        einladungPflicht: app.einladungen.pflicht(),
-        wartelisteOffen: app.warteliste.offen(),
+        invitationRequired: app.einladungen.pflicht(),
+        waitlistOpen: app.warteliste.offen(),
       }
     },
   )
@@ -388,101 +388,101 @@ export function registriereAdminRouten(app: FastifyInstance): void {
   const bausteinSchema = {
     type: 'object',
     additionalProperties: false,
-    required: ['betreff', 'titel', 'text', 'knopf', 'fuss'],
+    required: ['subject', 'title', 'text', 'button', 'footer'],
     properties: {
-      betreff: { type: 'string', maxLength: 200 },
-      titel: { type: 'string', maxLength: 200 },
+      subject: { type: 'string', maxLength: 200 },
+      title: { type: 'string', maxLength: 200 },
       text: { type: 'string', maxLength: 4000 },
-      knopf: { type: 'string', maxLength: 60 },
-      fuss: { type: 'string', maxLength: 2000 },
+      button: { type: 'string', maxLength: 60 },
+      footer: { type: 'string', maxLength: 2000 },
     },
   } as const
 
-  app.get('/api/admin/mailvorlagen', async (request, reply) => {
+  app.get('/api/admin/mail-templates', async (request, reply) => {
     if (!erfordereAdmin(request, reply)) return
-    return { vorlagen: app.mailvorlagen.alle(), basisUrl: konfig.basisUrl }
+    return { templates: app.mailvorlagen.alle(), baseUrl: konfig.basisUrl }
   })
 
-  app.patch<{ Params: { schluessel: string }; Body: MailBausteine }>(
-    '/api/admin/mailvorlagen/:schluessel',
+  app.patch<{ Params: { key: string }; Body: MailBausteine }>(
+    '/api/admin/mail-templates/:key',
     { schema: { body: bausteinSchema } },
     async (request, reply) => {
       const admin = erfordereAdmin(request, reply)
       if (!admin) return
-      const schluessel = request.params.schluessel
+      const schluessel = request.params.key
       if (!istVorlagenSchluessel(schluessel))
-        return reply.code(404).send({ fehler: 'Unbekannte Vorlage' })
+        return reply.code(404).send({ error: 'Unbekannte Vorlage' })
       // Die Prüfung ist keine Formsache: Eine Mail ohne ihren Link ist für den
       // Empfänger eine Sackgasse — und auffallen würde das erst im Postfach.
       const probleme = pruefeBausteine(vorlage(schluessel), request.body)
-      if (probleme.length) return reply.code(400).send({ fehler: probleme.join(' '), probleme })
+      if (probleme.length) return reply.code(400).send({ error: probleme.join(' '), issues: probleme })
       app.mailvorlagen.setze(schluessel, request.body, admin.id)
-      return { vorlagen: app.mailvorlagen.alle() }
+      return { templates: app.mailvorlagen.alle() }
     },
   )
 
-  app.delete<{ Params: { schluessel: string } }>(
-    '/api/admin/mailvorlagen/:schluessel',
+  app.delete<{ Params: { key: string } }>(
+    '/api/admin/mail-templates/:key',
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
-      const schluessel = request.params.schluessel
+      const schluessel = request.params.key
       if (!istVorlagenSchluessel(schluessel))
-        return reply.code(404).send({ fehler: 'Unbekannte Vorlage' })
+        return reply.code(404).send({ error: 'Unbekannte Vorlage' })
       app.mailvorlagen.setzeZurueck(schluessel)
-      return { vorlagen: app.mailvorlagen.alle() }
+      return { templates: app.mailvorlagen.alle() }
     },
   )
 
   // Vorschau der NOCH NICHT gespeicherten Fassung: Der Dialog schickt, was
   // gerade in den Feldern steht, und bekommt gerendertes HTML zurück. Serverseitig,
   // weil es sonst zwei Layouts gäbe — und das im Postfach wäre das andere.
-  app.post<{ Params: { schluessel: string }; Body: MailBausteine }>(
-    '/api/admin/mailvorlagen/:schluessel/vorschau',
+  app.post<{ Params: { key: string }; Body: MailBausteine }>(
+    '/api/admin/mail-templates/:key/preview',
     { schema: { body: bausteinSchema } },
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
-      const schluessel = request.params.schluessel
+      const schluessel = request.params.key
       if (!istVorlagenSchluessel(schluessel))
-        return reply.code(404).send({ fehler: 'Unbekannte Vorlage' })
+        return reply.code(404).send({ error: 'Unbekannte Vorlage' })
       const eintrag = vorlage(schluessel)
       const werte = beispielWerte(eintrag)
       const { betreff, text, html } = rendereVorschau(request.body, werte)
-      return { betreff, text, html, probleme: pruefeBausteine(eintrag, request.body) }
+      return { subject: betreff, text, html, issues: pruefeBausteine(eintrag, request.body) }
     },
   )
 
   // Testmail an die eigene Adresse — der einzige Weg, das Ergebnis dort zu
   // sehen, wo es ankommt. Bewusst NUR an das eigene Konto: Ein Formularfeld für
   // den Empfänger machte aus der Verwaltung ein Versandwerkzeug.
-  app.post<{ Params: { schluessel: string }; Body: { bausteine?: MailBausteine } }>(
-    '/api/admin/mailvorlagen/:schluessel/test',
+  app.post<{ Params: { key: string }; Body: { blocks?: MailBausteine } }>(
+    '/api/admin/mail-templates/:key/test',
     {
       schema: {
         body: {
           type: 'object',
           additionalProperties: false,
-          properties: { bausteine: bausteinSchema },
+          properties: { blocks: bausteinSchema },
         },
       },
     },
     async (request, reply) => {
       const admin = erfordereAdmin(request, reply)
       if (!admin) return
-      const schluessel = request.params.schluessel
+      const schluessel = request.params.key
       if (!istVorlagenSchluessel(schluessel))
-        return reply.code(404).send({ fehler: 'Unbekannte Vorlage' })
+        return reply.code(404).send({ error: 'Unbekannte Vorlage' })
       const eintrag = vorlage(schluessel)
       // Ohne mitgeschickte Fassung die gespeicherte: So lässt sich auch aus der
       // Liste heraus testen, nicht nur aus dem offenen Dialog.
-      const bausteine = request.body?.bausteine ?? app.mailvorlagen.bausteine(schluessel)
+      const bausteine = request.body?.blocks ?? app.mailvorlagen.bausteine(schluessel)
       const { betreff, text, html } = rendereVorschau(bausteine, beispielWerte(eintrag))
       try {
         await app.deps.mail.sende({ an: admin.email, betreff: `[Test] ${betreff}`, text, html })
       } catch (fehler) {
         app.log.error({ fehler }, 'Test-Mail konnte nicht versendet werden')
-        return reply.code(502).send({ fehler: 'Die Testmail konnte nicht versendet werden' })
+        return reply.code(502).send({ error: 'Die Testmail konnte nicht versendet werden' })
       }
-      return { ok: true, an: admin.email }
+      return { ok: true, to: admin.email }
     },
   )
 
@@ -498,20 +498,20 @@ export function registriereAdminRouten(app: FastifyInstance): void {
   //
   // Nur lesen: Es gibt kein „Löschen", denn der Puffer ist ohnehin flüchtig
   // (s. protokoll.ts) — ein Knopf, der Spuren beseitigt, wäre die einzige
-  // Wirkung. `seit` liefert nur das Neue: Die Ansicht fragt im Sekundentakt
+  // Wirkung. `since` liefert nur das Neue: Die Ansicht fragt im Sekundentakt
   // nach, solange sie offen ist, und soll dabei nicht 500 Zeilen wiederholen.
-  app.get<{ Querystring: { stufe?: string; seit?: string } }>(
-    '/api/admin/protokoll',
+  app.get<{ Querystring: { level?: string; since?: string } }>(
+    '/api/admin/audit-log',
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
       const stufe =
-        request.query.stufe === 'fehler' || request.query.stufe === 'warnung'
-          ? request.query.stufe
+        request.query.level === 'failed' || request.query.level === 'warning'
+          ? request.query.level
           : undefined
-      const seit = Number(request.query.seit)
+      const seit = Number(request.query.since)
       const alle = app.protokoll.liste({ ...(stufe ? { stufe } : {}) })
-      const eintraege = Number.isFinite(seit) && seit > 0 ? alle.filter((e) => e.nr > seit) : alle
-      return { eintraege, ...app.protokoll.zaehle(), gestartet: START_ZEIT }
+      const eintraege = Number.isFinite(seit) && seit > 0 ? alle.filter((e) => e.no > seit) : alle
+      return { entries: eintraege, ...app.protokoll.zaehle(), startedAt: START_ZEIT }
     },
   )
 }

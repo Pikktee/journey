@@ -41,7 +41,7 @@ export async function trageBildfassungenNach(
   protokoll?: (nachricht: string) => void,
 ): Promise<NachtragErgebnis> {
   const offen = db
-    .prepare(`SELECT id, cover FROM tours WHERE status = 'bereit' AND cover_thumb IS NULL`)
+    .prepare(`SELECT id, cover FROM tours WHERE status = 'ready' AND cover_thumb IS NULL`)
     .all() as Array<{ id: string; cover: string | null }>
   if (offen.length === 0) return { touren: 0, gespart: 0 }
 

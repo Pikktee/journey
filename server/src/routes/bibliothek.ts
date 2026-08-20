@@ -27,8 +27,8 @@ const AUDIO_CONTENT_TYPES: Record<string, string> = {
 // Der Dateiname wird Teil des Ablagepfads — nur Basisname + Audio-Endung.
 const dateiParamsSchema = {
   type: 'object',
-  required: ['datei'],
-  properties: { datei: { type: 'string', pattern: AUDIO_DATEI_PATTERN } },
+  required: ['file'],
+  properties: { file: { type: 'string', pattern: AUDIO_DATEI_PATTERN } },
 } as const
 
 /** Verweist dieser Overlay-/Tour-JSON-Stand auf die Bibliotheksdatei? */
@@ -41,7 +41,7 @@ function referenziert(
   if (edits?.audio?.some((a) => a.quelle === 'benutzer' && a.datei === datei)) return true
   // Auch das GERENDERTE tour.json zählt: zwischen „Eintrag entfernt und
   // gespeichert" und dem fertigen Re-Render zeigt der Player sonst auf eine 404.
-  const src = `/api/tours/${tourId}/bibliothek-audio/${datei}`
+  const src = `/api/tours/${tourId}/library-audio/${datei}`
   return tourJsonAudio?.some((a) => a.src === src) ?? false
 }
 
@@ -50,7 +50,7 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
 
   interface TourStand {
     id: string
-    titel: string
+    title: string
     edits: EditOverlay | null
     tourAudio: Array<{ src?: string }> | null
   }
@@ -78,7 +78,7 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
         }
         return {
           id: tour.id,
-          titel: tour.title ?? `N°${String(tour.no).padStart(2, '0')}`,
+          title: tour.title ?? `N°${String(tour.no).padStart(2, '0')}`,
           edits,
           tourAudio,
         }
@@ -86,23 +86,23 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
     )
   }
 
-  const nutzerVon = (staende: TourStand[], datei: string): Array<{ id: string; titel: string }> =>
+  const nutzerVon = (staende: TourStand[], datei: string): Array<{ id: string; title: string }> =>
     staende
       .filter((s) => referenziert(s.edits, s.tourAudio, s.id, datei))
-      .map(({ id, titel }) => ({ id, titel }))
+      .map(({ id, title }) => ({ id, title }))
 
   // — Liste: alle Dateien der Bibliothek + wo sie im Einsatz sind (die
   // Oberfläche graut den Löschen-Knopf verwendeter Dateien damit aus) —
-  app.get('/api/audio-bibliothek', async (request, reply) => {
+  app.get('/api/audio-library', async (request, reply) => {
     const benutzer = erfordereBenutzer(request, reply)
     if (!benutzer) return
     const dateien = await benutzerStorage.listeDateien(benutzer.id, BIBLIOTHEK_ORDNER)
     const staende = dateien.length ? await ladeTourStaende(benutzer.id) : []
     return {
-      dateien: dateien.map((d) => ({
-        datei: d.name,
-        groesse: d.groesse,
-        verwendetVon: nutzerVon(staende, d.name),
+      files: dateien.map((d) => ({
+        file: d.name,
+        size: d.groesse,
+        usedBy: nutzerVon(staende, d.name),
       })),
     }
   })
@@ -110,17 +110,17 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
   // — Upload. Wie bei Tour-Audio gilt: ÜBERSCHREIBEN VERBOTEN — die
   // Auslieferung verspricht bei teilbaren Touren immutable-Cache-Header,
   // eine neue Version unter altem Namen würde stale ausgeliefert. —
-  app.put<{ Params: { datei: string } }>(
-    '/api/audio-bibliothek/:datei',
+  app.put<{ Params: { file: string } }>(
+    '/api/audio-library/:file',
     { schema: { params: dateiParamsSchema } },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
-      const relPfad = `${BIBLIOTHEK_ORDNER}/${request.params.datei}`
+      const relPfad = `${BIBLIOTHEK_ORDNER}/${request.params.file}`
       if (await benutzerStorage.info(benutzer.id, relPfad)) {
         return reply
           .code(409)
-          .send({ fehler: 'Audio-Datei existiert bereits, anderen Namen wählen' })
+          .send({ error: 'Audio-Datei existiert bereits, anderen Namen wählen' })
       }
       const laenge = Number(request.headers['content-length'] ?? 0)
       if (Number.isFinite(laenge) && laenge > 0) {
@@ -132,7 +132,7 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
           konfig.maxSpeicherProBenutzer,
           laenge,
         )
-        if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
+        if (quotaFehler) return reply.code(413).send({ error: quotaFehler })
       }
       const info = await benutzerStorage.schreibeStream(
         benutzer.id,
@@ -140,7 +140,7 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
         request.body as Readable,
         konfig.maxAudioBytes,
       )
-      return reply.code(200).send({ datei: request.params.datei, bytes: info.groesse })
+      return reply.code(200).send({ file: request.params.file, bytes: info.groesse })
     },
   )
 
@@ -148,16 +148,16 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
   // Scrubbing). Der Player nutzt stattdessen die tour-gebundene Route unten —
   // hier ist der Eigentümer selbst der einzige berechtigte Hörer, auch für
   // Dateien, die noch in keiner (gespeicherten) Tour stecken. —
-  app.get<{ Params: { datei: string } }>(
-    '/api/audio-bibliothek/:datei',
+  app.get<{ Params: { file: string } }>(
+    '/api/audio-library/:file',
     { schema: { params: dateiParamsSchema } },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
-      const relPfad = `${BIBLIOTHEK_ORDNER}/${request.params.datei}`
+      const relPfad = `${BIBLIOTHEK_ORDNER}/${request.params.file}`
       const info = await benutzerStorage.info(benutzer.id, relPfad)
-      if (!info) return reply.code(404).send({ fehler: 'Audio-Datei nicht gefunden' })
-      const endung = request.params.datei.split('.').pop() ?? ''
+      if (!info) return reply.code(404).send({ error: 'Audio-Datei nicht gefunden' })
+      const endung = request.params.file.split('.').pop() ?? ''
       reply.header('content-type', AUDIO_CONTENT_TYPES[endung] ?? 'application/octet-stream')
       reply.header('x-content-type-options', 'nosniff')
       reply.header('accept-ranges', 'bytes')
@@ -178,21 +178,21 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
   )
 
   // — Löschen: nur, wenn KEINE Tour die Datei mehr verwendet —
-  app.delete<{ Params: { datei: string } }>(
-    '/api/audio-bibliothek/:datei',
+  app.delete<{ Params: { file: string } }>(
+    '/api/audio-library/:file',
     { schema: { params: dateiParamsSchema } },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
-      const relPfad = `${BIBLIOTHEK_ORDNER}/${request.params.datei}`
+      const relPfad = `${BIBLIOTHEK_ORDNER}/${request.params.file}`
       if (!(await benutzerStorage.info(benutzer.id, relPfad))) {
-        return reply.code(404).send({ fehler: 'Audio-Datei nicht gefunden' })
+        return reply.code(404).send({ error: 'Audio-Datei nicht gefunden' })
       }
-      const nutzer = nutzerVon(await ladeTourStaende(benutzer.id), request.params.datei)
+      const nutzer = nutzerVon(await ladeTourStaende(benutzer.id), request.params.file)
       if (nutzer.length) {
-        const titel = nutzer.map((t) => `„${t.titel}"`).join(', ')
+        const titel = nutzer.map((t) => `„${t.title}"`).join(', ')
         return reply.code(409).send({
-          fehler: `Datei wird noch verwendet in ${titel}, dort erst den Eintrag entfernen`,
+          error: `Datei wird noch verwendet in ${titel}, dort erst den Eintrag entfernen`,
         })
       }
       await benutzerStorage.loesche(benutzer.id, relPfad)
@@ -204,16 +204,16 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
   // Sichtbarkeit = die der Tour; zusätzlich muss die Tour die Datei WIRKLICH
   // referenzieren — sonst wäre die Route ein Orakel, mit dem jeder Betrachter
   // die restliche Bibliothek des Eigentümers abklopfen könnte. —
-  app.get<{ Params: { id: string; datei: string } }>(
-    '/api/tours/:id/bibliothek-audio/:datei',
+  app.get<{ Params: { id: string; file: string } }>(
+    '/api/tours/:id/library-audio/:file',
     {
       schema: {
         params: {
           type: 'object',
-          required: ['id', 'datei'],
+          required: ['id', 'file'],
           properties: {
             id: { type: 'string' },
-            datei: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
+            file: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
           },
         },
       },
@@ -221,9 +221,9 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
     async (request, reply) => {
       const tour = ladeTour(app, request.params.id)
       if (!tour || !darfSehen(tour, request.benutzer?.id ?? null)) {
-        return reply.code(404).send({ fehler: 'Nicht gefunden' })
+        return reply.code(404).send({ error: 'Nicht gefunden' })
       }
-      const { datei } = request.params
+      const { file: datei } = request.params
       let edits: EditOverlay | null = null
       if (await storage.info(tour.id, EDITS_PFAD)) {
         edits = JSON.parse((await storage.lese(tour.id, EDITS_PFAD)).toString()) as EditOverlay
@@ -238,11 +238,11 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
           ).audio ?? null
       }
       if (!referenziert(edits, tourAudio, tour.id, datei)) {
-        return reply.code(404).send({ fehler: 'Nicht gefunden' })
+        return reply.code(404).send({ error: 'Nicht gefunden' })
       }
       const relPfad = `${BIBLIOTHEK_ORDNER}/${datei}`
       const info = await benutzerStorage.info(tour.owner_id, relPfad)
-      if (!info) return reply.code(404).send({ fehler: 'Nicht gefunden' })
+      if (!info) return reply.code(404).send({ error: 'Nicht gefunden' })
 
       const endung = datei.split('.').pop() ?? ''
       reply.header('content-type', AUDIO_CONTENT_TYPES[endung] ?? 'application/octet-stream')

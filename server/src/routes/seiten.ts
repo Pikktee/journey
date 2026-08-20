@@ -76,18 +76,18 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
     // Kein Soft-404 (Status 200 auf eine Seite ohne Inhalt) — das belügt
     // Browser wie Suchmaschinen.
     if (!userId || !profil) return reply.code(404).send(setzeMeta(html, VERSCHWIEGEN))
-    if (profil.sichtbarkeit !== 'public') return reply.send(setzeMeta(html, VERSCHWIEGEN))
+    if (profil.visibility !== 'public') return reply.send(setzeMeta(html, VERSCHWIEGEN))
 
-    const name = profil.anzeigename?.trim() || profil.handle || handle
-    const zeile = db.prepare('SELECT suchmaschinen FROM users WHERE id = ?').get(userId) as
-      { suchmaschinen: number } | undefined
+    const name = profil.displayName?.trim() || profil.handle || handle
+    const zeile = db.prepare('SELECT search_indexing FROM users WHERE id = ?').get(userId) as
+      { search_indexing: number } | undefined
     const bild =
-      titelbildUrl(userId, profil.titelbild) ?? `/titelbilder/${standardTitelbild(profil.handle)}`
+      titelbildUrl(userId, profil.banner) ?? `/titelbilder/${standardTitelbild(profil.handle)}`
 
     return reply.send(
       setzeMeta(html, {
         titel: `${name} · Maptale`,
-        robots: zeile?.suchmaschinen ? 'index' : 'noindex',
+        robots: zeile?.search_indexing ? 'index' : 'noindex',
         // Die Bio, wenn es eine gibt — sonst ein Satz, der wenigstens sagt,
         // was einen erwartet. Eine leere Beschreibung wäre die dritte Variante
         // und die einzige, die dem Leser nichts gibt.
@@ -174,9 +174,9 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
       setzeMeta(html, {
         titel: `${titel} · Maptale`,
         // Nur `public` in den Index — `unlisted` behält die Karte und bleibt
-        // aus der Suche. Ein `bereit`-Status gehört dazu: Eine Tour in der
+        // aus der Suche. Ein `ready`-Status gehört dazu: Eine Tour in der
         // Verarbeitung hat noch keinen Inhalt, den man indexieren könnte.
-        robots: tour.visibility === 'public' && tour.status === 'bereit' ? 'index' : 'noindex',
+        robots: tour.visibility === 'public' && tour.status === 'ready' ? 'index' : 'noindex',
         beschreibung:
           alsBeschreibung(tour.description) ??
           `${titel}${km === null ? '' : ` · ${km.toFixed(1).replace('.', ',')} km`}, als 3D-Kamerafahrt über die echte Strecke.`,
@@ -205,7 +205,7 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
     const zeilen = db
       .prepare(
         `SELECT handle FROM users
-         WHERE suchmaschinen = 1 AND profil_sichtbarkeit = 'public' AND handle IS NOT NULL
+         WHERE search_indexing = 1 AND profile_visibility = 'public' AND handle IS NOT NULL
          ORDER BY handle`,
       )
       .all() as Array<{ handle: string }>
@@ -225,7 +225,7 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
   app.get('/sitemap-touren.xml', async (_request, reply) => {
     const zeilen = db
       .prepare(
-        `SELECT id FROM tours WHERE visibility = 'public' AND status = 'bereit' ORDER BY created_at DESC`,
+        `SELECT id FROM tours WHERE visibility = 'public' AND status = 'ready' ORDER BY created_at DESC`,
       )
       .all() as Array<{ id: string }>
     return sendeSitemap(

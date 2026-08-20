@@ -51,10 +51,10 @@ const CONTENT_TYPES: Record<string, string> = {
 // Teil des Ablagepfads — nur die enge Basisname+Endung-Form kommt durch.
 const audioParamsSchema = {
   type: 'object',
-  required: ['id', 'datei'],
+  required: ['id', 'file'],
   properties: {
     id: { type: 'string' },
-    datei: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
+    file: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
   },
 } as const
 
@@ -88,9 +88,9 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       if (!benutzer) return
       const tour = ladeTour(app, request.params.id)
       if (!tour || tour.owner_id !== benutzer.id)
-        return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
-      if (tour.status === 'verarbeitung') {
-        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut hochladen' })
+        return reply.code(404).send({ error: 'Tour nicht gefunden' })
+      if (tour.status === 'processing') {
+        return reply.code(409).send({ error: 'Verarbeitung läuft, bitte gleich erneut hochladen' })
       }
 
       const manifest = JSON.parse(
@@ -98,21 +98,21 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       ) as UploadManifest
       const medium = manifest.media.find((m) => m.id === request.params.mid)
       if (!medium)
-        return reply.code(404).send({ fehler: `Unbekannte Medien-ID: ${request.params.mid}` })
+        return reply.code(404).send({ error: `Unbekannte Medien-ID: ${request.params.mid}` })
       // Tombstone: Was endgültig gelöscht wurde, kommt unter seiner ID nie zurück —
       // die Auslieferung hat für diese Namen `immutable` versprochen.
       if (medium.entfernt)
-        return reply.code(409).send({ fehler: 'Medium wurde endgültig gelöscht' })
+        return reply.code(409).send({ error: 'Medium wurde endgültig gelöscht' })
       // Nach dem Rendern sind vorhandene Medien unveränderlich (derselbe
       // `immutable`-Grund). NACHGEREICHTE Einträge haben noch keine Datei — für
       // sie ist das PUT auch bei „bereit" erlaubt, sonst bliebe die additive
       // Route (POST …/medien) bei fertigen Touren wirkungslos.
-      if (tour.status === 'bereit' && (await mediumVorhanden(storage, tour.id, medium))) {
-        return reply.code(409).send({ fehler: 'Medien sind im Status „bereit" unveränderlich' })
+      if (tour.status === 'ready' && (await mediumVorhanden(storage, tour.id, medium))) {
+        return reply.code(409).send({ error: 'Medien sind im Status „bereit" unveränderlich' })
       }
 
       const quotaFehler = await quotaVorabPruefung(request)
-      if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
+      if (quotaFehler) return reply.code(413).send({ error: quotaFehler })
 
       const info = await storage.schreibeStream(
         tour.id,
@@ -139,19 +139,19 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       if (!benutzer) return
       // Nachreichen ist ein Upload: dieselbe Verifikations-Schwelle wie beim Anlegen
       if (!app.auth.istVerifiziert(benutzer.id)) {
-        return reply.code(403).send({ fehler: 'Bitte bestätige zuerst deine E-Mail-Adresse' })
+        return reply.code(403).send({ error: 'Bitte bestätige zuerst deine E-Mail-Adresse' })
       }
       const tour = ladeTour(app, request.params.id)
       if (!tour || tour.owner_id !== benutzer.id)
-        return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
+        return reply.code(404).send({ error: 'Tour nicht gefunden' })
       // 409 NUR während laufender Verarbeitung (der Renderer liest media/ und
       // Manifest gerade) — „angelegt", „bereit" und „fehler" sind erlaubt:
       // Genau der Status „bereit" ist der Zweck der Route (Cloud-Touren,
       // Studio-Nachreichen).
-      if (tour.status === 'verarbeitung') {
+      if (tour.status === 'processing') {
         return reply
           .code(409)
-          .send({ fehler: 'Verarbeitung läuft, bitte gleich erneut hinzufügen' })
+          .send({ error: 'Verarbeitung läuft, bitte gleich erneut hinzufügen' })
       }
 
       // Lesen → Ändern → Schreiben gehört unter die Sperre: Zwei gleichzeitige
@@ -164,7 +164,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         if (manifest.media.length + request.body.medien.length > MAX_MEDIEN_PRO_TOUR) {
           return reply
             .code(400)
-            .send({ fehler: `Zu viele Medien (max. ${MAX_MEDIEN_PRO_TOUR} je Tour)` })
+            .send({ error: `Zu viele Medien (max. ${MAX_MEDIEN_PRO_TOUR} je Tour)` })
         }
         // Dateiendung + Zeitstempel-Semantik prüfen, BEVOR irgendetwas geschrieben
         // wird — halbe Batches soll es nicht geben.
@@ -172,12 +172,12 @@ export function registriereMediaRouten(app: FastifyInstance): void {
           try {
             mediumDateiname({ ...eintrag, id: 'pruef' })
           } catch (fehler) {
-            return reply.code(400).send({ fehler: (fehler as Error).message })
+            return reply.code(400).send({ error: (fehler as Error).message })
           }
           if (!Number.isFinite(Date.parse(eintrag.takenAt))) {
             return reply
               .code(400)
-              .send({ fehler: `Ungültiger Aufnahmezeitpunkt: ${eintrag.takenAt}` })
+              .send({ error: `Ungültiger Aufnahmezeitpunkt: ${eintrag.takenAt}` })
           }
         }
 
@@ -241,9 +241,9 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       if (!benutzer) return
       const tour = ladeTour(app, request.params.id)
       if (!tour || tour.owner_id !== benutzer.id)
-        return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
-      if (tour.status === 'verarbeitung') {
-        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut löschen' })
+        return reply.code(404).send({ error: 'Tour nicht gefunden' })
+      if (tour.status === 'processing') {
+        return reply.code(409).send({ error: 'Verarbeitung läuft, bitte gleich erneut löschen' })
       }
 
       // Auch hier unter die Sperre: Eine gleichzeitige Zustellung an
@@ -255,7 +255,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         ) as UploadManifest
         const medium = manifest.media.find((m) => m.id === request.params.mid)
         if (!medium)
-          return reply.code(404).send({ fehler: `Unbekannte Medien-ID: ${request.params.mid}` })
+          return reply.code(404).send({ error: `Unbekannte Medien-ID: ${request.params.mid}` })
         // Idempotent: zweites Löschen desselben Mediums ist kein Fehler
         if (medium.entfernt) return { ok: true }
 
@@ -318,12 +318,12 @@ export function registriereMediaRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const tour = ladeTour(app, request.params.id)
     if (!tour || tour.owner_id !== benutzer.id)
-      return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
-    if (tour.status === 'bereit' || tour.status === 'verarbeitung') {
-      return reply.code(409).send({ fehler: `Track ist im Status „${tour.status}" unveränderlich` })
+      return reply.code(404).send({ error: 'Tour nicht gefunden' })
+    if (tour.status === 'ready' || tour.status === 'processing') {
+      return reply.code(409).send({ error: `Track ist im Status „${tour.status}" unveränderlich` })
     }
     const quotaFehler = await quotaVorabPruefung(request)
-    if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
+    if (quotaFehler) return reply.code(413).send({ error: quotaFehler })
     const info = await storage.schreibeStream(
       tour.id,
       TRACK_PFAD,
@@ -337,52 +337,52 @@ export function registriereMediaRouten(app: FastifyInstance): void {
   // Anders als Manifest-Medien sind Audios auch bei „bereit"/„fehler"/„angelegt"
   // erlaubt (sie werden im Editor nachgerüstet); nur während einer laufenden
   // Verarbeitung ist die Ablage tabu (der Renderer liest media/ gerade).
-  app.put<{ Params: { id: string; datei: string } }>(
-    '/api/tours/:id/audio/:datei',
+  app.put<{ Params: { id: string; file: string } }>(
+    '/api/tours/:id/audio/:file',
     { schema: { params: audioParamsSchema } },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
       const tour = ladeTour(app, request.params.id)
       if (!tour || tour.owner_id !== benutzer.id)
-        return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
-      if (tour.status === 'verarbeitung') {
-        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut hochladen' })
+        return reply.code(404).send({ error: 'Tour nicht gefunden' })
+      if (tour.status === 'processing') {
+        return reply.code(409).send({ error: 'Verarbeitung läuft, bitte gleich erneut hochladen' })
       }
-      const relPfad = `media/${request.params.datei}`
+      const relPfad = `media/${request.params.file}`
       // ÜBERSCHREIBEN VERBOTEN: die GET-Auslieferung verspricht
       // public/immutable-Cache-Header — eine neue Version unter altem Namen
       // würde stale ausgeliefert. Neue Version = neuer Name.
       if (await storage.info(tour.id, relPfad)) {
         return reply
           .code(409)
-          .send({ fehler: 'Audio-Datei existiert bereits, anderen Namen wählen' })
+          .send({ error: 'Audio-Datei existiert bereits, anderen Namen wählen' })
       }
       const quotaFehler = await quotaVorabPruefung(request)
-      if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
+      if (quotaFehler) return reply.code(413).send({ error: quotaFehler })
       const info = await storage.schreibeStream(
         tour.id,
         relPfad,
         request.body as Readable,
         konfig.maxAudioBytes,
       )
-      return reply.code(200).send({ datei: request.params.datei, bytes: info.groesse })
+      return reply.code(200).send({ file: request.params.file, bytes: info.groesse })
     },
   )
 
   // — Audio-Asset löschen — kein Re-Render hier: den löst der Editor über
   // PUT /edits aus (das Overlay referenziert die Datei ja ggf. noch).
-  app.delete<{ Params: { id: string; datei: string } }>(
-    '/api/tours/:id/audio/:datei',
+  app.delete<{ Params: { id: string; file: string } }>(
+    '/api/tours/:id/audio/:file',
     { schema: { params: audioParamsSchema } },
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
       const tour = ladeTour(app, request.params.id)
       if (!tour || tour.owner_id !== benutzer.id)
-        return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
-      if (tour.status === 'verarbeitung') {
-        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut löschen' })
+        return reply.code(404).send({ error: 'Tour nicht gefunden' })
+      if (tour.status === 'processing') {
+        return reply.code(409).send({ error: 'Verarbeitung läuft, bitte gleich erneut löschen' })
       }
       // Referenz-Schutz: solange die GESPEICHERTEN Bearbeitungen die Datei noch
       // nutzen, würde das Löschen ein bereits gerendertes tour.json auf eine
@@ -391,16 +391,16 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         const edits = JSON.parse(
           (await storage.lese(tour.id, EDITS_PFAD)).toString(),
         ) as EditOverlay
-        if (edits.audio?.some((a) => a.datei === request.params.datei)) {
+        if (edits.audio?.some((a) => a.datei === request.params.file)) {
           return reply.code(409).send({
             fehler:
               'Datei wird von den gespeicherten Bearbeitungen genutzt, erst Eintrag entfernen und speichern',
           })
         }
       }
-      const relPfad = `media/${request.params.datei}`
+      const relPfad = `media/${request.params.file}`
       if (!(await storage.info(tour.id, relPfad))) {
-        return reply.code(404).send({ fehler: 'Audio-Datei nicht gefunden' })
+        return reply.code(404).send({ error: 'Audio-Datei nicht gefunden' })
       }
       await storage.loesche(tour.id, relPfad)
       return { ok: true }
@@ -408,25 +408,25 @@ export function registriereMediaRouten(app: FastifyInstance): void {
   )
 
   // — Auslieferung mit Range-Support —
-  app.get<{ Params: { tourId: string; datei: string } }>(
-    '/api/media/:tourId/:datei',
+  app.get<{ Params: { tourId: string; file: string } }>(
+    '/api/media/:tourId/:file',
     async (request, reply) => {
-      const { tourId, datei } = request.params
+      const { tourId, file: datei } = request.params
       // Nur von uns vergebene Dateinamen — keine Pfad-Spiele. Mehrere Punkt-
       // Segmente sind erlaubt (Poster „m1.poster.jpg", Transcode „m1.web.mp4"),
       // aber jedes Segment braucht ein echtes Zeichen → „.." ist ausgeschlossen.
       if (!/^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*\.[a-z0-9]+$/.test(datei)) {
-        return reply.code(404).send({ fehler: 'Nicht gefunden' })
+        return reply.code(404).send({ error: 'Nicht gefunden' })
       }
 
       const tour = ladeTour(app, tourId)
       if (!tour || !darfSehen(tour, request.benutzer?.id ?? null)) {
-        return reply.code(404).send({ fehler: 'Nicht gefunden' })
+        return reply.code(404).send({ error: 'Nicht gefunden' })
       }
 
       const relPfad = `media/${datei}`
       const info = await storage.info(tourId, relPfad)
-      if (!info) return reply.code(404).send({ fehler: 'Nicht gefunden' })
+      if (!info) return reply.code(404).send({ error: 'Nicht gefunden' })
 
       const endung = datei.split('.').pop() ?? ''
       reply.header('content-type', CONTENT_TYPES[endung] ?? 'application/octet-stream')
