@@ -104,7 +104,19 @@ auf 2 — der fertige Code hielt die Daten danach für migriert. Repariert durch
 Rekonstruktion der vier Zeilen aus den Tour-Ordnern, Marker zurück auf 1,
 Neustart; Dateimigration und Nachrendern heilten den Rest selbst (Cover inklusive).
 
-Zwei Lehren: **Wer an einer Start-Migration baut, stoppt vorher die Dev-Instanz**
+**Eine löschende Route wird nicht „zur Probe" aufgerufen.** Beim Prüfen der
+Konto-Funktionen wurde `DELETE /api/auth/me` mit absichtlich falschem Passwort
+gerufen, in der Annahme, sie verlange eines wie der Passwort- und der
+Adresswechsel. Sie verlangt keines: Damit war die lokale Dev-Instanz gelöscht,
+Konto, drei Demo-Touren und eine Aufzeichnung. Wiederhergestellt sind das Konto
+(über `auth.legeBenutzerAn`) und die drei Demo-Touren
+(`scripts/seed-demo-touren.mjs`); die Aufzeichnung „Runde bei Völklingen" ist
+lokal weg. Produktion und beide Welle-1-Sicherungen blieben unberührt. Was eine
+Route verlangt, liest man im Schema, BEVOR man sie anfasst. Der Befund selbst
+ist ein Produktthema und steht als eigenes Konzept:
+[Konto löschen absichern](../concepts/konzept_kontoloeschung_absichern.md).
+
+Zwei weitere Lehren: **Wer an einer Start-Migration baut, stoppt vorher die Dev-Instanz**
 (`devhub down journey`) oder zeigt mit `MAPTALE_DATEN_DIR` auf eine
 Wegwerf-Kopie. Und die Dateimigration hängt am MARKER, nicht an der Datei —
 der Zustand „Marker 2, Ordner unmigriert" ist im Entwurf nicht vorgesehen und
@@ -153,6 +165,16 @@ Sorten gefunden, und alle drei sind ein Skript, kein Lesedurchgang:
    Welle 4 und 6 Pflicht, denn dort wandern die DOM-IDs wirklich),
 3. alle `value="…"` und `data-*="…"` in den HTML-Dateien gegen die Enum-Werte
    der Server-Schemas.
+
+Der Body-Abgleich (1) muss dabei **jeden Aufruf** sehen, nicht nur die mit einem
+Objektliteral direkt im `options`-Objekt: Die Konto-Dialoge reichen ihre Felder
+an eine Hilfsfunktion weiter (`sende(url, daten, methode)`), und genau dort
+standen vier deutsche Schlüssel, die der erste Scan übersah (`an` statt
+`enabled` zweimal, `passwort` statt `password`, `alt`/`neu` statt `old`/`new`).
+Und er muss **`scripts/` einschließen**: `seed-demo-touren.mjs` und
+`import-gpx.mjs` sprechen dieselbe API, bauen Upload-Manifeste und lasen
+`login.benutzer` — ihre Bezeichner wandern erst in Welle 6, ihre API-FELDER
+gehören aber in Welle 1.
 
 Die fünfte Sorte (Feldnamen der Antwort, hier `user` gegen `benutzer`) bleibt
 Handarbeit oder braucht generierte Client-Typen — das wäre ein eigenes Vorhaben
