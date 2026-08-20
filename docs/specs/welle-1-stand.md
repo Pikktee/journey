@@ -57,19 +57,38 @@ das Konzept und die [Abbildungstabelle](abbildungstabelle.tsv).
   `server/test/leiter.test.ts` (Stand 0 → 23 mit je einer Werte-Zeile).
 - **Die Specs** (`austauschformat.md`, `overlay-und-tourjson.md`, `api.md`) und
   die sachlichen Verweise in den fünf `CLAUDE.md`.
-- **Gates grün**: Web 957 Tests, Server 896 Tests, Typecheck, Lint,
-  `format:check`, Android `./gradlew test`.
+- **Gates grün**: Web 957 Tests, Server 896 Tests bei 93,5 % Coverage (Gate 80),
+  Typecheck, Lint, `format:check`, Android `./gradlew test`.
+- **Der Migrationslauf gegen die Prod-Kopie ist durch** (2026-08-20, Arbeitskopie
+  `~/Dev/.maptale-welle1-lauf/daten`, der Snapshot daneben blieb unangetastet):
+  Leiter auf `user_version` 23, `daten/.schema` = 2, alle 15 Tour-Ordner
+  abgebildet, `anreicherung.json` heißt `enrichment.json`, alle 15 `tour.json`
+  auf `maptale/tour@2` nachgerendert und alle 15 Touren wieder auf `ready`.
+  Der Grep über den Kopie-Ordner findet KEINEN alten Schlüssel und keine
+  `@1`- oder `luhambo/`-Kennung mehr; `tours.stats_json` trägt `placedMedia`,
+  `trackSignature`, `end`. Der Anreicherungs-Cache hat den Lauf überlebt
+  (Befunde, Orte, Wetter-Rohdaten stehen, die Signaturen in neuer Form) — es
+  gab also weder Geocoding noch bezahlte Bildanalyse.
+- **Die 15 gerenderten Touren laufen durch `adaptiereTour`** aus
+  `src/remote.ts`, dem Leser des Players: kein `RemoteTourFehler`, jede mit
+  Route, Medien und Ton. Die eine Tour mit Kamerakante und Momenten steht auf
+  `preset: 'mid'` und `kind: 'orbit'|'linger'` — genau die Werte, an denen der
+  stille Rückfall in `PRESETS` gehangen hätte.
 
 ## Was offen ist
 
-1. **Abnahme nach §8 gegen die Snapshot-Kopie**: lokale Instanz mit
-   `MAPTALE_DATEN_DIR` auf `~/Dev/.maptale-snapshot-welle1/daten`, jede
-   migrierte Tour im Player öffnen, Grep über den Kopie-Ordner nach alten
-   Schlüsseln, `daten/.schema` = 2.
+1. **Der Blick auf die Seiten.** Die Touren sind gegen den Leser des Players
+   geprüft, nicht im laufenden Player angesehen — dafür bräuchte es eine zweite
+   Instanz auf der Kopie, und Dev-Server gehören auf diesem Rechner devhub. Der
+   Weg dorthin wäre ein eigenes Profil:
+   `devhub adopt journey --profil smoke --slot NN` mit
+   `MAPTALE_DATEN_DIR=~/Dev/.maptale-welle1-lauf/daten`. **Entscheidung von
+   Henrik**, weil es die devhub-Registry und eine `devhub.json` im Repo anfasst.
 2. **Smoke über alle Web-Seiten** — die Web-Tests fassen keine Adresse an;
    genau deshalb blieben elf Client-Pfade und fünf Fehlerhüllen-Leser bis zum
-   Spec-Abgleich unentdeckt (s. unten).
-3. `status`/`stand` des Konzepts und der Roadmap-Schritt im letzten Commit.
+   Abgleich mit `api.md` unentdeckt (s. Nahtliste).
+3. **Der Deploy-Tag.** Er ist bewusst EIN Tag: Server, Web und APK gehen
+   zusammen (§4.4). Bis dahin keine neuen Einladungen.
 
 ## Nahtliste §3.3, Zeile für Zeile
 

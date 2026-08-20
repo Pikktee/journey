@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-20
-status: Welle 0 abgeschlossen am 2026-08-20 (Zahlen erhoben, Abbildungstabelle gebaut und abgenommen, Glossar eingefroren, Sprachregel gesetzt); Welle 1 nicht begonnen, es fehlt nur noch der DB-Snapshot vor ihrem Start
+status: Welle 1 gebaut am 2026-08-20 (Verträge @2, alle Leser in Web und App, Start-Migration samt Nachrendern, Specs; Gates grün, Migrationslauf gegen die Prod-Kopie durchgeführt). Offen ist der Deploy-Tag — er steht aus, bis Henrik den Smoke über die Web-Seiten abgenommen hat. Welle 2 nicht begonnen.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
