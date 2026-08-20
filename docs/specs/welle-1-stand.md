@@ -180,6 +180,22 @@ Der Blick auf die laufenden Seiten war der letzte offene §8-Punkt, und er hat
 Dazu eine UI-Regression: Die Reiterzähler der Verwaltung zeigten „0 open"
 statt „0 offen" (§2.5 — UI-Strings wandern nicht mit).
 
+**Nachtrag aus Welle 3 (2026-08-20): die Shorthand-Falle.** Welle 1 hatte in
+`editor.ts` die lokale Variable `ab` zu `from` umbenannt — und weil sie als
+Shorthand in ein Objekt ging (`{ from, mode }`), das als DOM-Attribute gesetzt
+wird, hieß der Schlüssel danach `data-from`, gelesen wurde weiter `data-ab`.
+Wirkung: Auf Produktion ließ sich seit v0.67.0 **keine Modus-, Kamera- oder
+Wetter-Grenze mehr ziehen**. Kein Test wurde rot, kein Wächter sah es; gefunden
+hat es erst das Abfahren im Editor, behoben ist es mit v0.67.2.
+
+**Die Lehre ist eng und wichtig: Eine Umbenennung, die durch Shorthand-Syntax
+läuft, ändert einen SCHLÜSSEL.** `{ ab }` und `{ from }` sind zwei verschiedene
+Objekte, und der TypeScript-Language-Service benennt hier korrekt um — der
+Fehler entsteht erst dort, wo der Schlüssel eine Fremdsprache spricht (DOM,
+JSON, Query). Vor jeder weiteren Welle deshalb: Shorthand-Eigenschaften, die in
+`dataset`, `setAttribute`, `JSON.stringify` oder eine URL fließen, von Hand
+ansehen. Der Editor hat noch mehr davon, sie liegen in Welle 4.
+
 **Nachtrag aus Welle 2 (2026-08-20): tote Symbol-Verweise in Kommentaren.** Die
 Sprachregel lässt Kommentare deutsch, und das ist richtig — aber ein Kommentar,
 der ein SYMBOL nennt (`s. AuthDienst.hebeAdmins`), zeigt nach der Umbenennung
