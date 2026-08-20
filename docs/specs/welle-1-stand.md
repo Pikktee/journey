@@ -116,7 +116,7 @@ aber ein Kandidat für einen billigen Wächter in einer späteren Welle:
 ## Der Smoke, und was er gefunden hat (2026-08-20)
 
 Der Blick auf die laufenden Seiten war der letzte offene §8-Punkt, und er hat
-**vier Sorten Nachzügler** gefunden, die alle Gates passiert hatten:
+**fünf Sorten Nachzügler** gefunden, die alle Gates passiert hatten:
 
 1. **`src/admin/api.ts` zeigte vollständig auf die alten Adressen** — die
    Verwaltung war tot. Der Abgleich, den `api.md` für die anderen Clients
@@ -135,14 +135,28 @@ Der Blick auf die laufenden Seiten war der letzte offene §8-Punkt, und er hat
    Ist-Name, zwei Arten, zwei Wellen** — genau der Fall, für den die Tabelle
    die Fundort-Spalte hat.
 
+5. **Ein Vertragswert stand in einer HTML-Datei**: Das
+   `<option value="nutzer">` des Anlege-Dialogs. Der Server kennt nur noch
+   `user`, also wies er jedes neue Konto mit 400 „Ungültige Anfrage" ab. Das
+   ist die Sorte, die KEIN Abgleich sieht: Ein Enum-Wert steht weder im Pfad
+   noch als Schlüssel im Body, und Tests fassen HTML-Attributwerte nicht an.
+   Gefunden durch Benutzung.
+
 Dazu eine UI-Regression: Die Reiterzähler der Verwaltung zeigten „0 open"
 statt „0 offen" (§2.5 — UI-Strings wandern nicht mit).
 
-**Die Lehre für die Wellen 2 bis 8:** Zwei billige Wächter hätten drei der vier
-Sorten gefunden, und beide sind ein Skript, kein Lesedurchgang — alle
-Client-Pfade gegen die registrierten Fastify-Routen, und alle `$('…')`-Selektoren
-gegen die IDs der zugehörigen HTML-Datei. Der zweite ist vor Welle 4 und 6
-Pflicht, denn dort wandern die DOM-IDs wirklich.
+**Die Lehre für die Wellen 2 bis 8:** Drei billige Wächter hätten vier der fünf
+Sorten gefunden, und alle drei sind ein Skript, kein Lesedurchgang:
+
+1. alle Client-Pfade gegen die registrierten Fastify-Routen,
+2. alle `$('…')`-Selektoren gegen die IDs der zugehörigen HTML-Datei (vor
+   Welle 4 und 6 Pflicht, denn dort wandern die DOM-IDs wirklich),
+3. alle `value="…"` und `data-*="…"` in den HTML-Dateien gegen die Enum-Werte
+   der Server-Schemas.
+
+Die fünfte Sorte (Feldnamen der Antwort, hier `user` gegen `benutzer`) bleibt
+Handarbeit oder braucht generierte Client-Typen — das wäre ein eigenes Vorhaben
+und steht bewusst nicht in diesem Konzept.
 
 ## Nahtliste §3.3, Zeile für Zeile
 
