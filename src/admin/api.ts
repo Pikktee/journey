@@ -245,7 +245,7 @@ export function testeVorlage(key: string, blocks?: MailBausteine): Promise<{ an:
 export interface ProtokollAntwort {
   entries: ProtokollEintrag[]
   total: number
-  fehler: number
+  errorCount: number
   /** Start der API — der Puffer reicht nie weiter zurück. */
   startedAt: string
 }

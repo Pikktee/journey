@@ -9,7 +9,7 @@ import { handleAusPfad, pfad, profilPfad, tourPfad } from '../routen.js'
 /** Eine Tour, wie der Server sie für die öffentlichen Seiten ausliefert. */
 export interface GalerieTour {
   id: string
-  titel: string | null
+  title: string | null
   cover: string | null
   /** Kachel-Fassung des Titelbilds; fehlt bei Touren ohne aufbereitete Fassungen */
   coverThumb?: string | null
@@ -68,7 +68,7 @@ export function profilLink(author: GalerieTour['author']): string | null {
 export function alsKarte(tour: GalerieTour): Karte {
   return {
     id: tour.id,
-    titel: tour.titel?.trim() || ERSATZTITEL,
+    titel: tour.title?.trim() || ERSATZTITEL,
     cover: tour.coverThumb ?? tour.cover,
     unterzeile: [entfernung(tour.km), monat(tour.createdAt)].filter(Boolean).join(' · '),
     autorName: tour.author?.displayName ?? null,

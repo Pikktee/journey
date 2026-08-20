@@ -15,7 +15,7 @@ import {
 
 const tour = (patch: Partial<GalerieTour> = {}): GalerieTour => ({
   id: 't_abc',
-  titel: 'Lauterbrunnen → Grindelwald',
+  title: 'Lauterbrunnen → Grindelwald',
   cover: '/api/media/t_abc/m1.jpg',
   km: 12.42,
   createdAt: '2026-07-04T08:00:00.000Z',
@@ -32,8 +32,8 @@ describe('alsKarte', () => {
   })
 
   it('bleibt ohne Titel nicht namenlos', () => {
-    expect(alsKarte(tour({ titel: null })).titel).toBe('Namenlose Reise')
-    expect(alsKarte(tour({ titel: '   ' })).titel).toBe('Namenlose Reise')
+    expect(alsKarte(tour({ title: null })).titel).toBe('Namenlose Reise')
+    expect(alsKarte(tour({ title: '   ' })).titel).toBe('Namenlose Reise')
   })
 
   it('ohne Urheber bleibt die Karte anonym', () => {
