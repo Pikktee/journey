@@ -1,6 +1,6 @@
 // Der Empfänger: Firebase weckt die App, die App fragt den eigenen Server.
 //
-// **Die Nachricht trägt keine Inhalte, nur einen Anlass** (`typ`, `tourId`).
+// **Die Nachricht trägt keine Inhalte, nur einen Anlass** (`type`, `tourId`).
 // Was gemeldet wird, holt die App über dieselben Routen wie der periodische
 // Abruf — und quittiert es auch dort. Ein Push mit fertigem Text liefe über
 // Googles Server und läge auf dem Sperrbildschirm; ein Wecken genügt, und FCM

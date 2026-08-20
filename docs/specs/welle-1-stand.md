@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-20
-status: Welle 1 in Arbeit — Schritt 1 (SQLite + API) gebaut, Gates noch rot; Schritte 2–5 offen
+status: Welle 1 in Arbeit — Verträge, Clients, Start-Migration und Specs stehen; offen ist die Abnahme nach §8
 betrifft:
   - server/src/db.ts
   - server/src/routes/
@@ -38,29 +38,59 @@ das Konzept und die [Abbildungstabelle](abbildungstabelle.tsv).
   englisch, `foreign_key_check` leer, Zeilenzahlen unverändert (15 Touren,
   3 Konten, 5 Sitzungen, 3 Tokens).
 - **Server-Code**: SQL, Zeilen-Typen, API-Pfade und API-Felder nach §6.7/§6.8.
-- **Server-Tests** mechanisch nachgezogen; `tsc` grün, `npm test` noch rot
-  (Stand: 105 von 886).
+- **Die vier Verträge stehen auf `@2`**: `maptale/upload@2`, `maptale/edits@2`,
+  `maptale/enrichment@2` (früher `anreicherung@1`) und `maptale/tour@2`.
+- **Alle Leser**: Web (`src/studio/api.ts`, `src/remote.ts`, `src/konto/*`,
+  `src/profil/*`, `src/admin/*`, `src/galerie/*`) und Android (`ApiClient.kt`,
+  `Manifest.kt`, `EditsFortschreibung.kt`, `TourenScreen.kt`,
+  `ImportViewModel.kt`, `MaptalePushDienst.kt`, Room-Entities, Enum-Speicherwerte,
+  Room v4 mit `fallbackToDestructiveMigration`).
+- **Die 400er-Ablehnung für `@1`-Uploads** mit Klartext in BEIDEN Feldnamen
+  (`error` UND `fehler`) — die einzige bewusste Alt-Ausnahme (§4.1).
+- **Start-Migration** unter `server/src/migrations/`: `keys-v2.ts` wird aus der
+  Abbildungstabelle ERZEUGT (`node scripts/keys-v2-generieren.mjs`), `start.ts`
+  bildet Manifest, Overlay und Cache ab und benennt `titelbild/` in `banner/`
+  um, `nachrender.ts` rendert jede Tour mit alter `tour.json` seriell nach.
+  Der Marker `daten/.schema` ist die Leiter.
+- **Zwei neue Wächter**: `server/test/start-migration.test.ts` (jeder neue
+  Schlüssel steht im JSON-Schema, jeder alte nicht mehr) und
+  `server/test/leiter.test.ts` (Stand 0 → 23 mit je einer Werte-Zeile).
+- **Die Specs** (`austauschformat.md`, `overlay-und-tourjson.md`, `api.md`) und
+  die sachlichen Verweise in den fünf `CLAUDE.md`.
+- **Gates grün**: Web 957 Tests, Server 896 Tests, Typecheck, Lint,
+  `format:check`, Android `./gradlew test`.
 
 ## Was offen ist
 
-1. `upload@2` samt `POST /api/tours/:id/media`, `media.ts` und dem Manifest-Bau.
-2. `edits@2` samt Studio-Typen und `EditsFortschreibung.kt`.
-3. `enrichment@2` + `tour@2` + Player-Leser + `PRESETS`/`kamFolger` (§3.3) +
-   Re-Render.
-4. Die Web-Leser: `src/studio/api.ts`, `src/remote.ts`, `src/konto/*`,
-   `src/profil/*`, `src/admin/*`, `src/galerie/*`, `src/app-nav.ts`.
-5. Android: `ApiClient.kt`, `Manifest.kt`, `EditsFortschreibung.kt`,
-   `TourenScreen.kt`/`ImportViewModel.kt`, `MaptalePushDienst.kt`,
-   Room-Entities + v4 mit `fallbackToDestructiveMigration`, Enum-Speicherwerte,
-   WorkManager-Neueinreihung.
-6. Die 400er-Ablehnung für `@1`-Uploads mit Klartext in BEIDEN Feldnamen
-   (`fehler` UND `error`) — die einzige bewusste Alt-Ausnahme (§4.1).
-7. Start-Migration unter `server/src/migrations/` samt generiertem `keys-v2.ts`
-   und dem Marker `daten/.schema`.
-8. Die beiden Specs (`austauschformat.md`, `overlay-und-tourjson.md`) und
-   `api.md`.
-9. Abnahme nach §8, Nahtliste §3.3 abhaken, `status`/`stand` des Konzepts und
-   der Roadmap-Schritt.
+1. **Abnahme nach §8 gegen die Snapshot-Kopie**: lokale Instanz mit
+   `MAPTALE_DATEN_DIR` auf `~/Dev/.maptale-snapshot-welle1/daten`, jede
+   migrierte Tour im Player öffnen, Grep über den Kopie-Ordner nach alten
+   Schlüsseln, `daten/.schema` = 2.
+2. **Smoke über alle Web-Seiten** — die Web-Tests fassen keine Adresse an;
+   genau deshalb blieben elf Client-Pfade und fünf Fehlerhüllen-Leser bis zum
+   Spec-Abgleich unentdeckt (s. unten).
+3. `status`/`stand` des Konzepts und der Roadmap-Schritt im letzten Commit.
+
+## Nahtliste §3.3, Zeile für Zeile
+
+| Naht | Ergebnis |
+|---|---|
+| API-Felder Server → Web | gezogen. Die Gegenprobe war ein Abgleich der Pfade in `api.md` mit den registrierten Fastify-Routen in beide Richtungen: keine dokumentierte ohne Route, keine Route ohne Eintrag. Dabei fielen elf Client-Aufrufe auf alte Adressen auf (`/api/galerie`, `/api/auth/me/geraete`, `/api/audio-bibliothek`, …) und fünf Stellen, die die Fehlerhülle als `koerper.fehler` lasen. Der Smoke über die Seiten steht noch aus |
+| API-Felder Server → Android | gezogen. `ApiClient.kt` samt Data Classes; die String-Vergleiche stehen auf `"ready"`/`"failed"`/`"processing"` (`TourenScreen.kt`, `ImportViewModel.kt`, `UploadWorker.kt`) |
+| `edits.json` ← Android | gezogen. `EditsFortschreibung.kt` schreibt `media`, `cover`, `caption` und `maptale/edits@2` |
+| `test/fixtures/filmachse.json` | angefasst, obwohl Welle 5: die Moment-Arten sind Vertragswerte (`orbit`/`ascend`/`linger`). Fixture, Web-Hälfte und Server-Spiegel im selben Commit |
+| Server-Spiegel ohne Import | unberührt geblieben, Drift-Wächter grün. `STUDIO_PEGEL` heißt `STUDIO_GAIN`, der Wächter zieht mit |
+| Text-Wächter | einer war rot, und zwar zu Recht: `test/newsletter-einwilligung.test.ts` baute die Label-Präfixe (`registrierung-…`) aus dem Quellen-Schlüssel. Der Wortlaut-Nachweis nach Art. 7 bleibt deutsch, also steht die Zuordnung jetzt ausdrücklich im Wächter |
+| Messskripte | unberührt (Welle 5) |
+| `vite.config.js` → `src/routen.ts` | unberührt (Welle 6) |
+| `camera[].preset` → `PRESETS` | gezogen, beide Stellen im selben Commit: die Schlüssel von `PRESETS` in `src/tour.ts` (`near`/`mid`/`far`), die `data-preset` in `erlebnis.html` und der Vergleich `k.preset === 'default'` in `src/main.ts` |
+| `verarbeite` in `routes/tours.ts` | exportiert als `processTour`, vor der Start-Migration |
+| Push-Nutzlast Server → App | gezogen. `{ type: 'import-finished' }` auf beiden Seiten; nachgeprüft an `push.ts` gegen `MaptalePushDienst.kt` |
+| Vhost | unberührt — das Präfix `/api/` bleibt |
+| WebView-Brücke | unberührt (Welle 5/7) |
+| CSS-`<link>`-Namen | unberührt (Welle 6) |
+| Extern registrierte URLs | wortgleich geblieben (`/api/tracker/:provider/callback`, `/api/webhooks/tracker/:provider`) |
+| Mail-Links auf die API | `/api/export/:token` bleibt wortgleich, ein laufendes Archiv überlebt den Umbau also. `/api/newsletter/ein-klick/:token` heißt jetzt `/one-click/` — Teil B ist nicht gebaut, es gibt keinen versendeten Link |
 
 ## Entscheidungen unterwegs
 
