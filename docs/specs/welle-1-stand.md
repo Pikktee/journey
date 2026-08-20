@@ -90,6 +90,26 @@ das Konzept und die [Abbildungstabelle](abbildungstabelle.tsv).
 3. **Der Deploy-Tag.** Er ist bewusst EIN Tag: Server, Web und APK gehen
    zusammen (§4.4). Bis dahin keine neuen Einladungen.
 
+## Ein Vorfall nach dem Bau, und seine Lehre
+
+**Die lokale Dev-Instanz hat während des Wellenbaus Daten verloren** (bemerkt am
+2026-08-20: „Meine Touren" leer). Ursache war nicht der fertige Migrationscode,
+sondern `tsx watch`: Der Dev-Server lief unter devhub mit, startete bei jedem
+Speichern neu und führte dabei HALBFERTIGE Stände der Leiter gegen `server/daten`
+aus. Ein Zwischenstand verlor die `tours`-Zeilen und setzte den Marker vorzeitig
+auf 2 — der fertige Code hielt die Daten danach für migriert. Repariert durch
+Rekonstruktion der vier Zeilen aus den Tour-Ordnern, Marker zurück auf 1,
+Neustart; Dateimigration und Nachrendern heilten den Rest selbst (Cover inklusive).
+
+Zwei Lehren: **Wer an einer Start-Migration baut, stoppt vorher die Dev-Instanz**
+(`devhub down journey`) oder zeigt mit `MAPTALE_DATEN_DIR` auf eine
+Wegwerf-Kopie. Und die Dateimigration hängt am MARKER, nicht an der Datei —
+der Zustand „Marker 2, Ordner unmigriert" ist im Entwurf nicht vorgesehen und
+heilt sich nicht selbst (das Nachrendern schon, aber nur für Touren, die die DB
+noch kennt). Für Prod ist das unkritisch (dort läuft einmal fertiger Code),
+aber ein Kandidat für einen billigen Wächter in einer späteren Welle:
+`.schema` = 2 und trotzdem eine `anreicherung.json` gefunden = laute Warnung.
+
 ## Nahtliste §3.3, Zeile für Zeile
 
 | Naht | Ergebnis |
