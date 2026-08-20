@@ -834,6 +834,23 @@ Sieben Dinge, die dabei aufgefallen sind:
   Zeichenkette mitgegangen. Ohne sie hätte das Konto-Menü des Studios sein
   Abmelden-Icon verloren, und zwar lautlos.
 
+**Das Abfahren hat elf weitere Stellen gefunden, und alle elf hatte kein Test
+gesehen.** Sie sind EINE Sorte: ein DOM-Name, der nicht als Selektor dasteht,
+sondern als Argument eines eigenen Helfers oder als Stück einer
+zusammengesetzten Klassenliste. `track('spur-wege')` (`track` leert eine Bahn
+und gibt sie zurück), `icon('haken')` und `number('uhr')` (beide bauen
+`#i-${name}`), `'sfx-row' + (playing ? ' spielt' : '')`, `class="marke${… ' ohne-ort'}"`
+in einem Template-Literal, `blink(…, 'puls')`. Wirkung im Editor: Die
+Zeitleiste blieb LEER, weil `track` vier Elemente suchte, die anders heißen —
+und die 967 Tests waren grün. Daraus ist Wächter 4 in
+[client-vertrag.test.ts](../../test/client-vertrag.test.ts) geworden: Kein
+Modul unter `src/studio/` darf eine id oder Klasse NENNEN, die in einer
+gebauten Welle umbenannt wurde. Er vergleicht die ganze Zeichenkette (ein
+deutscher Satz ist nie `spur-wege`) und zusätzlich Token für Token, aber nur in
+Klassen-Kontexten; 15 Homonyme stehen benannt darin (`ablage` ist eine
+Einordnung, `raster` ein MapLibre-Layertyp, `fokus` eine Quellen-id). Beim
+Einschalten hat er sofort vier weitere gemeldet.
+
 Rot geworden sind fünf Text-Wächter, und das war wieder die gute Nachricht:
 `session-hinweis.test.ts` (`studio-dabei`/`studio-gesteuert`),
 `einblendung-css.test.ts` (`.karten-buehne`), `app-nav.test.ts` (die statische
@@ -842,7 +859,7 @@ und `client-vertrag.test.ts` — der letzte hat zwei echte Wertdrifts gemeldet
 (`data-auth-mode="warteliste"`, `data-lane="musik"`), also genau das, wofür er
 2026-08-20 gebaut wurde.
 
-Neu in der Tabelle: 59 Zeilen — die sechs Testdateien, die Union- und
+Neu in der Tabelle: 65 Zeilen — die sechs Testdateien, die Union- und
 Attributwerte, die Welle 3 ausdrücklich hierher gestellt hat, die vier
 `spur`/`bahn`-Entscheidungen und die EXIF-Eigenschaften. Der Prüfer meldet
 seither einen zweiten gewollten Homonym-Fall: `breite` ist auf Android `lat`

@@ -817,7 +817,7 @@ function buildMarkerEntry(stop: Stopp, _key: string): MarkerEntry | null {
   for (const nr of [2, 1]) {
     if (count > nr) {
       const stack = document.createElement('span')
-      stack.className = `stapel s${nr}`
+      stack.className = `stack s${nr}`
       el.appendChild(stack)
     }
   }
@@ -1193,14 +1193,14 @@ function renderTray(): void {
     button.classList.add('alerting')
     setTimeout(() => button.classList.remove('alerting'), 4200)
   }
-  if (openMenu?.dataset['ablage'] === '1') openTray() // offenes Fach mitziehen
+  if (openMenu?.dataset['tray'] === '1') openTray() // offenes Fach mitziehen
 }
 
 function openTray(): void {
   const button = $('tray-button')
   const menu = document.createElement('div')
   menu.className = 'floating-menu'
-  menu.dataset['ablage'] = '1'
+  menu.dataset['tray'] = '1'
   const header = document.createElement('div')
   header.className = 'header-row'
   header.textContent = 'auf die Zeitleiste ziehen'
@@ -1210,7 +1210,7 @@ function openTray(): void {
   for (const m of trayMedia()) {
     const b = document.createElement('button')
     b.type = 'button'
-    b.className = m.removed ? 'geloescht' : ''
+    b.className = m.removed ? 'removed' : ''
     // Entfernt heißt seit dem endgültigen Löschen: entfernt BIS ZUM SPEICHERN.
     // Bis dahin holt ein Zug auf die Zeitleiste die Aufnahme zurück — danach
     // gibt es sie nicht mehr, und das gehört an die Aufnahme geschrieben.
@@ -1505,13 +1505,13 @@ function renderAddMedia(): void {
   }
   for (const a of included) {
     const p = document.createElement('div')
-    p.className = `nach-pkt neu${a.classification === 'ablage' ? ' ablage' : ''}`
+    p.className = `add-dot new${a.classification === 'tray' ? ' tray' : ''}`
     setPoint(p, a.timeMs)
     const point = document.createElement('i')
     const clock = document.createElement('span')
     clock.className = 'clock'
     clock.textContent =
-      a.classification === 'ablage' && a.timeGuessed ? 'ohne Zeit' : clockTimeFromMs(a.timeMs)
+      a.classification === 'tray' && a.timeGuessed ? 'ohne Zeit' : clockTimeFromMs(a.timeMs)
     // Uhrzeit ÜBER dem Punkt (Flex-Spalte im CSS) — darunter läge sie auf der Achse
     p.append(clock, point)
     p.title = `${a.file} · ${classificationWord(a.classification)}`
@@ -1539,11 +1539,11 @@ function renderAddMedia(): void {
   for (const a of report.media) {
     const travel = omitted.has(a.file)
     const row = document.createElement('div')
-    row.className = `nach-zeile ${a.classification}${travel ? ' weg' : ''}`
+    row.className = `add-row ${a.classification}${travel ? ' remove' : ''}`
     const time = document.createElement('span')
     time.className = 'zeit'
     time.textContent =
-      a.classification === 'ablage' && a.timeGuessed ? '—' : clockTimeFromMs(a.timeMs)
+      a.classification === 'tray' && a.timeGuessed ? '—' : clockTimeFromMs(a.timeMs)
     const name = document.createElement('span')
     name.className = 'name'
     name.textContent = a.file
@@ -1553,7 +1553,7 @@ function renderAddMedia(): void {
     row.append(time, name, whereTo)
     // Nur die Aufnahme ohne Zeit und Ort stellt eine Frage — und selbst die hat
     // mit der Ablage eine brauchbare Vorgabe, damit man sie ignorieren kann.
-    if (a.classification === 'ablage') {
+    if (a.classification === 'tray') {
       const button = document.createElement('button')
       button.type = 'button'
       button.className = 'omit'
@@ -2213,7 +2213,7 @@ function renderInspector(): void {
   const { text, locked, reason } = deleteInfo(info)
   const travel = document.createElement('button')
   travel.className = 'inspector-delete'
-  travel.innerHTML = `${icon('muell')}<span>${text}</span>`
+  travel.innerHTML = `${icon('trash')}<span>${text}</span>`
   travel.disabled = locked
   if (reason) travel.title = reason
   travel.addEventListener('click', () => deleteSelection())
@@ -2460,7 +2460,7 @@ function buildInfoSection(m: MediaView): HTMLElement {
   block.className = 'insp-info'
   block.open = infoOpen
   const header = document.createElement('summary')
-  header.innerHTML = `${icon('info')}<span>Aufnahme-Details</span>${icon('pfeil-r')}`
+  header.innerHTML = `${icon('info')}<span>Aufnahme-Details</span>${icon('arrow-r')}`
   block.appendChild(header)
   const raster = document.createElement('dl')
   raster.className = 'inspector-info-grid'
@@ -2839,7 +2839,7 @@ function showLarge(id: string): void {
   links.type = 'button'
   links.className = 'browse links'
   links.setAttribute('aria-label', 'Vorige')
-  links.innerHTML = icon('pfeil-l')
+  links.innerHTML = icon('arrow-l')
   links.disabled = i <= 0
   links.addEventListener('click', () => {
     const prev = list[i - 1]
@@ -2850,7 +2850,7 @@ function showLarge(id: string): void {
   right.type = 'button'
   right.className = 'browse right'
   right.setAttribute('aria-label', 'Nächste')
-  right.innerHTML = icon('pfeil-r')
+  right.innerHTML = icon('arrow-r')
   right.disabled = i >= n - 1
   right.addEventListener('click', () => {
     const after = list[i + 1]
@@ -3614,8 +3614,8 @@ function buildSfxRow(def: SfxRowDef): HTMLElement {
   const playing = dialogPlaying === def.id
   const current = isCurrentPiece(def.file, def.source)
   const row = document.createElement('div')
-  row.className = 'sfx-row' + (playing ? ' spielt' : '') + (current ? ' aktuell' : '')
-  row.dataset['datei'] = def.file
+  row.className = 'sfx-row' + (playing ? ' playing' : '') + (current ? ' current' : '')
+  row.dataset['file'] = def.file
 
   const previewButton = document.createElement('button')
   previewButton.type = 'button'
@@ -3674,7 +3674,7 @@ function buildSfxRow(def: SfxRowDef): HTMLElement {
     const travel = document.createElement('button')
     travel.type = 'button'
     travel.className = 'sfx-delete'
-    travel.innerHTML = icon('muell')
+    travel.innerHTML = icon('trash')
     if (lockedBecause) {
       travel.disabled = true
       travel.title = lockedBecause
@@ -3691,7 +3691,7 @@ function buildSfxRow(def: SfxRowDef): HTMLElement {
         travel.innerHTML = '<span>Löschen?</span>'
         setTimeout(() => {
           travel.classList.remove('armed')
-          travel.innerHTML = icon('muell')
+          travel.innerHTML = icon('trash')
         }, 3000)
       })
     }
@@ -4168,7 +4168,7 @@ function renderTimeline(): void {
   }
 
   // — Fortbewegung: Bänder aus der Anzeige-Zerlegung (Segment-Modi + Grenzen) —
-  const travelModeLane = track('spur-wege')
+  const travelModeLane = track('lane-travel')
   const travelModeSegments = splitForDisplay(z.data.segments as EditorSegment[], z.edits, start)
   for (const b of buildBands(travelModeSegments, scale)) {
     const d = band(
@@ -4208,7 +4208,7 @@ function renderTimeline(): void {
   }
 
   // — Kamera: lückenlose Bänder; das Grundband zeigt „Preset des Zuschauers" —
-  const cameraLane = track('spur-kamera')
+  const cameraLane = track('lane-camera')
   const cameraBands = buildStateBands<CameraPreset | null>(
     (z.edits.camera ?? []).map((g) => ({ from: g.from, value: g.preset })),
     start,
@@ -4256,7 +4256,7 @@ function renderTimeline(): void {
   //   ermittelten (Open-Meteo + Foto-Verfeinerung); der erste Eingriff schreibt
   //   sie fest (schreibeWetterFest). Nur wenn nie gerendert wurde, bleibt das
   //   eine ehrliche Verlegenheit: „Automatisch" —
-  const weatherLane = track('spur-wetter')
+  const weatherLane = track('lane-weather')
   const weatherBoundaries = displayWeather()
   const hasOwnWeather = (z.edits.weather ?? []).length > 0
   const weatherBands = buildStateBands<WeatherMode | null>(
@@ -4310,7 +4310,7 @@ function renderTimeline(): void {
   // Als Marke ohne Länge verschwieg die Leiste, wie lange er klingt — dabei
   // spielt der Player die Datei ohnehin aus. Erst wenn die Datei noch nicht
   // gemessen ist, bleibt er der Pin, der er war.
-  const audioLane = track('spur-musik')
+  const audioLane = track('lane-music')
   measureAudioDurations()
   const audioClips = resolveAudioClips(z.edits.audio ?? [], start, scale, audioDurations)
   // Überlappende Klips stapeln sich in Unterzeilen — die Bahn wächst mit,
@@ -4339,7 +4339,7 @@ function renderTimeline(): void {
       continue
     }
     const clip = document.createElement('div')
-    clip.className = k.type === 'sfx' ? 'zl-klip effekt' : 'zl-klip'
+    clip.className = k.type === 'sfx' ? 'timeline-clip sfx' : 'timeline-clip'
     clip.style.top = `${AUDIO_LANE_TOP_PX + k.lane * AUDIO_LANE_PX}px`
     clip.style.left = pos(filmToFraction(scale, k.filmVon))
     clip.style.width = pos(
@@ -4494,7 +4494,7 @@ function buildMomentClip(from: string): HTMLElement {
   clip.type = 'button'
   clip.className = 'stop-clip moment'
   clip.dataset['role'] = 'moment-clip'
-  clip.dataset['ab'] = from
+  clip.dataset['from'] = from
 
   const content = document.createElement('span')
   content.className = 'inhalt'
@@ -4517,7 +4517,7 @@ function buildMomentClip(from: string): HTMLElement {
   // schneller Zug verlöre den schmalen Griff sonst an das Element darunter.
   clip.addEventListener('pointerdown', (ev) => {
     if (!z || ev.button !== 0 || tool !== 'select') return
-    const now = clip.dataset['ab'] ?? from
+    const now = clip.dataset['from'] ?? from
     if ((ev.target as HTMLElement).closest('.grip')) dragMomentDuration(ev, now)
     else dragMoment(ev, now)
   })
@@ -4532,7 +4532,7 @@ function writeMomentClip(
   totalS: number,
   selection: boolean,
 ): void {
-  el.dataset['ab'] = m.from
+  el.dataset['from'] = m.from
   el.style.left = pos(stop.filmVon / totalS)
   el.style.width = pos((stop.filmBis - stop.filmVon) / totalS)
   el.classList.toggle('selected', selection)
@@ -4565,7 +4565,7 @@ function buildClip(m: MediaView): HTMLElement {
   const info = document.createElement('span')
   info.className = 'info'
   info.append(document.createElement('b'), document.createElement('small'))
-  content.append(imageField(m, 'anfang'), info, imageField(m, 'ende'))
+  content.append(imageField(m, 'start'), info, imageField(m, 'end'))
   clip.appendChild(content)
 
   if (m.type === 'video') {
@@ -4607,7 +4607,7 @@ function buildClip(m: MediaView): HTMLElement {
 
 /** Kopf- bzw. Fußminiatur. Ohne Kachel UND ohne Poster bleibt ein Video leer —
  *  ein `img` mit der .mp4 als Quelle zeigte nur das Symbol für „kaputt". */
-function imageField(m: MediaView, where: 'anfang' | 'ende'): HTMLElement {
+function imageField(m: MediaView, where: 'start' | 'end'): HTMLElement {
   const field = document.createElement('span')
   field.className = `bild ${where}`
   if (m.type === 'video' && !m.thumb && !m.poster) return field
@@ -4934,7 +4934,7 @@ function dragMoment(e: PointerEvent, from: string): void {
     if (clip) clip.style.transform = `translateX(${(ev.clientX - startX).toFixed(1)}px)`
     showDragLabel(
       ev,
-      'ort',
+      'location',
       `${MOMENT_NAMES[m.kind]} · km ${kmText(metersToOffset(cumDistances, zz.track, targetS))} · ${clockTimeShort(offsetToIso(start, targetS))} Uhr`,
     )
   }
@@ -5018,8 +5018,9 @@ function dragClip(e: PointerEvent, id: string): void {
   const startS = offsetFrom(m)
   let moved = false
   let target:
-    { kind: 'reihe'; platz: number } | { kind: 'ort'; offsetS: number; dock: Stopp | null } | null =
-    null
+    | { kind: 'order'; slot: number }
+    | { kind: 'location'; offsetS: number; dock: Stopp | null }
+    | null = null
 
   const move = (ev: PointerEvent): void => {
     if (!moved && Math.abs(ev.clientX - startX) < DRAG_THRESHOLD_PX) return
@@ -5037,11 +5038,11 @@ function dragClip(e: PointerEvent, id: string): void {
       cursorFilm >= ownStop.filmVon &&
       cursorFilm <= ownStop.filmBis
     ) {
-      const platz = slotInChain(ownStop, cursorFilm)
-      target = { kind: 'reihe', platz: platz.slot }
+      const chainSlot = slotInChain(ownStop, cursorFilm)
+      target = { kind: 'order', slot: chainSlot.slot }
       if (clip) clip.style.transform = `translateX(${(ev.clientX - startX).toFixed(1)}px)`
-      showInsertMark(platz.filmS / total)
-      showDragLabel(ev, 'reihe', `Reihenfolge · Platz ${platz.slot + 1} von ${ownClip.count}`)
+      showInsertMark(chainSlot.filmS / total)
+      showDragLabel(ev, 'order', `Reihenfolge · Platz ${chainSlot.slot + 1} von ${ownClip.count}`)
       return
     }
     hideInsertMark()
@@ -5052,7 +5053,7 @@ function dragClip(e: PointerEvent, id: string): void {
     const dock = foreign?.items?.[0] ? (stoppVon(stops, foreign.items[0].id) ?? null) : null
     const free = dragTargetTime(dragAxis, startS, fraction - startFraction, total)
     const offsetS = dock ? dock.offsetS : Math.max(scale.fromS, Math.min(scale.toS, free))
-    target = { kind: 'ort', offsetS, dock }
+    target = { kind: 'location', offsetS, dock }
     if (clip) {
       // Angedockt springt der Klip an das Ende der fremden Kette — dorthin, wo
       // er beim Loslassen liegt. Sonst klebt er pixelgenau unterm Zeiger.
@@ -5064,7 +5065,7 @@ function dragClip(e: PointerEvent, id: string): void {
     }
     showDragLabel(
       ev,
-      'ort',
+      'location',
       dock
         ? `An den Halt „${dock.items[0]?.caption || 'ohne Titel'}" anschließen`
         : `Ort · km ${kmText(metersToOffset(cumDistances, zz.track, offsetS))} · ${clockTimeShort(offsetToIso(zz.data.time.start, offsetS))} Uhr`,
@@ -5091,9 +5092,9 @@ function dragClip(e: PointerEvent, id: string): void {
     }
     suppressClick = true
     z.selection = { kind: 'medium', id }
-    if (target.kind === 'reihe') {
+    if (target.kind === 'order') {
       const chain = (ownStop?.items ?? []).map((s) => s.id)
-      const follow = moveToSlot(chain, id, target.platz)
+      const follow = moveToSlot(chain, id, target.slot)
       // Zurück auf den eigenen Platz gelegt heißt: nichts ist geschehen.
       // `reiheVergeben` schriebe trotzdem ein neues Overlay — und der
       // Referenzvergleich in renderAlles machte daraus einen leeren
@@ -5149,7 +5150,7 @@ function hideInsertMark(): void {
 }
 
 /** Sagt am Zeiger, WAS der Zug gerade bedeutet — nicht erst beim Loslassen. */
-function showDragLabel(ev: PointerEvent, kind: 'reihe' | 'ort', text: string): void {
+function showDragLabel(ev: PointerEvent, kind: 'order' | 'location', text: string): void {
   let el = document.querySelector<HTMLElement>('.drag-label')
   if (!el) {
     el = document.createElement('div')
@@ -5509,8 +5510,8 @@ function showTimeOfDay(iso: string): void {
     : hour >= 8 && hour < 18
       ? ['tag', '#i-sun']
       : hour >= 6 && hour < 21
-        ? ['daemmerung', '#i-dusk']
-        : ['nacht', '#i-moon']
+        ? ['dusk', '#i-dusk']
+        : ['night', '#i-moon']
   // classList, NICHT className: Letzteres nimmt `readout-icon` mit weg — und mit ihr
   // Größe und Grundfarbe des Symbols.
   el.classList.remove('tag', 'dusk', 'night')
@@ -5909,7 +5910,7 @@ function timelineDrag(e: PointerEvent): void {
     drag.moved = true
     // Der Greif-Cursor gilt erst AB HIER: beim bloßen Draufdrücken sah man
     // sonst „Rand ziehen", obwohl man nur etwas auswählen wollte.
-    $('timeline-zone').classList.add(EDGE_ROLES.has(drag.role) ? 'zieht' : 'schiebt')
+    $('timeline-zone').classList.add(EDGE_ROLES.has(drag.role) ? 'dragging' : 'shifting')
   }
   const start = z.data.time.start
   const fraction = laneFraction(e.clientX)
@@ -6040,7 +6041,7 @@ function travelModesAroundEdge(
 function startEdgeDrag(target: HTMLElement, role: string): void {
   edgeDrag = null
   if (!z) return
-  const from = target.dataset['ab']
+  const from = target.dataset['from']
   const axis = currentAxis()
   const scale = buildScale(z.track)
   if (!from || !axis?.curve || !scale) return
@@ -6271,7 +6272,7 @@ function wireTimeline(): void {
     // KEIN Greif-Cursor beim bloßen Drücken — den setzt erst der echte Zug
     // (zeitleisteZug, from ZUG_SCHWELLE_PX).
     drag = { role, startX: e.clientX, moved: false, selection: bandUnderPointer(e) }
-    if (target.dataset['ab'] !== undefined) drag.from = target.dataset['ab']
+    if (target.dataset['from'] !== undefined) drag.from = target.dataset['from']
     if (target.dataset['mode']) drag.mode = target.dataset['mode'] as TravelMode
     if (target.dataset['preset']) drag.preset = target.dataset['preset'] as CameraPreset
     if (target.dataset['wettermode']) drag.weatherMode = target.dataset['wettermode'] as WeatherMode
@@ -6403,7 +6404,7 @@ function wireTimeline(): void {
   })
   $('tray-button').addEventListener('click', (e) => {
     e.stopPropagation()
-    if (openMenu?.dataset['ablage'] === '1') closeLaneMenu()
+    if (openMenu?.dataset['tray'] === '1') closeLaneMenu()
     else openTray()
   })
   // Klick daneben oder Esc schließt — ein Menü darf nie hängen bleiben.
@@ -6576,11 +6577,11 @@ function status(text: string, className = ''): void {
   // Symbol statisch, der TEXT über textContent — Meldungen tragen Dateinamen.
   el.innerHTML =
     className === 'ok'
-      ? icon('haken')
+      ? icon('check')
       : className === 'fehler'
         ? icon('x')
         : className === 'warnung'
-          ? icon('warnung')
+          ? icon('warning')
           : '<span class="spinner"></span>'
   const span = document.createElement('span')
   span.textContent = text
@@ -6950,8 +6951,8 @@ function showPhoto(id: string): void {
   const m = mediaDisplay().find((x) => x.id === id)
   if (!m) return
   shown = id
-  blink(withMediaId('.stop-clip', id), 'puls', 700)
-  blink(withMediaId('.media-punkt', id), 'puls', 1400)
+  blink(withMediaId('.stop-clip', id), 'pulse', 700)
+  blink(withMediaId('.media-dot', id), 'pulse', 1400)
 
   const sources = $('photo-sources')
   // Das GEMESSENE Seitenverhältnis, mit derselben Klemme wie im Player. Gemerkt
@@ -7282,7 +7283,7 @@ async function playToggle(): Promise<void> {
       setPlayhead: setPlayheadFraction,
       showTempo,
       pulseSound: (index) =>
-        blink(document.querySelector(`.timeline-sfx[data-index="${index}"]`), 'pling', 500),
+        blink(document.querySelector(`.timeline-sfx[data-index="${index}"]`), 'ping', 500),
     })
   }
   playback.toggle()

@@ -26,10 +26,10 @@ export interface NewMedium {
  * - `ort`  — sie trägt Koordinaten und sitzt sofort auf der Strecke.
  * - `zeit` — kein Ort, aber ihre Uhrzeit liegt in der Aufzeichnung: Die
  *            Zeit-Platzierung des Servers findet den Punkt.
- * - `ablage` — weder noch. Sie kommt ins Fach und bekommt dort von Hand
+ * - `tray` — weder noch. Sie kommt ins Fach und bekommt dort von Hand
  *            einen Platz; wegzulassen ist die zweite brauchbare Antwort.
  */
-export type Classification = 'ort' | 'zeit' | 'ablage'
+export type Classification = 'location' | 'time' | 'tray'
 
 export interface ClassifiedMedium extends NewMedium {
   classification: Classification
@@ -80,10 +80,10 @@ export function classify(media: readonly NewMedium[], tour: AddMediaTarget): Cla
       a.location &&
       (!tour.distanceToRoute || tour.distanceToRoute(a.location) <= MAX_DISTANCE_M)
     ) {
-      return { ...a, classification: 'ort' as const }
+      return { ...a, classification: 'location' as const }
     }
     const inside = Number.isFinite(a.timeMs) && a.timeMs >= tour.startMs && a.timeMs <= tour.endMs
-    return { ...a, classification: inside ? ('zeit' as const) : ('ablage' as const) }
+    return { ...a, classification: inside ? ('time' as const) : ('tray' as const) }
   })
 }
 
@@ -108,9 +108,9 @@ export function summarize(media: readonly NewMedium[], tour: AddMediaTarget): Ad
   const zeiten = classified.map((a) => a.timeMs).filter((t) => Number.isFinite(t))
   return {
     media: classified,
-    withLocation: classified.filter((a) => a.classification === 'ort').length,
-    afterTime: classified.filter((a) => a.classification === 'zeit').length,
-    inTray: classified.filter((a) => a.classification === 'ablage').length,
+    withLocation: classified.filter((a) => a.classification === 'location').length,
+    afterTime: classified.filter((a) => a.classification === 'time').length,
+    inTray: classified.filter((a) => a.classification === 'tray').length,
     totalBytes: classified.reduce((sum, a) => sum + a.size, 0),
     fromMs: Math.min(tour.startMs, ...(zeiten.length ? zeiten : [tour.startMs])),
     toMs: Math.max(tour.endMs, ...(zeiten.length ? zeiten : [tour.endMs])),
@@ -150,9 +150,9 @@ export function reportSentences(report: AddMediaReport): string[] {
 
 /** Kurzform der Einordnung für die Zeile (das, was in der Spalte steht). */
 export function classificationWord(classification: Classification): string {
-  return classification === 'ort'
+  return classification === 'location'
     ? 'Ort'
-    : classification === 'zeit'
+    : classification === 'time'
       ? 'nach Uhrzeit'
       : 'in die Ablage'
 }

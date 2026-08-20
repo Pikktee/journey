@@ -771,9 +771,9 @@ const VISIBILITY_NAMES: Record<string, string> = {
   public: 'Öffentlich',
 }
 const VISIBILITY_ICONS: Record<string, string> = {
-  private: 'schloss',
-  unlisted: 'schloss-offen',
-  public: 'welt',
+  private: 'lock',
+  unlisted: 'lock-open',
+  public: 'globe',
 }
 
 function date(iso: string): string {
@@ -871,7 +871,7 @@ function renderLibrary(): void {
   raster.className = 'grid'
   const next = document.createElement('button')
   next.className = 'new-thumbnail'
-  next.id = 'neu-kachel'
+  next.id = 'new-thumbnail'
   next.innerHTML = `${icon('upload')}<span class="h">Neue Tour</span><span class="n">Aufzeichnung und Fotos hierher ziehen, den Rest macht Maptale</span>`
   next.addEventListener('click', () => openNew())
   raster.appendChild(next)
@@ -940,10 +940,10 @@ function buildMap(t: api.TourListItem): HTMLElement {
         ${
           t.status === 'failed'
             ? '<span class="error-dot" title="Etwas ist schiefgelaufen, zum Öffnen klicken" aria-label="Fehler">!</span>'
-            : `<button class="sicht${t.visibility === 'public' ? ' oeffentlich' : ''}" data-visibility aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: ${VISIBILITY_NAMES[t.visibility] ?? t.visibility}">${icon(VISIBILITY_ICONS[t.visibility] ?? 'schloss')}<span>${VISIBILITY_NAMES[t.visibility] ?? t.visibility}</span></button>`
+            : `<button class="visibility${t.visibility === 'public' ? ' public' : ''}" data-visibility aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: ${VISIBILITY_NAMES[t.visibility] ?? t.visibility}">${icon(VISIBILITY_ICONS[t.visibility] ?? 'lock')}<span>${VISIBILITY_NAMES[t.visibility] ?? t.visibility}</span></button>`
         }
         ${t.status === 'ready' ? `<button class="pencil-button" data-film="${t.id}" aria-label="Als Video">${icon('film')}<span>Video</span></button>` : ''}
-        <button class="pencil-button" data-edit="${t.id}" aria-label="Bearbeiten">${icon('stift')}<span>Bearbeiten</span></button>
+        <button class="pencil-button" data-edit="${t.id}" aria-label="Bearbeiten">${icon('pencil')}<span>Bearbeiten</span></button>
       </div>`
 
   el.innerHTML = `${image}${grips}
@@ -998,10 +998,10 @@ function buildRow(t: api.TourListItem): HTMLElement {
       ${
         busy
           ? '<span class="visibility-pill">entsteht</span>'
-          : `<span class="sichtpille${t.visibility === 'public' ? ' oeffentlich' : ''}">${VISIBILITY_NAMES[t.visibility] ?? t.visibility}</span>
+          : `<span class="visibility-pill${t.visibility === 'public' ? ' public' : ''}">${VISIBILITY_NAMES[t.visibility] ?? t.visibility}</span>
              ${t.status === 'ready' ? `<button class="action" data-play>${icon('play')}Abspielen</button><button class="action" data-film aria-label="Als Video">${icon('film')}Video</button>` : ''}
-             <button class="action" data-edit aria-label="Bearbeiten">${icon('stift')}</button>
-             <button class="action gefahr" data-delete aria-label="Tour löschen" title="Tour löschen">${icon('muell')}</button>`
+             <button class="action" data-edit aria-label="Bearbeiten">${icon('pencil')}</button>
+             <button class="action gefahr" data-delete aria-label="Tour löschen" title="Tour löschen">${icon('trash')}</button>`
       }
     </div>`
   el.querySelector('[data-play]')?.addEventListener('click', () => playTour(t.id))
@@ -1017,11 +1017,11 @@ function buildRow(t: api.TourListItem): HTMLElement {
 async function deleteTwoStep(button: HTMLButtonElement, id: string): Promise<void> {
   if (!button.dataset['scharf']) {
     button.dataset['scharf'] = '1'
-    button.innerHTML = `${icon('muell')}Wirklich löschen?`
+    button.innerHTML = `${icon('trash')}Wirklich löschen?`
     setTimeout(() => {
       if (!button.isConnected || !button.dataset['scharf']) return
       delete button.dataset['scharf']
-      button.innerHTML = icon('muell')
+      button.innerHTML = icon('trash')
     }, 3500)
     return
   }
@@ -1127,7 +1127,7 @@ function openVisibilityMenu(map: HTMLElement, t: api.TourListItem): void {
   menu.className = 'visibility-menu'
   const level = (value: string, title: string, explanation: string): string => `
     <button data-value="${value}" role="menuitemradio" aria-checked="${String(t.visibility === value)}">
-      ${icon(VISIBILITY_ICONS[value] ?? 'schloss')}<span>${title}<em>${explanation}</em></span>${icon('haken', 'haken')}
+      ${icon(VISIBILITY_ICONS[value] ?? 'lock')}<span>${title}<em>${explanation}</em></span>${icon('check', 'check')}
     </button>`
   menu.innerHTML = `
     <div class="header-row">Wer darf mitfahren?</div>
@@ -1419,7 +1419,7 @@ function renderNew(): void {
     return
   }
 
-  // Erst der Inhalt, dann das Wachsen: die Klasse `wachst` lässt den Befund
+  // Erst der Inhalt, dann das Wachsen: die Klasse `growing` lässt den Befund
   // EINMAL mit dem Fenster aufsteigen (siehe setzeFenstergroesse).
   const raster = document.createElement('div')
   raster.className = 'new-grid'
@@ -1463,13 +1463,13 @@ function buildPreview(b: ImportReport): HTMLElement {
       const p = proj.image[index]
       if (!p) return ''
       const withoutLocation = !a.location && !b.track
-      return `<circle class="marke${withoutLocation ? ' ohne-ort' : ''}" cx="${p[0]}" cy="${p[1]}" r="2.1"><title>Aufnahme ${i + 1}</title></circle>`
+      return `<circle class="marke${withoutLocation ? ' no-location' : ''}" cx="${p[0]}" cy="${p[1]}" r="2.1"><title>Aufnahme ${i + 1}</title></circle>`
     })
     .join('')
   const start = proj.image[0] as [number, number]
   const end = proj.image[proj.image.length - 1] as [number, number]
   el.innerHTML = `<svg viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <path class="linie${b.track ? '' : ' geraten'}" d="${escape(proj.d)}"/>
+      <path class="line${b.track ? '' : ' guessed'}" d="${escape(proj.d)}"/>
       ${marks}
       <circle class="start" cx="${start[0]}" cy="${start[1]}" r="2.6"/>
       <circle class="ending" cx="${end[0]}" cy="${end[1]}" r="2.6"/>
@@ -1494,9 +1494,9 @@ function buildData(b: ImportReport): HTMLElement {
     <h3 class="estimated">${b.track ? 'Die Orte benennt Maptale beim Bauen' : 'Eine Tour aus deinen Fotos'}</h3>
     <div class="numbers">
       ${number('route', 'Strecke', km ? `${String(km).replace('.', ',')} km` : '–')}
-      ${number('uhr', 'Unterwegs', spanMs > 0 ? durationText(spanMs) : '–')}
-      ${number('kalender', b.track ? 'Aufgezeichnet' : 'Aufgenommen', spanMs > 0 ? `${tag} · ${clock(fromMs)}–${clock(toMs)}` : '–')}
-      ${number('kamera', 'Kamerafahrt', b.ready ? `≈ ${durationText(estimateRideS(km, b.media.length) * 1000)}` : '–')}
+      ${number('clock', 'Unterwegs', spanMs > 0 ? durationText(spanMs) : '–')}
+      ${number('calendar', b.track ? 'Aufgezeichnet' : 'Aufgenommen', spanMs > 0 ? `${tag} · ${clock(fromMs)}–${clock(toMs)}` : '–')}
+      ${number('camera', 'Kamerafahrt', b.ready ? `≈ ${durationText(estimateRideS(km, b.media.length) * 1000)}` : '–')}
     </div>`
   const messages = document.createElement('div')
   messages.className = 'messages'

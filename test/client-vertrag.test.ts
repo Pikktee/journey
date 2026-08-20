@@ -260,3 +260,96 @@ describe('Vertragswerte im Markup', () => {
     ).toEqual([])
   })
 })
+
+// ————————————————————————————————————————————————————————————————
+// 4. DOM-NAMEN AUS EINER GEBAUTEN WELLE
+// ————————————————————————————————————————————————————————————————
+//
+// Welle 4 hat die ids und Klassen des Studios umbenannt — HTML, CSS und TS im
+// selben Commit. Wächter 2 sieht dabei nur `$('…')`. Er hat deshalb NICHT
+// gemeldet, dass `track('spur-wege')` (ein modul-eigener Helfer), `icon('haken')`,
+// `number('uhr')` und ein halbes Dutzend zusammengesetzter Klassenlisten
+// (`'sfx-row' + (playing ? ' spielt' : '')`) weiter auf Namen zeigten, die es
+// nicht mehr gibt. Wirkung: Die Zeitleiste blieb leer, weil `track` ein
+// Element suchte, das anders heißt — 967 Tests waren grün.
+//
+// Die Regel ist eng gefasst, damit sie nicht in deutsche PRODUKTTEXTE greift:
+// Verglichen wird die GANZE Zeichenkette gegen den Ist-Namen (ein Satz ist nie
+// `spur-wege`), und zusätzlich Token für Token, aber nur in Zeichenketten, die
+// in einem Klassen-Kontext stehen.
+
+/** Ist-Namen von ids und Klassen aus gebauten Wellen. */
+function veralteteDomNamen(): Map<string, string> {
+  const nach = new Map<string, string>()
+  const [, ...zeilen] = lies('docs/specs/abbildungstabelle.tsv').trim().split('\n')
+  for (const zeile of zeilen) {
+    const [ist, ziel, art, , welle] = zeile.split('\t')
+    if (!ist || !ziel || (art !== 'dom-id' && art !== 'css-klasse')) continue
+    if (welle === undefined || !GEBAUTE_WELLEN.has(welle) || ist === ziel) continue
+    nach.set(ist, ziel)
+  }
+  return nach
+}
+
+/**
+ * Wörter, die im Studio-Code etwas ANDERES bedeuten als die gleichnamige
+ * Klasse — jedes ist der Fall, für den die Tabelle eine Fundort-Spalte hat.
+ * Wer hier etwas ergänzt, prüft vorher, ob es wirklich nie ins DOM geht.
+ */
+const KEINE_DOM_NAMEN = new Set([
+  'ablage', // Einordnung einer nachgereichten Aufnahme (add-media.ts)
+  'ort', // dieselbe Einordnung
+  'zeit', // dieselbe Einordnung; zugleich ein placement-Wert
+  'manuell', // deutsches LABEL zu placement `manual` (UI-Text, wandert nicht)
+  'unplatziert', // dasselbe für `unplaced`
+  'raster', // MapLibre-Layertyp und die gespeicherte Ansicht der Bibliothek
+  'liste', // die andere Ansicht
+  'fokus', // id einer MapLibre-Quelle, kein DOM
+  'neu', // Sortierung „neu zuerst"
+  'alt', // Sortierung „alt zuerst"
+  'hoch', // ExportLage aus exportformat.ts (Welle 5)
+  'laeuft', // Zustand einer Export-Meldung (Welle 5)
+  'bereit', // KartenSchichtStand aus kartenschicht.ts (Welle 5)
+  'ohne-ort', // MessageType des Upload-Befunds
+  'ausserhalb', // derselbe
+])
+
+describe('DOM-Namen im Client-Code', () => {
+  const studioDateien = dateien('src/studio', ['.ts'])
+
+  it('kein Modul nennt eine id oder Klasse, die es nicht mehr gibt', () => {
+    const alt = veralteteDomNamen()
+    expect(alt.size, 'keine id-/Klassen-Zeilen gefunden — steht die Tabelle noch?').toBeGreaterThan(
+      100,
+    )
+    const verdacht: string[] = []
+    for (const datei of studioDateien) {
+      const s = lies(datei)
+      for (const m of s.matchAll(/'([^'\n]*)'|`([^`\n]*)`/g)) {
+        const roh = m[1] ?? m[2] ?? ''
+        const zeile = (): number => s.slice(0, m.index).split('\n').length
+        const melde = (tok: string): void => {
+          if (KEINE_DOM_NAMEN.has(tok)) return
+          verdacht.push(`${datei}:${zeile()} nennt "${tok}" — es heißt "${alt.get(tok)!}"`)
+        }
+        // (a) die ganze Zeichenkette: `track('spur-wege')`, `icon('haken')`
+        if (alt.has(roh.trim()) && roh.trim() === roh) melde(roh)
+        // (b) Token in einer Klassenliste — dort und nur dort ist ein Wort mit
+        //     Leerzeichen davor ein Klassenname und kein Satzanfang.
+        else if (/(?:className\s*[=:]|classList\.\w+\(|class=")/.test(zeileText(s, m.index ?? 0)))
+          for (const tok of roh.split(/\s+/)) if (tok && alt.has(tok)) melde(tok)
+      }
+    }
+    expect(
+      verdacht,
+      'Diese Namen zeigen ins Leere: das Element wird nicht gefunden oder die Regel greift nicht.',
+    ).toEqual([])
+  })
+})
+
+/** Die Quellzeile um `index` — für die Kontextprüfung der Klassenlisten. */
+function zeileText(s: string, index: number): string {
+  const a = s.lastIndexOf('\n', index) + 1
+  const b = s.indexOf('\n', index)
+  return s.slice(a, b < 0 ? undefined : b)
+}

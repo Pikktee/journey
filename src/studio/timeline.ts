@@ -44,7 +44,7 @@ export interface TimeScale {
  * Die Rechnung selbst steht in [src/filmachse.ts](../filmachse.ts) und ist mit
  * dem Player geteilt; hier liegt der ADAPTER, den der Editor dafür braucht:
  * `tS`/`mM` sind parallel (je Stützpunkt seine Aufnahmezeit und sein
- * Streckenmeter), `kern` ist die Achse darüber.
+ * Streckenmeter), `core` ist die Achse darüber.
  *
  * Warum diese Zerlegung: Der Editor verankert alles in AUFNAHMEZEIT (Medien,
  * Ton-Klips, Zustandsgrenzen — trim-stabil, so begründet es die Spec), die
@@ -63,7 +63,7 @@ export interface AxisCurve {
   /** Filmzeit der ganzen Achse inkl. Halte */
   totalS: number
   /**
-   * Filmsekunde, bei der `kern` beginnt. Null für die ganze Achse; das
+   * Filmsekunde, bei der `core` beginnt. Null für die ganze Achse; das
    * Zug-FENSTER einer Fortbewegungs-Grenze (`buildBoundaryCurve`) sitzt dagegen
    * mitten im Film und rechnet trotzdem in absoluten Filmsekunden.
    */
@@ -274,7 +274,7 @@ export interface AudioBar {
   index: number
   type: 'music' | 'sfx'
   from: number
-  /** bei sfx gleich `von` */
+  /** bei sfx gleich `from` */
   to: number
   file: string
   /**

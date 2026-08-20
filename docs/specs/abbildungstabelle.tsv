@@ -3569,3 +3569,9 @@ breite	width	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026
 hoehe	height	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
 hoeheM	elevationM	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
 datum	date	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+export-hinter	film-export-backdrop	dom-id	src/studio/export-sheet.ts	4	NACHTRAG 2026-08-21 (Welle 4): Rückwand des Export-Blatts, in JS erzeugt; Familie film-export- wie die übrigen
+ort	location	union-wert	src/studio/add-media.ts (Classification)	4	NACHTRAG 2026-08-21 (Welle 4): Wert baut die Klasse .add-row.<x>
+zeit	time	union-wert	src/studio/add-media.ts (Classification)	4	NACHTRAG 2026-08-21 (Welle 4): Wert baut die Klasse .add-row.<x>
+ablage	tray	union-wert	src/studio/add-media.ts (Classification)	4	NACHTRAG 2026-08-21 (Welle 4): Wert baut die Klasse .add-row.tray
+reihe	order	union-wert	src/studio/editor.ts (Zug-Etikett)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, kein DOM
+ort	location	union-wert	src/studio/editor.ts (Zug-Etikett)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, kein DOM

@@ -37,15 +37,15 @@ describe('ordneEin', () => {
   it('Ort schlägt Zeit — auch weit außerhalb der Aufzeichnung', () => {
     // Dieselbe Regel wie im Manifest: `anchor` gewinnt, die Zeit ist der Rückfall.
     const weit = medium({ location: [18.07, 59.33], timeMs: Date.parse('2020-01-01T00:00:00Z') })
-    expect(classify([weit], TOUR)[0]?.classification).toBe('ort')
+    expect(classify([weit], TOUR)[0]?.classification).toBe('location')
   })
 
   it('ohne Ort entscheidet die Uhrzeit über Strecke oder Ablage', () => {
     const drin = medium({ file: 'a.jpg', timeMs: Date.parse('2026-07-04T11:00:00Z') })
     const weit = medium({ file: 'b.jpg', timeMs: Date.parse('2026-07-05T11:00:00Z') })
     const [a, b] = classify([drin, weit], TOUR)
-    expect(a?.classification).toBe('zeit')
-    expect(b?.classification).toBe('ablage')
+    expect(a?.classification).toBe('time')
+    expect(b?.classification).toBe('tray')
   })
 
   it('kennt KEINE Toleranz um die Aufzeichnung — die Achse steht schon fest', () => {
@@ -54,14 +54,14 @@ describe('ordneEin', () => {
     // doch in der Ablage endet.
     const knappDavor = medium({ timeMs: TOUR.startMs - 60000 })
     const knappDrin = medium({ timeMs: TOUR.startMs + 60000 })
-    expect(classify([knappDavor], TOUR)[0]?.classification).toBe('ablage')
-    expect(classify([knappDrin], TOUR)[0]?.classification).toBe('zeit')
+    expect(classify([knappDavor], TOUR)[0]?.classification).toBe('tray')
+    expect(classify([knappDrin], TOUR)[0]?.classification).toBe('time')
   })
 
   it('eine GERATENE Zeit im Fenster reicht — sie ist meist die richtige', () => {
     // Datei-Datum statt EXIF: bei Dateien direkt von der Kamera stimmt es.
     const guessed = medium({ timeGuessed: true, timeMs: Date.parse('2026-07-04T09:30:00Z') })
-    expect(classify([guessed], TOUR)[0]?.classification).toBe('zeit')
+    expect(classify([guessed], TOUR)[0]?.classification).toBe('time')
   })
 
   it('ein GPS-Anker far der Strecke sitzt NICHT auf ihr', () => {
@@ -81,16 +81,16 @@ describe('ordneEin', () => {
       location: [18.097, 59.33],
       timeMs: Date.parse('2019-01-01T00:00:00Z'),
     })
-    expect(classify([near], target)[0]?.classification).toBe('ort')
-    expect(classify([far], target)[0]?.classification).toBe('zeit')
-    expect(classify([farNoTime], target)[0]?.classification).toBe('ablage')
+    expect(classify([near], target)[0]?.classification).toBe('location')
+    expect(classify([far], target)[0]?.classification).toBe('time')
+    expect(classify([farNoTime], target)[0]?.classification).toBe('tray')
   })
 
   it('ohne bekannte Strecke bleibt der Anker gültig', () => {
     // Die Abstandsfunktion ist optional — ohne sie gilt die alte, großzügige
     // Regel (so verhält es sich beim Anlegen, wo die Strecke erst entsteht).
     const far = medium({ location: [0, 0] })
-    expect(classify([far], TOUR)[0]?.classification).toBe('ort')
+    expect(classify([far], TOUR)[0]?.classification).toBe('location')
     expect(distanceFunction([[18.07, 59.33]])).toBeUndefined()
   })
 
@@ -157,9 +157,9 @@ describe('befundSaetze', () => {
 
 describe('Anzeige-Helfer', () => {
   it('benennt die Einordnung so, wie sie in der Zeile steht', () => {
-    expect(classificationWord('ort')).toBe('Ort')
-    expect(classificationWord('zeit')).toBe('nach Uhrzeit')
-    expect(classificationWord('ablage')).toBe('in die Ablage')
+    expect(classificationWord('location')).toBe('Ort')
+    expect(classificationWord('time')).toBe('nach Uhrzeit')
+    expect(classificationWord('tray')).toBe('in die Ablage')
   })
 
   it('klemmt den Streifen-Anteil, statt Punkte zu verlieren', () => {

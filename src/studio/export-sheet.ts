@@ -68,7 +68,7 @@ function $(sel: string, root: ParentNode = document): HTMLElement {
 function buildSheet(): HTMLElement {
   const el = document.createElement('div')
   el.className = 'new-backdrop'
-  el.id = 'export-hinter'
+  el.id = 'film-export-backdrop'
   el.hidden = true
   el.innerHTML = `
     <div class="new-window film-export-window" role="dialog" aria-modal="true" aria-labelledby="export-titel">
@@ -226,7 +226,7 @@ function paintPreview(tour: ExportSheetTour): void {
   }
   if (track) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    svg.setAttribute('class', 'export-spur')
+    svg.setAttribute('class', 'film-export-track')
     svg.setAttribute('viewBox', '-6 -6 112 112')
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
     svg.setAttribute('aria-hidden', 'true')
@@ -242,7 +242,7 @@ function paintPreview(tour: ExportSheetTour): void {
   // sind Teil des Films, und der Balken zählt später gegen dieselbe Zahl.
   // Ohne bekannte Filmlänge lieber nichts als eine geratene — sie ist die
   // Erwartung an Dateigröße und Wartezeit (Altbestand bekommt sie beim
-  // nächsten Rendern, wie `spur` und `fotos`).
+  // nächsten Rendern, wie `track` und `photos`).
   const clipS = filmS && filmS > 0 ? clipDauerS(filmS, tour.finale === true) : 0
   $('#film-export-subtitle', backdrop).textContent = title
   duration.hidden = !(clipS > 0)
