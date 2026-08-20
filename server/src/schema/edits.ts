@@ -15,7 +15,7 @@ const AUDIO_DATEI_REGEX = new RegExp(AUDIO_FILE_PATTERN)
 
 /**
  * Reglerstellung eines Ton-Klips ohne eigenen Wert. Der Studio-Abspieler hört
- * genau damit vor (`TON_PEGEL_VORGABE` in src/studio/editmodell.ts, Drift-Wächter
+ * genau damit vor (`TON_PEGEL_VORGABE` in src/studio/edit-model.ts, Drift-Wächter
  * in test/studio-baukasten.test.ts), und `enrich.ts` schreibt sie ins Tour-JSON:
  * Der Player kennt die Vorgabe sonst nicht und spielte mit 1.0 — der Film wäre
  * lauter als der Schnitt.
@@ -97,7 +97,7 @@ export interface CameraBoundary {
  *   mit, wenn sich Standzeiten oder die Fortbewegung ändern; vorher war er das
  *   einzige Element, das liegen blieb.
  *
- * Aufwertung nach dem Muster von `materialisiereModi`/`schreibeWetterFest`:
+ * Aufwertung nach dem Muster von `materializeTravelModes`/`writeWeatherFixed`:
  * Das Studio schreibt die neuen Felder beim ersten Eingriff fest, der Render
  * bevorzugt sie, `ab`/`bis` bleiben als Fallback lesbar. Bestands-Overlays
  * ohne die neuen Felder rendern unverändert (Vertragstest).

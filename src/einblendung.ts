@@ -22,7 +22,7 @@
  *
  * Die Zahl hat zwei erzwungene Spiegel, die sie nicht importieren können —
  * `STOP_ENGINE_S` in server/src/pipeline/filmtempo.ts (eigener `rootDir`) und
- * in src/studio/zeitleiste.ts (kein `tour.ts`-Import, s. o.). Beide werden
+ * in src/studio/timeline.ts (kein `tour.ts`-Import, s. o.). Beide werden
  * gegen DIESE Datei bewacht.
  */
 export const HOLD_HIDE = 5.2
@@ -40,7 +40,7 @@ export const HOLD_AUSBLEND = 0.8
  * Player UND Editor gleich (Konzept, Falle 4).
  *
  * Der Editor legt für seinen Video-SCHNITT noch eine Klemme darum
- * (`mediumHoldS` in src/studio/zeitleiste.ts); die Regel darunter ist diese.
+ * (`mediumHoldS` in src/studio/timeline.ts); die Regel darunter ist diese.
  */
 export function standzeitS(m: {
   type?: 'photo' | 'video'

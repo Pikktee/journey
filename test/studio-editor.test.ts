@@ -1,4 +1,4 @@
-// Editor-Modell (M7): reine Logik des Studio-Editors (src/studio/editmodell.ts).
+// Editor-Modell (M7): reine Logik des Studio-Editors (src/studio/edit-model.ts).
 // Die Karten-/DOM-Verdrahtung (editor.ts) läuft im Browser-E2E, nicht hier.
 
 import { describe, expect, it } from 'vitest'
@@ -19,7 +19,7 @@ import {
   type EditorSegment,
   type MediaBase,
   type TrackPoint,
-} from '../src/studio/editmodell'
+} from '../src/studio/edit-model'
 
 const START = '2026-07-04T08:00:00Z'
 const iso = (s: number): string => offsetToIso(START, s)

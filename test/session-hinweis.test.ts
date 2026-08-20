@@ -28,15 +28,15 @@ describe('session-hinweis', () => {
   it('hält Inline-Script und Modul auf demselben Cookie-Namen', () => {
     const html = readFileSync(join(wurzel, 'studio.html'), 'utf8')
     expect(html).toContain(`${SESSION_HINWEIS_COOKIE}=`)
-    expect(html).toContain('studio-dabei')
-    expect(html).toContain('html.studio-dabei #studio-boot')
+    expect(html).toContain('studio-signed-in')
+    expect(html).toContain('html.studio-signed-in #studio-boot')
     // Der Vorgriff übersteuert `[hidden]` — aber NUR bis `zeige()` die
-    // Sichtbarkeit selbst übernimmt (`studio-gesteuert`). Ohne diese Grenze
+    // Sichtbarkeit selbst übernimmt (`studio-controlled`). Ohne diese Grenze
     // galt das !important die ganze Sitzung, und die Bibliothek stand beim
     // Öffnen des Editors sichtbar über der Karte.
-    expect(html).toContain('html.studio-dabei:not(.studio-gesteuert) #app-view')
+    expect(html).toContain('html.studio-signed-in:not(.studio-controlled) #app-view')
     const studio = readFileSync(join(wurzel, 'src/studio/studio.ts'), 'utf8')
-    expect(studio).toMatch(/classList\.add\('studio-gesteuert'\)/)
+    expect(studio).toMatch(/classList\.add\('studio-controlled'\)/)
     // Editor-Deep-Link darf die Bibliothek nicht früh erzwingen
     expect(html).toMatch(/URLSearchParams\(location\.search\)\.get\('edit'\)/)
     expect(html).toMatch(/dabei && !\(edit && edit\.length > 0\)/)

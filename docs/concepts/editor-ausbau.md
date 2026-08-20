@@ -49,7 +49,7 @@ klingen nach Kamera), aber die beiden tragen verschiedene Grammatik:
 Ein Moment ist damit kein Kamera-Attribut, sondern ein **Halt** — grammatikalisch näher
 am Foto-Stopp als am Kamera-Abstand. Eine Bahn, die gleichzeitig durchgehend gefüllt ist
 *und* Pins trägt, hätte auf ~28 px Höhe drei Trefferarten (Band, Kante, Pin) — genau die
-Ecke, in der wir schon einmal gestolpert sind (`bandUnterZeiger`/`elementsFromPoint`).
+Ecke, in der wir schon einmal gestolpert sind (`bandUnderPointer`/`elementsFromPoint`).
 Und das Löschen wäre nicht mehr vorhersehbar: beim Band füllt der Nachbar auf, beim Pin
 ist er weg.
 
@@ -130,7 +130,7 @@ beim Wetter: eine Vorgabe, punktuelle Korrektur.
 **Was daran hängt** — beiläufige Fotos halten nicht an:
 
 - `estimateAnimationDuration` muss sie anders zählen (sonst lügt die Zahl unter den Bahnen),
-- der Studio-Abspieler ([abspielen.ts](../../src/studio/abspielen.ts)) braucht einen zweiten
+- der Studio-Abspieler ([playback.ts](../../src/studio/playback.ts)) braucht einen zweiten
   Halt-Typ ohne Standzeit,
 - die Engine braucht eine Overlay-Ebene, die **während** `phase === 'ride'` läuft — heute
   ist jedes Foto an `phase === 'photo'` gekoppelt,

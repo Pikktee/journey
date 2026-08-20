@@ -16,7 +16,7 @@
 // dieselbe Interpolations-Konvention (Plateau → Ankunft).
 //
 // **Gerechnet wird über die STRECKE, die Anker bleiben Aufnahmezeit** — genau
-// wie im Editor (src/studio/zeitleiste.ts, `baueAchse`). Das ist seit E12 keine
+// wie im Editor (src/studio/timeline.ts, `baueAchse`). Das ist seit E12 keine
 // Wahl mehr: Die Rampen sind eine Form über einer STRECKE, über der Aufnahmeuhr
 // ließen sie sich nicht ausdrücken. Aufnahmezeit ↔ Filmzeit geht deshalb in
 // zwei Schritten, über den Adapter `tS`/`mM`.
@@ -66,7 +66,7 @@ function meterZwischen(a: { lng: number; lat: number }, b: { lng: number; lat: n
  * Lineare Interpolation mit lower_bound-Konvention.
  *
  * Bei doppelten Stützstellen (Halt) liefert sie den LINKEN Wert — die Ankunft.
- * Dieselbe Konvention wie `interpoliere` in src/studio/zeitleiste.ts; eine
+ * Dieselbe Konvention wie `interpoliere` in src/studio/timeline.ts; eine
  * andere Wahl verschöbe jeden Anker, der genau auf einer Halt-Zeit sitzt, um
  * die ganze Standzeit.
  */
@@ -337,7 +337,7 @@ export function recordingTimeAtFilmTime(achse: FilmAxis, filmS: number): number 
  * Gemessen wird auf die STRECKE zwischen zwei Stützpunkten, nicht auf den
  * nächsten Stützpunkt — auf einem grob abgetasteten Track (Alpen-Serpentinen,
  * 30-s-Raster) liegen die Punkte weit auseinander, und ein Halt spränge sonst
- * um mehrere Sekunden. Spiegel von `projiziereAufTrack` (editmodell.ts).
+ * um mehrere Sekunden. Spiegel von `projiziereAufTrack` (edit-model.ts).
  */
 export function projectOntoTimeSeries(
   reihe: TimeSeries,

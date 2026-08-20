@@ -4,7 +4,7 @@
 // MP3s werden eingecheckt, damit die App zur Laufzeit keinen Key/kein Netz
 // braucht. Aufruf: node scripts/gen-sfx-library.mjs
 //
-// Der Katalog (Anzeige + Dateinamen) liegt in src/studio/sfxbibliothek.ts; die
+// Der Katalog (Anzeige + Dateinamen) liegt in src/studio/sfx-library.ts; die
 // Prompts hier. Ein Drift-Wächter (test/studio-baukasten.test.ts) hält die
 // Dateinamen beider Seiten synchron — CLIPS wird dafür exportiert.
 import fs from 'fs'
@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 const OUT = path.join(ROOT, 'public', 'audio', 'sfx')
 
-// name = Dateiname OHNE .mp3 (muss zu sfxbibliothek.ts datei passen); loop=true
+// name = Dateiname OHNE .mp3 (muss zu sfx-library.ts datei passen); loop=true
 // fordert einen nahtlos schleifenbaren Clip an (Umgebungs-Atmosphären).
 export const CLIPS = [
   // — Umgebung (Loops) —

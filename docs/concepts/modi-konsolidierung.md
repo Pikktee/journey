@@ -28,9 +28,9 @@ Voraussetzung für den Ausbau der Modus-Liste in
 | 3 | [map.js:483](../../src/map.ts#L483) | `MODE_ICONS` — SVG-Markup des Fahrer-Markers |
 | 4 | [studio.html](../../studio.html) | `<symbol id="i-m-*">` — **dieselben Icons ein zweites Mal** (6 Symbole) |
 | 5 | [vehicle.js:11](../../src/vehicle.ts#L11) | `MODE_SOUND` — Motorloop-Dateiname |
-| 6 | [editmodell.ts:17](../../src/studio/editmodell.ts#L17) | `MODI` + `type Modus` — Kopie der Server-Liste |
-| 7 | [editor.ts:95](../../src/studio/editor.ts#L95) | `MODUS_NAMEN` — Anzeigenamen |
-| 8 | [editor.ts:104](../../src/studio/editor.ts#L104) | `MODUS_FARBEN` — Bandfarben der Zeitleiste |
+| 6 | [edit-model.ts:17](../../src/studio/edit-model.ts#L17) | `MODI` + `type Modus` — Kopie der Server-Liste |
+| 7 | [editor.ts:95](../../src/studio/editor.ts#L95) | `TRAVEL_MODE_NAMES` — Anzeigenamen |
+| 8 | [editor.ts:104](../../src/studio/editor.ts#L104) | `TRAVEL_MODE_COLORS` — Bandfarben der Zeitleiste |
 
 **Außerhalb des Webs — 2 Stellen:**
 
@@ -113,10 +113,10 @@ export const MODI = Object.keys(MODUS) as (keyof typeof MODUS)[]
 export type Modus = keyof typeof MODUS
 ```
 
-**Falle — Reihenfolge:** `MODI` in [editmodell.ts:17](../../src/studio/editmodell.ts#L17)
+**Falle — Reihenfolge:** `MODI` in [edit-model.ts:17](../../src/studio/edit-model.ts#L17)
 (`walk, bike, moped, …`) und in [upload.ts:13](../../server/src/schema/upload.ts#L13)
 (`walk, moped, bike, …`) stehen heute **unterschiedlich**. Maßgeblich für die neue
-Tabelle ist die Reihenfolge von `MODUS_NAMEN` — sie steuert die Auswahl-Listen
+Tabelle ist die Reihenfolge von `TRAVEL_MODE_NAMES` — sie steuert die Auswahl-Listen
 (`Object.entries`). Der Wächter muss deshalb **sortiert** vergleichen (tut er bereits).
 
 **Falle — Werte übernehmen, nicht neu erfinden:** Die Zahlen oben sind aus dem Ist-Stand
@@ -138,11 +138,11 @@ und bricht den Tempo-Faktor-Test.
 
 ### Schritt 5: Studio umstellen
 
-- **[editmodell.ts:17-19](../../src/studio/editmodell.ts#L17)** — `MODI` und `type Modus`
+- **[edit-model.ts:17-19](../../src/studio/edit-model.ts#L17)** — `MODI` und `type Modus`
   löschen, aus `modi.ts` re-exportieren (damit die vielen Importe in `editor.ts` und den
   Tests unverändert bleiben). `WEATHER_MODES` bleibt unangetastet — das ist ein eigenes
   Thema mit eigenem Wächter.
-- **[editor.ts:95-111](../../src/studio/editor.ts#L95)** — `MODUS_NAMEN` und `MODUS_FARBEN`
+- **[editor.ts:95-111](../../src/studio/editor.ts#L95)** — `TRAVEL_MODE_NAMES` und `TRAVEL_MODE_COLORS`
   löschen; die vier Verwendungsstellen (Zeilen ~1184, ~1637, ~3034, ~3059) auf
   `MODUS[m].name` / `MODUS[m].farbe` umstellen.
 

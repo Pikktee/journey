@@ -1,7 +1,7 @@
 // Die RECHENREGELN der 3D-Foto-Pins — DOM-frei, GL-frei, unter Vitest getestet.
 // [photopins.ts](photopins.ts) enthält nur noch Three.js- und MapLibre-Verdrahtung; alles,
 // was man ohne Karte prüfen kann (Zustände, Detailstufen-Fenster, Blende, Maßstab), liegt
-// hier. Dieselbe Arbeitsteilung wie im Studio (editmodell.ts / editor.ts).
+// hier. Dieselbe Arbeitsteilung wie im Studio (edit-model.ts / editor.ts).
 
 /** Fortschritts-Zustand eines Foto-Stopps — Sprache der Timeline und der 2D-Layer. */
 export type PinZustand = 'kommend' | 'naechster' | 'besucht'

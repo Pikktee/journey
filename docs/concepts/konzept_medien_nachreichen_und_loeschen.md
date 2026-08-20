@@ -38,7 +38,7 @@ eigentliche Produktwert.
   unveränderlich (`immutable`-Cache-Header der Auslieferung).
 - Das Manifest wird beim Anlegen der Tour geschrieben und danach nie mehr angefasst
   (Android-CLAUDE: „Manifest unveränderlich"). Die Medien-IDs vergibt der Client.
-- „Löschen" existiert nur als Overlay-Flag `edits.medien[id].geloescht`
+- „Löschen" existiert nur als Overlay-Flag `edits.medien[id].removed`
   ([server/src/schema/edits.ts](../../server/src/schema/edits.ts)): Medium aus der
   Wiedergabe nehmen, **die Rohdatei bleibt liegen** — und zählt weiter aufs Quota.
 

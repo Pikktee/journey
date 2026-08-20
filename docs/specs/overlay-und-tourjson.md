@@ -127,12 +127,12 @@ das Überstimmen stehen könnte.
   dann ein „diesmal wirklich keine Musik"-Flag, also doch wieder ein Overlay.
 - **Auto-Wetter** bleibt dagegen im Tour-JSON, bis jemand eingreift: Der Editor
   bekommt es über `/api/tours/:id/editor` als `autoWeather` nur zur Anzeige und
-  schreibt es erst beim ersten eigenen Eingriff fest (`schreibeWetterFest`).
+  schreibt es erst beim ersten eigenen Eingriff fest (`writeWeatherFixed`).
   Grund: `edits.weather` ersetzt das Auto-Wetter der ganzen Tour vollständig —
   ohne dieses Festschreiben würde eine einzelne Korrektur den Rest der Tour
   schlagartig gleichmachen.
 
-Dasselbe Muster trägt `materialisiereModi` bei der Fortbewegung: Die vom Server
+Dasselbe Muster trägt `materializeTravelModes` bei der Fortbewegung: Die vom Server
 erkannten Gehabschnitte werden erst dann zu echten Grenzen im Overlay, wenn
 jemand die erste davon anfasst.
 

@@ -19,7 +19,7 @@
      V3  Editor-Panel                    — was passiert, wenn man nachgibt
 
    BEFUNDE AUS DEM CODE (keine Annahmen):
-   · `edits.titelbild` gibt es (src/studio/editmodell.ts:164), der Server
+   · `edits.titelbild` gibt es (src/studio/edit-model.ts:164), der Server
      respektiert es (server/src/pipeline/enrich.ts `bestimmeCover`) — aber
      GESETZT wird es heute nur von der Android-App
      (android/.../upload/EditsFortschreibung.kt:34). Im Web existiert keine
@@ -497,7 +497,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
         </tr>
         <tr>
           <td>Gelöschte Medien</td>
-          <td><code>editmodell.ts:364</code> räumt ein <code>titelbild</code> auf, das ins Leere zeigt</td>
+          <td><code>edit-model.ts:364</code> räumt ein <code>titelbild</code> auf, das ins Leere zeigt</td>
           <td class="ja">bereits gelöst</td>
         </tr>
       </tbody>

@@ -4,12 +4,12 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  baueUploadManifest,
-  exifDatumZuMs,
-  gpxPunktAnzahl,
-  gpxZeitspanne,
-  isoMitZone,
-  medientyp,
+  buildUploadManifest,
+  exifDateToMs,
+  gpxPointCount,
+  gpxTimeSpan,
+  isoWithZone,
+  mediaType,
 } from '../src/studio/upload'
 
 const GPX = `<gpx><trk><trkseg>
@@ -20,41 +20,41 @@ const GPX = `<gpx><trk><trkseg>
 
 describe('gpxZeitspanne / gpxPunktAnzahl', () => {
   it('liefert früheste und späteste Trackpunkt-Zeit', () => {
-    const s = gpxZeitspanne(GPX)
+    const s = gpxTimeSpan(GPX)
     expect(s?.startMs).toBe(Date.parse('2026-07-04T08:00:00Z'))
     expect(s?.endMs).toBe(Date.parse('2026-07-04T09:15:00Z'))
-    expect(gpxPunktAnzahl(GPX)).toBe(3)
+    expect(gpxPointCount(GPX)).toBe(3)
   })
 
   it('gibt null ohne Zeitstempel', () => {
-    expect(gpxZeitspanne('<gpx><trkpt lat="1" lon="2"></trkpt></gpx>')).toBeNull()
+    expect(gpxTimeSpan('<gpx><trkpt lat="1" lon="2"></trkpt></gpx>')).toBeNull()
   })
 
   it('parst nicht-backtrackend und verlangt eine echte Spanne (Review-Funde)', () => {
     // 100k unvollständige Tags → keine Zeiten → null (linear, kein O(N²)-Hängen)
-    expect(gpxZeitspanne(`<gpx>${'<trkpt lat="1" lon="2">'.repeat(100_000)}</gpx>`)).toBeNull()
+    expect(gpxTimeSpan(`<gpx>${'<trkpt lat="1" lon="2">'.repeat(100_000)}</gpx>`)).toBeNull()
     // zwei identische Zeiten → keine Spanne → null (verhindert start == end → 400)
     const gleich =
       '<gpx><trkpt lat="1" lon="2"><time>2026-07-04T08:00:00Z</time></trkpt>' +
       '<trkpt lat="1" lon="2"><time>2026-07-04T08:00:00Z</time></trkpt></gpx>'
-    expect(gpxZeitspanne(gleich)).toBeNull()
+    expect(gpxTimeSpan(gleich)).toBeNull()
   })
 })
 
 describe('medientyp', () => {
   it('unterscheidet Foto/Video/unbekannt', () => {
-    expect(medientyp('IMG.JPG')).toBe('photo')
-    expect(medientyp('clip.mov')).toBe('video')
-    expect(medientyp('clip.mp4')).toBe('video')
-    expect(medientyp('notiz.txt')).toBeNull()
+    expect(mediaType('IMG.JPG')).toBe('photo')
+    expect(mediaType('clip.mov')).toBe('video')
+    expect(mediaType('clip.mp4')).toBe('video')
+    expect(mediaType('notiz.txt')).toBeNull()
   })
 })
 
 describe('isoWithZone / exifDatumZuMs', () => {
   it('formatiert mit Zonen-Offset', () => {
-    expect(isoMitZone(Date.parse('2026-07-04T08:00:00Z'), 'UTC')).toBe('2026-07-04T08:00:00+00:00')
+    expect(isoWithZone(Date.parse('2026-07-04T08:00:00Z'), 'UTC')).toBe('2026-07-04T08:00:00+00:00')
     // Sommerzeit Berlin = +02:00
-    expect(isoMitZone(Date.parse('2026-07-04T06:00:00Z'), 'Europe/Berlin')).toBe(
+    expect(isoWithZone(Date.parse('2026-07-04T06:00:00Z'), 'Europe/Berlin')).toBe(
       '2026-07-04T08:00:00+02:00',
     )
   })
@@ -62,22 +62,22 @@ describe('isoWithZone / exifDatumZuMs', () => {
   it('lässt Sub-Sekunden-Reste nicht in den Zonen-Offset lecken (M7-Fund)', () => {
     // file.lastModified kann Bruchteile tragen → ohne Rundung wurde daraus
     // ein kaputter Offset wie „+01:59.99335…"
-    expect(isoMitZone(Date.parse('2026-07-04T06:00:00Z') + 0.4, 'Europe/Berlin')).toBe(
+    expect(isoWithZone(Date.parse('2026-07-04T06:00:00Z') + 0.4, 'Europe/Berlin')).toBe(
       '2026-07-04T08:00:00+02:00',
     )
   })
 
   it('deutet zonenlose EXIF-Zeit in der Tour-Zone', () => {
     const d = { y: 2026, mo: 7, d: 4, hh: 8, mm: 0, ss: 0 }
-    expect(exifDatumZuMs(d, 'UTC')).toBe(Date.parse('2026-07-04T08:00:00Z'))
+    expect(exifDateToMs(d, 'UTC')).toBe(Date.parse('2026-07-04T08:00:00Z'))
     // 08:00 Berliner Sommerzeit = 06:00 UTC
-    expect(exifDatumZuMs(d, 'Europe/Berlin')).toBe(Date.parse('2026-07-04T06:00:00Z'))
+    expect(exifDateToMs(d, 'Europe/Berlin')).toBe(Date.parse('2026-07-04T06:00:00Z'))
   })
 })
 
 describe('baueUploadManifest', () => {
   it('baut ein trackFile-Manifest mit Zeit und Medien', () => {
-    const m = baueUploadManifest({
+    const m = buildUploadManifest({
       clientTourId: 'studio:tour.gpx:123',
       title: 'Mein Tag',
       zeitspanne: {

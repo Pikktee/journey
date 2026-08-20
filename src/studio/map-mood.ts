@@ -16,7 +16,7 @@
 // Beim ABSPIELEN läuft dagegen ein Film in Echtzeit vorwärts, und dort sind
 // Partikel und Klang genau richtig — das Abspielen ist die Schnittprüfung, und
 // wer prüft, soll hören und sehen, was der Player später zeigt. Deshalb hängt
-// das Overlay an `setLauf` und schweigt sonst. Dieselbe Regel wie beim Video im
+// das Overlay an `setRunning` und schweigt sonst. Dieselbe Regel wie beim Video im
 // Editor, das ebenfalls nur bei Tempo 1 läuft.
 //
 // Ein erster Anlauf hängte die Partikel dauerhaft hinein, und alles, was daran
@@ -45,25 +45,25 @@ import {
 // Bewusst der Studio-Typ und nicht der aus `autoweather.ts`: Was hier ankommt,
 // sind die Grenzen aus dem Edit-Overlay bzw. dem Auto-Wetter des Servers, und
 // die tragen genau diese Liste (`WEATHER_MODES`, gewacht gegen das Server-Schema).
-import type { WeatherMode } from './editmodell.js'
+import type { WeatherMode } from './edit-model.js'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 
 /** Neutral: kein Grading. Der Zustand, in den „Tag/Nacht aus" zurückfällt. */
 const NEUTRAL: Rastergrading = { brightnessMax: 1, brightnessMin: 0, saturation: 0, contrast: 0 }
 
-export interface Wetterstand {
+export interface WeatherState {
   mode: WeatherMode
   intensity?: number
 }
 
-export interface Kartenstimmung {
+export interface MapMood {
   /**
    * Die Stimmung am Abspielkopf setzen. Aufzurufen, wo auch das Foto und die
    * Kartenposition nachziehen — eine FUNKTION der Kopfposition, kein Ereignis.
    */
-  setze(zeitIso: string, ort: [number, number], weather: Wetterstand | null): void
-  setTagNacht(an: boolean): void
-  setWetter(an: boolean): void
+  set(timeIso: string, location: [number, number], weather: WeatherState | null): void
+  setDayNight(on: boolean): void
+  setWeather(on: boolean): void
   /**
    * Läuft der Film gerade — und mit welchem Tempo?
    *
@@ -71,7 +71,7 @@ export interface Kartenstimmung {
    * brauchen eine vorwärts laufende Echtzeit, und die gibt es nur beim
    * Abspielen bei Tempo 1. Dieselbe Regel wie beim Video im Editor.
    */
-  setLauf(tempo: number): void
+  setRunning(tempo: number): void
   /**
    * Liegt gerade eine Foto-Karte auf der Bühne?
    *
@@ -79,32 +79,29 @@ export interface Kartenstimmung {
    * `.photo-backdrop` (Schleier plus Weichzeichner über der ganzen Szene) —
    * hier genügt die Deckkraft, denn die Karte darunter bleibt Arbeitsfläche.
    */
-  setFoto(liegt: boolean): void
+  setPhoto(lies: boolean): void
   /** Beim Schließen der Tour: Bildschleife, Klänge und Canvas zurücknehmen. */
-  zerstoere(): void
-  readonly tagNachtAn: boolean
-  readonly wetterAn: boolean
+  destroy(): void
+  readonly dayNightOn: boolean
+  readonly weatherOn: boolean
 }
 
 /**
- * @param karte  die Editor-Karte
+ * @param map  die Editor-Karte
  * @param layer  Raster-Layer, der gegradet wird (im Editor `sat`, im Player hieße er `satellite`)
- * @param buehne Element, in das der Schleier gehängt wird (die Kartenbühne)
+ * @param stage Element, in das der Schleier gehängt wird (die Kartenbühne)
  */
-export function erzeugeKartenstimmung(
-  karte: MapLibreMap,
-  layer: string,
-  buehne: HTMLElement,
-): Kartenstimmung {
-  let tagNacht = false
-  let wetterAn = false
+export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElement): MapMood {
+  let dayNight = false
+  let weatherOn = false
   // Zuletzt GESETZTE Werte — der Vergleich hält die Paint-Aufrufe draußen.
-  let gesetzt: Rastergrading | null = null
-  let letzterSchleier = ''
+  let set: Rastergrading | null = null
+  let lastScrim = ''
   // Letzter bekannter Stand, damit ein Schalter sofort greift statt erst beim
   // nächsten Kopfschritt: Wer „Wetter an" drückt und nichts sieht, drückt noch
   // einmal.
-  let stand: { zeitIso: string; ort: [number, number]; weather: Wetterstand | null } | null = null
+  let state: { timeIso: string; location: [number, number]; weather: WeatherState | null } | null =
+    null
 
   /**
    * Der Schleier ist ein DIV, kein Canvas.
@@ -128,46 +125,46 @@ export function erzeugeKartenstimmung(
    * Editor, das ebenfalls nur bei Tempo 1 läuft und sonst schweigt.
    */
   let partikel: Wetteroverlay | null = null
-  let laeuft = false
-  const holePartikel = (): Wetteroverlay => {
+  let running = false
+  const getParticles = (): Wetteroverlay => {
     if (!partikel) {
-      partikel = createWeather(buehne)
+      partikel = createWeather(stage)
       // Das Overlay fragt selbst, ob es zeichnen darf — so bringt es seine
       // eigene Blende ins Standbild mit, statt hart zu stoppen.
-      partikel.setGate(() => laeuft)
-      partikel.setSoundEnabled(laeuft)
+      partikel.setGate(() => running)
+      partikel.setSoundEnabled(running)
     }
     return partikel
   }
 
-  let schleierEl: HTMLElement | null = null
-  const holeSchleier = (): HTMLElement => {
-    if (!schleierEl) {
-      schleierEl = document.createElement('div')
-      schleierEl.className = 'karten-schleier'
-      schleierEl.setAttribute('aria-hidden', 'true')
-      buehne.appendChild(schleierEl)
+  let scrimEl: HTMLElement | null = null
+  const getScrim = (): HTMLElement => {
+    if (!scrimEl) {
+      scrimEl = document.createElement('div')
+      scrimEl.className = 'map-scrim'
+      scrimEl.setAttribute('aria-hidden', 'true')
+      stage.appendChild(scrimEl)
     }
-    return schleierEl
+    return scrimEl
   }
 
-  const gradiere = (g: Rastergrading): void => {
+  const grade = (g: Rastergrading): void => {
     if (
-      gesetzt &&
-      gesetzt.brightnessMax === g.brightnessMax &&
-      gesetzt.brightnessMin === g.brightnessMin &&
-      gesetzt.saturation === g.saturation &&
-      gesetzt.contrast === g.contrast
+      set &&
+      set.brightnessMax === g.brightnessMax &&
+      set.brightnessMin === g.brightnessMin &&
+      set.saturation === g.saturation &&
+      set.contrast === g.contrast
     ) {
       return
     }
     // Der Layer fehlt, solange der Stil lädt — dann ist auch nichts zu graden.
-    if (!karte.getLayer(layer)) return
-    karte.setPaintProperty(layer, 'raster-brightness-max', g.brightnessMax)
-    karte.setPaintProperty(layer, 'raster-brightness-min', g.brightnessMin)
-    karte.setPaintProperty(layer, 'raster-saturation', g.saturation)
-    karte.setPaintProperty(layer, 'raster-contrast', g.contrast)
-    gesetzt = g
+    if (!map.getLayer(layer)) return
+    map.setPaintProperty(layer, 'raster-brightness-max', g.brightnessMax)
+    map.setPaintProperty(layer, 'raster-brightness-min', g.brightnessMin)
+    map.setPaintProperty(layer, 'raster-saturation', g.saturation)
+    map.setPaintProperty(layer, 'raster-contrast', g.contrast)
+    set = g
   }
 
   /**
@@ -181,43 +178,43 @@ export function erzeugeKartenstimmung(
    * heller statt dunkler, weil ein helles Grau über einer dunklen Landschaft
    * aufhellt.
    */
-  const wetterBild = (w: Wetterstand | null): { schnee: number; bild: Wettergrading } => {
-    const modus: SzenenWetter = (wetterAn && w ? w.mode : 'off') as SzenenWetter
-    const s = schleierFuer(modus, w?.intensity ?? 0.7)
+  const weatherImage = (w: WeatherState | null): { snow: number; image: Wettergrading } => {
+    const travelMode: SzenenWetter = (weatherOn && w ? w.mode : 'off') as SzenenWetter
+    const s = schleierFuer(travelMode, w?.intensity ?? 0.7)
     // Zwei Farbflächen übereinander plus, bei Nebel, ein weicher Verlauf von
     // den Rändern her — dieselbe Reihenfolge wie im Player (`wash` über `dark`).
-    const nebel =
+    const fog =
       s.nebel > 0
         ? `, radial-gradient(120% 100% at 50% 50%, rgba(226,232,240,${(0.1 * s.nebel).toFixed(3)}) 0%, rgba(226,232,240,${(0.42 * s.nebel).toFixed(3)}) 100%)`
         : ''
-    const bild =
-      modus === 'off'
+    const image =
+      travelMode === 'off'
         ? ''
-        : `linear-gradient(${s.wasch}, ${s.wasch}), linear-gradient(${s.schatten}, ${s.schatten})${nebel}`
-    if (bild !== letzterSchleier) {
+        : `linear-gradient(${s.wasch}, ${s.wasch}), linear-gradient(${s.schatten}, ${s.schatten})${fog}`
+    if (image !== lastScrim) {
       // Erst bauen, wenn wirklich etwas zu zeigen ist — wer das Wetter nie
       // einschaltet, bekommt auch kein Element in den DOM.
-      if (bild || schleierEl) {
-        const el = holeSchleier()
-        el.style.backgroundImage = bild
-        el.hidden = !bild
+      if (image || scrimEl) {
+        const el = getScrim()
+        el.style.backgroundImage = image
+        el.hidden = !image
       }
-      letzterSchleier = bild
+      lastScrim = image
     }
     // Die Partikel bekommen dieselbe Lage. Gebaut wird das Overlay erst, wenn
     // tatsächlich abgespielt wird: Wer nur schneidet, bekommt weder Canvas noch
     // Klang-Loops. `clouds`/`fog` haben dort ohnehin keine Tropfen — für sie
     // bleibt es beim Schleier, und das ist richtig so.
-    if (partikel || (laeuft && modus !== 'off')) {
-      const o = holePartikel()
-      if (o.mode !== modus) o.setMode(modus)
-      if (modus !== 'off') o.setIntensity(w?.intensity ?? 0.7)
+    if (partikel || (running && travelMode !== 'off')) {
+      const o = getParticles()
+      if (o.mode !== travelMode) o.setMode(travelMode)
+      if (travelMode !== 'off') o.setIntensity(w?.intensity ?? 0.7)
     }
-    return { schnee: s.schnee, bild: bildwirkung(modus, w?.intensity ?? 0.7) }
+    return { snow: s.schnee, image: bildwirkung(travelMode, w?.intensity ?? 0.7) }
   }
 
   /** Wetter auf ein fertiges Grading legen — Licht mal Faktor, Farbe minus Abzug. */
-  const mitWetter = (g: Rastergrading, b: Wettergrading): Rastergrading => ({
+  const withWeather = (g: Rastergrading, b: Wettergrading): Rastergrading => ({
     brightnessMax: +Math.max(0, Math.min(1, g.brightnessMax * b.helligkeit)).toFixed(3),
     brightnessMin: g.brightnessMin,
     // Die Sättigung ist bei MapLibre auf [-1, 1] geklemmt; ohne die Klemme
@@ -227,70 +224,70 @@ export function erzeugeKartenstimmung(
     contrast: g.contrast,
   })
 
-  const anwenden = (): void => {
-    if (!stand) return
-    const { schnee, bild } = wetterBild(stand.weather)
-    if (tagNacht) {
+  const apply = (): void => {
+    if (!state) return
+    const { snow, image } = weatherImage(state.weather)
+    if (dayNight) {
       // Der Sonnenstand hängt an Datum UND Ort — deshalb beides. Die
       // Stunden-Heuristik des Uhr-Symbols reicht hier nicht: Sie kennt weder
       // die Jahreszeit noch den Breitengrad, und auf der Karte sähe man den
       // Unterschied sofort (Mitternachtssonne gegen Polarnacht).
-      const sonne = sunPosition(new Date(stand.zeitIso), stand.ort[1], stand.ort[0])
-      gradiere(mitWetter(rastergrading(paramsAt(sonne.altitude), schnee), bild))
+      const sun = sunPosition(new Date(state.timeIso), state.location[1], state.location[0])
+      grade(withWeather(rastergrading(paramsAt(sun.altitude), snow), image))
     } else {
       // Ohne Tageszeit-Regie trotzdem Schneedecke und Wetter-Grading: Beide
       // gehören zum WETTER, nicht zum Licht. Volles Tageslicht als Grundlage —
       // genau das, was „Tageszeit aus" bedeutet.
-      const TAG = { br: 1, sat: 0, con: 0, li: 0.4, sky: '', hor: '', fog: '', lc: '' }
-      gradiere(mitWetter(rastergrading(TAG, schnee), bild))
+      const DAY = { br: 1, sat: 0, con: 0, li: 0.4, sky: '', hor: '', fog: '', lc: '' }
+      grade(withWeather(rastergrading(DAY, snow), image))
     }
   }
 
   return {
-    setze(zeitIso, ort, w) {
-      stand = { zeitIso, ort, weather: w }
-      anwenden()
+    set(timeIso, location, w) {
+      state = { timeIso, location, weather: w }
+      apply()
     },
-    setTagNacht(an) {
-      if (an === tagNacht) return
-      tagNacht = an
-      anwenden()
+    setDayNight(on) {
+      if (on === dayNight) return
+      dayNight = on
+      apply()
     },
-    setWetter(an) {
-      if (an === wetterAn) return
-      wetterAn = an
-      // Ausschalten heißt auch: keine Tropfen mehr. `anwenden` setzt das
-      // Overlay über `wetterBild` auf 'off', der Rest klingt von selbst aus.
-      anwenden()
+    setWeather(on) {
+      if (on === weatherOn) return
+      weatherOn = on
+      // Ausschalten heißt auch: keine Tropfen mehr. `apply` setzt das
+      // Overlay über `weatherImage` auf 'off', der Rest klingt von selbst aus.
+      apply()
     },
-    setLauf(tempo) {
-      const neu = tempo === 1
-      if (neu === laeuft) return
-      laeuft = neu
-      partikel?.setSoundEnabled(neu)
+    setRunning(tempo) {
+      const next = tempo === 1
+      if (next === running) return
+      running = next
+      partikel?.setSoundEnabled(next)
       // Die Klasse steuert die Sichtbarkeit (CSS blendet über 900 ms), das Gate
       // im Overlay hält danach das Zeichnen an. Beides zusammen: Der Übergang
       // ist weich UND die Schleife läuft nicht weiter, während man schneidet.
-      buehne.classList.toggle('wetter-laeuft', neu)
-      // Das Gate liest `laeuft` selbst; ein Aufruf von `anwenden` baut das
+      stage.classList.toggle('weather-running', next)
+      // Das Gate liest `running` selbst; ein Aufruf von `apply` baut das
       // Overlay nach, falls gerade zum ersten Mal abgespielt wird.
-      anwenden()
+      apply()
     },
-    setFoto(liegt) {
-      buehne.classList.toggle('foto-liegt', liegt)
+    setPhoto(lies) {
+      stage.classList.toggle('photo-visible', lies)
     },
-    zerstoere() {
+    destroy() {
       partikel?.zerstoere()
       partikel = null
-      schleierEl?.remove()
-      schleierEl = null
-      buehne.classList.remove('wetter-laeuft', 'foto-liegt')
+      scrimEl?.remove()
+      scrimEl = null
+      stage.classList.remove('weather-running', 'photo-visible')
     },
-    get tagNachtAn() {
-      return tagNacht
+    get dayNightOn() {
+      return dayNight
     },
-    get wetterAn() {
-      return wetterAn
+    get weatherOn() {
+      return weatherOn
     },
   }
 }

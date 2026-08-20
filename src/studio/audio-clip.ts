@@ -28,13 +28,13 @@
 // Alles hier ist DOM-frei und unter Vitest getestet; die Verdrahtung (Ziehen,
 // Wellenform, Inspector) liegt in editor.ts.
 
-import { isoToOffset, offsetToIso, type AudioEntry } from './editmodell.js'
+import { isoToOffset, offsetToIso, type AudioEntry } from './edit-model.js'
 import {
   filmTimeAtRecordingTime,
   filmToOffset,
   recordingTimeAtFilmTime,
   type TimelineAxis,
-} from './zeitleiste.js'
+} from './timeline.js'
 
 /** Kürzester Klip in Filmsekunden — darunter ist er nicht mehr zu greifen. */
 export const AUDIO_MIN_S = 0.2
@@ -355,7 +355,7 @@ export function setLoop(
 /**
  * Die Filmlage eines Klips unverändert festschreiben — die Aufwertung.
  *
- * Muster von `materializeTravelModes`/`schreibeWetterFest`, mit einem Unterschied:
+ * Muster von `materializeTravelModes`/`writeWeatherFixed`, mit einem Unterschied:
  * Dort MUSS die ganze Stufenfunktion auf einmal fest werden, weil eine einzelne
  * neue Grenze die späteren Abschnitte mitrisse. Ton-Klips sind dagegen
  * unabhängige Objekte — festgeschrieben wird nur der, den man anfasst. Alle
@@ -388,13 +388,13 @@ export function commitAudioClip(
  *
  * GERECHNET WIRD IN ANTEILEN DER GANZEN ACHSE, nicht in Pixeln. Das ist keine
  * Geschmacksfrage: Zoomen baut die Bahnen NICHT neu, es schreibt nur
- * `--zeit-breite` fort (`setzeMassstab`) — Klips und Marken folgen über
- * `calc(anteil * var(--zeit-breite))`. Feste Pixel hier blieben auf dem
+ * `--timeline-width` fort (`setScale`) — Klips und Marken folgen über
+ * `calc(anteil * var(--timeline-width))`. Feste Pixel hier blieben auf dem
  * Maßstab stehen, der beim letzten Render galt: Die Wellenform behielt ihre
  * Größe und endete nach dem Hineinzoomen weit vor dem Klip. Als Anteil
  * ausgedrückt skaliert der Browser sie mit, ohne dass etwas neu gebaut wird.
  *
- * Bezug ist `totalFilmS`, weil genau dafür `--zeit-breite` steht
+ * Bezug ist `totalFilmS`, weil genau dafür `--timeline-width` steht
  * (`timeWidthPx` = totalFilmS × pxProFilmS — und zwar in genau dem Fall, in
  * dem eine Filmsekunde überhaupt existiert; ohne Kurve fällt die Breite auf
  * die Fensterbreite zurück, und dann gibt es hier nichts zu zeichnen).

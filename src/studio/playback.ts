@@ -8,7 +8,7 @@
 //
 // Gerechnet wird in ANTEILEN 0..1 der Zeitleisten-Achse — derselben Größe, in
 // der die ganze Leiste denkt. Wie schnell die Marke darüberläuft, sagt die
-// FILMKURVE (zeitleiste.ts): je Achsenstück so viel Zeit, wie der fertige
+// FILMKURVE (timeline.ts): je Achsenstück so viel Zeit, wie der fertige
 // Film dort braucht. Eine konstante Rate hing hier minutenlang in realen
 // Pausen — die haben viel Aufnahmezeit, aber keine Strecke, und der Film
 // fährt nach Strecke.
@@ -35,11 +35,11 @@ import {
   videoMusikDuck,
   type DuckPegel,
 } from '../audiotracks.js'
-import { fractionAt, filmAt, type FilmCurve } from './zeitleiste.js'
+import { fractionAt, filmAt, type FilmCurve } from './timeline.js'
 
 /** Musik-Bereich auf der Zeitachse. */
-export interface MusikKlip {
-  von: number
+export interface MusicClip {
+  from: number
   to: number
   url: string
   volume: number
@@ -50,10 +50,10 @@ export interface MusikKlip {
 }
 
 /** Klang, der beim Überfahren einmal auslöst. */
-export interface KlangMarke {
+export interface SoundCue {
   /** Index im Overlay-Array — der Editor lässt seine Marke damit pulsen */
   index: number
-  anteil: number
+  fraction: number
   url: string
   volume: number
   /** Einstieg in die DATEI (s, linker Trim); fehlt = Dateianfang */
@@ -61,32 +61,32 @@ export interface KlangMarke {
 }
 
 /** Alles, was eine Wiedergabe braucht — beim Start einmal eingesammelt. */
-export interface Spielplan {
+export interface PlaybackPlan {
   /** Startposition (Anteil 0..1) */
-  marke: number
-  /** Achsen-Anteil ↔ Filmsekunden der Wiedergabe (zeitleiste.ts, buildPlaybackCurve) */
-  kurve: FilmCurve
-  musik: MusikKlip[]
-  klaenge: KlangMarke[]
+  playhead: number
+  /** Achsen-Anteil ↔ Filmsekunden der Wiedergabe (timeline.ts, buildPlaybackCurve) */
+  curve: FilmCurve
+  music: MusicClip[]
+  sounds: SoundCue[]
 }
 
 /** Laufender Zustand der Wiedergabe. */
-export interface SpielStand {
-  marke: number
+export interface PlaybackState {
+  playhead: number
   /** 0 = angehalten, 1 = normal, ±2 to ±8 = Schnelllauf (J/L wie in Final Cut) */
   tempo: number
 }
 
 /** Ergebnis eines Schritts. */
-export interface Schritt {
-  stand: SpielStand
+export interface Step {
+  state: PlaybackState
   /** Marke VOR dem Schritt — die Kante, an der Klänge auslösen */
-  vorher: number
+  before: number
   /** Streckenende in Laufrichtung erreicht */
   end: boolean
 }
 
-export const LEERER_STAND: SpielStand = { marke: 0, tempo: 0 }
+export const EMPTY_STATE: PlaybackState = { playhead: 0, tempo: 0 }
 
 /**
  * Ein Zeitschritt der Wiedergabe — rein, ohne Uhr und ohne DOM.
@@ -96,24 +96,24 @@ export const LEERER_STAND: SpielStand = { marke: 0, tempo: 0 }
  * sofort wieder an — der erste Frame hat dt = 0, die Marke bleibt 0 und träfe
  * die Bedingung „≤ 0".
  */
-export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
-  const alt = stand.marke
-  let m = fractionAt(plan.kurve, filmAt(plan.kurve, alt) + stand.tempo * dtS)
+export function tick(state: PlaybackState, dtS: number, plan: PlaybackPlan): Step {
+  const old = state.playhead
+  let m = fractionAt(plan.curve, filmAt(plan.curve, old) + state.tempo * dtS)
   // Richtungsklemme: Steht die Marke MITTEN in einem Plateau (dorthin
   // gescrubbt), liefert der Roundtrip den Plateau-Anfang — vorwärts darf sie
   // dadurch nie zurückspringen (erster Frame hat dt = 0), rückwärts nie vor.
-  if (stand.tempo > 0) m = Math.max(alt, m)
-  else if (stand.tempo < 0) m = Math.min(alt, m)
+  if (state.tempo > 0) m = Math.max(old, m)
+  else if (state.tempo < 0) m = Math.min(old, m)
   let end = false
-  if (stand.tempo > 0 && m >= 1) {
+  if (state.tempo > 0 && m >= 1) {
     m = 1
     end = true
-  } else if (stand.tempo < 0 && m <= 0) {
+  } else if (state.tempo < 0 && m <= 0) {
     m = 0
     end = true
   }
 
-  return { stand: { marke: m, tempo: stand.tempo }, vorher: alt, end }
+  return { state: { playhead: m, tempo: state.tempo }, before: old, end }
 }
 
 /**
@@ -125,8 +125,8 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
  * die gemeinsame Rechnung beider Bühnen, und der Player hat keine Filmkurve,
  * sondern eine Filmachse.
  */
-export function seitKlipbeginnS(anteil: number, klipVon: number, kurve: FilmCurve): number {
-  return Math.max(0, filmAt(kurve, anteil) - filmAt(kurve, klipVon))
+export function sinceClipStartS(fraction: number, clipFrom: number, curve: FilmCurve): number {
+  return Math.max(0, filmAt(curve, fraction) - filmAt(curve, clipFrom))
 }
 
 /**
@@ -137,38 +137,38 @@ export function seitKlipbeginnS(anteil: number, klipVon: number, kurve: FilmCurv
  * Klips, weil zwei Bereiche dieselbe Datei tragen können: die Identität ist
  * der Platz im Plan, nicht die URL.
  */
-export function klipsBei(musik: readonly MusikKlip[], anteil: number): number[] {
-  const indizes: number[] = []
-  musik.forEach((k, i) => {
-    if (anteil >= k.von && anteil < k.to) indizes.push(i)
+export function clipsAt(music: readonly MusicClip[], fraction: number): number[] {
+  const indexes: number[] = []
+  music.forEach((k, i) => {
+    if (fraction >= k.from && fraction < k.to) indexes.push(i)
   })
-  return indizes
+  return indexes
 }
 
 // — Der Abspieler: rAF-Schleife, Ton und Rückrufe in den Editor —
 
-export interface AbspielerOptionen {
+export interface PlaybackOptions {
   /** Plan einsammeln — bei jedem Start neu, das Overlay kann sich geändert haben */
-  hole: () => Spielplan | null
+  get: () => PlaybackPlan | null
   /** Marke setzen (Anteil 0..1): bewegt Kopfstrich, Kopf-Uhr und Läufer — und
    *  damit auch die Foto-Einblendung, die an der Kopfposition hängt. */
-  setzeMarke: (anteil: number) => void
+  setPlayhead: (fraction: number) => void
   /** Transportanzeige (Knopf-Symbol, Tempo-Chip) */
-  zeigeTempo: (tempo: number) => void
+  showTempo: (tempo: number) => void
   /** Klang-Marke in der Leiste pulsen lassen */
-  pulsKlang?: (index: number) => void
+  pulseSound?: (index: number) => void
 }
 
-export interface Abspieler {
+export interface Playback {
   /** Play ↔ Pause; am Ende angekommen, fängt Play wieder von vorn an */
-  umschalten: () => void
-  setzeTempo: (tempo: number) => void
-  halteAn: () => void
-  laeuft: () => boolean
+  toggle: () => void
+  setTempo: (tempo: number) => void
+  pause: () => void
+  running: () => boolean
   tempo: () => number
   /** Debug/E2E: welche Musik gerade läuft (die Elemente hängen nicht im DOM).
    *  `urls` listet ALLE laufenden Spuren — bei Überlappung mehr als eine. */
-  tonStand: () => { url: string | null; laeuft: boolean; urls: string[] }
+  audioState: () => { url: string | null; running: boolean; urls: string[] }
   /**
    * Video-Ton-Hülle 0..1 → Musik ducken, wie `AudioSpuren.setDucking` im Player.
    * Ohne sie liefe die Filmmusik im Editor unter dem Ton der Aufnahme ungedämpft
@@ -176,39 +176,39 @@ export interface Abspieler {
    * Abspielen prüfen. SFX werden wie im Player NICHT gedämpft: Ein Effekt, der
    * zur Szene gehört, soll nicht unter deren eigenem Ton wegtauchen.
    */
-  setzeDucking: (pegel: DuckPegel) => void
+  setDucking: (volume: DuckPegel) => void
   /** Alles verstummen und Elemente freigeben (Editor verlassen) */
-  schliesse: () => void
+  close: () => void
 }
 
-export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
-  let plan: Spielplan | null = null
-  let stand: SpielStand = { ...LEERER_STAND }
+export function createPlayback(options: PlaybackOptions): Playback {
+  let plan: PlaybackPlan | null = null
+  let state: PlaybackState = { ...EMPTY_STATE }
   let af: number | null = null
-  let letzteTs = 0
+  let lastTs = 0
 
   // Je Musik-Klip (Index im Plan) ein EIGENES Element — überlappende Bereiche
   // mischen sich damit wie im fertigen Film, statt einander zu verdrängen.
   // Elemente entstehen erst beim ersten Eintritt in ihren Bereich; eine Tour
   // ohne Musikspur legt keins an (die reine Logik bleibt ohne Browser prüfbar).
-  let musikElemente = new Map<number, HTMLAudioElement>()
+  let musicElements = new Map<number, HTMLAudioElement>()
 
   // Laufende Klänge merken, damit Pause sie WIRKLICH verstummen lässt — ein
   // angestoßener Donner klänge sonst nach dem Anhalten sekundenlang weiter.
-  let aktiveKlaenge: HTMLAudioElement[] = []
+  let activeSounds: HTMLAudioElement[] = []
 
   // Musik-Dämpfung unter laufendem Video-Ton (1 = ungedämpft). Anders als im
   // Player ohne Glättung: Dort läuft ein eigener 60-ms-Timer, hier kommt der
-  // Wert aus `synchronisiereBild` — also aus jedem Kopfschritt, und die Hülle
+  // Wert aus `syncImage` — also aus jedem Kopfschritt, und die Hülle
   // selbst ist schon die weiche Blende (videoTonHuelle über VIDEO_FADE_S).
   let duck = 1
 
   /** Pegel eines Klips inklusive Dämpfung — die EINE Stelle, die el.volume rechnet. */
-  const pegel = (klip: MusikKlip): number => Math.max(0, Math.min(1, klip.volume * duck))
+  const volume = (clip: MusicClip): number => Math.max(0, Math.min(1, clip.volume * duck))
 
-  function stoppeKlaenge(): void {
-    for (const el of musikElemente.values()) el.pause()
-    for (const a of aktiveKlaenge) {
+  function stopSounds(): void {
+    for (const el of musicElements.values()) el.pause()
+    for (const a of activeSounds) {
       a.pause()
       try {
         a.currentTime = 0
@@ -216,59 +216,59 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
         /* manche Formate lassen sich nicht zurückspulen — Pause genügt */
       }
     }
-    aktiveKlaenge = []
+    activeSounds = []
   }
 
-  function spieleMusik(anteil: number): void {
+  function playMusic(fraction: number): void {
     // Nur bei normaler Vorwärtsfahrt: im Schnelllauf oder rückwärts klänge sie
     // wie ein durchgedrehter Kassettenrekorder. Der Foto-Halt behält Tempo 1,
     // die Musik trägt also durch ihn hindurch.
-    const aktiv = plan && stand.tempo === 1 ? klipsBei(plan.musik, anteil) : []
-    const aktivSet = new Set(aktiv)
+    const active = plan && state.tempo === 1 ? clipsAt(plan.music, fraction) : []
+    const activeSet = new Set(active)
     // Verlassene Bereiche verstummen; die Position bleibt stehen (Weiterlaufen
     // im Bereich seekt unten ohnehin auf die Film-Position).
-    for (const [i, el] of musikElemente) {
-      if (!aktivSet.has(i) && !el.paused) el.pause()
+    for (const [i, el] of musicElements) {
+      if (!activeSet.has(i) && !el.paused) el.pause()
     }
     if (!plan) return
-    for (const i of aktiv) {
-      const klip = plan.musik[i]
-      if (!klip) continue
-      let el = musikElemente.get(i)
+    for (const i of active) {
+      const clip = plan.music[i]
+      if (!clip) continue
+      let el = musicElements.get(i)
       // Der Eintrag kann sich geändert haben, seit das Element entstand — die
       // Elemente überleben Pause und Neustart, der Plan wird bei jedem Start
       // frisch geholt. Ein getauschtes Stück braucht ein neues Element,
       // Lautstärke und Loop werden schlicht nachgezogen: Sonst klang der Klip
       // für den Rest der Sitzung mit dem Wert, den er beim ersten Play hatte
       // (am Regler hörte man die Änderung, im Abspielen nicht).
-      if (el && el.dataset['url'] !== klip.url) {
+      if (el && el.dataset['url'] !== clip.url) {
         el.pause()
         el.removeAttribute('src')
-        musikElemente.delete(i)
+        musicElements.delete(i)
         el = undefined
       }
       if (el) {
-        el.volume = pegel(klip)
-        el.loop = klip.loop ?? true
+        el.volume = volume(clip)
+        el.loop = clip.loop ?? true
       }
       if (!el) {
         el = new Audio()
-        el.loop = klip.loop ?? true
+        el.loop = clip.loop ?? true
         el.preload = 'none'
-        el.src = klip.url
-        el.dataset['url'] = klip.url // `el.src` ist absolut aufgelöst, der Plan trägt den rohen Verweis
-        el.volume = pegel(klip)
-        const kurve = plan.kurve
-        const beiEintritt = anteil
+        el.src = clip.url
+        el.dataset['url'] = clip.url // `el.src` ist absolut aufgelöst, der Plan trägt den rohen Verweis
+        el.volume = volume(clip)
+        const curve = plan.curve
+        const onEntry = fraction
         el.addEventListener(
           'loadedmetadata',
           () => {
             if (!el || !el.duration) return
             try {
               el.currentTime = musikVersatzS(
-                seitKlipbeginnS(beiEintritt, klip.von, kurve),
+                sinceClipStartS(onEntry, clip.from, curve),
                 el.duration,
-                klip.startS,
+                clip.startS,
                 el.loop,
               )
             } catch {
@@ -277,7 +277,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
           },
           { once: true },
         )
-        musikElemente.set(i, el)
+        musicElements.set(i, el)
         void el.play().catch(() => {
           /* Autoplay-Sperre: der Play-Knopf ist eine Geste, danach greift es */
         })
@@ -287,9 +287,9 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
         if (el.duration) {
           try {
             el.currentTime = musikVersatzS(
-              seitKlipbeginnS(anteil, klip.von, plan.kurve),
+              sinceClipStartS(fraction, clip.from, plan.curve),
               el.duration,
-              klip.startS,
+              clip.startS,
               el.loop,
             )
           } catch {
@@ -303,46 +303,46 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     }
   }
 
-  function pruefeKlaenge(vorher: number, nachher: number): void {
+  function checkSounds(before: number, after: number): void {
     if (!plan) return
     // Die Kante wird in FILMSEKUNDEN geprüft, nicht in Achsen-Anteilen (E10):
     // Die Schwelle, ab der ein Schritt als Sprung gilt, ist eine Frame-Zeit —
     // im Anteil hinge sie an der Länge der Tour, und dieselbe Geste feuerte in
     // einem kurzen Film anders als in einem langen. Der Umweg über die Kurve
     // ist zugleich der Grund, dass beide Bühnen dieselbe Zahl vergleichen.
-    const filmVorher = filmAt(plan.kurve, vorher)
-    const filmNachher = filmAt(plan.kurve, nachher)
-    for (const k of plan.klaenge) {
+    const filmBefore = filmAt(plan.curve, before)
+    const filmAfter = filmAt(plan.curve, after)
+    for (const k of plan.sounds) {
       // Dieselbe Regel wie im Player (audiotracks.ts): nur beim Vorwärts-
       // Überfahren, und ein Sprung „verbraucht" die Marke lautlos.
-      if (!sfxSollFeuern(filmVorher, filmNachher, filmAt(plan.kurve, k.anteil), true)) continue
+      if (!sfxSollFeuern(filmBefore, filmAfter, filmAt(plan.curve, k.fraction), true)) continue
       const a = new Audio(k.url)
       a.volume = Math.max(0, Math.min(1, k.volume))
       if (k.startS) a.currentTime = k.startS // linker Trim gilt auch beim One-Shot
-      aktiveKlaenge.push(a)
+      activeSounds.push(a)
       a.addEventListener('ended', () => {
-        aktiveKlaenge = aktiveKlaenge.filter((x) => x !== a)
+        activeSounds = activeSounds.filter((x) => x !== a)
       })
       void a.play().catch(() => {})
-      optionen.pulsKlang?.(k.index)
+      options.pulseSound?.(k.index)
     }
   }
 
-  function schritt(ts: number): void {
+  function step(ts: number): void {
     af = null
     if (!plan) return
-    const dtS = letzteTs ? Math.min((ts - letzteTs) / 1000, 0.1) : 0
-    letzteTs = ts
-    const erg = tick(stand, dtS, plan)
-    stand = erg.stand
-    if (stand.marke !== erg.vorher) optionen.setzeMarke(stand.marke)
-    spieleMusik(stand.marke)
-    pruefeKlaenge(erg.vorher, stand.marke)
+    const dtS = lastTs ? Math.min((ts - lastTs) / 1000, 0.1) : 0
+    lastTs = ts
+    const erg = tick(state, dtS, plan)
+    state = erg.state
+    if (state.playhead !== erg.before) options.setPlayhead(state.playhead)
+    playMusic(state.playhead)
+    checkSounds(erg.before, state.playhead)
     if (erg.end) {
-      halteAn()
+      pause()
       return
     }
-    af = requestAnimationFrame(schritt)
+    af = requestAnimationFrame(step)
   }
 
   /**
@@ -350,71 +350,71 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
    * genügte nicht — der nächste Frame liefe noch, stieße die Musik erneut an,
    * und der Ton spielte nach dem Anhalten weiter.
    */
-  function halteAn(): void {
+  function pause(): void {
     if (af !== null) cancelAnimationFrame(af)
     af = null
-    stand = { ...stand, tempo: 0 }
-    stoppeKlaenge()
-    optionen.zeigeTempo(0)
+    state = { ...state, tempo: 0 }
+    stopSounds()
+    options.showTempo(0)
   }
 
-  function setzeTempo(t: number): void {
+  function setTempo(t: number): void {
     if (t === 0) {
-      halteAn()
+      pause()
       return
     }
-    const frisch = optionen.hole()
-    if (!frisch) return
-    plan = frisch
-    stand = { marke: frisch.marke, tempo: t }
-    optionen.zeigeTempo(t)
+    const fresh = options.get()
+    if (!fresh) return
+    plan = fresh
+    state = { playhead: fresh.playhead, tempo: t }
+    options.showTempo(t)
     if (af === null) {
-      letzteTs = 0
-      af = requestAnimationFrame(schritt)
+      lastTs = 0
+      af = requestAnimationFrame(step)
     }
   }
 
   return {
-    umschalten: () => {
-      if (stand.tempo !== 0) {
-        halteAn()
+    toggle: () => {
+      if (state.tempo !== 0) {
+        pause()
         return
       }
       // Steht der Kopf am Ende, beginnt Play wieder von vorn. Das deckt „zurück
       // an den Anfang" mit ab — ein eigener Stopp-Knopf wäre in einer
       // scrub-basierten Leiste nicht selbsterklärend („Stopp" ≠ „Pause"?).
-      if ((optionen.hole()?.marke ?? 0) >= 0.999) optionen.setzeMarke(0)
-      setzeTempo(1)
+      if ((options.get()?.playhead ?? 0) >= 0.999) options.setPlayhead(0)
+      setTempo(1)
     },
-    setzeTempo,
-    halteAn,
-    laeuft: () => stand.tempo !== 0,
-    tempo: () => stand.tempo,
-    tonStand: () => {
-      const laufende = [...musikElemente.values()].filter((el) => !el.paused)
+    setTempo,
+    pause,
+    running: () => state.tempo !== 0,
+    tempo: () => state.tempo,
+    audioState: () => {
+      const playing = [...musicElements.values()].filter((el) => !el.paused)
       return {
-        url: laufende[0]?.src ?? null,
-        laeuft: laufende.length > 0,
-        urls: laufende.map((el) => el.src),
+        url: playing[0]?.src ?? null,
+        running: playing.length > 0,
+        urls: playing.map((el) => el.src),
       }
     },
-    setzeDucking: (p: DuckPegel) => {
-      const neu = videoMusikDuck(alsHuelle(p))
-      if (neu === duck) return
-      duck = neu
-      // Laufende Elemente sofort nachziehen: Der nächste `spieleMusik`-Durchlauf
+    setDucking: (p: DuckPegel) => {
+      const next = videoMusikDuck(alsHuelle(p))
+      if (next === duck) return
+      duck = next
+      // Laufende Elemente sofort nachziehen: Der nächste `playMusic`-Durchlauf
       // käme erst beim nächsten Frame, und ohne laufende Wiedergabe (Scrubben
       // durch ein Video) gar nicht — die Dämpfung bliebe dann stehen.
       if (!plan) return
-      for (const [i, el] of musikElemente) {
-        const klip = plan.musik[i]
-        if (klip) el.volume = pegel(klip)
+      for (const [i, el] of musicElements) {
+        const clip = plan.music[i]
+        if (clip) el.volume = volume(clip)
       }
     },
-    schliesse: () => {
-      halteAn()
-      for (const el of musikElemente.values()) el.removeAttribute('src')
-      musikElemente = new Map()
+    close: () => {
+      pause()
+      for (const el of musicElements.values()) el.removeAttribute('src')
+      musicElements = new Map()
       plan = null
     },
   }

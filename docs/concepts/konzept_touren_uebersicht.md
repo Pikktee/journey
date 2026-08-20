@@ -148,7 +148,7 @@ das Bild, ohne eine Wand zu ziehen.
   `spur` und `finale`): Der Video-Export hat sie dorthin gebracht, die Kachel
   zeigt sie nur nicht. Sie ist optional: Touren, die seither nicht neu gerendert
   wurden, tragen sie nicht, und der Kachelfuß muss ohne sie auskommen.
-- **Das Export-Blatt existiert** (`oeffneExportBlatt`, aus Bibliothek und Editor
+- **Das Export-Blatt existiert** (`openExportSheet`, aus Bibliothek und Editor
   aufgerufen). Aus der Kachel heraus fehlt nur der Aufruf, nichts sonst.
 - **Der Bildwähler braucht keinen neuen Endpunkt**: `api.tour(id)` liefert das
   Tour-JSON samt `media[].thumb`. Die Wahl muss `cover`/`cover_thumb` direkt

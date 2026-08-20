@@ -6,7 +6,7 @@
 // Laufzeit keinen Key und kein Netz braucht.
 // Aufruf: node scripts/gen-music-library.mjs
 //
-// Der Katalog (Anzeige + Dateinamen) liegt in src/studio/sfxbibliothek.ts, die
+// Der Katalog (Anzeige + Dateinamen) liegt in src/studio/sfx-library.ts, die
 // Prompts hier. Ein Drift-Wächter (test/studio-baukasten.test.ts) hält die
 // Dateinamen beider Seiten synchron — MUSIK_CLIPS wird dafür exportiert.
 //
@@ -22,7 +22,7 @@ const ROOT = path.resolve(__dirname, '..')
 const OUT = path.join(ROOT, 'public', 'audio', 'sfx')
 const LAENGE_MS = 100000
 
-// name = Dateiname OHNE .mp3 (muss zu sfxbibliothek.ts `datei` passen).
+// name = Dateiname OHNE .mp3 (muss zu sfx-library.ts `datei` passen).
 // Jeder Prompt endet mit denselben Auflagen: Instrumental, keine Stimmen, keine
 // harten Einsätze — das hier läuft UNTER einer Reise, es ist nicht der Film.
 const AUFLAGE =

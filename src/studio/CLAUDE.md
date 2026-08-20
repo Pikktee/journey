@@ -65,7 +65,7 @@ die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben ge
 
 **„Neue Tour" steht in der KACHEL, im Kopf nur bei Bedarf.** Der Knopf `#neu-oben` ist
 standardmäßig aus und erscheint erst, wenn die Kachel aus dem Sichtfeld gescrollt ist
-(`beobachteNeuKachel`, IntersectionObserver mit `rootMargin: -64px` für die überlagernde
+(`observeNewTile`, IntersectionObserver mit `rootMargin: -64px` für die überlagernde
 Kopfleiste). Beides gleichzeitig war eine Dopplung, und der Knopf war dabei der farbigste
 Punkt der Leiste; die Kachel erklärt sich dagegen selbst und ist das Ziel fürs Hineinziehen
 von Dateien. Ersatzlos streichen ging trotzdem nicht: Bei einer langen Liste ist die Kachel
@@ -76,22 +76,22 @@ sobald sie unsichtbar ist; ein Kontroll-Observer meldet dort ebenfalls nichts) �
 Verhalten ist nur in einem echten Fenster zu sehen.
 
 **Neue Tour: erst zeigen, dann hochladen.** Der Upload ist kein Formular mehr, sondern ein
-Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/pruefung.ts](pruefung.ts),
+Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/import-validation.ts](import-validation.ts),
 DOM-frei und getestet): Streckenform, Zeitspanne, jede Aufnahme an ihrer Uhrzeit — und was
 auffiel (ohne Ortsangabe, ohne Zeitstempel, außerhalb der Aufzeichnung). Nur wo es etwas zu
 entscheiden gibt, steht ein Knopf („Weglassen").
 
 **Das Fenster ist erst ein Dialog und wird dann eine Arbeitsfläche.** Im Leerzustand trägt es NUR
-die Einladung: keine Fußzeile (`.neu-fenster.klein`), also weder „Aufnahmen hinzufügen" (heißt
+die Einladung: keine Fußzeile (`.new-window.klein`), also weder „Aufnahmen hinzufügen" (heißt
 NACHLEGEN — „Dateien wählen" mitten im Fenster sagt dasselbe größer) noch Sichtbarkeit (entscheidet
 über eine Tour, die es noch nicht gibt) noch „Tour bauen" (der Weg dorthin führt ohnehin über den
 Befund), und kein gestrichelter Kasten im Kasten — die ganze Fläche IST die Ablage. Mit den ersten
 Dateien wächst das Fenster in einem Zug von 560×452 auf 1080×780 (`transition` auf `width`/`height`,
-gesteuert von `setzeFenstergroesse`), und der Befund steigt dabei EINMAL mit auf (`.neu-rumpf.wachst`,
+gesteuert von `setWindowSize`), und der Befund steigt dabei EINMAL mit auf (`.new-body.wachst`,
 Klasse räumt sich beim nächsten Render selbst weg — sonst zuckte die Fläche unter jedem
 „Weglassen"). Dazwischen liegt der Zustand „Liest die Aufnahmen" mit füllendem Ring: das Lesen der
 EXIF-Blöcke dauert bei dreißig Fotos merkbar, und ohne ihn stand die Einladung still und sprang
-dann ohne Ansage. Weil es im Leerzustand keine Fußzeile gibt, trägt `zeigeLeerHinweis` die
+dann ohne Ansage. Weil es im Leerzustand keine Fußzeile gibt, trägt `showEmptyHint` die
 Statuszeile („3 Dateien ignoriert") in die Einladung — sonst wäre sie unsichtbar. Der Vorgabewert
 der Sichtbarkeit bleibt „Privat", auch solange das Feld aus ist.
 **Ohne GPX** werden die Foto-Orte zur Strecke:
@@ -118,26 +118,26 @@ gerenderte `tour.json` für elf echte Overlay-Formen als Schnappschuss festhält
 Probe, dass die Fälle sich überhaupt UNTERSCHEIDEN (ohne sie könnten elf identische Ergebnisse
 grün sein und der Vertrag bewachte nichts).
 
-**Die eine Ausnahme von „nie destruktiv": entfernte Aufnahmen.** `medien[].geloescht` ist seit
+**Die eine Ausnahme von „nie destruktiv": entfernte Aufnahmen.** `medien[].removed` ist seit
 dem endgültigen Löschen nur noch der ZWISCHENZUSTAND bis zum Speichern — er hält Undo/Redo am
 Leben, während die Datei noch liegt. Beim Speichern werden die markierten Medien wirklich
 gelöscht (`DELETE /api/tours/:id/media/:mid`): Rohdatei und alle Fassungen sind weg, der
 Speicher ist frei. Wer ein Bild nur „aus dem Film nehmen, aber behalten" will, findet dafür
 bewusst KEINEN Schalter — wer es behalten will, hat es in seiner Galerie, und die
 Unterscheidung kostete mehr Oberfläche, als sie wert ist. Vier Dinge tragen das:
-**Es wird EINMAL gefragt** (`fragtNachLoeschung`, der Speichern-Knopf schärft sich mit der Zahl
+**Es wird EINMAL gefragt** (`asksForDeletion`, der Speichern-Knopf schärft sich mit der Zahl
 darin — Studio-Sprache, kein `confirm()`-Kasten; die Beschriftung davor wird beim SCHÄRFEN
 gesichert und nirgends sonst gelesen — beim zweiten Klick steht im Knopf längst die
 Löschfrage, ein erneutes `innerHTML` schriebe sie als Ruhezustand fest); **gelöscht wird VOR
 dem Overlay**, weil der
 Server dabei seine eigene Overlay-Fassung mitstutzt (`medien`-Eintrag, `cover`) und ein
 danach geschriebenes Overlay toten Zustand zurückschriebe; **`gespeichert` wird mitgezogen**
-(`withoutMedia` in [editmodell.ts](editmodell.ts) auch auf den Schnappschuss anwenden), sonst
+(`withoutMedia` in [edit-model.ts](edit-model.ts) auch auf den Schnappschuss anwenden), sonst
 liefe direkt danach ein Speichern für eine Änderung, die keine mehr ist; und **nacheinander**,
 weil jedes Löschen einen Render anstößt und der nächste Aufruf sonst auf „verarbeitung" träfe.
 Der Tooltip in der Ablage sagt es dazu — „entfernt" heißt dort: entfernt bis zum Speichern.
 
-**Aufnahmen nachreichen** ([nachreichen.ts](nachreichen.ts) rechnet, `#nach-dialog` zeigt):
+**Aufnahmen nachreichen** ([add-media.ts](add-media.ts) rechnet, `#add-dialog` zeigt):
 Einstieg ist das „+" der Szenen-Spur, unter dem Trenner — als einziger Eintrag wirkt er nicht
 „ab der Marke", denn wohin ein Bild fällt, sagt seine eigene Uhrzeit. Der Dialog zeigt erst den
 BEFUND, dann den Knopf: ein Streifen mit beidem — was die Tour hat (grau, unter der Achse) und
@@ -150,30 +150,30 @@ jemand etwas weglässt. Hochgeladen wird über die additive Medien-Route (`POST 
 vom Server), danach **`reprocess` und kein Edit-Speichern**: Ein neues Foto hat noch keinen
 Bildbefund im Anreicherungs-Cache und liefe sonst ohne Wetter-Verfeinerung mit.
 
-**Der Dialog sagt VORHER, was der Server nachher tut** — `ordneEin` bildet
+**Der Dialog sagt VORHER, was der Server nachher tut** — `classify` bildet
 `bestimmePlatzierung` ([server/src/pipeline/placement.ts](../../server/src/pipeline/placement.ts))
 Regel für Regel nach, sonst verspricht er Plätze, die es nicht gibt. Zwei Kanten waren genau
 so falsch: Ein GPS-Anker gilt nur bis **500 m** an die Strecke (`MAX_ABSTAND_M`, deshalb
-bekommt `ordneEin` die Abstandsfunktion aus dem Editor-Track herein), und die Zeitspanne hat
-**keine Toleranz** — anders als beim Anlegen (pruefung.ts), wo die Achse erst aus dem Material
+bekommt `classify` die Abstandsfunktion aus dem Editor-Track herein), und die Zeitspanne hat
+**keine Toleranz** — anders als beim Anlegen (import-validation.ts), wo die Achse erst aus dem Material
 entsteht und ein Foto kurz vor dem Start sie DEHNT. Hier steht sie fest; außerhalb findet
 `ankerZurZeit` keinen Trackpunkt, und aus „eingeordnet nach ihrer Uhrzeit" würde still die
 Ablage.
 
 **Nachreichen ist ganz oder gar nicht — auch im Fehlerfall.** Der POST meldet den Batch auf
-einmal an; bricht danach ein PUT ab, nimmt `nimmNachreichenZurueck` die angemeldeten Einträge
+einmal an; bricht danach ein PUT ab, nimmt `takeAddMediaBack` die angemeldeten Einträge
 per DELETE wieder zurück (nacheinander, jedes Löschen stößt einen Render an). Ohne das blieben
 sie ohne Datei im Manifest stehen, und der zweite Klick auf „Hinzufügen" meldete dieselben
 Dateien ein zweites Mal an. Scheitert auch das Aufräumen, bleibt der Knopf gesperrt und der
 Satz sagt warum — ein Retry wäre dann die Doppelung. **Und der ganze Weg ist erst offen, wenn
-nichts Ungespeichertes im Editor steht** (`darfNachreichen`, gefragt vor der Dateiauswahl):
-Der Lauf endet mit `ladeDaten`, und das baut den Zustand aus der Server-Fassung neu auf —
+nichts Ungespeichertes im Editor steht** (`canAddMedia`, gefragt vor der Dateiauswahl):
+Der Lauf endet mit `loadData`, und das baut den Zustand aus der Server-Fassung neu auf —
 samt leerer Undo-Historie. Die Fußzeile verspricht „Deine Schnitte bleiben"; für
 ungespeicherte war das vorher das Gegenteil der Wahrheit. Die Ablage-
 Aufnahme ist im Streifen ein **Ring, kein zweiter Farbton** — `--warn` und `--akzent` sind
 beide Bernstein und nebeneinander nicht zu unterscheiden (gefüllt = sitzt auf der Strecke,
-offen = hat noch keinen Ort). `STREIFEN_RAND` in [editor.ts](editor.ts) und
-`--streifen-rand` im CSS sind DIESELBE Zahl; laufen sie auseinander, sitzen die Punkte neben
+offen = hat noch keinen Ort). `STRIP_EDGE` in [editor.ts](editor.ts) und
+`--strip-margin` im CSS sind DIESELBE Zahl; laufen sie auseinander, sitzen die Punkte neben
 ihrer Achse.
 `wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
 gesetzt, **ersetzt** es das Auto-Wetter (Open-Meteo + Foto-Verfeinerung) der ganzen Tour
@@ -191,7 +191,7 @@ Keyframes → Grenzen, die Bandkante auf die MITTE zweier Marken (dort schaltet 
 Player), `f` → Zeit über `timeAtPosition`. Quelle ist das gerenderte `tour.json` (enthält die
 Foto-Verfeinerung), ersatzweise `wetterRoh` aus dem Anreicherungs-Cache; rein lesend, keine
 externen Aufrufe. Der Editor zeigt diese Grenzen als normale Bänder und schreibt sie beim
-ERSTEN Eingriff ins Overlay (`schreibeWetterFest`) — genau das Muster von `materializeTravelModes`
+ERSTEN Eingriff ins Overlay (`writeWeatherFixed`) — genau das Muster von `materializeTravelModes`
 bei der Fortbewegung. Die Kamera-Spur bleibt dagegen ohne Vorgabe: ihr Grundband heißt
 **„Standard"**, weil dort gilt, was der Zuschauer im Player einstellt (Nah/Mittel/Weit).
 
@@ -205,7 +205,7 @@ Fähre → Küstenstraße, Wendekreise → Tropen, Abendankunft → Goldene Stun
 sonst Aufbruch. **Nur beim ersten Mal**: `reprocess` rendert ebenfalls `frisch`, rührt das
 Overlay aber nicht an — wer die Musik entfernt, bekommt sie nicht zurück, und eine selbst
 gesetzte Spur wird nie überschrieben (beides als Vertrag getestet). Der Server kann
-`sfxbibliothek.ts` nicht importieren (eigener `rootDir`) und führt die Dateinamen ein zweites
+`sfx-library.ts` nicht importieren (eigener `rootDir`) und führt die Dateinamen ein zweites
 Mal; ein Drift-Wächter prüft, dass jede davon im Katalog steht und Musik ist.
 
 **Die Audio-Bibliothek „Musik & Effekte" ist benutzerweit.** Eigene Dateien landen NICHT
@@ -229,17 +229,17 @@ tauscht nur die Datei, Platzierung und Lautstärke bleiben; das aktuelle Stück 
 „Aktuell"-Badge). Beim Aussuchen klingt immer nur EINE Quelle (Bibliotheks- und
 Panel-Vorhören stoppen einander; das Panel-Vorhören folgt der Eintrags-Lautstärke live am
 Regler). ÜBERLAPPENDE Klips sind erlaubt und MISCHEN sich — im Player (je Spur ein
-Element, audiotracks.ts) wie im Studio-Abspielen (je Klip ein Element, abspielen.ts); die
+Element, audiotracks.ts) wie im Studio-Abspielen (je Klip ein Element, playback.ts); die
 Zeitleiste stapelt sie in Unterzeilen (`lane` aus `resolveAudioClips`), die Bahn wächst mit.
 
 **Ein Ton-Klip hängt an der REISE, nicht an einer Filmsekunde** (Etappe 4, rechnende Teile
-DOM-frei in [src/studio/tonklip.ts](tonklip.ts)). Er merkt sich `anker`
+DOM-frei in [src/studio/audio-clip.ts](audio-clip.ts)). Er merkt sich `anker`
 (Aufnahmezeit — wo auf der Reise), `versatzFilmS` (die Feinlage in FILMsekunden, darf mitten
 in einer Standzeit liegen — was reine Aufnahmezeit nicht ausdrücken kann), `dauerFilmS`,
 `einstiegS` (Einstieg in die Datei) und `loop`. Dadurch rückt Ton mit, wenn Standzeiten oder
 die Fortbewegung sich ändern — vorher war er das einzige Element, das liegen blieb (gemessen:
 Standzeit +24,5 s → der Klip dahinter +116,0 px, der davor exakt 0 px). Alle Felder sind
-optional und `ab`/`bis` bleiben als Fallback lesbar; **aufgewertet wird nur der Klip, den man
+optional und `from`/`to` bleiben als Fallback lesbar; **aufgewertet wird nur der Klip, den man
 ANFASST** — anders als bei `materializeTravelModes`, wo die ganze Stufenfunktion auf einmal fest
 werden MUSS, sind Ton-Klips unabhängige Objekte. **Zwei Trimm-Regeln gehen leicht verloren:**
 Der Anschlag ist an BEIDEN Kanten das MATERIAL (Trimmen legt frei, was da ist, und erfindet
@@ -254,7 +254,7 @@ AUSschalten holt den Klip ans Material zurück** (`setLoop`) — sonst hinge hin
 Wellenform ein stummer Rest, und man müsste ihn von Hand zurechtziehen, um überhaupt zu sehen,
 wo sein Material endet.
 
-**Ein EINGESETZTES Stück klingt einmal, so lang wie es ist** (`setzeTonEin`): kein Loop, Länge
+**Ein EINGESETZTES Stück klingt einmal, so lang wie es ist** (`insertAudio`): kein Loop, Länge
 = Dateilänge. Beides gehört zusammen — „nicht wiederholen" allein ließe einen Musik-Klip
 entstehen, der bis zum Tour-Ende reicht und nur seine Dateilänge klingt, also genau den stummen
 Rest, den `setLoop` behebt. Ein EFFEKT braucht dafür kein einziges Feld (er wiederholt von
@@ -264,26 +264,26 @@ Overlay-Stand (ein Undo-Schritt) und der Klip steht sofort in seiner endgültige
 statt nach dem Erscheinen zu zucken. Ohne messbare Länge bleibt es bei der Vorgabe: `loop:
 false` ohne bekanntes Ende erzeugte wieder den stummen Rest. **Die Auto-Musikwahl des Servers
 ([music-choice.ts](../../server/src/pipeline/music-choice.ts)) ist davon nicht betroffen** — sie schlägt
-ein Stück vor, das die GANZE Tour tragen soll, und schreibt weiter nur `datei`/`typ`/`ab`.
+ein Stück vor, das die GANZE Tour tragen soll, und schreibt weiter nur `file`/`type`/`from`.
 
-**`musik` vs. `sfx` beschreibt seit Etappe 4 die ROLLE, nicht die Form.** Beide sind Klips mit
+**`music` vs. `sfx` beschreibt seit Etappe 4 die ROLLE, nicht die Form.** Beide sind Klips mit
 Länge, beide können wiederholen, beide mischen sich — die Beschriftung „Musik (über eine
 Strecke) / Effekt (ein Zeitpunkt)" war eine Aussage über eine Form, die es nicht mehr gibt.
 Was der Unterschied noch bewirkt, sind genau zwei Dinge im Player, und beide fragen dasselbe
 („Score oder Ort?"): Der Zuschauer-Schalter **„Musik"** nimmt `type: 'music'` weg und lässt
 den Ton der Szene stehen (`main.ts`, `setMusikEnabled`/`setSfxEnabled`), und unter dem eigenen
 Ton eines Videos **duckt** nur die Musik. Deshalb heißt das Feld in der Oberfläche „Rolle"
-(Filmmusik · Ton der Szene). Beim Umschalten kippen zwei Dinge leicht still: `bis` fiel früher
+(Filmmusik · Ton der Szene). Beim Umschalten kippen zwei Dinge leicht still: `to` fiel früher
 ersatzlos weg (die Länge geht jetzt vorher nach `dauerFilmS`), und die Loop-VORGABE hängt an
 der Rolle — `loopAfterRoleChange` schreibt den bisherigen Wert fest, wo die neue Vorgabe ihn
 umdrehen würde.
 
-**Die Zeitfelder des Ton-Inspectors gehen über die FILM-Achse**, nicht über `ab`/`bis`. Nach
+**Die Zeitfelder des Ton-Inspectors gehen über die FILM-Achse**, nicht über `from`/`to`. Nach
 der Aufwertung haben die keinen Vorrang mehr: Ein Feld, das dorthin schriebe, wäre ab dem
 ersten Kantenzug still wirkungslos, und ein Feld, das von dort läse, zeigte eine Zeit, die im
 Film nichts mehr bedeutet (an der Probetour 08:37 statt 08:32). Deshalb bekommt
 `resolveSelection` die Ton-Spanne als Rückruf herein (das Modul kennt die Achse nicht) und
-`audioZeitSetzen` ruft dieselben `moveAudioClip`/`trimRight` wie der Zug an der Kante —
+`setAudioTime` ruft dieselben `moveAudioClip`/`trimRight` wie der Zug an der Kante —
 samt Materialanschlag.
 
 **Ein Effekt war nie eine Marke — die LEISTE hat ihn nur so gezeichnet.** Der Player spielt
@@ -302,19 +302,18 @@ braucht ein eigenes `overflow: hidden` — am Klip selbst schnitte es die übers
 Kanten-Griffe weg und Anfang/Ende wären nicht mehr zu greifen.
 
 **Und ihre Maße stehen in ANTEILEN der Achse, nie in Pixeln** (`waveformPosition` rechnet gegen
-`totalFilmS`, `zeitBreite()` schreibt `calc(anteil * var(--zeit-breite))`). Das ist die
+`totalFilmS`, `timeWidth()` schreibt `calc(anteil * var(--timeline-width))`). Das ist die
 allgemeine Regel für alles, was auf der Leiste eine LÄNGE hat — `zeitX` ist ihr Gegenstück für
-eine STELLE: **Zoomen baut die Bahnen nicht neu**, `setzeMassstab` schreibt nur `--zeit-breite`
+eine STELLE: **Zoomen baut die Bahnen nicht neu**, `setScale` schreibt nur `--timeline-width`
 fort und lässt CSS den Rest rechnen. Feste Pixel frieren ein Element auf dem Maßstab des
 letzten Renders ein; die Wellenform behielt dadurch beim Hineinzoomen ihre Größe und endete
 weit vor dem Klip. Der Fehler ist von außen kaum als solcher zu erkennen — er sieht aus wie
 eine zu kurze Datei.
 
-
-**Arbeitsteilung im Code.** [src/studio/editmodell.ts](editmodell.ts) (Overlay
-immutabel fortschreiben, Track-Projektion), [src/studio/zeitleiste.ts](zeitleiste.ts)
+**Arbeitsteilung im Code.** [src/studio/edit-model.ts](edit-model.ts) (Overlay
+immutabel fortschreiben, Track-Projektion), [src/studio/timeline.ts](timeline.ts)
 (Skalen, Bänder, Marken, Dauerschätzung), [src/studio/stopps.ts](stopps.ts)
-(Halt-Gruppierung) und [src/studio/tonklip.ts](tonklip.ts) (Ton-Klips auf der
+(Halt-Gruppierung) und [src/studio/audio-clip.ts](audio-clip.ts) (Ton-Klips auf der
 Filmachse: auflösen, verschieben, trimmen) sind **DOM-frei und unter Vitest getestet**;
 [src/studio/editor.ts](editor.ts) enthält nur DOM- und MapLibre-Verdrahtung.
 Neue Editor-Logik gehört in diese Module, sonst ist sie nicht testbar.
@@ -371,7 +370,7 @@ Vorframes sprang sie um 116 px, und genau deshalb war der Zug zwischenzeitlich e
 Gemessen kostet ein Zieh-Frame 5,5 ms im Median (335 Trackpunkte, 12 Klips) bzw. 4,0 ms
 (541 Punkte ohne Medien) — der Editor-Track ist serverseitig auf 5 m vereinfacht
 ([tours.ts](../../server/src/routes/tours.ts)), aus 9 000 Rohpunkten werden 541.
-Ein Undo-Schritt bleibt es: `renderNachZug` schreibt `letzterStand` nicht fort.
+Ein Undo-Schritt bleibt es: `renderAfterDrag` schreibt `letzterStand` nicht fort.
 
 **Die Ziellinie ist eine Orientierung durch alle Bahnen** — den ganzen Zug über sichtbar, weil
 man beim Setzen einer Grenze wissen will, was dort zeitlich übereinanderliegt. Beim Einrasten
@@ -398,21 +397,21 @@ die Kurve kostet dort 0,2 ms einmal. Dieselbe Rechnung trägt die Filmdauer-Vors
 (`filmDurationAtBoundary`): es wechselt nur die Strecke zwischen alter und neuer Lage den Modus.
 
 **Die Kante ist ein Griff, kein eigenes Objekt.** Sie liegt (9 px) ÜBER dem Band und ist dessen
-Geschwister, kein Vorfahr — `closest('[data-fokus]')` findet von dort aus nichts, und ein Klick
+Geschwister, kein Vorfahr — `closest('[data-selected]')` findet von dort aus nichts, und ein Klick
 auf die Kante wählte deshalb gar nichts aus (der Cursor sprang auf „Rand ziehen", und nichts
-geschah). `bandUnterZeiger` sucht das Band per `elementsFromPoint`; ziehen verschiebt die
+geschah). `bandUnderPointer` sucht das Band per `elementsFromPoint`; ziehen verschiebt die
 Grenze, bloßes Antippen wählt das Band darunter.
 
 **Während eines Zugs wird NICHTS neu gebaut.** Der Foto-Zug rief pro `pointermove` einen
 kompletten Neuaufbau der Leiste (~46 DOM-Änderungen, ein erzwungenes Layout in
-`kuerzeBeschriftungen`, frische `img`-Elemente): das Bild zuckte unter dem Finger, die Karte
+`shortenLabels`, frische `img`-Elemente): das Bild zuckte unter dem Finger, die Karte
 blieb stehen. Jetzt bewegt der Zug nur die Miniatur und den Kartenpunkt; das Overlay wird beim
-Loslassen einmal geschrieben (= genau ein Undo-Schritt). Analog schreibt `zeichneMarker` die
+Loslassen einmal geschrieben (= genau ein Undo-Schritt). Analog schreibt `drawMarker` die
 Kartenpunkte **fort** statt sie abzureißen (geschlüsselt nach der Zusammensetzung des Halts) —
 sonst wurden bei jedem Klick alle Fotos kurz zu leeren Kreisen.
 
 **Die Achse zeigt FILMZEIT, die Anker bleiben Aufnahmezeit — und gerechnet wird über die
-STRECKE.** `buildTimelineAxis` ([zeitleiste.ts](zeitleiste.ts)) baut seit Paket D des
+STRECKE.** `buildTimelineAxis` ([timeline.ts](timeline.ts)) baut seit Paket D des
 [Gleichlauf-Konzepts](../../docs/concepts/konzept_gleichlauf_player_editor.md) keine eigene
 Kurve mehr, sondern zwei Dinge: den **Zeit→Strecke-Adapter** (`AxisCurve`: je Stützpunkt
 seine Aufnahmezeit und sein Meterstand) und darüber die geteilte Achse
@@ -447,7 +446,7 @@ Alt-Trim Plateaus) und zeigt Aufnahmen als Überfahr-MARKEN im Halt-Sprung (`zei
 restS mehr). Eine Kante bleibt: Ereignisse, die ganz in einer Ex-Pause liegen, drängen auf
 einen Pixel (Ausweg: Zeitfelder im Inspector).
 
-**Der Abspielkopf steht in FILMsekunden** (`kopfFilmS`, Etappe 1 des
+**Der Abspielkopf steht in FILMsekunden** (`playheadFilmS_`, Etappe 1 des
 [Zeitleisten-Umbaus](../../docs/architecture/zeitleiste-umbau.md)) — eine Quelle für Scrubben, Klick,
 Pfeiltasten und Abspielen; die Aufnahmezeit (`z.auswahl`, zugleich Einfügemarke) wird daraus
 ABGELEITET, nie umgekehrt. Der Grund ist die Umkehrbarkeit: In Aufnahmezeit gibt es keinen
@@ -464,7 +463,7 @@ sie sagt; dass ein Halt läuft, zeigt ohnehin das eingeblendete Bild auf der Kar
 Kopfstrich bleibt immer orange: Farbe bezeichnet auf der Leiste Identität, nicht Zustand.
 
 **Die Kopfleiste hat drei Gruppen, und jede ist eine.** Links die Werkzeuge (Modi), in der
-Mitte das **Pult** (`.pult`), rechts der Zoom — alle drei mit demselben Rahmen und derselben
+Mitte das **Pult** (`.console`), rechts der Zoom — alle drei mit demselben Rahmen und derselben
 Höhe. Vorher standen links drei Gruppen nebeneinander (Transport, Werkzeuge, Ablage), in der
 Mitte eine Tafel und rechts ein rahmenloser Regler: Der Zoom war das einzige Element ohne
 Kasten und hing frei am Rand.
@@ -490,23 +489,23 @@ Drei Regeln, die man dabei leicht kippt:
   KEINE Farbe — seinen Vorrang holt er aus Größe und Fläche (34×28 gegen 25×26 der Nachbarn,
   die hellste Fläche der Leiste, der einzige helle Rand, als Einziger volle Textfarbe). Erst
   beim Abspielen kommt Amber dazu, und dann bedeutet es dasselbe wie am eingeschalteten „Karte
-  folgt" daneben: **beide voll-amber, wie jeder aktive Umschalter im Studio** (`.wkz.an`).
+  folgt" daneben: **beide voll-amber, wie jeder aktive Umschalter im Studio** (`.tool.an`).
   Vorher war Play schon in Ruhe amber umrandet; damit war die Farbe verbraucht, bevor sie etwas
   sagen konnte. Umgekehrt war „Karte folgt" kurzzeitig nur amber EINGEFÄRBT, damit Play das
   einzige Farbige im Pult bleibt — zu leise für einen Zustand, den man auf einen Blick erkennen
   muss: Als bloßes Icon war „an" von „aus" kaum zu unterscheiden, und was man dort sah, war
   meist bloß der Fokusring. Aus demselben Grund ist die Ablage-Plakette **rot** und nicht amber:
   Ein Fund läuft nicht, er wartet.
-- **Die drei Gruppen sind gleich hoch** (`--kopf-gruppe: 32px`). Vorher standen 30 px
+- **Die drei Gruppen sind gleich hoch** (`--header-group-h: 32px`). Vorher standen 30 px
   Werkzeuge neben 34 px Pult und Zoom, und der Zoom las sich dadurch als klobiger rechter
-  Rand. **Und die Mitte steht MITTIG**: `.zl-kopf` ist ein `1fr auto 1fr`-Raster, kein
+  Rand. **Und die Mitte steht MITTIG**: `.timeline-header` ist ein `1fr auto 1fr`-Raster, kein
   `space-between` — bei 93 px Werkzeugen gegen 227 px Zoom saß das Pult sonst 67 px zu weit
   links. Im engen Fenster (≤ 960 px) wird daraus wieder eine umbrechende Flex-Reihe; ein
   Raster kann nicht umbrechen, und `flex-wrap` allein täte dort nichts.
 - **Reserviert wird nur, was WIRKLICH schwankt.** Die Anzeige trug dreimal denselben
   großzügigen Slot (10,5ch + 11,5ch + 11,5ch) und war dadurch ~180 px breiter als ihr Inhalt.
   Die Uhrzeit hat IMMER fünf Zeichen („15:58", „--:--") und braucht gar keinen; bei der Strecke
-  schwankt allein der laufende Wert (`.ku-km-cur`). Bei der Filmzeit setzt `renderPlayhead` die
+  schwankt allein der laufende Wert (`.readout-km-current`). Bei der Filmzeit setzt `renderPlayhead` die
   Reserve auf die ZEICHENZAHL DES GESAMTWERTS — länger als der Film kann der Kopf nicht stehen,
   kürzer reicht nicht; pauschale 10,5ch waren für „1:15 / 2:52" rund 30 px zu viel, und
   linksbündig sammelte sich der Überschuss vollständig rechts. Aus demselben Grund ist der
@@ -518,7 +517,7 @@ Drei Regeln, die man dabei leicht kippt:
   (`ch` ist die Breite der Ziffer NULL; Komma und „×" sind schmaler bzw. breiter), gesetzt sind
   7,5ch, zentriert.
 - **Anfang/Ende gibt es als Knopf UND als Taste** (Pos1/Ende). Beides fehlte: Wer bei starkem
-  Zoom an den Anfang wollte, zog den Abspielkopf über die halbe Leiste. `setzeKopfFilm` klemmt
+  Zoom an den Anfang wollte, zog den Abspielkopf über die halbe Leiste. `setPlayheadFilmS` klemmt
   selbst auf [0, gesamtS] — „ans Ende" ist deshalb schlicht `Infinity`.
 
 Entwürfe und die verworfenen Varianten:
@@ -551,9 +550,9 @@ Fensterbreite. Der Unterschied zählt, weil die Fortbewegung die Filmdauer besti
 Faktor-Modell skalierte jede Modus- oder Standzeit-Änderung die GANZE Leiste, auch alles vor
 der geänderten Stelle. Jetzt wächst die Achse hinten und links bleibt jedes Pixel stehen
 (gemessen: Standzeit +14,8 s ⇒ +82,9 px am Ende, Maßstab unverändert). Beim Öffnen wird
-einmal eingepasst (`passeEin`), danach ändert nur Zoomen den Maßstab — waagerechter Scroll
+einmal eingepasst (`fit`), danach ändert nur Zoomen den Maßstab — waagerechter Scroll
 entsteht nie beim Öffnen. Weil die Breite jetzt an den DATEN hängt, schreibt
-`renderZeitleiste` sie mit (`schreibeZeitBreite`, mit Letzter-Wert-Vergleich: die Funktion
+`renderTimeline` sie mit (`writeTimeWidth`, mit Letzter-Wert-Vergleich: die Funktion
 läuft in jedem Zug-Frame).
 
 **Ein Halt ist eine KETTE von Klips, kein Stapel** (Etappe 2 des
@@ -567,7 +566,7 @@ Klip mit Anfang und Ende, und die Kette liegt lückenlos hintereinander. Drei Re
 Neubau: der kostete 2,34 ms je Zieh-Frame und das gezogene Element samt dekodiertem `img`),
 **Container-Queries** für die drei Ausbaustufen (nur Bild < 150 px < Bild+Name < 232 px <
 Bild+Name+Bild — gemessene JS-Klassen schalteten erst beim Loslassen, weil
-`kuerzeBeschriftungen` im Zug bewusst nicht läuft) und die **Miniatur aus `thumbnailSource`**
+`shortenLabels` im Zug bewusst nicht läuft) und die **Miniatur aus `thumbnailSource`**
 (thumb → src; ohne den Rückfall bliebe jede Tour von vor der Bildaufbereitung ohne Bild).
 
 **Die rechte Kante eines Fotos ist seine Standzeit** (`display.holdS`, Blase am Griff). Ein
@@ -614,7 +613,7 @@ Streckenabschnitt auf der Karte).
 **Was in der Datei steht, liest der Editor selbst.** Der Block „Aufnahme-Details" unter einer
 Aufnahme zeigt Aufnahmezeit, Verortung und die Kameradaten aus dem EXIF (Kamera, Objektiv,
 Belichtung, Auflösung, Höhe). Gelesen wird clientseitig aus der ausgelieferten Datei —
-`liesAufnahme`/`beschreibeAufnahme` in [src/studio/exif.ts](exif.ts), beide DOM-frei
+`readCapture`/`describeCapture` in [src/studio/exif.ts](exif.ts), beide DOM-frei
 und an echten Beispiel-JPEGs getestet (`test/fixtures/`). Der EXIF-Block steht am DATEIANFANG,
 deshalb holt der Editor per Range-Request nur die ersten 256 KB — und das erst beim ersten
 Aufklappen (Ergebnis je Medium gecacht, der Auf-/Zu-Zustand überlebt den Render). Kein
@@ -631,7 +630,7 @@ früher wie eine Einstellung des Nichts).
 Tour-Einstellungen stand unter drei Feldern je ein Satz Kleingedrucktes — beim
 ersten Mal nützlich, danach Grundrauschen, und zu dritt zerfiel das Panel in Text
 mit ein paar Feldern dazwischen. Sie sitzen jetzt an einem `?` neben dem Label
-([src/studio/tipp.ts](tipp.ts), `data-tipp`). Drei Dinge, die man dabei kippt:
+([src/studio/tooltip.ts](tooltip.ts), `data-tooltip`). Drei Dinge, die man dabei kippt:
 Die **Blase gehört an den `body`** — der Inspector scrollt, ein Kind darin wird
 an seiner Kante abgeschnitten, und `z-index` hilft nicht (dieselbe Familie wie
 der Auswahl-Rahmen weiter unten). Sie liegt **LINKS neben dem Griff**, weil das
@@ -639,12 +638,12 @@ Panel am rechten Rand klebt: nach unten deckte sie das Feld zu, zu dem sie
 gehört, nach oben die Panel-Überschrift; links liegt die Karte, und die erklärt
 in diesem Moment nichts. Und **`title` allein reicht nicht** (erst nach einer
 Sekunde, nur mit Maus, Systemschrift) — es bleibt als Rückfall stehen. Die
-Lage-Rechnung ist DOM-frei und getestet (`lageFuer`), samt dem Fall
+Lage-Rechnung ist DOM-frei und getestet (`positionFor`), samt dem Fall
 „Fenster meldet 0×0": Die Browser-Pane tut das, sobald sie unsichtbar ist, und
 ohne Rückfall klemmte jede Rechnung die Blase in die linke obere Ecke.
 
 **Die globalen Knopf-Regeln schlagen jede Klasse.** `button:hover { background: … }` wiegt durch
-die Pseudoklasse mehr als `.knopf-primaer` oder `.kopf-griff` — wer einem Knopf eine eigene
+die Pseudoklasse mehr als `.knopf-primaer` oder `.header-grip` — wer einem Knopf eine eigene
 Fläche gibt, muss sie in der `:hover`-Regel WIEDERHOLEN, sonst wird er beim Zeigen grau (der
 orange Primärknopf und der Abspielkopf wurden so ausgerechnet dunkler). Dasselbe gilt für
 `:disabled:hover`. Ein Knopf, der gar keinen Hover haben soll, braucht trotzdem eine leere
@@ -659,13 +658,13 @@ DOM und waren unsichtbar. Gleiche Sorte Falle wie „`margin-top: auto` kollabie
 anderen Selektor stellt): `display: flex` direkt auf `dialog` schlägt
 `dialog:not([open]) { display: none }` — der geschlossene Dialog hängt dann sichtbar über der
 Seite; die Regel gehört an `dialog[open]`. Und die globale `button:active { transform: scale(…) }`
-ERSETZT die Zentrierung `translateX(-50%)`, statt sie zu ergänzen (CSS kennt nur *eine*
+ERSETZT die Zentrierung `translateX(-50%)`, statt sie zu ergänzen (CSS kennt nur _eine_
 `transform`-Eigenschaft) — Abspielkopf und Foto-Miniatur sprangen beim Drücken um ihre halbe
 Breite; beide brauchen eine eigene `:active`-Regel, die beides kombiniert.
 
 **Ein Auswahl-Rahmen gehört nach INNEN.** Ein `box-shadow` ohne `inset` liegt AUSSERHALB der
 Box — bei einem Element am Rand seines Containers schneidet ihn dessen `overflow` weg. Auf der
-Zeitleiste war das an `.spuren-fenster { overflow-x: scroll }` zu sehen: Ein Ton-Klip, der bei
+Zeitleiste war das an `.lanes-viewport { overflow-x: scroll }` zu sehen: Ein Ton-Klip, der bei
 0:00 beginnt, hatte oben, unten und rechts einen Rahmen und links keinen. Die Zustandsbänder
 lösen es längst mit `inset` (`.band.fokus`); bei den Klips musste es ein eigenes
 `::after`-Pseudo-Element werden, weil die Wellenform (`inset: 0`) einen Inset-Schatten am Klip
@@ -674,7 +673,7 @@ Kanten-Griffe. Der weiche SCHEIN darf außen bleiben: dass er an einer Kante feh
 nicht. Dieselbe Familie wie „`border` + `overflow: hidden` frisst das Randpixel"
 (docs/architecture/zeitleiste-umbau.md §5).
 
-**Abspielen ist Schnittprüfung, kein zweiter Player.** [src/studio/abspielen.ts](abspielen.ts)
+**Abspielen ist Schnittprüfung, kein zweiter Player.** [src/studio/playback.ts](playback.ts)
 (lazy beim ersten Play) lässt den Abspielkopf über die Achse laufen, spielt Musik und Klänge
 und blendet an jedem Halt die Foto-Karte auf — die 3D-Kamerafahrt bleibt dem echten Player
 vorbehalten („Vorschau"). Die Schrittlogik `tick()` ist rein und getestet; das Tempo ist
@@ -682,7 +681,7 @@ vorbehalten („Vorschau"). Die Schrittlogik `tick()` ist rein und getestet; das
 später. Musik läuft über EIN `Audio`-Element je Klip mit **Eintritts-Seek** (wer mitten im Bereich
 startet, hört, was dort im Film liefe). Die Rechnung dahinter ist seit Paket D geteilt:
 `musikVersatzS` steht in [audiotracks.ts](../audiotracks.ts) und bekommt die Filmzeit seit
-Klipbeginn herein (`seitKlipbeginnS` über die Spielkurve) — der Player ruft dieselbe Funktion
+Klipbeginn herein (`sinceClipStartS` über die Spielkurve) — der Player ruft dieselbe Funktion
 über seine Filmachse, und beide Bühnen greifen an derselben Filmsekunde auf dieselbe
 Datei-Position zu (Wächter in [test/filmachse.test.ts](../../test/filmachse.test.ts)); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts) — seit E10 in
 FILMSEKUNDEN, der Abspieler rechnet seine Marken dafür über `filmAt(plan.kurve, …)` um; die
@@ -691,19 +690,19 @@ an der Länge der Tour. Das ändert Player und Editor in einem Zug, damit im
 Studio nichts klingt, was der Film nicht spielt (Drift-Wächter). Bis zur
 TypeScript-Migration des Players lag daneben eine handgeschriebene
 `audiotracks.d.ts`, weil `allowJs` aus ist — seit `audiotracks.ts` TypeScript ist,
-prüft `tsc` die eine verbliebene Signatur selbst. Jede manuelle Geste ruft `halteAbspielen()` —
+prüft `tsc` die eine verbliebene Signatur selbst. Jede manuelle Geste ruft `stopsPlay()` —
 der Spielplan ist ein Schnappschuss und liefe sonst gegen veraltete Halte.
 
 **Die Audio-Elemente überleben Pause und Neustart, der Plan tut es nicht.** Sie hängen an einer
 Map (Index im Plan) und entstehen beim ersten Eintritt in ihren Bereich; der Plan wird bei
 jedem Start frisch geholt. Wer nur beim ANLEGEN Lautstärke, Loop und Datei setzt, hat sie für
 den Rest der Sitzung festgeschrieben: Ein am Regler geänderter Pegel war im Vorhören zu hören
-und im Abspielen nicht. Deshalb zieht `spieleMusik` Lautstärke und Loop bei jedem Eintritt nach
+und im Abspielen nicht. Deshalb zieht `playMusic` Lautstärke und Loop bei jedem Eintritt nach
 und ersetzt das Element, wenn der Eintrag inzwischen eine andere Datei trägt (verglichen wird
 `dataset.url`, nicht `el.src` — der ist absolut aufgelöst).
 
 **Welches Bild auf der Karte liegt, ist eine FUNKTION der Kopfposition** — keine Uhr und keine
-Überfahr-Marke. `synchronisiereFoto` (aufgerufen aus `renderPlayhead`, also bei jeder
+Überfahr-Marke. `syncPhoto` (aufgerufen aus `renderPlayhead`, also bei jeder
 Kopfbewegung) fragt `stopAtFilmS`: steht der Kopf in einem Klip, liegt dessen Bild auf der
 Karte; verlässt er ihn, verschwindet es. Der Fortschrittsbalken wird dabei gesetzt statt
 animiert. Vorher stieß der Abspieler die Einblendung als Marke an und ein Timer nahm sie
@@ -713,7 +712,7 @@ Timer über die reine Standzeit lief, der Klip aber über Standzeit + Ausblendun
 Schnelllauf (J/L) bleibt die Karte aus — dort will man die Strecke überfliegen. `ZeigeMarke`
 und `Schritt.zeige` sind damit ersatzlos entfallen.
 
-**Und was IM Bild passiert, hängt an derselben Position** (`synchronisiereBild`) — die Regel
+**Und was IM Bild passiert, hängt an derselben Position** (`syncImage`) — die Regel
 gilt nicht nur dafür, WELCHES Medium liegt, sondern auch für seinen Stand. Beides lief lange
 nach eigener Uhr weiter: Der Ken-Burns-Zug war eine gewöhnliche CSS-Animation ab dem Einfügen
 des `img`, das Video hing an `autoplay` + `loop`. Wer in die Mitte eines Halts scrubbte, sah
@@ -738,7 +737,7 @@ Master ist und der Schnitt erst in der Pipeline entsteht.
 ist die Begründung aus §6A des Gleichlauf-Konzepts abgelaufen: Sie richtete sich gegen ein
 gemeinsames DOM-BAUTEIL, das zwei Zeitmodelle tragen müsste — ein Maler trägt keines, er
 bekommt eine Filmsekunde und zeichnet. Was der Editor noch selbst tut, sind die zwei Dinge,
-die der Maler nicht beschaffen kann: die ZEICHENQUELLE (ein `img`/`video` in `#foto-quellen`,
+die der Maler nicht beschaffen kann: die ZEICHENQUELLE (ein `img`/`video` in `#photo-sources`,
 unsichtbar im Dokument, weil der Browser nur dekodiert und spielt, was er lädt) und der TEXT.
 Fünf Dinge, die man dabei kippt:
 
@@ -748,18 +747,18 @@ Fünf Dinge, die man dabei kippt:
   liefert `kartenSatz(buehne)`.
 - **Eine Leinwand zeichnet sich nicht von selbst neu, und hier STEHT der Kopf meistens.** Ein
   `img` in der alten DOM-Karte erschien von selbst, sobald es geladen war; auf der Leinwand
-  sah man beim Scrubben die Karte mit LEEREM Bildfeld liegen. `zeigeFoto` hängt deshalb an
-  `load` (Bild) und `loadeddata`/`seeked` (Video) einen Rückruf auf `synchronisiereFoto`. Im
+  sah man beim Scrubben die Karte mit LEEREM Bildfeld liegen. `showPhoto` hängt deshalb an
+  `load` (Bild) und `loadeddata`/`seeked` (Video) einen Rückruf auf `syncPhoto`. Im
   Player fällt das nie auf, weil dort der Film läuft und jeder Frame ohnehin zeichnet.
-- **Der Schleier bleibt DOM** (`.karten-buehne::after`, z-index 2, Leinwand darüber auf 5):
+- **Der Schleier bleibt DOM** (`.card-stage::after`, z-index 2, Leinwand darüber auf 5):
   `backdrop-filter` hat auf einer Leinwand kein Gegenstück. Er ist damit der EINE Teil der
   Karte, der weiter zweimal als CSS dasteht und Text gegen Text bewacht wird. Seine DECKKRAFT
   kommt seit dem Rückbau des Kamerablitzes aus der Filmzeit: `kartenschicht.ts` schreibt
   `--schleier-sicht` auf die BÜHNE (ein `::after` nimmt keine Inline-Stile, sein Host schon),
-  die Klasse `foto-an` schaltet nur noch den Filter, und eine Transition darf dort nicht mehr
+  die Klasse `photo-on` schaltet nur noch den Filter, und eine Transition darf dort nicht mehr
   stehen — sie liefe über die Werte, die die Filmzeit setzt.
 - **Der Fortschrittsbalken ist Bildinhalt** und kommt aus dem Maler — `.fe-hold-fill` und der
-  `scaleX`-Schreiber in `synchronisiereFoto` sind weg.
+  `scaleX`-Schreiber in `syncPhoto` sind weg.
 - **`prefers-reduced-motion` liest die SCHICHT** und gibt es dem Maler als Schalter weiter
   (`buehne.ruhig`); ein `@media`-Block im CSS hätte darauf keinen Zugriff mehr.
 - **Keine versteckte Textkopie, und das ist eine Entscheidung.** Der Player trägt Titel und
@@ -781,10 +780,10 @@ stummen Szene. Beides kommt jetzt aus denselben Funktionen wie im Player
 ([audiotracks.ts](../audiotracks.ts)): `videoTonHuelle` über den AUSSCHNITT (nicht die Datei —
 die ausgelieferte ist der ungeschnittene Master, die Blenden gehören an die Schnittkanten),
 `videoLautstaerke` fürs Video und `videoMusikDuck` für die Musik, gereicht über
-`Abspieler.setzeDucking`. Drei Dinge, die man dabei kippt: Gehört wird nur bei **Tempo 1** (im
+`Abspieler.setDucking`. Drei Dinge, die man dabei kippt: Gehört wird nur bei **Tempo 1** (im
 Schnelllauf steht das Video ohnehin), der **Autoplay-Rückfall** muss bleiben (unmuted-Play ohne
 frische Geste wird geblockt — dann stumm erzwingen, sonst steht am Video-Halt ein Standbild),
-und `verbergeFoto` muss die Dämpfung **zurücknehmen**, sonst bleibt die Musik nach dem letzten
+und `hidePhoto` muss die Dämpfung **zurücknehmen**, sonst bleibt die Musik nach dem letzten
 Video für den Rest der Wiedergabe leise.
 
 **Der Pegel eines Ton-Klips ist ABSOLUT — im Studio wie im Player.** Ohne eigenen Wert gilt
@@ -817,12 +816,12 @@ Halt, feuerte also bei jedem Bildwechsel innerhalb eines Halts neu), und seine M
 verkehrt: Ein Blitz sagt „hier wird gerade fotografiert", diese Fotos sind längst aufgenommen.
 Den Halt markiert jetzt der Schleier allein — dass die Umgebung zurücktritt.
 
-**Dieselbe Regel gilt für die Kartenmitte.** `folgeKarte()` hängt ebenfalls an
-`renderPlayhead`, nicht am Abspieler. Vorher stand der Aufruf allein in `setzeMarkeAnteil` —
+**Dieselbe Regel gilt für die Kartenmitte.** `followMap()` hängt ebenfalls an
+`renderPlayhead`, nicht am Abspieler. Vorher stand der Aufruf allein in `setPlayheadFraction` —
 also nur im laufenden Film: Beim Scrubben, Klicken oder mit den Pfeiltasten blieb die Karte
 stehen, obwohl der Schalter „Karte folgt der Position" heißt und die Position sich sehr wohl
 bewegte. Der Abspieler ist jetzt eine Kopfbewegung unter vielen. Was dabei ERHALTEN bleiben
-muss, ist `pausiereKartenFolge`: Jedes Follow-`jumpTo` bricht eine laufende Zoom-Animation ab,
+muss, ist `pauseCardFollow`: Jedes Follow-`jumpTo` bricht eine laufende Zoom-Animation ab,
 deshalb setzt Rad/Pinch/Zoomstart das Folgen für 450 ms aus.
 
 **Eine Auswahl über drei Ansichten.** `z.fokus` (ausgewähltes Objekt) ist getrennt von
@@ -834,10 +833,9 @@ Streckenabschnitt auf der Karte sichtbar.
 
 **Undo/Redo** nutzt aus, dass das Overlay immutabel fortgeschrieben wird: Ein Referenzvergleich
 beim Render (`letzterStand`) erkennt jede Änderung, egal aus welchem Handler. Während eines
-Zeitleisten-Zugs läuft nur `renderNachZug()`, das den Stand nicht fortschreibt — der ganze Zug
+Zeitleisten-Zugs läuft nur `renderAfterDrag()`, das den Stand nicht fortschreibt — der ganze Zug
 wird dadurch zu genau einem Undo-Schritt.
 
 **Falle bei Zeitleisten-Interaktion:** Nach `setPointerCapture` zeigt `e.target` im `pointerup`
 auf das Capture-Element, nicht mehr auf das Element unter dem Finger. Was angeklickt wurde,
 muss im `pointerdown` gemerkt werden.
-

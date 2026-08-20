@@ -13,13 +13,13 @@ import {
   splitForDisplay,
   type EditorSegment,
   type TrackPoint,
-} from '../src/studio/editmodell'
+} from '../src/studio/edit-model'
 import {
   clampBoundary,
   resolveSelection,
   parseClockMinutes,
   clockDiffToOffset,
-} from '../src/studio/zeitleiste'
+} from '../src/studio/timeline'
 
 const START = '2026-03-12T07:10:00Z'
 const iso = (s: number): string => offsetToIso(START, s)
@@ -53,14 +53,14 @@ describe('resolveSelection', () => {
 
   it('löst ein Fortbewegungs-Band auf die Segment-Spanne auf', () => {
     const ziel = resolveSelection(
-      { kind: 'modus', atS: 1200 },
+      { kind: 'travelMode', atS: 1200 },
       EMPTY_OVERLAY,
       abschnitte(),
       track,
       START,
       [],
     )
-    expect(ziel).toMatchObject({ kind: 'modus', fromS: 0, toS: 3600, mode: 'bike' })
+    expect(ziel).toMatchObject({ kind: 'travelMode', fromS: 0, toS: 3600, mode: 'bike' })
     // Ohne eigene Grenze: aus der Aufzeichnung — weder entfernbar noch verschiebbar
     expect(ziel?.from).toBeNull()
     expect(ziel?.nextFrom).toBeNull()
@@ -74,11 +74,18 @@ describe('resolveSelection', () => {
       { mode: 'walk', pts: track.slice(3) },
     ]
     const a = splitForDisplay(erkannt, EMPTY_OVERLAY, START)
-    const erstes = resolveSelection({ kind: 'modus', atS: 600 }, EMPTY_OVERLAY, a, track, START, [])
+    const erstes = resolveSelection(
+      { kind: 'travelMode', atS: 600 },
+      EMPTY_OVERLAY,
+      a,
+      track,
+      START,
+      [],
+    )
     expect(erstes?.from).toBeNull() // Tour-Anfang bleibt fest
     expect(erstes?.nextFrom).toBe(iso(1800))
     const zweites = resolveSelection(
-      { kind: 'modus', atS: 2400 },
+      { kind: 'travelMode', atS: 2400 },
       EMPTY_OVERLAY,
       a,
       track,
@@ -92,7 +99,14 @@ describe('resolveSelection', () => {
     // Trim teilt das Band ebenfalls — links und rechts derselbe Modus. Zöge man
     // dort, entstünde ein Modus-Wechsel aus dem Nichts.
     const e = { ...EMPTY_OVERLAY, trim: { start: iso(1200) } }
-    const ziel = resolveSelection({ kind: 'modus', atS: 2400 }, e, abschnitte(e), track, START, [])
+    const ziel = resolveSelection(
+      { kind: 'travelMode', atS: 2400 },
+      e,
+      abschnitte(e),
+      track,
+      START,
+      [],
+    )
     expect(ziel?.from).toBeNull()
   })
 
@@ -100,13 +114,20 @@ describe('resolveSelection', () => {
     let e = withTravelModeBoundary(EMPTY_OVERLAY, iso(1200), 'moped')
     e = withTravelModeBoundary(e, iso(2400), 'walk')
     // Das mittlere Band (Moped) hat beide Kanten
-    const mitte = resolveSelection({ kind: 'modus', atS: 1800 }, e, abschnitte(e), track, START, [])
+    const mitte = resolveSelection(
+      { kind: 'travelMode', atS: 1800 },
+      e,
+      abschnitte(e),
+      track,
+      START,
+      [],
+    )
     expect(mitte).toMatchObject({ mode: 'moped', fromS: 1200, toS: 2400 })
     expect(mitte?.from).toBe(iso(1200))
     expect(mitte?.nextFrom).toBe(iso(2400))
     // Das letzte Band endet am Tourende — kein Nachfolger, also kein Ende-Feld
     const letztes = resolveSelection(
-      { kind: 'modus', atS: 3000 },
+      { kind: 'travelMode', atS: 3000 },
       e,
       abschnitte(e),
       track,
@@ -119,16 +140,16 @@ describe('resolveSelection', () => {
 
   it('Kamera: Grundband ohne Grenze, danach Preset samt Feinjustierung', () => {
     const e = withCameraBoundary(EMPTY_OVERLAY, iso(1800), 'near', 1.3)
-    const grund = resolveSelection({ kind: 'kamera', atS: 600 }, e, abschnitte(e), track, START, [])
-    expect(grund).toMatchObject({ kind: 'kamera', from: null, nextFrom: iso(1800) })
+    const grund = resolveSelection({ kind: 'camera', atS: 600 }, e, abschnitte(e), track, START, [])
+    expect(grund).toMatchObject({ kind: 'camera', from: null, nextFrom: iso(1800) })
     expect(grund?.preset).toBeUndefined() // „Preset des Zuschauers"
-    const nah = resolveSelection({ kind: 'kamera', atS: 2400 }, e, abschnitte(e), track, START, [])
+    const nah = resolveSelection({ kind: 'camera', atS: 2400 }, e, abschnitte(e), track, START, [])
     expect(nah).toMatchObject({ preset: 'near', intensity: 1.3, from: iso(1800), nextFrom: null })
   })
 
   it('Wetter: sobald eine Grenze gesetzt ist, gilt davor „klar" statt „automatisch"', () => {
     const ohne = resolveSelection(
-      { kind: 'wetter', atS: 600 },
+      { kind: 'weather', atS: 600 },
       EMPTY_OVERLAY,
       abschnitte(),
       track,
@@ -137,10 +158,17 @@ describe('resolveSelection', () => {
     )
     expect(ohne?.weatherMode).toBeUndefined() // automatisch
     const e = withWeatherBoundary(EMPTY_OVERLAY, iso(1800), 'rain', 0.7)
-    const davor = resolveSelection({ kind: 'wetter', atS: 600 }, e, abschnitte(e), track, START, [])
+    const davor = resolveSelection(
+      { kind: 'weather', atS: 600 },
+      e,
+      abschnitte(e),
+      track,
+      START,
+      [],
+    )
     expect(davor?.weatherMode).toBe('off') // das Overlay ersetzt das Auto-Wetter
     const regen = resolveSelection(
-      { kind: 'wetter', atS: 2400 },
+      { kind: 'weather', atS: 2400 },
       e,
       abschnitte(e),
       track,

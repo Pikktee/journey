@@ -15,8 +15,8 @@ import {
   type EditOverlay,
   type MediaView,
   type TrackPoint,
-} from './editmodell.js'
-import { metersToOffset, offsetAtMeters } from './zeitleiste.js'
+} from './edit-model.js'
+import { metersToOffset, offsetAtMeters } from './timeline.js'
 
 /**
  * Abstand, unter dem zwei Aufnahmen als „am selben Ort" gelten (Streckenmeter).

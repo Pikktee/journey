@@ -17,7 +17,7 @@ der Zeitleiste — mit Messwerten und verworfenen Alternativen.
 
 ## 1. Der Kernbefund: die Achse ist an Halten nicht umkehrbar
 
-Die Filmzeit-Achse ([zeitleiste.ts `buildTimelineAxis`](../../src/studio/zeitleiste.ts)) webt
+Die Filmzeit-Achse ([timeline.ts `buildTimelineAxis`](../../src/studio/timeline.ts)) webt
 jeden Foto-Halt als **Sprung** ein: zwei Stützstellen auf derselben Aufnahmesekunde,
 `filmS` davor und danach. Ein Halt verbraucht Filmzeit, aber keine Aufnahmezeit —
 deshalb gibt es in Aufnahmezeit **keinen Wert für „mitten im Halt"**.
@@ -122,7 +122,7 @@ Mal darüber.
   Premieres Konvention: Miniatur am Anfang, Name in der Mitte, ab genug Breite
   eine zweite Miniatur am Ende. Drei Ausbaustufen (nur Bild < 150 px < Bild+Name
   < 232 px < Bild+Name+Bild) als **Container-Queries**, nicht als JS-Klassen —
-  `kuerzeBeschriftungen` läuft während eines Zugs bewusst nicht (erzwungenes
+  `shortenLabels` läuft während eines Zugs bewusst nicht (erzwungenes
   Layout), die Stufen müssen aber im Zug schalten.
 - **Klip-Zug: eine Geste, zwei Bedeutungen.** Innerhalb der eigenen Kette =
   Reihenfolge (Einfügelinie, risikofrei); darüber hinaus = Ort auf der Route.
@@ -139,7 +139,7 @@ Mal darüber.
 
 ### B. Playhead: läuft durch, bleibt orange
 
-- **Führende Größe ist die Filmsekunde** (`kopfFilmS`), nicht die Aufnahmezeit.
+- **Führende Größe ist die Filmsekunde** (`playheadFilmS_`), nicht die Aufnahmezeit.
   Damit läuft der Kopf durch Halte hindurch und Pfeiltasten (5 Filmsekunden)
   funktionieren überall. Beim Abspielen existiert das Muster schon
   (`renderPlayhead(anteilDirekt)`, [CLAUDE.md](../../CLAUDE.md)) — es muss die
@@ -280,7 +280,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
 ### F. Video: trimmen wie Ton, rücken wie eine Kette
 
 - **Beide Kanten trimmen**, gleiche Griffe, gleiche Gesten wie Ton. Anschlag ist
-  die Datei (`dateiS`); Loop gibt es nicht (wäre bei einem Video Unsinn). Der
+  die Datei (`fileS`); Loop gibt es nicht (wäre bei einem Video Unsinn). Der
   alte Satz „ein Video trägt seine Länge, kein Griff — sie steht nicht zur Wahl"
   stimmt für die *Standzeit*, nicht für den *Schnitt*.
 - **Ripple:** ein Video liegt in einer Halt-Kette, die keine Lücken kennt —
@@ -294,7 +294,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
 
 Schema-ID bleibt `maptale/edits@1`; neue Felder sind optional, alte bleiben
 gültig. Aufwertung nach dem bewährten Muster „erster Eingriff schreibt fest"
-(`materializeTravelModes`, `schreibeWetterFest`): das Studio schreibt beim ersten
+(`materializeTravelModes`, `writeWeatherFixed`): das Studio schreibt beim ersten
 Speichern die neuen Felder, der Render bevorzugt sie, `ab`/`bis` bleiben als
 Fallback lesbar. **Nie destruktiv.**
 
@@ -339,10 +339,10 @@ Folgen außerhalb des Schemas:
   `f0/f1`-Anteile des Tour-JSON übersetzen (die Achse steht der Pipeline über
   [film-tempo.ts](../../server/src/pipeline/film-tempo.ts) zur Verfügung).
 - **Player** ([audiotracks.js](../../src/audiotracks.ts),
-  [abspielen.ts](../../src/studio/abspielen.ts)): `loop` aus dem Overlay statt
+  [playback.ts](../../src/studio/playback.ts)): `loop` aus dem Overlay statt
   pauschal `el.loop = true` für Musik; SFX mit `loop: true` brauchen ein
   Bereichsende (heute one-shot). `einstiegS` = Start-Seek (das Eintritts-Seek-
-  Muster existiert in abspielen.ts bereits).
+  Muster existiert in playback.ts bereits).
 
 ---
 
@@ -375,7 +375,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
   56-px-Band unbeschriftet, obwohl das Wort 45 px braucht (Berner Oberland bei
   2:09) — und ein bloßes „Wolkig" ohne Auslassungspunkte sähe aus, als WÄRE das
   die Angabe. Man sucht einen fehlenden Wert nicht, wenn man nicht weiß, dass er
-  existiert. Zwei Dinge gehören dazu: `kuerzeBeschriftungen` läuft auch nach
+  existiert. Zwei Dinge gehören dazu: `shortenLabels` läuft auch nach
   jeder **Maßstabsänderung** (rAF-gebündelt) — beim Hineinzoomen wird das Band
   breit, dann gehört der volle Text wieder hinein; und unter 74 px Bandbreite
   rückt der Text per **Container-Query** an den Rand, weil dort die Polsterung
@@ -433,7 +433,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
 - **Zwei Züge, zwei Schreibweisen.** Die Standzeit wird LIVE ins Overlay
   geschrieben (man soll den Film wachsen und alles Spätere nachrücken sehen),
   der Klip-Zug erst beim Loslassen (dort bewegt sich nur das gezogene Element).
-  Beide bleiben genau ein Undo-Schritt — `renderNachZug` schreibt `letzterStand`
+  Beide bleiben genau ein Undo-Schritt — `renderAfterDrag` schreibt `lastState`
   nicht fort. Ein Zug, der auf seinem eigenen Platz endet, schreibt gar nichts:
   `reiheVergeben` erzeugte sonst ein neues Overlay und damit einen LEEREN
   Undo-Schritt, den man später einmal umsonst rückgängig macht.
@@ -451,11 +451,11 @@ Abweichungen von der Planung, gemessen am echten Editor:
   Fehlerberichte hatten dieselbe Wurzel: Beim Scrubben kam gar kein Bild (die
   Einblendung war eine Überfahr-Marke des Abspielers), und beim Abspielen ging
   es 0,8 s vor seinem Klip aus (der Timer lief über die reine Standzeit, der
-  Klip über Standzeit + Ausblendung). `synchronisiereFoto` liest bei jeder
+  Klip über Standzeit + Ausblendung). `syncPhoto` liest bei jeder
   Kopfbewegung `stopAtFilmS` — dieselbe Kette, aus der die Klips entstehen.
   `ZeigeMarke`/`Schritt.zeige` sind entfallen; das ist wieder die Merkregel aus
   §2B: eine Anzeige, die einen Mangel kompensiert, verschwindet mit ihm.
-- **Die Dauer-Blase hängt an einer EIGENEN Klasse** (`zieht-dauer`), nicht an
+- **Die Dauer-Blase hängt an einer EIGENEN Klasse** (`dragging-duration`), nicht an
   `zieht`: sonst schwebte beim Verschieben eines Klips eine Standzeit-Angabe
   über dem Bild — eine Antwort auf eine Frage, die gerade niemand stellt.
 - **Der Standzeit-Griff bekam eine Zug-Schwelle** (4 px, wie der Klip-Zug) —
@@ -468,7 +468,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
   noch Poster da sind** — eine `.mp4` als Bildquelle zeigt nur das Symbol für
   „kaputt".
 - **Die Klip-Beschriftung wird von Container-Queries geschaltet, nicht von
-  `kuerzeBeschriftungen`.** Die Schwellen aus §2A (150 / 232 px) haben sich
+  `shortenLabels`.** Die Schwellen aus §2A (150 / 232 px) haben sich
   unverändert bewährt; gemessen schalten die Stufen bei 34 / 156 / 525 px
   Klipbreite.
 
@@ -485,7 +485,7 @@ Anfang / Mitte / Ende, dahinter aus.
    `medium.id`, Kopf/Fuß-Miniatur (`thumb` mit `src`-Fallback!),
    Container-Query-Stufen, Momente/Videos/beiläufige in derselben Bahn.
 2. Standzeit-Griff (schreibt `display.holdS` — Feld existiert), Dauer-Blase,
-   ein Zug = ein Undo-Schritt (`renderNachZug`-Muster).
+   ein Zug = ein Undo-Schritt (`renderAfterDrag`-Muster).
 3. Klip-Zug Reihenfolge/Ort mit Zug-Etikett und Halt-Andocken; Halt-Zone für
    die Auswahl.
 4. Tests: Ketten-Layout aus Halten, Reihenfolge-Zug, Andock-Schwellen.
@@ -568,7 +568,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
   Leiste zeigte während des Zugs die ALTE Anordnung, gelandet wurde in der
   NEUEN. Eine Vorschau kann dann zeigen, worauf man zielt, ODER wo es landet —
   nie beides. Also geht die Leiste mit (Nutzer-Vorschlag): Jeder Zieh-Frame
-  schreibt die Grenze und baut neu auf (`renderNachZug`, ein Undo-Schritt),
+  schreibt die Grenze und baut neu auf (`renderAfterDrag`, ein Undo-Schritt),
   Klips, Bänder, Marken und die Filmdauer rücken live nach. Damit fallen Zielen
   und Landen wieder zusammen, alle drei Bahnen rasten an dem Halt, den man
   sieht, und §7 ist entschieden.
@@ -590,7 +590,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
 - **Am Ende schreiben ALLE Züge live** — Kanten wie Momente. Die in §2D
   vorgesehene Entkopplung („Modell erst beim Loslassen") war die Antwort auf ein
   Problem, das die Grenzkurve gelöst hat; sie hat sich damit selbst erledigt.
-  Was bleibt, ist ihr eigentlicher Kern: Während eines Zugs wird `letzterStand`
+  Was bleibt, ist ihr eigentlicher Kern: Während eines Zugs wird `lastState`
   nicht fortgeschrieben, also ist der ganze Zug genau ein Undo-Schritt.
 - **Kamera und Wetter hätten die Entkopplung nicht gebraucht.** Dort ändert der
   Zug die Achse nicht — Zielen und Landen fallen ohnehin zusammen. Die
@@ -609,7 +609,7 @@ Undo-Schritt.
    in §5 beachten).
 2. Zug-Entkopplung: Kante am Zeiger (Anzeigegröße), Modell erst beim Loslassen;
    Ziellinie + Etikett; Einrasten ±0,5 s; Klemmen in Pixeln. `materializeTravelModes`
-   und `schreibeWetterFest` bleiben unverändert die Schreib-Muster.
+   und `writeWeatherFixed` bleiben unverändert die Schreib-Muster.
 3. Fortbewegung: Maßstab beim Zug einfrieren, Filmdauer-Vorschau im Etikett,
    Bisektion für die Loslass-Zeit. **Vorher an der Frankfurt-Tour messen**
    (dichtester realer Track) — Budget: < 8 ms pro Zieh-Frame; sonst analytische
@@ -660,7 +660,7 @@ gerenderten Film an der richtigen Stelle schneidet.
   gleiche lower_bound-Konvention; Drift-Wächter halten beides zusammen.
 - **Nachtrag: Momente sind auch SERVERSEITIG Halte** (`baueMomentHalte`). Die
   Achse der Pipeline kannte anfangs nur platzierte Medien, während das Studio
-  längst auch Momente mit Achsenbreite führte (`achsenHalte` in editor.ts) —
+  längst auch Momente mit Achsenbreite führte (`axisStops` in editor.ts) —
   ein Ton-Klip, dessen Versatz über einen Moment hinwegreicht, bekam dadurch
   eine zu weit vorn liegende Streckenstelle und klang im fertigen Film um die
   Momentdauer (4–6 s je Moment) später als im Editor gezeigt. Zwei Feinheiten:
@@ -739,7 +739,7 @@ Zeile, Punkt 2 ist ein echter Umbau.
 Fortbewegung · Kamera · Wetter zeigt, ein Moment als Klip in der Szenen-Bahn
 liegt und sich dort auswählen, verschieben und in der Dauer ändern lässt.
 
-**Wie es gebaut ist.** Der Moment-Klip ist derselbe `.halt-klip` wie eine
+**Wie es gebaut ist.** Der Moment-Klip ist derselbe `.stop-clip` wie eine
 Aufnahme (eigene Reconcile-Karte `momentEls`, geschlüsselt an `ab`), nur ohne
 Miniatur: an ihrer Stelle das Muster in Koralle. Sein rechter Griff zieht
 `momente[].dauerS` — dieselbe Geste wie die Standzeit eines Fotos, andere
@@ -811,7 +811,7 @@ Dazu die, die erst der echte Editor gekostet hat (Etappen 2 und 3):
     nicht da und beim Abspielen 0,8 s zu kurz. Alles, was „gerade gilt", ist
     eine Funktion der Kopfposition.
 12. **Ein Zug, der nichts ändert, darf nichts schreiben.** Die Overlay-Mutatoren
-    liefern immer ein neues Objekt — der Referenzvergleich in `renderAlles`
+    liefern immer ein neues Objekt — der Referenzvergleich in `renderAll`
     macht daraus einen LEEREN Undo-Schritt, den man später einmal umsonst
     rückgängig macht.
 13. **Der Fit gehört zum Öffnen und zum Zoomen, nicht zu einer Datenänderung.**

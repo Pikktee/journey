@@ -3,7 +3,7 @@ stand: 2026-08-17
 status: Etappe 1 gebaut und auf Player-Technik zurückgeführt, nächste Etappe ist der Auftrag
 betrifft:
   - Web-Player (src/exportfilm.ts, src/exportformat.ts, src/tour.ts, src/main.ts)
-  - Studio-UI (src/studio/exportblatt.ts)
+  - Studio-UI (src/studio/export-sheet.ts)
   - später API-Auftrag wie der ZIP-Export
   - Android nur als Auslöser
 icon: film
@@ -426,7 +426,7 @@ sonst Minuten Rechnerei, beenden kann ihn nur der Knopf, der es auch sagt.
 Der TOUR-NAME steht in Lesegröße unter dem Titel, nicht als Kleingedrucktes: Er
 ist der Gegenstand des Blattes, „Als Video exportieren" nur die Handlung.
 
-Der Fuß trägt **nicht** die tiefe Fläche von `.neu-fuss`: Die gehört zur
+Der Fuß trägt **nicht** die tiefe Fläche von `.new-footer`: Die gehört zur
 großen Upload-Arbeitsfläche, wo sie eine Leiste vom Inhalt trennt; auf einem
 452-px-Blatt las sie sich als schwarzer Balken unter einer hellen Karte.
 
@@ -446,7 +446,7 @@ nicht gibt; der zweite steht als Tooltip am Titel und, wo er zählt, im
 Hinweis vor dem Start.
 
 **Gerendert wird IM Studio-Tab**, in einem gleich-origin `iframe` mit der
-Export-Seite ([exportblatt.ts](../../src/studio/exportblatt.ts)). Drei Gründe,
+Export-Seite ([export-sheet.ts](../../src/studio/export-sheet.ts)). Drei Gründe,
 und der erste wiegt am schwersten:
 
 - **Ein zweiter Tab ist ein verdeckter Tab**, und der bekommt kaum noch Bilder

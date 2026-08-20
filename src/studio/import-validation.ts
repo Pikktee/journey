@@ -7,13 +7,13 @@
 // ohne Zeitstempel — das sind Dinge, die man VORHER wissen will, nicht
 // hinterher an einer Tour, die anders aussieht als erwartet.
 
-import { gpxZeitspanne, medientyp, type MediumEingabe } from './upload.js'
+import { gpxTimeSpan, mediaType, type MediumInput } from './upload.js'
 
 /** Ein Trackpunkt aus dem GPX: [lng, lat, Zeit in ms]. */
 export type GpxPoint = [number, number, number]
 
 /**
- * Trackpunkte aus GPX-XML. Wie `gpxZeitspanne` bewusst mit festem Fenster statt
+ * Trackpunkte aus GPX-XML. Wie `gpxTimeSpan` bewusst mit festem Fenster statt
  * unbeschränktem Suchen — bei einer 40 000-Punkte-Aufzeichnung ist der
  * Unterschied zwischen O(N) und O(N²) der zwischen sofort und Sekunden.
  */
@@ -88,7 +88,7 @@ export function pointAtTime(points: readonly GpxPoint[], ms: number): number {
 export interface MediumReport {
   file: string
   type: 'photo' | 'video'
-  /** Aufnahmezeit in ms — aus EXIF, sonst der Dateizeit (dann `zeitGeraten`) */
+  /** Aufnahmezeit in ms — aus EXIF, sonst der Dateizeit (dann `timeGuessed`) */
   takenAtMs: number
   takenAtGuessed: boolean
   location: [number, number] | null
@@ -127,7 +127,7 @@ export interface ImportReport {
 const TOLERANCE_MS = 20 * 60 * 1000
 
 export function validate(gpx: string | null, media: readonly MediumReport[]): ImportReport {
-  const span = gpx ? gpxZeitspanne(gpx) : null
+  const span = gpx ? gpxTimeSpan(gpx) : null
   const points = gpx ? gpxPoints(gpx) : []
   let km = 0
   for (let i = 1; i < points.length; i++)
@@ -284,9 +284,9 @@ export function estimateRideS(km: number, media: number): number {
 export function mediaFromReport(
   report: ImportReport,
   isoWithZone: (ms: number) => string,
-): MediumEingabe[] {
+): MediumInput[] {
   return report.media.map((a, i) => {
-    const entry: MediumEingabe = {
+    const entry: MediumInput = {
       id: `m${i + 1}`,
       type: a.type,
       file: a.file,
@@ -299,5 +299,5 @@ export function mediaFromReport(
 
 /** Wird die Datei überhaupt angenommen? (GPX oder bekannter Medientyp) */
 export function isUsable(fileName: string): boolean {
-  return fileName.toLowerCase().endsWith('.gpx') || medientyp(fileName) !== null
+  return fileName.toLowerCase().endsWith('.gpx') || mediaType(fileName) !== null
 }

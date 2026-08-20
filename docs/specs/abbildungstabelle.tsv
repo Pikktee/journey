@@ -3510,3 +3510,62 @@ bild	image	property	src/studio/pruefung.ts	3	projectPreview; die Bildpunkte je E
 breiteS	breiteS	property	src/studio/zeitleiste.ts	5	BLEIBT BIS WELLE 5: AxisStop erfuellt strukturell Halt aus src/filmachse.ts — die Umbenennung oeffnet den Player-Kern und seinen Server-Zwilling
 filmVon	filmVon	property	src/studio/zeitleiste.ts, src/studio/tonklip.ts	5	BLEIBT BIS WELLE 5: StopInterval spiegelt HaltIntervall aus src/filmachse.ts; AudioClip haelt dieselbe Schreibweise
 filmBis	filmBis	property	src/studio/zeitleiste.ts, src/studio/tonklip.ts	5	BLEIBT BIS WELLE 5: dito
+test/studio-abspielen.test.ts	test/studio-playback.test.ts	datei	test/studio-abspielen.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
+test/studio-tipp.test.ts	test/studio-tooltip.test.ts	datei	test/studio-tipp.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
+test/studio-tonklip.test.ts	test/studio-audio-clip.test.ts	datei	test/studio-tonklip.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
+test/studio-nachreichen.test.ts	test/studio-add-media.test.ts	datei	test/studio-nachreichen.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
+test/studio-pruefung.test.ts	test/studio-import-validation.test.ts	datei	test/studio-pruefung.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
+test/studio-inspektor.test.ts	test/studio-inspector.test.ts	datei	test/studio-inspektor.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
+modus	travelMode	union-wert	src/studio/timeline.ts (EditorSelection['kind']); src/studio/editor.ts (BoundaryKind)	4	NACHTRAG 2026-08-21 (Welle 4): §5 Welle 3 stellt diese Werte auf Welle 4
+kamera	camera	union-wert	src/studio/timeline.ts (EditorSelection['kind']); src/studio/editor.ts (BoundaryKind)	4	NACHTRAG 2026-08-21 (Welle 4): §5 Welle 3 stellt diese Werte auf Welle 4
+wetter	weather	union-wert	src/studio/timeline.ts (EditorSelection['kind']); src/studio/editor.ts (BoundaryKind)	4	NACHTRAG 2026-08-21 (Welle 4): §5 Welle 3 stellt diese Werte auf Welle 4
+anfang	start	union-wert	src/studio/timeline.ts (RulerMark.edge); Klasse at-start	4	NACHTRAG 2026-08-21 (Welle 4): §5 Welle 3 stellt diese Werte auf Welle 4; die Klasse baut editor.ts als at-${edge}
+ende	end	union-wert	src/studio/timeline.ts (RulerMark.edge)	4	NACHTRAG 2026-08-21 (Welle 4): §5 Welle 3 stellt diese Werte auf Welle 4
+musik	music	dom-wert	studio.html (data-lane); src/studio/editor.ts	4	NACHTRAG 2026-08-21 (Welle 4): Bahn der Zeitleiste, kein Ton-Typ
+wege	travel	dom-wert	studio.html (data-lane); src/studio/editor.ts	4	NACHTRAG 2026-08-21 (Welle 4): wie i-lane-travel
+momente	moments	dom-wert	studio.html (data-lane); src/studio/editor.ts	4	NACHTRAG 2026-08-21 (Welle 4): Bahn der Zeitleiste
+kamera	camera	dom-wert	studio.html (data-lane); src/studio/editor.ts	4	NACHTRAG 2026-08-21 (Welle 4): Bahn der Zeitleiste
+wetter	weather	dom-wert	studio.html (data-lane); src/studio/editor.ts	4	NACHTRAG 2026-08-21 (Welle 4): Bahn der Zeitleiste
+spur	lane	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+grenze	boundary	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+audio-von	audio-from	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+audio-bis	audio-to	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+audio-balken	audio-bar	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+momentklip	moment-clip	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+momentdauer	moment-duration	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+klip	clip	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+videotrim	video-trim	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+standzeit	hold	dom-wert	studio.html, src/studio/editor.ts (data-role)	4	NACHTRAG 2026-08-21 (Welle 4): Rolle einer Zieh-Fläche; nie am Server
+warteliste	waitlist	dom-wert	studio.html, src/studio/studio.ts (data-auth-mode, AuthMode)	4	NACHTRAG 2026-08-21 (Welle 4): Anmeldebühne; nie am Server
+warteliste-info	waitlist-info	dom-wert	studio.html, src/studio/studio.ts (data-auth-mode, AuthMode)	4	NACHTRAG 2026-08-21 (Welle 4): Anmeldebühne; nie am Server
+reset-anfordern	reset-request	dom-wert	studio.html, src/studio/studio.ts (data-auth-mode, AuthMode)	4	NACHTRAG 2026-08-21 (Welle 4): Anmeldebühne; nie am Server
+reset-setzen	reset-set	dom-wert	studio.html, src/studio/studio.ts (data-auth-mode, AuthMode)	4	NACHTRAG 2026-08-21 (Welle 4): Anmeldebühne; nie am Server
+auswahl	select	dom-wert	studio.html, src/studio/editor.ts (data-tool)	4	NACHTRAG 2026-08-21 (Welle 4): Werkzeug der Zeitleiste
+umgebung	ambience	union-wert	src/studio/sfx-library.ts (SfxEffect.category), src/studio/editor.ts (SfxFilter)	4	NACHTRAG 2026-08-21 (Welle 4): Katalog-Kategorie; steht in keinem Vertrag
+effekt	sfx	union-wert	src/studio/sfx-library.ts (SfxEffect.category), src/studio/editor.ts (SfxFilter)	4	NACHTRAG 2026-08-21 (Welle 4): Katalog-Kategorie; steht in keinem Vertrag
+eigene	own	union-wert	src/studio/sfx-library.ts (SfxEffect.category), src/studio/editor.ts (SfxFilter)	4	NACHTRAG 2026-08-21 (Welle 4): Katalog-Kategorie; steht in keinem Vertrag
+links	left	union-wert	src/studio/tooltip.ts (positionFor .side)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, keine CSS-Regel dahinter
+unten	bottom	union-wert	src/studio/tooltip.ts (positionFor .side)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, keine CSS-Regel dahinter
+oben	top	union-wert	src/studio/tooltip.ts (positionFor .side)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, keine CSS-Regel dahinter
+von	from	union-wert	src/studio/editor.ts (Trim- und Ton-Kanten, data-side)	4	NACHTRAG 2026-08-21 (Welle 4): baut zugleich die Klasse .from/.to
+bis	to	union-wert	src/studio/editor.ts (Trim- und Ton-Kanten, data-side)	4	NACHTRAG 2026-08-21 (Welle 4): baut zugleich die Klasse .from/.to
+vonS	fromS	dataset-schluessel	src/studio/editor.ts, src/studio/export-sheet.ts, src/studio/studio.ts	4	NACHTRAG 2026-08-21 (Welle 4): 
+bisS	toS	dataset-schluessel	src/studio/editor.ts, src/studio/export-sheet.ts, src/studio/studio.ts	4	NACHTRAG 2026-08-21 (Welle 4): 
+abbrechen	cancel	dataset-schluessel	src/studio/editor.ts, src/studio/export-sheet.ts, src/studio/studio.ts	4	NACHTRAG 2026-08-21 (Welle 4): 
+abbruch-ja	cancel-yes	dataset-schluessel	src/studio/editor.ts, src/studio/export-sheet.ts, src/studio/studio.ts	4	NACHTRAG 2026-08-21 (Welle 4): 
+speichern	save	dataset-schluessel	src/studio/editor.ts, src/studio/export-sheet.ts, src/studio/studio.ts	4	NACHTRAG 2026-08-21 (Welle 4): 
+starten	start	dataset-schluessel	src/studio/editor.ts, src/studio/export-sheet.ts, src/studio/studio.ts	4	NACHTRAG 2026-08-21 (Welle 4): 
+weiter	continue	dataset-schluessel	src/studio/editor.ts, src/studio/export-sheet.ts, src/studio/studio.ts	4	NACHTRAG 2026-08-21 (Welle 4): 
+loeschen	delete	dataset-schluessel	src/studio/editor.ts, src/studio/export-sheet.ts, src/studio/studio.ts	4	NACHTRAG 2026-08-21 (Welle 4): 
+bahn	ring-track	css-klasse	src/studio/studio.ts (Ring der Bibliothekskarte), studio.html (.new-reading .ring)	4	NACHTRAG 2026-08-21 (Welle 4): Fortschrittsring der Bibliothekskarte; getrennt von lane, s. Bemerkung der bahn-Zeile
+bahn	marks	css-klasse	src/studio/studio.ts (Zeitband des Upload-Befunds), studio.html (.time-band)	4	NACHTRAG 2026-08-21 (Welle 4): Reihe der Foto-Marken im Zeitband; getrennt von lane, sonst greift die unscoped .lane-Regel
+spur	track	css-klasse	src/studio/studio.ts, studio.html	4	NACHTRAG 2026-08-21 (Welle 4): GPS-Spur im SVG der Bibliothekskarte (Glossar 6.1)
+objektiv	lens	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+belichtungS	exposureS	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+blende	aperture	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+brennweiteMm	focalLengthMm	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+korrekturEv	exposureBiasEv	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+breite	width	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+hoehe	height	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+hoeheM	elevationM	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 
+datum	date	property	src/studio/exif.ts (ExifCapture, ExifData)	4	NACHTRAG 2026-08-21 (Welle 4): 

@@ -1,6 +1,6 @@
 ---
-stand: 2026-08-20
-status: Wellen 0 bis 3 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 und 3 warten auf den nächsten Release. Wellen 4 bis 8 offen, Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
+stand: 2026-08-21
+status: Wellen 0 bis 4 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 4 warten auf den nächsten Release. Wellen 5 bis 8 offen, Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -9,10 +9,13 @@ betrifft:
   - server/src/routes/tours.ts
   - src/studio/api.ts
   - src/remote.ts
-  - src/studio/editmodell.ts
-  - src/studio/zeitleiste.ts
-  - src/studio/tonklip.ts
-  - src/studio/pruefung.ts
+  - src/studio/edit-model.ts
+  - src/studio/editor.ts
+  - src/studio/studio.ts
+  - studio.html
+  - src/studio/timeline.ts
+  - src/studio/audio-clip.ts
+  - src/studio/import-validation.ts
   - src/filmachse.ts
   - src/kartenmaler.ts
   - android/app/src/main/java/app/maptale/daten/Entities.kt
@@ -164,7 +167,7 @@ belastbar auf zehn Prozent genau; die Größenordnung reicht für den Schnitt).
 Suche nach `karte` findet beides. Auf Englisch `map` und `card`.
 
 **Englisch schafft dafür eines: `export`.** Video-Export (`exportfilm.ts`,
-`exportformat.ts`, `exportblatt.ts`) und DSGVO-Datenexport (`export.ts`,
+`exportformat.ts`, `export-sheet.ts`) und DSGVO-Datenexport (`export.ts`,
 `exportinhalt.ts`, `exportlauf.ts`, Tabelle `exporte`) hießen auf Deutsch schon
 gleich und würden es auf Englisch erst recht. Das Glossar trennt sie als
 `filmExport` und `dataExport` (§6.1). Dasselbe gilt für `Aufnahme` (der Vorgang
@@ -292,7 +295,7 @@ zugehörigen Test laufen:
   `amb-bergwind.mp3`, `mus-nachtfahrt.mp3`, …, 28 Stück). Ihre Namen sind als
   `audio[].datei` in jedem `edits.json` und als `src` in jedem `tour.json`
   PERSISTIERT; der Katalog steht in
-  [sfxbibliothek.ts](../../src/studio/sfxbibliothek.ts), die acht
+  [sfx-library.ts](../../src/studio/sfx-library.ts), die acht
   Auto-Musik-Stücke gespiegelt in
   [music-choice.ts](../../server/src/pipeline/music-choice.ts) (Drift-Wächter in
   `test/studio-baukasten.test.ts`), `mus-nachtfahrt.mp3` zusätzlich in
@@ -609,7 +612,7 @@ mit Leser.
 | **1** ✅ | **Verträge und ihre Leser**: SQLite (Spalten, Tabellen, Werte, Blobs), `upload@2`, `edits@2`, `enrichment@2`, `tour@2`, **HTTP-API** (Pfade und Felder), Room v4, Start-Migration, Re-Render, plus aller Code, der dadurch rot wird, plus die Nähte aus §3.3; die beiden Specs | mittel, und heute am billigsten |
 | **2** ✅ | Server-Internals: Pipeline, Routen-Handler, Mail-Bausteine, Auth, Dateiumbenennungen in `server/src` | mittel |
 | **3** ✅ | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `pruefung`; `stopps` geht nach Tabelle mit Welle 5) | niedrig |
-| **4** | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `abspielen`, `exportblatt`, `nachreichen`, `sfxbibliothek`, `tipp`, `kartenstimmung`) + Dateiumbenennungen | mittel |
+| **4** ✅ | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `playback`, `export-sheet`, `add-media`, `sfx-library`, `tooltip`, `map-mood`) + Dateiumbenennungen + die DOM-IDs und CSS-Klassen des Studios | mittel |
 | **5** | Player-Engine (`tour`, `filmachse`, `filmuhr`, `kartenmaler`, `kartenschicht`, `einblendung`, `streckenanker`, `ui`, `main`, `exportfilm`, `exportformat`, `vollbild`, `karteninfo`, `tourtexte`, `wetterhimmel`, `pinmodell`) + `window.__j` + `scripts/messungen` + `test/fixtures/filmachse.json` mit Server-Spiegel | mittel |
 | **6** | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
 | **7** | Android: ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; Zusage in `LuhamboDb.kt` zurück | niedrig (nur eigene Geräte) |
@@ -728,11 +731,11 @@ nicht der Code.
 
 ### Welle 3: gebaut am 2026-08-20
 
-Die vier DOM-freien Studio-Module `editmodell.ts`, `zeitleiste.ts`, `tonklip.ts`
-und `pruefung.ts`, umbenannt wie Welle 2 über den TypeScript-Language-Service
+Die vier DOM-freien Studio-Module `edit-model.ts`, `timeline.ts`, `audio-clip.ts`
+und `import-validation.ts`, umbenannt wie Welle 2 über den TypeScript-Language-Service
 (`findRenameLocations`), nicht per Textersetzung. Rot geworden ist dabei nur,
-was Aufrufstelle ist: `editor.ts`, `studio.ts`, `stopps.ts`, `abspielen.ts`,
-`nachreichen.ts`, `kartenstimmung.ts` und die Testdateien. Fünf Dinge, die dabei
+was Aufrufstelle ist: `editor.ts`, `studio.ts`, `stopps.ts`, `playback.ts`,
+`add-media.ts`, `map-mood.ts` und die Testdateien. Fünf Dinge, die dabei
 aufgefallen sind:
 
 - **`stopps.ts` bleibt deutsch.** Der Wellenplan oben zählt es zu Welle 3, die
@@ -743,7 +746,7 @@ aufgefallen sind:
 - **Zwei Zielformen der Tabelle kollidierten mit Welle 5**, und beide waren
   dort als „beim Umbau prüfen" markiert: `Achse` → `FilmAxis` trifft
   `Filmachse` → `FilmAxis`, `baueAchse` → `buildFilmAxis` trifft
-  `baueFilmachse` → `buildFilmAxis` — und `zeitleiste.ts` IMPORTIERT beide aus
+  `baueFilmachse` → `buildFilmAxis` — und `timeline.ts` IMPORTIERT beide aus
   [filmachse.ts](../../src/filmachse.ts). Der Editor-Typ heißt jetzt
   `TimelineAxis` / `buildTimelineAxis` (§6.3: Zeitleiste = `timeline`), der
   Name `FilmAxis` bleibt dem geteilten Modul. Dieselbe Sorte Befund wie
@@ -758,21 +761,96 @@ aufgefallen sind:
   Welle 5. Sie stehen mit dieser Begründung als eigene Zeilen in der Tabelle.
 - **Die WERTE der modulinternen Unions bleiben**, obwohl ihre Felder wandern:
   `EditorSelection['kind']` (`modus`/`kamera`/`wetter`) teilt seine Wörter mit
-  den `data-spur`-Werten und dem `GrenzArt` von `editor.ts`, `RulerMark.edge`
-  (`anfang`/`ende`) baut die CSS-Klasse `am-anfang`, und `Message.tone`
+  den `data-lane`-Werten und dem `BoundaryKind` von `editor.ts`, `RulerMark.edge`
+  (`anfang`/`ende`) baut die CSS-Klasse `at-start`, und `Message.tone`
   (`hinweis`/`warnung`) wird in `studio.ts` verglichen. Alle vier gehören damit
   in Welle 4, nicht hierher.
 
 Neu in der Tabelle: 55 Zeilen — die Eigenschaften der Editor-Typen als Art
-`property`, dazu `moveToSlot` (für `ordneEin`, das es in `nachreichen.ts` ein
+`property`, dazu `moveToSlot` (für `classify`, das es in `add-media.ts` ein
 zweites Mal gibt) und die „bleibt"-Zeilen. Modulinterne Variablennamen sind
 mitgegangen, aber bewusst NICHT eingetragen: Sie haben keinen Leser außerhalb
 ihrer Funktion, und 200 Zeilen davon machten die Tabelle für die Wellen danach
 unlesbarer, nicht genauer.
 
+### Welle 4: gebaut am 2026-08-21
+
+694 Zeilen der Abbildungstabelle, zehn Moduldateien unter `src/studio/` samt
+ihren sechs Testdateien, und zum ersten Mal die DOM-Seite: 175 ids, 325
+CSS-Klassen, 24 Keyframes, zwölf Custom Properties und 24 dataset-Schlüssel in
+[studio.html](../../studio.html) und den Studio-Modulen, alles in einem Commit.
+Umbenannt wurde wie in den Wellen 2 und 3 über den TypeScript-Language-Service;
+die DOM-Namen dagegen kontextweise (CSS-Selektor, `class=`/`id=`/`data-*`,
+`classList`, `$('…')`), nie als Wortlauf über die Datei — `karte`, `kopf` und
+`zeile` sind zugleich gewöhnliche deutsche Wörter und stehen zu Dutzenden in
+Kommentaren und Produkttexten.
+
+**Der Bindungs-Abzug ist der Wächter, den diese Welle gebraucht hat.** Vor und
+nach jedem Lauf wird für JEDE Identifier-Stelle im Projekt notiert, auf welche
+Deklaration sie auflöst (80 267 Stellen, 2,4 s). Danach muss der Abzug Zeile für
+Zeile gleich sein. Genau einmal war er es nicht, und das war ein echter Fehler:
+`fenster` → `window` hat in `wireTimeline` die GLOBALE `window` verdeckt, und der
+nächste Lauf zog 17 `window.addEventListener('pointermove', …)` mitsamt in die
+Verdeckung — die Pointer-Gesten der Zeitleiste hätten danach auf dem
+Spuren-Fenster gehorcht statt am Dokument. Kein Test wurde rot, der Compiler
+schwieg (beides sind `EventTarget`). Der Abzug hat es in zwei Sekunden gezeigt.
+
+Sieben Dinge, die dabei aufgefallen sind:
+
+- **Eine Umbenennung darf nicht aus ihrer Welle hinauslaufen.** Ein Objektliteral
+  in `studio.ts` ist durch ein Interface aus `passwortfeld.ts` (Welle 6) getypt;
+  der Language-Service benennt dann dessen Eigenschaft mit um. Der erste Lauf hat
+  so `app-nav.ts`, `passwortfeld.ts`, `kontodialoge.ts`, `kartenmaler.ts` und
+  `exportformat.ts` angefasst und `app-nav.ts` dabei sogar unübersetzbar gemacht.
+  Seither gilt: Ein Symbol, dessen Stellen die Welle verlassen, wird GAR NICHT
+  angefasst. 27 blieben so stehen — alle Vertragsfelder der Foto-Karte und des
+  Video-Exports, die mit Welle 5 gehen.
+- **Vier Dinge hießen `.spur` oder `.bahn`, die Tabelle bildet beide auf `lane`
+  ab.** Entschieden am 21.08.: getrennt. Die Zeitleisten-Spuren werden `.lane`,
+  die GPS-Spur im SVG der Bibliothekskarte `.track`, ihr Fortschrittsring
+  `.ring-track`, die Marken-Reihe im Zeitband `.marks`. Wörtlich genommen hätte
+  die unscoped Regel `.lane { display: grid; … }` danach auch im Zeitband und im
+  Ring gegolten.
+- **`{ ab }` und `.von` kollidieren NICHT**, obwohl beide `from` heißen: Das eine
+  ist ein dataset-Schlüssel (`data-from`), das andere eine CSS-Klasse. Zwei
+  Namensräume, ein Wort.
+- **Werte, die eine CSS-Klasse bauen, gehen mit ihrer Klasse.** `RulerMark.edge`
+  wandert auf `start`/`end`, weil `editor.ts` daraus `at-${edge}` baut und die
+  Klasse `am-anfang` in dieser Welle liegt. `Message.tone` bleibt dagegen
+  deutsch: Seine Wörter bauen `.hinweis`/`.warnung`, und die stehen auch auf den
+  Produktseiten, also in Welle 6. Welle 3 hatte beide zusammen hierher gestellt;
+  die Tabelle kennt den Fundort und hat recht.
+- **Ein Typ und sein Test können gemeinsam falsch sein** (§9.2, die teuerste
+  Sorte) — und diesmal hat der Test es gezeigt: `{ ...TOUR, abstandZurStrecke }`
+  in `studio-add-media.test.ts` ist ein Objektliteral ohne Annotation, also kein
+  Kontext, also keine Umbenennung. Der Wert kam als `undefined` an, und jede
+  Aufnahme galt als nah an der Strecke.
+- **Zielformen müssen reservierte Wörter meiden.** `neu` → `new`, `klasse` →
+  `class`, `loeschen` → `delete`, `vorgabe` → `default`, `rein` → `in`,
+  `wechseln` → `switch`, `tun` → `do`: sieben Treffer, alle vor dem Bauen
+  gefunden, keiner davon durch ein Wörterbuch zu verhindern.
+- **`#i-abmelden` steht in `app-nav.ts`**, das Symbol dazu nur in `studio.html`.
+  Die Icon-id liegt in dieser Welle, der Leser in Welle 6 — also ist die eine
+  Zeichenkette mitgegangen. Ohne sie hätte das Konto-Menü des Studios sein
+  Abmelden-Icon verloren, und zwar lautlos.
+
+Rot geworden sind fünf Text-Wächter, und das war wieder die gute Nachricht:
+`session-hinweis.test.ts` (`studio-dabei`/`studio-gesteuert`),
+`einblendung-css.test.ts` (`.karten-buehne`), `app-nav.test.ts` (die statische
+Kopfleiste gegen `appHeaderHtml`), `studio-baukasten.test.ts` (`anfang`/`ende`)
+und `client-vertrag.test.ts` — der letzte hat zwei echte Wertdrifts gemeldet
+(`data-auth-mode="warteliste"`, `data-lane="musik"`), also genau das, wofür er
+2026-08-20 gebaut wurde.
+
+Neu in der Tabelle: 59 Zeilen — die sechs Testdateien, die Union- und
+Attributwerte, die Welle 3 ausdrücklich hierher gestellt hat, die vier
+`spur`/`bahn`-Entscheidungen und die EXIF-Eigenschaften. Der Prüfer meldet
+seither einen zweiten gewollten Homonym-Fall: `breite` ist auf Android `lat`
+(Geo-Breite) und im EXIF-Leser `width`.
+
 ### Wellen 3 bis 6: Namen
 
-Die Umbenenn-Tabelle für `editmodell.ts` bleibt gültig und wird einfacher, weil
+Die Umbenenn-Tabelle für `edit-model.ts` bleibt gültig und wird einfacher, weil
 die Feld-Ausnahmen entfallen:
 
 | Ist | Soll |
@@ -831,7 +909,7 @@ ohnehin öffnet:
 | Begriff | verbindlich | Alt-Namen im Code | wo |
 |---|---|---|---|
 | Ort, an dem der Film anhält | **Halt** / `stop` | `Stopp`, `PlayerStopp`, `gruppiereStopps` | Player + `src/studio/stopps.ts` |
-| Wie lange die Karte steht | **Standzeit** / `holdDuration`, Feld `holdS` | `haltedauerS` | `zeitleiste.ts`, `editor.ts` |
+| Wie lange die Karte steht | **Standzeit** / `holdDuration`, Feld `holdS` | `haltedauerS` | `timeline.ts`, `editor.ts` |
 | Zeit, die der Film läuft | **Filmzeit** / `filmTime` | einheitlich | |
 
 **Der eine Streitpunkt aus der ersten Fassung ist entschieden:** `stop` ist der
@@ -953,7 +1031,7 @@ Dazu neun Regeln, jede eine Zeile:
 | Trim (Tour) | `tourTrim` | Video: `mediaTrim` |
 | Klangbibliothek | `audioLibrary` | |
 | Nachreichen (Medien) | `addMedia` | Route `POST /api/tours/:id/media` |
-| AchsenKurve (Zeit→Strecke) | `AxisCurve` | `zeitleiste.ts` |
+| AchsenKurve (Zeit→Strecke) | `AxisCurve` | `timeline.ts` |
 
 ### 6.3a Player und Film
 
@@ -1045,17 +1123,17 @@ gehen.
 
 | Ist | Soll | Welle |
 |-----|------|------:|
-| `src/studio/editmodell.ts` | `edit-model.ts` | 4 |
-| `src/studio/zeitleiste.ts` | `timeline.ts` | 4 |
-| `src/studio/tonklip.ts` | `audio-clip.ts` | 4 |
+| `src/studio/edit-model.ts` | `edit-model.ts` | 4 |
+| `src/studio/timeline.ts` | `timeline.ts` | 4 |
+| `src/studio/audio-clip.ts` | `audio-clip.ts` | 4 |
 | `src/studio/stopps.ts` | `stops.ts` | 5 (nicht 4: [einblendung.ts](../../src/einblendung.ts) und [geo.ts](../../src/geo.ts) importieren es, die Umbenennung öffnet Player-Kern-Dateien) |
-| `src/studio/pruefung.ts` | `import-validation.ts` | 4 |
-| `src/studio/abspielen.ts` | `playback.ts` | 4 |
-| `src/studio/exportblatt.ts` | `export-sheet.ts` | 4 |
-| `src/studio/kartenstimmung.ts` | `map-mood.ts` | 4 |
-| `src/studio/nachreichen.ts` | `add-media.ts` | 4 |
-| `src/studio/sfxbibliothek.ts` | `sfx-library.ts` | 4 |
-| `src/studio/tipp.ts` | `tooltip.ts` | 4 |
+| `src/studio/import-validation.ts` | `import-validation.ts` | 4 |
+| `src/studio/playback.ts` | `playback.ts` | 4 |
+| `src/studio/export-sheet.ts` | `export-sheet.ts` | 4 |
+| `src/studio/map-mood.ts` | `map-mood.ts` | 4 |
+| `src/studio/add-media.ts` | `add-media.ts` | 4 |
+| `src/studio/sfx-library.ts` | `sfx-library.ts` | 4 |
+| `src/studio/tooltip.ts` | `tooltip.ts` | 4 |
 | `src/filmachse.ts` | `film-axis.ts` | 5 |
 | `src/filmuhr.ts` | `film-clock.ts` | 5 |
 | `src/kartenmaler.ts` | `card-painter.ts` | 5 |
@@ -1250,9 +1328,9 @@ Zwei Werte in `tour@2`, die man beim Abschreiben übersieht:
 
 - **`placement`** trägt deutsche WERTE: `'gps' | 'zeit' | 'manuell' |
   'unplatziert'` ([placement.ts](../../server/src/pipeline/placement.ts)),
-  `editmodell.ts` SCHREIBT `'manuell'`, `editor.ts` vergleicht darauf und
-  schlägt in `PLACEMENT_NAMEN` nach; der Typ ist dabei blankes `string`
-  (`api.ts`, `editmodell.ts`), der Compiler sieht also nichts. Sie gehen mit,
+  `edit-model.ts` SCHREIBT `'manuell'`, `editor.ts` vergleicht darauf und
+  schlägt in `PLACEMENT_NAMES` nach; der Typ ist dabei blankes `string`
+  (`api.ts`, `edit-model.ts`), der Compiler sieht also nichts. Sie gehen mit,
   zu `gps/time/manual/unplaced`, samt Schreiber, Vergleich und Tabelle im
   Studio. Ohne diese Zeile
   bleibt ein deutscher Wertesatz im „fertig migrierten" Vertrag stehen, oder er
@@ -1279,9 +1357,9 @@ deutsch: `--akzent`, `--akzent-2`, `--auf-akzent`, `--blau`, `--gruen`, `--rot`,
 **Die übrigen kommen dazu und liegen verstreut**: `--blatt-grundelemente` und
 `--blatt-werkzeug` in ihren Blättern, `--konto-lesebreite` in
 `grundelemente.css` und `konto.html`, `--lesebreite` in `rechtstext.css`,
-`--seitenrand` und `--navh-leiste` in `index.html`, `--streifen-rand`,
-`--zeit-breite` und `--inspector-breite` in `studio.html` und den
-Studio-Modulen (`editor.ts`, `tonklip.ts`), `--karten-mass` und
+`--seitenrand` und `--navh-leiste` in `index.html`, `--strip-margin`,
+`--timeline-width` und `--inspector-width` in `studio.html` und den
+Studio-Modulen (`editor.ts`, `audio-clip.ts`), `--karten-mass` und
 `--schleier-sicht` in `style.css` und `kartenschicht.ts`. Wer die Inventur aus
 `basis.css` allein zieht, findet die Hälfte nicht, und wer nur CSS-Dateien
 durchsucht, verfehlt die HTML-Köpfe und die `.ts`, die sie setzen. Dazu Klassen und ids quer
@@ -1356,7 +1434,7 @@ Absichtstexte enthalten kaum Namen.
 **Das Front Matter bricht in ALLEN Töpfen, auch in B.** Jedes Dokument trägt
 `betrifft:`-Pfade, aus denen der Viewer Bereiche und Systemteile ableitet
 ([kopf.mjs](../../scripts/docs-viewer/kopf.mjs)); dieses Dokument selbst listet
-`src/studio/editmodell.ts`. Nach den Wellen 4 bis 6 zeigen diese Pfade in fast
+`src/studio/edit-model.ts`. Nach den Wellen 4 bis 6 zeigen diese Pfade in fast
 allen 45 Dokumenten ins Leere, und „unangetastet" für Topf B gilt nur für den
 TEXT. Also: **je Umbenennungs-Welle ein mechanischer Lauf über alle
 `betrifft:`-Listen**, gegen dieselbe Dateitabelle aus §6.6. Das ist kein

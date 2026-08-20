@@ -208,7 +208,7 @@ export const RAMPE_M = 120
  * Was eine Modus-Rampe VOR ihrer Grenze gegenüber reiner Reise kostet (s).
  *
  * Für das Zug-Fenster einer Fortbewegungs-Grenze im Editor
- * ([zeitleiste.ts](studio/zeitleiste.ts), `buildBoundaryCurve`): Dessen Kurve
+ * ([timeline.ts](studio/timeline.ts), `buildBoundaryCurve`): Dessen Kurve
  * rechnet das Fenster durchgehend im LINKEN Modus, weil die Filmposition der
  * Kante nur von dem abhängt, was vor ihr liegt.
  *

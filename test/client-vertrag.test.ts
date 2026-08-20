@@ -201,7 +201,7 @@ describe('DOM-Kennungen gegen das Markup', () => {
  * der Wächter die neue Welle nicht, und das ist die einzige Stelle, an der er
  * still zu wenig tut.
  */
-const GEBAUTE_WELLEN = new Set(['1', '2', '3'])
+const GEBAUTE_WELLEN = new Set(['1', '2', '3', '4'])
 
 /**
  * Ist-Werte aus gebauten Wellen: Wörter, die im Markup nichts mehr zu suchen
@@ -230,14 +230,14 @@ function veralteteWerte(): Map<string, string> {
  * Attribute, deren Werte NICHT zum Vertrag gehören, obwohl sie so heißen.
  *
  * Drei Homonyme, und jedes ist genau der Fall, für den die Abbildungstabelle
- * eine Fundort-Spalte hat: `data-spur="musik"` ist die Bahn der Zeitleiste
- * (Welle 4), nicht der Ton-Typ `audio[].typ`; `data-wlevel="mittel"` ist die
+ * eine Fundort-Spalte hat: `data-lane="music"` ist die Bahn der Zeitleiste,
+ * nicht der Ton-Typ `audio[].type`; `data-wlevel="mittel"` ist die
  * Wetterstärke des Players (Welle 5), nicht das Kamera-Preset; und
- * `data-modus="warteliste"` schaltet die Anmeldebühne um (Welle 4), es ist
+ * `data-auth-mode="waitlist"` schaltet die Anmeldebühne um, es ist
  * kein Mail-Vorlagen-Schlüssel. Wer eine Zeile ergänzt, prüft vorher, ob der
  * Wert wirklich nie zum Server geht.
  */
-const KEINE_VERTRAGSWERTE = new Set(['data-spur', 'data-wlevel', 'data-modus'])
+const KEINE_VERTRAGSWERTE = new Set(['data-lane', 'data-wlevel', 'data-auth-mode'])
 
 describe('Vertragswerte im Markup', () => {
   it('kein value- oder data-Attribut trägt einen Wert aus einer gebauten Welle', () => {

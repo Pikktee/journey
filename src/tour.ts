@@ -13,7 +13,7 @@
 // „Im Halt" ist seither ein ZUSTAND DER KURVE — `filmS` liegt in einem
 // Halt-Intervall — und kein getriggerter Phasenwechsel. Rückwärts fährt
 // dadurch über dieselbe Kurve, Halte inklusive, genau wie der Editor
-// (src/studio/abspielen.ts) es seit Monaten tut.
+// (src/studio/playback.ts) es seit Monaten tut.
 import maplibregl, { type Map as MapLibreKarte } from 'maplibre-gl'
 import { klipDauerS } from './einblendung.js'
 import { Filmuhr, verbindeSichtbarkeit } from './filmuhr.js'

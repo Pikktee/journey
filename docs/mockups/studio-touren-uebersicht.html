@@ -32,7 +32,7 @@
    · `DELETE /api/tours/:id` löscht Datenbankzeile UND Medien
      (server/src/routes/tours.ts). Kein Papierkorb, also kein
      „Rückgängig"-Toast; er wäre eine Zusage, die der Server nicht hält.
-   · `edits.titelbild` existiert (src/studio/editmodell.ts) und der Server
+   · `edits.titelbild` existiert (src/studio/edit-model.ts) und der Server
      respektiert es (server/src/pipeline/enrich.ts `bestimmeCover`),
      gesetzt wird es aber nur von der Android-App. Im Web gibt es dafür
      bis heute keine Oberfläche.
@@ -2005,7 +2005,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
         </tr>
         <tr>
           <td>Gelöschte Medien</td>
-          <td><code>editmodell.ts:364</code> räumt ein <code>titelbild</code> auf, das ins Leere zeigt</td>
+          <td><code>edit-model.ts:364</code> räumt ein <code>titelbild</code> auf, das ins Leere zeigt</td>
           <td class="ja">bereits gelöst</td>
         </tr>
       </tbody>

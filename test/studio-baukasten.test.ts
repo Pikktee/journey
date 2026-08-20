@@ -44,8 +44,8 @@ import {
   type MediaBase,
   type TravelMode,
   type TrackPoint,
-} from '../src/studio/editmodell'
-import { SFX_BIBLIOTHEK, SFX_DATEIEN, sfxEffekt } from '../src/studio/sfxbibliothek'
+} from '../src/studio/edit-model'
+import { SFX_LIBRARY, SFX_FILES, sfxEffect } from '../src/studio/sfx-library'
 import {
   scrollAnchor,
   fractionAt,
@@ -102,7 +102,7 @@ import {
   videoFilmS,
   videoStandS,
   VIDEO_TRIM_MIN_S,
-} from '../src/studio/zeitleiste'
+} from '../src/studio/timeline'
 
 const START = '2026-07-12T17:45:00Z'
 const iso = (s: number): string => offsetToIso(START, s)
@@ -158,7 +158,7 @@ describe('Kamera-Grenzen', () => {
     ])
     e = withoutCameraBoundary(e, iso(100))
     e = withoutCameraBoundary(e, iso(600))
-    expect('kamera' in e).toBe(false)
+    expect('camera' in e).toBe(false)
   })
 
   it('Feinjustierung: skala wird gehalten, bei 1/undefined weggelassen', () => {
@@ -493,7 +493,7 @@ describe('Wetter-Grenzen', () => {
   it('entfernt die Grenze und räumt das leere Feld weg (zurück zum Auto-Wetter)', () => {
     const e = withWeatherBoundary(EMPTY_OVERLAY, iso(0), 'snow')
     const ohne = withoutWeatherBoundary(e, iso(0))
-    expect('wetter' in ohne).toBe(false)
+    expect('weather' in ohne).toBe(false)
   })
 
   // `weatherAtTime` beantwortet punktuell, was die Wetter-Bahn als Bänder
@@ -584,24 +584,24 @@ describe('Wetter-Grenzen', () => {
 
 describe('Musik- und Klangbibliothek', () => {
   it('Katalog ist konsistent: eindeutige Dateien, Kategorie passt zum Typ', () => {
-    const dateien = SFX_BIBLIOTHEK.map((e) => e.file)
+    const dateien = SFX_LIBRARY.map((e) => e.file)
     expect(new Set(dateien).size, 'doppelte Dateinamen im Katalog').toBe(dateien.length)
-    for (const e of SFX_BIBLIOTHEK) {
+    for (const e of SFX_LIBRARY) {
       expect(e.file, `${e.name}: Dateiname`).toMatch(/^[A-Za-z0-9_-]{1,64}\.mp3$/)
       // Musik und Umgebung laufen als Loop über eine Spanne (musik),
       // Effekte als One-Shot an einem Punkt (sfx)
       expect(e.type, `${e.name}: Typ passt zur Kategorie`).toBe(
-        e.kategorie === 'effekt' ? 'sfx' : 'music',
+        e.category === 'sfx' ? 'sfx' : 'music',
       )
     }
-    expect(SFX_DATEIEN.has(SFX_BIBLIOTHEK[0]!.file)).toBe(true)
-    expect(sfxEffekt(SFX_BIBLIOTHEK[0]!.file)?.name).toBe(SFX_BIBLIOTHEK[0]!.name)
-    expect(sfxEffekt('gibtsnicht.mp3')).toBeUndefined()
+    expect(SFX_FILES.has(SFX_LIBRARY[0]!.file)).toBe(true)
+    expect(sfxEffect(SFX_LIBRARY[0]!.file)?.name).toBe(SFX_LIBRARY[0]!.name)
+    expect(sfxEffect('gibtsnicht.mp3')).toBeUndefined()
   })
 
   it('bietet Musik an — nicht nur Atmosphären und Effekte', () => {
     // Die Spur heißt „Musik & Sound"; ohne Musik wäre sie eine Ankündigung.
-    const musik = SFX_BIBLIOTHEK.filter((e) => e.kategorie === 'music')
+    const musik = SFX_LIBRARY.filter((e) => e.category === 'music')
     expect(musik.length).toBeGreaterThanOrEqual(10)
     expect(musik.every((e) => e.type === 'music')).toBe(true)
   })
@@ -619,7 +619,7 @@ describe('Musik- und Klangbibliothek', () => {
       MUSIK_CLIPS: Array<{ name: string }>
     }
     const ausSkript = [...CLIPS, ...MUSIK_CLIPS].map((c) => `${c.name}.mp3`).sort()
-    const ausKatalog = SFX_BIBLIOTHEK.map((e) => e.file)
+    const ausKatalog = SFX_LIBRARY.map((e) => e.file)
       .slice()
       .sort()
     expect(ausSkript).toEqual(ausKatalog)
@@ -627,7 +627,7 @@ describe('Musik- und Klangbibliothek', () => {
 
   it('jede Katalogdatei liegt wirklich unter public/audio/sfx/', () => {
     // Ein Katalogeintrag ohne Datei ist ein Eintrag, der beim Anklicken schweigt.
-    for (const e of SFX_BIBLIOTHEK) {
+    for (const e of SFX_LIBRARY) {
       const pfad = new URL(`../public/audio/sfx/${e.file}`, import.meta.url)
       expect(existsSync(pfad), `${e.name}: ${e.file} fehlt`).toBe(true)
     }
@@ -647,8 +647,8 @@ describe('Musik- und Klangbibliothek', () => {
     const dateien = [...(block?.[1] ?? '').matchAll(/'([^']+\.mp3)'/g)].map((m) => m[1] as string)
     expect(dateien.length, 'AUTO_MUSIC ist leer').toBeGreaterThanOrEqual(5)
     for (const datei of dateien) {
-      expect(SFX_DATEIEN.has(datei), `${datei} fehlt im Studio-Katalog`).toBe(true)
-      expect(sfxEffekt(datei)?.kategorie, `${datei} ist keine Musik`).toBe('music')
+      expect(SFX_FILES.has(datei), `${datei} fehlt im Studio-Katalog`).toBe(true)
+      expect(sfxEffect(datei)?.category, `${datei} ist keine Musik`).toBe('music')
     }
   })
 })
@@ -1336,7 +1336,7 @@ describe('Zeitleiste', () => {
     // Die Bausteine sind einzeln geprüft (Grenzkurve, Rasten, Klemmen). Was
     // schiefging, war ihr ZUSAMMENSPIEL: gemischte Koordinatensysteme, die
     // Sekundenrundung des ISO-Ankers, die Klemme gegen den Nachbarn. Deshalb
-    // fahren die folgenden Tests die Kette so ab, wie `kantenZugBewegen` sie
+    // fahren die folgenden Tests die Kette so ab, wie `moveEdgeDrag` sie
     // fährt — klemmen → rasten → schreiben → Achse NEU bauen — und messen am
     // Ende dort, wo der Nutzer hinsieht: an der fertigen Leiste.
     describe('Kantenzug: wo die Grenze landet', () => {
@@ -1349,7 +1349,7 @@ describe('Zeitleiste', () => {
           fSkala,
         )
 
-      /** `verschiebeGrenze('modus', …)` aus editor.ts, ohne Zustand. */
+      /** `moveBoundary('travelMode', …)` aus editor.ts, ohne Zustand. */
       function schreibeGrenze(
         edits: EditOverlay,
         altAb: string,
@@ -1627,9 +1627,9 @@ describe('Zeitleiste', () => {
   describe('Undo: ein Zug ist ein Schritt', () => {
     // Der Editor setzt Undo-Punkte per REFERENZvergleich beim Voll-Render
     // (`lastState`). Ein Zeitleisten-Zug schreibt je Frame ein neues
-    // Overlay, ruft dazwischen aber nur `renderNachZug()` — der Stand wird
+    // Overlay, ruft dazwischen aber nur `renderAfterDrag()` — der Stand wird
     // dort nicht fortgeschrieben. Genau dieses Zusammenspiel ist hier
-    // nachgebaut: `render()` steht für `renderAlles`, alles andere für die
+    // nachgebaut: `render()` steht für `renderAll`, alles andere für die
     // Frames dazwischen.
     const start = () => {
       const stack = { past: [] as EditOverlay[], future: [] as EditOverlay[] }
@@ -1754,8 +1754,8 @@ describe('Zeitleiste', () => {
       )
     }
     expect(marken.filter((m) => m.full).map((m) => m.text)).toEqual(['0:00', '1:00', '2:00'])
-    expect(marken[0]?.edge).toBe('anfang')
-    expect(marken[marken.length - 1]?.edge).toBe('ende')
+    expect(marken[0]?.edge).toBe('start')
+    expect(marken[marken.length - 1]?.edge).toBe('end')
     // Degeneriert: nichts zu beschriften
     expect(buildFilmRuler({ fromS: 0, toS: 100 }, 5)).toEqual([])
   })

@@ -77,6 +77,6 @@ s. `anreicherung.json`) und ist deshalb bewusst ein zweiter Schritt.
 ## Aufwand
 
 Stufe 1 liegt im Studio: Manifest aus Fotos bauen (neue Funktion neben
-`baueUploadManifest` in [src/studio/upload.ts](../../src/studio/upload.ts)), der
+`buildUploadManifest` in [src/studio/upload.ts](../../src/studio/upload.ts)), der
 Upload-Fluss ohne GPX, die Kennzeichnung, Tests für die Punktbildung (Sortierung,
 Fotos ohne GPS, weniger als zwei Punkte). Server unverändert.

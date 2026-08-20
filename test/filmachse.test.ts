@@ -22,14 +22,14 @@ import {
 } from '../src/filmachse'
 import { NAHE_M } from '../src/geo'
 import { musikVersatzS } from '../src/audiotracks'
-import { seitKlipbeginnS } from '../src/studio/abspielen'
+import { sinceClipStartS } from '../src/studio/playback'
 import {
   buildTimelineAxis,
   buildPlaybackCurve,
   filmAt,
   filmToFraction,
-} from '../src/studio/zeitleiste'
-import type { TrackPoint } from '../src/studio/editmodell'
+} from '../src/studio/timeline'
+import type { TrackPoint } from '../src/studio/edit-model'
 
 interface Fall {
   name: string
@@ -188,7 +188,7 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
   const spieler = baueFilmachse([{ abM: 0, mode: 'walk' }], METER, [
     { meterM: HALT_M, breiteS: HALT_S },
   ])
-  /** Die Achse des EDITORS samt Spielkurve (zeitleiste.ts). */
+  /** Die Achse des EDITORS samt Spielkurve (timeline.ts). */
   const editor = buildTimelineAxis(
     [{ mode: 'walk', active: true, pts: track }],
     [{ offsetS: HALT_M, breiteS: HALT_S }],
@@ -219,7 +219,7 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
       // Ein Musikstück ab Filmsekunde 0, Datei 30 s, Loop — beide Bühnen greifen
       // auf dieselbe Datei-Position zu.
       expect(musikVersatzS(imPlayer, 30)).toBeCloseTo(
-        musikVersatzS(seitKlipbeginnS(filmToFraction(editor, imEditor), 0, spielkurve), 30),
+        musikVersatzS(sinceClipStartS(filmToFraction(editor, imEditor), 0, spielkurve), 30),
         6,
       )
     },

@@ -181,7 +181,7 @@ importieren) dagegen. **URLs tragen kein `.html`**; die `…​.html`-Adressen a
 weiterhin (die Dateien liegen im Build), aber nichts im Code zeigt mehr dorthin — Nebeneffekt,
 keine Zusage. Drei Pfade zeigen auf `studio.html`, weil dieselbe Seite drei Dinge ist: die Tür
 (`/anmelden`, `/registrieren`) und der Raum dahinter (`/app`); welcher gilt, weiß nur der
-Anmeldezustand, also schreibt `setzePfad` ihn per `replaceState` nach (samt Tab-Titel). Der
+Anmeldezustand, also schreibt `setPath` ihn per `replaceState` nach (samt Tab-Titel). Der
 Pfad heißt **nicht** `/studio`: Ein Konto braucht auch, wer nur mit der App aufzeichnet.
 **Beim Rollout muss der Vhost mitgehen** — ohne `try_files $uri $uri.html …` und die drei
 `location =`-Blöcke landet jeder Anmelde- und Bestätigungslink still auf der Landing.
@@ -322,7 +322,7 @@ Player braucht Filmsekunde → Streckenposition, und über der Aufnahmezeit ende
 einer Aufnahmezeit, die er nicht weiterverwenden kann (`cfg.timeline` ist Pseudo-Zeit mit
 Pausen-Zeitraffer, nicht die Aufnahmeuhr). Wer in Aufnahmezeit verankert — die Zeitleiste des
 Editors, Medien, Ton-Klips —, legt einen **Zeit→Strecke-Adapter** daneben (`AxisCurve` in
-[zeitleiste.ts](src/studio/zeitleiste.ts): je Stützpunkt seine Zeit und sein Meterstand) — der
+[timeline.ts](src/studio/timeline.ts): je Stützpunkt seine Zeit und sein Meterstand) — der
 Server-Spiegel seit Etappe 4 genauso; die Anker selbst bleiben Zeitstempel, umgestellt ist die
 Achse, nicht die Verankerung. Drei Dinge,
 die man dabei kippt: Die Achse rechnet über die **rohen Wegpunktabstände**, nicht über
@@ -338,7 +338,7 @@ Sprungs setzt `musikVersatzS` ([src/audiotracks.ts](src/audiotracks.ts)) die Dat
 Stelle, die dort im Film liefe. Vorher stand da hart `currentTime = startS`: Wer mitten
 hineinsprang, hörte das Stück von vorn; wer INNERHALB eines Bereichs scrubbte, hörte es
 weiterlaufen — die Datei stand danach bis zum Bereichsende woanders als der Film. Die Funktion
-kam aus `src/studio/abspielen.ts` (ein Umzug, kein Nachbau); nachgezogen wird am ENDE einer
+kam aus `src/studio/playback.ts` (ein Umzug, kein Nachbau); nachgezogen wird am ENDE einer
 Geste und nicht pro Frame, weil während des Scrubs Musik klingt und ein Seek je Frame ein
 Stottern wäre.
 
@@ -500,7 +500,7 @@ pro Filmbild bis zu einer halben echten Sekunde Vorschub — der Regen sprang, s
 fallen. Deshalb `weather.externerTakt`/`weather.schritt` und `atmo.setzeTakt`. Wer eine neue
 Schleife anlegt (Partikel, Blende, Zähler), gibt ihr einen Schritt von außen.
 **Gerendert wird IM Studio-Tab**, in einem gleich-origin `iframe` mit der Export-Seite
-([src/studio/exportblatt.ts](src/studio/exportblatt.ts), Meldungen per `postMessage`, Kanal in
+([src/studio/export-sheet.ts](src/studio/export-sheet.ts), Meldungen per `postMessage`, Kanal in
 [exportformat.ts](src/exportformat.ts)). Ein zweiter Tab wäre ein verdeckter Tab, und Chrome
 drosselt dessen `requestAnimationFrame`: gemessen 0,15 statt 15 Bilder je Sekunde. Der Rahmen
 muss dabei GEZEICHNET werden — `display: none` liefert kein WebGL-Bild —, also ist er sichtbar
@@ -520,7 +520,7 @@ vergleicht die Listen (und die Tempo-Faktoren) jetzt automatisch.
 Der Modus wird bei der Aufnahme EINMAL angegeben; wo jemand stattdessen zu Fuß war, trennt
 [server/src/pipeline/tempo.ts](server/src/pipeline/tempo.ts) beim Rendern selbst ab (s. unten).
 Im Editor ist **jeder Modus-Wechsel eine ziehbare Kante** — auch die von der Automatik
-erkannte. Beim ersten Zug schreibt `materializeTravelModes` ([editmodell.ts](src/studio/editmodell.ts))
+erkannte. Beim ersten Zug schreibt `materializeTravelModes` ([edit-model.ts](src/studio/edit-model.ts))
 die ganze erkannte Aufteilung als Grenzen fest: `edits.travelModes` ist eine Stufenfunktion, die AB
 ihrem Punkt alles Folgende übersteuert — eine einzelne neue Grenze mitten in der Automatik
 risse die späteren Abschnitte mit. `clampBoundary` hält jede Kante zwischen ihren Nachbarn UND
@@ -764,9 +764,9 @@ mitgeführten Klickflächen, entfällt dort ganz. Vier Dinge, die man dabei kipp
 - **Eine Leinwand zeichnet sich nicht von selbst neu — und im Editor STEHT der Kopf.** Das ist
   der Fall, den die Falle des Player-Umbaus nicht nennt: Ein `img` in der DOM-Karte erschien
   von selbst, sobald es geladen war. Hier sah man beim Scrubben die Karte fliegen und liegen
-  bleiben, mit LEEREM Bildfeld. `zeigeFoto` hängt deshalb an `load` (Bild) und
-  `loadeddata`/`seeked` (Video) einen Rückruf auf `synchronisiereFoto`.
-- **Der Schleier bleibt DOM** (`.karten-buehne::after`) und ist damit der eine Teil der Karte,
+  bleiben, mit LEEREM Bildfeld. `showPhoto` hängt deshalb an `load` (Bild) und
+  `loadeddata`/`seeked` (Video) einen Rückruf auf `syncPhoto`.
+- **Der Schleier bleibt DOM** (`.card-stage::after`) und ist damit der eine Teil der Karte,
   der weiterhin zweimal als CSS dasteht und Text gegen Text bewacht wird.
 
 **Der Kamerablitz ist zurückgebaut** (Etappe 2, am selben Tag). Nicht wegen der Kosten, obwohl
@@ -890,7 +890,7 @@ der Fahrt sichtbar und wiederholte dort Ort und Route, die im Startscreen format
 und unterwegs im Halt-Chip und in der Telemetrie weiterlaufen. Sein Kicker war zugleich ein
 Home-Link auf die Landing — genau der Griff, über den man aus „Entdecken" heraus auf der
 Startseite landete. Aus demselben Grund hat die Steuerleiste **keinen Menü-Knopf** mehr (zum
-Startscreen einer Tour führt das Finale) und das Studio spielt im **selben Tab** ab (`spielAb`):
+Startscreen einer Tour führt das Finale) und das Studio spielt im **selben Tab** ab (`playTour`):
 ein zweites Fenster hätte keinen Weg zurück, nur ein Schließkreuz. Im App-Modus (`body.app`)
 bleibt die Pille aus — dort führt `.app-exit` in der Steuerleiste in die Tourliste.
 Die einzige `h1` des Players ist seither der Intro-Titel.

@@ -12,7 +12,7 @@ import {
   offsetToIso,
   type MediaBase,
   type TrackPoint,
-} from '../src/studio/editmodell'
+} from '../src/studio/edit-model'
 import {
   baueStopps,
   dOffsetOhneCluster,
@@ -23,7 +23,7 @@ import {
   stoppSignatur,
   stoppVon,
 } from '../src/studio/stopps'
-import { cumMeters, metersToOffset, offsetAtMeters } from '../src/studio/zeitleiste'
+import { cumMeters, metersToOffset, offsetAtMeters } from '../src/studio/timeline'
 import { NAHE_M as PLAYER_NAHE_M } from '../src/geo.js'
 import { reihenfolgeImHalt } from '../src/einblendung.js'
 

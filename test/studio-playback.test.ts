@@ -1,4 +1,4 @@
-// Wiedergabe in der Zeitleiste: die reine Schrittlogik (src/studio/abspielen.ts).
+// Wiedergabe in der Zeitleiste: die reine Schrittlogik (src/studio/playback.ts).
 // Die rAF-Schleife und der Ton hängen am DOM und bleiben hier außen vor —
 // geprüft wird, was ohne Browser entscheidbar ist: wo die Marke nach einem
 // Schritt steht, wann sie ruht und wann sie anhält.
@@ -7,14 +7,14 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { musikVersatzS } from '../src/audiotracks'
 import {
-  erzeugeAbspieler,
-  klipsBei,
-  seitKlipbeginnS,
+  createPlayback,
+  clipsAt,
+  sinceClipStartS,
   tick,
-  type SpielStand,
-  type Spielplan,
-} from '../src/studio/abspielen'
-import type { FilmCurve } from '../src/studio/zeitleiste'
+  type PlaybackState,
+  type PlaybackPlan,
+} from '../src/studio/playback'
+import type { FilmCurve } from '../src/studio/timeline'
 
 /**
  * Der Weg, den das Abspielen tatsächlich geht: Filmzeit seit Klipbeginn (über
@@ -25,105 +25,109 @@ import type { FilmCurve } from '../src/studio/zeitleiste'
 const versatz = (
   anteil: number,
   klipVon: number,
-  kurve: FilmCurve,
+  curve: FilmCurve,
   dauerS?: number,
   einstiegS?: number,
   loop?: boolean,
-): number => musikVersatzS(seitKlipbeginnS(anteil, klipVon, kurve), dauerS, einstiegS, loop)
+): number => musikVersatzS(sinceClipStartS(anteil, klipVon, curve), dauerS, einstiegS, loop)
 
 /** Tour, die bei 1× in 100 Sekunden durchläuft (lineare Kurve). */
 const LINEAR_100: FilmCurve = { fractions: [0, 1], filmS: [0, 100], totalS: 100 }
 /** Spielkurve mit Trim-Plateau: 50 s Film — Plateau — 50 s Film. */
 const MIT_PAUSE: FilmCurve = { fractions: [0, 0.25, 0.75, 1], filmS: [0, 50, 50, 100], totalS: 100 }
-const plan = (kurve: FilmCurve = LINEAR_100): Spielplan => ({
-  marke: 0,
-  kurve,
-  musik: [],
-  klaenge: [],
+const plan = (curve: FilmCurve = LINEAR_100): PlaybackPlan => ({
+  playhead: 0,
+  curve,
+  music: [],
+  sounds: [],
 })
-const stand = (teil: Partial<SpielStand> = {}): SpielStand => ({ marke: 0, tempo: 1, ...teil })
+const state = (teil: Partial<PlaybackState> = {}): PlaybackState => ({
+  playhead: 0,
+  tempo: 1,
+  ...teil,
+})
 
 describe('tick — Fahrt', () => {
   it('bewegt die Marke im Filmtempo der Kurve', () => {
-    const s = tick(stand(), 1, plan())
-    expect(s.stand.marke).toBeCloseTo(0.01, 6)
-    expect(s.vorher).toBe(0)
+    const s = tick(state(), 1, plan())
+    expect(s.state.playhead).toBeCloseTo(0.01, 6)
+    expect(s.before).toBe(0)
     expect(s.end).toBe(false)
   })
 
   it('läuft im Schnelllauf schneller und rückwärts zurück', () => {
-    expect(tick(stand({ tempo: 4 }), 1, plan()).stand.marke).toBeCloseTo(0.04, 6)
-    expect(tick(stand({ marke: 0.5, tempo: -2 }), 1, plan()).stand.marke).toBeCloseTo(0.48, 6)
+    expect(tick(state({ tempo: 4 }), 1, plan()).state.playhead).toBeCloseTo(0.04, 6)
+    expect(tick(state({ playhead: 0.5, tempo: -2 }), 1, plan()).state.playhead).toBeCloseTo(0.48, 6)
   })
 
   it('hält das Ende RICHTUNGSABHÄNGIG — ein Start bei 0 stoppt nicht sofort', () => {
     // Der erste Frame hat dt = 0. Prüfte man beide Ränder, träfe die Marke 0
     // die Bedingung „≤ 0" und die Wiedergabe wäre vorbei, bevor sie beginnt.
-    const erster = tick(stand(), 0, plan())
+    const erster = tick(state(), 0, plan())
     expect(erster.end).toBe(false)
-    expect(erster.stand.marke).toBe(0)
+    expect(erster.state.playhead).toBe(0)
 
-    expect(tick(stand({ marke: 0.99 }), 5, plan()).stand.marke).toBe(1)
-    expect(tick(stand({ marke: 0.99 }), 5, plan()).end).toBe(true)
+    expect(tick(state({ playhead: 0.99 }), 5, plan()).state.playhead).toBe(1)
+    expect(tick(state({ playhead: 0.99 }), 5, plan()).end).toBe(true)
     // rückwärts am Anfang
-    expect(tick(stand({ marke: 0.01, tempo: -1 }), 5, plan()).end).toBe(true)
+    expect(tick(state({ playhead: 0.01, tempo: -1 }), 5, plan()).end).toBe(true)
     // rückwärts am ENDE ist kein Ende
-    expect(tick(stand({ marke: 1, tempo: -1 }), 1, plan()).end).toBe(false)
+    expect(tick(state({ playhead: 1, tempo: -1 }), 1, plan()).end).toBe(false)
   })
 
   it('überspringt eine reale Pause in einem Wimpernschlag', () => {
     // Bei Marke 0,2 sind 40 Filmsekunden vergangen; 11 s später steckt die
     // Marke nicht in der Pause (0,25–0,75), sondern ist schon dahinter.
-    const s = tick(stand({ marke: 0.2 }), 11, plan(MIT_PAUSE))
-    expect(s.stand.marke).toBeCloseTo(0.755, 6)
+    const s = tick(state({ playhead: 0.2 }), 11, plan(MIT_PAUSE))
+    expect(s.state.playhead).toBeCloseTo(0.755, 6)
   })
 
   it('springt aus der Mitte einer Pause nie rückwärts (Richtungsklemme)', () => {
     // Dorthin kommt man nur per Scrub. Der Kurven-Roundtrip lieferte den
     // Pausen-ANFANG — vorwärts darf die Marke davon nichts merken.
-    const ruhend = tick(stand({ marke: 0.5 }), 0, plan(MIT_PAUSE))
-    expect(ruhend.stand.marke).toBe(0.5)
-    const weiter = tick(stand({ marke: 0.5 }), 1, plan(MIT_PAUSE))
-    expect(weiter.stand.marke).toBeCloseTo(0.755, 6)
+    const ruhend = tick(state({ playhead: 0.5 }), 0, plan(MIT_PAUSE))
+    expect(ruhend.state.playhead).toBe(0.5)
+    const weiter = tick(state({ playhead: 0.5 }), 1, plan(MIT_PAUSE))
+    expect(weiter.state.playhead).toBeCloseTo(0.755, 6)
     // Rückwärts verlässt sie die Pause nach hinten
-    const zurueck = tick(stand({ marke: 0.5, tempo: -1 }), 1, plan(MIT_PAUSE))
-    expect(zurueck.stand.marke).toBeCloseTo(0.245, 6)
+    const zurueck = tick(state({ playhead: 0.5, tempo: -1 }), 1, plan(MIT_PAUSE))
+    expect(zurueck.state.playhead).toBeCloseTo(0.245, 6)
   })
 
   it('läuft auf einer nichtlinearen Kurve je Achsenstück verschieden schnell', () => {
     // Erste Achsenhälfte 20 Filmsekunden, zweite 80: nach 20 s steht die
     // Marke bei 0,5, nach weiteren 40 s bei 0,75.
-    const kurve: FilmCurve = { fractions: [0, 0.5, 1], filmS: [0, 20, 100], totalS: 100 }
-    expect(tick(stand(), 20, plan(kurve)).stand.marke).toBeCloseTo(0.5, 6)
-    expect(tick(stand({ marke: 0.5 }), 40, plan(kurve)).stand.marke).toBeCloseTo(0.75, 6)
+    const curve: FilmCurve = { fractions: [0, 0.5, 1], filmS: [0, 20, 100], totalS: 100 }
+    expect(tick(state(), 20, plan(curve)).state.playhead).toBeCloseTo(0.5, 6)
+    expect(tick(state({ playhead: 0.5 }), 40, plan(curve)).state.playhead).toBeCloseTo(0.75, 6)
   })
 })
 
 describe('Musik', () => {
   const musik = [
-    { von: 0.1, to: 0.4, url: '/a.mp3', volume: 0.6 },
-    { von: 0.6, to: 1, url: '/b.mp3', volume: 0.5 },
+    { from: 0.1, to: 0.4, url: '/a.mp3', volume: 0.6 },
+    { from: 0.6, to: 1, url: '/b.mp3', volume: 0.5 },
   ]
 
   it('findet Bereiche halboffen [von, bis)', () => {
-    expect(klipsBei(musik, 0.1)).toEqual([0])
-    expect(klipsBei(musik, 0.39)).toEqual([0])
-    expect(klipsBei(musik, 0.4)).toEqual([]) // Endgrenze gehört nicht mehr dazu
-    expect(klipsBei(musik, 0.5)).toEqual([])
-    expect(klipsBei(musik, 0.9)).toEqual([1])
+    expect(clipsAt(musik, 0.1)).toEqual([0])
+    expect(clipsAt(musik, 0.39)).toEqual([0])
+    expect(clipsAt(musik, 0.4)).toEqual([]) // Endgrenze gehört nicht mehr dazu
+    expect(clipsAt(musik, 0.5)).toEqual([])
+    expect(clipsAt(musik, 0.9)).toEqual([1])
   })
 
   it('liefert bei Überlappung ALLE Bereiche — sie mischen sich wie im Film', () => {
     const ueberlappend = [
-      { von: 0, to: 1, url: '/musik.mp3', volume: 0.8 },
-      { von: 0.2, to: 0.7, url: '/atmo.mp3', volume: 0.6 },
+      { from: 0, to: 1, url: '/musik.mp3', volume: 0.8 },
+      { from: 0.2, to: 0.7, url: '/atmo.mp3', volume: 0.6 },
       // Dieselbe Datei ein zweites Mal: die Identität ist der Platz im Plan
-      { von: 0.5, to: 0.9, url: '/musik.mp3', volume: 0.4 },
+      { from: 0.5, to: 0.9, url: '/musik.mp3', volume: 0.4 },
     ]
-    expect(klipsBei(ueberlappend, 0.1)).toEqual([0])
-    expect(klipsBei(ueberlappend, 0.3)).toEqual([0, 1])
-    expect(klipsBei(ueberlappend, 0.6)).toEqual([0, 1, 2])
-    expect(klipsBei(ueberlappend, 0.8)).toEqual([0, 2])
+    expect(clipsAt(ueberlappend, 0.1)).toEqual([0])
+    expect(clipsAt(ueberlappend, 0.3)).toEqual([0, 1])
+    expect(clipsAt(ueberlappend, 0.6)).toEqual([0, 1, 2])
+    expect(clipsAt(ueberlappend, 0.8)).toEqual([0, 2])
   })
 
   it('setzt an der Stelle ein, die im fertigen Film liefe', () => {
@@ -184,7 +188,7 @@ describe('Musik', () => {
 })
 
 describe('Drift-Wächter: geteilte Klang-Regel', () => {
-  const modul = readFileSync(new URL('../src/studio/abspielen.ts', import.meta.url), 'utf8')
+  const modul = readFileSync(new URL('../src/studio/playback.ts', import.meta.url), 'utf8')
 
   it('das Studio benutzt die Auslöse-Regel des Players, keine eigene', () => {
     // Eine zweite, leicht andere Regel hieße: im Studio klingt es anders als im
@@ -210,17 +214,17 @@ describe('erzeugeAbspieler', () => {
   // Abspieler ohne Plan nicht losläuft und dass „anhalten" wirklich anhält.
   it('startet nicht, wenn es nichts abzuspielen gibt', () => {
     let tempoAnzeige = -1
-    const a = erzeugeAbspieler({
-      hole: () => null,
-      setzeMarke: () => {},
-      zeigeTempo: (t) => {
+    const a = createPlayback({
+      get: () => null,
+      setPlayhead: () => {},
+      showTempo: (t) => {
         tempoAnzeige = t
       },
     })
-    a.setzeTempo(1)
-    expect(a.laeuft()).toBe(false)
+    a.setTempo(1)
+    expect(a.running()).toBe(false)
     expect(tempoAnzeige).toBe(-1) // gar keine Anzeige — es lief nie
-    a.halteAn()
+    a.pause()
     expect(tempoAnzeige).toBe(0)
     expect(a.tempo()).toBe(0)
   })

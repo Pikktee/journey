@@ -1,5 +1,5 @@
 // Prüf-Screen „Neue Tour": was Luhambo aus den abgelegten Dateien liest,
-// bevor irgendetwas hochgeladen wird. Reine Logik (src/studio/pruefung.ts).
+// bevor irgendetwas hochgeladen wird. Reine Logik (src/studio/import-validation.ts).
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -12,7 +12,7 @@ import {
   pointAtTime,
   estimateRideS,
   type MediumReport,
-} from '../src/studio/pruefung'
+} from '../src/studio/import-validation'
 
 const T0 = Date.parse('2026-07-21T07:00:00Z')
 const min = (n: number): number => T0 + n * 60_000

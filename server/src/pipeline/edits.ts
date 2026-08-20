@@ -40,7 +40,7 @@ export function applyTourTrim(
  * verkettet mit `slice(1)` über das Duplikat, sonst verlöre die Route pro
  * Grenze einen Punkt). Der effektive Modus ist eine reine Punkt-Funktion
  * `modusZu(t)` — exakt dieselbe Regel wie in der Editor-Anzeige
- * (src/studio/editmodell.ts), damit Anzeige und Render nie auseinanderlaufen.
+ * (src/studio/edit-model.ts), damit Anzeige und Render nie auseinanderlaufen.
  */
 export function applyTravelModes(
   segmente: readonly UploadSegment[],

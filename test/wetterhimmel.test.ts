@@ -13,7 +13,7 @@ import {
 // Die Studio-Liste und nicht die des Servers: Sie ist von hier importierbar
 // (server/ hat einen eigenen `rootDir`) und ihrerseits gegen das Server-Schema
 // gewacht — test/studio-baukasten.test.ts vergleicht beide.
-import { WEATHER_MODES } from '../src/studio/editmodell.js'
+import { WEATHER_MODES } from '../src/studio/edit-model.js'
 
 const TRAVEL_MODES: SzenenWetter[] = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm']
 

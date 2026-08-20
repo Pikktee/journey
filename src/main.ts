@@ -1131,7 +1131,7 @@ map.on('load', () => {
    * Ton klingt NUR bei Tempo 1 vorwärts (E16).
    *
    * Der Editor hält diese Regel seit jeher („im Schnelllauf oder rückwärts
-   * klänge sie wie ein durchgedrehter Kassettenrekorder", src/studio/abspielen.ts),
+   * klänge sie wie ein durchgedrehter Kassettenrekorder", src/studio/playback.ts),
    * der Player nicht — und weil `shuttle` keinen Ausgleich auslöste, driftete
    * die Musik im Schnelllauf davon: Bei 8× vergehen acht Filmsekunden je
    * Wanduhrsekunde, die Datei kennt nur die eine. Mit dieser Regel braucht sie

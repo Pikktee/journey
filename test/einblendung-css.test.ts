@@ -197,8 +197,8 @@ describe('Foto-titel: der Maler führt die Zeiten der Tabelle', () => {
     const filter = `blur(${KARTE.schleierBlurPx}px) saturate(${KARTE.schleierSaturate}) brightness(${KARTE.schleierBrightness})`
     expect(wert(regel(playerCss, '.photo-backdrop'), 'background')).toBe(KARTE.schleierFarbe)
     expect(wert(regel(playerCss, 'body.cinema .photo-backdrop'), 'backdrop-filter')).toBe(filter)
-    expect(wert(regel(studioHtml, '.karten-buehne::after'), 'background')).toBe(KARTE.schleierFarbe)
-    expect(wert(regel(studioHtml, '.karten-buehne.foto-an::after'), 'backdrop-filter')).toBe(filter)
+    expect(wert(regel(studioHtml, '.card-stage::after'), 'background')).toBe(KARTE.schleierFarbe)
+    expect(wert(regel(studioHtml, '.card-stage.photo-on::after'), 'backdrop-filter')).toBe(filter)
     // Im FILM ist er eine flache Füllung — die benannte Bühnen-Variante. Sie
     // nimmt dieselbe Farbe; abweichen darf nur der Blur, den es dort nicht gibt.
     expect(malerTs).toContain("buehne.schleier === 'flach'")
@@ -212,7 +212,7 @@ describe('Foto-titel: der Maler führt die Zeiten der Tabelle', () => {
     // mit — die letzte Stelle im Film, an der noch eine Wanduhr lief.
     for (const [datei, rumpf] of [
       ['style.css', regel(playerCss, '.photo-backdrop')],
-      ['studio.html', regel(studioHtml, '.karten-buehne::after')],
+      ['studio.html', regel(studioHtml, '.card-stage::after')],
     ] as const) {
       expect(wert(rumpf, 'opacity'), datei).toBe('var(--schleier-sicht, 0)')
       expect(rumpf, `${datei}: Transition auf dem Schleier`).not.toMatch(/transition:/)
@@ -220,7 +220,7 @@ describe('Foto-titel: der Maler führt die Zeiten der Tabelle', () => {
     // Die Klasse schaltet nur noch den FILTER — und darf die Deckkraft nicht
     // mehr anfassen, sonst schlüge sie die Filmzeit.
     expect(regel(playerCss, 'body.cinema .photo-backdrop')).not.toMatch(/opacity:/)
-    expect(regel(studioHtml, '.karten-buehne.foto-an::after')).not.toMatch(/opacity:/)
+    expect(regel(studioHtml, '.card-stage.photo-on::after')).not.toMatch(/opacity:/)
     // Geschrieben wird sie an EINER Stelle, und zwar aus der Deckkraft der Karte.
     const schicht = readFileSync(new URL('../src/kartenschicht.ts', import.meta.url), 'utf8')
     expect(schicht).toContain("setProperty('--schleier-sicht'")

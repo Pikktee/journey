@@ -135,7 +135,7 @@ describe('Filmtempo', () => {
 
   it('bemisst einen Moment OHNE Ausblendung — anders als eine Aufnahme', () => {
     // Die Engine geht nach `momentDauer` direkt zurück auf `ride`; es gibt kein
-    // HOLD_AUSBLEND-Nachspiel wie am Foto-Halt. Spiegel von `momentDauerS` in
+    // HOLD_AUSBLEND-Nachspiel wie am Foto-Halt. Spiegel von `momentDurationS` in
     // src/studio/editor.ts.
     expect(momentHoldS({ art: 'orbit' })).toBe(6)
     expect(momentHoldS({ art: 'linger' })).toBe(4)

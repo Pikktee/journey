@@ -232,7 +232,7 @@ describe('Drift-Wächter gegen die Web-Achse', () => {
   // in der Web-Hälfte test/filmachse.test.ts). Hier steht die KONVENTION, an
   // der beide Seiten hängen und die kein Zahlenvergleich sichtbar macht.
   //
-  // Vorher stand an dieser Stelle ein Wächter, der src/studio/zeitleiste.ts als
+  // Vorher stand an dieser Stelle ein Wächter, der src/studio/timeline.ts als
   // TEXT las und auf `tS.splice(i, 0, h.offsetS, h.offsetS)` prüfte. Er fiel mit
   // Paket D — nicht weil das Weben sich geändert hätte, sondern weil es
   // umgezogen ist (src/filmachse.ts) und in Metern rechnet. Genau das ist der

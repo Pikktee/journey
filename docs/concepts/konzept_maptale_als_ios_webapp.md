@@ -110,7 +110,7 @@ Safari. Wer in Safari angemeldet ist und die App installiert, steht darin vor de
 Anmeldebühne. Das heißt:
 
 - Die App startet beim ersten Mal auf `/anmelden`, nicht auf `/app`. Da beide
-  Pfade auf `studio.html` zeigen und `setzePfad` ohnehin nachschreibt, ist das
+  Pfade auf `studio.html` zeigen und `setPath` ohnehin nachschreibt, ist das
   kein Umbau, aber eine Erwartung, die man im Text bedienen muss.
 - Die Sitzung muss lange halten. Wer sich nach jedem Aufruf neu anmeldet, hat
   keine App.

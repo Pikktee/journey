@@ -27,7 +27,7 @@
    Wetter. Und selbst mit filmzeitlichen Ankern (Vorschlag C aus der Analyse)
    wäre eine einrastende Kante die bessere Erklärung als eine Überschrift.
 
-   Die Achsen-Mathematik ist aus src/studio/zeitleiste.ts portiert (dieselbe
+   Die Achsen-Mathematik ist aus src/studio/timeline.ts portiert (dieselbe
    `interpoliere`-Konvention mit lower_bound, dieselben Tempo-Konstanten,
    dasselbe Einweben der Halt-Sprünge) — sonst würde man hier ein anderes
    Verhalten testen als das echte.
@@ -628,7 +628,7 @@ button { cursor: pointer; }
 
 <div class="seitenkopf">
   <h1>Zeitleiste — Entwurf</h1>
-  <span class="lead-hinweis">Mockup · Achse rechnet wie src/studio/zeitleiste.ts</span>
+  <span class="lead-hinweis">Mockup · Achse rechnet wie src/studio/timeline.ts</span>
   <div class="belege" aria-label="Belege und Begründungen">
     <b title="Abspielkopf in Filmzeit — Heute klebt er an der linken Haltkante und springt dann um die volle Standzeit; mit den Pfeiltasten kommt er an einem 6,0-s-Halt gar nicht vorbei (5 &lt; 6). Im Vorschlag läuft er durch, die Kopfzeile sagt, wo im Halt er steht.">A</b>
     <b title="Der Halt als Objekt — Jede Aufnahme füllt ihre Breite. Kante ziehen = Standzeit (2–20 s), die Leiste rechnet live mit. Das Feld gibt es schon (display.holdS im Overlay), es war nur ein Auswahlfeld im Inspector. Die Kante ragt in den Nachbarn: In einer Kette IST das Ende eines Bildes der Anfang des nächsten.">B</b>
@@ -704,10 +704,10 @@ button { cursor: pointer; }
 
 <script>
 /* ————————————————————————————————————————————————————————————————
-   1) Achsen-Mathematik — portiert aus src/studio/zeitleiste.ts
+   1) Achsen-Mathematik — portiert aus src/studio/timeline.ts
    ———————————————————————————————————————————————————————————————— */
 
-/** Spiegel von BASIS_TEMPO_MS / MODE_SPEED (src/tour.js über zeitleiste.ts). */
+/** Spiegel von BASIS_TEMPO_MS / MODE_SPEED (src/tour.js über timeline.ts). */
 const BASIS_TEMPO_MS = 120
 const TEMPO = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
 const HALT_ENGINE_S = 5.2
@@ -946,7 +946,7 @@ const WETTER  = [{ ab: 0, wert: 'Bewölkt' }, { ab: 1500, wert: 'Regen' }, { ab:
 /**
  * `loop` entscheidet, ob ein Klip über sein Dateiende hinaus gezogen werden
  * darf. Bei Musik ist das keine neue Idee, sondern schon die Wahrheit des
- * Players: `el.loop = true` in audiotracks.js und abspielen.ts — ein
+ * Players: `el.loop = true` in audiotracks.js und playback.ts — ein
  * Drei-Minuten-Stück trägt so eine Zehn-Minuten-Tour. Neu ist nur, dass man es
  * SIEHT (die Wellenform wiederholt sich) und für Effekte wählen kann.
  *
@@ -1235,7 +1235,7 @@ function ziehAchse(ohneTitel) {
   return baueAchse(abschnitte, halte, skala)
 }
 
-/** Trackpunkt zu einem Zeit-Offset (Portierung aus editmodell.ts). */
+/** Trackpunkt zu einem Zeit-Offset (Portierung aus edit-model.ts). */
 function punktZuOffset(punkte, tOffsetS) {
   const erster = punkte[0], letzter = punkte[punkte.length - 1]
   if (!erster || !letzter) return null

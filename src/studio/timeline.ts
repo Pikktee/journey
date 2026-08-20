@@ -30,7 +30,7 @@ import {
   type TravelMode,
   type TrackPoint,
   type WeatherMode,
-} from './editmodell.js'
+} from './edit-model.js'
 
 /** Zeitspanne der Aufzeichnung: Offsets (s) des ersten/letzten Trackpunkts. */
 export interface TimeScale {
@@ -375,9 +375,9 @@ export function clockDiffToOffset(
 // verschiebt; `resolveSelection` löst sie deshalb bei JEDEM Render neu auf.
 
 export type EditorSelection =
-  | { kind: 'modus'; atS: number }
-  | { kind: 'kamera'; atS: number }
-  | { kind: 'wetter'; atS: number }
+  | { kind: 'travelMode'; atS: number }
+  | { kind: 'camera'; atS: number }
+  | { kind: 'weather'; atS: number }
   | { kind: 'moment'; from: string }
   | { kind: 'audio'; index: number }
   | { kind: 'medium'; id: string }
@@ -477,7 +477,7 @@ export function resolveSelection(
   const scale = buildScale(track)
   if (!scale) return null
 
-  if (selection.kind === 'modus') {
+  if (selection.kind === 'travelMode') {
     // Aus den Anzeige-Abschnitten: die tragen echte Trackpunkte, also echte Zeiten
     const i = displaySegments.findIndex((a) => {
       const fromT = (a.pts[0] as TrackPoint)[3]
@@ -505,7 +505,7 @@ export function resolveSelection(
     const changeAt = (neighbor: DisplaySegment | undefined, offsetS: number): string | null =>
       neighbor && neighbor.mode !== hit.mode ? offsetToIso(startIso, offsetS) : null
     return {
-      kind: 'modus',
+      kind: 'travelMode',
       fromS,
       toS,
       from: from ?? changeAt(displaySegments[i - 1], fromS),
@@ -515,8 +515,8 @@ export function resolveSelection(
     }
   }
 
-  if (selection.kind === 'kamera' || selection.kind === 'wetter') {
-    const isWeather = selection.kind === 'wetter'
+  if (selection.kind === 'camera' || selection.kind === 'weather') {
+    const isWeather = selection.kind === 'weather'
     // Wetter-Grund ist „klar" (off), sobald IRGENDeine Grenze existiert — dann
     // ersetzt das Overlay das Auto-Wetter vollständig; sonst „automatisch".
     const boundaries = isWeather
@@ -744,7 +744,7 @@ export function videoFilmS(fileS: number, trim?: { fromS: number; toS?: number }
  * Die Rechnung wohnt seit E15 in [einblendung.ts](../einblendung.ts) — der
  * Player braucht sie genauso, und ein Import Player→Studio ist die eine
  * Richtung, die das Gleichlauf-Konzept ausschließt (§8C). Hier bleibt sie
- * lesbar, weil `synchronisiereBild` sie unter diesem Namen kennt.
+ * lesbar, weil `syncImage` sie unter diesem Namen kennt.
  */
 export { videoStandS } from '../einblendung.js'
 
@@ -764,7 +764,7 @@ export function formatDuration(seconds: number): string {
 // — Filmkurve (Wiedergabe) —
 //
 // Übersetzt zwischen Achsen-ANTEIL und FILMSEKUNDE der Wiedergabe — das
-// Tempo-Gesetz des Abspielens (abspielen.ts). Auf der film-proportionalen
+// Tempo-Gesetz des Abspielens (playback.ts). Auf der film-proportionalen
 // Achse ist sie die Identität; Plateaus entstehen über weggetrimmten
 // Bereichen (`buildPlaybackCurve`), die der Kopf überfliegt.
 //
@@ -1462,7 +1462,7 @@ export interface RulerMark {
   /** volle Minute — kräftigerer Teilstrich als die Zwischenstufen */
   full: boolean
   /** am Rand angeschnitten? Dann links- statt mittenbündig ausrichten. */
-  edge: 'anfang' | 'ende' | null
+  edge: 'start' | 'end' | null
 }
 
 /**
@@ -1485,7 +1485,7 @@ export function buildFilmRuler(axis: TimelineAxis, pxProS: number): RulerMark[] 
       fraction,
       text: formatFilmTime(filmT),
       full: filmT % 60 === 0,
-      edge: x < MARK_HALF_PX ? 'anfang' : x > widthPx - MARK_HALF_PX ? 'ende' : null,
+      edge: x < MARK_HALF_PX ? 'start' : x > widthPx - MARK_HALF_PX ? 'end' : null,
     })
   }
   return marks
@@ -1554,7 +1554,7 @@ export function offsetAtMeters(
 /**
  * Nach dem Zoomen die Ansicht so scrollen, dass der Anker (Anteil 0..1) wieder
  * an derselben Stelle im Fenster steht — sonst springt der Blick beim Zoomen
- * irgendwohin. `spurXpx` ist die feste Breite der Namensspalte links.
+ * irgendwohin. `laneXPx` ist die feste Breite der Namensspalte links.
  */
 export function scrollAnchor(
   anchorFraction: number,

@@ -3,7 +3,7 @@
 // Die Bibliothek ist die Bühne — Kacheln mit Titelbild und Routen-Signatur; der
 // Upload ist eine Kachel darin und ein Fenster, das ZUERST zeigt, was Maptale
 // aus den abgelegten Dateien gelesen hat, und erst danach hochlädt.
-// Reine Logik liegt in pruefung.ts (Befund), upload.ts (Manifest) und exif.ts
+// Reine Logik liegt in import-validation.ts (Befund), upload.ts (Manifest) und exif.ts
 // (Foto-Metadaten); hier nur DOM und Ablaufsteuerung.
 
 import * as api from './api.js'
@@ -17,7 +17,7 @@ import {
   merkeProfilCache,
   vergesseAngemeldet,
 } from '../session-hinweis.js'
-import { liesExif } from './exif.js'
+import { readExif } from './exif.js'
 import {
   buildPhotoSegments,
   mediaFromReport,
@@ -27,8 +27,8 @@ import {
   estimateRideS,
   type MediumReport,
   type ImportReport,
-} from './pruefung.js'
-import { baueUploadManifest, exifDatumZuMs, isoMitZone, medientyp } from './upload.js'
+} from './import-validation.js'
+import { buildUploadManifest, exifDateToMs, isoWithZone, mediaType } from './upload.js'
 
 // Header/Footer synchron vor den Element-Lookups — sonst finden die IDs nichts.
 schreibeAppHeader(document.querySelector('#app-view > .nav'), {
@@ -63,88 +63,88 @@ const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 const els = {
   loginView: $('login-view'),
   appView: $('app-view'),
-  abmelden: $<HTMLButtonElement>('abmelden'),
-  benutzerChip: $<HTMLButtonElement>('benutzer-chip'),
-  benutzerName: $('benutzer-name'),
+  logOut: $<HTMLButtonElement>('abmelden'),
+  userChip: $<HTMLButtonElement>('benutzer-chip'),
+  userName: $('benutzer-name'),
   loginForm: $<HTMLFormElement>('login-form'),
   email: $<HTMLInputElement>('email'),
-  passwort: $<HTMLInputElement>('passwort'),
-  loginFehler: $('login-fehler'),
+  passwort: $<HTMLInputElement>('password'),
+  loginError: $('login-error'),
   // M9: Registrierung / Passwort-Reset
   authBox: $('auth-box'),
   // Schritt 1 der Registrierung: die Einladung
   codeForm: $<HTMLFormElement>('code-form'),
   regCode: $<HTMLInputElement>('reg-code'),
-  codeFehler: $('code-fehler'),
-  codeWeiter: $<HTMLButtonElement>('code-weiter'),
+  codeError: $('code-error'),
+  codeNext: $<HTMLButtonElement>('code-continue'),
   // Schritt 2: die eigenen Daten
   registerForm: $<HTMLFormElement>('register-form'),
   regEmail: $<HTMLInputElement>('reg-email'),
-  regPasswort: $<HTMLInputElement>('reg-passwort'),
+  regPasswort: $<HTMLInputElement>('reg-password'),
   regNewsletter: $<HTMLInputElement>('reg-newsletter'),
   regCodeChip: $('reg-code-chip'),
-  regCodeWert: $('reg-code-wert'),
-  regCodeAendern: $<HTMLButtonElement>('reg-code-aendern'),
-  regAbsenden: $<HTMLButtonElement>('reg-absenden'),
-  regUnterzeile: $('reg-unterzeile'),
-  registerFehler: $('register-fehler'),
+  regCodeValue: $('reg-code-value'),
+  regCodeChange: $<HTMLButtonElement>('reg-code-change'),
+  regSubmit: $<HTMLButtonElement>('reg-submit'),
+  regSubline: $('reg-subline'),
+  registerError: $('register-error'),
   // Warteliste: der Weg herein für alle ohne Code
   /** Der Wartelisten-Teaser unter dem Code-Formular (Block, nicht mehr Link). */
-  zurWarteliste: $<HTMLElement>('zur-warteliste'),
-  wartelisteForm: $<HTMLFormElement>('warteliste-form'),
-  wlEmail: $<HTMLInputElement>('wl-email'),
-  wlNotiz: $<HTMLTextAreaElement>('wl-notiz'),
-  wlFehler: $('wl-fehler'),
-  wlAbsenden: $<HTMLButtonElement>('wl-absenden'),
-  wartelisteInfo: $('warteliste-info'),
-  wlInfoTitel: $('wl-info-titel'),
-  wlInfoText: $('wl-info-text'),
-  wlInfoFehler: $('wl-info-fehler'),
-  wlInfoAktion: $<HTMLButtonElement>('wl-info-aktion'),
-  resetAnfordernForm: $<HTMLFormElement>('reset-anfordern-form'),
+  toWaitlist: $<HTMLElement>('to-waitlist'),
+  waitlistForm: $<HTMLFormElement>('waitlist-form'),
+  wlEmail: $<HTMLInputElement>('waitlist-email'),
+  wlNote: $<HTMLTextAreaElement>('waitlist-note'),
+  wlError: $('waitlist-error'),
+  wlSubmit: $<HTMLButtonElement>('waitlist-submit'),
+  waitlistInfo: $('waitlist-info'),
+  wlInfoTitle: $('waitlist-info-title'),
+  wlInfoText: $('waitlist-info-text'),
+  wlInfoError: $('waitlist-info-error'),
+  wlInfoAction: $<HTMLButtonElement>('waitlist-info-action'),
+  resetRequestForm: $<HTMLFormElement>('reset-request-form'),
   resetEmail: $<HTMLInputElement>('reset-email'),
-  resetAnfordernStatus: $('reset-anfordern-status'),
-  resetSetzenForm: $<HTMLFormElement>('reset-setzen-form'),
-  resetPasswort: $<HTMLInputElement>('reset-passwort'),
-  resetAbsenden: $<HTMLButtonElement>('reset-absenden'),
-  resetSetzenFehler: $('reset-setzen-fehler'),
+  resetRequestStatus: $('reset-request-status'),
+  resetSetForm: $<HTMLFormElement>('reset-set-form'),
+  resetPasswort: $<HTMLInputElement>('reset-password'),
+  resetSubmit: $<HTMLButtonElement>('reset-submit'),
+  resetSetError: $('reset-set-error'),
   // M9: Konto-Menü + Verifikations-Banner
-  kontoMenue: $('konto-menue'),
+  accountMenu: $('konto-menue'),
   kmMail: $('km-mail'),
-  kmProfil: $<HTMLAnchorElement>('km-profil'),
-  kmVerwaltung: $('km-verwaltung'),
+  kmProfile: $<HTMLAnchorElement>('km-profil'),
+  kmAdmin: $('km-verwaltung'),
   kmQuotaText: $('km-quota-text'),
-  kmBalkenFuell: $('km-balken-fuell'),
+  kmBarFill: $('km-balken-fuell'),
   verifyBanner: $('verify-banner'),
-  dateien: $<HTMLInputElement>('dateien'),
-  neuOben: $<HTMLButtonElement>('neu-oben'),
+  files: $<HTMLInputElement>('files'),
+  newTop: $<HTMLButtonElement>('neu-oben'),
   // Bibliothek
-  bibKopf: $('bib-kopf'),
-  bibliothek: $('bibliothek'),
-  suche: $<HTMLInputElement>('suche'),
-  sortierung: $<HTMLSelectElement>('sortierung'),
-  ansicht: $('ansicht'),
+  libHeader: $('library-header'),
+  library: $('library'),
+  search: $<HTMLInputElement>('search'),
+  sort: $<HTMLSelectElement>('sort'),
+  view: $('view'),
   dropOverlay: $('drop-overlay'),
   // Neue Tour
-  neuHinter: $('neu-hinter'),
-  neuUnter: $('neu-unter'),
-  neuRumpf: $('neu-rumpf'),
-  neuStatus: $('neu-status'),
-  neuModusWrap: $('neu-modus-wrap'),
-  neuModus: $<HTMLSelectElement>('neu-modus'),
-  neuSicht: $<HTMLSelectElement>('neu-sicht'),
-  neuSichtWrap: $('neu-sicht-wrap'),
-  neuFenster: $('neu-fenster'),
-  neuMehr: $<HTMLButtonElement>('neu-mehr'),
-  neuBauen: $<HTMLButtonElement>('neu-bauen'),
-  neuSchliessen: $<HTMLButtonElement>('neu-schliessen'),
-  neuFortschritt: $('neu-fortschritt'),
-  neuFortschrittText: $('neu-fortschritt-text'),
+  newBackdrop: $('new-backdrop'),
+  newSub: $('new-subtitle'),
+  newBody: $('new-body'),
+  newStatus: $('new-status'),
+  newTravelModeWrap: $('new-travel-mode-wrap'),
+  newTravelMode: $<HTMLSelectElement>('new-travel-mode'),
+  newVisibility: $<HTMLSelectElement>('new-visibility'),
+  newVisibilityWrap: $('new-visibility-wrap'),
+  newWindow: $('new-window'),
+  newMore: $<HTMLButtonElement>('new-more'),
+  newBuild: $<HTMLButtonElement>('new-build'),
+  newClose: $<HTMLButtonElement>('new-close'),
+  newProgress: $('new-progress'),
+  newProgressText: $('new-progress-text'),
 }
 
 /** Statisches Icon aus dem Sprite in studio.html (nur für vertrauten Markup-Bau). */
-const icon = (name: string, klasse?: string): string =>
-  `<svg${klasse ? ` class="${klasse}"` : ''} aria-hidden="true"><use href="#i-${name}"/></svg>`
+const icon = (name: string, className?: string): string =>
+  `<svg${className ? ` class="${className}"` : ''} aria-hidden="true"><use href="#i-${name}"/></svg>`
 
 // — Ansicht Login/App —
 
@@ -157,52 +157,52 @@ const icon = (name: string, klasse?: string): string =>
  * Server — also schreibt die Seite den Pfad nach. `replaceState`, nicht
  * `pushState`: Anmelden ist kein Ort, an den die Zurück-Taste führen sollte.
  */
-const TITEL = {
+const TITLE = {
   app: 'Maptale Studio',
   anmelden: 'Anmelden · Maptale',
   registrieren: 'Konto erstellen · Maptale',
 } as const
 
-function setzePfad(seite: 'app' | 'anmelden' | 'registrieren'): void {
+function setPath(side: 'app' | 'anmelden' | 'registrieren'): void {
   // Der Titel läuft mit, aber VOR dem Abbruch: Beim ersten Laden stimmt der
   // Pfad schon, der Titel („Maptale" aus dem Boot) noch nicht.
-  document.title = TITEL[seite]
-  const ziel = ROUTEN[seite].pfad
-  if (location.pathname === ziel) return
-  history.replaceState(history.state, '', ziel + location.search + location.hash)
+  document.title = TITLE[side]
+  const target = ROUTEN[side].pfad
+  if (location.pathname === target) return
+  history.replaceState(history.state, '', target + location.search + location.hash)
 }
 
 /** Für Gäste entscheidet das sichtbare Formular, ob die Adresse Tür oder Aufnahme heißt. */
-function setzeGastPfad(): void {
-  const aufDemWegHinein =
+function setGuestPath(): void {
+  const onTheWayIn =
     !els.registerForm.hidden ||
     !els.codeForm.hidden ||
-    !els.wartelisteForm.hidden ||
-    !els.wartelisteInfo.hidden
-  setzePfad(aufDemWegHinein ? 'registrieren' : 'anmelden')
+    !els.waitlistForm.hidden ||
+    !els.waitlistInfo.hidden
+  setPath(onTheWayIn ? 'registrieren' : 'anmelden')
 }
 
-function zeige(angemeldet: boolean): void {
+function show(loggedIn: boolean): void {
   // Ab hier bestimmt JS, welche Ansicht steht — der Boot-Vorgriff darf
-  // `hidden` nicht länger übersteuern (s. html.studio-gesteuert in studio.html).
-  document.documentElement.classList.add('studio-gesteuert')
-  els.loginView.hidden = angemeldet
-  els.appView.hidden = !angemeldet
-  els.benutzerChip.hidden = !angemeldet
+  // `hidden` nicht länger übersteuern (s. html.studio-controlled in studio.html).
+  document.documentElement.classList.add('studio-controlled')
+  els.loginView.hidden = loggedIn
+  els.appView.hidden = !loggedIn
+  els.userChip.hidden = !loggedIn
   // `neu-oben` bleibt hier IMMER aus: Ob er erscheint, entscheidet nicht die
   // Anmeldung, sondern ob die „Neue Tour"-Kachel gerade zu sehen ist
   // (s. beobachteNeuKachel).
-  els.neuOben.hidden = true
-  if (!angemeldet) {
-    els.kontoMenue.hidden = true
-    els.benutzerChip.setAttribute('aria-expanded', 'false')
+  els.newTop.hidden = true
+  if (!loggedIn) {
+    els.accountMenu.hidden = true
+    els.userChip.setAttribute('aria-expanded', 'false')
   }
-  if (angemeldet) setzePfad('app')
-  else setzeGastPfad()
+  if (loggedIn) setPath('app')
+  else setGuestPath()
 }
 
 /** Boot-Overlay ausblenden, sobald Login oder App sichtbar sind. */
-function versteckeBoot(): void {
+function hideBoot(): void {
   const boot = document.getElementById('studio-boot')
   if (!boot) return
   boot.classList.add('gone')
@@ -215,21 +215,21 @@ function versteckeBoot(): void {
  * Profil, Klarname nur als Fallback. Sonst stünde „Henrik Heil" statt
  * „Henrik", und das Profilbild fehlte ganz.
  */
-function zeigeBenutzer(sitzung: api.Session): void {
-  const benutzer = sitzung.user
-  const anzeige = sitzung.profile?.displayName?.trim() || benutzer?.name || benutzer?.email || ''
-  els.benutzerName.textContent = anzeige
-  els.kmMail.textContent = benutzer?.email ?? ''
+function showUser(session: api.Session): void {
+  const user = session.user
+  const display = session.profile?.displayName?.trim() || user?.name || user?.email || ''
+  els.userName.textContent = display
+  els.kmMail.textContent = user?.email ?? ''
 
-  const avatar = sitzung.profile?.avatarUrl
-  const initial = (anzeige.trim().charAt(0) || '?').toUpperCase()
-  merkeProfilCache({ name: anzeige, initial, avatarUrl: avatar })
+  const avatar = session.profile?.avatarUrl
+  const initial = (display.trim().charAt(0) || '?').toUpperCase()
+  merkeProfilCache({ name: display, initial, avatarUrl: avatar })
 
-  const punkt = els.benutzerChip.querySelector('.punkt')
-  if (!punkt) return
+  const point = els.userChip.querySelector('.punkt')
+  if (!point) return
   if (avatar) {
-    if (punkt instanceof HTMLImageElement) {
-      punkt.src = avatar
+    if (point instanceof HTMLImageElement) {
+      point.src = avatar
     } else {
       const img = document.createElement('img')
       img.className = 'punkt'
@@ -237,46 +237,40 @@ function zeigeBenutzer(sitzung: api.Session): void {
       img.alt = ''
       img.width = 20
       img.height = 20
-      punkt.replaceWith(img)
+      point.replaceWith(img)
     }
   } else {
-    const initial = (anzeige.trim().charAt(0) || '?').toUpperCase()
-    if (punkt instanceof HTMLImageElement) {
+    const initial = (display.trim().charAt(0) || '?').toUpperCase()
+    if (point instanceof HTMLImageElement) {
       const span = document.createElement('span')
       span.className = 'punkt'
       span.id = 'benutzer-initial'
       span.textContent = initial
-      punkt.replaceWith(span)
+      point.replaceWith(span)
     } else {
-      punkt.textContent = initial
+      point.textContent = initial
     }
   }
 }
 
 // — Auth-Modus umschalten (Anmelden / Einladung / Registrieren / Reset / Warteliste) —
-type AuthModus =
-  | 'login'
-  | 'code'
-  | 'register'
-  | 'reset-anfordern'
-  | 'reset-setzen'
-  | 'warteliste'
-  | 'warteliste-info'
+type AuthMode =
+  'login' | 'code' | 'register' | 'reset-request' | 'reset-set' | 'waitlist' | 'waitlist-info'
 // HTMLElement, nicht HTMLFormElement: Die Wartelisten-Meldung ist kein
 // Formular, sondern ein Satz mit höchstens einem Griff.
-const authFormen: Record<AuthModus, HTMLElement> = {
+const authForms: Record<AuthMode, HTMLElement> = {
   login: els.loginForm,
   code: els.codeForm,
   register: els.registerForm,
-  'reset-anfordern': els.resetAnfordernForm,
-  'reset-setzen': els.resetSetzenForm,
-  warteliste: els.wartelisteForm,
-  'warteliste-info': els.wartelisteInfo,
+  'reset-request': els.resetRequestForm,
+  'reset-set': els.resetSetForm,
+  waitlist: els.waitlistForm,
+  'waitlist-info': els.waitlistInfo,
 }
 
-function zeigeAuthModus(modus: AuthModus): void {
-  for (const [name, form] of Object.entries(authFormen)) form.hidden = name !== modus
-  setzeGastPfad()
+function showAuthMode(mode: AuthMode): void {
+  for (const [name, form] of Object.entries(authForms)) form.hidden = name !== mode
+  setGuestPath()
 }
 
 /**
@@ -286,9 +280,9 @@ function zeigeAuthModus(modus: AuthModus): void {
  * Seitenaufbau schiebt auf kleinen Geräten die Bühne aus dem Bild und öffnet
  * ungefragt die Tastatur.
  */
-function fokussiereErstesFeld(): void {
-  const sichtbar = Object.values(authFormen).find((form) => !form.hidden)
-  sichtbar?.querySelector<HTMLElement>('input:not([type="hidden"]), textarea')?.focus()
+function focusFirstField(): void {
+  const visibleForm = Object.values(authForms).find((form) => !form.hidden)
+  visibleForm?.querySelector<HTMLElement>('input:not([type="hidden"]), textarea')?.focus()
 }
 
 /**
@@ -299,51 +293,51 @@ function fokussiereErstesFeld(): void {
  * Landing), damit die Reihenfolge an EINER Stelle steht: Wer keinen gültigen
  * Code hat, soll das erfahren, bevor er ein Formular ausfüllt.
  */
-function starteRegistrierung(): void {
-  zeigeAuthModus(einladungPflicht && !bestaetigterCode ? 'code' : 'register')
+function startRegister(): void {
+  showAuthMode(invitationRequired && !confirmedCode ? 'code' : 'register')
 }
 
-// Modus-Wechsel-Links (data-modus) in allen Auth-Formularen
-els.authBox.querySelectorAll<HTMLButtonElement>('[data-modus]').forEach((btn) => {
+// Modus-Wechsel-Links (data-auth-mode) in allen Auth-Formularen
+els.authBox.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((btn) => {
   btn.addEventListener('click', () => {
-    els.loginFehler.textContent = ''
-    els.registerFehler.textContent = ''
-    els.codeFehler.textContent = ''
-    els.wlFehler.textContent = ''
-    const ziel = btn.dataset.modus as AuthModus
-    if (ziel === 'register') starteRegistrierung()
-    else zeigeAuthModus(ziel)
-    fokussiereErstesFeld()
+    els.loginError.textContent = ''
+    els.registerError.textContent = ''
+    els.codeError.textContent = ''
+    els.wlError.textContent = ''
+    const target = btn.dataset.authMode as AuthMode
+    if (target === 'register') startRegister()
+    else showAuthMode(target)
+    focusFirstField()
   })
 })
 
 /** Verifikations-Stand: Banner + Upload-Sperre + Quota-Balken aktualisieren. */
-let uploadGesperrt = false
+let uploadLocked = false
 
-function zeigeSitzung(sitzung: api.Session): void {
-  const unbestaetigt = sitzung.user !== null && sitzung.verified === false
-  els.verifyBanner.hidden = !unbestaetigt
-  els.kmVerwaltung.hidden = sitzung.user?.role !== 'admin'
+function showSession(session: api.Session): void {
+  const unconfirmed = session.user !== null && session.verified === false
+  els.verifyBanner.hidden = !unconfirmed
+  els.kmAdmin.hidden = session.user?.role !== 'admin'
   // „Mein Profil" zeigt auf die Adresse der Person, nicht auf /profil — dort
   // stünde ohne Handle nichts. Ohne Handle bleibt der Eintrag weg.
-  const handle = sitzung.profile?.handle
-  els.kmProfil.hidden = !handle
-  if (handle) els.kmProfil.href = profilPfad(handle)
-  uploadGesperrt = unbestaetigt
-  els.neuBauen.title = unbestaetigt ? 'Erst E-Mail bestätigen' : ''
-  if (sitzung.quota) {
+  const handle = session.profile?.handle
+  els.kmProfile.hidden = !handle
+  if (handle) els.kmProfile.href = profilPfad(handle)
+  uploadLocked = unconfirmed
+  els.newBuild.title = unconfirmed ? 'Erst E-Mail bestätigen' : ''
+  if (session.quota) {
     const mb = (b: number): string => (b / (1024 * 1024)).toFixed(0)
-    const anteil = sitzung.quota.limit > 0 ? sitzung.quota.used / sitzung.quota.limit : 0
-    els.kmQuotaText.textContent = `${mb(sitzung.quota.used)} / ${mb(sitzung.quota.limit)} MB`
-    els.kmBalkenFuell.style.width = `${Math.min(100, anteil * 100).toFixed(0)}%`
-    els.kmBalkenFuell.classList.toggle('voll', anteil > 0.9)
+    const fraction = session.quota.limit > 0 ? session.quota.used / session.quota.limit : 0
+    els.kmQuotaText.textContent = `${mb(session.quota.used)} / ${mb(session.quota.limit)} MB`
+    els.kmBarFill.style.width = `${Math.min(100, fraction * 100).toFixed(0)}%`
+    els.kmBarFill.classList.toggle('voll', fraction > 0.9)
   }
 }
 
 /** Verlangt diese Instanz eine Einladung? (Aus /auth/me, auch ohne Anmeldung.) */
-let einladungPflicht = false
+let invitationRequired = false
 /** Der in Schritt 1 vom Server bestätigte Code — leer, solange keiner steht. */
-let bestaetigterCode = ''
+let confirmedCode = ''
 
 /**
  * Den bestätigten Code merken und in Schritt 2 als Beleg zeigen.
@@ -351,66 +345,66 @@ let bestaetigterCode = ''
  * Der Chip ist kein Schmuck: Ohne ihn wüsste in Schritt 2 niemand, ob die
  * Einladung angekommen ist — und ob ein Tippfehler noch zu korrigieren wäre.
  */
-function setzeBestaetigtenCode(code: string): void {
-  bestaetigterCode = code
+function setConfirmedCode(code: string): void {
+  confirmedCode = code
   els.regCodeChip.hidden = !code
-  els.regCodeWert.textContent = code
+  els.regCodeValue.textContent = code
 }
 
-function zeigeRegistrierungsmodus(sitzung: api.Session): void {
-  einladungPflicht = sitzung.registration?.invitationRequired ?? false
+function showRegisterMode(session: api.Session): void {
+  invitationRequired = session.registration?.invitationRequired ?? false
   // Der Weg zur Warteliste steht nur da, wo der Server ihn anbietet — sonst
   // führte ein Link auf ein Formular, dessen Route mit 403 antwortet.
-  els.zurWarteliste.hidden = !sitzung.registration?.waitlist
+  els.toWaitlist.hidden = !session.registration?.waitlist
   // Steht die Tür wieder offen, ist ein bestätigter Code gegenstandslos —
   // sonst hinge der Chip über einem Formular, das gar nichts mehr fragt.
-  if (!einladungPflicht) setzeBestaetigtenCode('')
-  els.regUnterzeile.textContent = einladungPflicht
+  if (!invitationRequired) setConfirmedCode('')
+  els.regSubline.textContent = invitationRequired
     ? 'Noch deine Adresse und ein Passwort, dann bist du drin.'
     : 'Kostenlos. Du bekommst gleich eine Bestätigungsmail.'
   // `#registrieren` von der Landing fällt vor dieser Antwort an und kannte die
   // Pflicht noch nicht — hier steht der Einstieg gerade, falls nötig.
-  if (!els.registerForm.hidden && einladungPflicht && !bestaetigterCode) zeigeAuthModus('code')
+  if (!els.registerForm.hidden && invitationRequired && !confirmedCode) showAuthMode('code')
 }
 
-async function ladeSitzung(): Promise<api.Session> {
-  const sitzung = await api.me()
-  zeigeBenutzer(sitzung)
-  zeige(!!sitzung.user)
-  zeigeRegistrierungsmodus(sitzung)
-  if (sitzung.user) {
+async function loadSession(): Promise<api.Session> {
+  const session = await api.me()
+  showUser(session)
+  show(!!session.user)
+  showRegisterMode(session)
+  if (session.user) {
     merkeAngemeldet()
-    zeigeSitzung(sitzung)
+    showSession(session)
     // Deep-Link: /studio.html?edit=<tourId> — Editor ZUERST, Liste danach.
     // Sonst rendert die Bibliothek unter dem Boot und blitzt beim Ausblenden
     // kurz auf; außerdem spart der Editor-Chunk den Listen-Roundtrip.
-    const editId = editIdAusUrl()
+    const editId = editIdFromUrl()
     if (editId) {
-      await oeffneEditorFuer(editId, { geschichte: true })
-      void ladeListe()
+      await openEditorFor(editId, { history: true })
+      void loadList()
     } else {
-      await ladeListe()
+      await loadList()
     }
   } else {
     // Hinweis war gesetzt, Sitzung aber weg (abgelaufen) → zurück zum Login.
     vergesseAngemeldet()
-    document.documentElement.classList.remove('studio-dabei')
+    document.documentElement.classList.remove('studio-signed-in')
   }
-  return sitzung
+  return session
 }
 
-async function pruefeAnmeldung(): Promise<void> {
+async function checkLogin(): Promise<void> {
   // Zuerst Mail-Links aus der URL abarbeiten (#verify=… / #reset=…)
   try {
     // Ein Wartelisten-Link gilt AUCH für Angemeldete: Er beantwortet eine Frage
-    // der Adresse, nicht des Kontos. Ohne diesen Abbruch schöbe `ladeSitzung`
+    // der Adresse, nicht des Kontos. Ohne diesen Abbruch schöbe `loadSession`
     // die Bibliothek darüber, und der Austragen-Link liefe für jeden mit
     // offener Sitzung ins Leere.
-    if (await behandleAuthHash()) return
-    await ladeSitzung()
+    if (await handleAuthHash()) return
+    await loadSession()
   } finally {
     // Auch bei Netzwerkfehlern den Boot weg — sonst hängt man ewig.
-    versteckeBoot()
+    hideBoot()
   }
 }
 
@@ -425,71 +419,71 @@ async function pruefeAnmeldung(): Promise<void> {
  * `#registrieren` bleibt gültig, weil es in Lesezeichen und in verschickten
  * Links steht.
  */
-async function behandleAuthHash(): Promise<boolean> {
+async function handleAuthHash(): Promise<boolean> {
   const hash = location.hash.slice(1)
   const verify = hash.match(/(?:^|&)verify=([^&]+)/)?.[1]
   const reset = hash.match(/(?:^|&)reset=([^&]+)/)?.[1]
-  const einladung = hash.match(/(?:^|&)einladung=([^&]+)/)?.[1]
-  const wlBestaetigen = hash.match(/(?:^|&)warteliste=([^&]+)/)?.[1]
-  const wlAustragen = hash.match(/(?:^|&)warteliste-austragen=([^&]+)/)?.[1]
+  const invitation = hash.match(/(?:^|&)einladung=([^&]+)/)?.[1]
+  const wlConfirm = hash.match(/(?:^|&)warteliste=([^&]+)/)?.[1]
+  const wlLeave = hash.match(/(?:^|&)warteliste-austragen=([^&]+)/)?.[1]
   // Der bloße Einstieg — er darf keinen Token-Hash überholen: Der Link aus der
   // Verwaltung heißt seit den sauberen URLs `/registrieren#einladung=CODE` und
   // erfüllt die Pfad-Bedingung selbst.
-  const direktZurRegistrierung =
+  const directToRegister =
     !verify &&
     !reset &&
-    !einladung &&
-    !wlBestaetigen &&
-    !wlAustragen &&
+    !invitation &&
+    !wlConfirm &&
+    !wlLeave &&
     (hash === 'registrieren' || location.pathname === ROUTEN.registrieren.pfad)
-  if (direktZurRegistrierung) {
+  if (directToRegister) {
     history.replaceState(null, '', location.pathname + location.search)
-    zeigeAuthModus('register')
+    showAuthMode('register')
     return false
   }
-  if (einladung) {
+  if (invitation) {
     history.replaceState(null, '', location.pathname + location.search)
-    const code = formatiereEinladungscode(decodeURIComponent(einladung))
+    const code = formatiereEinladungscode(decodeURIComponent(invitation))
     els.regCode.value = code
     // Den Code gleich prüfen: Wer einem Einladungslink folgt, hat Schritt 1
     // bereits hinter sich — außer der Code taugt nicht, dann landet er dort und
     // sieht, warum.
     try {
       await api.checkInvitation(code)
-      setzeBestaetigtenCode(code)
-      zeigeAuthModus('register')
+      setConfirmedCode(code)
+      showAuthMode('register')
       els.regEmail.focus()
-    } catch (fehler) {
-      els.codeFehler.textContent = (fehler as Error).message
-      zeigeAuthModus('code')
+    } catch (error) {
+      els.codeError.textContent = (error as Error).message
+      showAuthMode('code')
     }
     return false
   }
   // Der Klick aus der Wartelisten-Mail. Er ist die Einwilligung — deshalb löst
   // ihn erst diese Seite ein und nicht schon der Link selbst (ein GET, den
   // jeder Scanner mitnimmt, wäre keine Handlung des Menschen).
-  if (wlBestaetigen) {
+  if (wlConfirm) {
     history.replaceState(null, '', location.pathname + location.search)
-    const token = decodeURIComponent(wlBestaetigen)
+    const token = decodeURIComponent(wlConfirm)
     try {
       const { email } = await api.confirmWaitlist(token)
-      zeigeWartelistenInfo(
+      showWaitlistInfo(
         'Du stehst auf der Liste',
         `${email} ist vorgemerkt. Sobald ein Platz frei wird, kommt dein Einladungscode per E-Mail.`,
-        { wort: 'Wieder austragen', tun: () => leaveWaitlist(token) },
+        { word: 'Wieder austragen', run: () => leaveWaitlist(token) },
       )
-    } catch (fehler) {
-      zeigeWartelistenInfo('Dieser Link geht nicht mehr', (fehler as Error).message)
+    } catch (error) {
+      showWaitlistInfo('Dieser Link geht nicht mehr', (error as Error).message)
     }
     return true
   }
-  if (wlAustragen) {
+  if (wlLeave) {
     history.replaceState(null, '', location.pathname + location.search)
-    const token = decodeURIComponent(wlAustragen)
-    zeigeWartelistenInfo(
+    const token = decodeURIComponent(wlLeave)
+    showWaitlistInfo(
       'Aus der Warteliste austragen?',
       'Wir löschen deine Adresse sofort und schicken dir keine Einladung mehr.',
-      { wort: 'Ja, austragen', tun: () => leaveWaitlist(token) },
+      { word: 'Ja, austragen', run: () => leaveWaitlist(token) },
     )
     return true
   }
@@ -497,16 +491,16 @@ async function behandleAuthHash(): Promise<boolean> {
     history.replaceState(null, '', location.pathname + location.search)
     try {
       await api.verifyEmail(decodeURIComponent(verify))
-      hinweisToast('E-Mail bestätigt. Du kannst jetzt hochladen.') // danach eingeloggt → App-View sichtbar
-    } catch (fehler) {
+      hintToast('E-Mail bestätigt. Du kannst jetzt hochladen.') // danach eingeloggt → App-View sichtbar
+    } catch (error) {
       // Fehlschlag heißt: nicht eingeloggt → App-View bleibt verborgen. Die
       // Meldung gehört daher ins (sichtbare) Login-Fehlerfeld.
-      els.loginFehler.textContent = (fehler as Error).message
+      els.loginError.textContent = (error as Error).message
     }
   } else if (reset) {
     history.replaceState(null, '', location.pathname + location.search)
     resetToken = decodeURIComponent(reset)
-    zeigeAuthModus('reset-setzen')
+    showAuthMode('reset-set')
   }
   return false
 }
@@ -518,16 +512,16 @@ let resetToken: string | null = null
 // Der Absende-Knopf sperrt erst, wenn tatsächlich etwas Schwaches im Feld
 // steht: Ein von Anfang an grauer Knopf sähe aus, als wäre das Formular kaputt,
 // und beim leeren Feld greift ohnehin `required`.
-const bindeAbsenden =
-  (feld: HTMLInputElement, knopf: HTMLButtonElement) => (befund: { reicht: boolean }) => {
-    knopf.disabled = feld.value.length > 0 && !befund.reicht
+const bindSubmit =
+  (field: HTMLInputElement, button: HTMLButtonElement) => (report: { reicht: boolean }) => {
+    button.disabled = field.value.length > 0 && !report.reicht
   }
 
-const regPasswortfeld = haengePasswortfeld(els.regPasswort, {
+const regPasswordField = haengePasswortfeld(els.regPasswort, {
   // Name und Adresse stehen im selben Formular und ändern sich noch, während
   // das Passwort schon getippt ist — deshalb als Funktion, nicht als Wert.
   persoenlich: () => [els.regEmail.value],
-  beiAenderung: bindeAbsenden(els.regPasswort, els.regAbsenden),
+  beiAenderung: bindSubmit(els.regPasswort, els.regSubmit),
 })
 
 // Beim Anmelden nur der Sichtbarkeits-Schalter: Ein bestehendes Passwort zu
@@ -538,18 +532,18 @@ haengePasswortfeld(els.passwort, { bewertung: false })
 haengePasswortfeld(els.resetPasswort, {
   // Beim Reset kennen wir nur die Adresse aus dem Anmeldefeld — besser als nichts.
   persoenlich: () => [els.email.value],
-  beiAenderung: bindeAbsenden(els.resetPasswort, els.resetAbsenden),
+  beiAenderung: bindSubmit(els.resetPasswort, els.resetSubmit),
 })
 
 els.loginForm.addEventListener('submit', async (e) => {
   e.preventDefault()
-  els.loginFehler.textContent = ''
+  els.loginError.textContent = ''
   try {
     await api.login(els.email.value.trim(), els.passwort.value)
     els.passwort.value = ''
-    await ladeSitzung()
-  } catch (fehler) {
-    els.loginFehler.textContent = (fehler as Error).message
+    await loadSession()
+  } catch (error) {
+    els.loginError.textContent = (error as Error).message
   }
 })
 
@@ -560,36 +554,36 @@ els.loginForm.addEventListener('submit', async (e) => {
 // getippt wird — beim Einfügen ist das Ende ohnehin die richtige Stelle.
 els.regCode.addEventListener('input', () => {
   els.regCode.value = formatiereEinladungscode(els.regCode.value)
-  els.codeFehler.textContent = ''
+  els.codeError.textContent = ''
 })
 
 els.codeForm.addEventListener('submit', async (e) => {
   e.preventDefault()
-  els.codeFehler.textContent = ''
+  els.codeError.textContent = ''
   const code = formatiereEinladungscode(els.regCode.value)
   if (!codeVollstaendig(code)) {
-    els.codeFehler.textContent = 'Ein Code hat acht Zeichen. Bitte gib ihn vollständig ein.'
+    els.codeError.textContent = 'Ein Code hat acht Zeichen. Bitte gib ihn vollständig ein.'
     return
   }
-  els.codeWeiter.disabled = true
-  els.codeWeiter.textContent = 'Wird geprüft …'
+  els.codeNext.disabled = true
+  els.codeNext.textContent = 'Wird geprüft …'
   try {
     await api.checkInvitation(code)
-    setzeBestaetigtenCode(code)
-    zeigeAuthModus('register')
+    setConfirmedCode(code)
+    showAuthMode('register')
     els.regEmail.focus()
-  } catch (fehler) {
-    els.codeFehler.textContent = (fehler as Error).message
+  } catch (error) {
+    els.codeError.textContent = (error as Error).message
     els.regCode.select()
   } finally {
-    els.codeWeiter.disabled = false
-    els.codeWeiter.textContent = 'Weiter'
+    els.codeNext.disabled = false
+    els.codeNext.textContent = 'Weiter'
   }
 })
 
-els.regCodeAendern.addEventListener('click', () => {
-  els.registerFehler.textContent = ''
-  zeigeAuthModus('code')
+els.regCodeChange.addEventListener('click', () => {
+  els.registerError.textContent = ''
+  showAuthMode('code')
   els.regCode.select()
 })
 
@@ -597,32 +591,32 @@ els.regCodeAendern.addEventListener('click', () => {
 
 els.registerForm.addEventListener('submit', async (e) => {
   e.preventDefault()
-  els.registerFehler.textContent = ''
-  els.regAbsenden.disabled = true
+  els.registerError.textContent = ''
+  els.regSubmit.disabled = true
   try {
     // Der Haken geht als ausdrückliches `true` mit — und nur dann. Er ist kein
     // Bestandteil der Anmeldung: Fehlt er, entsteht das Konto unverändert.
     await api.register(
       els.regEmail.value.trim(),
       els.regPasswort.value,
-      bestaetigterCode || undefined,
+      confirmedCode || undefined,
       {
         newsletter: els.regNewsletter.checked,
       },
     )
-    regPasswortfeld.leere()
-    await ladeSitzung() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
-  } catch (fehler) {
-    els.registerFehler.textContent = (fehler as Error).message
+    regPasswordField.leere()
+    await loadSession() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
+  } catch (error) {
+    els.registerError.textContent = (error as Error).message
     // Ein zwischenzeitlich verbrauchter Code führt zurück in Schritt 1 — dort
     // steht das Feld, in dem sich das beheben lässt.
-    if (einladungPflicht && /Einladungscode/i.test((fehler as Error).message)) {
-      setzeBestaetigtenCode('')
-      els.codeFehler.textContent = (fehler as Error).message
-      zeigeAuthModus('code')
+    if (invitationRequired && /Einladungscode/i.test((error as Error).message)) {
+      setConfirmedCode('')
+      els.codeError.textContent = (error as Error).message
+      showAuthMode('code')
     }
   } finally {
-    els.regAbsenden.disabled = false
+    els.regSubmit.disabled = false
   }
 })
 
@@ -634,29 +628,29 @@ els.registerForm.addEventListener('submit', async (e) => {
 // aus, als wäre nichts passiert.
 
 /** Was der Knopf der Info-Ansicht gerade tut; null = kein Knopf. */
-let wlAktion: (() => void | Promise<void>) | null = null
+let wlAction: (() => void | Promise<void>) | null = null
 
-function zeigeWartelistenInfo(
-  titel: string,
+function showWaitlistInfo(
+  title: string,
   text: string,
-  aktion?: { wort: string; tun: () => void | Promise<void> },
+  action?: { word: string; run: () => void | Promise<void> },
 ): void {
-  els.wlInfoTitel.textContent = titel
+  els.wlInfoTitle.textContent = title
   els.wlInfoText.textContent = text
-  els.wlInfoFehler.textContent = ''
-  els.wlInfoAktion.hidden = !aktion
-  els.wlInfoAktion.textContent = aktion?.wort ?? ''
-  wlAktion = aktion?.tun ?? null
+  els.wlInfoError.textContent = ''
+  els.wlInfoAction.hidden = !action
+  els.wlInfoAction.textContent = action?.word ?? ''
+  wlAction = action?.run ?? null
   // Die Bühne gehört jetzt dieser Meldung — auch bei bestehender Sitzung. Der
   // Boot-Vorgriff (Cookie `maptale_dabei`) hat die Bibliothek sonst schon
   // eingeblendet, bevor der Link überhaupt gelesen wurde, und der Austragen-Weg
   // endete für jeden Angemeldeten in seiner Tourliste.
-  zeige(false)
-  document.documentElement.classList.remove('studio-dabei')
-  zeigeAuthModus('warteliste-info')
+  show(false)
+  document.documentElement.classList.remove('studio-signed-in')
+  showAuthMode('waitlist-info')
 }
 
-els.wlInfoAktion.addEventListener('click', () => void wlAktion?.())
+els.wlInfoAction.addEventListener('click', () => void wlAction?.())
 
 /**
  * Austragen — der Weg hinaus ohne Konto.
@@ -666,97 +660,97 @@ els.wlInfoAktion.addEventListener('click', () => void wlAktion?.())
  * durch einen Scanner wäre eine, die niemand wollte.
  */
 async function leaveWaitlist(token: string): Promise<void> {
-  els.wlInfoFehler.textContent = ''
-  els.wlInfoAktion.disabled = true
+  els.wlInfoError.textContent = ''
+  els.wlInfoAction.disabled = true
   try {
     await api.leaveWaitlist(token)
-    zeigeWartelistenInfo(
+    showWaitlistInfo(
       'Ausgetragen',
       'Deine Adresse ist gelöscht. Du bekommst keine Post mehr von uns.',
     )
-  } catch (fehler) {
-    els.wlInfoFehler.textContent = (fehler as Error).message
+  } catch (error) {
+    els.wlInfoError.textContent = (error as Error).message
   } finally {
-    els.wlInfoAktion.disabled = false
+    els.wlInfoAction.disabled = false
   }
 }
 
-els.wartelisteForm.addEventListener('submit', async (e) => {
+els.waitlistForm.addEventListener('submit', async (e) => {
   e.preventDefault()
-  els.wlFehler.textContent = ''
-  els.wlAbsenden.disabled = true
-  const adresse = els.wlEmail.value.trim()
+  els.wlError.textContent = ''
+  els.wlSubmit.disabled = true
+  const address = els.wlEmail.value.trim()
   try {
-    await api.joinWaitlist(adresse, els.wlNotiz.value.trim() || undefined)
+    await api.joinWaitlist(address, els.wlNote.value.trim() || undefined)
     els.wlEmail.value = ''
-    els.wlNotiz.value = ''
+    els.wlNote.value = ''
     // Bewusst dieselbe Antwort für jede Lage (neu, schon eingetragen, schon
     // Konto) — die Route verrät nicht, wer auf der Liste steht, und die
     // Oberfläche soll es auch nicht.
-    zeigeWartelistenInfo(
+    showWaitlistInfo(
       'Schau in dein Postfach',
-      `Wenn alles passt, ist eine E-Mail an ${adresse} unterwegs. Erst dein Klick darin macht den Eintrag gültig. Ohne ihn löschen wir die Adresse wieder.`,
+      `Wenn alles passt, ist eine E-Mail an ${address} unterwegs. Erst dein Klick darin macht den Eintrag gültig. Ohne ihn löschen wir die Adresse wieder.`,
     )
-  } catch (fehler) {
-    els.wlFehler.textContent = (fehler as Error).message
+  } catch (error) {
+    els.wlError.textContent = (error as Error).message
   } finally {
-    els.wlAbsenden.disabled = false
+    els.wlSubmit.disabled = false
   }
 })
 
-els.resetAnfordernForm.addEventListener('submit', async (e) => {
+els.resetRequestForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   await api.requestPasswordReset(els.resetEmail.value.trim())
   // Bewusst neutrale Rückmeldung (keine Existenz-Auskunft)
-  els.resetAnfordernStatus.textContent =
+  els.resetRequestStatus.textContent =
     'Wenn es ein Konto mit dieser Adresse gibt, ist die E-Mail unterwegs.'
-  els.resetAnfordernStatus.className = 'hinweis ok'
+  els.resetRequestStatus.className = 'hinweis ok'
 })
 
-els.resetSetzenForm.addEventListener('submit', async (e) => {
+els.resetSetForm.addEventListener('submit', async (e) => {
   e.preventDefault()
-  els.resetSetzenFehler.textContent = ''
+  els.resetSetError.textContent = ''
   if (!resetToken) return
   try {
     await api.resetPassword(resetToken, els.resetPasswort.value)
     resetToken = null
-    await ladeSitzung()
-  } catch (fehler) {
-    els.resetSetzenFehler.textContent = (fehler as Error).message
+    await loadSession()
+  } catch (error) {
+    els.resetSetError.textContent = (error as Error).message
   }
 })
 
-els.abmelden.addEventListener('click', async () => {
-  els.kontoMenue.hidden = true
-  els.benutzerChip.setAttribute('aria-expanded', 'false')
+els.logOut.addEventListener('click', async () => {
+  els.accountMenu.hidden = true
+  els.userChip.setAttribute('aria-expanded', 'false')
   if (editorTourId) {
-    const { schliesseEditor } = await import('./editor.js')
-    schliesseEditor()
+    const { closeEditor } = await import('./editor.js')
+    closeEditor()
   }
   await api.logout()
   vergesseAngemeldet()
-  document.documentElement.classList.remove('studio-dabei')
-  zeige(false)
-  zeigeAuthModus('login')
+  document.documentElement.classList.remove('studio-signed-in')
+  show(false)
+  showAuthMode('login')
 })
 
 // — Konto-Menü (Quota + Konto löschen) —
-els.benutzerChip.addEventListener('click', () => {
-  const auf = els.kontoMenue.hidden
-  els.kontoMenue.hidden = !auf
-  els.benutzerChip.setAttribute('aria-expanded', String(auf))
+els.userChip.addEventListener('click', () => {
+  const on = els.accountMenu.hidden
+  els.accountMenu.hidden = !on
+  els.userChip.setAttribute('aria-expanded', String(on))
 })
 document.addEventListener('click', (e) => {
-  if (!els.kontoMenue.hidden && !(e.target as HTMLElement).closest('.konto-wrap')) {
-    els.kontoMenue.hidden = true
-    els.benutzerChip.setAttribute('aria-expanded', 'false')
+  if (!els.accountMenu.hidden && !(e.target as HTMLElement).closest('.konto-wrap')) {
+    els.accountMenu.hidden = true
+    els.userChip.setAttribute('aria-expanded', 'false')
   }
 })
 
 /** Kurze Rückmeldung im Fenster „Neue Tour" — der einzige Ort mit Statuszeile. */
-function hinweisToast(text: string, fehler = false): void {
-  setzeNeuStatus(text, fehler ? 'fehler' : '')
-  if (fehler) els.neuHinter.hidden = false
+function hintToast(text: string, error = false): void {
+  setNewStatus(text, error ? 'fehler' : '')
+  if (error) els.newBackdrop.hidden = false
 }
 
 // — Bibliothek: die Touren sind die Seite —
@@ -765,25 +759,24 @@ function hinweisToast(text: string, fehler = false): void {
 // als Signatur über dem Titelbild — Fotos sehen einander ähnlich, Routen nicht.
 
 let touren: api.TourListItem[] = []
-let ansicht: 'raster' | 'liste' =
-  localStorage.getItem('maptale.ansicht') === 'liste' ? 'liste' : 'raster'
-let sortierung: 'neu' | 'alt' | 'km' | 'az' = 'neu'
-let suchtext = ''
+let view: 'raster' | 'liste' = localStorage.getItem('maptale.view') === 'liste' ? 'liste' : 'raster'
+let sort: 'neu' | 'alt' | 'km' | 'az' = 'neu'
+let searchText = ''
 /** Läuft, solange eine Tour noch entsteht — die Kachel soll nicht ewig schimmern. */
-let nachfassen: number | null = null
+let followUp: number | null = null
 
-const SICHT_NAMEN: Record<string, string> = {
+const VISIBILITY_NAMES: Record<string, string> = {
   private: 'Privat',
   unlisted: 'Per Link',
   public: 'Öffentlich',
 }
-const SICHT_ICONS: Record<string, string> = {
+const VISIBILITY_ICONS: Record<string, string> = {
   private: 'schloss',
   unlisted: 'schloss-offen',
   public: 'welt',
 }
 
-function datum(iso: string): string {
+function date(iso: string): string {
   const d = new Date(iso)
   return Number.isFinite(d.getTime())
     ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })
@@ -791,103 +784,104 @@ function datum(iso: string): string {
 }
 
 /** Zeile unter dem Titel: Strecke · Aufnahmen · Datum — nur, was es gibt. */
-function metaZeile(t: api.TourListItem): string {
-  const teile: string[] = []
-  if (t.stats?.km) teile.push(`${String(t.stats.km).replace('.', ',')} km`)
+function metaRow(t: api.TourListItem): string {
+  const parts: string[] = []
+  if (t.stats?.km) parts.push(`${String(t.stats.km).replace('.', ',')} km`)
   if (t.stats?.placedMedia)
-    teile.push(t.stats.placedMedia === 1 ? '1 Aufnahme' : `${t.stats.placedMedia} Aufnahmen`)
-  teile.push(datum(t.createdAt))
-  return teile.filter(Boolean).join(' · ')
+    parts.push(t.stats.placedMedia === 1 ? '1 Aufnahme' : `${t.stats.placedMedia} Aufnahmen`)
+  parts.push(date(t.createdAt))
+  return parts.filter(Boolean).join(' · ')
 }
 
-function sichtbare(): api.TourListItem[] {
-  const suche = suchtext.trim().toLowerCase()
-  const gefiltert = suche
+function visibleTours(): api.TourListItem[] {
+  const search = searchText.trim().toLowerCase()
+  const filtered = search
     ? touren.filter(
-        (t) => (t.title ?? '').toLowerCase().includes(suche) || t.no.toLowerCase().includes(suche),
+        (t) =>
+          (t.title ?? '').toLowerCase().includes(search) || t.no.toLowerCase().includes(search),
       )
     : [...touren]
-  const nachDatum = (a: api.TourListItem, b: api.TourListItem): number =>
+  const afterDate = (a: api.TourListItem, b: api.TourListItem): number =>
     Date.parse(b.createdAt) - Date.parse(a.createdAt)
-  if (sortierung === 'alt') return gefiltert.sort((a, b) => -nachDatum(a, b))
-  if (sortierung === 'km') return gefiltert.sort((a, b) => (b.stats?.km ?? 0) - (a.stats?.km ?? 0))
-  if (sortierung === 'az')
-    return gefiltert.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', 'de'))
-  return gefiltert.sort(nachDatum)
+  if (sort === 'alt') return filtered.sort((a, b) => -afterDate(a, b))
+  if (sort === 'km') return filtered.sort((a, b) => (b.stats?.km ?? 0) - (a.stats?.km ?? 0))
+  if (sort === 'az')
+    return filtered.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', 'de'))
+  return filtered.sort(afterDate)
 }
 
-async function ladeListe(): Promise<void> {
+async function loadList(): Promise<void> {
   if (!touren.length) {
-    els.bibliothek.innerHTML =
+    els.library.innerHTML =
       '<div class="skelett"><div></div><div></div><div></div><div></div></div>'
   }
   try {
     touren = await api.listTours()
   } catch {
-    els.bibliothek.innerHTML =
-      '<div class="leer-buehne"><h2>Touren konnten nicht geladen werden</h2><p>Der Server hat nicht geantwortet. Kurz warten und die Seite neu laden.</p></div>'
+    els.library.innerHTML =
+      '<div class="empty-stage"><h2>Touren konnten nicht geladen werden</h2><p>Der Server hat nicht geantwortet. Kurz warten und die Seite neu laden.</p></div>'
     return
   }
-  renderBibliothek()
+  renderLibrary()
   // Entsteht gerade eine Tour, kommt die Liste von selbst wieder — sonst bliebe
   // die schimmernde Kachel stehen, bis jemand neu lädt.
-  const arbeitet = touren.some((t) => t.status !== 'ready' && t.status !== 'failed')
-  if (nachfassen !== null) clearTimeout(nachfassen)
-  nachfassen = arbeitet ? window.setTimeout(() => void ladeListe(), 3000) : null
+  const busy = touren.some((t) => t.status !== 'ready' && t.status !== 'failed')
+  if (followUp !== null) clearTimeout(followUp)
+  followUp = busy ? window.setTimeout(() => void loadList(), 3000) : null
 }
 
-function renderBibliothek(): void {
-  schliesseSichtMenue()
-  const liste = sichtbare()
-  els.bibKopf.hidden = touren.length === 0
-  els.bibliothek.innerHTML = ''
+function renderLibrary(): void {
+  closeVisibilityMenu()
+  const list = visibleTours()
+  els.libHeader.hidden = touren.length === 0
+  els.library.innerHTML = ''
 
   if (!touren.length) {
-    const leer = document.createElement('div')
-    leer.className = 'leer-buehne'
-    leer.innerHTML = `
+    const empty = document.createElement('div')
+    empty.className = 'empty-stage'
+    empty.innerHTML = `
       <svg class="route" viewBox="0 0 1200 320" preserveAspectRatio="none" aria-hidden="true"><path d="M-20 250C160 232 190 96 380 84s250 128 420 62 280-168 440-176"/></svg>
       <h2>Hier entsteht deine erste Tour</h2>
       <p>Eine Aufzeichnung, ein paar Fotos, Maptale benennt die Orte, holt das Wetter des Tages und baut daraus eine Kamerafahrt.</p>
-      <button class="knopf-primaer" id="leer-waehlen">${icon('upload')}Dateien wählen</button>`
-    els.bibliothek.appendChild(leer)
-    leer.querySelector('#leer-waehlen')?.addEventListener('click', () => oeffneNeu())
+      <button class="knopf-primaer" id="empty-choose">${icon('upload')}Dateien wählen</button>`
+    els.library.appendChild(empty)
+    empty.querySelector('#empty-choose')?.addEventListener('click', () => openNew())
     return
   }
 
   // Suche ohne Treffer: das sagen, statt eine Seite mit nur der Upload-Kachel
   // zu zeigen — die sieht aus wie „du hast keine Touren".
-  if (!liste.length) {
-    const nichts = document.createElement('div')
-    nichts.className = 'leer-buehne'
-    nichts.innerHTML = `<h2>Keine Tour passt dazu</h2><p>„${escape(suchtext.trim())}" kommt in keinem Titel vor.</p>`
-    els.bibliothek.appendChild(nichts)
+  if (!list.length) {
+    const none = document.createElement('div')
+    none.className = 'empty-stage'
+    none.innerHTML = `<h2>Keine Tour passt dazu</h2><p>„${escape(searchText.trim())}" kommt in keinem Titel vor.</p>`
+    els.library.appendChild(none)
     return
   }
 
-  if (ansicht === 'liste') {
-    const wirt = document.createElement('div')
-    wirt.className = 'liste'
-    for (const t of liste) wirt.appendChild(baueZeile(t))
-    els.bibliothek.appendChild(wirt)
+  if (view === 'liste') {
+    const host = document.createElement('div')
+    host.className = 'liste'
+    for (const t of list) host.appendChild(buildRow(t))
+    els.library.appendChild(host)
     return
   }
 
   const raster = document.createElement('div')
-  raster.className = 'raster'
-  const neu = document.createElement('button')
-  neu.className = 'neu-kachel'
-  neu.id = 'neu-kachel'
-  neu.innerHTML = `${icon('upload')}<span class="h">Neue Tour</span><span class="n">Aufzeichnung und Fotos hierher ziehen, den Rest macht Maptale</span>`
-  neu.addEventListener('click', () => oeffneNeu())
-  raster.appendChild(neu)
-  for (const t of liste) raster.appendChild(baueKarte(t))
-  els.bibliothek.appendChild(raster)
-  beobachteNeuKachel(neu)
+  raster.className = 'grid'
+  const next = document.createElement('button')
+  next.className = 'new-thumbnail'
+  next.id = 'neu-kachel'
+  next.innerHTML = `${icon('upload')}<span class="h">Neue Tour</span><span class="n">Aufzeichnung und Fotos hierher ziehen, den Rest macht Maptale</span>`
+  next.addEventListener('click', () => openNew())
+  raster.appendChild(next)
+  for (const t of list) raster.appendChild(buildMap(t))
+  els.library.appendChild(raster)
+  observeNewTile(next)
 }
 
 /** Der eine Beobachter — wird bei jedem Neuaufbau der Liste umgehängt. */
-let neuKachelBeobachter: IntersectionObserver | null = null
+let newTileObserver: IntersectionObserver | null = null
 
 /**
  * Der Knopf „Neue Tour" in der Kopfleiste erscheint erst, wenn die Kachel
@@ -899,144 +893,141 @@ let neuKachelBeobachter: IntersectionObserver | null = null
  * auch nicht — bei einer langen Liste ist die Kachel oben aus dem Bild, und die
  * Leiste klebt. Also zeigt ihn genau der Fall, für den es ihn braucht.
  */
-function beobachteNeuKachel(kachel: HTMLElement): void {
-  neuKachelBeobachter?.disconnect()
+function observeNewTile(tile: HTMLElement): void {
+  newTileObserver?.disconnect()
   if (!('IntersectionObserver' in window)) {
     // Ohne Beobachter lieber sichtbar als unerreichbar.
-    els.neuOben.hidden = false
+    els.newTop.hidden = false
     return
   }
-  neuKachelBeobachter = new IntersectionObserver(
-    ([eintrag]) => {
-      els.neuOben.hidden = !!eintrag?.isIntersecting
+  newTileObserver = new IntersectionObserver(
+    ([entry]) => {
+      els.newTop.hidden = !!entry?.isIntersecting
     },
     // Die Kopfleiste liegt über der Seite: Was unter ihr steckt, ist für den
     // Betrachter weg, auch wenn es technisch noch im Sichtfeld ist.
     { rootMargin: '-64px 0px 0px 0px' },
   )
-  neuKachelBeobachter.observe(kachel)
+  newTileObserver.observe(tile)
 }
 
 /** Die Form der Tour über dem Titelbild — nur, wenn der Server sie mitliefert. */
-function spurSignet(t: api.TourListItem): string {
+function trackSignet(t: api.TourListItem): string {
   const s = t.stats?.trackSignature
   if (!s) return ''
-  return `<svg class="spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-    <path class="linie" d="${escape(s.d)}"/>
+  return `<svg class="track" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <path class="line" d="${escape(s.d)}"/>
     <circle class="start" cx="${s.start[0]}" cy="${s.start[1]}" r="3.2"/>
-    <circle class="ende" cx="${s.end[0]}" cy="${s.end[1]}" r="3.2"/></svg>`
+    <circle class="end" cx="${s.end[0]}" cy="${s.end[1]}" r="3.2"/></svg>`
 }
 
-function baueKarte(t: api.TourListItem): HTMLElement {
+function buildMap(t: api.TourListItem): HTMLElement {
   const el = document.createElement('article')
-  const arbeitet = t.status !== 'ready' && t.status !== 'failed'
-  el.className = `karte${arbeitet ? ' arbeitet' : ''}${t.status === 'failed' ? ' defekt' : ''}`
+  const busy = t.status !== 'ready' && t.status !== 'failed'
+  el.className = `karte${busy ? ' arbeitet' : ''}${t.status === 'failed' ? ' defekt' : ''}`
   el.dataset['tour'] = t.id
   // Kachel-Fassung, wo es sie gibt: die Bibliothek zog bisher je Kachel das
   // volle Titelfoto (mehrere MB) für ein Bild von wenigen hundert Pixeln.
   const cover = t.coverThumb ?? t.cover
-  const bild = cover
-    ? `<div class="bild"><img src="${escape(cover)}" alt="" loading="lazy" />${spurSignet(t)}</div>`
-    : `<div class="bild ohne">${icon('route')}${spurSignet(t)}</div>`
+  const image = cover
+    ? `<div class="bild"><img src="${escape(cover)}" alt="" loading="lazy" />${trackSignet(t)}</div>`
+    : `<div class="bild without">${icon('route')}${trackSignet(t)}</div>`
 
   // Auf der Übersicht nur das Zeichen; was schiefging, steht in der geöffneten Tour.
-  const griffe = arbeitet
+  const grips = busy
     ? ''
     : `<div class="griffe">
         ${
           t.status === 'failed'
-            ? '<span class="fehler-punkt" title="Etwas ist schiefgelaufen, zum Öffnen klicken" aria-label="Fehler">!</span>'
-            : `<button class="sicht${t.visibility === 'public' ? ' oeffentlich' : ''}" data-sicht aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: ${SICHT_NAMEN[t.visibility] ?? t.visibility}">${icon(SICHT_ICONS[t.visibility] ?? 'schloss')}<span>${SICHT_NAMEN[t.visibility] ?? t.visibility}</span></button>`
+            ? '<span class="error-dot" title="Etwas ist schiefgelaufen, zum Öffnen klicken" aria-label="Fehler">!</span>'
+            : `<button class="sicht${t.visibility === 'public' ? ' oeffentlich' : ''}" data-visibility aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: ${VISIBILITY_NAMES[t.visibility] ?? t.visibility}">${icon(VISIBILITY_ICONS[t.visibility] ?? 'schloss')}<span>${VISIBILITY_NAMES[t.visibility] ?? t.visibility}</span></button>`
         }
-        ${t.status === 'ready' ? `<button class="stift-knopf" data-film="${t.id}" aria-label="Als Video">${icon('film')}<span>Video</span></button>` : ''}
-        <button class="stift-knopf" data-bearbeiten="${t.id}" aria-label="Bearbeiten">${icon('stift')}<span>Bearbeiten</span></button>
+        ${t.status === 'ready' ? `<button class="pencil-button" data-film="${t.id}" aria-label="Als Video">${icon('film')}<span>Video</span></button>` : ''}
+        <button class="pencil-button" data-edit="${t.id}" aria-label="Bearbeiten">${icon('stift')}<span>Bearbeiten</span></button>
       </div>`
 
-  el.innerHTML = `${bild}${griffe}
-    <div class="fuss">
+  el.innerHTML = `${image}${grips}
+    <div class="footer">
       <div class="t">${escape(t.title ?? '(ohne Titel)')}</div>
-      <div class="m">${arbeitet ? 'entsteht gerade …' : escape(metaZeile(t))}</div>
+      <div class="m">${busy ? 'entsteht gerade …' : escape(metaRow(t))}</div>
     </div>
-    ${arbeitet ? '<div class="lauf"><span></span></div>' : '<div class="schleier"></div>'}
-    ${arbeitet || t.status === 'failed' ? '' : `<button class="play" aria-label="Abspielen">${icon('play')}</button>`}`
+    ${busy ? '<div class="run"><span></span></div>' : '<div class="schleier"></div>'}
+    ${busy || t.status === 'failed' ? '' : `<button class="play" aria-label="Abspielen">${icon('play')}</button>`}`
 
-  if (!arbeitet) {
+  if (!busy) {
     // Die GANZE Kachel spielt ab — die Taste in der Mitte ist die Ansage dafür,
     // nicht das einzige Ziel. Nur die Griffe oben rechts machen etwas anderes.
     el.addEventListener('click', (e) => {
-      const ziel = e.target as HTMLElement
+      const target = e.target as HTMLElement
       if (
-        ziel.closest('[data-sicht]') ||
-        ziel.closest('[data-bearbeiten]') ||
-        ziel.closest('[data-film]')
+        target.closest('[data-visibility]') ||
+        target.closest('[data-edit]') ||
+        target.closest('[data-film]')
       )
         return
-      if (t.status === 'failed') void oeffneEditorFuer(t.id)
-      else spielAb(t.id)
+      if (t.status === 'failed') void openEditorFor(t.id)
+      else playTour(t.id)
     })
-    el.querySelector('[data-sicht]')?.addEventListener('click', (e) => {
+    el.querySelector('[data-visibility]')?.addEventListener('click', (e) => {
       e.stopPropagation()
-      oeffneSichtMenue(el, t)
+      openVisibilityMenu(el, t)
     })
-    el.querySelector('[data-bearbeiten]')?.addEventListener('click', (e) => {
+    el.querySelector('[data-edit]')?.addEventListener('click', (e) => {
       e.stopPropagation()
-      void oeffneEditorFuer(t.id)
+      void openEditorFor(t.id)
     })
     el.querySelector('[data-film]')?.addEventListener('click', (e) => {
       e.stopPropagation()
-      void oeffneFilmFuer(t)
+      void openFilmFor(t)
     })
   }
   return el
 }
 
-function baueZeile(t: api.TourListItem): HTMLElement {
+function buildRow(t: api.TourListItem): HTMLElement {
   const el = document.createElement('div')
   el.className = 'zeile'
-  const arbeitet = t.status !== 'ready' && t.status !== 'failed'
+  const busy = t.status !== 'ready' && t.status !== 'failed'
   el.innerHTML = `
     <div class="mini">${(t.coverThumb ?? t.cover) ? `<img src="${escape((t.coverThumb ?? t.cover) as string)}" alt="" loading="lazy" />` : icon('route')}</div>
     <div class="txt">
       <div class="t">${escape(t.title ?? '(ohne Titel)')}</div>
-      <div class="m">${arbeitet ? 'entsteht gerade …' : escape(metaZeile(t))}</div>
+      <div class="m">${busy ? 'entsteht gerade …' : escape(metaRow(t))}</div>
     </div>
-    <div class="rechts">
+    <div class="right">
       ${
-        arbeitet
-          ? '<span class="sichtpille">entsteht</span>'
-          : `<span class="sichtpille${t.visibility === 'public' ? ' oeffentlich' : ''}">${SICHT_NAMEN[t.visibility] ?? t.visibility}</span>
-             ${t.status === 'ready' ? `<button class="akt" data-spielen>${icon('play')}Abspielen</button><button class="akt" data-film aria-label="Als Video">${icon('film')}Video</button>` : ''}
-             <button class="akt" data-bearbeiten aria-label="Bearbeiten">${icon('stift')}</button>
-             <button class="akt gefahr" data-loeschen aria-label="Tour löschen" title="Tour löschen">${icon('muell')}</button>`
+        busy
+          ? '<span class="visibility-pill">entsteht</span>'
+          : `<span class="sichtpille${t.visibility === 'public' ? ' oeffentlich' : ''}">${VISIBILITY_NAMES[t.visibility] ?? t.visibility}</span>
+             ${t.status === 'ready' ? `<button class="action" data-play>${icon('play')}Abspielen</button><button class="action" data-film aria-label="Als Video">${icon('film')}Video</button>` : ''}
+             <button class="action" data-edit aria-label="Bearbeiten">${icon('stift')}</button>
+             <button class="action gefahr" data-delete aria-label="Tour löschen" title="Tour löschen">${icon('muell')}</button>`
       }
     </div>`
-  el.querySelector('[data-spielen]')?.addEventListener('click', () => spielAb(t.id))
-  el.querySelector('[data-film]')?.addEventListener('click', () => void oeffneFilmFuer(t))
-  el.querySelector('[data-bearbeiten]')?.addEventListener(
-    'click',
-    () => void oeffneEditorFuer(t.id),
-  )
-  el.querySelector<HTMLButtonElement>('[data-loeschen]')?.addEventListener('click', (e) => {
-    void loescheZweistufig(e.currentTarget as HTMLButtonElement, t.id)
+  el.querySelector('[data-play]')?.addEventListener('click', () => playTour(t.id))
+  el.querySelector('[data-film]')?.addEventListener('click', () => void openFilmFor(t))
+  el.querySelector('[data-edit]')?.addEventListener('click', () => void openEditorFor(t.id))
+  el.querySelector<HTMLButtonElement>('[data-delete]')?.addEventListener('click', (e) => {
+    void deleteTwoStep(e.currentTarget as HTMLButtonElement, t.id)
   })
   return el
 }
 
 /** Erster Klick schärft, zweiter löscht — statt eines confirm()-Dialogs. */
-async function loescheZweistufig(knopf: HTMLButtonElement, id: string): Promise<void> {
-  if (!knopf.dataset['scharf']) {
-    knopf.dataset['scharf'] = '1'
-    knopf.innerHTML = `${icon('muell')}Wirklich löschen?`
+async function deleteTwoStep(button: HTMLButtonElement, id: string): Promise<void> {
+  if (!button.dataset['scharf']) {
+    button.dataset['scharf'] = '1'
+    button.innerHTML = `${icon('muell')}Wirklich löschen?`
     setTimeout(() => {
-      if (!knopf.isConnected || !knopf.dataset['scharf']) return
-      delete knopf.dataset['scharf']
-      knopf.innerHTML = icon('muell')
+      if (!button.isConnected || !button.dataset['scharf']) return
+      delete button.dataset['scharf']
+      button.innerHTML = icon('muell')
     }, 3500)
     return
   }
-  knopf.disabled = true
+  button.disabled = true
   await api.deleteTour(id)
-  await ladeListe()
+  await loadList()
 }
 
 /**
@@ -1044,24 +1035,24 @@ async function loescheZweistufig(knopf: HTMLButtonElement, id: string): Promise<
  * dieselbe Bibliothek offen steht; der Player führt oben links von selbst
  * dorthin zurück, wo man herkam (Referrer + history.back(), src/main.js).
  */
-function spielAb(id: string): void {
+function playTour(id: string): void {
   location.href = tourPfad(`srv:${id}`)
 }
 
-async function oeffneFilmFuer(t: api.TourListItem): Promise<void> {
-  const { oeffneExportBlatt } = await import('./exportblatt.js')
-  oeffneExportBlatt({
+async function openFilmFor(t: api.TourListItem): Promise<void> {
+  const { openExportSheet } = await import('./export-sheet.js')
+  openExportSheet({
     id: t.id,
     title: t.title,
     cover: t.coverThumb ?? t.cover,
-    spur: t.stats?.trackSignature ?? null,
+    track: t.stats?.trackSignature ?? null,
     filmS: t.stats?.filmS ?? null,
     finale: t.stats?.finale ?? null,
   })
 }
 
 /** Tour-ID aus `?edit=` — Editor-Deep-Link. */
-function editIdAusUrl(): string | null {
+function editIdFromUrl(): string | null {
   const id = new URLSearchParams(location.search).get('edit')
   return id && id.length > 0 ? id : null
 }
@@ -1081,114 +1072,114 @@ let editorTourId: string | null = null
  * Editor öffnen. `geschichte: true` = URL schon gesetzt (Reload/Zurück-Taste),
  * sonst pushState, damit Zurück aus dem Editor wieder in die Bibliothek führt.
  */
-async function oeffneEditorFuer(id: string, opts: { geschichte?: boolean } = {}): Promise<void> {
+async function openEditorFor(id: string, opts: { history?: boolean } = {}): Promise<void> {
   if (editorTourId === id) return
   // Anderer Editor offen → zuerst zu, sonst blieben Karte/State der alten Tour
   if (editorTourId) {
-    const { schliesseEditor } = await import('./editor.js')
-    schliesseEditor()
+    const { closeEditor } = await import('./editor.js')
+    closeEditor()
   }
-  if (!opts.geschichte) history.pushState({ studio: 'edit', id }, '', studioUrl(id))
+  if (!opts.history) history.pushState({ studio: 'edit', id }, '', studioUrl(id))
   else history.replaceState({ studio: 'edit', id }, '', studioUrl(id))
 
   els.appView.hidden = true
   editorTourId = id
-  const { oeffneEditor } = await import('./editor.js')
-  await oeffneEditor(id, () => {
+  const { openEditor } = await import('./editor.js')
+  await openEditor(id, () => {
     editorTourId = null
     els.appView.hidden = false
     // Schließen per Knopf (nicht per Zurück): URL bereinigen, ohne Extra-Eintrag.
-    if (editIdAusUrl()) history.replaceState({ studio: 'liste' }, '', studioUrl(null))
-    void ladeListe()
+    if (editIdFromUrl()) history.replaceState({ studio: 'liste' }, '', studioUrl(null))
+    void loadList()
   })
 }
 
 // Browser-Zurück/Vor: URL ist die Quelle — Editor und Bibliothek folgen.
 window.addEventListener('popstate', () => {
-  const id = editIdAusUrl()
+  const id = editIdFromUrl()
   if (id) {
-    if (editorTourId !== id) void oeffneEditorFuer(id, { geschichte: true })
+    if (editorTourId !== id) void openEditorFor(id, { history: true })
     return
   }
   if (editorTourId) {
-    void import('./editor.js').then(({ schliesseEditor }) => schliesseEditor())
+    void import('./editor.js').then(({ closeEditor }) => closeEditor())
   }
 })
 
 // — Sichtbarkeit: Anzeige UND Umschalter an derselben Stelle —
 
-let offenesSichtMenue: HTMLElement | null = null
+let openVisibilityMenuEl: HTMLElement | null = null
 
-function schliesseSichtMenue(): void {
-  offenesSichtMenue?.remove()
-  offenesSichtMenue = null
+function closeVisibilityMenu(): void {
+  openVisibilityMenuEl?.remove()
+  openVisibilityMenuEl = null
   document.querySelectorAll('.karte.menue-offen').forEach((k) => k.classList.remove('menue-offen'))
   document
-    .querySelectorAll('[data-sicht][aria-expanded="true"]')
+    .querySelectorAll('[data-visibility][aria-expanded="true"]')
     .forEach((k) => k.setAttribute('aria-expanded', 'false'))
 }
 
-function oeffneSichtMenue(karte: HTMLElement, t: api.TourListItem): void {
-  const schonOffen = karte.classList.contains('menue-offen')
-  schliesseSichtMenue()
-  if (schonOffen) return
-  const menue = document.createElement('div')
-  menue.className = 'sicht-menue'
-  const stufe = (wert: string, titel: string, erklaerung: string): string => `
-    <button data-wert="${wert}" role="menuitemradio" aria-checked="${String(t.visibility === wert)}">
-      ${icon(SICHT_ICONS[wert] ?? 'schloss')}<span>${titel}<em>${erklaerung}</em></span>${icon('haken', 'haken')}
+function openVisibilityMenu(map: HTMLElement, t: api.TourListItem): void {
+  const alreadyOpen = map.classList.contains('menue-offen')
+  closeVisibilityMenu()
+  if (alreadyOpen) return
+  const menu = document.createElement('div')
+  menu.className = 'visibility-menu'
+  const level = (value: string, title: string, explanation: string): string => `
+    <button data-value="${value}" role="menuitemradio" aria-checked="${String(t.visibility === value)}">
+      ${icon(VISIBILITY_ICONS[value] ?? 'schloss')}<span>${title}<em>${explanation}</em></span>${icon('haken', 'haken')}
     </button>`
-  menue.innerHTML = `
-    <div class="kopfzeile">Wer darf mitfahren?</div>
-    ${stufe('private', 'Privat', 'Nur du siehst diese Reise.')}
-    ${stufe('unlisted', 'Per Link', 'Wer den Link hat, kann zusehen.')}
-    ${stufe('public', 'Öffentlich', 'Steht in deinem Profil und der Galerie.')}
+  menu.innerHTML = `
+    <div class="header-row">Wer darf mitfahren?</div>
+    ${level('private', 'Privat', 'Nur du siehst diese Reise.')}
+    ${level('unlisted', 'Per Link', 'Wer den Link hat, kann zusehen.')}
+    ${level('public', 'Öffentlich', 'Steht in deinem Profil und der Galerie.')}
     ${t.visibility === 'private' ? '' : `<hr /><button data-link>${icon('link')}<span>Link kopieren</span></button>`}`
-  menue.querySelectorAll<HTMLButtonElement>('[data-wert]').forEach((b) => {
+  menu.querySelectorAll<HTMLButtonElement>('[data-value]').forEach((b) => {
     b.addEventListener('click', async (e) => {
       e.stopPropagation()
-      const wert = b.dataset['wert'] as 'private' | 'unlisted' | 'public'
-      schliesseSichtMenue()
-      await api.patchTour(t.id, { visibility: wert })
-      const eintrag = touren.find((x) => x.id === t.id)
-      if (eintrag) eintrag.visibility = wert
-      renderBibliothek()
+      const value = b.dataset['value'] as 'private' | 'unlisted' | 'public'
+      closeVisibilityMenu()
+      await api.patchTour(t.id, { visibility: value })
+      const entry = touren.find((x) => x.id === t.id)
+      if (entry) entry.visibility = value
+      renderLibrary()
     })
   })
-  menue.querySelector('[data-link]')?.addEventListener('click', async (e) => {
+  menu.querySelector('[data-link]')?.addEventListener('click', async (e) => {
     e.stopPropagation()
-    schliesseSichtMenue()
+    closeVisibilityMenu()
     await navigator.clipboard?.writeText(`${location.origin}${tourPfad(`srv:${t.id}`)}`)
   })
-  menue.addEventListener('click', (e) => e.stopPropagation())
-  karte.appendChild(menue)
-  karte.classList.add('menue-offen')
-  karte.querySelector('[data-sicht]')?.setAttribute('aria-expanded', 'true')
-  offenesSichtMenue = menue
+  menu.addEventListener('click', (e) => e.stopPropagation())
+  map.appendChild(menu)
+  map.classList.add('menue-offen')
+  map.querySelector('[data-visibility]')?.setAttribute('aria-expanded', 'true')
+  openVisibilityMenuEl = menu
 }
 
-document.addEventListener('click', () => schliesseSichtMenue())
+document.addEventListener('click', () => closeVisibilityMenu())
 
 // — Kopfzeile: Suche, Sortierung, Ansicht —
 
-els.suche.addEventListener('input', () => {
-  suchtext = els.suche.value
-  renderBibliothek()
+els.search.addEventListener('input', () => {
+  searchText = els.search.value
+  renderLibrary()
 })
-els.sortierung.addEventListener('change', () => {
-  sortierung = els.sortierung.value as typeof sortierung
-  renderBibliothek()
+els.sort.addEventListener('change', () => {
+  sort = els.sort.value as typeof sort
+  renderLibrary()
 })
-els.ansicht.querySelectorAll<HTMLButtonElement>('[data-ansicht]').forEach((b) => {
+els.view.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((b) => {
   b.addEventListener('click', () => {
-    ansicht = b.dataset['ansicht'] as 'raster' | 'liste'
-    localStorage.setItem('maptale.ansicht', ansicht)
-    els.ansicht.querySelectorAll('[data-ansicht]').forEach((x) => {
-      x.setAttribute('aria-pressed', String((x as HTMLElement).dataset['ansicht'] === ansicht))
+    view = b.dataset['view'] as 'raster' | 'liste'
+    localStorage.setItem('maptale.view', view)
+    els.view.querySelectorAll('[data-view]').forEach((x) => {
+      x.setAttribute('aria-pressed', String((x as HTMLElement).dataset['view'] === view))
     })
-    renderBibliothek()
+    renderLibrary()
   })
-  if (b.dataset['ansicht'] === ansicht) b.setAttribute('aria-pressed', 'true')
+  if (b.dataset['view'] === view) b.setAttribute('aria-pressed', 'true')
   else b.setAttribute('aria-pressed', 'false')
 })
 // „/" springt in die Suche — wie überall, wo man viel sucht
@@ -1199,7 +1190,7 @@ document.addEventListener('keydown', (e) => {
     !(e.target as HTMLElement).closest('input, textarea, select')
   ) {
     e.preventDefault()
-    els.suche.focus()
+    els.search.focus()
   }
 })
 
@@ -1216,105 +1207,105 @@ function escape(s: string): string {
 // die Stunden neben der Aufzeichnung liegt — das will man VORHER wissen, nicht
 // hinterher an einer Tour, die anders aussieht als erwartet.
 
-let gpxDatei: File | null = null
+let gpxFile: File | null = null
 let gpxText: string | null = null
-let medienDateien: File[] = []
-let befunde: MediumReport[] = []
-let befund: ImportReport | null = null
-let laeuftUpload = false
-const vorschauUrls = new Map<string, string>()
+let mediaFiles: File[] = []
+let reports: MediumReport[] = []
+let report: ImportReport | null = null
+let runningUpload = false
+const previewUrls = new Map<string, string>()
 
 // Kein Dateiauswahl-Dialog von selbst: das Fenster erklärt erst, was hier
 // hineingehört (und dass Ziehen genügt). Zwei Dialoge übereinander verdecken
 // diese Ansage, und wer nur schauen wollte, muss erst einen davon wegklicken.
-function oeffneNeu(): void {
-  els.neuHinter.hidden = false
-  renderNeu()
+function openNew(): void {
+  els.newBackdrop.hidden = false
+  renderNew()
 }
 
-function schliesseNeu(): void {
-  if (laeuftUpload) return
-  els.neuHinter.hidden = true
-  leereAuswahl()
+function closeNew(): void {
+  if (runningUpload) return
+  els.newBackdrop.hidden = true
+  clearSelection()
 }
 
-function leereAuswahl(): void {
-  gpxDatei = null
+function clearSelection(): void {
+  gpxFile = null
   gpxText = null
-  medienDateien = []
-  befunde = []
-  befund = null
-  for (const url of vorschauUrls.values()) URL.revokeObjectURL(url)
-  vorschauUrls.clear()
-  setzeNeuStatus('')
+  mediaFiles = []
+  reports = []
+  report = null
+  for (const url of previewUrls.values()) URL.revokeObjectURL(url)
+  previewUrls.clear()
+  setNewStatus('')
 }
 
-function vorschauUrl(file: File): string {
-  const schluessel = `${file.name}:${file.size}:${file.lastModified}`
-  let url = vorschauUrls.get(schluessel)
+function previewUrl(file: File): string {
+  const key = `${file.name}:${file.size}:${file.lastModified}`
+  let url = previewUrls.get(key)
   if (!url) {
     url = URL.createObjectURL(file)
-    vorschauUrls.set(schluessel, url)
+    previewUrls.set(key, url)
   }
   return url
 }
 
-async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
-  const dateien = [...liste]
+async function acceptFiles(list: FileList | File[]): Promise<void> {
+  const files = [...list]
   // Der Zustand VOR dem Annehmen entscheidet über die Inszenierung: nur beim
   // ersten Ablegen gibt es das Lesen und das Wachsen des Fensters.
-  const warLeer = !befunde.length && !gpxDatei
-  if (warLeer) {
-    els.neuHinter.hidden = false
-    setzeFenstergroesse(true)
-    const kandidaten = dateien.filter((d) => medientyp(d.name)).length
-    if (kandidaten) zeigeLesen(0, kandidaten)
+  const wasEmpty = !reports.length && !gpxFile
+  if (wasEmpty) {
+    els.newBackdrop.hidden = false
+    setWindowSize(true)
+    const candidates = files.filter((d) => mediaType(d.name)).length
+    if (candidates) showReading(0, candidates)
   }
-  let ignoriert = 0
-  const neueMedien: File[] = []
-  for (const file of dateien) {
+  let ignored = 0
+  const newMedia: File[] = []
+  for (const file of files) {
     if (file.name.toLowerCase().endsWith('.gpx')) {
-      gpxDatei = file
+      gpxFile = file
       gpxText = await file.text()
-    } else if (medientyp(file.name)) {
-      const doppelt = medienDateien.some(
+    } else if (mediaType(file.name)) {
+      const duplicate = mediaFiles.some(
         (m) => m.name === file.name && m.size === file.size && m.lastModified === file.lastModified,
       )
-      if (!doppelt) {
-        medienDateien.push(file)
-        neueMedien.push(file)
+      if (!duplicate) {
+        mediaFiles.push(file)
+        newMedia.push(file)
       }
     } else {
-      ignoriert++
+      ignored++
     }
   }
-  els.neuHinter.hidden = false
-  setzeNeuStatus(
-    ignoriert
-      ? `${ignoriert} Datei${ignoriert > 1 ? 'en' : ''} ignoriert (kein GPX, Foto oder Video).`
+  els.newBackdrop.hidden = false
+  setNewStatus(
+    ignored
+      ? `${ignored} Datei${ignored > 1 ? 'en' : ''} ignoriert (kein GPX, Foto oder Video).`
       : '',
   )
   // EXIF nur für die NEUEN lesen — bei 50 Fotos ist das der Unterschied
   // zwischen „gleich da" und einer Kaffeepause je Nachschlag.
-  let gelesen = 0
-  for (const file of neueMedien) {
-    const type = medientyp(file.name)
+  let read = 0
+  for (const file of newMedia) {
+    const type = mediaType(file.name)
     if (!type) continue
     let takenAtMs = file.lastModified
     let takenAtGuessed = true
     let location: [number, number] | null = null
     if (type === 'photo') {
-      const exif = liesExif(await file.arrayBuffer())
-      if (exif.datum) {
-        takenAtMs = exifDatumZuMs(exif.datum, ZONE)
+      const exif = readExif(await file.arrayBuffer())
+      if (exif.date) {
+        takenAtMs = exifDateToMs(exif.date, ZONE)
         takenAtGuessed = false
       }
       if (exif.gps) location = exif.gps
     }
-    befunde.push({ file: file.name, type, takenAtMs, takenAtGuessed, location })
-    if (warLeer) zeigeLesen(++gelesen, neueMedien.length)
+    reports.push({ file: file.name, type, takenAtMs, takenAtGuessed, location })
+    if (wasEmpty) showReading(++read, newMedia.length)
   }
-  renderNeu()
+  renderNew()
 }
 
 /**
@@ -1322,16 +1313,16 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
  * EXIF-Blöcke gelesen werden. Wird FORTGESCHRIEBEN statt neu gebaut — sonst
  * fing die Ring-Animation bei jeder Datei von vorn an.
  */
-function zeigeLesen(gelesen: number, gesamt: number): void {
+function showReading(read: number, total: number): void {
   const U = 2 * Math.PI * 34 // Umfang des Rings (r = 34 im 78er-Viewport)
-  let el = els.neuRumpf.querySelector<HTMLElement>('.neu-lesen')
+  let el = els.newBody.querySelector<HTMLElement>('.new-reading')
   if (!el) {
-    els.neuRumpf.classList.remove('wachst')
-    els.neuRumpf.innerHTML = `
-      <div class="neu-lesen" role="status" aria-live="polite">
+    els.newBody.classList.remove('growing')
+    els.newBody.innerHTML = `
+      <div class="new-reading" role="status" aria-live="polite">
         <div class="ring">
           <svg viewBox="0 0 78 78" aria-hidden="true">
-            <circle class="bahn" cx="39" cy="39" r="34" />
+            <circle class="ring-track" cx="39" cy="39" r="34" />
             <circle class="voll" cx="39" cy="39" r="34"
               stroke-dasharray="${U.toFixed(1)}" stroke-dashoffset="${U.toFixed(1)}" />
           </svg>
@@ -1340,103 +1331,103 @@ function zeigeLesen(gelesen: number, gesamt: number): void {
         <h3>Liest die Aufnahmen</h3>
         <p>Aufnahmezeit und Ort stehen in den Dateien selbst, Maptale liest sie und ordnet alles ein.</p>
       </div>`
-    el = els.neuRumpf.querySelector<HTMLElement>('.neu-lesen')
+    el = els.newBody.querySelector<HTMLElement>('.new-reading')
   }
   if (!el) return
-  const anteil = gesamt ? gelesen / gesamt : 0
+  const fraction = total ? read / total : 0
   el.querySelector<SVGCircleElement>('.voll')?.setAttribute(
     'stroke-dashoffset',
-    (U * (1 - anteil)).toFixed(1),
+    (U * (1 - fraction)).toFixed(1),
   )
-  const zahl = el.querySelector<HTMLElement>('.zahl')
-  if (zahl) zahl.textContent = `${gelesen}/${gesamt}`
+  const number = el.querySelector<HTMLElement>('.zahl')
+  if (number) number.textContent = `${read}/${total}`
 }
 
 /**
  * Die Statuszeile im Leerzustand: dort gibt es keine Fußzeile, die sie tragen
  * könnte — „3 Dateien ignoriert" wäre sonst unsichtbar.
  */
-function zeigeLeerHinweis(): void {
-  const el = document.getElementById('neu-leer-hinweis')
+function showEmptyHint(): void {
+  const el = document.getElementById('new-empty-hint')
   if (!el) return
-  const text = els.neuStatus.textContent ?? ''
+  const text = els.newStatus.textContent ?? ''
   el.textContent = text
   el.hidden = !text
-  el.classList.toggle('fehler', els.neuStatus.classList.contains('fehler'))
+  el.classList.toggle('fehler', els.newStatus.classList.contains('fehler'))
 }
 
-function entferneAufnahmen(dateien: readonly string[]): void {
-  const raus = new Set(dateien)
-  medienDateien = medienDateien.filter((d) => !raus.has(d.name))
-  befunde = befunde.filter((b) => !raus.has(b.file))
-  renderNeu()
+function removeMedia(files: readonly string[]): void {
+  const zoomOut = new Set(files)
+  mediaFiles = mediaFiles.filter((d) => !zoomOut.has(d.name))
+  reports = reports.filter((b) => !zoomOut.has(b.file))
+  renderNew()
 }
 
-function setzeNeuStatus(text: string, klasse = ''): void {
-  els.neuStatus.className = `status ${klasse}`
-  els.neuStatus.textContent = text
-  zeigeLeerHinweis() // no-op, solange der Leerzustand nicht auf dem Schirm ist
+function setNewStatus(text: string, className = ''): void {
+  els.newStatus.className = `status ${className}`
+  els.newStatus.textContent = text
+  showEmptyHint() // no-op, solange der Leerzustand nicht auf dem Schirm ist
 }
 
-const uhr = (ms: number): string =>
+const clock = (ms: number): string =>
   new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 
-function dauerText(ms: number): string {
-  const minuten = Math.round(ms / 60000)
-  const h = Math.floor(minuten / 60)
-  return h ? `${h} h ${minuten % 60} min` : `${minuten} min`
+function durationText(ms: number): string {
+  const minutes = Math.round(ms / 60000)
+  const h = Math.floor(minutes / 60)
+  return h ? `${h} h ${minutes % 60} min` : `${minutes} min`
 }
 
-function renderNeu(): void {
-  befund = validate(gpxText, befunde)
-  const anzahl = befunde.length
-  els.neuUnter.textContent = anzahl
-    ? `${anzahl} Aufnahme${anzahl > 1 ? 'n' : ''}${gpxDatei ? ` · ${gpxDatei.name}` : ''}`
+function renderNew(): void {
+  report = validate(gpxText, reports)
+  const count = reports.length
+  els.newSub.textContent = count
+    ? `${count} Aufnahme${count > 1 ? 'n' : ''}${gpxFile ? ` · ${gpxFile.name}` : ''}`
     : ''
-  els.neuBauen.disabled = !befund.ready || laeuftUpload
-  els.neuModusWrap.hidden = !befund.ready
+  els.newBuild.disabled = !report.ready || runningUpload
+  els.newTravelModeWrap.hidden = !report.ready
   // Der Fuß bleibt leer, solange nichts abgelegt ist: „Aufnahmen hinzufügen"
   // heißt NACHLEGEN (der Leerzustand sagt dasselbe größer und besser mit
   // „Dateien wählen"), und die Sichtbarkeit entscheidet über eine Tour, die es
   // noch nicht gibt. Beides kommt mit den ersten Dateien.
-  const leerzustand = !befunde.length && !gpxDatei
-  els.neuMehr.hidden = leerzustand
-  els.neuSichtWrap.hidden = leerzustand
-  els.neuRumpf.innerHTML = ''
+  const emptyState = !reports.length && !gpxFile
+  els.newMore.hidden = emptyState
+  els.newVisibilityWrap.hidden = emptyState
+  els.newBody.innerHTML = ''
 
-  if (leerzustand) {
-    setzeFenstergroesse(true)
-    const leer = document.createElement('div')
-    leer.className = 'neu-leer'
+  if (emptyState) {
+    setWindowSize(true)
+    const empty = document.createElement('div')
+    empty.className = 'new-empty'
     // Vier leere Plätze über einem Tag-Nacht-Verlauf: die Form der Sache,
     // bevor es sie gibt.
-    leer.innerHTML = `
-      <div class="ahnung"><i></i><i></i><i></i><i></i><div class="achse"></div></div>
+    empty.innerHTML = `
+      <div class="ghost-timeline"><i></i><i></i><i></i><i></i><div class="axis"></div></div>
       <h3>Hier beginnt deine <em>nächste Tour</em></h3>
       <p>Aufzeichnung und Fotos hierher ziehen, Maptale liest die Zeitstempel und ordnet alles selbst ein.</p>
-      <button class="knopf-primaer" id="neu-waehlen">${icon('upload')}Dateien wählen</button>
-      <p class="nachsatz">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>
-      <p class="hinweis" id="neu-leer-hinweis" hidden></p>`
-    els.neuRumpf.appendChild(leer)
+      <button class="knopf-primaer" id="new-choose">${icon('upload')}Dateien wählen</button>
+      <p class="postscript">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>
+      <p class="hinweis" id="new-empty-hint" hidden></p>`
+    els.newBody.appendChild(empty)
     // Die ganze Fläche ist der Griff — „Dateien wählen" ist die Ansage dafür,
     // nicht das einzige Ziel. Der Knopf trägt die Semantik (Tastatur, Vorlese-
     // programme), deshalb bekommt die Fläche KEIN role="button": ein Knopf im
     // Knopf wäre für Hilfsmittel zwei Griffe für einen Weg. Der Klick auf den
     // Knopf steigt hierher auf — ein Aufruf, kein zweiter.
-    leer.addEventListener('click', () => els.dateien.click())
-    zeigeLeerHinweis()
+    empty.addEventListener('click', () => els.files.click())
+    showEmptyHint()
     return
   }
 
   // Erst der Inhalt, dann das Wachsen: die Klasse `wachst` lässt den Befund
   // EINMAL mit dem Fenster aufsteigen (siehe setzeFenstergroesse).
   const raster = document.createElement('div')
-  raster.className = 'neu-raster'
-  raster.appendChild(baueVorschau(befund))
-  raster.appendChild(baueDaten(befund))
-  els.neuRumpf.appendChild(raster)
-  if (befund.media.length) els.neuRumpf.appendChild(baueZeitband(befund))
-  setzeFenstergroesse(false)
+  raster.className = 'new-grid'
+  raster.appendChild(buildPreview(report))
+  raster.appendChild(buildData(report))
+  els.newBody.appendChild(raster)
+  if (report.media.length) els.newBody.appendChild(buildTimeBand(report))
+  setWindowSize(false)
 }
 
 /**
@@ -1444,226 +1435,226 @@ function renderNeu(): void {
  * die Arbeitsfläche. Beim Wechsel ins Große steigt der Inhalt einmal mit auf;
  * bei jedem weiteren Neuzeichnen (Weglassen, Anker ändern) bleibt er ruhig.
  */
-function setzeFenstergroesse(klein: boolean): void {
-  const war = els.neuFenster.classList.contains('klein')
-  els.neuFenster.classList.toggle('klein', klein)
-  els.neuRumpf.classList.toggle('wachst', war && !klein)
+function setWindowSize(small: boolean): void {
+  const was = els.newWindow.classList.contains('small')
+  els.newWindow.classList.toggle('small', small)
+  els.newBody.classList.toggle('growing', was && !small)
 }
 
 /** Die Strecke als Form — eine Karte wäre gelogen, die Kartendaten holt erst der Player. */
-function baueVorschau(b: ImportReport): HTMLElement {
+function buildPreview(b: ImportReport): HTMLElement {
   const el = document.createElement('div')
-  el.className = 'vorschau'
-  const punkte: Array<readonly [number, number]> =
+  el.className = 'preview'
+  const points: Array<readonly [number, number]> =
     b.track?.points.map((p) => [p[0], p[1]] as const) ??
     b.media.filter((a) => a.location).map((a) => a.location as [number, number])
-  const proj = projectPreview(punkte)
+  const proj = projectPreview(points)
   if (!proj) {
-    el.innerHTML = `<div class="quelle">noch keine Strecke</div>`
+    el.innerHTML = `<div class="source">noch keine Strecke</div>`
     return el
   }
   // Foto-Marken: mit Aufzeichnung am zeitlich nächsten Trackpunkt, ohne
   // Aufzeichnung sind die Fotos selbst die Punkte.
-  const marken = b.media
+  const marks = b.media
     .map((a, i) => {
       const index = b.track
         ? pointAtTime(b.track.points, a.takenAtMs)
         : b.media.filter((x) => x.location).findIndex((x) => x === a)
       const p = proj.image[index]
       if (!p) return ''
-      const ohneOrt = !a.location && !b.track
-      return `<circle class="marke${ohneOrt ? ' ohne-ort' : ''}" cx="${p[0]}" cy="${p[1]}" r="2.1"><title>Aufnahme ${i + 1}</title></circle>`
+      const withoutLocation = !a.location && !b.track
+      return `<circle class="marke${withoutLocation ? ' ohne-ort' : ''}" cx="${p[0]}" cy="${p[1]}" r="2.1"><title>Aufnahme ${i + 1}</title></circle>`
     })
     .join('')
-  const anfang = proj.image[0] as [number, number]
-  const schluss = proj.image[proj.image.length - 1] as [number, number]
+  const start = proj.image[0] as [number, number]
+  const end = proj.image[proj.image.length - 1] as [number, number]
   el.innerHTML = `<svg viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <path class="linie${b.track ? '' : ' geraten'}" d="${escape(proj.d)}"/>
-      ${marken}
-      <circle class="anfang" cx="${anfang[0]}" cy="${anfang[1]}" r="2.6"/>
-      <circle class="schluss" cx="${schluss[0]}" cy="${schluss[1]}" r="2.6"/>
+      ${marks}
+      <circle class="start" cx="${start[0]}" cy="${start[1]}" r="2.6"/>
+      <circle class="ending" cx="${end[0]}" cy="${end[1]}" r="2.6"/>
     </svg>
-    <div class="quelle">${b.track ? 'Aufgezeichnete Strecke' : 'Aus den Foto-Orten'}</div>`
+    <div class="source">${b.track ? 'Aufgezeichnete Strecke' : 'Aus den Foto-Orten'}</div>`
   return el
 }
 
-function baueDaten(b: ImportReport): HTMLElement {
+function buildData(b: ImportReport): HTMLElement {
   const el = document.createElement('div')
-  el.className = 'neu-daten'
+  el.className = 'new-details'
   // Die Zahlen beschreiben die REISE, nicht die Zeitachse: die reicht bei einem
   // Ausreißer über Tage, die Tour selbst dauerte drei Stunden.
-  const vonMs = b.track?.startMs ?? b.fromMs
-  const bisMs = b.track?.endMs ?? b.toMs
-  const spanneMs = bisMs - vonMs
+  const fromMs = b.track?.startMs ?? b.fromMs
+  const toMs = b.track?.endMs ?? b.toMs
+  const spanMs = toMs - fromMs
   const km = b.track?.km ?? 0
-  const zahl = (symbol: string, kicker: string, wert: string): string =>
-    `<div class="z"><div class="k">${icon(symbol)}${kicker}</div><div class="w">${escape(wert)}</div></div>`
-  const tag = new Date(vonMs).toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })
+  const number = (symbol: string, kicker: string, value: string): string =>
+    `<div class="z"><div class="k">${icon(symbol)}${kicker}</div><div class="w">${escape(value)}</div></div>`
+  const tag = new Date(fromMs).toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })
   el.innerHTML = `
-    <h3 class="geschaetzt">${b.track ? 'Die Orte benennt Maptale beim Bauen' : 'Eine Tour aus deinen Fotos'}</h3>
-    <div class="zahlen">
-      ${zahl('route', 'Strecke', km ? `${String(km).replace('.', ',')} km` : '–')}
-      ${zahl('uhr', 'Unterwegs', spanneMs > 0 ? dauerText(spanneMs) : '–')}
-      ${zahl('kalender', b.track ? 'Aufgezeichnet' : 'Aufgenommen', spanneMs > 0 ? `${tag} · ${uhr(vonMs)}–${uhr(bisMs)}` : '–')}
-      ${zahl('kamera', 'Kamerafahrt', b.ready ? `≈ ${dauerText(estimateRideS(km, b.media.length) * 1000)}` : '–')}
+    <h3 class="estimated">${b.track ? 'Die Orte benennt Maptale beim Bauen' : 'Eine Tour aus deinen Fotos'}</h3>
+    <div class="numbers">
+      ${number('route', 'Strecke', km ? `${String(km).replace('.', ',')} km` : '–')}
+      ${number('uhr', 'Unterwegs', spanMs > 0 ? durationText(spanMs) : '–')}
+      ${number('kalender', b.track ? 'Aufgezeichnet' : 'Aufgenommen', spanMs > 0 ? `${tag} · ${clock(fromMs)}–${clock(toMs)}` : '–')}
+      ${number('kamera', 'Kamerafahrt', b.ready ? `≈ ${durationText(estimateRideS(km, b.media.length) * 1000)}` : '–')}
     </div>`
-  const meldungen = document.createElement('div')
-  meldungen.className = 'meldungen'
+  const messages = document.createElement('div')
+  messages.className = 'messages'
   for (const m of b.messages) {
-    const zeile = document.createElement('div')
-    zeile.className = `meldung ${m.tone}`
-    zeile.innerHTML = `<span class="zeichen">${m.tone === 'warnung' ? '!' : '?'}</span><span>${escape(m.text)}</span>`
+    const row = document.createElement('div')
+    row.className = `meldung ${m.tone}`
+    row.innerHTML = `<span class="mark">${m.tone === 'warnung' ? '!' : '?'}</span><span>${escape(m.text)}</span>`
     // Nur wo es etwas zu entscheiden gibt, steht ein Knopf — und er benennt,
     // was er tut, statt „OK" zu sagen.
     if (m.tone === 'warnung' && m.files.length) {
-      const knopf = document.createElement('button')
-      knopf.type = 'button'
-      knopf.textContent = m.files.length === 1 ? 'Weglassen' : 'Alle weglassen'
-      knopf.addEventListener('click', () => entferneAufnahmen(m.files))
-      zeile.appendChild(knopf)
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.textContent = m.files.length === 1 ? 'Weglassen' : 'Alle weglassen'
+      button.addEventListener('click', () => removeMedia(m.files))
+      row.appendChild(button)
     }
-    meldungen.appendChild(zeile)
+    messages.appendChild(row)
   }
-  if (b.messages.length) el.appendChild(meldungen)
+  if (b.messages.length) el.appendChild(messages)
   return el
 }
 
 /** Jede Aufnahme an ihrer Uhrzeit — das Zeitband zeigt Lücken und Ausreißer. */
-function baueZeitband(b: ImportReport): HTMLElement {
+function buildTimeBand(b: ImportReport): HTMLElement {
   const el = document.createElement('div')
-  el.className = 'zeitband'
-  const spanne = Math.max(1, b.toMs - b.fromMs)
-  const anteil = (ms: number): number => ((ms - b.fromMs) / spanne) * 100
-  const kopf = document.createElement('div')
-  kopf.className = 'kopf'
-  kopf.textContent = `${b.media.length} Aufnahme${b.media.length > 1 ? 'n' : ''} an ihrer Uhrzeit`
-  el.appendChild(kopf)
+  el.className = 'time-band'
+  const span = Math.max(1, b.toMs - b.fromMs)
+  const fraction = (ms: number): number => ((ms - b.fromMs) / span) * 100
+  const header = document.createElement('div')
+  header.className = 'kopf'
+  header.textContent = `${b.media.length} Aufnahme${b.media.length > 1 ? 'n' : ''} an ihrer Uhrzeit`
+  el.appendChild(header)
 
-  const innen = document.createElement('div')
-  innen.className = 'innen'
-  el.appendChild(innen)
-  const bahn = document.createElement('div')
-  bahn.className = 'bahn'
+  const inner = document.createElement('div')
+  inner.className = 'inner'
+  el.appendChild(inner)
+  const marks = document.createElement('div')
+  marks.className = 'marks'
   // Zu dicht beieinander liegende Aufnahmen zu einer Marke bündeln — sonst
   // überdecken sich bei 50 Fotos die Bilder gegenseitig.
-  const gruppen: Array<{ anteil: number; items: MediumReport[] }> = []
+  const groups: Array<{ fraction: number; items: MediumReport[] }> = []
   for (const a of b.media) {
-    const x = anteil(a.takenAtMs)
-    const letzte = gruppen[gruppen.length - 1]
-    if (letzte && x - letzte.anteil < 3.6) letzte.items.push(a)
-    else gruppen.push({ anteil: x, items: [a] })
+    const x = fraction(a.takenAtMs)
+    const last = groups[groups.length - 1]
+    if (last && x - last.fraction < 3.6) last.items.push(a)
+    else groups.push({ fraction: x, items: [a] })
   }
-  for (const g of gruppen) {
-    const erste = g.items[0] as MediumReport
-    const file = medienDateien.find((d) => d.name === erste.file)
-    const stiel = document.createElement('div')
-    stiel.className = 'stiel'
-    stiel.style.left = `${g.anteil.toFixed(2)}%`
-    bahn.appendChild(stiel)
-    const bild = document.createElement('div')
-    bild.className = 'bild'
-    bild.style.left = `${g.anteil.toFixed(2)}%`
-    bild.style.bottom = '18px'
-    if (!erste.location) bild.classList.add('ohne-ort')
+  for (const g of groups) {
+    const first = g.items[0] as MediumReport
+    const file = mediaFiles.find((d) => d.name === first.file)
+    const stem = document.createElement('div')
+    stem.className = 'stem'
+    stem.style.left = `${g.fraction.toFixed(2)}%`
+    marks.appendChild(stem)
+    const image = document.createElement('div')
+    image.className = 'bild'
+    image.style.left = `${g.fraction.toFixed(2)}%`
+    image.style.bottom = '18px'
+    if (!first.location) image.classList.add('no-location')
     if (
       b.track &&
-      (erste.takenAtMs < b.track.startMs - 20 * 60000 ||
-        erste.takenAtMs > b.track.endMs + 20 * 60000)
+      (first.takenAtMs < b.track.startMs - 20 * 60000 ||
+        first.takenAtMs > b.track.endMs + 20 * 60000)
     ) {
-      bild.classList.add('ausserhalb')
+      image.classList.add('outside')
     }
-    if (erste.type === 'photo' && file) bild.style.backgroundImage = `url("${vorschauUrl(file)}")`
-    else bild.innerHTML = `<span class="film">${icon('film')}</span>`
+    if (first.type === 'photo' && file) image.style.backgroundImage = `url("${previewUrl(file)}")`
+    else image.innerHTML = `<span class="film">${icon('film')}</span>`
     if (g.items.length > 1) {
-      const zahl = document.createElement('span')
-      zahl.className = 'zahl'
-      zahl.textContent = String(g.items.length)
-      bild.appendChild(zahl)
+      const number = document.createElement('span')
+      number.className = 'zahl'
+      number.textContent = String(g.items.length)
+      image.appendChild(number)
     }
-    bild.title = g.items.map((i) => `${i.file} · ${uhr(i.takenAtMs)}`).join('\n')
-    bahn.appendChild(bild)
+    image.title = g.items.map((i) => `${i.file} · ${clock(i.takenAtMs)}`).join('\n')
+    marks.appendChild(image)
   }
-  innen.appendChild(bahn)
+  inner.appendChild(marks)
 
-  const achse = document.createElement('div')
-  achse.className = 'achse'
+  const axis = document.createElement('div')
+  axis.className = 'axis'
   if (b.track) {
     // Zeit ohne Aufzeichnung gestreift: dort lief nichts mit.
-    const luecke = document.createElement('div')
-    luecke.className = 'luecke'
-    luecke.style.left = '0'
-    luecke.style.right = '0'
-    achse.appendChild(luecke)
-    const spannenEl = document.createElement('div')
-    spannenEl.className = 'spanne'
-    spannenEl.style.left = `${anteil(b.track.startMs).toFixed(2)}%`
-    spannenEl.style.width = `${(anteil(b.track.endMs) - anteil(b.track.startMs)).toFixed(2)}%`
-    achse.appendChild(spannenEl)
+    const gap = document.createElement('div')
+    gap.className = 'gap'
+    gap.style.left = '0'
+    gap.style.right = '0'
+    axis.appendChild(gap)
+    const spanEl = document.createElement('div')
+    spanEl.className = 'span'
+    spanEl.style.left = `${fraction(b.track.startMs).toFixed(2)}%`
+    spanEl.style.width = `${(fraction(b.track.endMs) - fraction(b.track.startMs)).toFixed(2)}%`
+    axis.appendChild(spanEl)
   } else {
-    const spannenEl = document.createElement('div')
-    spannenEl.className = 'spanne'
-    spannenEl.style.left = '0'
-    spannenEl.style.right = '0'
-    achse.appendChild(spannenEl)
+    const spanEl = document.createElement('div')
+    spanEl.className = 'span'
+    spanEl.style.left = '0'
+    spanEl.style.right = '0'
+    axis.appendChild(spanEl)
   }
-  innen.appendChild(achse)
+  inner.appendChild(axis)
 
-  const stunden = document.createElement('div')
-  stunden.className = 'stunden'
-  const schrittH = Math.max(1, Math.ceil(spanne / 3600000 / 5))
-  const erste = new Date(b.fromMs)
-  erste.setMinutes(0, 0, 0)
-  for (let t = erste.getTime(); t <= b.toMs; t += schrittH * 3600000) {
+  const hours = document.createElement('div')
+  hours.className = 'hours'
+  const stepH = Math.max(1, Math.ceil(span / 3600000 / 5))
+  const first = new Date(b.fromMs)
+  first.setMinutes(0, 0, 0)
+  for (let t = first.getTime(); t <= b.toMs; t += stepH * 3600000) {
     if (t < b.fromMs) continue
-    const marke = document.createElement('span')
-    marke.style.left = `${anteil(t).toFixed(2)}%`
-    marke.textContent = uhr(t)
-    stunden.appendChild(marke)
+    const mark = document.createElement('span')
+    mark.style.left = `${fraction(t).toFixed(2)}%`
+    mark.textContent = clock(t)
+    hours.appendChild(mark)
   }
-  innen.appendChild(stunden)
+  inner.appendChild(hours)
   return el
 }
 
 // — Dateien annehmen: Fenster-Knopf, Kachel, Dateidialog, ganze Seite als Ablage —
 
-els.dateien.addEventListener('change', () => {
-  if (els.dateien.files?.length) void nimmDateienAn(els.dateien.files)
-  els.dateien.value = ''
+els.files.addEventListener('change', () => {
+  if (els.files.files?.length) void acceptFiles(els.files.files)
+  els.files.value = ''
 })
-els.neuMehr.addEventListener('click', () => els.dateien.click())
-els.neuOben.addEventListener('click', () => oeffneNeu())
-els.neuSchliessen.addEventListener('click', () => schliesseNeu())
-els.neuHinter.addEventListener('click', (e) => {
-  if (e.target === els.neuHinter) schliesseNeu()
+els.newMore.addEventListener('click', () => els.files.click())
+els.newTop.addEventListener('click', () => openNew())
+els.newClose.addEventListener('click', () => closeNew())
+els.newBackdrop.addEventListener('click', (e) => {
+  if (e.target === els.newBackdrop) closeNew()
 })
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !els.neuHinter.hidden) schliesseNeu()
+  if (e.key === 'Escape' && !els.newBackdrop.hidden) closeNew()
 })
 
-let dropTiefe = 0
+let dropDepth = 0
 document.addEventListener('dragenter', (e) => {
   if (els.appView.hidden || !e.dataTransfer?.types.includes('Files')) return
-  dropTiefe++
+  dropDepth++
   els.dropOverlay.hidden = false
 })
 document.addEventListener('dragover', (e) => {
   if (!els.dropOverlay.hidden) e.preventDefault()
 })
 document.addEventListener('dragleave', () => {
-  dropTiefe = Math.max(0, dropTiefe - 1)
-  if (!dropTiefe) els.dropOverlay.hidden = true
+  dropDepth = Math.max(0, dropDepth - 1)
+  if (!dropDepth) els.dropOverlay.hidden = true
 })
 document.addEventListener('drop', (e) => {
   if (els.appView.hidden) return
   e.preventDefault()
-  dropTiefe = 0
+  dropDepth = 0
   els.dropOverlay.hidden = true
-  if (e.dataTransfer?.files.length) void nimmDateienAn(e.dataTransfer.files)
+  if (e.dataTransfer?.files.length) void acceptFiles(e.dataTransfer.files)
 })
 
 // — Bauen: Manifest → PUTs → Finalize —
 
-async function warteAufBereit(id: string): Promise<'ready' | 'failed' | 'processing'> {
+async function waitForReady(id: string): Promise<'ready' | 'failed' | 'processing'> {
   for (let i = 0; i < 60; i++) {
     const t = await api.tour(id)
     if (t.schema === 'maptale/tour@2' || t.status === 'ready') return 'ready'
@@ -1673,92 +1664,92 @@ async function warteAufBereit(id: string): Promise<'ready' | 'failed' | 'process
   return 'processing'
 }
 
-els.neuBauen.addEventListener('click', async () => {
-  if (!befund?.ready || laeuftUpload) return
-  if (uploadGesperrt) {
-    setzeNeuStatus('Bitte zuerst die E-Mail-Adresse bestätigen.', 'fehler')
+els.newBuild.addEventListener('click', async () => {
+  if (!report?.ready || runningUpload) return
+  if (uploadLocked) {
+    setNewStatus('Bitte zuerst die E-Mail-Adresse bestätigen.', 'fehler')
     return
   }
-  laeuftUpload = true
-  els.neuBauen.disabled = true
-  const modus = els.neuModus.value
-  const sicht = els.neuSicht.value as 'private' | 'unlisted' | 'public'
-  const medienUpload = medienDateien.filter((d) => befunde.some((b) => b.file === d.name))
+  runningUpload = true
+  els.newBuild.disabled = true
+  const travelMode = els.newTravelMode.value
+  const visibility = els.newVisibility.value as 'private' | 'unlisted' | 'public'
+  const mediaUpload = mediaFiles.filter((d) => reports.some((b) => b.file === d.name))
 
   try {
-    const media = mediaFromReport(befund, (ms) => isoMitZone(ms, ZONE))
-    const kennung = `studio:${(gpxDatei?.name ?? befund.media[0]?.file ?? 'tour').slice(0, 60)}:${befund.fromMs}`
-    const manifest = baueUploadManifest({
-      clientTourId: kennung,
+    const media = mediaFromReport(report, (ms) => isoWithZone(ms, ZONE))
+    const clientTourId = `studio:${(gpxFile?.name ?? report.media[0]?.file ?? 'tour').slice(0, 60)}:${report.fromMs}`
+    const manifest = buildUploadManifest({
+      clientTourId,
       title: null,
-      zeitspanne: { startMs: befund.fromMs, endMs: befund.toMs },
+      zeitspanne: { startMs: report.fromMs, endMs: report.toMs },
       zone: ZONE,
-      trackMode: modus,
+      trackMode: travelMode,
       media,
     })
     // Ohne Aufzeichnung sind die Foto-Orte die Strecke: das Manifest trägt dann
     // `segments` statt `trackFile` (beides erlaubt das Schema, genau eines).
-    if (!befund.track) {
-      const segmente = buildPhotoSegments(befund.media, modus)
-      if (!segmente.length) throw new Error('Zu wenige verortete Fotos für eine Strecke.')
+    if (!report.track) {
+      const segments = buildPhotoSegments(report.media, travelMode)
+      if (!segments.length) throw new Error('Zu wenige verortete Fotos für eine Strecke.')
       delete (manifest as { trackFile?: string }).trackFile
-      ;(manifest as unknown as { segments: unknown }).segments = segmente
+      ;(manifest as unknown as { segments: unknown }).segments = segments
     }
 
-    zeigeFortschritt(0, medienUpload.length + 2)
+    showProgress(0, mediaUpload.length + 2)
     const { id, reused } = await api.createTour(manifest)
     if (reused) {
-      const vorhanden = await api.tour(id)
-      if (vorhanden.schema === 'maptale/tour@2' || vorhanden.status === 'ready') {
-        setzeNeuStatus('Diese Tour gibt es bereits.', 'fehler')
+      const existing = await api.tour(id)
+      if (existing.schema === 'maptale/tour@2' || existing.status === 'ready') {
+        setNewStatus('Diese Tour gibt es bereits.', 'fehler')
         return
       }
     }
 
-    let getan = 0
+    let done = 0
     if (gpxText) {
       await api.uploadTrack(id, gpxText)
-      zeigeFortschritt(++getan, medienUpload.length + 2)
+      showProgress(++done, mediaUpload.length + 2)
     }
-    for (const eintrag of media) {
-      const file = medienUpload.find((d) => d.name === eintrag.file)
+    for (const entry of media) {
+      const file = mediaUpload.find((d) => d.name === entry.file)
       if (!file) continue
-      await api.uploadMedium(id, eintrag.id, file)
-      zeigeFortschritt(++getan, medienUpload.length + 2)
+      await api.uploadMedium(id, entry.id, file)
+      showProgress(++done, mediaUpload.length + 2)
     }
-    if (sicht !== 'private') await api.patchTour(id, { visibility: sicht })
+    if (visibility !== 'private') await api.patchTour(id, { visibility: visibility })
 
-    setzeNeuStatus('Verarbeitung läuft …')
+    setNewStatus('Verarbeitung läuft …')
     await api.finalize(id)
     // Das Fenster darf jetzt zu: die Kachel in der Bibliothek zeigt weiter an,
     // dass die Tour entsteht — dafür muss niemand hier warten.
-    laeuftUpload = false
-    els.neuHinter.hidden = true
-    els.neuFortschritt.hidden = true
-    leereAuswahl()
-    await ladeListe()
-    const status = await warteAufBereit(id)
+    runningUpload = false
+    els.newBackdrop.hidden = true
+    els.newProgress.hidden = true
+    clearSelection()
+    await loadList()
+    const status = await waitForReady(id)
     if (status === 'failed') {
       const t = await api.tour(id)
-      hinweisToast(`Verarbeitung fehlgeschlagen: ${t.error ?? 'unbekannt'}`, true)
+      hintToast(`Verarbeitung fehlgeschlagen: ${t.error ?? 'unbekannt'}`, true)
     }
-    await ladeListe()
-    zeigeSitzung(await api.me()) // Quota nachziehen
-  } catch (fehler) {
-    setzeNeuStatus((fehler as Error).message, 'fehler')
+    await loadList()
+    showSession(await api.me()) // Quota nachziehen
+  } catch (error) {
+    setNewStatus((error as Error).message, 'fehler')
   } finally {
-    laeuftUpload = false
-    els.neuFortschritt.hidden = true
-    els.neuBauen.disabled = !befund?.ready
+    runningUpload = false
+    els.newProgress.hidden = true
+    els.newBuild.disabled = !report?.ready
   }
 })
 
-function zeigeFortschritt(getan: number, gesamt: number): void {
-  els.neuFortschritt.hidden = false
-  els.neuFortschrittText.innerHTML = `<b>${getan}</b> von ${gesamt} übertragen`
+function showProgress(done: number, total: number): void {
+  els.newProgress.hidden = false
+  els.newProgressText.innerHTML = `<b>${done}</b> von ${total} übertragen`
 }
 
 // — Start —
 // Editor-Chunk parallel zu Auth vorladen, wenn der Deep-Link ihn sowieso braucht.
-if (editIdAusUrl()) void import('./editor.js')
-void pruefeAnmeldung()
+if (editIdFromUrl()) void import('./editor.js')
+void checkLogin()

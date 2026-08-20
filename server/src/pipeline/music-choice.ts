@@ -21,7 +21,7 @@ import type { WeatherKeyframe } from './weather.js'
 /**
  * Die Musikstücke der kuratierten Bibliothek (public/audio/sfx/), soweit die
  * Automatik sie vergibt. Der Katalog selbst — Anzeigenamen, Beschreibungen,
- * alle 28 Einträge — lebt clientseitig in src/studio/sfxbibliothek.ts; der
+ * alle 28 Einträge — lebt clientseitig in src/studio/sfx-library.ts; der
  * Server kann ihn nicht importieren (eigener tsconfig-rootDir), deshalb hier
  * die Dateinamen ein zweites Mal. Ein Drift-Wächter in
  * test/studio-baukasten.test.ts hält beide Seiten synchron.

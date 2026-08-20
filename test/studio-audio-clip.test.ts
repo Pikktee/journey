@@ -5,7 +5,7 @@
 // RECHTEN auf — vor dem Dateianfang gibt es nichts zu wiederholen.
 
 import { describe, expect, it } from 'vitest'
-import type { AudioEntry, TrackPoint } from '../src/studio/editmodell'
+import type { AudioEntry, TrackPoint } from '../src/studio/edit-model'
 import {
   AUDIO_MIN_S,
   resolveAudioClips,
@@ -19,9 +19,9 @@ import {
   moveAudioClip,
   waveformPosition,
   type AudioClip,
-} from '../src/studio/tonklip'
+} from '../src/studio/audio-clip'
 import { RAMPE_M, tempoMs } from '../src/filmachse'
-import { buildTimelineAxis, type TimelineAxis } from '../src/studio/zeitleiste'
+import { buildTimelineAxis, type TimelineAxis } from '../src/studio/timeline'
 
 const START = '2026-07-04T08:00:00.000Z'
 

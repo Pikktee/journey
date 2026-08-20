@@ -289,7 +289,7 @@ kamen erst nach der Paketierung dazu:
   CSS-Zwillinge nimmt die **Szene-Schicht** (§9, jederzeit dazwischen), die Filmachse die
   Etappen 2–4.
 - Die **Musikposition gehört zu Paket D** (§12) — nicht früher, und das hat einen Grund:
-  `musikVersatzS` ([abspielen.ts](../../src/studio/abspielen.ts)) ist längst eine reine,
+  `musikVersatzS` ([playback.ts](../../src/studio/playback.ts)) ist längst eine reine,
   getestete Funktion, aber sie rechnet über die **Filmkurve**, und die liegt in
   `src/studio/`. Ein Import Player→Studio ist die eine Richtung, die §8C ausschließt. Mit der
   geteilten Achse zieht sie nach `src/` um, und der Player ruft dieselbe Funktion — ein
@@ -365,7 +365,7 @@ nicht nötig — beide Uhren sind dann dieselbe.
 Das ist **eine Zeile im Kern und mehr drumherum**: Am Integrator hängen der Bremsweg-Vorgriff, `nextIdx`/
 `nextMomentIdx`, die Ausroll-Schwelle `speed < 4`, die Finale-Schwelle und `dir`. Der Plan
 (§12, Etappe 4) zählt sie auf — die Formulierung „eine Zeile" setzte die Erwartung falsch; der Studio-Abspieler
-betreibt dieses Modell schon ([abspielen.ts](../../src/studio/abspielen.ts), `tick()`).
+betreibt dieses Modell schon ([playback.ts](../../src/studio/playback.ts), `tick()`).
 Anfahren und Ausrollen sind danach keine emergente Eigenschaft einer Differentialgleichung
 mehr, sondern eine **Form in der Kurve** — es gibt kein zweites Modell zum Nachbilden.
 Nebeneffekte, alle in die richtige Richtung: `mult` wird ein Faktor auf die Filmzeit, `nudge`
@@ -388,7 +388,7 @@ Player nicht gehen: `cfg.timeline` ist **Pseudo**-Zeit mit Pausen-Zeitraffer, ni
 Aufnahmeuhr. Es gibt im Player keine Abbildung Aufnahmezeit → `f`.
 
 Der Kern ist ohnehin distanzparametrisiert beschrieben (*Abschnittslängen, Modus je Abschnitt,
-Halte als Position + Breite*) — was fehlt, sind die Adapter: `zeitleiste.ts` rechnet
+Halte als Position + Breite*) — was fehlt, sind die Adapter: `timeline.ts` rechnet
 durchgehend in Aufnahmezeit, `projiziereAufReihe` im Server ebenso, und die Anker von Medien
 und Ton-Klips bleiben Aufnahme-Zeitstempel (trim-stabil, so begründet es die Spec). Sie
 brauchen einen Zeit→Strecke-Schritt; das Studio hat mit `cumMeters`/`metersToOffset` schon
@@ -452,7 +452,7 @@ hat ihn noch. **Nicht filmlinear werden:** Pseudo-Uhrzeit, Sonnenstand, Wetter-T
 `videoTonHuelle`, `videoLautstaerke`, `videoMusikDuck`, `VIDEO_FADE_S`, `VIDEO_DUCK`,
 `STUDIO_PEGEL_VORGABE` ([audiotracks.ts](../../src/audiotracks.ts)); `clampMediaTrim`,
 `videoFilmS`, `videoStandS`, `mediumHoldS`, `STOP_ENGINE_S`/`STOP_FADE_OUT_S`
-([zeitleiste.ts](../../src/studio/zeitleiste.ts)); `NAHE_M` samt Gruppierungsregel.
+([timeline.ts](../../src/studio/timeline.ts)); `NAHE_M` samt Gruppierungsregel.
 
 Doppelt sind die DOM-/CSS-Schicht (~200 Zeilen TS + ~110 Zeilen CSS je Seite) und die Zahlen
 aus §6C. **Ein geteiltes DOM-Modul wäre die falsche Antwort (E8):** Die beiden Karten teilen
@@ -544,7 +544,7 @@ bereits (`nudge` versteht ein Einzelbild genau so).
 
 Heute geht das aus drei Gründen nicht:
 
-1. **Die Zeitfelder des Ton-Inspectors zeigen `HH:MM`.** `uhrzeitKurz` formatiert mit
+1. **Die Zeitfelder des Ton-Inspectors zeigen `HH:MM`.** `clockTimeShort` formatiert mit
    `hour: '2-digit', minute: '2-digit'` — **Minutenauflösung**, und als Uhrzeit statt als
    Filmzeit. Gebraucht: Filmzeit mit Nachkommastellen, dazu die **Länge als eigenes Feld**
    (heute nur „Endet um").
@@ -702,7 +702,7 @@ der Filmzeit ableiten; Bremsweg-Vorgriff und Ausrollschwelle entfallen; Scrubben
 
 **Rückwärts fährt über dieselbe Kurve (E13).** Die frühere Sorge — „an jedem Halt kleben" —
 hat sich an der Praxis erledigt: Der Editor macht es seit Monaten genau so
-([abspielen.ts](../../src/studio/abspielen.ts), `tick` rechnet `filmAt(kurve, alt) + tempo · dt`
+([playback.ts](../../src/studio/playback.ts), `tick` rechnet `filmAt(kurve, alt) + tempo · dt`
 mit negativem Tempo bis −4×), die Halte sind dort Plateaus derselben Kurve, und es ist
 niemandem als Mangel aufgefallen. Der Player bekommt damit dasselbe Verhalten wie der Editor
 statt eines eigenen.
@@ -764,7 +764,7 @@ jeder Videoplayer hat: Das Bild ist der Inhalt, die Steuerung liegt darauf. Mitz
 verdeckt ohnehin nichts, aber wenn sie auf Regung wiederkommt, muss sie oben sein.
 
 **Der Schnelllauf geht auf 8× in BEIDEN Bühnen (E16)**, und mit ihm die zwei Regeln, die der
-Editor schon hat: **Ton nur bei Tempo 1** ([abspielen.ts](../../src/studio/abspielen.ts):
+Editor schon hat: **Ton nur bei Tempo 1** ([playback.ts](../../src/studio/playback.ts):
 „im Schnelllauf oder rückwärts klänge sie wie ein durchgedrehter Kassettenrekorder") und
 **Karte aus ab 2×** ([editor.ts](../../src/studio/editor.ts): „dort will man die Strecke
 überfliegen"). Das erledigt zugleich eine offene Lücke: Im Player läuft die Musik heute im
@@ -845,7 +845,7 @@ liegt, hat `f0 === f1` — er bliebe stumm, welche Filmsekunde auch immer im JSO
 Deshalb gehören beide Teile in **dieselbe** Etappe:
 
 1. `istAktiv` und `sfxSollFeuern` rechnen in **Filmsekunden** statt in `frac`. Beide sind
-   **mit dem Studio geteilt** ([abspielen.ts](../../src/studio/abspielen.ts) importiert sie) —
+   **mit dem Studio geteilt** ([playback.ts](../../src/studio/playback.ts) importiert sie) —
    die Umstellung ändert Player und Editor in einem Zug, was hier erwünscht ist. Die
    0,02-Schwelle der SFX-Kante bekommt dabei ihre Entsprechung in Sekunden (Falle 2).
 2. Additive Filmsekunde je Ereignis neben `f0`/`f1`, für Ton-Klips, Kamera-Keyframes und

@@ -340,7 +340,7 @@ Schritt 1 ersatzlos.
 `formatiereEinladungscode` ([src/einladungscode.ts](../src/einladungscode.ts)) räumt beim TIPPEN
 auf (Versalien, Bindestrich von selbst), statt hinterher zu meckern. Zwei Kanten: Der Einstieg
 `#registrieren` von der Landing fällt VOR der `/auth/me`-Antwort an und kennt die Pflicht noch
-nicht — `zeigeRegistrierungsmodus` stellt ihn nachträglich gerade. Und ein zwischen Schritt 1
+nicht — `showRegisterMode` stellt ihn nachträglich gerade. Und ein zwischen Schritt 1
 und 2 verbrauchter Code wirft zurück auf Schritt 1, weil nur dort das Feld steht, in dem sich
 das beheben lässt. Der Link aus der Verwaltung (`/studio.html#einladung=CODE`) prüft den Code
 sofort und überspringt Schritt 1; wie `#verify=`/`#reset=` wirkt er nur beim Laden der Seite,

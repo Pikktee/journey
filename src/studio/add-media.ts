@@ -1,6 +1,6 @@
 // Aufnahmen zu einer BESTEHENDEN Tour hinzufügen: die rechnenden Teile.
 //
-// Die Frage ist eine andere als beim Anlegen (pruefung.ts): Dort entsteht die
+// Die Frage ist eine andere als beim Anlegen (import-validation.ts): Dort entsteht die
 // Zeitachse erst aus dem Material, hier gibt es sie schon. Deshalb wird jede
 // neue Datei GEGEN die vorhandene Tour eingeordnet — und die Oberfläche zeigt
 // beides nebeneinander, damit man sieht, ob die Bilder die Lücken füllen oder
@@ -8,17 +8,17 @@
 //
 // DOM-frei und ohne fetch, damit es unter Vitest prüfbar bleibt.
 
-import { distanceM } from './pruefung.js'
+import { distanceM } from './import-validation.js'
 
 /** Was aus einer gewählten Datei gelesen wurde (EXIF, sonst Datei-Datum). */
-export interface NeueAufnahme {
+export interface NewMedium {
   file: string
   type: 'photo' | 'video'
-  /** Aufnahmezeit in ms — aus EXIF, sonst der Dateizeit (dann `zeitGeraten`) */
-  zeitMs: number
-  zeitGeraten: boolean
-  ort: [number, number] | null
-  groesse: number
+  /** Aufnahmezeit in ms — aus EXIF, sonst der Dateizeit (dann `timeGuessed`) */
+  timeMs: number
+  timeGuessed: boolean
+  location: [number, number] | null
+  size: number
 }
 
 /**
@@ -29,30 +29,30 @@ export interface NeueAufnahme {
  * - `ablage` — weder noch. Sie kommt ins Fach und bekommt dort von Hand
  *            einen Platz; wegzulassen ist die zweite brauchbare Antwort.
  */
-export type Einordnung = 'ort' | 'zeit' | 'ablage'
+export type Classification = 'ort' | 'zeit' | 'ablage'
 
-export interface EingeordneteAufnahme extends NeueAufnahme {
-  einordnung: Einordnung
+export interface ClassifiedMedium extends NewMedium {
+  classification: Classification
 }
 
 /**
  * Wie weit ein GPS-Anker von der Strecke abliegen darf, um noch als „sitzt auf
- * der Strecke" zu gelten — DIESELBE Zahl wie `MAX_ABSTAND_M` in
+ * der Strecke" zu gelten — DIESELBE Zahl wie `MAX_DISTANCE_M` in
  * [server/src/pipeline/placement.ts]. Der Dialog trifft hier eine Ansage über
  * das, was der Server gleich tun wird; wer sie großzügiger fasst, verspricht
  * eine Platzierung, die dann doch in der Ablage endet.
  */
-export const MAX_ABSTAND_M = 500
+export const MAX_DISTANCE_M = 500
 
 /**
- * Die Tour, gegen die eingeordnet wird. `abstandZurStrecke` ist optional: Ohne
+ * Die Tour, gegen die eingeordnet wird. `distanceToRoute` ist optional: Ohne
  * sie gilt ein Anker als gültig (so verhält es sich beim Anlegen, wo die
  * Strecke erst aus dem Material entsteht).
  */
-export interface NachreichZiel {
+export interface AddMediaTarget {
   startMs: number
   endMs: number
-  abstandZurStrecke?: (ort: readonly [number, number]) => number
+  distanceToRoute?: (location: readonly [number, number]) => number
 }
 
 /**
@@ -65,7 +65,7 @@ export interface NachreichZiel {
  * 3. sonst Ablage.
  *
  * **Ohne Toleranz um die Zeitspanne herum**, anders als beim Anlegen
- * (pruefung.ts): Dort entsteht die Zeitachse erst aus dem Material, ein Foto
+ * (import-validation.ts): Dort entsteht die Zeitachse erst aus dem Material, ein Foto
  * kurz vor dem Start DEHNT sie also. Hier steht sie schon fest, und der Server
  * findet außerhalb von ihr keinen Trackpunkt — jede Toleranz wäre ein
  * Versprechen, das die Platzierung gleich darauf bricht.
@@ -74,49 +74,46 @@ export interface NachreichZiel {
  * Ablage: Bei Dateien, die direkt von der Kamera kommen, ist sie meist richtig
  * — sie muss nur im Zeitfenster liegen.
  */
-export function ordneEin(
-  aufnahmen: readonly NeueAufnahme[],
-  tour: NachreichZiel,
-): EingeordneteAufnahme[] {
-  return aufnahmen.map((a) => {
-    if (a.ort && (!tour.abstandZurStrecke || tour.abstandZurStrecke(a.ort) <= MAX_ABSTAND_M)) {
-      return { ...a, einordnung: 'ort' as const }
+export function classify(media: readonly NewMedium[], tour: AddMediaTarget): ClassifiedMedium[] {
+  return media.map((a) => {
+    if (
+      a.location &&
+      (!tour.distanceToRoute || tour.distanceToRoute(a.location) <= MAX_DISTANCE_M)
+    ) {
+      return { ...a, classification: 'ort' as const }
     }
-    const drin = Number.isFinite(a.zeitMs) && a.zeitMs >= tour.startMs && a.zeitMs <= tour.endMs
-    return { ...a, einordnung: drin ? ('zeit' as const) : ('ablage' as const) }
+    const inside = Number.isFinite(a.timeMs) && a.timeMs >= tour.startMs && a.timeMs <= tour.endMs
+    return { ...a, classification: inside ? ('zeit' as const) : ('ablage' as const) }
   })
 }
 
-export interface NachreichBefund {
-  aufnahmen: EingeordneteAufnahme[]
+export interface AddMediaReport {
+  media: ClassifiedMedium[]
   /** Anzahl je Einordnung — die Zusammenfassung über den Zeilen. */
-  mitOrt: number
-  nachZeit: number
-  inAblage: number
-  gesamtBytes: number
+  withLocation: number
+  afterTime: number
+  inTray: number
+  totalBytes: number
   /**
    * Zeitfenster des Streifens: Tour UND neue Aufnahmen. Ein Bild, das weit
    * daneben liegt, muss SICHTBAR daneben liegen — ein auf die Tour
    * beschnittener Streifen verstiege sich darauf, alles passe schon.
    */
-  vonMs: number
-  bisMs: number
+  fromMs: number
+  toMs: number
 }
 
-export function fasseZusammen(
-  aufnahmen: readonly NeueAufnahme[],
-  tour: NachreichZiel,
-): NachreichBefund {
-  const eingeordnet = ordneEin(aufnahmen, tour).sort((a, b) => a.zeitMs - b.zeitMs)
-  const zeiten = eingeordnet.map((a) => a.zeitMs).filter((t) => Number.isFinite(t))
+export function summarize(media: readonly NewMedium[], tour: AddMediaTarget): AddMediaReport {
+  const classified = classify(media, tour).sort((a, b) => a.timeMs - b.timeMs)
+  const zeiten = classified.map((a) => a.timeMs).filter((t) => Number.isFinite(t))
   return {
-    aufnahmen: eingeordnet,
-    mitOrt: eingeordnet.filter((a) => a.einordnung === 'ort').length,
-    nachZeit: eingeordnet.filter((a) => a.einordnung === 'zeit').length,
-    inAblage: eingeordnet.filter((a) => a.einordnung === 'ablage').length,
-    gesamtBytes: eingeordnet.reduce((summe, a) => summe + a.groesse, 0),
-    vonMs: Math.min(tour.startMs, ...(zeiten.length ? zeiten : [tour.startMs])),
-    bisMs: Math.max(tour.endMs, ...(zeiten.length ? zeiten : [tour.endMs])),
+    media: classified,
+    withLocation: classified.filter((a) => a.classification === 'ort').length,
+    afterTime: classified.filter((a) => a.classification === 'zeit').length,
+    inTray: classified.filter((a) => a.classification === 'ablage').length,
+    totalBytes: classified.reduce((sum, a) => sum + a.size, 0),
+    fromMs: Math.min(tour.startMs, ...(zeiten.length ? zeiten : [tour.startMs])),
+    toMs: Math.max(tour.endMs, ...(zeiten.length ? zeiten : [tour.endMs])),
   }
 }
 
@@ -125,57 +122,61 @@ export function fasseZusammen(
  * gibt. Eine Zeile „0 Aufnahmen ohne Ortsangabe" wäre eine Auskunft über
  * nichts.
  */
-export function befundSaetze(befund: NachreichBefund): string[] {
-  const saetze: string[] = []
-  if (befund.mitOrt) {
-    saetze.push(
-      befund.mitOrt === 1
+export function reportSentences(report: AddMediaReport): string[] {
+  const sentences: string[] = []
+  if (report.withLocation) {
+    sentences.push(
+      report.withLocation === 1
         ? 'Eine Aufnahme mit Ortsangabe — sie sitzt sofort auf der Strecke.'
-        : `${befund.mitOrt} Aufnahmen mit Ortsangabe — sie sitzen sofort auf der Strecke.`,
+        : `${report.withLocation} Aufnahmen mit Ortsangabe — sie sitzen sofort auf der Strecke.`,
     )
   }
-  if (befund.nachZeit) {
-    saetze.push(
-      befund.nachZeit === 1
+  if (report.afterTime) {
+    sentences.push(
+      report.afterTime === 1
         ? 'Eine Aufnahme ohne Ortsangabe — eingeordnet nach ihrer Uhrzeit.'
-        : `${befund.nachZeit} Aufnahmen ohne Ortsangabe — eingeordnet nach ihrer Uhrzeit.`,
+        : `${report.afterTime} Aufnahmen ohne Ortsangabe — eingeordnet nach ihrer Uhrzeit.`,
     )
   }
-  if (befund.inAblage) {
-    saetze.push(
-      befund.inAblage === 1
+  if (report.inTray) {
+    sentences.push(
+      report.inTray === 1
         ? 'Eine Aufnahme ohne Zeit und Ort — sie geht in die Ablage und bekommt dort von Hand einen Platz.'
-        : `${befund.inAblage} Aufnahmen ohne Zeit und Ort — sie gehen in die Ablage und bekommen dort von Hand einen Platz.`,
+        : `${report.inTray} Aufnahmen ohne Zeit und Ort — sie gehen in die Ablage und bekommen dort von Hand einen Platz.`,
     )
   }
-  return saetze
+  return sentences
 }
 
 /** Kurzform der Einordnung für die Zeile (das, was in der Spalte steht). */
-export function einordnungWort(einordnung: Einordnung): string {
-  return einordnung === 'ort' ? 'Ort' : einordnung === 'zeit' ? 'nach Uhrzeit' : 'in die Ablage'
+export function classificationWord(classification: Classification): string {
+  return classification === 'ort'
+    ? 'Ort'
+    : classification === 'zeit'
+      ? 'nach Uhrzeit'
+      : 'in die Ablage'
 }
 
 /** Position auf dem Streifen (0–1); außerhalb wird geklemmt, nie verworfen. */
-export function streifenAnteil(ms: number, vonMs: number, bisMs: number): number {
-  if (!(bisMs > vonMs) || !Number.isFinite(ms)) return 0
-  return Math.min(1, Math.max(0, (ms - vonMs) / (bisMs - vonMs)))
+export function stripFraction(ms: number, fromMs: number, toMs: number): number {
+  if (!(toMs > fromMs) || !Number.isFinite(ms)) return 0
+  return Math.min(1, Math.max(0, (ms - fromMs) / (toMs - fromMs)))
 }
 
 /**
- * Aus den Trackpunkten einer Tour die Abstandsfunktion für `ordneEin` bauen
+ * Aus den Trackpunkten einer Tour die Abstandsfunktion für `classify` bauen
  * (kleinster Abstand zu irgendeinem Punkt — wie `abstandZumTrack` im Server).
  * Der Editor-Track ist serverseitig auf 5 m vereinfacht; bei 500 m Schwelle
  * fällt das nicht ins Gewicht.
  */
-export function abstandsFunktion(
-  punkte: ReadonlyArray<readonly number[]>,
-): ((ort: readonly [number, number]) => number) | undefined {
-  if (punkte.length < 2) return undefined
-  return (ort) => {
+export function distanceFunction(
+  points: ReadonlyArray<readonly number[]>,
+): ((location: readonly [number, number]) => number) | undefined {
+  if (points.length < 2) return undefined
+  return (location) => {
     let best = Infinity
-    for (const p of punkte) {
-      const d = distanceM(ort, p)
+    for (const p of points) {
+      const d = distanceM(location, p)
       if (d < best) best = d
     }
     return best

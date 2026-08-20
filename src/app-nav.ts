@@ -102,7 +102,7 @@ export function appHeaderHtml(opts: { aktiv: AppNavSeite; variante?: AppHeaderVa
       `<a class="km-eintrag knopf" id="km-konto" href="${pfad('konto')}">${ICON_KONTO}Kontoeinstellungen</a>` +
       `<a class="km-eintrag knopf" id="km-verwaltung" href="${pfad('verwaltung')}" hidden>${ICON_ADMIN}Administration</a>` +
       `<button type="button" class="km-eintrag" id="abmelden">` +
-      `<svg aria-hidden="true"><use href="#i-abmelden"/></svg>Abmelden</button>` +
+      `<svg aria-hidden="true"><use href="#i-logout"/></svg>Abmelden</button>` +
       `</div></div></div>`
   } else if (variante === 'admin') {
     rechts = `<div class="nav-right" id="nav-rechts"></div>`

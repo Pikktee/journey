@@ -3,7 +3,7 @@
 // (src/exif.ts, nur Datum aus URL) um Sekunden und GPS-Koordinaten. Bewusst
 // abhängigkeitsfrei — TIFF-IFDs sind flach genug für ein paar DataView-Zugriffe.
 
-export interface ExifDatum {
+export interface ExifDate {
   y: number
   mo: number
   d: number
@@ -12,8 +12,8 @@ export interface ExifDatum {
   ss: number
 }
 
-export interface ExifDaten {
-  datum: ExifDatum | null
+export interface ExifData {
+  date: ExifDate | null
   /** [lng, lat] aus GPS-IFD; null, wenn keine Geodaten vorhanden */
   gps: [number, number] | null
 }
@@ -23,26 +23,26 @@ export interface ExifDaten {
  * zeigt. Jedes Feld fehlt einzeln (undefined), wenn das Foto es nicht trägt:
  * Handys schreiben fast alles, gestrippte/generierte Bilder nichts.
  */
-export interface ExifAufnahme {
+export interface ExifCapture {
   /** Hersteller + Modell zusammengezogen („Apple iPhone 15 Pro") */
   camera?: string
-  objektiv?: string
+  lens?: string
   /** Belichtungszeit in Sekunden (0.004 = 1/250 s) */
-  belichtungS?: number
+  exposureS?: number
   /** Blendenzahl (2.8 = f/2,8) */
-  blende?: number
+  aperture?: number
   iso?: number
   /** Brennweite in mm */
-  brennweiteMm?: number
+  focalLengthMm?: number
   /** Belichtungskorrektur in EV (kann negativ sein) */
-  korrekturEv?: number
-  breite?: number
-  hoehe?: number
+  exposureBiasEv?: number
+  width?: number
+  height?: number
   /** Meter über dem Meeresspiegel aus dem GPS-IFD (negativ = darunter) */
-  hoeheM?: number
+  elevationM?: number
 }
 
-function parseExifDate(s: string): ExifDatum | null {
+function parseExifDate(s: string): ExifDate | null {
   const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/.exec(s)
   if (!m) return null
   return { y: +m[1]!, mo: +m[2]!, d: +m[3]!, hh: +m[4]!, mm: +m[5]!, ss: +m[6]! }
@@ -98,7 +98,7 @@ function rationalTag(view: DataView, tiff: number, entry: number, le: boolean): 
 }
 
 /** Wert eines SHORT/LONG-Tags (Typ 3/4) — steht bei count=1 direkt im Eintrag. */
-function zahlTag(view: DataView, entry: number, le: boolean): number | undefined {
+function numberTag(view: DataView, entry: number, le: boolean): number | undefined {
   const type = view.getUint16(entry + 2, le)
   if (type === 3) return view.getUint16(entry + 8, le)
   if (type === 4) return view.getUint32(entry + 8, le)
@@ -111,7 +111,7 @@ function textTag(view: DataView, tiff: number, entry: number, le: boolean): stri
   return s || undefined
 }
 
-function gpsWinkel(view: DataView, tiff: number, entry: number, le: boolean): number | null {
+function gpsAngle(view: DataView, tiff: number, entry: number, le: boolean): number | null {
   const count = view.getUint32(entry + 4, le)
   if (count < 3) return null
   const off = tiff + view.getUint32(entry + 8, le) // 3×RATIONAL = 24 B > 4 → immer Offset
@@ -121,7 +121,7 @@ function gpsWinkel(view: DataView, tiff: number, entry: number, le: boolean): nu
   )
 }
 
-function liesGps(
+function readGps(
   view: DataView,
   tiff: number,
   gpsIfd: number,
@@ -132,8 +132,8 @@ function liesGps(
   const lngRefE = findTag(view, tiff, gpsIfd, 0x0003, le)
   const lngE = findTag(view, tiff, gpsIfd, 0x0004, le)
   if (!latE || !lngE) return null
-  let lat = gpsWinkel(view, tiff, latE, le)
-  let lng = gpsWinkel(view, tiff, lngE, le)
+  let lat = gpsAngle(view, tiff, latE, le)
+  let lng = gpsAngle(view, tiff, lngE, le)
   if (lat === null || lng === null) return null
   if (latRefE && String.fromCharCode(view.getUint8(latRefE + 8)) === 'S') lat = -lat
   if (lngRefE && String.fromCharCode(view.getUint8(lngRefE + 8)) === 'W') lng = -lng
@@ -141,13 +141,13 @@ function liesGps(
 }
 
 /** Datum + GPS aus einem JPEG-ArrayBuffer; beide Felder null, wenn nicht vorhanden. */
-export function liesExif(buf: ArrayBuffer): ExifDaten {
+export function readExif(buf: ArrayBuffer): ExifData {
   // Manipulierte/beschnittene EXIF-Bytes dürfen den Upload nicht abbrechen — ein
   // RangeError aus einem DataView-Zugriff wird hier zu „keine Metadaten".
   try {
-    return liesExifIntern(buf)
+    return readExifInternal(buf)
   } catch {
-    return { datum: null, gps: null }
+    return { date: null, gps: null }
   }
 }
 
@@ -157,18 +157,18 @@ export function liesExif(buf: ArrayBuffer): ExifDaten {
  * Ausnahme. Es genügt der DATEIANFANG — EXIF steht vor den Bilddaten, der
  * Aufrufer holt daher nur die ersten Kilobytes per Range-Request.
  */
-export function liesAufnahme(buf: ArrayBuffer): ExifAufnahme {
+export function readCapture(buf: ArrayBuffer): ExifCapture {
   try {
-    return liesAufnahmeIntern(buf)
+    return readCaptureInternal(buf)
   } catch {
     return {}
   }
 }
 
 /** Zahl mit deutschem Komma, ohne unnötige Nullen („2,8" statt „2.80"). */
-function komma(n: number, stellen = 1): string {
+function formatComma(n: number, digits = 1): string {
   return n
-    .toFixed(stellen)
+    .toFixed(digits)
     .replace(/[.,]?0+$/, '')
     .replace('.', ',')
 }
@@ -178,35 +178,38 @@ function komma(n: number, stellen = 1): string {
  * das Foto wirklich trägt; leere Liste = keine Kameradaten. Rein und getestet —
  * der Editor rendert die Paare bloß noch.
  */
-export function beschreibeAufnahme(a: ExifAufnahme): Array<[string, string]> {
-  const zeilen: Array<[string, string]> = []
-  if (a.camera) zeilen.push(['Kamera', a.camera])
-  if (a.objektiv) zeilen.push(['Objektiv', a.objektiv])
+export function describeCapture(a: ExifCapture): Array<[string, string]> {
+  const rows: Array<[string, string]> = []
+  if (a.camera) rows.push(['Kamera', a.camera])
+  if (a.lens) rows.push(['Objektiv', a.lens])
 
   // Belichtung als eine Zeile, wie sie auf jedem Kameradisplay steht.
-  const teile: string[] = []
-  if (a.belichtungS !== undefined && a.belichtungS > 0) {
-    teile.push(
-      a.belichtungS < 1 ? `1/${Math.round(1 / a.belichtungS)} s` : `${komma(a.belichtungS)} s`,
+  const parts: string[] = []
+  if (a.exposureS !== undefined && a.exposureS > 0) {
+    parts.push(
+      a.exposureS < 1 ? `1/${Math.round(1 / a.exposureS)} s` : `${formatComma(a.exposureS)} s`,
     )
   }
-  if (a.blende !== undefined) teile.push(`f/${komma(a.blende)}`)
-  if (a.iso !== undefined) teile.push(`ISO ${a.iso}`)
-  if (a.brennweiteMm !== undefined) teile.push(`${komma(a.brennweiteMm, 0)} mm`)
-  if (a.korrekturEv)
-    teile.push(`${a.korrekturEv > 0 ? '+' : '−'}${komma(Math.abs(a.korrekturEv))} EV`)
-  if (teile.length) zeilen.push(['Belichtung', teile.join(' · ')])
+  if (a.aperture !== undefined) parts.push(`f/${formatComma(a.aperture)}`)
+  if (a.iso !== undefined) parts.push(`ISO ${a.iso}`)
+  if (a.focalLengthMm !== undefined) parts.push(`${formatComma(a.focalLengthMm, 0)} mm`)
+  if (a.exposureBiasEv)
+    parts.push(`${a.exposureBiasEv > 0 ? '+' : '−'}${formatComma(Math.abs(a.exposureBiasEv))} EV`)
+  if (parts.length) rows.push(['Belichtung', parts.join(' · ')])
 
-  if (a.breite && a.hoehe) {
-    const mp = (a.breite * a.hoehe) / 1_000_000
-    zeilen.push(['Auflösung', `${a.breite} × ${a.hoehe}${mp >= 0.5 ? ` · ${komma(mp)} MP` : ''}`])
+  if (a.width && a.height) {
+    const mp = (a.width * a.height) / 1_000_000
+    rows.push([
+      'Auflösung',
+      `${a.width} × ${a.height}${mp >= 0.5 ? ` · ${formatComma(mp)} MP` : ''}`,
+    ])
   }
-  if (a.hoeheM !== undefined) zeilen.push(['Höhe', `${Math.round(a.hoeheM)} m`])
-  return zeilen
+  if (a.elevationM !== undefined) rows.push(['Höhe', `${Math.round(a.elevationM)} m`])
+  return rows
 }
 
 /** TIFF-Kopf eines JPEG finden: Offset des TIFF-Headers + Endianness. */
-function findeTiff(view: DataView): { tiff: number; le: boolean } | null {
+function findTiff(view: DataView): { tiff: number; le: boolean } | null {
   if (view.byteLength < 16 || view.getUint16(0) !== 0xffd8) return null // kein JPEG
   let off = 2
   while (off + 8 <= view.byteLength) {
@@ -224,13 +227,13 @@ function findeTiff(view: DataView): { tiff: number; le: boolean } | null {
   return null
 }
 
-function liesAufnahmeIntern(buf: ArrayBuffer): ExifAufnahme {
+function readCaptureInternal(buf: ArrayBuffer): ExifCapture {
   const view = new DataView(buf)
-  const kopf = findeTiff(view)
-  if (!kopf) return {}
-  const { tiff, le } = kopf
+  const header = findTiff(view)
+  if (!header) return {}
+  const { tiff, le } = header
   const ifd0 = view.getUint32(tiff + 4, le)
-  const a: ExifAufnahme = {}
+  const a: ExifCapture = {}
 
   // Kamera: Hersteller + Modell, ohne den Hersteller doppelt zu nennen
   // („Apple" + „iPhone 15 Pro", aber „Canon" + „Canon EOS R6" → einmal Canon).
@@ -241,70 +244,70 @@ function liesAufnahmeIntern(buf: ArrayBuffer): ExifAufnahme {
   if (make && model)
     a.camera = model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`
   else {
-    const einzeln = model ?? make
-    if (einzeln !== undefined) a.camera = einzeln
+    const single = model ?? make
+    if (single !== undefined) a.camera = single
   }
 
   const exifPtr = findTag(view, tiff, ifd0, 0x8769, le)
   if (exifPtr) {
     const sub = view.getUint32(exifPtr + 8, le)
-    const setzeText = (tag: number, feld: 'objektiv'): void => {
+    const setText = (tag: number, field: 'lens'): void => {
       const e = findTag(view, tiff, sub, tag, le)
-      const wert = e ? textTag(view, tiff, e, le) : undefined
-      if (wert !== undefined) a[feld] = wert
+      const value = e ? textTag(view, tiff, e, le) : undefined
+      if (value !== undefined) a[field] = value
     }
-    const setzeRational = (
+    const setRational = (
       tag: number,
-      feld: 'belichtungS' | 'blende' | 'brennweiteMm' | 'korrekturEv',
+      field: 'exposureS' | 'aperture' | 'focalLengthMm' | 'exposureBiasEv',
     ): void => {
       const e = findTag(view, tiff, sub, tag, le)
-      const wert = e ? rationalTag(view, tiff, e, le) : undefined
-      if (wert !== undefined) a[feld] = wert
+      const value = e ? rationalTag(view, tiff, e, le) : undefined
+      if (value !== undefined) a[field] = value
     }
-    const setzeZahl = (tag: number, feld: 'iso' | 'breite' | 'hoehe'): void => {
+    const setNumber = (tag: number, field: 'iso' | 'width' | 'height'): void => {
       const e = findTag(view, tiff, sub, tag, le)
-      const wert = e ? zahlTag(view, e, le) : undefined
-      if (wert !== undefined) a[feld] = wert
+      const value = e ? numberTag(view, e, le) : undefined
+      if (value !== undefined) a[field] = value
     }
-    setzeText(0xa434, 'objektiv')
-    setzeRational(0x829a, 'belichtungS')
-    setzeRational(0x829d, 'blende')
-    setzeRational(0x920a, 'brennweiteMm')
-    setzeRational(0x9204, 'korrekturEv')
-    setzeZahl(0x8827, 'iso')
-    setzeZahl(0xa002, 'breite')
-    setzeZahl(0xa003, 'hoehe')
+    setText(0xa434, 'lens')
+    setRational(0x829a, 'exposureS')
+    setRational(0x829d, 'aperture')
+    setRational(0x920a, 'focalLengthMm')
+    setRational(0x9204, 'exposureBiasEv')
+    setNumber(0x8827, 'iso')
+    setNumber(0xa002, 'width')
+    setNumber(0xa003, 'height')
   }
   // Fallback-Maße aus IFD0, wenn die Exif-Pixelmaße fehlen (ältere Kameras)
-  if (a.breite === undefined) {
+  if (a.width === undefined) {
     const e = findTag(view, tiff, ifd0, 0x0100, le)
-    const wert = e ? zahlTag(view, e, le) : undefined
-    if (wert !== undefined) a.breite = wert
+    const value = e ? numberTag(view, e, le) : undefined
+    if (value !== undefined) a.width = value
   }
-  if (a.hoehe === undefined) {
+  if (a.height === undefined) {
     const e = findTag(view, tiff, ifd0, 0x0101, le)
-    const wert = e ? zahlTag(view, e, le) : undefined
-    if (wert !== undefined) a.hoehe = wert
+    const value = e ? numberTag(view, e, le) : undefined
+    if (value !== undefined) a.height = value
   }
 
   const gpsPtr = findTag(view, tiff, ifd0, 0x8825, le)
   if (gpsPtr) {
     const gpsIfd = view.getUint32(gpsPtr + 8, le)
-    const altE = findTag(view, tiff, gpsIfd, 0x0006, le)
-    const alt = altE ? rationalTag(view, tiff, altE, le) : undefined
-    if (alt !== undefined) {
+    const oldE = findTag(view, tiff, gpsIfd, 0x0006, le)
+    const old = oldE ? rationalTag(view, tiff, oldE, le) : undefined
+    if (old !== undefined) {
       // GPSAltitudeRef: 1 = unter dem Meeresspiegel
       const refE = findTag(view, tiff, gpsIfd, 0x0005, le)
-      a.hoeheM = refE && view.getUint8(refE + 8) === 1 ? -alt : alt
+      a.elevationM = refE && view.getUint8(refE + 8) === 1 ? -old : old
     }
   }
   return a
 }
 
-function liesExifIntern(buf: ArrayBuffer): ExifDaten {
-  const leer: ExifDaten = { datum: null, gps: null }
+function readExifInternal(buf: ArrayBuffer): ExifData {
+  const empty: ExifData = { date: null, gps: null }
   const view = new DataView(buf)
-  if (view.byteLength < 16 || view.getUint16(0) !== 0xffd8) return leer // kein JPEG
+  if (view.byteLength < 16 || view.getUint16(0) !== 0xffd8) return empty // kein JPEG
 
   let off = 2
   // +8: der APP1-Test unten liest getUint32(off+4) (4 B ab off+4)
@@ -315,29 +318,29 @@ function liesExifIntern(buf: ArrayBuffer): ExifDaten {
     const size = view.getUint16(off + 2)
     if (marker === 0xe1 && view.getUint32(off + 4) === 0x45786966 /* 'Exif' */) {
       const tiff = off + 10
-      if (tiff + 8 > view.byteLength) return leer
+      if (tiff + 8 > view.byteLength) return empty
       const le = view.getUint16(tiff) === 0x4949
       const ifd0 = view.getUint32(tiff + 4, le)
 
-      let datum: ExifDatum | null = null
+      let date: ExifDate | null = null
       const exifPtr = findTag(view, tiff, ifd0, 0x8769, le)
       if (exifPtr) {
         const sub = view.getUint32(exifPtr + 8, le)
         const dto = findTag(view, tiff, sub, 0x9003, le)
-        if (dto) datum = parseExifDate(asciiValue(view, tiff, dto, le))
+        if (dto) date = parseExifDate(asciiValue(view, tiff, dto, le))
       }
-      if (!datum) {
+      if (!date) {
         const dt = findTag(view, tiff, ifd0, 0x0132, le)
-        if (dt) datum = parseExifDate(asciiValue(view, tiff, dt, le))
+        if (dt) date = parseExifDate(asciiValue(view, tiff, dt, le))
       }
 
       let gps: [number, number] | null = null
       const gpsPtr = findTag(view, tiff, ifd0, 0x8825, le)
-      if (gpsPtr) gps = liesGps(view, tiff, view.getUint32(gpsPtr + 8, le), le)
+      if (gpsPtr) gps = readGps(view, tiff, view.getUint32(gpsPtr + 8, le), le)
 
-      return { datum, gps }
+      return { date, gps }
     }
     off += 2 + size
   }
-  return leer
+  return empty
 }

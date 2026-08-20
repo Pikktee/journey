@@ -222,8 +222,8 @@ export interface UndoStack {
  *
  * Daran hängt der Vertrag „ein Zug = ein Undo-Schritt": Ein Zeitleisten-Zug
  * schreibt je Frame ein neues Overlay, ruft dazwischen aber nur
- * `renderNachZug()` (das den Stand NICHT fortschreibt). Erst das abschließende
- * `renderAlles` kommt hier vorbei und legt den EINEN Stand von vor dem Zug ab.
+ * `renderAfterDrag()` (das den Stand NICHT fortschreibt). Erst das abschließende
+ * `renderAll` kommt hier vorbei und legt den EINEN Stand von vor dem Zug ab.
  */
 export function recordUndo(
   stack: UndoStack,

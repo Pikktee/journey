@@ -3,7 +3,7 @@ stand: 2026-08-17
 status: abgearbeitet: Karte auf der Leinwand, Tafeln herausgelöst
 betrifft:
   - Player (src/kartenmaler.ts, src/kartenschicht.ts, src/ui.ts, erlebnis.html)
-  - Studio-Editor (src/studio/abspielen.ts, studio.html)
+  - Studio-Editor (src/studio/playback.ts, studio.html)
   - Video-Export (src/exportfilm.ts)
   - geteilte Zahlen (src/einblendung.ts)
 ---

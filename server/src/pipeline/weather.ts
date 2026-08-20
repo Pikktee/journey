@@ -20,7 +20,7 @@ import {
  * Die Wetterwelt des Players (src/weather.js) als Liste — Einzelquelle für den
  * Typ, den JSON-Schema-Enum des Wetter-Overlays (schema/edits.ts importiert sie)
  * und die Studio-Auswahl. Ein Drift-Wächter (test/studio-baukasten.test.ts)
- * hält die Client-Kopie in editmodell.ts damit deckungsgleich.
+ * hält die Client-Kopie in edit-model.ts damit deckungsgleich.
  */
 export const WEATHER_MODES = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm'] as const
 export type WeatherMode = (typeof WEATHER_MODES)[number]
@@ -291,7 +291,7 @@ export function weatherFromOverlay(
  * ein einziges Band „Automatisch", und die erste eigene Grenze warf die ganze
  * automatische Einteilung weg (Overlay ERSETZT das Auto-Wetter vollständig).
  * Mit dieser Umkehrung zeigt der Editor, was tatsächlich gilt, und kann es beim
- * ersten Eingriff festschreiben — wie `materialisiereModi` bei der Fortbewegung.
+ * ersten Eingriff festschreiben — wie `materializeTravelModes` bei der Fortbewegung.
  *
  * Die Bandgrenze liegt dort, wo auch der Player umschaltet: auf der MITTE
  * zwischen zwei Marken (`weatherAt` in src/autoweather.ts). Aufeinanderfolgende

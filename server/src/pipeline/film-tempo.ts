@@ -10,7 +10,7 @@
 // (`baseSpeed`, `MODE_SPEED`); der Server kann die Datei nicht importieren
 // (eigener rootDir, kein allowJs). Ein Drift-Wächter in
 // server/test/filmtempo.test.ts vergleicht sie mit deren Quelltext — dieselbe
-// Absicherung wie im Studio (src/studio/zeitleiste.ts).
+// Absicherung wie im Studio (src/studio/timeline.ts).
 
 import type { CameraMomentKind } from '../schema/edits.js'
 import type { TravelMode } from '../schema/upload.js'
@@ -79,7 +79,7 @@ export function filmSeconds(meter: number, mode: TravelMode): number {
  *
  * Ein Video zählt mit seiner echten Länge — der Player läuft bis zum Dateiende,
  * `display.holdS` ist dort wirkungslos (src/tour.ts). Spiegel von
- * `mediumHoldS` in src/studio/zeitleiste.ts; laufen die beiden auseinander,
+ * `mediumHoldS` in src/studio/timeline.ts; laufen die beiden auseinander,
  * zeigt die Zeitleiste eine andere Filmdauer, als der Film hat.
  */
 export function mediumHoldS(m: {
@@ -96,7 +96,7 @@ export function mediumHoldS(m: {
  *
  * Anders als am Foto-Halt: Die Engine (src/tour.ts, Phase `moment`) geht nach
  * `momentDauer` unmittelbar zurück auf `ride`, es gibt kein `HOLD_AUSBLEND`-
- * Nachspiel. Spiegel von `momentDauerS` in src/studio/editor.ts; wer hier die
+ * Nachspiel. Spiegel von `momentDurationS` in src/studio/editor.ts; wer hier die
  * Ausblendung addiert, macht jeden Moment im Render um 0,8 s breiter als in der
  * Zeitleiste — und schiebt damit genau die Ton-Klips, um die es geht.
  */

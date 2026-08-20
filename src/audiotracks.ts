@@ -23,7 +23,7 @@ import type { TourAudio } from './tours.js'
 //
 // Die Helfer nehmen bewusst STRUKTURELLE Ausschnitte („was hat filmVonS und
 // filmBisS?") und nicht die ganze `TourAudio`: Das Studio ruft sie mit seinen
-// eigenen Klip-Objekten auf (src/studio/abspielen.ts) — genau darin liegt der
+// eigenen Klip-Objekten auf (src/studio/playback.ts) — genau darin liegt der
 // Wert, dass es eine Regel für Player und Editor ist und nicht zwei.
 
 /** Eine Spur, wie sie hier gespielt wird: Tour-Angaben plus Film-Verankerung. */
@@ -107,7 +107,7 @@ export function sfxSollFeuern(
  * Loop hebt nur den RECHTEN Anschlag auf; eine Wiederholung VOR dem Dateianfang
  * gibt es nicht.
  *
- * Sie stand bis Paket D in src/studio/abspielen.ts und rechnete dort über die
+ * Sie stand bis Paket D in src/studio/playback.ts und rechnete dort über die
  * Filmkurve des Editors — für den Player unerreichbar. Er setzte deshalb hart
  * `currentTime = startS`: Wer mitten hineinsprang, hörte das Stück von vorn, wer
  * innerhalb eines Bereichs scrubbte, hörte es weiterlaufen. Ein Umzug, kein
