@@ -53,8 +53,14 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
   Rollen und Einladungen (s. eigener Abschnitt unten).
 - **[android/](android/)**: Aufnahme-App (Kotlin, Compose, minSdk 29) — s. eigener Abschnitt.
 
-Sprache im gesamten Projekt (Code-Kommentare, UI, Doku, Commit-Messages) ist **Deutsch** —
-auch in server/ und android/ (deutsche Bezeichner).
+Sprache: **Code-Bezeichner sind ENGLISCH** (verbindliches Glossar:
+[docs/concepts/konzept_codebase_english_refactoring.md](docs/concepts/konzept_codebase_english_refactoring.md) §6,
+vollständige Abbildung je Bezeichner: [docs/specs/abbildungstabelle.tsv](docs/specs/abbildungstabelle.tsv)),
+einschließlich API-Pfaden unter `/api/`, DB-Schema und JSON-Schlüsseln. **UI- und
+Produkttexte, Code-Kommentare, Doku, Commit-Messages und Chat bleiben Deutsch.**
+Der Bestand ist noch deutsch und wandert in Wellen (Konzept §5); NEUER Code entsteht
+englisch, kein Agent erfindet Namen am Glossar vorbei. UI-Strings werden beim
+Refactoring nicht mit übersetzt (Code `visibility`, Label „Sichtbarkeit").
 
 **In NEUEN Texten steht kein langer Gedankenstrich.** Weder in der Oberfläche noch in
 Überschriften, Bildunterschriften oder Doku, die frisch entsteht. Wo einer stünde, trennt ein

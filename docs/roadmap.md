@@ -56,7 +56,7 @@ Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
-* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Welle 0 gebaut: die [Abbildungstabelle](specs/abbildungstabelle.md) steht mit 3423 Einträgen, dazu der [API-Vertrag](specs/api.md). Jetzt liest der Betreiber sie durch und entscheidet die elf Streitpunkte; danach Glossar einfrieren, Sprachregel in CLAUDE.md, DB-Snapshot. Vorher fällt keine Zeile Code. Dann Welle 1: die Verträge samt API. Ganz am Ende Schritt 9: die Env-Variablen als eigener Ops-Schritt.
+* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Welle 0 abgeschlossen (2026-08-20): [Abbildungstabelle](specs/abbildungstabelle.md) abgenommen und eingefroren, Sprachregel gesetzt. Jetzt Welle 1: die Verträge samt API, EIN Deploy-Tag; direkt davor DB-Snapshot und Kopie des Datenordners. Bis dahin keine neuen Einladungen. Ganz am Ende Schritt 9: die Env-Variablen als eigener Ops-Schritt.
 * [Play Store](concepts/konzept_play_store_interner_test.md) - Die App aus dem APK-Versand herausholen. [wartet auf: concepts/konzept_codebase_english_refactoring.md]
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
 * [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]

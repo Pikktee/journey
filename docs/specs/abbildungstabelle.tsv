@@ -481,7 +481,7 @@ TourJsonAntwort	TourJsonResponse	export-typ	src/remote.ts	1	Antwort→Response; 
 TourKurz	TourSummary	export-typ	src/konto/trackermodell.ts	1	VORSCHLAG: Kurzform einer importierten Tour; API-Typ
 TourListe	TourListItem	export-typ	src/studio/api.ts	1	VORSCHLAG: Element Singular (§6.0 Regel 4); Eintrag der Bibliotheksliste, nicht die Liste
 VerknuepfungsStatus	TrackerLinkStatus	export-typ	src/konto/trackermodell.ts	1	§6.8 tracker_links; Statuswerte aktiv/abgelaufen/getrennt sind Vertragswerte (§4.2)
-VorlagenStand	MailTemplatesState	export-typ	src/admin/api.ts	1	VORSCHLAG: Stand→State; Mail- vorangestellt wie MailTemplate
+VorlagenStand	MailTemplateStatus	export-typ	src/admin/api.ts	1	ENTSCHIEDEN 2026-08-20 (Abnahme): Stand→State; Mail- vorangestellt wie MailTemplate
 VorschauAntwort	PreviewResponse	export-typ	src/admin/api.ts	1	VORSCHLAG: Antwort→Response; Server-Vorschau einer Mail
 WartelistenStand	WaitlistState	export-typ	src/admin/api.ts	1	VORSCHLAG: Stand→State; API-Typ; Abgrenzung zu WaitlistStatus (adminmodell)
 kontext: geraet	device	json-blob-schluessel	rueckmeldungen.kontext; server/src/routes/rueckmeldungen.ts	1	§4.2; App-Rückmeldungen
@@ -565,7 +565,7 @@ unplatziert	unplaced	objekt-schluessel	src/studio/editor.ts	1	Grundstock: placem
 weit	far	objekt-schluessel	src/tour.ts	1	Grundstock/§6.9
 zeit	time	objekt-schluessel	src/studio/editor.ts	1	Grundstock: placement-Werte sind Vertragswerte und gehen in W1 (PLACEMENT_NAMEN-Schluessel)
 typ	type	push-schluessel	server/src/push.ts; android MaptalePushDienst.kt	1	Naht §3.3; Leser liegen in Welle 2 und 7, deshalb Welle 1
-typ	type	push-schluessel	server/src/push.ts, server/src/fcm.ts	1	aus Grundstock; App liest data["typ"] wörtlich — Naht §3.3, App-Release am selben Tag
+typ	type	push-schluessel	server/src/push.ts, server/src/fcm.ts	1	"aus Grundstock; App liest data[""typ""] wörtlich — Naht §3.3, App-Release am selben Tag"
 import-fertig	import-finished	push-wert	server/src/push.ts; android MaptalePushDienst.kt	1	VORSCHLAG; Naht §3.3, sonst kommt keine Import-fertig-Meldung mehr an
 import-fertig	import-finished	push-wert	server/src/push.ts, server/src/fcm.ts	1	aus Grundstock (dort VORSCHLAG); wörtlicher Vergleich in der App — Naht §3.3
 gesehen	seen	query-parameter	GET /api/tracker/imports/pending; android ApiClient.kt; server/src/routes/tracker.ts	1	§6.7; ?gesehen=1→?seen=1
@@ -690,7 +690,7 @@ einKlickUrl	oneClickUrl	export-funktion	server/src/newsletter.ts	2	wie /api/news
 entschluessele	decrypt	export-funktion	server/src/tracker/krypto.ts	2	Gegenstück
 erfordereAdmin	requireAdmin	export-funktion	server/src/app.ts	2	Guard 403; dito
 erfordereBenutzer	requireUser	export-funktion	server/src/app.ts	2	Guard 401; require-Muster aus nurOwner→requireOwner (§6.4)
-filmBeiZeit	filmTimeAtRecordingTime	export-funktion	server/src/pipeline/filmachse.ts	2	VORSCHLAG: Muster distanceAtFilmTime (§6.3a); Aufnahmezeit→recordingTime (§6.1)
+filmBeiZeit	filmTimeAtRecordingTime	export-funktion	server/src/pipeline/filmachse.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): Muster distanceAtFilmTime (§6.3a); Aufnahmezeit→recordingTime (§6.1)
 filmsekunden	filmSeconds	export-funktion	server/src/pipeline/filmtempo.ts	2	Filmsekunden für n Meter
 finalisiereTour	finalizeTour	export-funktion	server/src/routes/tours.ts	2	Route /finalize heißt schon so
 findePausen	findPauses	export-funktion	server/src/pipeline/zeit.ts	2	Pausen in der Zeitreihe
@@ -724,7 +724,7 @@ leseDienstkonto	parseServiceAccount	export-funktion	server/src/fcm.ts	2	VORSCHLA
 liesExifBlock	readExifBlock	export-funktion	server/src/pipeline/bild.ts	2	read für Byte-Ebene; load bleibt DB/Datei
 liesmich	buildReadme	export-funktion	server/src/exportinhalt.ts	2	VORSCHLAG: verb-first; die erzeugte LIESMICH.txt ist Produkttext und bleibt deutsch (§3.4)
 liesOrientierung	readOrientation	export-funktion	server/src/pipeline/bild.ts	2	EXIF-Drehung
-loopAktiv	loopEnabled	export-funktion	server/src/schema/edits.ts	2	VORSCHLAG: enabled (Schalter, §6.7); Default Musik ja
+loopAktiv	loopEnabled	export-funktion	server/src/schema/edits.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): enabled (Schalter, §6.7); Default Musik ja
 mapZuRecord	mapToRecord	export-funktion	server/src/pipeline/anreicherung.ts	2	fürs JSON-Serialisieren
 mediumDateiKandidaten	mediumFileCandidates	export-funktion	server/src/routes/tours.ts	2	Original und Fassungen
 mediumDateiname	mediumFilename	export-funktion	server/src/schema/upload.ts	2	kanonischer Original-Dateiname
@@ -759,7 +759,7 @@ protokollZiel	auditLogTarget	export-funktion	server/src/protokoll.ts	2	Pino-Tran
 pruefeAbmeldeToken	checkUnsubscribeToken	export-funktion	server/src/newsletter.ts	2	prüfe→check; gibt Benutzer-ID zurück
 pruefeBausteine	validateParts	export-funktion	server/src/mailvorlagen.ts	2	VORSCHLAG: parts wie MailParts; prüfe→validate (Pflicht-Platzhalter)
 pruefeEditsSemantik	validateEditsSemantics	export-funktion	server/src/schema/edits.ts	2	prüfe→validate; über das JSON-Schema hinaus
-pruefeHandleForm	validateHandleForm	export-funktion	server/src/handle.ts	2	prüfe→validate (§6.3); Formprüfung
+pruefeHandleForm	validateHandleForm	export-funktion	server/src/handle.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): prüfe→validate (§6.3); Formprüfung
 pruefePasswort	checkPassword	export-funktion	server/src/auth/passwort.ts	2	prüfe→check (§6.3); Prüfung gegen den Hash
 pruefeQuota	checkQuota	export-funktion	server/src/quota.ts	2	prüfe→check; wirft/meldet am Limit
 pseudoZeiten	pseudoTimes	export-funktion	server/src/pipeline/zeit.ts	2	Basis der timeline
@@ -827,7 +827,7 @@ wendeTrimAn	applyTourTrim	export-funktion	server/src/pipeline/edits.ts	2	anwende
 wetterAusOverlay	weatherFromOverlay	export-funktion	server/src/pipeline/weather.ts	2	edits.wetter statt Auto-Wetter
 wetterZuGrenzen	weatherToBoundaries	export-funktion	server/src/pipeline/weather.ts	2	Grenze→boundary (Grundstock); Keyframes→Grenzen fürs Studio
 wmoZuWetter	wmoToWeather	export-funktion	server/src/pipeline/weather.ts	2	WMO-Code→Modus und Stärke
-zeitBeiFilm	recordingTimeAtFilmTime	export-funktion	server/src/pipeline/filmachse.ts	2	VORSCHLAG: Gegenstück, dito
+zeitBeiFilm	recordingTimeAtFilmTime	export-funktion	server/src/pipeline/filmachse.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): Gegenstück, dito
 zeitZurPosition	timeAtPosition	export-funktion	server/src/pipeline/zeit.ts	2	VORSCHLAG: Gegenstück
 zuGpx	toGpx	export-funktion	server/src/tracker/normalisierer.ts	2	RohTrack→GPX-Text
 zuHandle	toHandle	export-funktion	server/src/handle.ts	2	zu→to (wie offsetToIso, Grundstock)
@@ -880,10 +880,10 @@ FRIST_STUNDEN	EXPIRY_HOURS	export-konstante	server/src/export.ts	2	VORSCHLAG: Li
 FRIST_UNBESTAETIGT_TAGE	UNCONFIRMED_RETENTION_DAYS	export-konstante	server/src/auth/warteliste.ts	2	VORSCHLAG: Löschfrist→retention (deadline ist die Mail-Frist, Grundstock)
 FRIST_WARTEND_TAGE	PENDING_RETENTION_DAYS	export-konstante	server/src/auth/warteliste.ts	2	VORSCHLAG: wartend→pending wie §4.2
 GUELTIG_TAGE_STANDARD	DEFAULT_VALID_DAYS	export-konstante	server/src/auth/einladungen.ts	2	VORSCHLAG: standard→default (§6.9), vorangestellt; Standard-Gültigkeit eines Codes
-HALT_AUSBLEND_S	STOP_FADE_S	export-konstante	server/src/pipeline/filmtempo.ts	2	Ausblenden→fade; welle unsicher wie BASE_TEMPO_MS
+HALT_AUSBLEND_S	STOP_FADE_OUT_S	export-konstante	server/src/pipeline/filmtempo.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): Ausblenden→fade; welle unsicher wie BASE_TEMPO_MS
 HALT_ENGINE_S	STOP_ENGINE_S	export-konstante	server/src/pipeline/filmtempo.ts	2	Halt→stop; inhaltlich eine Standzeit (holdS-Umfeld); welle unsicher wie BASE_TEMPO_MS
 HANDLE_REGELN	HANDLE_PATTERN	export-konstante	server/src/handle.ts	2	VORSCHLAG: Regex→PATTERN (wie AUDIO_DATEI_PATTERN); Spiegel src/handle.ts muss wortgleich mit (Welle 6)
-HANDLE_TEXTE	HANDLE_TEXTS	export-konstante	server/src/handle.ts	2	Fehlertexte bleiben deutsch (Produkttext)
+HANDLE_TEXTE	HANDLE_ERROR_TEXTS	export-konstante	server/src/handle.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): Fehlertexte bleiben deutsch (Produkttext)
 ISO_ZEIT_MAXLAENGE	ISO_TIME_MAX_LENGTH	export-konstante	server/src/schema/upload.ts	2	Maximallänge Zeitstempel
 ISO_ZEIT_PATTERN	ISO_TIME_PATTERN	export-konstante	server/src/schema/upload.ts	2	Regex im Schema
 KOLLAPS_MIN_REST_M	COLLAPSE_MIN_REMAINDER_M	export-konstante	server/src/pipeline/zeit.ts	2	VORSCHLAG: Rest→remainder (REST läse sich als Ruhe); Mindest-Reststrecke
@@ -929,14 +929,14 @@ BildWerkzeug	ImageTool	export-typ	server/src/pipeline/bild.ts	2	Werkzeug→tool 
 DateiInfo	FileStat	export-typ	server/src/storage.ts	2	VORSCHLAG: info verboten (§6.0); Name + Größe wie fs-Stat
 Einladung	Invitation	export-typ	server/src/auth/einladungen.ts	2	§6.2
 EinladungsFehler	InvitationError	export-typ	server/src/auth/einladungen.ts	2	Prüfergebnis-Union eines Codes
-EinladungsZustand	InvitationState	export-typ	server/src/auth/einladungen.ts	2	zustand→state (§6.8); berechnete Werte gehen mit dem Typ
+EinladungsZustand	InvitationStatus	export-typ	server/src/auth/einladungen.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): zustand→state (§6.8); berechnete Werte gehen mit dem Typ
 Eintragung	JoinResult	export-typ	server/src/auth/warteliste.ts	2	VORSCHLAG: nach joined_at (§6.8); Ergebnis des Eintragens mit Mail-Token
 Einwilligung	Consent	export-typ	server/src/newsletter.ts	2	Protokollzeile (Art. 7 DSGVO)
 EinwilligungsQuelle	ConsentSource	export-typ	server/src/newsletter.ts	2	consent (§6.2); Werte signup/account/unsubscribe_link (§4.2, Welle 1)
 Empfaenger	Recipient	export-typ	server/src/newsletter.ts	2	nur bestätigte Adressen
 Endpunkte	Endpoints	export-typ	server/src/pipeline/naming.ts	2	geocodierte Start-/End-Orte
 EnrichEingabe	EnrichmentInput	export-typ	server/src/pipeline/enrich.ts	2	Gesamteingabe des Renders
-ExportStand	DataExportStatus	export-typ	server/src/export.ts	2	VORSCHLAG: Stand→status; Datenexport→dataExport (§6.1)
+ExportStand	DataExportStatus	export-typ	server/src/export.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): Stand→status; Datenexport→dataExport (§6.1)
 FilmAchse	FilmAxis	export-typ	server/src/pipeline/filmachse.ts	2	§6.3a; Server-Zwilling von src/filmachse.ts
 FotoEingabe	PhotoInput	export-typ	server/src/pipeline/bild.ts	2	Eingabe→input
 FotoMeta	PhotoMeta	export-typ	server/src/pipeline/bild.ts	2	Metadaten der Fassungen
@@ -1007,9 +1007,9 @@ VideoSpeicher	VideoStorage	export-typ	server/src/pipeline/video.ts	2	Storage-Aus
 VideoWerkzeug	VideoTool	export-typ	server/src/pipeline/video.ts	2	Werkzeug→tool; Interface der Videoverarbeitung (ffmpeg oder Fake)
 VorlagenEintrag	TemplateEntry	export-typ	server/src/mailvorlagen.ts	2	Katalogeintrag einer System-Mail
 VorlagenSchluessel	TemplateKey	export-typ	server/src/mailvorlagen.ts	2	Vorlage→template (mail_templates §6.8); schluessel→key
-VorlagenStand	TemplateStatus	export-typ	server/src/mailvorlagen.ts	2	VORSCHLAG: Stand→status (wie DataExportStatus); Katalogeintrag plus Anpassungsstand
+VorlagenStand	MailTemplateStatus	export-typ	server/src/mailvorlagen.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): Stand→status (wie DataExportStatus); Katalogeintrag plus Anpassungsstand
 WartelistenEintrag	WaitlistEntry	export-typ	server/src/auth/warteliste.ts	2	Eintrag→entry (wie AudioEntry, Grundstock)
-WartelistenZustand	WaitlistState	export-typ	server/src/auth/warteliste.ts	2	zustand→state; berechnete Werte gehen mit dem Typ
+WartelistenZustand	WaitlistStatus	export-typ	server/src/auth/warteliste.ts	2	ENTSCHIEDEN 2026-08-20 (Abnahme): zustand→state; berechnete Werte gehen mit dem Typ
 WebhookAnfrage	WebhookRequest	export-typ	server/src/tracker/vertrag.ts	2	rohe Anfrage zur Signaturprüfung
 WetterGrenze	WeatherBoundary	export-typ	server/src/schema/edits.ts	2	aus Grundstock
 WetterKeyframe	WeatherKeyframe	export-typ	server/src/pipeline/weather.ts	2	Keyframe der Timeline im Tour-JSON
@@ -1080,7 +1080,7 @@ effektiveMedien	effectiveMedia	export-funktion	src/studio/editmodell.ts	3	§5-Ta
 endgueltigZuLoeschen	idsToDelete	export-funktion	src/studio/editmodell.ts	3	VORSCHLAG: endgueltig loeschen (Server) = delete, Overlay-geloescht = removed (§6.1); zu loeschende Medien-IDs
 erfasseUndo	recordUndo	export-funktion	src/studio/editmodell.ts	3	§5-Tabelle; Overlay-Stand fuer Undo erfassen
 filmBei	filmAt	export-funktion	src/studio/zeitleiste.ts	3	bei→at; Filmsekunde an einem Zeit-Offset
-filmBeiZeit	filmAtTime	export-funktion	src/studio/zeitleiste.ts	3	VORSCHLAG: Gegenrichtung zu timeAtFilm
+filmBeiZeit	filmTimeAtRecordingTime	export-funktion	src/studio/zeitleiste.ts	3	ENTSCHIEDEN 2026-08-20 (Abnahme): Gegenrichtung zu timeAtFilm
 filmDauerBeiGrenze	filmDurationAtBoundary	export-funktion	src/studio/zeitleiste.ts	3	duration + at + boundary; Filmdauer bei verschobener Grenze
 filmZuAnteil	filmToFraction	export-funktion	src/studio/zeitleiste.ts	3	wie fraction; Filmsekunde in Anteil
 filmZuOffset	filmToOffset	export-funktion	src/studio/zeitleiste.ts	3	zu→to; Filmsekunde in Zeit-Offset
@@ -1149,9 +1149,9 @@ verschiebeTon	moveAudioClip	export-funktion	src/studio/tonklip.ts	3	VORSCHLAG: v
 waehleFilmStufe	chooseFilmStep	export-funktion	src/studio/zeitleiste.ts	3	VORSCHLAG: waehle→choose, Massband-Stufe→step; Stufe zum Massstab waehlen
 wellenLage	waveformPosition	export-funktion	src/studio/tonklip.ts	3	VORSCHLAG: Wellenform→waveform; Lage der Wellenform im Klip
 wetterBeiZeit	weatherAtTime	export-funktion	src/studio/editmodell.ts	3	bei→at; Wetter an einem Zeitpunkt aus dem Overlay
-zeitBeiFilm	timeAtFilm	export-funktion	src/studio/zeitleiste.ts	3	VORSCHLAG: Muster …At… (§6.3a); Aufnahmezeit-Offset zu einer Filmsekunde
+zeitBeiFilm	recordingTimeAtFilmTime	export-funktion	src/studio/zeitleiste.ts	3	ENTSCHIEDEN 2026-08-20 (Abnahme): Muster …At… (§6.3a); Aufnahmezeit-Offset zu einer Filmsekunde
 zerlegeFuerAnzeige	splitForDisplay	export-funktion	src/studio/editmodell.ts	3	§5-Tabelle
-HALT_AUSBLEND_S	STOP_FADE_OUT_S	export-konstante	src/studio/zeitleiste.ts	3	VORSCHLAG: Ausblenden→fadeOut (wie fadeStep); Ausblend-Anteil der Halt-Animation
+HALT_AUSBLEND_S	STOP_FADE_OUT_S	export-konstante	src/studio/zeitleiste.ts	3	ENTSCHIEDEN 2026-08-20 (Abnahme): Ausblenden→fadeOut (wie fadeStep); Ausblend-Anteil der Halt-Animation
 HALT_ENGINE_S	STOP_ENGINE_S	export-konstante	src/studio/zeitleiste.ts	3	Halt→stop; Engine-Anteil der Halt-Animation
 HALTEDAUER_DEFAULT_S	HOLD_DEFAULT_S	export-konstante	src/studio/zeitleiste.ts	3	Standzeit→hold (Glossar-Kopf); Familie mit HOLD_MIN_S/HOLD_MAX_S; Vorgabe-Standzeit
 HISTORIE_MAX	HISTORY_MAX	export-konstante	src/studio/editmodell.ts	3	§5-Tabelle; maximale Undo-Tiefe
@@ -1778,7 +1778,7 @@ AbspielerOptionen	PlaybackOptions	export-typ	src/studio/abspielen.ts	4	VORSCHLAG
 EingeordneteAufnahme	ClassifiedMedium	export-typ	src/studio/nachreichen.ts	4	VORSCHLAG: wie Classification; Aufnahme mit Einordnung
 Einordnung	Classification	export-typ	src/studio/nachreichen.ts	4	VORSCHLAG: classification (placement ist als Vertragswort vergeben); wie eine Aufnahme zur Tour liegt
 ExifAufnahme	ExifCapture	export-typ	src/studio/exif.ts	4	VORSCHLAG: Aufnahmedetails→capture (wie Android captureMode §6.1); Kamera/Belichtung aus EXIF
-ExifDaten	ExifData	export-typ	src/studio/exif.ts	4	VORSCHLAG: Data trotz Fuellwort-Regel, "EXIF data" ist der Fachbegriff; alternativ blankes Exif
+ExifDaten	ExifData	export-typ	src/studio/exif.ts	4	"VORSCHLAG: Data trotz Fuellwort-Regel, ""EXIF data"" ist der Fachbegriff; alternativ blankes Exif"
 ExifDatum	ExifDate	export-typ	src/studio/exif.ts	4	Datum→date; EXIF-Datumseintrag
 ExifZeitpunkt	ExifTimestamp	export-typ	src/exif.ts	4	VORSCHLAG; welle unsicher (exif.ts liegt flach, gelesen wird sie vom Studio-Upload)
 ExportBlattTour	ExportSheetTour	export-typ	src/studio/exportblatt.ts	4	sheet nach Dateiziel export-sheet.ts (§6.6); Tour-Angaben fuer das Export-Blatt
@@ -1979,7 +1979,7 @@ kuerzeText	truncateText	export-funktion	src/kartenmaler.ts	5	VORSCHLAG: Text mit
 kurveAusText	curveFromText	export-funktion	src/kartenmaler.ts	5	Bezier-Kurve aus CSS-Text bauen
 ladeServerTouren	loadServerTours	export-funktion	src/remote.ts	5	lade (lesen)→load (§6.4); Tourliste des Servers laden
 leseExportFormat	parseExportFormat	export-funktion	src/exportformat.ts	5	VORSCHLAG: aus der Query lesen ist parsen; load bleibt DB/Datei vorbehalten (§6.0)
-loopAktiv	loopActive	export-funktion	src/audiotracks.ts	5	Boolean-Adjektiv §6.0
+loopAktiv	loopEnabled	export-funktion	src/audiotracks.ts	5	ENTSCHIEDEN 2026-08-20 (Abnahme): Boolean-Adjektiv §6.0
 maleKarte	paintCard	export-funktion	src/kartenmaler.ts	5	§6.3a Maler→painter, male→paint
 meterOhneCluster	metersWithoutCluster	export-funktion	src/studio/stopps.ts	5	ohne→without; Meterstand ohne Cluster-Bindung
 modusMischung	travelModeMix	export-funktion	src/filmachse.ts	5	VORSCHLAG: Modus-Anteile in der Rampe (Kameradistanz)
@@ -2095,7 +2095,8 @@ ExportLauf	ExportRun	export-typ	src/exportfilm.ts	5	VORSCHLAG: Lauf→run wie da
 ExportMeldung	ExportMessage	export-typ	src/exportformat.ts	5	postMessage-Meldung des Export-Rahmens
 ExportPhase	ExportPhase	export-typ	src/exportformat.ts	5	bleibt (schon englisch)
 ExportReiter	ExportTab	export-typ	src/exportfilm.ts	5	VORSCHLAG: gezeichneter Attribution-Reiter
-ExportStand	ExportProgress	export-typ	src/exportformat.ts, src/konto/kontomodell.ts	5	VORSCHLAG: zwei verschiedene Typen; der Konto-Zwilling wird DataExportState (Welle 6, §6.1 dataExport)
+ExportStand	ExportProgress	export-typ	src/exportformat.ts	5	ENTSCHIEDEN 2026-08-20 (Abnahme): Video-Export-Fortschritt, ANDERES Ding als der Datenexport
+ExportStand	DataExportStatus	export-typ	src/konto/kontomodell.ts	6	ENTSCHIEDEN 2026-08-20 (Abnahme): Datenexport-Spiegel des Servers, gleicher Name beidseits (§6.1 dataExport)
 ExportTon	ExportAudio	export-typ	src/exportfilm.ts	5	Ton→audio
 ExportTonKlip	ExportAudioClip	export-typ	src/exportfilm.ts	5	§6.3 audioClip
 ExportTonSchuss	ExportAudioOneShot	export-typ	src/exportfilm.ts	5	VORSCHLAG: Schuss→one-shot (so heisst es im Kommentar)
@@ -2106,7 +2107,7 @@ Filmleiste	ProgressBar	export-typ	src/ui.ts	5	§6.3a Fortschrittsleiste = progre
 Filmspur	FilmTrack	export-typ	src/tour.ts	5	§6.3a Filmspur = FilmTrack (GPS-Spur bleibt track, Zeitleisten-Bahn lane)
 FotoWegpunkt	MediaWaypoint	export-typ	src/map.ts	5	VORSCHLAG: §6.1 die einzelne Aufnahme ist medium und nicht photo; Wegpunkt→waypoint (§6.3a)
 FrameTafeln	FramePanels	export-typ	src/exportfilm.ts	5	§6.3a panel; Tafel-Zustand eines Export-Frames
-Halt	AxisStop	export-typ	src/filmachse.ts	5	VORSCHLAG: Glossar Halt→stop, aber Stop ist schon der gruppierte Foto-Halt aus stops.ts (Grundstock); main.ts importiert beide
+Halt	AxisStop	export-typ	src/filmachse.ts	5	ENTSCHIEDEN 2026-08-20 (Abnahme): Glossar Halt→stop, aber Stop ist schon der gruppierte Foto-Halt aus stops.ts (Grundstock); main.ts importiert beide
 HaltIntervall	StopInterval	export-typ	src/filmachse.ts, src/studio/zeitleiste.ts	5	§6.1 stopInterval; zweimal definiert, die zeitleiste-Kopie geht in Welle 3 mit
 Hintergrundmusik	BackgroundMusic	export-typ	src/music.ts	5	Schnittstelle des kuratierten Ambient-Loops
 Kamerablick	CameraView	export-typ	src/atmosphere.ts	5	VORSCHLAG: Blick→view; Kamerapose fuer das Atmosphaeren-Overlay
@@ -2522,8 +2523,8 @@ zusatz	extra	css-klasse	admin.html,src/werkzeug.css	6	VORSCHLAG: Zusatz-Text im 
 --papier	--paper	css-variable	src/basis.css,src/style.css	6	Grundstock: --paper (DESIGN: paper); Fundorte in Player und Produktseiten, spaeteste Welle 6; Papierflaeche: Design-Token; wächter: basis-css.test.ts
 --radius-karte	--radius-card	css-variable	src/basis.css	6	VORSCHLAG (DESIGN rounded: card); Galerie-Karte, weder map noch photo-card
 --radius-karte	--radius-card	css-variable	admin.html,galerie.html,index.html,konto.html,profil.html,src/basis.css,src/style.css,studio.html	6	Grundstock: --radius-card (Galerie-Karte, weder map noch photo-card); Fundorte in Studio und Player und Produktseiten, spaeteste Welle 6; Eckradius fuer Karten: Design-Token; wächter: basis-css.test.ts
---rand	--border	css-variable	src/basis.css	6	VORSCHLAG; STREITPUNKT: DESIGN-Token heißt topbar-border, entweder bleibt eine Rest-Übersetzung im Wächter oder DESIGN.md bekommt ein border-Token
---rand	--border	css-variable	admin.html,konto.html,profil.html,public/404.html,src/basis.css,src/feedbackformular.ts,src/grundelemente.css,src/passwortfeld.ts,src/rechtstext.css,src/werkzeug.css,studio.html	6	Grundstock: --border; STREITPUNKT: DESIGN-Token heisst topbar-border, entweder Rest-Uebersetzung im Waechter oder DESIGN.md bekommt ein border-Token; Fundorte in Studio und Produktseiten, spaeteste Welle 6; 404 liegt ausserhalb des Builds, von Hand nachziehen; Randfarbe: Design-Token; wächter: basis-css.test.ts
+--rand	--border	css-variable	src/basis.css	6	ENTSCHIEDEN 2026-08-20 (Abnahme): DESIGN.md bekommt ein allgemeines border-Token; DESIGN-Token heißt topbar-border, entweder bleibt eine Rest-Übersetzung im Wächter oder DESIGN.md bekommt ein border-Token
+--rand	--border	css-variable	admin.html,konto.html,profil.html,public/404.html,src/basis.css,src/feedbackformular.ts,src/grundelemente.css,src/passwortfeld.ts,src/rechtstext.css,src/werkzeug.css,studio.html	6	ENTSCHIEDEN 2026-08-20 (Abnahme): DESIGN.md bekommt ein allgemeines border-Token; DESIGN-Token heisst topbar-border, entweder Rest-Uebersetzung im Waechter oder DESIGN.md bekommt ein border-Token; Fundorte in Studio und Produktseiten, spaeteste Welle 6; 404 liegt ausserhalb des Builds, von Hand nachziehen; Randfarbe: Design-Token; wächter: basis-css.test.ts
 --rand-hell	--border-strong	css-variable	src/basis.css	6	VORSCHLAG (DESIGN: border-strong)
 --rand-hell	--border-strong	css-variable	admin.html,konto.html,profil.html,src/basis.css,src/grundelemente.css,src/rechtstext.css,src/werkzeug.css,studio.html	6	Grundstock: --border-strong (DESIGN: border-strong); Fundorte in Studio und Produktseiten, spaeteste Welle 6; helle Randfarbe: Design-Token; wächter: basis-css.test.ts
 --rot	--danger	css-variable	src/basis.css	6	VORSCHLAG (DESIGN: danger)
@@ -2820,7 +2821,7 @@ profilLink	profileLink	export-funktion	src/galerie/galeriemodell.ts	6	§6.2 prof
 profilPfad	profilePath	export-funktion	src/routen.ts	6	profile+path; baut /@handle selbst (encodeURIComponent-Falle)
 profilSichtbarSatz	profileVisibilitySentence	export-funktion	src/sichtbarkeit.ts	6	VORSCHLAG: Satz→sentence; Text unter dem Sichtbarkeits-Schalter; visibility §6.1
 protokoll	loadAuditLog	export-funktion	src/admin/api.ts	6	hole→load
-pruefeHandleForm	validateHandle	export-funktion	src/handle.ts	6	§6.3 pruefe→validate; prueft Form UND Reservierung
+pruefeHandleForm	validateHandleForm	export-funktion	src/handle.ts	6	ENTSCHIEDEN 2026-08-20 (Abnahme): §6.3 pruefe→validate; prueft Form UND Reservierung
 relativeZeit	relativeTime	export-funktion	src/konto/kontomodell.ts	6	Zeitpunkt relativ formulieren
 rolleGesperrt	roleChangeDisabled	export-funktion	src/admin/adminmodell.ts	6	VORSCHLAG: gesperrt→disabled; ob der ROLLENWECHSEL gesperrt ist (deshalb roleChange)
 rueckkehrText	returnText	export-funktion	src/konto/trackermodell.ts	6	VORSCHLAG: Meldung nach der OAuth-Rueckkehr
@@ -2867,7 +2868,7 @@ codeVollstaendig	codeComplete	export-konstante	src/einladungscode.ts	6	VORSCHLAG
 EINSTIEGE	ENTRIES	export-konstante	src/routen.ts	6	VORSCHLAG: ENTRIES; Vite-Eingaenge (abgeleitet)
 EXPORT_STANDARDZEILE	DATA_EXPORT_DEFAULT_LINE	export-konstante	src/konto/kontomodell.ts	6	VORSCHLAG: §6.1 dataExport, Standard→default
 HANDLE_REGELN	HANDLE_PATTERN	export-konstante	src/handle.ts	6	VORSCHLAG: es ist EIN Regex, nicht mehrere Regeln
-HANDLE_TEXTE	HANDLE_ERROR_TEXTS	export-konstante	src/handle.ts	6	VORSCHLAG: Fehlertexte je Handle-Fehler; Inhalt bleibt deutsch
+HANDLE_TEXTE	HANDLE_ERROR_TEXTS	export-konstante	src/handle.ts	6	ENTSCHIEDEN 2026-08-20 (Abnahme): Fehlertexte je Handle-Fehler; Inhalt bleibt deutsch
 ICON_ENTDECKEN	ICON_DISCOVER	export-konstante	src/app-nav.ts	6	VORSCHLAG: Entdecken→discover (Produktwort der Galerie)
 ICON_TOUREN	ICON_TOURS	export-konstante	src/app-nav.ts	6	SVG-Pfad des Touren-Icons
 KANTE	EDGE	export-konstante	src/rechtstextgliederung.ts	6	VORSCHLAG: EDGE; Scroll-Kante der Gliederungs-Hervorhebung
@@ -2893,7 +2894,7 @@ AppHeaderVariante	AppHeaderVariant	export-typ	src/app-nav.ts	6	Variante der Kopf
 AppNavSeite	AppNavPage	export-typ	src/app-nav.ts	6	Seite→page (wie routes/pages.ts §6.6)
 Dialog	Dialog	export-typ	src/dialogschicht.ts	6	bleibt (schon englisch)
 EinladungsFilter	InvitationFilter	export-typ	src/admin/adminmodell.ts	6	Filterwerte des Einladungs-Reiters
-EinladungsZustand	InvitationStatus	export-typ	src/admin/adminmodell.ts	6	VORSCHLAG: Zustands-Enum eines Dings als Status (wie RueckmeldungStatus); Zustand einer Einladung
+EinladungsZustand	InvitationStatus	export-typ	src/admin/adminmodell.ts	6	ENTSCHIEDEN 2026-08-20 (Abnahme): Zustands-Enum eines Dings als Status (wie RueckmeldungStatus); Zustand einer Einladung
 FeedbackKontext	FeedbackContext	export-typ	src/feedbackmodell.ts	6	§6.8 kontext→context
 FeedbackOptionen	FeedbackOptions	export-typ	src/feedbackformular.ts	6	Optionen des Feedback-Formulars
 HandleFehler	HandleError	export-typ	src/handle.ts	6	§6.1 error als Feldname/Fehlerart
@@ -2920,7 +2921,7 @@ SpeicherAbschnitt	StorageBarSegment	export-typ	src/konto/kontomodell.ts	6	VORSCH
 StandPunkt	StagePoint	export-typ	src/entwicklungsstand.ts	6	VORSCHLAG: Punkt im Alpha-Hinweiskaertchen
 Titelbild	Banner	export-typ	src/profil/titelbilder.ts	6	Profil-Titelbild→banner (§6.1); Datei wird profile-banners.ts; mitgeliefertes Titelbild
 WartelistenFilter	WaitlistFilter	export-typ	src/admin/adminmodell.ts	6	Filterwerte des Wartelisten-Reiters
-WartelistenZustand	WaitlistStatus	export-typ	src/admin/adminmodell.ts	6	VORSCHLAG: Status fuer Zustands-Enum; nicht WaitlistState (das ist der API-Stand aus api.ts)
+WartelistenZustand	WaitlistStatus	export-typ	src/admin/adminmodell.ts	6	ENTSCHIEDEN 2026-08-20 (Abnahme): Status fuer Zustands-Enum; nicht WaitlistState (das ist der API-Stand aus api.ts)
 einblenden	fadeIn	keyframes	public/404.html	6	VORSCHLAG: ; 404 liegt ausserhalb des Builds, von Hand nachziehen; 404-Seite
 sbSpielen	scenePlay	keyframes	index.html	6	VORSCHLAG: sb = Szenenbild, Teil A setzt sb- zu scene-; Szenenbild (Landing-Hero bzw. Login-Szene)
 sbZeichnen	sceneDraw	keyframes	index.html	6	VORSCHLAG: s. sbSpielen; Szenenbild (Landing-Hero bzw. Login-Szene)
@@ -3320,7 +3321,7 @@ TrackerAbfrageWorker	TrackerPollWorker	worker-name	android/app/src/main/java/app
 MAPTALE_* (rund 20 Env-Variablen, u.a. MAPTALE_DATEN_DIR, MAPTALE_ADMIN_PASSWORT, MAPTALE_HINTER_TLS, MAPTALE_BASIS_URL)	bleibt bis Schritt 9	env-variable	server/src/config.ts; docker-compose.cloudpanel.yml; server/Dockerfile; CI-Secrets; VPS-.env	9	§3.4/§5; eigener Ops-Schritt NACH Welle 8, nie in einer Code-Welle
 filmS	filmS	api-feld	GET /api/tours (stats.filmS), GET /api/tours/:id (stats.filmS, camera[].filmS, moments[].filmS, audio[].filmS)	-	bleibt (Glossar §6.1: das Filmzeit-Feld heisst filmS)
 finale	finale	api-feld	PATCH /api/tours/:id, GET /api/tours/:id/editor, GET /api/tours (stats.finale)	-	bleibt (schon englisch)
-sessionId	sessionId	api-feld	POST /api/auth/session-aus-token	-	bleibt (schon englisch; der Hinweis „halb deutsch" trifft nicht, Session und Id sind englisch)
+sessionId	sessionId	api-feld	POST /api/auth/session-aus-token	-	"bleibt (schon englisch; der Hinweis „halb deutsch"" trifft nicht, Session und Id sind englisch)"
 videos	videos	api-feld	GET /api/auth/me/speicher (aufteilung)	-	bleibt (schon englisch)
 /api/tracker/:provider/callback	bleibt	api-pfad	server/src/routes/tracker.ts	-	§3.4; extern registriert, Änderung hieße Neuregistrierung
 /api/webhooks/tracker/:provider	bleibt	api-pfad	server/src/routes/tracker.ts	-	§3.4; extern registriert

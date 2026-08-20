@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-20
-status: Welle 0 gebaut, Abnahme offen; Tabelle steht mit 3423 Einträgen, zwölf Streitpunkte warten auf Entscheid
+status: Welle 0 abgenommen am 2026-08-20 — alle zwölf Streitpunkte entschieden (A: alle Empfehlungen, B: AxisStop, C: Tokens gehen mit, DESIGN.md bekommt ein border-Token); Tabelle eingefroren
 betrifft:
   - docs/specs/abbildungstabelle.tsv
   - docs/concepts/konzept_codebase_english_refactoring.md
@@ -123,8 +123,9 @@ vergleichen VERHALTEN, nicht Namen.
 
 ## Zwölf Streitpunkte für die Abnahme
 
-**A. Zehn Spiegel, die einen Namen brauchen.** Dieselbe Sache, zwei Welten, zwei
-Vorschläge. Zu entscheiden ist je Zeile, welcher gilt; die Empfehlung steht dabei.
+**A. Zehn Spiegel, die einen Namen brauchen — ENTSCHIEDEN am 2026-08-20:** der
+Betreiber hat alle Empfehlungen übernommen, die Tabelle trägt sie als
+`ENTSCHIEDEN`-Zeilen. Die Gegenüberstellung bleibt als Beleg stehen.
 (Das Prüfskript meldet elf: `Titelbild` ist der Fehlalarm darunter — Cover/Banner
 ist das GEWOLLTE Homonym aus §6.1, Tour gegen Profil, die Bemerkungen der Zeilen
 sagen es.)
@@ -146,13 +147,15 @@ Die beiden `handle.ts`-Zwillinge und die `filmachse`-Paare sind namentlich in §
 blinde Nähte geführt. Wer hier nichts entscheidet, bekommt zwei Wellen später zwei Namen
 für eine Sache, und nichts wird rot.
 
-**B. `Halt` heißt zweimal etwas anderes.** Das Glossar entscheidet „`stop` ist der Ort,
+**B — ENTSCHIEDEN am 2026-08-20: `AxisStop`.** `Halt` heißt zweimal etwas anderes. Das Glossar entscheidet „`stop` ist der Ort,
 `hold` die Dauer". Beim Bauen kam ein dritter Fall dazu: `Halt` in
 [filmachse.ts](../../src/filmachse.ts) ist das Halt-INTERVALL der Achse, und `Stop` ist
 für den gruppierten Foto-Halt aus `stopps.ts` schon vergeben. Vorschlag: `AxisStop`.
 `main.ts` importiert beide Module, ein gemeinsamer Name ginge nicht.
 
-**C. Gehen die CSS-Tokens mit?** Die Tabelle sagt ja und leitet die 81 Custom Properties
+**C — ENTSCHIEDEN am 2026-08-20: sie gehen mit, und DESIGN.md bekommt ein
+allgemeines `border`-Token** (der Drift-Wächter wird damit übersetzungsfrei).
+Die Frage, wie sie stand: Die Tabelle sagt ja und leitet die 81 Custom Properties
 aus den englischen Tokens in [DESIGN.md](../../DESIGN.md) ab (`--akzent` → `--primary`,
 `--tafel` → `--card`, `--fokus-ring` → `--focus-ring`). Damit verschwindet die
 Übersetzung, die der Drift-Wächter heute überbrückt. Eine Stelle bleibt offen: `--rand`

@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-20
-status: Welle 0 gebaut (Zahlen aus §4.5 erhoben, Abbildungstabelle steht mit 3423 Einträgen), Abnahme der Tabelle offen; Welle 1 nicht begonnen
+status: Welle 0 abgeschlossen am 2026-08-20 (Zahlen erhoben, Abbildungstabelle gebaut und abgenommen, Glossar eingefroren, Sprachregel gesetzt); Welle 1 nicht begonnen, es fehlt nur noch der DB-Snapshot vor ihrem Start
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -888,6 +888,7 @@ Dazu neun Regeln, jede eine Zeile:
 | Filmuhr | `filmClock` | die eine Uhr der Engine |
 | verworfene Frames | `droppedFrames` | |
 | Filmachse | `filmAxis` | Abbildung Filmzeit ↔ Strecke; `timeline` ist die UI-Leiste |
+| Halt-Intervall der Achse | `AxisStop` | `Halt` in `filmachse.ts`; NICHT `Stop` (der gruppierte Foto-Halt) und nicht `Hold` (die Dauer) — Abnahme 2026-08-20 |
 | Rampe | `ramp`, `RAMP_M` | Tempowechsel, nicht nur am Halt |
 | Streckenposition `s` | `s` | bleibt |
 | Strecke bei Filmzeit | `distanceAtFilmTime` | war `streckeBeiFilm` |
@@ -1233,8 +1234,13 @@ Produktseiten in Welle 6). Drei Fallen:
   Bleiben sie, ist `--fokus-ring` neben `focus-ring` in DESIGN.md dauerhaft genau der
   Hybrid, den §1 vermeiden will.
 
-`DESIGN.md` selbst bleibt unangetastet: Sein YAML ist der Inhalt, nicht der Kopf,
-und die Tokens dort sind bereits die Zielform.
+`DESIGN.md` selbst bleibt fast unangetastet: Sein YAML ist der Inhalt, nicht der
+Kopf, und die Tokens dort sind bereits die Zielform. **Entschieden bei der
+Abnahme am 2026-08-20: Die Custom Properties GEHEN MIT**, abgeleitet aus den
+DESIGN.md-Tokens (`--akzent` → `--primary`, `--tafel` → `--card`), und die eine
+Ausnahme wird keine: `--rand` wird `--border`, und DESIGN.md bekommt dafür ein
+allgemeines `border`-Token (heute existiert nur `topbar-border`) — der
+Drift-Wächter ist danach übersetzungsfrei.
 
 ---
 
@@ -1470,8 +1476,10 @@ keine Zeile Code. Konkret und in dieser Reihenfolge:
      Fragment-Schlüssel, Kanal-IDs, §3.4) steht mit Zielform „bleibt" in der
      Tabelle, damit die Entscheidung lesbar bleibt und niemand sie als Lücke
      nachträgt.
-4. **Tabelle abnehmen.** Der Betreiber liest sie durch, bevor sie eingefroren
-   wird. Die Streitpunkte stehen als eigener Abschnitt in
+4. **Tabelle abnehmen — erledigt am 2026-08-20**: alle zwölf Streitpunkte
+   entschieden (A: die Empfehlungen, B: `AxisStop`, C: Tokens gehen mit samt
+   `border`-Token), §6 ist damit EINGEFROREN. Die Streitpunkte stehen als
+   eigener Abschnitt in
    [abbildungstabelle.md](../specs/abbildungstabelle.md): zehn Spiegel, deren
    Zielformen in Server und Web auseinandergelaufen sind (darunter beide
    `handle.ts`-Zwillinge und `HALT_AUSBLEND_S`), `Halt` als drittes Ding in
@@ -1479,8 +1487,10 @@ keine Zeile Code. Konkret und in dieser Reihenfolge:
    `mid` gegen `medium`, die drei Bedeutungen von „Spur" und die Pegel-Wörter:
    Das Glossar entscheidet sie, und die Tabelle folgt ihm ohne Abweichung.
    Ergebnis: ein eingefrorenes §6.
-5. **Sprachregel in `CLAUDE.md`** anpassen (§2).
-6. **DB-Snapshot und Kopie** des Datenordners (§8).
+5. **Sprachregel in `CLAUDE.md`** anpassen (§2) — **erledigt am 2026-08-20**.
+6. **DB-Snapshot und Kopie** des Datenordners (§8) — unmittelbar VOR dem
+   Welle-1-Deploy anlegen, nicht Wochen vorher: Ein alter Snapshot wiegt in
+   Sicherheit und stellt beim Rückweg alte Daten wieder her.
 7. Erst danach Welle 1, Schritt 1 (§5): SQLite + die Felder, die direkt aus
    Zeilen kommen. Sie beginnt mit der Migration, nicht mit dem Rename.
 
