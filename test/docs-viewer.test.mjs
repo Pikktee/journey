@@ -1118,10 +1118,18 @@ describe('Datei und Editor auf der Seite', () => {
       for (const c of dok.verlauf ?? [])
         for (const k of c.kopf) {
           expect(k.von === '' && k.nach === '').toBe(false)
-          // Der Kopf trägt Werte, keine Markdown-Absätze. Die Schwelle trennt
-          // eine lange `status`-Zeile (gemessen bis 217 Zeichen, also alt + neu
-          // über 400) von einem Absatz (Tausende); sie normiert keine Satzlänge.
-          expect(k.nach.length + k.von.length).toBeLessThan(800)
+          // Der Kopf trägt Werte, keine Markdown-Absätze — und ein Wert steht
+          // auf EINER Zeile. Das ist die eigentliche Prüfung: Ein fälschlich
+          // eingesammelter Absatz brächte seine Umbrüche mit.
+          //
+          // Vorher stand hier eine Längenschwelle (400, dann 800). Sie ist ein
+          // Proxy und war zweimal an legitimen Daten rot: `status` wächst mit
+          // jeder gebauten Etappe, und der Wächter liest den GIT-VERLAUF, wo
+          // eine einmal committete lange Zeile für immer steht. Eine Grenze,
+          // die man nur noch hochsetzen kann, prüft nichts mehr.
+          expect(k.von, `von: ${k.von.slice(0, 80)}`).not.toContain('\n')
+          expect(k.nach, `nach: ${k.nach.slice(0, 80)}`).not.toContain('\n')
+          expect(k.nach.length + k.von.length).toBeLessThan(4000)
         }
   })
 

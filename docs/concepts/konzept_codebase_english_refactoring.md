@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-20
-status: Wellen 0 bis 3 abgeschlossen. Welle 1 am 2026-08-20 als v0.67.0 AUSGELIEFERT (Start-Migration auf Produktion gelaufen: 15 Touren auf tour@2, Marker 2, user_version 23), Nachbesserung v0.67.1. Welle 2 (Server-Internals) am 2026-08-20 gebaut: 427 Tabellenzeilen, 36 Modul- und 16 Testdateien umbenannt, Gates grün; noch nicht ausgeliefert. Welle 3 (DOM-freie Studio-Module) am 2026-08-20 gebaut: editmodell, zeitleiste, tonklip und pruefung englisch, 240 Tabellenzeilen; stopps.ts bleibt nach Tabelle bei Welle 5. Wellen 4 bis 8 offen, Schritt 9 (Env) ganz am Ende.
+status: Wellen 0 bis 3 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 und 3 warten auf den nächsten Release. Wellen 4 bis 8 offen, Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
