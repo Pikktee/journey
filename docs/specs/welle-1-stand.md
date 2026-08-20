@@ -163,8 +163,25 @@ Sorten gefunden, und alle drei sind ein Skript, kein Lesedurchgang:
 1. alle Client-Pfade gegen die registrierten Fastify-Routen,
 2. alle `$('…')`-Selektoren gegen die IDs der zugehörigen HTML-Datei (vor
    Welle 4 und 6 Pflicht, denn dort wandern die DOM-IDs wirklich),
-3. alle `value="…"` und `data-*="…"` in den HTML-Dateien gegen die Enum-Werte
-   der Server-Schemas.
+3. alle `value="…"` und `data-*="…"` in den HTML-Dateien gegen die Ist-Werte
+   der Abbildungstabelle aus bereits gebauten Wellen.
+
+**Gebaut am 2026-08-20 als [test/client-vertrag.test.ts](../../test/client-vertrag.test.ts).**
+Gegenprobe: Die drei echten Fehler dieses Tages einzeln zurückgespielt, jeder
+wurde gemeldet (toter Admin-Pfad, `$('library')`, `<option value="nutzer">`),
+danach wieder entfernt und alles grün. Drei Dinge, die beim Bau aufgefallen sind
+und die man beim nächsten Anfassen leicht kippt:
+
+- **Wächter 3 darf nicht über Feldnamen raten.** Der erste Anlauf verglich die
+  id des `<select>` mit dem Feldnamen des Server-Schemas und übersah genau den
+  echten Fehler: Die id ist deutsch (`kd-rolle`), das Feld englisch (`role`).
+  Jetzt liest er die Abbildungstabelle, die beide Seiten kennt.
+- **`GEBAUTE_WELLEN` ist Handarbeit** und die einzige Stelle, an der der Wächter
+  still zu wenig prüfen kann. Wer Welle 2 baut, trägt die `2` dort ein, im
+  selben Commit wie `status` und `stand` des Konzepts.
+- **Drei Ausnahmen stehen benannt im Test** (`data-spur`, `data-wlevel`,
+  `data-modus`): Homonyme, die wie Vertragswerte heißen, aber nie zum Server
+  gehen. Genau der Fall, für den die Tabelle eine Fundort-Spalte hat.
 
 Der Body-Abgleich (1) muss dabei **jeden Aufruf** sehen, nicht nur die mit einem
 Objektliteral direkt im `options`-Objekt: Die Konto-Dialoge reichen ihre Felder
