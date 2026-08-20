@@ -124,7 +124,7 @@ fun AufzeichnungScreen(
         // der Empfänger arbeitet — aber sie beantwortet eine Frage, die sich auf
         // einem Spaziergang niemand stellt, und verrät mehr über die Bauweise
         // der App als über die Tour.
-        Wert(String.format(Locale.GERMAN, "%.2f", laufend.distanzM / 1000), "Kilometer")
+        Wert(String.format(Locale.GERMAN, "%.2f", laufend.distanceM / 1000), "Kilometer")
 
         // — Der Weg, während er entsteht —
         // Nimmt den freien Raum zwischen Uhr und Bedienung ein; vorher klaffte
@@ -161,7 +161,7 @@ fun AufzeichnungScreen(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
                         )
-                        if (medium.typ == "video") Videoabzeichen()
+                        if (medium.type == "video") Videoabzeichen()
                     }
                 }
             }

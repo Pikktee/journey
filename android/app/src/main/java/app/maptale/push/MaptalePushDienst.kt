@@ -59,7 +59,7 @@ class MaptalePushDienst : FirebaseMessagingService() {
         // Der Typ wird GEPRÜFT und nicht bloß gelesen: Ein anderer Anlass ist
         // eine spätere Fassung des Servers, die diese App noch nicht kennt —
         // sie soll ihn übergehen, nicht als Import melden.
-        if (nachricht.data["typ"] != "import-fertig") return
+        if (nachricht.data["type"] != "import-finished") return
         // Die `tourId` aus der Nachricht wird bewusst NICHT verwendet, um die
         // Meldung zu bauen: Was gemeldet wird, entscheidet der Server über
         // seine Liste offener Importe — sonst gäbe es zwei Wahrheiten darüber,

@@ -64,9 +64,9 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
     // Während des Uploads ist das Manifest schon beim Server; verschwindet eine
     // Datei danach, hängt seine Vollständigkeitsprüfung. Und was hochgeladen
     // ist, wird nicht mehr auf dem Gerät gelöscht — dafür gibt es das Studio.
-    val loeschenErlaubt = tour?.status == TourStatus.AUFNAHME ||
-        tour?.status == TourStatus.ENTWURF ||
-        (tour?.status == TourStatus.FEHLER && tour?.serverId == null)
+    val loeschenErlaubt = tour?.status == TourStatus.RECORDING ||
+        tour?.status == TourStatus.DRAFT ||
+        (tour?.status == TourStatus.FAILED && tour?.serverId == null)
     var titel by rememberSaveable { mutableStateOf<String?>(null) }
     var fragtLoeschen by remember { mutableStateOf(false) }
     val fokus = remember { FocusRequester() }
@@ -102,7 +102,7 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 medium?.let { m ->
-                    if (m.typ == "video") {
+                    if (m.type == "video") {
                         // Lokale Datei — hier braucht es keine Anmeldung. Als
                         // Standbild dient sie selbst: Coil zieht daraus (mit dem
                         // VideoFrameDecoder) denselben Frame wie für die Kachel.

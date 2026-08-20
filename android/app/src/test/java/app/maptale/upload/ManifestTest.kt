@@ -1,4 +1,4 @@
-// ManifestBau: Room-Bestand → `maptale/upload@1`. Die Naht zum Backend —
+// ManifestBau: Room-Bestand → `maptale/upload@2`. Die Naht zum Backend —
 // Segmentierung an Moduswechseln, Zeitformate und Anker müssen exakt stimmen.
 package app.maptale.upload
 
@@ -16,19 +16,19 @@ import org.junit.Test
 class ManifestTest {
 
     private fun punkt(id: Long, tS: Double, lng: Double = 8.0 + tS / 10_000) =
-        TrackpunktEntity(id = id, tourId = "t", lng = lng, lat = 46.59, ele = 500.0, tOffsetS = tS, genauigkeitM = 5f)
+        TrackpunktEntity(id = id, tourId = "t", lng = lng, lat = 46.59, ele = 500.0, tOffsetS = tS, accuracyM = 5f)
 
     private fun wechsel(tS: Double, modus: Modus) =
-        ModuswechselEntity(tourId = "t", tOffsetS = tS, modus = modus)
+        ModuswechselEntity(tourId = "t", tOffsetS = tS, travelMode = modus)
 
     private val tour = TourEntity(
         id = "lokal-abc",
-        titel = "Testtour",
-        beschreibung = null,
+        title = "Testtour",
+        description = null,
         startMs = 1_751_600_000_000, // 2025-07-04T04:13:20Z
-        endeMs = 1_751_603_600_000,
+        endMs = 1_751_603_600_000,
         zone = "Europe/Zurich",
-        status = TourStatus.ENTWURF,
+        status = TourStatus.DRAFT,
     )
 
     @Test
@@ -74,13 +74,13 @@ class ManifestTest {
     fun `Manifest traegt Schema, clientTourId und ISO-Zeiten`() {
         val punkte = (0..2).map { punkt(it.toLong(), it * 10.0) }
         val manifest = ManifestBau.baue(tour, punkte, listOf(wechsel(0.0, Modus.WALK)), emptyList())
-        assertEquals("maptale/upload@1", manifest.schema)
+        assertEquals("maptale/upload@2", manifest.schema)
         assertEquals("lokal-abc", manifest.clientTourId)
         assertEquals("Europe/Zurich", manifest.time.zone)
         assertTrue(manifest.time.start.endsWith("Z"))
 
         val json = ManifestBau.alsJson(manifest)
-        assertTrue(json.contains("\"schema\":\"maptale/upload@1\""))
+        assertTrue(json.contains("\"schema\":\"maptale/upload@2\""))
         assertTrue(json.contains("\"clientTourId\":\"lokal-abc\""))
     }
 
@@ -88,12 +88,12 @@ class ManifestTest {
     fun `Medien mit und ohne Anker`() {
         val medien = listOf(
             MediumEntity(
-                id = "m1", tourId = "t", typ = "photo", datei = "touren/t/a.jpg",
-                aufgenommenMs = tour.startMs + 60_000, ankerLng = 8.001, ankerLat = 46.591,
+                id = "m1", tourId = "t", type = "photo", file = "touren/t/a.jpg",
+                takenAtMs = tour.startMs + 60_000, anchorLng = 8.001, anchorLat = 46.591,
             ),
             MediumEntity(
-                id = "m2", tourId = "t", typ = "photo", datei = "touren/t/b.jpg",
-                aufgenommenMs = tour.startMs + 120_000, ankerLng = null, ankerLat = null,
+                id = "m2", tourId = "t", type = "photo", file = "touren/t/b.jpg",
+                takenAtMs = tour.startMs + 120_000, anchorLng = null, anchorLat = null,
             ),
         )
         val punkte = (0..2).map { punkt(it.toLong(), it * 10.0) }
@@ -112,13 +112,13 @@ class ManifestTest {
     fun `Titel eines Fotos geht als caption mit, leerer Text gar nicht`() {
         val medien = listOf(
             MediumEntity(
-                id = "m1", tourId = "t", typ = "photo", datei = "touren/t/a.jpg",
-                aufgenommenMs = tour.startMs + 60_000, ankerLng = null, ankerLat = null,
+                id = "m1", tourId = "t", type = "photo", file = "touren/t/a.jpg",
+                takenAtMs = tour.startMs + 60_000, anchorLng = null, anchorLat = null,
                 caption = "Blick über die Bucht",
             ),
             MediumEntity(
-                id = "m2", tourId = "t", typ = "photo", datei = "touren/t/b.jpg",
-                aufgenommenMs = tour.startMs + 120_000, ankerLng = null, ankerLat = null,
+                id = "m2", tourId = "t", type = "photo", file = "touren/t/b.jpg",
+                takenAtMs = tour.startMs + 120_000, anchorLng = null, anchorLat = null,
                 caption = "   ",
             ),
         )
@@ -144,7 +144,7 @@ class ManifestTest {
         )
         val erg = ManifestBau.glaetteWechsel(roh, endeS = 1800.0)
         assertEquals(1, erg.size)
-        assertEquals(Modus.JEEP, erg[0].modus)
+        assertEquals(Modus.JEEP, erg[0].travelMode)
         assertEquals(0.0, erg[0].tOffsetS, 1e-9)
     }
 

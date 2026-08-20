@@ -33,37 +33,37 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
         jetztMs: Long = System.currentTimeMillis(),
         titel: String? = null,
         /** true = „Automatisch": das Fortbewegungsmittel wird unterwegs erkannt */
-        modusAutomatisch: Boolean = false,
+        travelModeAuto: Boolean = false,
     ): TourEntity {
         val tour = TourEntity(
             id = "lokal-${UUID.randomUUID()}",
-            titel = titel?.trim()?.ifBlank { null },
-            beschreibung = null,
+            title = titel?.trim()?.ifBlank { null },
+            description = null,
             startMs = jetztMs,
-            endeMs = null,
+            endMs = null,
             zone = ZoneId.systemDefault().id,
-            status = TourStatus.AUFNAHME,
-            modusAutomatisch = modusAutomatisch,
+            status = TourStatus.RECORDING,
+            travelModeAuto = travelModeAuto,
         )
         dao.legeTourAn(tour)
-        dao.fuegeModuswechselEin(ModuswechselEntity(tourId = tour.id, tOffsetS = 0.0, modus = modus))
+        dao.fuegeModuswechselEin(ModuswechselEntity(tourId = tour.id, tOffsetS = 0.0, travelMode = modus))
         return tour
     }
 
     /** Punkt-Batch aus dem Service übernehmen und die Listen-Distanz nachziehen. */
-    suspend fun speicherePunkte(tourId: String, punkte: List<TrackpunktEntity>, distanzM: Double) {
+    suspend fun speicherePunkte(tourId: String, punkte: List<TrackpunktEntity>, distanceM: Double) {
         if (punkte.isNotEmpty()) dao.fuegePunkteEin(punkte)
-        dao.setzeDistanz(tourId, distanzM)
+        dao.setzeDistanz(tourId, distanceM)
     }
 
     suspend fun wechsleModus(tourId: String, tOffsetS: Double, modus: Modus) {
-        dao.fuegeModuswechselEin(ModuswechselEntity(tourId = tourId, tOffsetS = tOffsetS, modus = modus))
+        dao.fuegeModuswechselEin(ModuswechselEntity(tourId = tourId, tOffsetS = tOffsetS, travelMode = modus))
     }
 
     /** Aufnahme abschließen → Entwurf (Titel editierbar, Upload möglich). */
-    suspend fun beendeAufnahme(tourId: String, titel: String?, endeMs: Long = System.currentTimeMillis()) {
+    suspend fun beendeAufnahme(tourId: String, titel: String?, endMs: Long = System.currentTimeMillis()) {
         val tour = dao.tour(tourId) ?: return
-        dao.aktualisiereTour(tour.copy(endeMs = endeMs, titel = titel ?: tour.titel, status = TourStatus.ENTWURF))
+        dao.aktualisiereTour(tour.copy(endMs = endMs, title = titel ?: tour.title, status = TourStatus.DRAFT))
     }
 
     /**
@@ -74,13 +74,13 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
      * Spiegelbild des Backend-Musters „Verarbeitung unterbrochen (Neustart)".
      */
     suspend fun schliesseVerwaisteAufnahmen() {
-        for (tour in dao.tourenMitStatus(TourStatus.AUFNAHME)) {
+        for (tour in dao.tourenMitStatus(TourStatus.RECORDING)) {
             val letzterOffsetS = dao.letzterPunktOffset(tour.id)
             dao.aktualisiereTour(
                 tour.copy(
-                    endeMs = tour.startMs + ((letzterOffsetS ?: 1.0) * 1000).toLong(),
-                    status = TourStatus.ENTWURF,
-                    fehler = "Aufzeichnung wurde unterbrochen",
+                    endMs = tour.startMs + ((letzterOffsetS ?: 1.0) * 1000).toLong(),
+                    status = TourStatus.DRAFT,
+                    error = "Aufzeichnung wurde unterbrochen",
                 ),
             )
         }
@@ -88,7 +88,7 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
 
     suspend fun aktualisiereTexte(tourId: String, titel: String?, beschreibung: String?) {
         val tour = dao.tour(tourId) ?: return
-        dao.aktualisiereTour(tour.copy(titel = titel, beschreibung = beschreibung))
+        dao.aktualisiereTour(tour.copy(title = titel, description = beschreibung))
     }
 
     suspend fun setzeStatus(tourId: String, status: TourStatus, fehler: String? = null) =
@@ -108,7 +108,7 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
         dao.mediumFluss(tourId, mediumId)
     fun medienAnzahl(tourId: String): Flow<Int> = dao.medienAnzahlFluss(tourId)
     suspend fun setzeMediumHochgeladen(tourId: String, mediumId: String) =
-        dao.setzeMediumStatus(tourId, mediumId, MediumUploadStatus.HOCHGELADEN)
+        dao.setzeMediumStatus(tourId, mediumId, MediumUploadStatus.UPLOADED)
 
     /** Nutzertext setzen; Leerstring zählt als „nicht beschriftet". */
     suspend fun setzeMediumCaption(tourId: String, mediumId: String, caption: String?) =
@@ -129,22 +129,22 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
         return relativ to datei
     }
 
-    fun mediumDatei(medium: MediumEntity): File = File(filesDir, medium.datei)
+    fun mediumDatei(medium: MediumEntity): File = File(filesDir, medium.file)
 
     suspend fun registriereFoto(
         tourId: String,
         relativerPfad: String,
-        aufgenommenMs: Long,
+        takenAtMs: Long,
         anker: Pair<Double, Double>?,
-    ) = registriereMedium(tourId, "photo", relativerPfad, aufgenommenMs, anker)
+    ) = registriereMedium(tourId, "photo", relativerPfad, takenAtMs, anker)
 
     /** Video registrieren (M4); Dauer/Poster ermittelt das Backend beim Anreichern. */
     suspend fun registriereVideo(
         tourId: String,
         relativerPfad: String,
-        aufgenommenMs: Long,
+        takenAtMs: Long,
         anker: Pair<Double, Double>?,
-    ) = registriereMedium(tourId, "video", relativerPfad, aufgenommenMs, anker)
+    ) = registriereMedium(tourId, "video", relativerPfad, takenAtMs, anker)
 
     // Foto UND Video werden fortlaufend über die ganze Tour nummeriert (m1, m2 …).
     // Die Nummer ist die HÖCHSTE vergebene plus eins, nicht die Anzahl: nach dem
@@ -156,7 +156,7 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
         tourId: String,
         typ: String,
         relativerPfad: String,
-        aufgenommenMs: Long,
+        takenAtMs: Long,
         anker: Pair<Double, Double>?,
     ) = medienMutex.withLock {
         val nummer = naechsteMediumNummer(dao.medien(tourId).map { it.id })
@@ -164,11 +164,11 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
             MediumEntity(
                 id = "m$nummer",
                 tourId = tourId,
-                typ = typ,
-                datei = relativerPfad,
-                aufgenommenMs = aufgenommenMs,
-                ankerLng = anker?.first,
-                ankerLat = anker?.second,
+                type = typ,
+                file = relativerPfad,
+                takenAtMs = takenAtMs,
+                anchorLng = anker?.first,
+                anchorLat = anker?.second,
             ),
         )
     }

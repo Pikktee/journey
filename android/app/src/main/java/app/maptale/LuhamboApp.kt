@@ -134,8 +134,8 @@ class MaptaleApp : Application(), ImageLoaderFactory {
             // hier fängt die Fälle, in denen sie verloren ging, etwa nach einem
             // erzwungenen Beenden. Deshalb KEEP: ein wartender Versuch wird
             // nicht zurückgesetzt.
-            for (tour in repository.tourenMitStatus(TourStatus.ENTWURF)) {
-                if (tour.endeMs != null) UploadWorker.starte(this@MaptaleApp, tour.id, ersetzen = false)
+            for (tour in repository.tourenMitStatus(TourStatus.DRAFT)) {
+                if (tour.endMs != null) UploadWorker.starte(this@MaptaleApp, tour.id, ersetzen = false)
             }
             // Cloud-Importe abfragen, solange ein Konto angemeldet ist. Der
             // Lauf wird beim Abmelden wieder beendet (ProfilViewModel) — sonst

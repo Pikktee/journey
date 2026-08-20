@@ -100,9 +100,9 @@ fun TourScreen(
     // Einmalig aus der Datenbank befüllen; danach gehört der Text dem Nutzer.
     // Die Ausnahme ist der Auto-Titel, den der Upload-Worker nachträgt: hat der
     // Nutzer nichts getippt, soll er ihn sehen statt eines leeren Feldes.
-    LaunchedEffect(tour?.id, tour?.titel) {
-        if (titel.isNullOrBlank()) titel = tour?.titel
-        beschreibung = beschreibung ?: tour?.beschreibung
+    LaunchedEffect(tour?.id, tour?.title) {
+        if (titel.isNullOrBlank()) titel = tour?.title
+        beschreibung = beschreibung ?: tour?.description
     }
 
     // Beim Verlassen sichern — kein „Speichern"-Knopf für zwei Textfelder
@@ -130,7 +130,7 @@ fun TourScreen(
                     titel = titel.orEmpty(),
                     setzeTitel = { titel = it },
                     abspielen = aktuelleTour.serverId
-                        ?.takeIf { aktuelleTour.status == TourStatus.HOCHGELADEN }
+                        ?.takeIf { aktuelleTour.status == TourStatus.UPLOADED }
                         ?.let { id -> { abspielen(id) } },
                 )
             }
@@ -141,7 +141,7 @@ fun TourScreen(
                     Kennzahlen(aktuelleTour, medien.size)
                     Zustandszeile(
                         status = aktuelleTour.status,
-                        fehler = aktuelleTour.fehler,
+                        fehler = aktuelleTour.error,
                         erneutVersuchen = { viewModel.ladeHoch(titel, beschreibung) },
                     )
                     // Die Form der Reise — sobald ein Track vorliegt. Die Fotos
@@ -149,8 +149,8 @@ fun TourScreen(
                     // Medium keinen Anker und bleibt der Skizze fern.
                     val fotomarken = remember(medien) {
                         medien.mapNotNull { medium ->
-                            val lng = medium.ankerLng
-                            val lat = medium.ankerLat
+                            val lng = medium.anchorLng
+                            val lat = medium.anchorLat
                             if (lng != null && lat != null) Fotomarke(medium.id, lng, lat) else null
                         }
                     }
@@ -187,7 +187,7 @@ fun TourScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    if (medium.typ == "video") {
+                    if (medium.type == "video") {
                         Videoabzeichen(Modifier.align(Alignment.Center))
                     }
                 }
@@ -242,7 +242,7 @@ fun TourScreen(
         aktuelleTour.serverId?.let { serverId ->
             TeilenBlatt(
                 serverTourId = serverId,
-                titel = titel ?: aktuelleTour.titel,
+                titel = titel ?: aktuelleTour.title,
                 aktuelleSichtbarkeit = sichtbarkeit ?: Sichtbarkeit.PRIVAT,
                 schliessen = { teilen = false },
                 setzeSichtbarkeit = viewModel::setzeSichtbarkeit,
@@ -353,7 +353,7 @@ private fun Kopfbild(
 @Composable
 private fun Kennzahlen(tour: TourEntity, fotos: Int) {
     val teile = buildList {
-        add(String.format(Locale.GERMAN, "%.1f km", tour.distanzM / 1000))
+        add(String.format(Locale.GERMAN, "%.1f km", tour.distanceM / 1000))
         dauer(tour)?.let { add(it) }
         add(if (fotos == 1) "1 Foto" else "$fotos Fotos")
     }
@@ -373,8 +373,8 @@ private fun Kennzahlen(tour: TourEntity, fotos: Int) {
 @Composable
 private fun Zustandszeile(status: TourStatus, fehler: String?, erneutVersuchen: () -> Unit) {
     when (status) {
-        TourStatus.HOCHGELADEN, TourStatus.AUFNAHME -> Unit
-        TourStatus.LAEDT_HOCH -> Hinweiszeile {
+        TourStatus.UPLOADED, TourStatus.RECORDING -> Unit
+        TourStatus.UPLOADING -> Hinweiszeile {
             // size, nicht height: height allein lässt die Breite beim
             // Standardmaß (40 dp) und der Kreis wird seitlich beschnitten.
             CircularProgressIndicator(
@@ -388,7 +388,7 @@ private fun Zustandszeile(status: TourStatus, fehler: String?, erneutVersuchen: 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        TourStatus.FEHLER -> Hinweiszeile {
+        TourStatus.FAILED -> Hinweiszeile {
             Icon(
                 Icons.Default.ErrorOutline,
                 contentDescription = null,
@@ -436,7 +436,7 @@ private fun Hinweiszeile(inhalt: @Composable androidx.compose.foundation.layout.
 
 /** Aufnahmedauer als „1 h 12 min"; null, solange die Aufnahme läuft. */
 private fun dauer(tour: TourEntity): String? {
-    val ende = tour.endeMs ?: return null
+    val ende = tour.endMs ?: return null
     val minuten = ((ende - tour.startMs) / 60_000).coerceAtLeast(0)
     if (minuten < 1) return null
     return if (minuten < 60) "$minuten min" else "${minuten / 60} h ${minuten % 60} min"

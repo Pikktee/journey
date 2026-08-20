@@ -2,27 +2,31 @@
 // Schema-Sprung, der Daten verliert, ist keine Schönheitsfrage, sondern
 // verlorene Reisen.
 //
-// Der Test baut eine Datenbank im alten Schema (aus der exportierten
-// schemas/1.json, also aus der Wahrheit und nicht aus abgeschriebenem SQL),
-// füllt sie und öffnet sie dann ganz normal über MaptaleDb.baue-Weg. Room
-// führt dabei die Migration aus UND vergleicht das Ergebnis mit dem aktuellen
-// Schema — genau die Prüfung, die sonst MigrationTestHelper macht. Der Helfer
-// selbst scheidet aus: er lädt die Schemata über den AssetManager, und im
-// Unit-Test landen sie dort nicht.
+// **Für den einen Schritt 3→4 gilt das nicht**, und das ist eine bewusste
+// Ausnahme (Welle 1 der Englisch-Migration, §4.4): Tabellen, Spalten und
+// Enum-Speicherwerte gehen auf Englisch, und weil zu diesem Zeitpunkt nur
+// Geräte des Betreibers eine App tragen (§4.5), wirft Room die lokale
+// Datenbank weg, statt umzuschreiben. Was dieser Test deshalb beweist, ist
+// nicht mehr „die Daten überleben", sondern die zwei Dinge, an denen es sonst
+// scheitert:
+//
+//   1. Ein APK-Update DERSELBEN Signatur öffnet die v3-Datenbank, ohne beim
+//      Start abzustürzen (das täte es ohne `fallbackToDestructiveMigration`).
+//   2. Danach steht das AKTUELLE Schema — schreiben und lesen geht.
+//
+// Nach Welle 7 kommt die Zusage zurück (Aufruf raus, ab v5 wieder echte
+// Migrationen), und dann gehört an diese Stelle wieder ein Test, der Daten
+// über den Sprung hinweg nachweist.
 package app.maptale.daten
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -71,98 +75,43 @@ class MigrationTest {
         return alt
     }
 
-    /** Öffnet die Datenbank auf aktuellem Stand — hier läuft die Migration. */
+    /** Öffnet die Datenbank so, wie die App es tut — hier greift der Rückfall. */
     private fun oeffneAktuell(): MaptaleDb =
         Room.databaseBuilder(context, MaptaleDb::class.java, datenbankName)
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .allowMainThreadQueries()
             .build()
             .also { db = it }
 
     @Test
-    fun `1 nach 2 behaelt Tour und Aufnahme, Titel ist zunaechst leer`() = runTest {
-        legeAltesSchemaAn(1).use { alt ->
+    fun `3 nach 4 stuerzt nicht ab, sondern raeumt die lokale Datenbank`() = runTest {
+        legeAltesSchemaAn(3).use { alt ->
             alt.execSQL(
-                "INSERT INTO touren (id, titel, beschreibung, startMs, endeMs, zone, status, serverId, fehler, distanzM) " +
-                    "VALUES ('lokal-1', 'Bucht', NULL, 1000, 2000, 'Europe/Berlin', 'ENTWURF', NULL, NULL, 4200.0)",
-            )
-            alt.execSQL(
-                "INSERT INTO medien (id, tourId, typ, datei, aufgenommenMs, ankerLng, ankerLat, uploadStatus) " +
-                    "VALUES ('m1', 'lokal-1', 'photo', 'touren/lokal-1/a.jpg', 1500, 8.0, 46.59, 'LOKAL')",
+                "INSERT INTO touren (id, titel, beschreibung, startMs, endeMs, zone, status, " +
+                    "serverId, fehler, distanzM, modusAutomatisch) " +
+                    "VALUES ('lokal-1', 'Bucht', NULL, 1000, 2000, 'Europe/Berlin', 'ENTWURF', " +
+                    "NULL, NULL, 4200.0, 0)",
             )
         }
 
         val dao = oeffneAktuell().tourDao()
 
-        val tour = dao.tour("lokal-1")!!
-        assertEquals("Bucht", tour.titel)
-        assertEquals(4200.0, tour.distanzM, 1e-9)
-
-        val medium = dao.medien("lokal-1").single()
-        assertEquals("touren/lokal-1/a.jpg", medium.datei)
-        assertEquals(8.0, medium.ankerLng!!, 1e-9)
-        // Bestandsfotos sind schlicht noch nicht beschriftet
-        assertNull(medium.caption)
+        // Die alte Zeile ist weg — genau das sagt §4.4 zu, und es ist der Preis
+        // dafür, dass die App nach dem Update überhaupt startet.
+        assertTrue(dao.tourenMitStatus(TourStatus.DRAFT).isEmpty())
     }
 
     @Test
-    fun `Eine Migration, die die Spalte nicht anlegt, faellt auf`() = runTest {
-        // Beweist, dass der Test oben etwas prüft: Room vergleicht nach jeder
-        // Migration das Ergebnis mit dem erwarteten Schema. Ohne diesen Nachweis
-        // wüsste niemand, ob die Prüfung überhaupt greift.
-        legeAltesSchemaAn(1).close()
-        val untaetig = object : Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) = Unit
-        }
-        val kaputt = Room.databaseBuilder(context, MaptaleDb::class.java, datenbankName)
-            .addMigrations(untaetig, MIGRATION_2_3)
-            .allowMainThreadQueries()
-            .build()
-            .also { db = it }
-
-        // Das Öffnen selbst löst Migration und Schema-Vergleich aus
-        val fehler = assertThrows(IllegalStateException::class.java) { kaputt.openHelper.writableDatabase }
-        assertTrue(
-            "Unerwartete Meldung: ${fehler.message}",
-            fehler.message.orEmpty().contains("Migration didn't properly handle"),
-        )
-    }
-
-    @Test
-    fun `2 nach 3 behaelt die Tour, Bestandsaufnahmen gelten als nicht automatisch`() = runTest {
-        // „Nicht automatisch" ist die richtige Vorgabe für Bestandsaufnahmen:
-        // Der Server überstimmt eine Angabe nie — damit bleibt alles, wie es war.
-        legeAltesSchemaAn(2).use { alt ->
-            alt.execSQL(
-                "INSERT INTO touren (id, titel, beschreibung, startMs, endeMs, zone, status, serverId, fehler, distanzM) " +
-                    "VALUES ('lokal-2', 'Uferweg', NULL, 1000, 2000, 'Europe/Berlin', 'ENTWURF', NULL, NULL, 900.0)",
-            )
-        }
-
-        val tour = oeffneAktuell().tourDao().tour("lokal-2")!!
-        assertEquals("Uferweg", tour.titel)
-        assertEquals(900.0, tour.distanzM, 1e-9)
-        assertEquals(false, tour.modusAutomatisch)
-    }
-
-    @Test
-    fun `eine neue Aufnahme merkt sich, dass sie automatisch erkannt wird`() = runTest {
-        legeAltesSchemaAn(2).close()
-        val repo = TourRepository(oeffneAktuell(), File(context.cacheDir, "migrationstest-auto"))
-
-        val tour = repo.starteAufnahme(Modus.WALK, modusAutomatisch = true)
-        assertEquals(true, repo.tour(tour.id)!!.modusAutomatisch)
-    }
-
-    @Test
-    fun `Nach der Migration laesst sich ein Titel schreiben und lesen`() = runTest {
-        legeAltesSchemaAn(1).close()
+    fun `nach dem Sprung steht das aktuelle Schema — schreiben und lesen geht`() = runTest {
+        legeAltesSchemaAn(3).close()
         val repo = TourRepository(oeffneAktuell(), File(context.cacheDir, "migrationstest-files"))
 
-        val tour = repo.starteAufnahme(Modus.BIKE)
-        repo.registriereFoto(tour.id, "touren/${tour.id}/a.jpg", 1100, null)
+        val tour = repo.starteAufnahme(Modus.BIKE, travelModeAuto = true)
+        repo.registriereFoto(tour.id, "tours/${tour.id}/a.jpg", 1100, null)
         repo.setzeMediumCaption(tour.id, "m1", "Sonnenaufgang")
 
+        assertEquals(true, repo.tour(tour.id)!!.travelModeAuto)
         assertEquals("Sonnenaufgang", repo.medien(tour.id).single().caption)
     }
 }

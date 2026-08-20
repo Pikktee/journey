@@ -11,7 +11,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 
-data class MedienMetadaten(val aufgenommenMs: Long?, val lat: Double?, val lng: Double?)
+data class MedienMetadaten(val takenAtMs: Long?, val lat: Double?, val lng: Double?)
 
 object MedienMetadatenLeser {
 
@@ -32,7 +32,7 @@ object MedienMetadatenLeser {
         val ms = zeit?.let { runCatching { exifFormat.parse(it)?.time }.getOrNull() }
         val latLng = exif.latLong // FloatArray? [lat, lng] oder null
         MedienMetadaten(
-            aufgenommenMs = ms,
+            takenAtMs = ms,
             lat = latLng?.get(0)?.toDouble(),
             lng = latLng?.get(1)?.toDouble(),
         )

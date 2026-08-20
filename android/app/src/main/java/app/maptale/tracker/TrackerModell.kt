@@ -53,7 +53,7 @@ fun aktionText(aktion: TrackerAktion): String = when (aktion) {
  * `null` heißt: nichts melden.
  */
 fun meldungFuer(importe: List<TrackerImport>): String? {
-    val fertige = importe.count { it.status == "fertig" }
+    val fertige = importe.count { it.status == "done" }
     return when {
         fertige <= 0 -> null
         fertige == 1 -> "Eine neue Tour ist da"

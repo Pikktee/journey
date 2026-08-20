@@ -26,7 +26,7 @@ class ImportTest {
     fun `Zeitspanne nimmt ersten und letzten Zeitstempel`() {
         val spanne = GpxImport.zeitspanne(gpx)!!
         assertEquals(java.time.Instant.parse("2026-07-04T08:12:31Z").toEpochMilli(), spanne.startMs)
-        assertEquals(java.time.Instant.parse("2026-07-04T09:03:10Z").toEpochMilli(), spanne.endeMs)
+        assertEquals(java.time.Instant.parse("2026-07-04T09:03:10Z").toEpochMilli(), spanne.endMs)
     }
 
     @Test
@@ -37,7 +37,7 @@ class ImportTest {
     @Test
     fun `einzelner Zeitstempel ergibt mindestens eine Sekunde Spanne`() {
         val spanne = GpxImport.zeitspanne("<gpx><trkpt><time>2026-07-04T08:00:00Z</time></trkpt></gpx>")!!
-        assertTrue(spanne.endeMs > spanne.startMs)
+        assertTrue(spanne.endMs > spanne.startMs)
     }
 
     @Test
@@ -72,8 +72,8 @@ class ImportTest {
             zone = "Europe/Zurich",
             zeitspanne = spanne,
             medien = listOf(
-                ImportMedium(id = "m1", typ = "photo", datei = "m1.jpg", aufgenommenMs = spanne.startMs, ankerLng = 8.0, ankerLat = 46.5),
-                ImportMedium(id = "m2", typ = "video", datei = "m2.mp4", aufgenommenMs = spanne.startMs),
+                ImportMedium(id = "m1", typ = "photo", datei = "m1.jpg", takenAtMs = spanne.startMs, anchorLng = 8.0, anchorLat = 46.5),
+                ImportMedium(id = "m2", typ = "video", datei = "m2.mp4", takenAtMs = spanne.startMs),
             ),
         )
         assertEquals("track.gpx", manifest.trackFile)

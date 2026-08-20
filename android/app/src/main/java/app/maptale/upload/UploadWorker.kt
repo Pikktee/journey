@@ -64,36 +64,36 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val tour = repo.tour(tourId) ?: return Result.failure()
 
         return try {
-            repo.setzeStatus(tourId, TourStatus.LAEDT_HOCH)
+            repo.setzeStatus(tourId, TourStatus.UPLOADING)
             // Vor dem ERSTEN Netzzugriff, sonst ist die Benennung des Ortes
             // schon der Aufruf, der ins Leere läuft.
-            zeigeUebertragung(tour.titel, 0, 0)
+            zeigeUebertragung(tour.title, 0, 0)
 
             val punkte = repo.punkte(tourId)
             if (punkte.size < 2) {
-                repo.setzeStatus(tourId, TourStatus.FEHLER, "Zu wenige Trackpunkte für einen Upload")
+                repo.setzeStatus(tourId, TourStatus.FAILED, "Zu wenige Trackpunkte für einen Upload")
                 return Result.failure()
             }
 
             // Auto-Titel nachziehen, falls der Nutzer keinen gesetzt hat (der
             // Geocoder braucht Netz — genau jetzt ist es da)
             var aktuelleTour = tour
-            if (aktuelleTour.titel.isNullOrBlank()) {
+            if (aktuelleTour.title.isNullOrBlank()) {
                 val start = punkte.first()
                 val ziel = punkte.last()
                 val titel = runCatching {
                     app.benennung.benenne(start.lng to start.lat, ziel.lng to ziel.lat)
                 }.getOrNull()
                 if (titel != null) {
-                    repo.aktualisiereTexte(tourId, titel, aktuelleTour.beschreibung)
+                    repo.aktualisiereTexte(tourId, titel, aktuelleTour.description)
                     aktuelleTour = repo.tour(tourId) ?: aktuelleTour
-                } else if (aktuelleTour.titel == null) {
+                } else if (aktuelleTour.title == null) {
                     // gar kein Ortsname: Datums-Fallback lokal setzen, damit die
                     // Liste nie namenlos ist (Backend würde identisch benennen)
                     repo.aktualisiereTexte(
                         tourId,
                         TourBenennung.fallbackTitel(aktuelleTour.startMs, aktuelleTour.zone),
-                        aktuelleTour.beschreibung,
+                        aktuelleTour.description,
                     )
                     aktuelleTour = repo.tour(tourId) ?: aktuelleTour
                 }
@@ -113,19 +113,19 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             // zwischen Manifest-Bau und hier können Sekunden liegen, in denen
             // der Nutzer den Titel im Entwurf getippt hat.
             val vorPatch = repo.tour(tourId) ?: aktuelleTour
-            runCatching { app.apiClient.patchTour(serverId, vorPatch.titel, vorPatch.beschreibung) }
+            runCatching { app.apiClient.patchTour(serverId, vorPatch.title, vorPatch.description) }
 
             // Die Zählung nennt ALLE Medien der Tour, nicht nur die offenen:
             // Nach einem Abbruch bei Datei 9 von 12 stünde sonst „1 von 3" da,
             // und das sieht aus, als finge der Upload wieder von vorn an.
             val medien = repo.medien(tourId)
             for ((nummer, medium) in medien.withIndex()) {
-                zeigeUebertragung(aktuelleTour.titel, nummer, medien.size)
-                if (medium.uploadStatus == MediumUploadStatus.HOCHGELADEN) continue
+                zeigeUebertragung(aktuelleTour.title, nummer, medien.size)
+                if (medium.uploadStatus == MediumUploadStatus.UPLOADED) continue
                 app.apiClient.mediumHochladen(serverId, medium.id, repo.mediumDatei(medium))
                 repo.setzeMediumHochgeladen(tourId, medium.id)
             }
-            zeigeUebertragung(aktuelleTour.titel, medien.size, medien.size)
+            zeigeUebertragung(aktuelleTour.title, medien.size, medien.size)
 
             try {
                 app.apiClient.finalisiere(serverId)
@@ -134,7 +134,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 // semantisch auflösen: nur wenn der Server wirklich arbeitet
                 // oder fertig ist, geht es weiter
                 val status = if (fehler.status == 409) app.apiClient.tourStatus(serverId) else null
-                if (status != "verarbeitung" && status != "bereit") throw fehler
+                if (status != "processing" && status != "ready") throw fehler
             }
 
             // Kurz auf „bereit" warten — nur fürs unmittelbare Abspielen; bei
@@ -144,22 +144,22 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             repeat(30) {
                 letzterStatus = app.apiClient.tourStatus(serverId)
                 when (letzterStatus) {
-                    "bereit" -> {
-                        repo.setzeStatus(tourId, TourStatus.HOCHGELADEN)
+                    "ready" -> {
+                        repo.setzeStatus(tourId, TourStatus.UPLOADED)
                         gleicheTitelAb(tourId, serverId, manifest)
                         return Result.success(workDataOf(AUSGABE_SERVER_ID to serverId))
                     }
-                    "fehler" -> {
-                        repo.setzeStatus(tourId, TourStatus.FEHLER, "Server-Verarbeitung fehlgeschlagen")
+                    "failed" -> {
+                        repo.setzeStatus(tourId, TourStatus.FAILED, "Server-Verarbeitung fehlgeschlagen")
                         return Result.failure()
                     }
                 }
                 delay(2_000)
             }
-            if (letzterStatus != "verarbeitung") {
+            if (letzterStatus != "processing") {
                 return vermerkeUndRetry(tourId, ApiFehler(0, "Tour blieb im Status „$letzterStatus“"))
             }
-            repo.setzeStatus(tourId, TourStatus.HOCHGELADEN)
+            repo.setzeStatus(tourId, TourStatus.UPLOADED)
             gleicheTitelAb(tourId, serverId, manifest)
             Result.success(workDataOf(AUSGABE_SERVER_ID to serverId))
         } catch (fehler: ApiFehler) {
@@ -167,7 +167,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 // Retry hilft nicht, der Nutzer muss ran
                 app.repository.setzeStatus(
                     tourId,
-                    TourStatus.FEHLER,
+                    TourStatus.FAILED,
                     uploadFehlerText(fehler.status, fehler.message),
                 )
                 Result.failure()
@@ -186,7 +186,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
      * sonst blitzte beim Start kurz eine zweite auf.
      */
     override suspend fun getForegroundInfo(): ForegroundInfo {
-        val titel = inputData.getString(EINGABE_TOUR_ID)?.let { app.repository.tour(it)?.titel }
+        val titel = inputData.getString(EINGABE_TOUR_ID)?.let { app.repository.tour(it)?.title }
         return vordergrund(meldung(titel, 0, 0))
     }
 
@@ -255,7 +255,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     private suspend fun vermerkeUndRetry(tourId: String, fehler: Exception): Result {
         // ENTWURF statt FEHLER: WorkManager versucht es mit Backoff erneut,
         // die Tour bleibt in der Liste als „wartet auf Upload" sichtbar
-        app.repository.setzeStatus(tourId, TourStatus.ENTWURF, fehler.message)
+        app.repository.setzeStatus(tourId, TourStatus.DRAFT, fehler.message)
         return Result.retry()
     }
 

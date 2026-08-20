@@ -38,7 +38,7 @@ data class Galeriebild(
     val id: Long,
     val dateiname: String,
     /** Aufnahmezeitpunkt in Millisekunden seit 1970 (UTC). */
-    val aufgenommenMs: Long,
+    val takenAtMs: Long,
     /** GPS aus dem Bild, wenn vorhanden — schlägt die Zeit (s. `anker`). */
     val breite: Double? = null,
     val laenge: Double? = null,
@@ -163,8 +163,8 @@ fun istKamerabild(ordner: String?): Boolean {
  * danach. Zwei Rechnungen wären zwei Gelegenheiten, sie auseinanderlaufen zu
  * lassen.
  */
-fun suchfenster(startMs: Long, endeMs: Long): LongRange =
-    (startMs - TOLERANZ_MS)..(endeMs + TOLERANZ_MS)
+fun suchfenster(startMs: Long, endMs: Long): LongRange =
+    (startMs - TOLERANZ_MS)..(endMs + TOLERANZ_MS)
 
 /**
  * Die Bilder, die zu dieser Tour vorgeschlagen werden.
@@ -178,17 +178,17 @@ fun suchfenster(startMs: Long, endeMs: Long): LongRange =
 fun passendeBilder(
     bilder: List<Galeriebild>,
     startMs: Long,
-    endeMs: Long,
+    endMs: Long,
     bekannteZeitenMs: Set<Long> = emptySet(),
 ): List<Galeriebild> {
-    val fenster = suchfenster(startMs, endeMs)
+    val fenster = suchfenster(startMs, endMs)
     val bekannt = bekannteZeitenMs.map { it / 1000 }.toSet()
     return bilder
-        .filter { it.aufgenommenMs in fenster }
+        .filter { it.takenAtMs in fenster }
         .filter { istKamerabild(it.ordner) }
         .filter { endungErlaubt(it.dateiname, it.istVideo) }
-        .filterNot { it.aufgenommenMs / 1000 in bekannt }
-        .sortedBy { it.aufgenommenMs }
+        .filterNot { it.takenAtMs / 1000 in bekannt }
+        .sortedBy { it.takenAtMs }
 }
 
 /**

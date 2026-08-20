@@ -1,4 +1,4 @@
-// Manifest-Bau: Room-Daten → Austauschformat `maptale/upload@1` (JSON).
+// Manifest-Bau: Room-Daten → Austauschformat `maptale/upload@2` (JSON).
 // Pure Funktionen über den Entities — die Naht zum Backend, deshalb
 // vollständig unit-getestet (Segmentierung, Zeit-Offsets, Anker).
 package app.maptale.upload
@@ -38,7 +38,7 @@ data class ManifestMedium(
 
 @Serializable
 data class UploadManifest(
-    val schema: String = "maptale/upload@1",
+    val schema: String = "maptale/upload@2",
     @SerialName("clientTourId") val clientTourId: String,
     val title: String? = null,
     val description: String? = null,
@@ -55,21 +55,21 @@ data class UploadManifest(
      * Trasse als Straßenbahn erkennen. Ohne dieses Feld sähe er nur Modi und
      * könnte eine Angabe des Nutzers nicht von einer Vorgabe unterscheiden.
      */
-    val modiAutomatisch: Boolean? = null,
+    val travelModesAuto: Boolean? = null,
     val media: List<ManifestMedium>,
 )
 
 /** Zeitspanne einer Aufzeichnung/eines Imports (Millisekunden seit Epoch). */
-data class Zeitspanne(val startMs: Long, val endeMs: Long)
+data class Zeitspanne(val startMs: Long, val endMs: Long)
 
 /** Ein zu importierendes Medium mit den für die Platzierung nötigen Metadaten. */
 data class ImportMedium(
     val id: String,
     val typ: String, // "photo" | "video"
     val datei: String,
-    val aufgenommenMs: Long,
-    val ankerLng: Double? = null,
-    val ankerLat: Double? = null,
+    val takenAtMs: Long,
+    val anchorLng: Double? = null,
+    val anchorLat: Double? = null,
 )
 
 object ManifestBau {
@@ -105,11 +105,11 @@ object ManifestBau {
                     teil.add(0, letzterVorher)
                 }
             }
-            if (teil.size >= 2) segmente.add(segment(aktueller.modus.schluessel, teil))
+            if (teil.size >= 2) segmente.add(segment(aktueller.travelMode.schluessel, teil))
         }
         // Alle Wechsel ohne brauchbare Punkte (z. B. Wechsel nach dem letzten
         // Punkt) → wenigstens ein Gesamtsegment im Modus des ersten Wechsels
-        return segmente.ifEmpty { listOf(segment(sortiert.first().modus.schluessel, punkte)) }
+        return segmente.ifEmpty { listOf(segment(sortiert.first().travelMode.schluessel, punkte)) }
     }
 
     /**
@@ -126,11 +126,11 @@ object ManifestBau {
      */
     fun glaetteWechsel(wechsel: List<ModuswechselEntity>, endeS: Double): List<ModuswechselEntity> {
         if (wechsel.size < 2) return wechsel.sortedBy { it.tOffsetS }
-        val behalten = Bewegungsdeutung.glaette(wechsel.map { Modusabschnitt(it.tOffsetS, it.modus) }, endeS)
+        val behalten = Bewegungsdeutung.glaette(wechsel.map { Modusabschnitt(it.tOffsetS, it.travelMode) }, endeS)
         val vorlage = wechsel.minByOrNull { it.tOffsetS } ?: return wechsel
         return behalten.map { a ->
-            wechsel.firstOrNull { it.tOffsetS == a.tOffsetS && it.modus == a.modus }
-                ?: vorlage.copy(tOffsetS = a.tOffsetS, modus = a.modus)
+            wechsel.firstOrNull { it.tOffsetS == a.tOffsetS && it.travelMode == a.modus }
+                ?: vorlage.copy(tOffsetS = a.tOffsetS, travelMode = a.modus)
         }
     }
 
@@ -160,7 +160,7 @@ object ManifestBau {
     ): UploadManifest = UploadManifest(
         clientTourId = clientTourId,
         title = titel?.ifBlank { null },
-        time = ManifestZeit(start = iso(zeitspanne.startMs), end = iso(zeitspanne.endeMs), zone = zone),
+        time = ManifestZeit(start = iso(zeitspanne.startMs), end = iso(zeitspanne.endMs), zone = zone),
         segments = null,
         trackFile = trackDatei,
         media = medien.map { m ->
@@ -168,8 +168,8 @@ object ManifestBau {
                 id = m.id,
                 type = m.typ,
                 file = m.datei.substringAfterLast('/'),
-                takenAt = iso(m.aufgenommenMs),
-                anchor = if (m.ankerLng != null && m.ankerLat != null) listOf(m.ankerLng, m.ankerLat) else null,
+                takenAt = iso(m.takenAtMs),
+                anchor = if (m.anchorLng != null && m.anchorLat != null) listOf(m.anchorLng, m.anchorLat) else null,
             )
         },
     )
@@ -182,24 +182,24 @@ object ManifestBau {
         medien: List<MediumEntity>,
     ): UploadManifest = UploadManifest(
         clientTourId = tour.id,
-        title = tour.titel,
-        description = tour.beschreibung,
+        title = tour.title,
+        description = tour.description,
         time = ManifestZeit(
             start = iso(tour.startMs),
-            end = iso(tour.endeMs ?: (tour.startMs + ((punkte.lastOrNull()?.tOffsetS ?: 1.0) * 1000).toLong())),
+            end = iso(tour.endMs ?: (tour.startMs + ((punkte.lastOrNull()?.tOffsetS ?: 1.0) * 1000).toLong())),
             zone = tour.zone,
         ),
         segments = baueSegmente(punkte, glaetteWechsel(wechsel, punkte.lastOrNull()?.tOffsetS ?: 0.0)),
         // Nur wenn die App das Mittel selbst erkannt hat, darf der Server die
         // Aufteilung verfeinern (Fahrzeug auf Schienen → Straßenbahn).
-        modiAutomatisch = if (tour.modusAutomatisch) true else null,
+        travelModesAuto = if (tour.travelModeAuto) true else null,
         media = medien.map { m ->
             ManifestMedium(
                 id = m.id,
-                type = m.typ,
-                file = m.datei.substringAfterLast('/'),
-                takenAt = iso(m.aufgenommenMs),
-                anchor = if (m.ankerLng != null && m.ankerLat != null) listOf(m.ankerLng, m.ankerLat) else null,
+                type = m.type,
+                file = m.file.substringAfterLast('/'),
+                takenAt = iso(m.takenAtMs),
+                anchor = if (m.anchorLng != null && m.anchorLat != null) listOf(m.anchorLng, m.anchorLat) else null,
                 caption = m.caption?.ifBlank { null },
             )
         },

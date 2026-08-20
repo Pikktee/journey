@@ -12,7 +12,7 @@ data class LaufendeAufzeichnung(
     val tourId: String,
     val startMs: Long,
     val modus: Modus,
-    val distanzM: Double = 0.0,
+    val distanceM: Double = 0.0,
     val punktAnzahl: Int = 0,
     val pausiert: Boolean = false,
     /** Letzte akzeptierte Position — Anker für Fotos (robuster als Foto-EXIF) */

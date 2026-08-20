@@ -23,7 +23,7 @@ private fun bild(
 ) = Galeriebild(
     id = id,
     dateiname = "IMG_$id.jpg",
-    aufgenommenMs = START + versatzMs,
+    takenAtMs = START + versatzMs,
     breite = breite,
     laenge = laenge,
     ordner = ordner,

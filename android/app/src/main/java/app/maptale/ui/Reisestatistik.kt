@@ -24,9 +24,9 @@ fun berechneReisestatistik(eintraege: List<Toureintrag>): Reisestatistik {
         when (eintrag) {
             is Toureintrag.Lokal -> {
                 // Die laufende Aufnahme ist noch keine zurückgelegte Tour
-                if (eintrag.tour.status == TourStatus.AUFNAHME) continue
+                if (eintrag.tour.status == TourStatus.RECORDING) continue
                 touren++
-                kilometer += eintrag.tour.distanzM / 1000
+                kilometer += eintrag.tour.distanceM / 1000
             }
             is Toureintrag.Server -> {
                 // Touren in Verarbeitung haben noch keine Zahlen, zählen aber mit

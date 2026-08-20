@@ -30,8 +30,8 @@ class TrackerModellTest {
     fun `die vier Zustaende sind unterscheidbar`() {
         val saetze = listOf(
             anbieterSatz(anbieter()),
-            anbieterSatz(anbieter(verbunden = true, status = "aktiv")),
-            anbieterSatz(anbieter(status = "abgelaufen")),
+            anbieterSatz(anbieter(verbunden = true, status = "active")),
+            anbieterSatz(anbieter(status = "expired")),
             anbieterSatz(anbieter(verfuegbar = false)),
         )
         assertEquals(4, saetze.toSet().size)
@@ -39,7 +39,7 @@ class TrackerModellTest {
 
     @Test
     fun `abgelaufen nennt den Grund und den naechsten Schritt`() {
-        val satz = anbieterSatz(anbieter(status = "abgelaufen", fehler = "Zugriff beim Anbieter widerrufen."))
+        val satz = anbieterSatz(anbieter(status = "expired", fehler = "Zugriff beim Anbieter widerrufen."))
         assertTrue(satz.contains("widerrufen"))
         assertTrue(satz.contains("neu verbinden"))
     }
@@ -47,8 +47,8 @@ class TrackerModellTest {
     @Test
     fun `abgelaufen fuehrt auf Neu verbinden, nicht auf Trennen`() {
         // Da ist nichts mehr zu trennen, sondern etwas neu herzustellen.
-        assertEquals(TrackerAktion.NEU_VERBINDEN, anbieterAktion(anbieter(status = "abgelaufen")))
-        assertEquals(TrackerAktion.NEU_VERBINDEN, anbieterAktion(anbieter(verbunden = true, status = "abgelaufen")))
+        assertEquals(TrackerAktion.NEU_VERBINDEN, anbieterAktion(anbieter(status = "expired")))
+        assertEquals(TrackerAktion.NEU_VERBINDEN, anbieterAktion(anbieter(verbunden = true, status = "expired")))
     }
 
     @Test
@@ -60,7 +60,7 @@ class TrackerModellTest {
 
     @Test
     fun `verbunden trennt, unverbunden verbindet`() {
-        assertEquals(TrackerAktion.TRENNEN, anbieterAktion(anbieter(verbunden = true, status = "aktiv")))
+        assertEquals(TrackerAktion.TRENNEN, anbieterAktion(anbieter(verbunden = true, status = "active")))
         assertEquals(TrackerAktion.VERBINDEN, anbieterAktion(anbieter()))
     }
 
@@ -69,13 +69,13 @@ class TrackerModellTest {
         // Eine übersprungene Halleneinheit ist kein Ereignis für den
         // Sperrbildschirm, und ein Fehler, den niemand beheben kann, ist Lärm.
         assertNull(meldungFuer(emptyList()))
-        assertNull(meldungFuer(listOf(importEintrag("uebersprungen"), importEintrag("fehler"))))
-        assertEquals("Eine neue Tour ist da", meldungFuer(listOf(importEintrag("fertig"))))
+        assertNull(meldungFuer(listOf(importEintrag("uebersprungen"), importEintrag("failed"))))
+        assertEquals("Eine neue Tour ist da", meldungFuer(listOf(importEintrag("done"))))
     }
 
     @Test
     fun `mehrere fertige Touren werden gezaehlt`() {
-        val meldung = meldungFuer(listOf(importEintrag("fertig"), importEintrag("fertig"), importEintrag("fehler")))
+        val meldung = meldungFuer(listOf(importEintrag("done"), importEintrag("done"), importEintrag("failed")))
         assertEquals("2 neue Touren sind da", meldung)
     }
 

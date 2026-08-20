@@ -151,7 +151,7 @@ fun TourenScreen(
                                 .lastOrNull()
                                 ?.let { app.repository.mediumDatei(it) },
                             beiKlick = {
-                                if (eintrag.tour.status == TourStatus.AUFNAHME) zurAufzeichnung()
+                                if (eintrag.tour.status == TourStatus.RECORDING) zurAufzeichnung()
                                 else zurTour(eintrag.tour.id)
                             },
                         )
@@ -232,14 +232,14 @@ private fun LokaleKarte(tour: TourEntity, titelbild: java.io.File?, beiKlick: ()
     // Eine lokale Tour ist per Definition noch nicht durch — sie hat immer
     // etwas zu melden.
     val meldung = when (tour.status) {
-        TourStatus.AUFNAHME -> Meldung(Icons.Default.FiberManualRecord, Alarm, "Aufnahme läuft")
-        TourStatus.LAEDT_HOCH -> Meldung(Icons.Default.CloudUpload, Sonne, "Wird geladen")
-        TourStatus.FEHLER -> Meldung(Icons.Default.ErrorOutline, Alarm, tour.fehler ?: "Fehler")
+        TourStatus.RECORDING -> Meldung(Icons.Default.FiberManualRecord, Alarm, "Aufnahme läuft")
+        TourStatus.UPLOADING -> Meldung(Icons.Default.CloudUpload, Sonne, "Wird geladen")
+        TourStatus.FAILED -> Meldung(Icons.Default.ErrorOutline, Alarm, tour.error ?: "Fehler")
         else -> Meldung(Icons.Default.CloudUpload, Tinte, "Wartet auf Upload")
     }
     Bildkarte(
-        titel = tour.titel ?: "Unbenannte Tour",
-        meta = listOfNotNull(km(tour.distanzM / 1000), datum(tour.startMs, tour.zone)),
+        titel = tour.title ?: "Unbenannte Tour",
+        meta = listOfNotNull(km(tour.distanceM / 1000), datum(tour.startMs, tour.zone)),
         meldung = meldung,
         bild = titelbild,
         beiKlick = beiKlick,
@@ -255,8 +255,8 @@ private fun ServerKarte(
 ) {
     val meldung = when (tour.status) {
         // „bereit" ist der Normalfall und deshalb stumm
-        "bereit" -> null
-        "fehler" -> Meldung(Icons.Default.ErrorOutline, Alarm, "Fehlgeschlagen")
+        "ready" -> null
+        "failed" -> Meldung(Icons.Default.ErrorOutline, Alarm, "Fehlgeschlagen")
         else -> Meldung(Icons.Default.HourglassEmpty, Sonne, "Wird verarbeitet")
     }
     Bildkarte(

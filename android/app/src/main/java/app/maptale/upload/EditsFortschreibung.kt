@@ -15,7 +15,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
-const val EDITS_SCHEMA = "maptale/edits@1"
+const val EDITS_SCHEMA = "maptale/edits@2"
 
 /**
  * Nutzertext eines Mediums setzen. Ein leerer Text wird als leerer String
@@ -23,15 +23,15 @@ const val EDITS_SCHEMA = "maptale/edits@1"
  * angefasst" (Feld fehlt).
  */
 fun mitMediumTitel(overlay: JsonObject, mediumId: String, titel: String?): JsonObject {
-    val medien = overlay["medien"]?.jsonObject ?: JsonObject(emptyMap())
+    val medien = overlay["media"]?.jsonObject ?: JsonObject(emptyMap())
     val eintrag = medien[mediumId]?.jsonObject ?: JsonObject(emptyMap())
     val neuerEintrag = ersetze(eintrag, "caption", JsonPrimitive(titel?.trim().orEmpty()))
-    return ersetze(grundgeruest(overlay), "medien", ersetze(medien, mediumId, neuerEintrag))
+    return ersetze(grundgeruest(overlay), "media", ersetze(medien, mediumId, neuerEintrag))
 }
 
 /** Titelbild der Tour festlegen. */
 fun mitTitelbild(overlay: JsonObject, mediumId: String): JsonObject =
-    ersetze(grundgeruest(overlay), "titelbild", JsonPrimitive(mediumId))
+    ersetze(grundgeruest(overlay), "cover", JsonPrimitive(mediumId))
 
 /**
  * Overlay unverändert übernehmen, aber das Schema-Feld sicherstellen: Bei einer

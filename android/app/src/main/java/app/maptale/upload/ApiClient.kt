@@ -34,7 +34,7 @@ data class ServerTour(
     val id: String,
     val no: String,
     val titel: String?,
-    /** bereit | verarbeitung | angelegt | fehler */
+    /** ready | processing | created | failed */
     val status: String,
     val km: Double?,
     /** Aufgestiegene Höhenmeter (für die Reise-Statistik im Profil) */
@@ -48,7 +48,7 @@ data class ServerTour(
     /** ISO-Zeitstempel des Anlegens — sortiert die verschmolzene Liste */
     val erstelltAm: String,
 ) {
-    val spielbar get() = status == "bereit"
+    val spielbar get() = status == "ready"
 }
 
 /**
@@ -97,8 +97,8 @@ data class Serverfoto(
      * Aufnahmezeit außerhalb der Tour); der Player überspringt solche Medien,
      * die Skizze lässt sie entsprechend aus.
      */
-    val ankerLng: Double?,
-    val ankerLat: Double?,
+    val anchorLng: Double?,
+    val anchorLat: Double?,
     /**
      * Aufnahmezeitpunkt (ISO) aus dem Manifest.
      *
@@ -152,12 +152,12 @@ data class TrackerAnbieter(
     /** Zugangsdaten auf dem Server hinterlegt; sonst gibt es nichts zu verbinden. */
     val verfuegbar: Boolean,
     val verbunden: Boolean,
-    /** `aktiv` · `abgelaufen` · `getrennt` — oder null, wenn nie verbunden. */
+    /** `active` · `expired` · `disconnected` — oder null, wenn nie verbunden. */
     val status: String?,
     val fehler: String?,
 ) {
     /** Der Zugang ist tot und muss neu erteilt werden — nicht dasselbe wie „nie verbunden". */
-    val abgelaufen get() = status == "abgelaufen"
+    val abgelaufen get() = status == "expired"
 }
 
 /**
@@ -216,7 +216,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
         withContext(Dispatchers.IO) {
             val body = buildJsonObject {
                 put("email", email)
-                put("passwort", passwort)
+                put("password", passwort)
                 put("tokenLabel", geraet)
             }.toString().toRequestBody(jsonTyp)
             val antwort = ausfuehren(
@@ -283,7 +283,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
             if (medien.isEmpty()) return@withContext emptyList()
             val koerper = buildJsonObject {
                 put(
-                    "medien",
+                    "media",
                     JsonArray(
                         medien.map { m ->
                             buildJsonObject {
@@ -293,14 +293,14 @@ class ApiClient(private val einstellungen: Einstellungen) {
                                 m.anker?.let { (lng, breite) ->
                                     put("anchor", JsonArray(listOf(JsonPrimitive(lng), JsonPrimitive(breite))))
                                 }
-                                m.quelle?.let { put("quelle", JsonPrimitive(it)) }
+                                m.quelle?.let { put("source", JsonPrimitive(it)) }
                             }
                         },
                     ),
                 )
             }.toString().toRequestBody(jsonTyp)
-            val antwort = ausfuehren(autorisiert("/api/tours/$serverTourId/medien").post(koerper).build())
-            val liste = antwort["medien"] as? JsonArray ?: return@withContext emptyList()
+            val antwort = ausfuehren(autorisiert("/api/tours/$serverTourId/media").post(koerper).build())
+            val liste = antwort["media"] as? JsonArray ?: return@withContext emptyList()
             liste.mapNotNull { (it as? JsonObject)?.get("id")?.jsonPrimitive?.contentOrNull }
         }
 
@@ -401,20 +401,20 @@ class ApiClient(private val einstellungen: Einstellungen) {
     /** Konto-Auskunft (E-Mail, Bestätigungsstand, Kontingent). */
     suspend fun kontoStand(): KontoStand = withContext(Dispatchers.IO) {
         val antwort = ausfuehren(autorisiert("/api/auth/me").get().build())
-        val benutzer = antwort["benutzer"] as? JsonObject ?: throw ApiFehler(401, "Nicht angemeldet")
+        val benutzer = antwort["user"] as? JsonObject ?: throw ApiFehler(401, "Nicht angemeldet")
         val quota = antwort["quota"] as? JsonObject
-        val profil = antwort["profil"] as? JsonObject
+        val profil = antwort["profile"] as? JsonObject
         KontoStand(
             email = benutzer["email"]?.jsonPrimitive?.contentOrNull ?: "",
             name = benutzer["name"]?.jsonPrimitive?.contentOrNull,
-            verifiziert = antwort["verifiziert"]?.jsonPrimitive?.booleanOrNull ?: true,
-            benutztBytes = quota?.get("benutzt")?.jsonPrimitive?.longOrNull ?: 0,
+            verifiziert = antwort["verified"]?.jsonPrimitive?.booleanOrNull ?: true,
+            benutztBytes = quota?.get("used")?.jsonPrimitive?.longOrNull ?: 0,
             limitBytes = quota?.get("limit")?.jsonPrimitive?.longOrNull ?: 0,
             profil = ProfilStand(
-                anzeigename = profil?.get("anzeigename")?.jsonPrimitive?.contentOrNull,
+                anzeigename = profil?.get("displayName")?.jsonPrimitive?.contentOrNull,
                 bio = profil?.get("bio")?.jsonPrimitive?.contentOrNull,
                 avatarUrl = profil?.get("avatarUrl")?.jsonPrimitive?.contentOrNull,
-                oeffentlich = profil?.get("sichtbarkeit")?.jsonPrimitive?.contentOrNull == "public",
+                oeffentlich = profil?.get("visibility")?.jsonPrimitive?.contentOrNull == "public",
             ),
         )
     }
@@ -423,11 +423,11 @@ class ApiClient(private val einstellungen: Einstellungen) {
     suspend fun setzeProfil(anzeigename: String? = null, bio: String? = null, oeffentlich: Boolean? = null) {
         withContext(Dispatchers.IO) {
             val body = buildJsonObject {
-                anzeigename?.let { put("anzeigename", it) }
+                anzeigename?.let { put("displayName", it) }
                 bio?.let { put("bio", it) }
-                oeffentlich?.let { put("sichtbarkeit", if (it) "public" else "private") }
+                oeffentlich?.let { put("visibility", if (it) "public" else "private") }
             }.toString().toRequestBody(jsonTyp)
-            ausfuehren(autorisiert("/api/auth/me/profil").patch(body).build())
+            ausfuehren(autorisiert("/api/auth/me/profile").patch(body).build())
         }
     }
 
@@ -503,8 +503,8 @@ class ApiClient(private val einstellungen: Einstellungen) {
                     zeitzeile = if (zeitzeile.isNotBlank()) zeitzeile else titel,
                     istVideo = obj["type"]?.jsonPrimitive?.contentOrNull == "video",
                     quellPfad = src,
-                    ankerLng = anker?.getOrNull(0)?.jsonPrimitive?.doubleOrNull,
-                    ankerLat = anker?.getOrNull(1)?.jsonPrimitive?.doubleOrNull,
+                    anchorLng = anker?.getOrNull(0)?.jsonPrimitive?.doubleOrNull,
+                    anchorLat = anker?.getOrNull(1)?.jsonPrimitive?.doubleOrNull,
                     aufgenommenIso = obj["takenAt"]?.jsonPrimitive?.contentOrNull,
                 )
             },
@@ -540,7 +540,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
      * Sitzung blieben private Touren in der eigenen App unabspielbar.
      */
     suspend fun sitzungFuerPlayer(): String = withContext(Dispatchers.IO) {
-        val antwort = ausfuehren(autorisiert("/api/auth/session-aus-token").post("".toRequestBody()).build())
+        val antwort = ausfuehren(autorisiert("/api/auth/session-from-token").post("".toRequestBody()).build())
         antwort["sessionId"]?.jsonPrimitive?.contentOrNull ?: throw ApiFehler(200, "Antwort ohne sessionId")
     }
 
@@ -548,17 +548,17 @@ class ApiClient(private val einstellungen: Einstellungen) {
 
     suspend fun trackerAnbieter(): List<TrackerAnbieter> = withContext(Dispatchers.IO) {
         val antwort = ausfuehren(autorisiert("/api/tracker/providers").get().build())
-        val liste = antwort["anbieter"] as? JsonArray ?: return@withContext emptyList()
+        val liste = antwort["provider"] as? JsonArray ?: return@withContext emptyList()
         liste.mapNotNull { element ->
             val obj = element as? JsonObject ?: return@mapNotNull null
             val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
             TrackerAnbieter(
                 id = id,
                 name = obj["name"]?.jsonPrimitive?.contentOrNull ?: id,
-                verfuegbar = obj["verfuegbar"]?.jsonPrimitive?.booleanOrNull ?: false,
-                verbunden = obj["verbunden"]?.jsonPrimitive?.booleanOrNull ?: false,
+                verfuegbar = obj["available"]?.jsonPrimitive?.booleanOrNull ?: false,
+                verbunden = obj["connected"]?.jsonPrimitive?.booleanOrNull ?: false,
                 status = obj["status"]?.jsonPrimitive?.contentOrNull,
-                fehler = obj["fehler"]?.jsonPrimitive?.contentOrNull,
+                fehler = obj["error"]?.jsonPrimitive?.contentOrNull,
             )
         }
     }
@@ -573,7 +573,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
     suspend fun trackerVerbindenUrl(anbieterId: String): String = withContext(Dispatchers.IO) {
         val koerper = """{"ziel":"app"}""".toRequestBody(jsonTyp)
         val antwort = ausfuehren(autorisiert("/api/tracker/$anbieterId/connect").post(koerper).build())
-        antwort["autorisierungsUrl"]?.jsonPrimitive?.contentOrNull
+        antwort["authorizationUrl"]?.jsonPrimitive?.contentOrNull
             ?: throw ApiFehler(200, "Antwort ohne Autorisierungs-URL")
     }
 
@@ -595,7 +595,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
             val koerper = buildJsonObject { put("ids", JsonArray(ids.map { JsonPrimitive(it) })) }
                 .toString()
                 .toRequestBody(jsonTyp)
-            ausfuehren(autorisiert("/api/tracker/imports/gesehen").post(koerper).build())
+            ausfuehren(autorisiert("/api/tracker/imports/seen").post(koerper).build())
         }
     }
 
@@ -608,18 +608,18 @@ class ApiClient(private val einstellungen: Einstellungen) {
      * anschließend mit `trackerImporteGesehen`.
      */
     suspend fun trackerOffeneImporte(quittieren: Boolean): List<TrackerImport> = withContext(Dispatchers.IO) {
-        val pfad = "/api/tracker/imports/pending" + if (quittieren) "?gesehen=1" else ""
+        val pfad = "/api/tracker/imports/pending" + if (quittieren) "?seen=1" else ""
         val antwort = ausfuehren(autorisiert(pfad).get().build())
-        val liste = antwort["importe"] as? JsonArray ?: return@withContext emptyList()
+        val liste = antwort["imports"] as? JsonArray ?: return@withContext emptyList()
         liste.mapNotNull { element ->
             val obj = element as? JsonObject ?: return@mapNotNull null
             val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
             TrackerImport(
                 id = id,
-                anbieter = obj["anbieter"]?.jsonPrimitive?.contentOrNull ?: "",
+                anbieter = obj["provider"]?.jsonPrimitive?.contentOrNull ?: "",
                 status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "",
                 tourId = obj["tourId"]?.jsonPrimitive?.contentOrNull,
-                fehler = obj["fehler"]?.jsonPrimitive?.contentOrNull,
+                fehler = obj["error"]?.jsonPrimitive?.contentOrNull,
             )
         }
     }
@@ -634,16 +634,16 @@ class ApiClient(private val einstellungen: Einstellungen) {
     suspend fun pushGeraetAnmelden(token: String): Boolean = withContext(Dispatchers.IO) {
         val koerper = buildJsonObject {
             put("token", JsonPrimitive(token))
-            put("plattform", JsonPrimitive("android"))
+            put("platform", JsonPrimitive("android"))
         }.toString().toRequestBody(jsonTyp)
-        val antwort = ausfuehren(autorisiert("/api/push/geraete").post(koerper).build())
+        val antwort = ausfuehren(autorisiert("/api/push/devices").post(koerper).build())
         antwort["push"]?.jsonPrimitive?.booleanOrNull == true
     }
 
     suspend fun pushGeraetAbmelden(token: String) {
         withContext(Dispatchers.IO) {
             val koerper = buildJsonObject { put("token", JsonPrimitive(token)) }.toString().toRequestBody(jsonTyp)
-            ausfuehren(autorisiert("/api/push/geraete").delete(koerper).build())
+            ausfuehren(autorisiert("/api/push/devices").delete(koerper).build())
         }
     }
 
@@ -660,7 +660,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
             val text = antwort.body?.string() ?: "{}"
             if (!antwort.isSuccessful) {
                 val detail = runCatching {
-                    json.parseToJsonElement(text).let { (it as? JsonObject)?.get("fehler")?.jsonPrimitive?.content }
+                    json.parseToJsonElement(text).let { (it as? JsonObject)?.get("error")?.jsonPrimitive?.content }
                 }.getOrNull()
                 throw ApiFehler(antwort.code, detail ?: text.take(200))
             }

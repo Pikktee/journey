@@ -35,13 +35,28 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
  */
 val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE touren ADD COLUMN modusAutomatisch INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE touren ADD COLUMN travelModeAuto INTEGER NOT NULL DEFAULT 0")
     }
 }
 
+/**
+ * 3→4: Welle 1 der Englisch-Migration — Tabellen, Spalten und Enum-Speicherwerte
+ * gehen auf Englisch
+ * ([konzept_codebase_english_refactoring.md](../../../../../../../docs/concepts/konzept_codebase_english_refactoring.md)
+ * §4.4).
+ *
+ * Der Schritt ist DESTRUKTIV, und das ist eine einmalige Ausnahme: Auf den
+ * Geräten liegen zu diesem Zeitpunkt nur Aufnahmen des Betreibers (§4.5), und
+ * sie sind hochgeladen. Nach Welle 7 kommt die Zusage zurück — Aufruf raus,
+ * Kommentar wieder hin, ab v5 wieder echte Migrationen.
+ *
+ * `fallbackToDestructiveMigration` ist dabei kein Ersatz für „einfach neu
+ * installieren": Ein APK-Update DERSELBEN Signatur trifft auf eine v3-Datenbank
+ * und stürzte ohne diesen Aufruf beim Start ab.
+ */
 @Database(
     entities = [TourEntity::class, TrackpunktEntity::class, ModuswechselEntity::class, MediumEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(EnumKonverter::class)
@@ -49,12 +64,13 @@ abstract class MaptaleDb : RoomDatabase() {
     abstract fun tourDao(): TourDao
 
     companion object {
-        // Bewusst OHNE fallbackToDestructiveMigration: auf dem Gerät liegen echte,
-        // noch nicht hochgeladene Aufnahmen — ein Schema-Sprung darf sie nicht
-        // wegwerfen. Jede neue Version braucht hier ihre Migration.
+        // AUSNAHME für den einen Schritt 3→4 (s. oben): Der Rückfall wirft die
+        // lokale Datenbank weg, statt beim Start abzustürzen. Danach gilt wieder
+        // die Regel — jede neue Version braucht ihre Migration.
         fun baue(context: Context): MaptaleDb =
             Room.databaseBuilder(context, MaptaleDb::class.java, "maptale.db")
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
     }
 }

@@ -43,23 +43,23 @@ class TourRepositoryTest {
     @Test
     fun `Aufnahme starten, Punkte speichern, beenden`() = runTest {
         val tour = repo.starteAufnahme(Modus.BIKE, jetztMs = 1_000_000)
-        assertEquals(TourStatus.AUFNAHME, tour.status)
-        assertEquals(Modus.BIKE, repo.moduswechsel(tour.id).single().modus)
+        assertEquals(TourStatus.RECORDING, tour.status)
+        assertEquals(Modus.BIKE, repo.moduswechsel(tour.id).single().travelMode)
 
         repo.speicherePunkte(
             tour.id,
             listOf(
-                TrackpunktEntity(tourId = tour.id, lng = 8.0, lat = 46.59, ele = 500.0, tOffsetS = 0.0, genauigkeitM = 5f),
-                TrackpunktEntity(tourId = tour.id, lng = 8.001, lat = 46.59, ele = 501.0, tOffsetS = 10.0, genauigkeitM = 5f),
+                TrackpunktEntity(tourId = tour.id, lng = 8.0, lat = 46.59, ele = 500.0, tOffsetS = 0.0, accuracyM = 5f),
+                TrackpunktEntity(tourId = tour.id, lng = 8.001, lat = 46.59, ele = 501.0, tOffsetS = 10.0, accuracyM = 5f),
             ),
-            distanzM = 76.4,
+            distanceM = 76.4,
         )
-        repo.beendeAufnahme(tour.id, titel = null, endeMs = 1_600_000)
+        repo.beendeAufnahme(tour.id, titel = null, endMs = 1_600_000)
 
         val geladen = repo.tour(tour.id)!!
-        assertEquals(TourStatus.ENTWURF, geladen.status)
-        assertEquals(1_600_000L, geladen.endeMs)
-        assertEquals(76.4, geladen.distanzM, 1e-9)
+        assertEquals(TourStatus.DRAFT, geladen.status)
+        assertEquals(1_600_000L, geladen.endMs)
+        assertEquals(76.4, geladen.distanceM, 1e-9)
         assertEquals(2, repo.punkte(tour.id).size)
     }
 
@@ -71,7 +71,7 @@ class TourRepositoryTest {
         val medien = repo.medien(tour.id)
         assertEquals(listOf("m1", "m2"), medien.map { it.id })
         assertEquals(2, repo.medienAnzahl(tour.id).first())
-        assertNull(medien[1].ankerLng)
+        assertNull(medien[1].anchorLng)
     }
 
     @Test
@@ -82,7 +82,7 @@ class TourRepositoryTest {
         repo.registriereFoto(tour.id, "touren/${tour.id}/c.jpg", 300, null)
         val medien = repo.medien(tour.id)
         assertEquals(listOf("m1", "m2", "m3"), medien.map { it.id })
-        assertEquals(listOf("photo", "video", "photo"), medien.map { it.typ })
+        assertEquals(listOf("photo", "video", "photo"), medien.map { it.type })
     }
 
     @Test
@@ -98,8 +98,8 @@ class TourRepositoryTest {
 
         // Upload-Status trifft nur das Medium der richtigen Tour
         repo.setzeMediumHochgeladen(zweite.id, "m1")
-        assertEquals(MediumUploadStatus.LOKAL, repo.medien(erste.id).single().uploadStatus)
-        assertEquals(MediumUploadStatus.HOCHGELADEN, repo.medien(zweite.id).single().uploadStatus)
+        assertEquals(MediumUploadStatus.LOCAL, repo.medien(erste.id).single().uploadStatus)
+        assertEquals(MediumUploadStatus.UPLOADED, repo.medien(zweite.id).single().uploadStatus)
     }
 
     @Test

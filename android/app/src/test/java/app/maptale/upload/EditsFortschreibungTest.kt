@@ -19,9 +19,9 @@ class EditsFortschreibungTest {
     fun `Overlay einer Tour ohne edits-Datei bekommt das Schema`() {
         // Der Server antwortet dann nur mit dem Schema-Feld; ohne es weist die
         // strenge Prüfung beim Speichern das Overlay ab.
-        val neu = mitMediumTitel(lies("""{"schema":"maptale/edits@1"}"""), "m1", "Bucht")
+        val neu = mitMediumTitel(lies("""{"schema":"maptale/edits@2"}"""), "m1", "Bucht")
         assertEquals(EDITS_SCHEMA, neu["schema"]?.jsonPrimitive?.content)
-        assertEquals("Bucht", neu["medien"]!!.jsonObject["m1"]!!.jsonObject["caption"]!!.jsonPrimitive.content)
+        assertEquals("Bucht", neu["media"]!!.jsonObject["m1"]!!.jsonObject["caption"]!!.jsonPrimitive.content)
     }
 
     @Test
@@ -29,12 +29,12 @@ class EditsFortschreibungTest {
         val vorher = lies(
             """
             {
-              "schema": "maptale/edits@1",
+              "schema": "maptale/edits@2",
               "kamera": [{"ab": "2026-07-04T09:00:00Z", "preset": "weit"}],
               "audio": [{"datei": "song.mp3", "typ": "musik", "ab": "2026-07-04T09:00:00Z"}],
               "wetter": [{"ab": "2026-07-04T09:00:00Z", "mode": "rain"}],
               "trim": {"start": "2026-07-04T08:30:00Z"},
-              "titelbild": "m4"
+              "cover": "m4"
             }
             """.trimIndent(),
         )
@@ -44,7 +44,7 @@ class EditsFortschreibungTest {
         assertEquals(vorher["audio"], nachher["audio"])
         assertEquals(vorher["wetter"], nachher["wetter"])
         assertEquals(vorher["trim"], nachher["trim"])
-        assertEquals(vorher["titelbild"], nachher["titelbild"])
+        assertEquals(vorher["cover"], nachher["cover"])
     }
 
     @Test
@@ -52,15 +52,15 @@ class EditsFortschreibungTest {
         val vorher = lies(
             """
             {
-              "schema": "maptale/edits@1",
-              "medien": {
+              "schema": "maptale/edits@2",
+              "media": {
                 "m1": {"caption": "Alt", "display": {"holdS": 5, "kenBurns": true}},
                 "m2": {"geloescht": true}
               }
             }
             """.trimIndent(),
         )
-        val medien = mitMediumTitel(vorher, "m1", "Neu")["medien"]!!.jsonObject
+        val medien = mitMediumTitel(vorher, "m1", "Neu")["media"]!!.jsonObject
 
         assertEquals("Neu", medien["m1"]!!.jsonObject["caption"]!!.jsonPrimitive.content)
         // Anzeige-Optionen desselben Mediums überleben die Titeländerung
@@ -71,18 +71,18 @@ class EditsFortschreibungTest {
     @Test
     fun `geleerter Titel wird ausdruecklich geleert, nicht weggelassen`() {
         // Das Overlay unterscheidet '' (leeren) von „Feld fehlt" (Original behalten)
-        val nachher = mitMediumTitel(lies("""{"schema":"maptale/edits@1"}"""), "m1", "   ")
-        val eintrag = nachher["medien"]!!.jsonObject["m1"]!!.jsonObject
+        val nachher = mitMediumTitel(lies("""{"schema":"maptale/edits@2"}"""), "m1", "   ")
+        val eintrag = nachher["media"]!!.jsonObject["m1"]!!.jsonObject
         assertTrue(eintrag.containsKey("caption"))
         assertEquals("", eintrag["caption"]!!.jsonPrimitive.content)
     }
 
     @Test
     fun `Titelbild setzen laesst Medien-Titel stehen`() {
-        val mitTitel = mitMediumTitel(lies("""{"schema":"maptale/edits@1"}"""), "m1", "Bucht")
+        val mitTitel = mitMediumTitel(lies("""{"schema":"maptale/edits@2"}"""), "m1", "Bucht")
         val nachher = mitTitelbild(mitTitel, "m1")
 
-        assertEquals("m1", nachher["titelbild"]!!.jsonPrimitive.content)
-        assertEquals("Bucht", nachher["medien"]!!.jsonObject["m1"]!!.jsonObject["caption"]!!.jsonPrimitive.content)
+        assertEquals("m1", nachher["cover"]!!.jsonPrimitive.content)
+        assertEquals("Bucht", nachher["media"]!!.jsonObject["m1"]!!.jsonObject["caption"]!!.jsonPrimitive.content)
     }
 }

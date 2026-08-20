@@ -270,8 +270,8 @@ fun ServerTourScreen(
                     // gehörte. Im Gitter darunter sind sie trotzdem alle.
                     val fotomarken = remember(detail) {
                         fotos.mapNotNull { foto ->
-                            val lng = foto.ankerLng
-                            val lat = foto.ankerLat
+                            val lng = foto.anchorLng
+                            val lat = foto.anchorLat
                             if (lng != null && lat != null) Fotomarke(foto.id, lng, lat) else null
                         }
                     }

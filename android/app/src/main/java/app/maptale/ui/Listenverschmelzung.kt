@@ -44,12 +44,12 @@ sealed interface Toureintrag {
  */
 fun verschmelzeTouren(lokale: List<TourEntity>, vomServer: List<ServerTour>): List<Toureintrag> {
     val fertigHochgeladen = lokale
-        .filter { it.status == TourStatus.HOCHGELADEN }
+        .filter { it.status == TourStatus.UPLOADED }
         .mapNotNull { it.serverId }
         .toSet()
     // Server-Einträge, die lokal noch in Arbeit sind, werden unterdrückt
     val lokalInArbeit = lokale
-        .filter { it.status != TourStatus.HOCHGELADEN }
+        .filter { it.status != TourStatus.UPLOADED }
         .mapNotNull { it.serverId }
         .toSet()
 
@@ -69,7 +69,7 @@ fun verschmelzeTouren(lokale: List<TourEntity>, vomServer: List<ServerTour>): Li
 }
 
 private fun laeuft(eintrag: Toureintrag): Boolean =
-    eintrag is Toureintrag.Lokal && eintrag.tour.status == TourStatus.AUFNAHME
+    eintrag is Toureintrag.Lokal && eintrag.tour.status == TourStatus.RECORDING
 
 /**
  * ISO-Zeitstempel des Servers zu Millisekunden. Ein unlesbarer Wert darf die

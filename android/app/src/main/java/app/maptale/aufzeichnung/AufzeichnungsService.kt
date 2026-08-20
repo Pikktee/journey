@@ -45,7 +45,7 @@ class AufzeichnungsService : LifecycleService() {
     private var startMs = 0L
     private var pausiert = false
     /** Nur bei „Automatisch" erkennt die App das Fortbewegungsmittel selbst. */
-    private var modusAutomatisch = false
+    private var travelModeAuto = false
 
     private val locationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
 
@@ -59,7 +59,7 @@ class AufzeichnungsService : LifecycleService() {
                     lat = ort.latitude,
                     ele = if (ort.hasAltitude()) ort.altitude else 0.0,
                     tOffsetS = (ort.time - startMs) / 1000.0,
-                    genauigkeitM = if (ort.hasAccuracy()) ort.accuracy else 999f,
+                    accuracyM = if (ort.hasAccuracy()) ort.accuracy else 999f,
                     // Unterscheidet Gehen von Stehen — ohne das hielte der
                     // Filter das Positionsrauschen einer Rast für Wegstrecke.
                     tempoMps = if (ort.hasSpeed()) ort.speed else null,
@@ -73,13 +73,13 @@ class AufzeichnungsService : LifecycleService() {
                             lat = punkt.lat,
                             ele = punkt.ele,
                             tOffsetS = punkt.tOffsetS,
-                            genauigkeitM = punkt.genauigkeitM,
+                            accuracyM = punkt.accuracyM,
                         ),
                     )
                 }
                 AufzeichnungsZustand.aktualisiere {
                     it.copy(
-                        distanzM = filter.distanzM,
+                        distanceM = filter.distanceM,
                         punktAnzahl = it.punktAnzahl + 1,
                         letzterPunkt = punkt,
                         spur = ergaenzeSpur(it.spur, Spurpunkt(punkt.lng, punkt.lat)),
@@ -116,7 +116,7 @@ class AufzeichnungsService : LifecycleService() {
      * — und die schwerer zu testende.
      */
     private fun deuteBewegung(art: Bewegungsart) {
-        if (!modusAutomatisch || pausiert) return
+        if (!travelModeAuto || pausiert) return
         val neu = Bewegungsdeutung.modus(art)
         if (neu == AufzeichnungsZustand.aktuell.value?.modus) return
         wechsleModus(neu)
@@ -134,7 +134,7 @@ class AufzeichnungsService : LifecycleService() {
         // Ohne die Berechtigung dafür bliebe sie stumm — dann ist es keine
         // Automatik mehr, und der Server soll seine Tempo-Erkennung anwenden.
         val automatik = gewaehlt == null && Bewegungserkennung.darfErkennen(this)
-        modusAutomatisch = automatik
+        travelModeAuto = automatik
         val modus = gewaehlt ?: Modus.WALK
         startForeground(
             NOTIFICATION_ID,
@@ -143,7 +143,7 @@ class AufzeichnungsService : LifecycleService() {
         )
         if (automatik) Bewegungserkennung.starte(this)
         lifecycleScope.launch {
-            val tour = app.repository.starteAufnahme(modus, titel = titel, modusAutomatisch = automatik)
+            val tour = app.repository.starteAufnahme(modus, titel = titel, travelModeAuto = automatik)
             tourId = tour.id
             startMs = tour.startMs
             AufzeichnungsZustand.starte(tour.id, tour.startMs, modus)
@@ -179,7 +179,7 @@ class AufzeichnungsService : LifecycleService() {
         // Vor allem anderen abbestellen: Ein liegen gebliebener PendingIntent
         // weckt die App noch tagelang bei jedem Übergang.
         Bewegungserkennung.stoppe(this)
-        modusAutomatisch = false
+        travelModeAuto = false
         lifecycleScope.launch {
             // FusedLocation batcht bis 10 s — erst die einbehaltenen Fixe
             // ausliefern lassen (Callback nimmt noch an), DANN abklemmen.
@@ -206,7 +206,7 @@ class AufzeichnungsService : LifecycleService() {
             puffer.clear()
             kopie
         }
-        app.repository.speicherePunkte(ziel, batch, filter.distanzM)
+        app.repository.speicherePunkte(ziel, batch, filter.distanceM)
     }
 
     private fun baueNotification(): Notification {

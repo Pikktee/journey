@@ -38,7 +38,7 @@ data class RohPunkt(
     val ele: Double,
     /** Sekunden seit Tour-Start */
     val tOffsetS: Double,
-    val genauigkeitM: Float,
+    val accuracyM: Float,
     /**
      * Vom Empfänger gemessenes Tempo (m/s); null, wenn er keins liefert.
      *
@@ -60,7 +60,7 @@ class PunktFilter(
     private var vorletzter: RohPunkt? = null
 
     /** Kumulierte Distanz der AKZEPTIERTEN Punkte (m) — speist die Telemetrie. */
-    var distanzM: Double = 0.0
+    var distanceM: Double = 0.0
         private set
 
     /**
@@ -68,13 +68,13 @@ class PunktFilter(
      * interner Referenzzustand (Kurs/Distanz beziehen sich immer darauf).
      */
     fun pruefe(punkt: RohPunkt): Boolean {
-        if (punkt.genauigkeitM > maxGenauigkeitM) return false
+        if (punkt.accuracyM > maxGenauigkeitM) return false
         val letzterPunkt = letzter ?: return akzeptiere(punkt)
 
         // Zeit läuft rückwärts (Batch-Nachzügler) → verwerfen
         if (punkt.tOffsetS <= letzterPunkt.tOffsetS) return false
 
-        val distanz = distanzM(letzterPunkt.lng, letzterPunkt.lat, punkt.lng, punkt.lat)
+        val distanz = distanceM(letzterPunkt.lng, letzterPunkt.lat, punkt.lng, punkt.lat)
         val zeit = punkt.tOffsetS - letzterPunkt.tOffsetS
         val kursAlt = vorletzter?.let { kursGrad(it.lng, it.lat, letzterPunkt.lng, letzterPunkt.lat) }
         val kursNeu = kursGrad(letzterPunkt.lng, letzterPunkt.lat, punkt.lng, punkt.lat)
@@ -98,7 +98,7 @@ class PunktFilter(
 
         // Im Stand zurückgelegte „Strecke" ist Rauschen und darf die Telemetrie
         // nicht aufblähen.
-        if (bewegt) distanzM += distanz
+        if (bewegt) distanceM += distanz
         return akzeptiere(punkt)
     }
 
@@ -112,7 +112,7 @@ class PunktFilter(
         private const val ERDRADIUS_M = 6_371_000.0
 
         /** Haversine-Distanz in Metern. */
-        fun distanzM(lng1: Double, lat1: Double, lng2: Double, lat2: Double): Double {
+        fun distanceM(lng1: Double, lat1: Double, lng2: Double, lat2: Double): Double {
             val dLat = Math.toRadians(lat2 - lat1)
             val dLng = Math.toRadians(lng2 - lng1)
             val h = sin(dLat / 2) * sin(dLat / 2) +

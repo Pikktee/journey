@@ -35,8 +35,8 @@ import androidx.exifinterface.media.ExifInterface
  * Fehlt die Leseberechtigung, wirft der ContentResolver — gefangen, weil ein
  * Vorschlag, der nicht zustande kommt, kein Grund ist, irgendetwas abzubrechen.
  */
-fun bilderImZeitfenster(context: Context, startMs: Long, endeMs: Long): List<Galeriebild> {
-    val fenster = suchfenster(startMs, endeMs)
+fun bilderImZeitfenster(context: Context, startMs: Long, endMs: Long): List<Galeriebild> {
+    val fenster = suchfenster(startMs, endMs)
     // ZWEI Abfragen, weil MediaStore zwei Sammlungen führt. Videos fehlten hier
     // bis 2026-08-10 vollständig: Wer unterwegs filmte, bekam sie nie
     // vorgeschlagen — obwohl die Pipeline sie längst annimmt (Transcode,
@@ -45,7 +45,7 @@ fun bilderImZeitfenster(context: Context, startMs: Long, endeMs: Long): List<Gal
     return (
         frage(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, fenster, istVideo = false) +
             frage(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, fenster, istVideo = true)
-        ).sortedBy { it.aufgenommenMs }
+        ).sortedBy { it.takenAtMs }
 }
 
 /**
@@ -98,7 +98,7 @@ private fun leseBilder(zeiger: Cursor, istVideo: Boolean): List<Galeriebild> {
         bilder += Galeriebild(
             id = zeiger.getLong(spalteId),
             dateiname = zeiger.getString(spalteName) ?: if (istVideo) "video.mp4" else "foto.jpg",
-            aufgenommenMs = zeiger.getLong(spalteZeit),
+            takenAtMs = zeiger.getLong(spalteZeit),
             ordner = if (zeiger.isNull(spalteOrdner)) null else zeiger.getString(spalteOrdner),
             istVideo = istVideo,
         )

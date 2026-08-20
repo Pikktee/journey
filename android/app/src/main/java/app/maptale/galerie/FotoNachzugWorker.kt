@@ -117,7 +117,7 @@ class FotoNachzugWorker(
      * sobald die Benachrichtigungs-Berechtigung fehlt.
      */
     private fun alsImport(tourId: String, importId: String?) =
-        TrackerImport(id = importId ?: "", anbieter = "", status = "fertig", tourId = tourId, fehler = null)
+        TrackerImport(id = importId ?: "", anbieter = "", status = "done", tourId = tourId, fehler = null)
 
     private suspend fun melde(app: MaptaleApp, tourId: String, importId: String?, fotos: Int): Result {
         val (titel, unterzeile) = beschreibeTouren(app, listOf(alsImport(tourId, importId)), fotos)

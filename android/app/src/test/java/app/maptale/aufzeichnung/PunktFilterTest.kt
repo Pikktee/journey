@@ -9,7 +9,7 @@ import org.junit.Test
 
 class PunktFilterTest {
 
-    private val start = RohPunkt(lng = 8.0, lat = 46.59, ele = 500.0, tOffsetS = 0.0, genauigkeitM = 5f)
+    private val start = RohPunkt(lng = 8.0, lat = 46.59, ele = 500.0, tOffsetS = 0.0, accuracyM = 5f)
 
     /** Punkt `meter` östlich des Starts (auf Breitengrad 46,59). */
     private fun oestlich(meter: Double, tS: Double, genauigkeit: Float = 5f) = RohPunkt(
@@ -17,13 +17,13 @@ class PunktFilterTest {
         lat = 46.59,
         ele = 500.0,
         tOffsetS = tS,
-        genauigkeitM = genauigkeit,
+        accuracyM = genauigkeit,
     )
 
     @Test
     fun `verwirft ungenaue Punkte`() {
         val filter = PunktFilter()
-        assertFalse(filter.pruefe(start.copy(genauigkeitM = 31f)))
+        assertFalse(filter.pruefe(start.copy(accuracyM = 31f)))
         assertTrue(filter.pruefe(start))
     }
 
@@ -72,7 +72,7 @@ class PunktFilterTest {
         filter.pruefe(start)
         filter.pruefe(oestlich(10.0, 2.0))
         filter.pruefe(oestlich(20.0, 4.0))
-        assertEquals(20.0, filter.distanzM, 0.5)
+        assertEquals(20.0, filter.distanceM, 0.5)
     }
 
     @Test
@@ -108,7 +108,7 @@ class PunktFilterTest {
             val punkt = RohPunkt(8.68, 50.11 + versatz / 111_320.0, 100.0, i * 2.0, 8f, tempoMps = 0.1f)
             if (filter.pruefe(punkt)) akzeptiert++
         }
-        assertEquals(0.0, filter.distanzM, 0.001)
+        assertEquals(0.0, filter.distanceM, 0.001)
         // Der 30-Sekunden-Takt läuft weiter — das Backend braucht ihn, um die
         // Pause überhaupt zu erkennen.
         assertTrue(akzeptiert in 15..25)

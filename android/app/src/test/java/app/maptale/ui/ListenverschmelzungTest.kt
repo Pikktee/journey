@@ -17,10 +17,10 @@ class ListenverschmelzungTest {
         startMs: Long = 1_000,
     ) = TourEntity(
         id = id,
-        titel = null,
-        beschreibung = null,
+        title = null,
+        description = null,
         startMs = startMs,
-        endeMs = startMs + 1000,
+        endMs = startMs + 1000,
         zone = "Europe/Berlin",
         status = status,
         serverId = serverId,
@@ -41,7 +41,7 @@ class ListenverschmelzungTest {
 
     @Test
     fun `Tour ohne Server-Pendant erscheint lokal`() {
-        val liste = verschmelzeTouren(listOf(lokal("l1", TourStatus.ENTWURF)), emptyList())
+        val liste = verschmelzeTouren(listOf(lokal("l1", TourStatus.DRAFT)), emptyList())
         assertEquals(1, liste.size)
         assertTrue(liste[0] is Toureintrag.Lokal)
     }
@@ -52,7 +52,7 @@ class ListenverschmelzungTest {
         // Tour, während lokal noch Medien hochgeladen werden. Nur die lokale
         // Karte kennt Fortschritt und Fehler.
         val liste = verschmelzeTouren(
-            listOf(lokal("l1", TourStatus.LAEDT_HOCH, serverId = "t_1")),
+            listOf(lokal("l1", TourStatus.UPLOADING, serverId = "t_1")),
             listOf(server("t_1")),
         )
         assertEquals(1, liste.size)
@@ -62,7 +62,7 @@ class ListenverschmelzungTest {
     @Test
     fun `Nach dem Upload gewinnt die Server-Darstellung`() {
         val liste = verschmelzeTouren(
-            listOf(lokal("l1", TourStatus.HOCHGELADEN, serverId = "t_1")),
+            listOf(lokal("l1", TourStatus.UPLOADED, serverId = "t_1")),
             listOf(server("t_1")),
         )
         assertEquals(1, liste.size)
@@ -72,7 +72,7 @@ class ListenverschmelzungTest {
     @Test
     fun `Ein fehlgeschlagener Teilupload bleibt sichtbar`() {
         val liste = verschmelzeTouren(
-            listOf(lokal("l1", TourStatus.FEHLER, serverId = "t_1")),
+            listOf(lokal("l1", TourStatus.FAILED, serverId = "t_1")),
             listOf(server("t_1")),
         )
         assertEquals(listOf("l1"), liste.map { it.schluessel })
@@ -89,8 +89,8 @@ class ListenverschmelzungTest {
     fun `Die laufende Aufnahme steht immer oben`() {
         val liste = verschmelzeTouren(
             listOf(
-                lokal("alt", TourStatus.ENTWURF, startMs = 9_000_000),
-                lokal("laeuft", TourStatus.AUFNAHME, startMs = 1_000),
+                lokal("alt", TourStatus.DRAFT, startMs = 9_000_000),
+                lokal("laeuft", TourStatus.RECORDING, startMs = 1_000),
             ),
             listOf(server("t_1", erstelltAm = "2030-01-01T00:00:00Z")),
         )
@@ -100,7 +100,7 @@ class ListenverschmelzungTest {
     @Test
     fun `Sonst sortiert die Zeit, neueste zuerst`() {
         val liste = verschmelzeTouren(
-            listOf(lokal("l_alt", TourStatus.ENTWURF, startMs = 1_000_000)),
+            listOf(lokal("l_alt", TourStatus.DRAFT, startMs = 1_000_000)),
             listOf(server("t_neu", erstelltAm = "2030-01-01T00:00:00Z")),
         )
         assertEquals(listOf("t_neu", "l_alt"), liste.map { it.schluessel })
@@ -110,7 +110,7 @@ class ListenverschmelzungTest {
     fun `Ein unlesbarer Zeitstempel kippt die Sortierung nicht`() {
         assertEquals(0L, zeitstempel("kaputt"))
         val liste = verschmelzeTouren(
-            listOf(lokal("l1", TourStatus.ENTWURF, startMs = 5_000)),
+            listOf(lokal("l1", TourStatus.DRAFT, startMs = 5_000)),
             listOf(server("t_kaputt", erstelltAm = "kaputt")),
         )
         assertEquals(listOf("l1", "t_kaputt"), liste.map { it.schluessel })

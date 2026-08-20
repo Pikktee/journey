@@ -9,16 +9,16 @@ import org.junit.Test
 
 class ReisestatistikTest {
 
-    private fun lokal(status: TourStatus, distanzM: Double) = Toureintrag.Lokal(
+    private fun lokal(status: TourStatus, distanceM: Double) = Toureintrag.Lokal(
         TourEntity(
-            id = "l-$status-$distanzM",
-            titel = null,
-            beschreibung = null,
+            id = "l-$status-$distanceM",
+            title = null,
+            description = null,
             startMs = 1_000,
-            endeMs = 2_000,
+            endMs = 2_000,
             zone = "Europe/Berlin",
             status = status,
-            distanzM = distanzM,
+            distanceM = distanceM,
         ),
     )
 
@@ -40,7 +40,7 @@ class ReisestatistikTest {
     @Test
     fun `zaehlt beide Quellen zusammen`() {
         val statistik = berechneReisestatistik(
-            listOf(server(12.5, 300.0), server(7.5, 120.0), lokal(TourStatus.ENTWURF, distanzM = 4_000.0)),
+            listOf(server(12.5, 300.0), server(7.5, 120.0), lokal(TourStatus.DRAFT, distanceM = 4_000.0)),
         )
         assertEquals(3, statistik.touren)
         assertEquals(24.0, statistik.kilometer, 1e-9)
@@ -49,7 +49,7 @@ class ReisestatistikTest {
 
     @Test
     fun `die laufende Aufnahme zaehlt noch nicht`() {
-        val statistik = berechneReisestatistik(listOf(lokal(TourStatus.AUFNAHME, distanzM = 900.0)))
+        val statistik = berechneReisestatistik(listOf(lokal(TourStatus.RECORDING, distanceM = 900.0)))
         assertEquals(0, statistik.touren)
         assertEquals(0.0, statistik.kilometer, 1e-9)
     }

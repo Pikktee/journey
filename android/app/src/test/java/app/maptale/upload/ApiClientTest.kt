@@ -44,7 +44,7 @@ class ApiClientTest {
 
     @Test
     fun `login liefert das API-Token`() = runTest {
-        server.enqueue(MockResponse().setBody("""{"benutzer":{},"apiToken":"lhb_neu"}"""))
+        server.enqueue(MockResponse().setBody("""{"user":{},"apiToken":"lhb_neu"}"""))
         val token = client.login(server.url("/").toString().trimEnd('/'), "a@b.c", "geheim", "Testgerät")
         assertEquals("lhb_neu", token)
         val anfrage = server.takeRequest()
@@ -56,7 +56,7 @@ class ApiClientTest {
     fun `tourAnlegen sendet Bearer-Token und liest die id`() = runTest {
         melodeAn()
         server.enqueue(MockResponse().setResponseCode(201).setBody("""{"id":"t_abc"}"""))
-        val id = client.tourAnlegen("""{"schema":"maptale/upload@1"}""")
+        val id = client.tourAnlegen("""{"schema":"maptale/upload@2"}""")
         assertEquals("t_abc", id)
         assertEquals("Bearer lhb_testtoken", server.takeRequest().getHeader("Authorization"))
     }
@@ -121,8 +121,8 @@ class ApiClientTest {
         melodeAn()
         server.enqueue(
             MockResponse().setBody(
-                """{"benutzer":{"id":"u1","email":"a@b.c","name":"Ida"},"verifiziert":false,
-                   "quota":{"benutzt":1048576,"limit":10485760,"frei":9437184}}""",
+                """{"user":{"id":"u1","email":"a@b.c","name":"Ida"},"verified":false,
+                   "quota":{"used":1048576,"limit":10485760,"frei":9437184}}""",
             ),
         )
         val stand = client.kontoStand()
@@ -134,7 +134,7 @@ class ApiClientTest {
     @Test
     fun `Overlay wird gelesen und unveraendert zurueckgeschrieben`() = runTest {
         melodeAn()
-        server.enqueue(MockResponse().setBody("""{"schema":"maptale/edits@1","kamera":[]}"""))
+        server.enqueue(MockResponse().setBody("""{"schema":"maptale/edits@2","kamera":[]}"""))
         val overlay = client.editsLesen("t_1")
         assertEquals("/api/tours/t_1/edits", server.takeRequest().path)
 
@@ -154,7 +154,7 @@ class ApiClientTest {
         assertEquals("s_abc", client.sitzungFuerPlayer())
         val anfrage = server.takeRequest()
         assertEquals("POST", anfrage.method)
-        assertEquals("/api/auth/session-aus-token", anfrage.path)
+        assertEquals("/api/auth/session-from-token", anfrage.path)
         assertEquals("Bearer lhb_testtoken", anfrage.getHeader("Authorization"))
     }
 
@@ -165,11 +165,11 @@ class ApiClientTest {
         assertTrue(client.pushGeraetAnmelden("fid-abc"))
         val anfrage = server.takeRequest()
         assertEquals("POST", anfrage.method)
-        assertEquals("/api/push/geraete", anfrage.path)
+        assertEquals("/api/push/devices", anfrage.path)
         assertEquals("Bearer lhb_testtoken", anfrage.getHeader("Authorization"))
         val koerper = anfrage.body.readUtf8()
         assertTrue(koerper.contains("\"token\":\"fid-abc\""))
-        assertTrue(koerper.contains("\"plattform\":\"android\""))
+        assertTrue(koerper.contains("\"platform\":\"android\""))
     }
 
     @Test
@@ -190,7 +190,7 @@ class ApiClientTest {
         client.pushGeraetAbmelden("fid-abc")
         val anfrage = server.takeRequest()
         assertEquals("DELETE", anfrage.method)
-        assertEquals("/api/push/geraete", anfrage.path)
+        assertEquals("/api/push/devices", anfrage.path)
         assertTrue(anfrage.body.readUtf8().contains("\"token\":\"fid-abc\""))
     }
 

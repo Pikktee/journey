@@ -51,7 +51,7 @@ suspend fun meldeOffeneImporte(app: MaptaleApp) {
     val offene = runCatching { app.apiClient.trackerOffeneImporte(quittieren = false) }.getOrElse { return }
     if (offene.isEmpty()) return
 
-    val (fertige, uebrige) = offene.partition { it.status == "fertig" }
+    val (fertige, uebrige) = offene.partition { it.status == "done" }
     // Übersprungenes und Fehler sind bewusst KEINE Benachrichtigung (s.
     // CLAUDE.md) — sie gelten damit als behandelt und werden abgehakt, sonst
     // stünden sie bis in alle Ewigkeit als „offen" auf dem Server.

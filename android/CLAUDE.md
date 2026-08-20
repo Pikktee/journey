@@ -59,7 +59,7 @@ Studio gesetzte Kamerafahrten, Musik und Wetterkorrekturen still unter den Tisch
 
 **Der WebView-Player kann kein Bearer-Token schicken.** Er lädt `erlebnis.html` vom Web-Origin
 und kennt nur Cookies; das Token steckt im OkHttp-Client. Vor dem Abspielen tauscht die App es
-deshalb über `POST /api/auth/session-aus-token` gegen eine Sitzung — ohne das wären private
+deshalb über `POST /api/auth/session-from-token` gegen eine Sitzung — ohne das wären private
 Touren (der Default für neue Touren) in der eigenen App unabspielbar.
 
 **Die Fortbewegung wird bei „Automatisch" unterwegs erkannt** (Play Services Activity
@@ -73,14 +73,14 @@ als bewusste Umschaltung nimmt und deshalb nicht mehr korrigiert. Aus der Verbes
 eine Verschlechterung. Das Zerschneiden in `baueSegmente` bleibt davon unberührt mechanisch.
 Welches Fahrzeug es war, weiß kein Sensor: `IN_VEHICLE` wird `jeep`, und der Server hebt
 Abschnitte auf einer Straßenbahntrasse anschließend auf `tram`. Damit er das darf, trägt das
-Manifest `modiAutomatisch` — ohne dieses Feld sähe er nur `walk` und könnte eine Angabe nicht
+Manifest `travelModesAuto` — ohne dieses Feld sähe er nur `walk` und könnte eine Angabe nicht
 von der Vorgabe unterscheiden. Die Berechtigung wird nur bei „Automatisch" erfragt und darf den
 Start **nie** blockieren: Ohne sie zeichnet die App ohne Automatik auf, und der Server leitet
 die Aufteilung wie bisher aus dem Tempo ab.
 
 **Verbundene Dienste (Tracker) — die App bleibt dünn.** Kein Anbieter-SDK, kein OAuth in
 Kotlin: Die App holt eine Autorisierungs-URL vom eigenen Server
-(`POST /api/tracker/<id>/connect` mit `ziel=app`), öffnet sie in einem **Custom Tab** und wird
+(`POST /api/tracker/<id>/connect` mit `target=app`), öffnet sie in einem **Custom Tab** und wird
 per Deep Link `maptale://tracker/<anbieter>` zurückgerufen. Kein WebView — mehrere Anbieter
 sperren eingebettete Browser für OAuth, und dort wäre weder die Adresse prüfbar noch das
 Passwort außerhalb unserer Reichweite. Der Custom Tab ist dieselbe Sicherheit wie der
@@ -105,7 +105,7 @@ Nachrichten, und die Zeit zwischen „Konto verknüpft" und „Adresse registrie
 15-Minuten-Intervall zurück und die Abfrage liefe nie. Gemeldet werden **nur FERTIGE**
 Importe: Eine übersprungene Halleneinheit ist kein Ereignis für den Sperrbildschirm, und ein
 Fehler, den niemand beheben kann, ist dort Lärm — beides steht in der Liste im Konto. **Geholt
-wird ohne `?gesehen=1`, abgehakt wird hinterher** (`trackerImporteGesehen` mit den IDs): Wer
+wird ohne `?seen=1`, abgehakt wird hinterher** (`trackerImporteGesehen` mit den IDs): Wer
 beim Holen quittiert, verliert die Meldung, sobald das Zeigen scheitert — und es scheitert
 regelmäßig, weil die Benachrichtigungs-Berechtigung ab Android 13 fehlen kann. Abgehakt wird
 deshalb genau, was erledigt IST: das nicht Meldenswerte immer, das Fertige nur bei gestellter
@@ -260,6 +260,15 @@ Deploy-Workflow bei jedem Version-Tag: [docs/ops/android-release.md](../docs/ops
 echte, noch nicht hochgeladene Aufnahmen. Schemata werden nach `android/app/schemas/`
 exportiert; der Migrationstest baut daraus die alte Datenbank und lässt Room migrieren und
 validieren.
+
+**Für den einen Schritt 3→4 gilt das NICHT** (Welle 1 der Englisch-Migration,
+[Konzept](../docs/concepts/konzept_codebase_english_refactoring.md) §4.4): Tabellen, Spalten
+und Enum-Speicherwerte gehen auf Englisch, und der Rückfall wirft die lokale Datenbank weg.
+Das ist kein Ersatz für „einfach neu installieren", sondern die Bedingung dafür, dass ein
+APK-Update DERSELBEN Signatur überhaupt startet — ohne den Aufruf stürzt es beim Öffnen der
+v3-Datenbank ab. Tragbar ist es, weil zu diesem Zeitpunkt nur Geräte des Betreibers eine App
+tragen (§4.5). Nach Welle 7 kommt die Zusage zurück: Aufruf raus, Kommentar wieder hin, ab v5
+wieder echte Migrationen.
 
 **Nicht erreichbar, aber vorhanden:** `ui/ImportScreen.kt` (GPX-Import) hat keinen Einstieg
 mehr — auf dem Telefon liegen selten GPX-Dateien, das ist eine Studio-Aufgabe. Der Code bleibt

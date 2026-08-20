@@ -128,7 +128,7 @@ class TourViewModel(
         val neueBeschreibung = beschreibung?.trim()?.ifBlank { null }
         appScope.launch {
             val vorher = repository.tour(tourId) ?: return@launch
-            if (vorher.titel == neuerTitel && vorher.beschreibung == neueBeschreibung) return@launch
+            if (vorher.title == neuerTitel && vorher.description == neueBeschreibung) return@launch
             repository.aktualisiereTexte(tourId, neuerTitel, neueBeschreibung)
             val serverId = vorher.serverId ?: return@launch
             runCatching { apiClient.patchTour(serverId, neuerTitel, neueBeschreibung) }

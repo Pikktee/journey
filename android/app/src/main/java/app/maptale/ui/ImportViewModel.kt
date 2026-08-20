@@ -85,9 +85,9 @@ class ImportViewModel(private val app: MaptaleApp) : ViewModel() {
                                 id = id,
                                 typ = typ,
                                 datei = "$id.$endung",
-                                aufgenommenMs = meta?.aufgenommenMs ?: temp.lastModified().takeIf { it > 0 } ?: spanne.startMs,
-                                ankerLng = meta?.lng,
-                                ankerLat = meta?.lat,
+                                takenAtMs = meta?.takenAtMs ?: temp.lastModified().takeIf { it > 0 } ?: spanne.startMs,
+                                anchorLng = meta?.lng,
+                                anchorLat = meta?.lat,
                             ),
                             temp,
                         )
@@ -116,13 +116,13 @@ class ImportViewModel(private val app: MaptaleApp) : ViewModel() {
 
                 var status = ""
                 var versuche = 0
-                while (versuche < 30 && status != "bereit" && status != "fehler") {
+                while (versuche < 30 && status != "ready" && status != "failed") {
                     status = app.apiClient.tourStatus(serverId)
-                    if (status == "bereit" || status == "fehler") break
+                    if (status == "ready" || status == "failed") break
                     delay(2_000)
                     versuche++
                 }
-                if (status == "fehler") throw ImportFehler("Die Server-Verarbeitung ist fehlgeschlagen.")
+                if (status == "failed") throw ImportFehler("Die Server-Verarbeitung ist fehlgeschlagen.")
                 _zustand.value = Zustand.Fertig(serverId)
             } catch (fehler: ImportFehler) {
                 _zustand.value = Zustand.Fehler(fehler.message ?: "Import fehlgeschlagen")

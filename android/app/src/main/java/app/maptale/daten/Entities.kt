@@ -7,9 +7,9 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /** Zustand einer Tour über ihren Lebenszyklus in der App. */
-enum class TourStatus { AUFNAHME, ENTWURF, LAEDT_HOCH, HOCHGELADEN, FEHLER }
+enum class TourStatus { RECORDING, DRAFT, UPLOADING, UPLOADED, FAILED }
 
-/** Fortbewegungsmittel — Werte identisch zum Austauschformat `maptale/upload@1`. */
+/** Fortbewegungsmittel — Werte identisch zum Austauschformat `maptale/upload@2`. */
 enum class Modus(val schluessel: String, val anzeige: String) {
     WALK("walk", "Zu Fuß"),
     BIKE("bike", "Rad"),
@@ -24,38 +24,38 @@ enum class Modus(val schluessel: String, val anzeige: String) {
     }
 }
 
-@Entity(tableName = "touren")
+@Entity(tableName = "tours")
 data class TourEntity(
     /** App-lokale ID; geht als clientTourId zum Backend (idempotentes Anlegen) */
     @PrimaryKey val id: String,
-    val titel: String?,
-    val beschreibung: String?,
+    val title: String?,
+    val description: String?,
     /** Epoche ms des Aufnahme-Starts */
     val startMs: Long,
     /** Epoche ms des Aufnahme-Endes; null solange die Aufnahme läuft */
-    val endeMs: Long?,
+    val endMs: Long?,
     /** IANA-Zeitzone zum Aufnahmezeitpunkt */
     val zone: String,
     val status: TourStatus,
     /** Vom Backend vergebene Tour-ID (t_…), sobald hochgeladen */
     val serverId: String? = null,
-    val fehler: String? = null,
+    val error: String? = null,
     /** Distanz in Metern (laufend gepflegt, für die Liste ohne Punkt-Query) */
-    val distanzM: Double = 0.0,
+    val distanceM: Double = 0.0,
     /**
      * Wurde die Fortbewegung erkannt statt gewählt? („Automatisch" im Startblatt)
      *
-     * Geht als `modiAutomatisch` ins Upload-Manifest und erlaubt dem Server, die
+     * Geht als `travelModesAuto` ins Upload-Manifest und erlaubt dem Server, die
      * Aufteilung zu verfeinern — etwa ein Fahrzeug an seiner Trasse als
      * Straßenbahn zu erkennen. Wer den Modus selbst gewählt hat, wird nie
      * überstimmt, deshalb muss der Unterschied mitreisen: Der Server sieht sonst
      * nur „walk" und kann eine Angabe nicht von einer Vorgabe unterscheiden.
      */
-    val modusAutomatisch: Boolean = false,
+    val travelModeAuto: Boolean = false,
 )
 
 @Entity(
-    tableName = "trackpunkte",
+    tableName = "track_points",
     indices = [Index("tourId")],
 )
 data class TrackpunktEntity(
@@ -66,11 +66,11 @@ data class TrackpunktEntity(
     val ele: Double,
     /** Sekunden seit Tour-Start (tOffset des Austauschformats) */
     val tOffsetS: Double,
-    val genauigkeitM: Float,
+    val accuracyM: Float,
 )
 
 @Entity(
-    tableName = "moduswechsel",
+    tableName = "travel_mode_changes",
     indices = [Index("tourId")],
 )
 data class ModuswechselEntity(
@@ -78,14 +78,14 @@ data class ModuswechselEntity(
     val tourId: String,
     /** Sekunden seit Tour-Start, ab denen der Modus gilt */
     val tOffsetS: Double,
-    val modus: Modus,
+    val travelMode: Modus,
 )
 
 /** Upload-Zustand je Medium — macht den Upload pro Datei wiederaufnehmbar. */
-enum class MediumUploadStatus { LOKAL, HOCHGELADEN }
+enum class MediumUploadStatus { LOCAL, UPLOADED }
 
 @Entity(
-    tableName = "medien",
+    tableName = "media",
     // Medien-IDs (m1, m2, …) sind nur PRO TOUR eindeutig (so will es das
     // Austauschformat) — der Schlüssel braucht beide Spalten, sonst kollidiert
     // das erste Foto der zweiten Tour mit dem der ersten.
@@ -97,15 +97,15 @@ data class MediumEntity(
     val id: String,
     val tourId: String,
     /** photo | video (Video ab M4) */
-    val typ: String,
+    val type: String,
     /** Dateipfad relativ zu filesDir */
-    val datei: String,
+    val file: String,
     /** Epoche ms der Aufnahme */
-    val aufgenommenMs: Long,
+    val takenAtMs: Long,
     /** GPS-Anker (letzter Trackpunkt beim Auslösen); null falls keiner da war */
-    val ankerLng: Double?,
-    val ankerLat: Double?,
-    val uploadStatus: MediumUploadStatus = MediumUploadStatus.LOKAL,
+    val anchorLng: Double?,
+    val anchorLat: Double?,
+    val uploadStatus: MediumUploadStatus = MediumUploadStatus.LOCAL,
     /**
      * Der eine Nutzertext zum Medium — in der Oberfläche „Titel", im Manifest
      * `caption`, im fertigen Tour-JSON `title` (der Player zeigt ihn als

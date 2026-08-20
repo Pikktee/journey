@@ -59,7 +59,7 @@ suspend fun suchePassendeFotos(app: MaptaleApp, serverTourId: String): List<Gale
     if (!darfGalerieLesen(app)) return emptyList()
     val fenster = runCatching { app.apiClient.tourZeitfenster(serverTourId) }.getOrNull() ?: return null
     val startMs = zeitpunkt(fenster.first) ?: return null
-    val endeMs = zeitpunkt(fenster.second) ?: return null
+    val endMs = zeitpunkt(fenster.second) ?: return null
     // Was die Tour schon hat, fällt heraus — sonst käme derselbe Vorschlag bei
     // jedem Öffnen wieder, auch für den, der ihn abgelehnt hat. Verglichen wird
     // über den Aufnahmezeitpunkt und nicht über den Dateinamen: Der Server
@@ -69,7 +69,7 @@ suspend fun suchePassendeFotos(app: MaptaleApp, serverTourId: String): List<Gale
         .getOrDefault(emptyList())
         .mapNotNull { foto -> foto.aufgenommenIso?.let(::zeitpunkt) }
         .toSet()
-    return passendeBilder(bilderImZeitfenster(app, startMs, endeMs), startMs, endeMs, bekannt)
+    return passendeBilder(bilderImZeitfenster(app, startMs, endMs), startMs, endMs, bekannt)
 }
 
 /**
@@ -96,7 +96,7 @@ suspend fun ladeFotosHoch(
     val eintraege = bilder.map { bild ->
         NachreichMedium(
             dateiname = bild.dateiname,
-            aufgenommenIso = alsIso(bild.aufgenommenMs),
+            aufgenommenIso = alsIso(bild.takenAtMs),
             // Erst hier gelesen und nicht beim Suchen: Es ist ein Dateizugriff
             // je Bild, und die meisten Vorschläge werden nie hochgeladen.
             anker = gpsAnker(app, bild)?.let { (breite, laenge) -> laenge to breite },
