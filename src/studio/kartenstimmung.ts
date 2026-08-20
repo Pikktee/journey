@@ -44,15 +44,15 @@ import {
 } from '../wetterhimmel.js'
 // Bewusst der Studio-Typ und nicht der aus `autoweather.ts`: Was hier ankommt,
 // sind die Grenzen aus dem Edit-Overlay bzw. dem Auto-Wetter des Servers, und
-// die tragen genau diese Liste (`WETTER_MODI`, gewacht gegen das Server-Schema).
-import type { WetterModus } from './editmodell.js'
+// die tragen genau diese Liste (`WEATHER_MODES`, gewacht gegen das Server-Schema).
+import type { WeatherMode } from './editmodell.js'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 
 /** Neutral: kein Grading. Der Zustand, in den „Tag/Nacht aus" zurückfällt. */
 const NEUTRAL: Rastergrading = { brightnessMax: 1, brightnessMin: 0, saturation: 0, contrast: 0 }
 
 export interface Wetterstand {
-  mode: WetterModus
+  mode: WeatherMode
   intensity?: number
 }
 

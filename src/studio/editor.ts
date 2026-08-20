@@ -22,98 +22,98 @@ import { verdrahteTipps } from './tipp.js'
 import * as api from './api.js'
 import { oeffneExportBlatt, schliesseExportBlatt } from './exportblatt.js'
 import {
-  effektiveMedien,
-  endgueltigZuLoeschen,
-  erfasseUndo,
-  isoZuOffset,
-  LEERES_OVERLAY,
-  materialisiereModi,
-  mitAudioEintrag,
+  effectiveMedia,
+  idsToDelete,
+  recordUndo,
+  isoToOffset,
+  EMPTY_OVERLAY,
+  materializeTravelModes,
+  withAudioEntry,
   mitAudioPatch,
-  mitKameraGrenze,
-  mitMedienEdit,
-  mitModusGrenze,
-  mitMoment,
-  mitWetterGrenze,
+  withCameraBoundary,
+  withMediaEdit,
+  withTravelModeBoundary,
+  withCameraMoment,
+  withWeatherBoundary,
   MOMENT_DEFAULT_S,
-  ohneAudioEintrag,
-  ohneKameraGrenze,
-  ohneMedien,
-  ohneModusGrenze,
-  ohneMoment,
-  ohneWetterGrenze,
-  offsetZuIso,
-  projiziereAufTrack,
-  pruefeOverlay,
-  punktZuOffset,
-  WETTER_MODI,
-  zerlegeFuerAnzeige,
-  type AudioEintrag,
+  withoutAudioEntry,
+  withoutCameraBoundary,
+  withoutMedia,
+  withoutTravelModeBoundary,
+  withoutCameraMoment,
+  withoutWeatherBoundary,
+  offsetToIso,
+  projectOntoTrack,
+  validateOverlay,
+  pointAtOffset,
+  WEATHER_MODES,
+  splitForDisplay,
+  type AudioEntry,
   type EditOverlay,
   type EditorSegment,
-  type KameraMoment,
-  type KameraPreset,
-  type MediumAnzeige,
-  miniaturQuelle,
-  type MediumBasis,
-  type Modus,
-  type MomentArt,
-  type TrackPunkt,
-  wetterBeiZeit,
-  type WetterModus,
+  type CameraMoment,
+  type CameraPreset,
+  type MediaView,
+  thumbnailSource,
+  type MediaBase,
+  type TravelMode,
+  type CameraMomentKind,
+  type TrackPoint,
+  weatherAtTime,
+  type WeatherMode,
 } from './editmodell.js'
 import {
-  ankerScroll,
-  anteilZuFilm,
-  anteilZuOffset,
-  audioWirdVerworfen,
-  aufnahmeHaltS,
-  baueAchse,
-  baueBaender,
-  baueFilmMassband,
-  baueMedienDots,
-  baueGrenzKurve,
-  baueSkala,
-  baueSpielKurve,
-  baueSzenenKlips,
-  baueZustandsBaender,
-  filmBei,
-  filmBeiZeit,
-  filmDauerBeiGrenze,
-  filmZuAnteil,
-  filmZuOffset,
-  formatiereFilmzeit,
-  formatiereSekunden,
-  HALT_AUSBLEND_S,
-  haltBeiFilmS,
-  haltedauerS,
-  haltInnenBei,
-  klemmeFilmS,
-  klemmeGrenze,
-  klemmeMomentDauer,
-  klemmeStandzeit,
-  klemmeVideoTrim,
+  scrollAnchor,
+  fractionToFilm,
+  fractionToOffset,
+  audioWouldBeDropped,
+  mediumHoldS,
+  buildTimelineAxis,
+  buildBands,
+  buildFilmRuler,
+  buildMediaDots,
+  buildBoundaryCurve,
+  buildScale,
+  buildPlaybackCurve,
+  buildSceneClips,
+  buildStateBands,
+  filmAt,
+  filmTimeAtRecordingTime,
+  filmDurationAtBoundary,
+  filmToFraction,
+  filmToOffset,
+  formatFilmTime,
+  formatSeconds,
+  STOP_FADE_OUT_S,
+  stopAtFilmS,
+  holdS,
+  stopInnerAt,
+  clampFilmS,
+  clampBoundary,
+  clampMomentDuration,
+  clampHoldS,
+  clampMediaTrim,
   VIDEO_TRIM_MIN_S,
-  kumMeter,
-  loeseFokusAuf as loeseFokusAufRein,
-  meterZuOffset,
-  offsetBeiMeter,
-  offsetZuAnteil,
-  ordneEin,
-  platzInKette,
-  rasteAnHalt,
-  schrittFilmS,
-  uhrDiffZuOffset,
+  cumMeters,
+  resolveSelection as loeseFokusAufRein,
+  metersToOffset,
+  offsetAtMeters,
+  offsetToFraction,
+  moveToSlot,
+  slotInChain,
+  snapToStop,
+  stepFilmS,
+  clockDiffToOffset,
   videoStandS,
-  zeitBeiFilm,
-  type Achse,
-  type AchsenHalt,
-  type Filmkurve,
-  type Fokus,
-  type FokusZiel,
-  type HaltIntervall,
-  type SzenenKlip,
-  type ZeitSkala,
+  recordingTimeAtFilmTime,
+  type TimelineAxis,
+  type AxisStop,
+  type FilmCurve,
+  type EditorSelection,
+  type EditorSelectionTarget,
+  type StopInterval,
+  type SceneClip,
+  type TimeScale,
 } from './zeitleiste.js'
 import {
   KATEGORIE_NAMEN,
@@ -123,17 +123,17 @@ import {
   type SfxTyp,
 } from './sfxbibliothek.js'
 import {
-  loeseTonKlips,
-  loopNachRollenwechsel,
-  schreibeTonFest,
-  setzeLoop,
-  tonLanes,
-  trimmeLinks,
-  trimmeRechts,
-  verschiebeTon,
-  wellenLage,
-  type TonKlip,
-  type TonPatch,
+  resolveAudioClips,
+  loopAfterRoleChange,
+  commitAudioClip,
+  setLoop,
+  audioLanes,
+  trimLeft,
+  trimRight,
+  moveAudioClip,
+  waveformPosition,
+  type AudioClip,
+  type AudioClipPatch,
 } from './tonklip.js'
 import { erzeugeKartenstimmung, type Kartenstimmung } from './kartenstimmung.js'
 import { baueStopps, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
@@ -155,7 +155,7 @@ import type { Abspieler, KlangMarke, MusikKlip, Spielplan } from './abspielen.js
 
 /** Anzeigename eines Audio-Eintrags: Katalogname bei Bibliothek, eigener
  *  Upload ohne Datei-Endung, sonst der rohe Dateiname (tour-lokaler Altbestand). */
-function audioName(a: AudioEintrag): string {
+function audioName(a: AudioEntry): string {
   if (a.source === 'library') return sfxEffekt(a.file)?.name ?? a.file
   if (a.source === 'user') return a.file.replace(/\.[^.]+$/, '')
   return a.file
@@ -163,7 +163,7 @@ function audioName(a: AudioEintrag): string {
 
 /** Abspiel-URL eines Audio-Eintrags — Bibliothek statisch, eigener Upload über
  *  die Konto-Route (der Player nutzt später die tour-gebundene), sonst tour-lokal. */
-function audioUrl(a: AudioEintrag, tourId: string): string {
+function audioUrl(a: AudioEntry, tourId: string): string {
   if (a.source === 'library') return `/audio/sfx/${encodeURIComponent(a.file)}`
   if (a.source === 'user') return `/api/audio-library/${encodeURIComponent(a.file)}`
   return `/api/media/${tourId}/${encodeURIComponent(a.file)}`
@@ -173,7 +173,7 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 // Reihenfolge bestimmt die Auswahl-Listen (Object.entries): unmotorisiert →
 // motorisiert → öffentlich → Wasser.
-const MODUS_NAMEN: Record<Modus, string> = {
+const MODUS_NAMEN: Record<TravelMode, string> = {
   walk: 'Zu Fuß',
   bike: 'Rad',
   moped: 'Moped',
@@ -181,7 +181,7 @@ const MODUS_NAMEN: Record<Modus, string> = {
   tram: 'Tram',
   ferry: 'Fähre',
 }
-const MODUS_FARBEN: Record<Modus, string> = {
+const MODUS_FARBEN: Record<TravelMode, string> = {
   walk: '#3ecf8e',
   bike: '#5b9dff',
   moped: '#ff6f52',
@@ -196,7 +196,7 @@ const MODUS_FARBEN: Record<Modus, string> = {
  * Werts war er eine Sackgasse — einmal auf Nah gestellt, kam man nur über
  * „Abschnitt entfernen" zurück, und das nahm die Stelle gleich mit.
  */
-const PRESET_NAMEN: Record<KameraPreset, string> = {
+const PRESET_NAMEN: Record<CameraPreset, string> = {
   default: 'Standard',
   near: 'Nah',
   mid: 'Mittel',
@@ -206,7 +206,7 @@ const KAMERA_STANDARD = PRESET_NAMEN.default
 const KAMERA_STANDARD_ERKLAERT =
   'Standard: Es gilt der Abstand, den der Zuschauer im Player einstellt (Nah, Mittel oder Weit).'
 /** Anzeigenamen der Wetter-Modi (Reihenfolge = Auswahl-Liste). */
-const WETTER_NAMEN: Record<WetterModus, string> = {
+const WETTER_NAMEN: Record<WeatherMode, string> = {
   off: 'Klar',
   clouds: 'Wolkig',
   fog: 'Nebel',
@@ -215,7 +215,7 @@ const WETTER_NAMEN: Record<WetterModus, string> = {
   storm: 'Gewitter',
 }
 /** Wetter-Bänder: gedämpfte, mitteldunkle Füllung (helle Bandschrift bleibt lesbar). */
-const WETTER_FARBEN: Record<WetterModus, string> = {
+const WETTER_FARBEN: Record<WeatherMode, string> = {
   off: 'rgba(70, 120, 175, 0.55)',
   clouds: 'rgba(120, 132, 148, 0.62)',
   fog: 'rgba(140, 150, 165, 0.55)',
@@ -225,15 +225,15 @@ const WETTER_FARBEN: Record<WetterModus, string> = {
 }
 /** Standard-Wetterstärke k (Spiegel von WETTER_STANDARD_K im Server). */
 const WETTER_STANDARD_K = 0.7
-const MOMENT_NAMEN: Record<MomentArt, string> = {
+const MOMENT_NAMEN: Record<CameraMomentKind, string> = {
   orbit: 'Umkreisen',
   ascend: 'Aufstieg',
   linger: 'Innehalten',
 }
 /** Symbol je Moment-Art auf der Zeitleisten-Marke. */
-const MOMENT_ZEICHEN: Record<MomentArt, string> = { orbit: '↻', ascend: '↑', linger: '⏸' }
+const MOMENT_ZEICHEN: Record<CameraMomentKind, string> = { orbit: '↻', ascend: '↑', linger: '⏸' }
 /** Kamera-Bänder: ein Farbton, Deckkraft = Nähe (nah kräftig, weit zurückhaltend). */
-const PRESET_FARBEN: Record<KameraPreset, string> = {
+const PRESET_FARBEN: Record<CameraPreset, string> = {
   // Standard ist keine Distanz, also auch nicht im Distanz-Farbton: dieselbe
   // ruhige Fläche wie das Grundband (.band.grund), damit beide dasselbe sagen.
   default: 'rgba(103, 114, 127, 0.22)',
@@ -267,11 +267,11 @@ interface Zustand {
   /** JSON-Schnappschuss des gespeicherten Overlays (Dirty-Erkennung) */
   gespeichert: string
   /** Trackpunkte flach über alle Segmente */
-  track: TrackPunkt[]
+  track: TrackPoint[]
   /** Einfügemarke: Punkt AUF der Track-Linie (interpoliert, inkl. tOffset) */
-  auswahl: TrackPunkt | null
+  auswahl: TrackPoint | null
   /** fokussiertes Objekt (Band, Audio-Spur, Medium) — siehe Fokus */
-  fokus: Fokus | null
+  fokus: EditorSelection | null
   /**
    * Tour-Einstellungen im Inspector (Titel/Beschreibung/Endscreen).
    * Bewusst getrennt vom Leerzustand und von `fokus`: Einstieg über Titel/„…",
@@ -281,9 +281,9 @@ interface Zustand {
   /** Medien-ID im „auf den Track klicken"-Platzieren-Modus */
   platzieren: string | null
   /** frühere Overlay-Stände (Undo), ältester zuerst */
-  historie: EditOverlay[]
+  past: EditOverlay[]
   /** zurückgenommene Stände (Redo), jüngster zuletzt */
-  zukunft: EditOverlay[]
+  future: EditOverlay[]
 }
 
 let karte: maplibregl.Map | null = null
@@ -385,7 +385,7 @@ export async function oeffneEditor(tourId: string, zurueck: () => void): Promise
 
 async function ladeDaten(tourId: string): Promise<void> {
   const daten = await api.loadEditorPayload(tourId)
-  const edits = (daten.edits as EditOverlay | null) ?? LEERES_OVERLAY
+  const edits = (daten.edits as EditOverlay | null) ?? EMPTY_OVERLAY
   const einstellungenOffen = z?.tourId === tourId && z.tourEinstellungen
   z = {
     tourId,
@@ -399,8 +399,8 @@ async function ladeDaten(tourId: string): Promise<void> {
     fokus: null,
     tourEinstellungen: !!einstellungenOffen,
     platzieren: null,
-    historie: [],
-    zukunft: [],
+    past: [],
+    future: [],
   }
   letzterStand = edits
   ;($('editor-titel') as HTMLInputElement).value = daten.title ?? ''
@@ -420,7 +420,7 @@ async function ladeDaten(tourId: string): Promise<void> {
 
   // Streckenmeter einmal je Tour vorrechnen — die km-Anzeige am Abspielkopf
   // fragt sie bei jeder Bewegung ab.
-  kumStrecke = kumMeter(z.track)
+  kumStrecke = cumMeters(z.track)
   const gesamt = document.getElementById('kopf-km-ges')
   if (gesamt) gesamt.textContent = kmText(kumStrecke[kumStrecke.length - 1] ?? 0)
 
@@ -434,8 +434,8 @@ async function ladeDaten(tourId: string): Promise<void> {
   passeAusschnittAn()
   // Abspielkopf auf den Anfang der Tour stellen — er ist ab jetzt immer
   // sichtbar, nicht mehr eine Sonderlage nach dem ersten Klick.
-  const skalaInit = baueSkala(z.track)
-  if (skalaInit) z.auswahl = punktZuOffset(z.track, skalaInit.fromS)
+  const skalaInit = buildScale(z.track)
+  if (skalaInit) z.auswahl = pointAtOffset(z.track, skalaInit.fromS)
   kopfFilmS = 0
   renderAlles()
   // Die Achsenbreite ERST danach setzen: `renderZeitleiste` blendet die Leisten-
@@ -618,11 +618,11 @@ function zeichneFokus(): void {
     if (info.toS > info.fromS) {
       // Ränder interpolieren, damit der Abschnitt exakt an der Bandkante endet
       // und nicht am nächsten Stützpunkt (Fähren-Geraden!)
-      const punkte: TrackPunkt[] = []
-      const anfang = punktZuOffset(z.track, info.fromS)
+      const punkte: TrackPoint[] = []
+      const anfang = pointAtOffset(z.track, info.fromS)
       if (anfang) punkte.push(anfang)
       for (const p of z.track) if (p[3] > info.fromS && p[3] < info.toS) punkte.push(p)
-      const end = punktZuOffset(z.track, info.toS)
+      const end = pointAtOffset(z.track, info.toS)
       if (end) punkte.push(end)
       if (punkte.length >= 2) {
         features.push({
@@ -632,7 +632,7 @@ function zeichneFokus(): void {
         })
       }
     } else {
-      const p = punktZuOffset(z.track, info.fromS)
+      const p = pointAtOffset(z.track, info.fromS)
       if (p)
         features.push({
           type: 'Feature',
@@ -676,14 +676,14 @@ function klickAufKarte(e: maplibregl.MapMouseEvent): void {
   if (!treffer.length) return
   // Lotfußpunkt auf der LINIE — nicht der nächste Stützpunkt: der Track ist
   // vereinfacht, auf Geraden (Fähre) liegen Stützpunkte kilometerweit auseinander.
-  const projektion = projiziereAufTrack(z.track, e.lngLat.lng, e.lngLat.lat)
+  const projektion = projectOntoTrack(z.track, e.lngLat.lng, e.lngLat.lat)
   if (z.platzieren) {
-    z.edits = mitMedienEdit(z.edits, z.platzieren, {
-      anchor: [projektion.punkt[0], projektion.punkt[1]],
+    z.edits = withMediaEdit(z.edits, z.platzieren, {
+      anchor: [projektion.point[0], projektion.point[1]],
     })
     z.platzieren = null
   } else {
-    z.auswahl = projektion.punkt
+    z.auswahl = projektion.point
   }
   renderAlles()
 }
@@ -698,7 +698,7 @@ function renderAlles(): void {
   // Undo-Punkt setzen, wenn sich das Overlay seit dem letzten Voll-Render
   // geändert hat (s. letzterStand). Undo/Redo selbst ziehen den Stand vorher
   // nach und lösen hier deshalb keinen neuen Eintrag aus.
-  erfasseUndo(z, letzterStand, z.edits)
+  recordUndo(z, letzterStand, z.edits)
   letzterStand = z.edits
   renderHistorieKnoepfe()
   zeichneTrack()
@@ -716,9 +716,9 @@ function renderAlles(): void {
 
 function rueckgaengig(): void {
   const zz = z // Modul-let: Narrowing überlebt die Aufrufe unten nicht
-  if (!zz?.historie.length) return
-  zz.zukunft.push(zz.edits)
-  zz.edits = zz.historie.pop() as EditOverlay
+  if (!zz?.past.length) return
+  zz.future.push(zz.edits)
+  zz.edits = zz.past.pop() as EditOverlay
   letzterStand = zz.edits // der Rücksprung selbst ist kein neuer Undo-Punkt
   renderAlles()
   status('Rückgängig gemacht.', 'ok')
@@ -726,9 +726,9 @@ function rueckgaengig(): void {
 
 function wiederherstellen(): void {
   const zz = z
-  if (!zz?.zukunft.length) return
-  zz.historie.push(zz.edits)
-  zz.edits = zz.zukunft.pop() as EditOverlay
+  if (!zz?.future.length) return
+  zz.past.push(zz.edits)
+  zz.edits = zz.future.pop() as EditOverlay
   letzterStand = zz.edits
   renderAlles()
   status('Wiederhergestellt.', 'ok')
@@ -736,13 +736,13 @@ function wiederherstellen(): void {
 
 function renderHistorieKnoepfe(): void {
   if (!z) return
-  ;($('editor-undo') as HTMLButtonElement).disabled = !z.historie.length
-  ;($('editor-redo') as HTMLButtonElement).disabled = !z.zukunft.length
+  ;($('editor-undo') as HTMLButtonElement).disabled = !z.past.length
+  ;($('editor-redo') as HTMLButtonElement).disabled = !z.future.length
 }
 
 function zeichneTrack(): void {
   if (!karte || !z) return
-  const abschnitte = zerlegeFuerAnzeige(
+  const abschnitte = splitForDisplay(
     z.daten.segments as EditorSegment[],
     z.edits,
     z.daten.time.start,
@@ -752,7 +752,7 @@ function zeichneTrack(): void {
     type: 'FeatureCollection',
     features: abschnitte.map((a) => ({
       type: 'Feature',
-      properties: { farbe: MODUS_FARBEN[a.mode], aktiv: a.aktiv ? 1 : 0 },
+      properties: { farbe: MODUS_FARBEN[a.mode], aktiv: a.active ? 1 : 0 },
       geometry: { type: 'LineString', coordinates: a.pts.map((p) => [p[0], p[1]]) },
     })),
   })
@@ -828,7 +828,7 @@ function baueMarkerEintrag(stopp: Stopp, _schluessel: string): MarkerEintrag | n
   }
   const kern = document.createElement('span')
   kern.className = 'kern'
-  const thumb = kopf.type === 'photo' || kopf.poster ? miniaturQuelle(kopf) : undefined
+  const thumb = kopf.type === 'photo' || kopf.poster ? thumbnailSource(kopf) : undefined
   if (thumb) {
     const bild = document.createElement('img')
     bild.src = thumb
@@ -866,20 +866,20 @@ function baueMarkerEintrag(stopp: Stopp, _schluessel: string): MarkerEintrag | n
     const eigene = new Set(aktuell.items.map((m) => m.id))
     const fremdeMeter = medienAnzeige()
       .filter((m) => m.anchor && !m.removed && !eigene.has(m.id))
-      .map((m) => meterZuOffset(kumStrecke, z!.track, offsetVon(m)))
-    const roh = projiziereAufTrack(z.track, ziel.lng, ziel.lat)
+      .map((m) => metersToOffset(kumStrecke, z!.track, offsetVon(m)))
+    const roh = projectOntoTrack(z.track, ziel.lng, ziel.lat)
     const sicherMeter = meterOhneCluster(
-      meterZuOffset(kumStrecke, z.track, roh.punkt[3]),
+      metersToOffset(kumStrecke, z.track, roh.point[3]),
       fremdeMeter,
     )
-    const sicher = punktZuOffset(z.track, offsetBeiMeter(kumStrecke, z.track, sicherMeter))
+    const sicher = pointAtOffset(z.track, offsetAtMeters(kumStrecke, z.track, sicherMeter))
     if (!sicher) return
     let neu = z.edits
     for (const m of aktuell.items) {
       const dLng = (m.anchor?.[0] ?? ankerKopf[0]) - ankerKopf[0]
       const dLat = (m.anchor?.[1] ?? ankerKopf[1]) - ankerKopf[1]
-      const p = projiziereAufTrack(z.track, sicher[0] + dLng, sicher[1] + dLat)
-      neu = mitMedienEdit(neu, m.id, { anchor: [p.punkt[0], p.punkt[1]] })
+      const p = projectOntoTrack(z.track, sicher[0] + dLng, sicher[1] + dLat)
+      neu = withMediaEdit(neu, m.id, { anchor: [p.point[0], p.point[1]] })
     }
     z.edits = neu
     renderAlles()
@@ -894,7 +894,7 @@ function baueMarkerEintrag(stopp: Stopp, _schluessel: string): MarkerEintrag | n
     // Ist schon ein Mitglied gewählt, bleibt es das — sonst das erste
     const gewaehlt = z.fokus?.kind === 'medium' ? z.fokus.id : null
     const schon = eintrag.stopp.items.find((m) => m.id === gewaehlt)
-    z.fokus = { kind: 'medium', id: (schon ?? (eintrag.stopp.items[0] as MediumAnzeige)).id }
+    z.fokus = { kind: 'medium', id: (schon ?? (eintrag.stopp.items[0] as MediaView)).id }
     renderAlles()
   })
   return eintrag
@@ -929,14 +929,14 @@ function zeitText(iso: string): string {
  * Overlay-Stand aufgelöst (die Logik liegt DOM-frei in zeitleiste.ts). Liefert
  * null, wenn das Objekt weg ist — der Inspector zeigt dann den Leerzustand.
  */
-function loeseFokusAuf(): FokusZiel | null {
+function loeseFokusAuf(): EditorSelectionTarget | null {
   if (!z) return null
   return loeseFokusAufRein(
     z.fokus,
     // Anzeige-Sicht: enthält auch das automatisch ermittelte Wetter, damit ein
     // Wetterband beschrieben werden kann, bevor jemand es festschreibt.
     editsFuerAnzeige(),
-    zerlegeFuerAnzeige(z.daten.segments as EditorSegment[], z.edits, z.daten.time.start),
+    splitForDisplay(z.daten.segments as EditorSegment[], z.edits, z.daten.time.start),
     z.track,
     z.daten.time.start,
     medienAnzeige(),
@@ -944,9 +944,12 @@ function loeseFokusAuf(): FokusZiel | null {
     // Fallback, und der Inspector muss dasselbe zeigen wie die Leiste.
     (index) => {
       const klip = tonKlipVon(index)
-      const kurve = aktuelleAchse()?.kurve
+      const kurve = aktuelleAchse()?.curve
       if (!klip || !kurve) return null
-      return { fromS: zeitBeiFilm(kurve, klip.filmVon), toS: zeitBeiFilm(kurve, klip.filmBis) }
+      return {
+        fromS: recordingTimeAtFilmTime(kurve, klip.filmVon),
+        toS: recordingTimeAtFilmTime(kurve, klip.filmBis),
+      }
     },
   )
 }
@@ -966,14 +969,14 @@ function uhrKurz(iso: string): string {
 }
 
 /** Aufnahmezeit-Offset (s) einer Aufnahme (Anker auf die Linie projiziert). */
-function offsetVon(m: MediumAnzeige): number {
+function offsetVon(m: MediaView): number {
   if (!z || !m.anchor) return 0
-  return projiziereAufTrack(z.track, m.anchor[0], m.anchor[1]).punkt[3]
+  return projectOntoTrack(z.track, m.anchor[0], m.anchor[1]).point[3]
 }
 
 /** Trackpunkt bei einem Aufnahmezeit-Offset (s) — Umkehrung von offsetVon. */
-function punktBeiOffset(offsetS: number): TrackPunkt | null {
-  return z ? punktZuOffset(z.track, offsetS) : null
+function punktBeiOffset(offsetS: number): TrackPoint | null {
+  return z ? pointAtOffset(z.track, offsetS) : null
 }
 
 // — Ereignis anlegen: Spur-Menüs an der Einfügemarke —
@@ -1035,7 +1038,7 @@ function menueEintrag(text: string, beiKlick: () => void, farbe?: string): HTMLE
 function markeOffset(): number {
   if (!z) return 0
   if (z.auswahl) return z.auswahl[3]
-  const scale = baueSkala(z.track)
+  const scale = buildScale(z.track)
   return scale?.fromS ?? 0
 }
 
@@ -1043,7 +1046,7 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
   if (!z) return
   const start = z.daten.time.start
   const abS = markeOffset()
-  const from = offsetZuIso(start, abS)
+  const from = offsetToIso(start, abS)
   const menue = document.createElement('div')
   menue.className = 'schwebe-menue'
   const kopf = document.createElement('div')
@@ -1058,11 +1061,11 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
           name,
           () => {
             if (!z) return
-            z.edits = mitModusGrenze(z.edits, from, wert as Modus)
-            z.fokus = { kind: 'modus', bezugS: abS + 1 }
+            z.edits = withTravelModeBoundary(z.edits, from, wert as TravelMode)
+            z.fokus = { kind: 'modus', atS: abS + 1 }
             renderAlles()
           },
-          MODUS_FARBEN[wert as Modus],
+          MODUS_FARBEN[wert as TravelMode],
         ),
       )
     }
@@ -1073,11 +1076,11 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
           `Kamera ${name}`,
           () => {
             if (!z) return
-            z.edits = mitKameraGrenze(z.edits, from, wert as KameraPreset)
-            z.fokus = { kind: 'kamera', bezugS: abS + 1 }
+            z.edits = withCameraBoundary(z.edits, from, wert as CameraPreset)
+            z.fokus = { kind: 'kamera', atS: abS + 1 }
             renderAlles()
           },
-          PRESET_FARBEN[wert as KameraPreset],
+          PRESET_FARBEN[wert as CameraPreset],
         ),
       )
     }
@@ -1091,20 +1094,20 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
             // Erst die automatisch ermittelte Einteilung festschreiben, sonst
             // machte die neue Grenze den Rest der Tour schlagartig klar.
             schreibeWetterFest()
-            z.edits = mitWetterGrenze(z.edits, from, wert as WetterModus)
-            z.fokus = { kind: 'wetter', bezugS: abS + 1 }
+            z.edits = withWeatherBoundary(z.edits, from, wert as WeatherMode)
+            z.fokus = { kind: 'wetter', atS: abS + 1 }
             renderAlles()
           },
-          WETTER_FARBEN[wert as WetterModus],
+          WETTER_FARBEN[wert as WeatherMode],
         ),
       )
     }
   } else if (spur === 'momente') {
     for (const [wert, name] of Object.entries(MOMENT_NAMEN)) {
       menue.appendChild(
-        menueEintrag(`${MOMENT_ZEICHEN[wert as MomentArt]}  ${name}`, () => {
+        menueEintrag(`${MOMENT_ZEICHEN[wert as CameraMomentKind]}  ${name}`, () => {
           if (!z) return
-          z.edits = mitMoment(z.edits, from, wert as MomentArt)
+          z.edits = withCameraMoment(z.edits, from, wert as CameraMomentKind)
           z.fokus = { kind: 'moment', from }
           renderAlles()
         }),
@@ -1161,7 +1164,7 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
 // beides sind Bilder, die es gibt, die aber nicht mitspielen. Von hier zieht man
 // sie auf die Zeitleiste — dort, wo sie hingehören.
 
-function ablageMedien(): MediumAnzeige[] {
+function ablageMedien(): MediaView[] {
   return medienAnzeige().filter((m) => m.removed || !m.anchor)
 }
 
@@ -1221,7 +1224,7 @@ function oeffneAblage(): void {
       : `${m.caption || m.id} · ohne Ort`
     b.dataset['id'] = m.id
     const bild = document.createElement('img')
-    bild.src = miniaturQuelle(m)
+    bild.src = thumbnailSource(m)
     bild.alt = ''
     b.appendChild(bild)
     b.addEventListener('pointerdown', (e) => zieheAusAblage(e, m))
@@ -1728,7 +1731,7 @@ function verdrahteNachreichen(): void {
  * (der 54-px-Knopf verlöre bei schnellen Bewegungen die Capture); losgelassen
  * über der Foto-Bahn bekommt sie dort ihren Anker — und ist damit wieder dabei.
  */
-function zieheAusAblage(e: PointerEvent, m: MediumAnzeige): void {
+function zieheAusAblage(e: PointerEvent, m: MediaView): void {
   if (e.button !== 0 || !z) return
   e.preventDefault()
   const start = { x: e.clientX, y: e.clientY }
@@ -1742,7 +1745,7 @@ function zieheAusAblage(e: PointerEvent, m: MediumAnzeige): void {
       geist = document.createElement('div')
       geist.className = 'zieh-geist'
       const bild = document.createElement('img')
-      bild.src = miniaturQuelle(m)
+      bild.src = thumbnailSource(m)
       bild.alt = ''
       geist.appendChild(bild)
       document.body.appendChild(geist)
@@ -1759,13 +1762,13 @@ function zieheAusAblage(e: PointerEvent, m: MediumAnzeige): void {
       ev.clientY >= bahn.top - 20 &&
       ev.clientY <= bahn.bottom + 20
     if (ueberBahn) {
-      zielOffsetS = anteilZuOffset(scale, spurAnteil(ev.clientX))
+      zielOffsetS = fractionToOffset(scale, spurAnteil(ev.clientX))
       if (!marke) {
         marke = document.createElement('div')
         marke.className = 'ablege-marke'
         document.getElementById('spuren')?.appendChild(marke)
       }
-      marke.style.left = zeitX(offsetZuAnteil(scale, zielOffsetS))
+      marke.style.left = zeitX(offsetToFraction(scale, zielOffsetS))
     } else if (marke) {
       marke.remove()
       marke = null
@@ -1780,17 +1783,17 @@ function zieheAusAblage(e: PointerEvent, m: MediumAnzeige): void {
     marke?.remove()
     if (abgelegtBei === null || !z) return
     unterdrueckeKlick = true
-    const roh = punktZuOffset(z.track, abgelegtBei)
+    const roh = pointAtOffset(z.track, abgelegtBei)
     if (!roh) return
     // Ablage hat kein Snap — nicht still mit einem Nachbarn clustern.
     const fremdeMeter = medienAnzeige()
       .filter((x) => x.anchor && !x.removed && x.id !== m.id)
-      .map((x) => meterZuOffset(kumStrecke, z!.track, offsetVon(x)))
-    const sicherMeter = meterOhneCluster(meterZuOffset(kumStrecke, z.track, roh[3]), fremdeMeter)
-    const punkt = punktZuOffset(z.track, offsetBeiMeter(kumStrecke, z.track, sicherMeter))
+      .map((x) => metersToOffset(kumStrecke, z!.track, offsetVon(x)))
+    const sicherMeter = meterOhneCluster(metersToOffset(kumStrecke, z.track, roh[3]), fremdeMeter)
+    const punkt = pointAtOffset(z.track, offsetAtMeters(kumStrecke, z.track, sicherMeter))
     if (!punkt) return
     // Wieder dabei: Anker setzen und, falls es entfernt war, zurückholen
-    z.edits = mitMedienEdit(z.edits, m.id, { anchor: [punkt[0], punkt[1]], removed: false })
+    z.edits = withMediaEdit(z.edits, m.id, { anchor: [punkt[0], punkt[1]], removed: false })
     z.fokus = { kind: 'medium', id: m.id }
     schliesseSpurMenue()
     renderAlles()
@@ -1891,7 +1894,7 @@ function regler(
 /**
  * Zeitfeld: tippen, mit ▲▼ steppen ODER darüberziehen (5 px ≈ 1 Minute, wie in
  * Final Cut). Gerechnet wird über die Differenz zur angezeigten Uhrzeit
- * (uhrDiffZuOffset) — das ist DST-fest und übersteht Mitternacht.
+ * (clockDiffToOffset) — das ist DST-fest und übersteht Mitternacht.
  *
  * `beiAenderung` bekommt den neuen Offset in Sekunden und meldet zurück, welcher
  * Offset tatsächlich gilt (geklemmt) — oder null, wenn nichts geschah.
@@ -1910,23 +1913,23 @@ function baueZeitfeld(
   // Ohne size greift der Browser-Default (~20 Zeichen) als Mindestbreite —
   // zwei Felder nebeneinander passen dann nicht in den Inspector.
   eingabe.size = 5
-  eingabe.value = uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', offsetS))
+  eingabe.value = uhrzeitKurz(offsetToIso(z?.daten.time.start ?? '', offsetS))
   let aktuellS = offsetS
 
   /** Neuen Wert anwenden und das Feld auf den tatsächlich geltenden Stand ziehen. */
   const anwenden = (neuOffsetS: number): void => {
     const gilt = beiAenderung(neuOffsetS)
     if (gilt !== null) aktuellS = gilt
-    eingabe.value = uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', aktuellS))
+    eingabe.value = uhrzeitKurz(offsetToIso(z?.daten.time.start ?? '', aktuellS))
   }
 
   eingabe.addEventListener('change', () => {
-    const neu = uhrDiffZuOffset(
+    const neu = clockDiffToOffset(
       aktuellS,
-      uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', aktuellS)),
+      uhrzeitKurz(offsetToIso(z?.daten.time.start ?? '', aktuellS)),
       eingabe.value,
     )
-    if (neu === null) eingabe.value = uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', aktuellS))
+    if (neu === null) eingabe.value = uhrzeitKurz(offsetToIso(z?.daten.time.start ?? '', aktuellS))
     else {
       anwenden(neu)
       beiZugEnde?.()
@@ -2051,7 +2054,7 @@ function renderInspektor(): void {
   inhalt.hidden = false
   fuss.hidden = false
   const start = z.daten.time.start
-  const bezugS = (info.fromS + info.toS) / 2
+  const atS = (info.fromS + info.toS) / 2
 
   // — Kopf: nur die Art (Kicker). Kein zweiter Titel wie „Wetter Klar" —
   // die Einstellungen darunter legen das bereits fest.
@@ -2075,21 +2078,26 @@ function renderInspektor(): void {
       if (!z || !wahl.value) return
       // Ohne eigene Grenze (Band aus der Aufzeichnung) wird am Bandanfang eine
       // neue gesetzt — so lässt sich JEDER Abschnitt direkt umstellen.
-      const from = info.from ?? offsetZuIso(start, info.fromS)
-      const preset = wahl.value as KameraPreset
+      const from = info.from ?? offsetToIso(start, info.fromS)
+      const preset = wahl.value as CameraPreset
       z.edits = istModus
-        ? mitModusGrenze(z.edits, from, wahl.value as Modus)
+        ? withTravelModeBoundary(z.edits, from, wahl.value as TravelMode)
         : // Die Feinjustierung gehört zu einem gewählten Abstand: „Standard"
           // reicht sie an die Einstellung des Zuschauers weiter und verböge sie.
-          mitKameraGrenze(z.edits, from, preset, preset === 'default' ? undefined : info.intensity)
-      z.fokus = istModus ? { kind: 'modus', bezugS } : { kind: 'kamera', bezugS }
+          withCameraBoundary(
+            z.edits,
+            from,
+            preset,
+            preset === 'default' ? undefined : info.intensity,
+          )
+      z.fokus = istModus ? { kind: 'modus', atS } : { kind: 'kamera', atS }
       renderAlles()
     })
     // „Art" statt einer Wiederholung des Panel-Titels — der sagt schon, worum es geht.
     inhalt.appendChild(feld(istModus ? 'Art' : 'Kamera-Abstand', wahl))
 
     if (!istModus && info.preset && info.preset !== 'default') {
-      const from = info.from ?? offsetZuIso(start, info.fromS)
+      const from = info.from ?? offsetToIso(start, info.fromS)
       const preset = info.preset
       inhalt.appendChild(
         feld(
@@ -2099,8 +2107,8 @@ function renderInspektor(): void {
             (v) => `${v} %`,
             (v) => {
               if (!z) return
-              z.edits = mitKameraGrenze(z.edits, from, preset, v / 100)
-              z.fokus = { kind: 'kamera', bezugS }
+              z.edits = withCameraBoundary(z.edits, from, preset, v / 100)
+              z.fokus = { kind: 'kamera', atS }
               renderAlles()
             },
           ),
@@ -2110,31 +2118,31 @@ function renderInspektor(): void {
   } else if (info.kind === 'wetter') {
     const wahl = auswahl(
       Object.entries(WETTER_NAMEN),
-      info.wetterMode,
-      info.wetterMode ? undefined : 'Automatisch',
+      info.weatherMode,
+      info.weatherMode ? undefined : 'Automatisch',
     )
     wahl.addEventListener('change', () => {
       if (!z || !wahl.value) return
       // Ändern übernimmt die bisher automatische Einteilung ins Overlay: dieses
       // ersetzt das Auto-Wetter serverseitig VOLLSTÄNDIG. Stärke bei „Klar" weg.
       schreibeWetterFest()
-      const from = info.from ?? offsetZuIso(start, info.fromS)
-      const neu = wahl.value as WetterModus
-      z.edits = mitWetterGrenze(z.edits, from, neu, neu === 'off' ? undefined : info.intensity)
-      z.fokus = { kind: 'wetter', bezugS }
+      const from = info.from ?? offsetToIso(start, info.fromS)
+      const neu = wahl.value as WeatherMode
+      z.edits = withWeatherBoundary(z.edits, from, neu, neu === 'off' ? undefined : info.intensity)
+      z.fokus = { kind: 'wetter', atS }
       renderAlles()
     })
     inhalt.appendChild(feld('Wetterlage', wahl))
-    if (!(z.edits.weather ?? []).length && info.wetterMode) {
+    if (!(z.edits.weather ?? []).length && info.weatherMode) {
       inhalt.appendChild(
         hinweis(
           'Automatisch ermittelt aus dem Wetterarchiv, an den Fotos nachgeschärft. Die erste Änderung übernimmt die ganze Einteilung zur Bearbeitung.',
         ),
       )
     }
-    if (info.wetterMode && info.wetterMode !== 'off') {
-      const from = info.from ?? offsetZuIso(start, info.fromS)
-      const mode = info.wetterMode
+    if (info.weatherMode && info.weatherMode !== 'off') {
+      const from = info.from ?? offsetToIso(start, info.fromS)
+      const mode = info.weatherMode
       inhalt.appendChild(
         feld(
           'Stärke',
@@ -2148,8 +2156,8 @@ function renderInspektor(): void {
             (v) => `${v} %`,
             (v) => {
               if (!z) return
-              z.edits = mitWetterGrenze(z.edits, from, mode, v / 100)
-              z.fokus = { kind: 'wetter', bezugS }
+              z.edits = withWeatherBoundary(z.edits, from, mode, v / 100)
+              z.fokus = { kind: 'wetter', atS }
               renderAlles()
             },
           ),
@@ -2158,10 +2166,10 @@ function renderInspektor(): void {
     }
   } else if (info.kind === 'moment') {
     const abFest = info.from as string
-    const wahl = auswahl(Object.entries(MOMENT_NAMEN), info.momentArt)
+    const wahl = auswahl(Object.entries(MOMENT_NAMEN), info.momentKind)
     wahl.addEventListener('change', () => {
       if (!z) return
-      z.edits = mitMoment(z.edits, abFest, wahl.value as MomentArt, info.durationS)
+      z.edits = withCameraMoment(z.edits, abFest, wahl.value as CameraMomentKind, info.durationS)
       renderAlles()
     })
     inhalt.appendChild(feld('Was die Kamera tut', wahl))
@@ -2170,12 +2178,12 @@ function renderInspektor(): void {
     dauer.min = '1'
     dauer.max = '30'
     dauer.value = info.durationS !== undefined ? String(info.durationS) : ''
-    dauer.placeholder = `${MOMENT_DEFAULT_S[info.momentArt as MomentArt]} (Standard)`
+    dauer.placeholder = `${MOMENT_DEFAULT_S[info.momentKind as CameraMomentKind]} (Standard)`
     dauer.addEventListener('change', () => {
       if (!z) return
       const v =
         dauer.value.trim() === '' ? undefined : Math.max(1, Math.min(30, Number(dauer.value)))
-      z.edits = mitMoment(z.edits, abFest, info.momentArt as MomentArt, v)
+      z.edits = withCameraMoment(z.edits, abFest, info.momentKind as CameraMomentKind, v)
       renderAlles()
     })
     inhalt.appendChild(feld('Dauer in Sekunden', dauer))
@@ -2203,7 +2211,7 @@ function renderInspektor(): void {
 }
 
 /** Kicker-Text je Art. */
-const ART_NAMEN: Record<FokusZiel['kind'], string> = {
+const ART_NAMEN: Record<EditorSelectionTarget['kind'], string> = {
   modus: 'Fortbewegung',
   kamera: 'Kamera',
   wetter: 'Wetter',
@@ -2228,12 +2236,12 @@ const ART_NAMEN: Record<FokusZiel['kind'], string> = {
  * nicht gibt. Übrig bleibt der eine Fall, in dem es wirklich stimmt: ein Band,
  * das eine Trim-Kante mitten in der Tour anschneidet.
  */
-function beginntAmTourAnfang(info: FokusZiel): boolean {
-  const scale = z ? baueSkala(z.track) : null
+function beginntAmTourAnfang(info: EditorSelectionTarget): boolean {
+  const scale = z ? buildScale(z.track) : null
   return !scale || info.fromS <= scale.fromS + 1
 }
 
-function baueZeiten(info: FokusZiel): HTMLElement {
+function baueZeiten(info: EditorSelectionTarget): HTMLElement {
   const paar = document.createElement('div')
   paar.className = 'zeit-paar'
   const punktEreignis = info.toS <= info.fromS
@@ -2277,12 +2285,12 @@ function baueZeiten(info: FokusZiel): HTMLElement {
   paar.appendChild(beginn)
   if (!punktEreignis) {
     paar.appendChild(
-      info.naechsteAb
+      info.nextFrom
         ? feld(
             'Endet um',
             grenzZeitfeld(
               info.kind as GrenzArt,
-              info.naechsteAb,
+              info.nextFrom,
               info.toS,
               (neu) => (info.fromS + neu) / 2,
             ),
@@ -2318,9 +2326,9 @@ function grenzZeitfeld(
       const neuAb = verschiebeGrenze(kind, abAktuell, neu)
       if (!neuAb) return null
       abAktuell = neuAb
-      if (kind !== 'moment') z.fokus = { kind, bezugS: bezug(neu) }
+      if (kind !== 'moment') z.fokus = { kind, atS: bezug(neu) }
       renderOhneInspektor()
-      return isoZuOffset(z.daten.time.start, neuAb)
+      return isoToOffset(z.daten.time.start, neuAb)
     },
     () => renderAlles(),
   )
@@ -2343,13 +2351,13 @@ function audioZeitSetzen(index: number, teil: 'ab' | 'bis', neuOffsetS: number):
   if (!z) return null
   const achse = aktuelleAchse()
   const klip = tonKlipVon(index)
-  if (!achse?.kurve || !klip) return null
+  if (!achse?.curve || !klip) return null
   const start = z.daten.time.start
-  const zielFilmS = filmZuOffset(achse, neuOffsetS)
+  const zielFilmS = filmToOffset(achse, neuOffsetS)
   const patch =
     teil === 'ab'
-      ? verschiebeTon(achse, start, klip, zielFilmS)
-      : trimmeRechts(achse, start, klip, zielFilmS).patch
+      ? moveAudioClip(achse, start, klip, zielFilmS)
+      : trimRight(achse, start, klip, zielFilmS).patch
   z.edits = mitAudioPatch(z.edits, index, {
     ...patch,
     startS: patch.startS && patch.startS > 0 ? patch.startS : undefined,
@@ -2361,9 +2369,9 @@ function audioZeitSetzen(index: number, teil: 'ab' | 'bis', neuOffsetS: number):
   // Was tatsächlich herauskam, zurück in Aufnahmezeit — das Feld soll den
   // geklemmten Wert zeigen, nicht den getippten.
   const neu = tonKlipVon(index)
-  const kurve = aktuelleAchse()?.kurve
+  const kurve = aktuelleAchse()?.curve
   if (!neu || !kurve) return neuOffsetS
-  return Math.round(zeitBeiFilm(kurve, teil === 'ab' ? neu.filmVon : neu.filmBis))
+  return Math.round(recordingTimeAtFilmTime(kurve, teil === 'ab' ? neu.filmVon : neu.filmBis))
 }
 
 // — Aufnahme-Details (ausklappbar): was in der Datei über die Aufnahme steht —
@@ -2380,7 +2388,7 @@ const exifCache = new Map<string, ExifAufnahme | null>()
 /** Erste Bytes einer Datei — mehr braucht der EXIF-Block nie. */
 const EXIF_BYTES = 262_144
 
-async function ladeAufnahmeDaten(m: MediumAnzeige): Promise<ExifAufnahme | null> {
+async function ladeAufnahmeDaten(m: MediaView): Promise<ExifAufnahme | null> {
   try {
     const antwort = await fetch(m.src, {
       credentials: 'same-origin',
@@ -2409,7 +2417,7 @@ function infoZeile(beschriftung: string, wert: string): HTMLElement {
 /** Raster füllen: erst die Angaben aus der Aufzeichnung, dann die aus der Datei. */
 function fuelleInfoRaster(
   raster: HTMLElement,
-  m: MediumAnzeige,
+  m: MediaView,
   exif: ExifAufnahme | null | undefined,
 ): void {
   raster.innerHTML = ''
@@ -2437,7 +2445,7 @@ function fuelleInfoRaster(
 }
 
 /** Ausklappbarer Info-Bereich einer Aufnahme (nativ über <details>). */
-function baueInfoBereich(m: MediumAnzeige): HTMLElement {
+function baueInfoBereich(m: MediaView): HTMLElement {
   const block = document.createElement('details')
   block.className = 'insp-info'
   block.open = infoOffen
@@ -2470,7 +2478,7 @@ function baueInfoBereich(m: MediumAnzeige): HTMLElement {
 }
 
 /** Herkunfts-/Beschreibungszeile eines Audio-Eintrags für die Stück-Karte. */
-function audioHerkunft(a: AudioEintrag): string {
+function audioHerkunft(a: AudioEntry): string {
   if (a.source === 'library') {
     const eff = sfxEffekt(a.file)
     return eff ? `${KATEGORIE_NAMEN[eff.kategorie]} · ${eff.beschreibung}` : 'Bibliothek'
@@ -2483,7 +2491,7 @@ function audioHerkunft(a: AudioEintrag): string {
 }
 
 /** Felder eines Audio-Eintrags — früher nur über das Sidebar-Panel erreichbar. */
-function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
+function baueAudioFelder(index: number, a: AudioEntry): HTMLElement {
   const huelle = document.createElement('div')
   huelle.style.display = 'contents'
 
@@ -2549,12 +2557,15 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
     // Verhalten gewechselt, ohne dass jemand etwas dazu gesagt hat.
     const laenge =
       k && achse
-        ? schreibeTonFest(achse, z.daten.time.start, { ...k, laengeGesetzt: k.filmBis > k.filmVon })
+        ? commitAudioClip(achse, z.daten.time.start, {
+            ...k,
+            hasExplicitLength: k.filmBis > k.filmVon,
+          })
         : null
     z.edits = mitAudioPatch(z.edits, index, {
       type: neu,
       ...(laenge ?? {}),
-      ...(k ? { loop: loopNachRollenwechsel(k, neu) } : {}),
+      ...(k ? { loop: loopAfterRoleChange(k, neu) } : {}),
       to: undefined,
     })
     renderAlles()
@@ -2608,8 +2619,7 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
     // Loop AUS heißt: der rechte Materialanschlag gilt wieder — der Klip kommt
     // ans Dateiende zurück, statt mit einem stummen Rest dazustehen. Stille
     // gehört ZWISCHEN die Klips, nie in einen (docs §2E).
-    const zurueck =
-      klip && achse ? setzeLoop(achse, z.daten.time.start, klip, wdhBox.checked) : null
+    const zurueck = klip && achse ? setLoop(achse, z.daten.time.start, klip, wdhBox.checked) : null
     // `loop` nur schreiben, wenn es von der Vorgabe der Rolle abweicht — sonst
     // trüge jedes angefasste Overlay ein Feld, das nichts sagt.
     const vorgabe = a.type === 'music'
@@ -2623,21 +2633,21 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
   huelle.appendChild(wdh)
 
   // Was von der Datei zu hören ist — die Auskunft zu den beiden Trimm-Kanten.
-  if (klip?.dateiS) {
+  if (klip?.fileS) {
     const laenge = klip.filmBis - klip.filmVon
-    const getrimmt = klip.startS > 0 || laenge < klip.dateiS - 0.05
+    const getrimmt = klip.startS > 0 || laenge < klip.fileS - 0.05
     const info = document.createElement('p')
     info.className = 'insp-hinweis'
     info.textContent = getrimmt
-      ? `${formatiereFilmzeit(laenge)} von ${formatiereFilmzeit(klip.dateiS)}` +
-        (klip.startS > 0 ? ` · ab ${formatiereFilmzeit(klip.startS)} der Datei` : '')
-      : `${formatiereFilmzeit(klip.dateiS)}, die ganze Datei`
+      ? `${formatFilmTime(laenge)} von ${formatFilmTime(klip.fileS)}` +
+        (klip.startS > 0 ? ` · ab ${formatFilmTime(klip.startS)} der Datei` : '')
+      : `${formatFilmTime(klip.fileS)}, die ganze Datei`
     huelle.appendChild(info)
   }
 
   if (
     z &&
-    audioWirdVerworfen(a, z.edits, z.daten.time.start, baueSkala(z.track) ?? { fromS: 0, toS: 0 })
+    audioWouldBeDropped(a, z.edits, z.daten.time.start, buildScale(z.track) ?? { fromS: 0, toS: 0 })
   ) {
     const warn = document.createElement('p')
     warn.className = 'insp-warnung'
@@ -2648,7 +2658,7 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
 }
 
 /** Felder einer Aufnahme — früher nur über die Medien-Liste erreichbar. */
-function baueMediumFelder(m: MediumAnzeige): HTMLElement {
+function baueMediumFelder(m: MediaView): HTMLElement {
   const huelle = document.createElement('div')
   huelle.style.display = 'contents'
 
@@ -2684,7 +2694,7 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
   titel.placeholder = 'ohne Titel'
   titel.addEventListener('change', () => {
     if (!z) return
-    z.edits = mitMedienEdit(z.edits, m.id, { caption: titel.value.trim() })
+    z.edits = withMediaEdit(z.edits, m.id, { caption: titel.value.trim() })
     renderAlles()
   })
   huelle.appendChild(
@@ -2713,7 +2723,7 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
       const d = { ...m.display }
       if (v === undefined) delete d.holdS
       else d.holdS = v
-      z.edits = mitMedienEdit(z.edits, m.id, { display: d })
+      z.edits = withMediaEdit(z.edits, m.id, { display: d })
       renderAlles()
     })
     huelle.appendChild(feld('Standzeit', halt))
@@ -2728,7 +2738,7 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
       const d = { ...m.display }
       if (box.checked) delete d.kenBurns
       else d.kenBurns = false
-      z.edits = mitMedienEdit(z.edits, m.id, { display: d })
+      z.edits = withMediaEdit(z.edits, m.id, { display: d })
       renderAlles()
     })
     kb.append(box, document.createTextNode('Langsam heranfahren (Ken Burns)'))
@@ -2759,7 +2769,7 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
     zurueck.textContent = 'Automatischen Ort zurückholen'
     zurueck.addEventListener('click', () => {
       if (!z) return
-      z.edits = mitMedienEdit(z.edits, m.id, { anchor: undefined })
+      z.edits = withMediaEdit(z.edits, m.id, { anchor: undefined })
       renderAlles()
     })
     knoepfe.appendChild(zurueck)
@@ -2771,7 +2781,7 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
   if (stopp && stopp.items.length > 1) {
     // Was der Halt im fertigen Film wirklich kostet: die Summe seiner
     // Aufnahmen — ein Video mit seiner Laufzeit, ein Foto mit seiner Standzeit.
-    const summe = stopp.items.reduce((sum, x) => sum + aufnahmeHaltS(x), 0)
+    const summe = stopp.items.reduce((sum, x) => sum + mediumHoldS(x), 0)
     const zeile = document.createElement('div')
     zeile.className = 'stopp-summe'
     const links = document.createElement('span')
@@ -2868,7 +2878,7 @@ function zeigeGross(id: string): void {
   gm.className = 'gm'
   const teile: string[] = [`${uhrzeitKurz(m.takenAt)} Uhr`]
   if (m.anchor) {
-    const meter = meterZuOffset(kumStrecke, z.track, offsetVon(m))
+    const meter = metersToOffset(kumStrecke, z.track, offsetVon(m))
     teile.push(`km ${kmText(meter)}`)
   } else {
     teile.push('ohne Ort')
@@ -2887,12 +2897,12 @@ function zeigeGross(id: string): void {
 }
 
 /** Aufnahmen in Tour-Reihenfolge (Stopps entlang der Strecke, sonst Aufnahmezeit). */
-function grossListe(): MediumAnzeige[] {
+function grossListe(): MediaView[] {
   if (!z) return []
   const alle = medienAnzeige().filter((m) => !m.removed)
   const stopps = baueStopps(alle, z.track, kumStrecke)
   const gesehen = new Set<string>()
-  const liste: MediumAnzeige[] = []
+  const liste: MediaView[] = []
   for (const s of stopps) {
     for (const m of s.items) {
       liste.push(m)
@@ -2911,7 +2921,11 @@ function schliesseGross(): void {
 }
 
 /** Was der Löschknopf tut — und wann er gesperrt ist. */
-function loeschInfo(info: FokusZiel): { text: string; gesperrt: boolean; grund?: string } {
+function loeschInfo(info: EditorSelectionTarget): {
+  text: string
+  gesperrt: boolean
+  grund?: string
+} {
   if (info.kind === 'medium') {
     const m = medienAnzeige().find((x) => x.id === info.id)
     return { text: m?.type === 'video' ? 'Video entfernen' : 'Foto entfernen', gesperrt: false }
@@ -2923,7 +2937,7 @@ function loeschInfo(info: FokusZiel): { text: string; gesperrt: boolean; grund?:
   // zweite Band nimmt seinen Platz ein. Das geht nur, wenn es ein zweites gibt
   // — sonst wäre die Bahn danach leer, und eine lückenlose Bahn ist die ganze
   // Idee der Zustandsbänder.
-  if (beginntAmTourAnfang(info) && !info.naechsteAb) {
+  if (beginntAmTourAnfang(info) && !info.nextFrom) {
     return {
       text: 'Abschnitt entfernen',
       gesperrt: true,
@@ -2948,7 +2962,7 @@ function loescheFokus(): void {
   // Nach dem ersten Löschen hat es eine: Sie zu entfernen machte das Band
   // wieder implizit, ohne dass sich sichtbar etwas änderte — man musste
   // zweimal löschen, und der erste Klick sah wie ein Fehlschlag aus.
-  if (ZUSTANDS_ARTEN.has(info.kind) && beginntAmTourAnfang(info) && info.naechsteAb) {
+  if (ZUSTANDS_ARTEN.has(info.kind) && beginntAmTourAnfang(info) && info.nextFrom) {
     loescheErstesBand(info)
     return
   }
@@ -2957,18 +2971,19 @@ function loescheFokus(): void {
   // sein, sonst gäbe es gar nichts zu entfernen.
   if (info.kind === 'modus' && info.from) {
     if (!schreibeModiFest(info.from)) return
-    z.edits = ohneModusGrenze(z.edits, info.from)
-  } else if (info.kind === 'kamera' && info.from) z.edits = ohneKameraGrenze(z.edits, info.from)
+    z.edits = withoutTravelModeBoundary(z.edits, info.from)
+  } else if (info.kind === 'kamera' && info.from)
+    z.edits = withoutCameraBoundary(z.edits, info.from)
   else if (info.kind === 'wetter' && info.from) {
     // Wie beim Modus: die automatisch ermittelte Einteilung erst festschreiben,
     // sonst löschte man eine Grenze, die im Overlay noch gar nicht steht.
     if (!schreibeWetterFest()) return
-    z.edits = ohneWetterGrenze(z.edits, info.from)
-  } else if (info.kind === 'moment' && info.from) z.edits = ohneMoment(z.edits, info.from)
+    z.edits = withoutWeatherBoundary(z.edits, info.from)
+  } else if (info.kind === 'moment' && info.from) z.edits = withoutCameraMoment(z.edits, info.from)
   else if (info.kind === 'audio' && info.index !== undefined)
-    z.edits = ohneAudioEintrag(z.edits, info.index)
+    z.edits = withoutAudioEntry(z.edits, info.index)
   else if (info.kind === 'medium' && info.id)
-    z.edits = mitMedienEdit(z.edits, info.id, { removed: true })
+    z.edits = withMediaEdit(z.edits, info.id, { removed: true })
   else return
   z.fokus = null
   renderAlles()
@@ -2987,31 +3002,31 @@ function loescheFokus(): void {
  * `schreibeWetterFest`) — was die Automatik erkannt hat, steht bis dahin gar
  * nicht im Overlay und ließe sich weder verschieben noch entfernen.
  */
-function loescheErstesBand(info: FokusZiel): void {
+function loescheErstesBand(info: EditorSelectionTarget): void {
   if (!z) return
-  const alt = info.naechsteAb
+  const alt = info.nextFrom
   if (!alt) return
-  const scale = baueSkala(z.track)
+  const scale = buildScale(z.track)
   if (!scale) return
   // Hat das Band bereits eine eigene Grenze, wird GENAU die überschrieben —
   // sonst bliebe sie als haarfeines Band davor stehen.
-  const anfang = info.from ?? offsetZuIso(z.daten.time.start, scale.fromS)
+  const anfang = info.from ?? offsetToIso(z.daten.time.start, scale.fromS)
   if (info.kind === 'modus') {
     if (!schreibeModiFest(alt)) return
     const mode = z.edits.travelModes?.find((g) => g.from === alt)?.mode
     if (!mode) return
-    // `mitModusGrenze` ersetzt eine Grenze auf demselben Zeitpunkt — nach dem
+    // `withTravelModeBoundary` ersetzt eine Grenze auf demselben Zeitpunkt — nach dem
     // Festschreiben liegt am Tour-Anfang bereits eine.
-    z.edits = mitModusGrenze(ohneModusGrenze(z.edits, alt), anfang, mode)
+    z.edits = withTravelModeBoundary(withoutTravelModeBoundary(z.edits, alt), anfang, mode)
   } else if (info.kind === 'kamera') {
     const g = z.edits.camera?.find((x) => x.from === alt)
     if (!g) return
-    z.edits = mitKameraGrenze(ohneKameraGrenze(z.edits, alt), anfang, g.preset, g.scale)
+    z.edits = withCameraBoundary(withoutCameraBoundary(z.edits, alt), anfang, g.preset, g.scale)
   } else if (info.kind === 'wetter') {
     if (!schreibeWetterFest()) return
     const g = z.edits.weather?.find((x) => x.from === alt)
     if (!g) return
-    z.edits = mitWetterGrenze(ohneWetterGrenze(z.edits, alt), anfang, g.mode, g.intensity)
+    z.edits = withWeatherBoundary(withoutWeatherBoundary(z.edits, alt), anfang, g.mode, g.intensity)
   } else return
   // Nach dem Löschen ist NICHTS ausgewählt — wie bei jedem anderen Objekt.
   // Den Fokus auf das nachrückende Band zu setzen sähe aus, als hätte man
@@ -3031,13 +3046,13 @@ function entfernenKnopf(aktion: () => void): HTMLButtonElement {
   return knopf
 }
 
-function medienAnzeige(): MediumAnzeige[] {
+function medienAnzeige(): MediaView[] {
   if (!z) return []
-  return effektiveMedien(z.daten.media as MediumBasis[], z.edits)
+  return effectiveMedia(z.daten.media as MediaBase[], z.edits)
 }
 
 /** Karte zum Anker fliegen + Marker pulsieren lassen (Liste→Karte-Sync). */
-function fliegeZuMedium(m: MediumAnzeige): void {
+function fliegeZuMedium(m: MediaView): void {
   if (!karte || !m.anchor) return
   karte.flyTo({ center: m.anchor, zoom: Math.max(karte.getZoom(), 15), duration: 700 })
   const el = medienMarker.get(m.id)
@@ -3156,7 +3171,7 @@ function zeichneWelle(puffer: AudioBuffer): string | null {
  * Beim EINSETZEN muss die Länge vorliegen, bevor der Klip entsteht — sonst
  * müsste er nachträglich zucken.
  */
-async function holeTonDauer(a: AudioEintrag): Promise<number | null> {
+async function holeTonDauer(a: AudioEntry): Promise<number | null> {
   const bekannt = tonDauern.get(a.file)
   if (bekannt !== undefined) return bekannt
   if (!z) return null
@@ -3196,17 +3211,17 @@ async function holeTonDauer(a: AudioEintrag): Promise<number | null> {
  * Vorgabe: `loop: false` ohne bekanntes Ende erzeugte gerade den stummen Rest,
  * den es zu vermeiden gilt.
  */
-async function setzeTonEin(eintrag: AudioEintrag): Promise<void> {
+async function setzeTonEin(eintrag: AudioEntry): Promise<void> {
   if (!z) return
   // Gemessen wird VOR dem Einfügen: so entsteht genau EIN Overlay-Stand — also
   // ein Undo-Schritt — und der Klip steht sofort in seiner endgültigen Form da,
   // statt kurz nach dem Erscheinen zu zucken.
   const dateiS = eintrag.type === 'music' ? await holeTonDauer(eintrag) : null
   if (!z) return
-  const voll: AudioEintrag = dateiS
+  const voll: AudioEntry = dateiS
     ? { ...eintrag, loop: false, durationFilmS: Math.round(dateiS * 1000) / 1000 }
     : eintrag
-  z.edits = mitAudioEintrag(z.edits, voll)
+  z.edits = withAudioEntry(z.edits, voll)
   // Auf das Eingesetzte springen — der Inspector zeigte sonst weiter, was vorher
   // ausgewählt war, und man sucht das gerade Hinzugefügte auf der Spur.
   z.fokus = { kind: 'audio', index: (z.edits.audio ?? []).length - 1 }
@@ -3214,7 +3229,7 @@ async function setzeTonEin(eintrag: AudioEintrag): Promise<void> {
 }
 
 /** Einen Audio-Eintrag vorhören (bricht ein laufendes Vorhören ab). */
-function starteVorschau(a: AudioEintrag): void {
+function starteVorschau(a: AudioEntry): void {
   if (!z) return
   stoppeVorschau()
   // Nie zwei Quellen gleichzeitig: auch ein laufendes Bibliotheks-Vorhören endet.
@@ -3293,13 +3308,13 @@ async function bibliothekHochladen(file: File): Promise<void> {
   }
   // Aus dem Spur-Menü: direkt als Musik ab der Marke einsetzen (wie bisher).
   const start = z.daten.time.start
-  const scale = baueSkala(z.track)
+  const scale = buildScale(z.track)
   const abOffset = z.auswahl ? z.auswahl[3] : (scale?.fromS ?? 0)
   const parallel = ueberlappteMusik(abOffset, scale?.toS ?? abOffset)
   void setzeTonEin({
     file: name,
     type: 'music',
-    from: offsetZuIso(start, abOffset),
+    from: offsetToIso(start, abOffset),
     source: 'user',
   })
   audioStatus(
@@ -3379,12 +3394,12 @@ function sfxStatus(text: string, kind?: 'ok' | 'fehler'): void {
 function ueberlappteMusik(fromS: number, toS: number): string[] {
   if (!z) return []
   const start = z.daten.time.start
-  const endeS = baueSkala(z.track)?.toS ?? Infinity
+  const endeS = buildScale(z.track)?.toS ?? Infinity
   return (z.edits.audio ?? [])
     .filter((a) => {
       if (a.type !== 'music') return false
-      const von = isoZuOffset(start, a.from)
-      const to = a.to !== undefined ? isoZuOffset(start, a.to) : endeS
+      const von = isoToOffset(start, a.from)
+      const to = a.to !== undefined ? isoToOffset(start, a.to) : endeS
       return von < toS && fromS < to
     })
     .map((a) => `„${audioName(a)}"`)
@@ -3411,7 +3426,7 @@ function sfxUebernehmen(
     return
   }
   const start = z.daten.time.start
-  const scale = baueSkala(z.track)
+  const scale = buildScale(z.track)
   // Ist ein Punkt gewählt, dort einsetzen (v. a. für One-Shots gemeint) — sonst
   // ab Tour-Beginn, wie beim Upload.
   const abOffset = z.auswahl ? z.auswahl[3] : (scale?.fromS ?? 0)
@@ -3419,7 +3434,7 @@ function sfxUebernehmen(
   const parallel = type !== 'sfx' ? ueberlappteMusik(abOffset, scale?.toS ?? abOffset) : []
   // Der Dialog geht SOFORT zu — die Längenmessung darf ihn nicht offen halten.
   schliesseSfxDialog()
-  void setzeTonEin({ file, type: type ?? 'music', from: offsetZuIso(start, abOffset), source })
+  void setzeTonEin({ file, type: type ?? 'music', from: offsetToIso(start, abOffset), source })
   audioStatus(
     parallel.length
       ? `„${name}" eingesetzt, läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
@@ -3837,7 +3852,7 @@ function audioEintragEntfernen(index: number): void {
   const eintrag = (z.edits.audio ?? [])[index]
   if (!eintrag) return
   if (vorschau?.file === eintrag.file) stoppeVorschau()
-  z.edits = ohneAudioEintrag(z.edits, index)
+  z.edits = withoutAudioEntry(z.edits, index)
   // Die Datei bleibt BEWUSST auf dem Server: das Overlay ist erst beim
   // Speichern persistiert, und ein evtl. schon gerendertes tour.json
   // referenziert sie ggf. noch. Eigene Uploads bleiben ohnehin in der
@@ -3872,7 +3887,7 @@ const KANTEN_ROLLEN = new Set(['grenze', 'kamera', 'wetter', 'audio-von', 'audio
 /** Die drei Zustandsbahnen — nur ihre Kanten laufen entkoppelt (s. starteKantenZug). */
 const ZUSTANDS_KANTEN = new Set(['grenze', 'kamera', 'wetter'])
 /** Die drei Bahnen mit lückenlosen Zustandsbändern (nicht: Klips und Punkte). */
-const ZUSTANDS_ARTEN = new Set<FokusZiel['kind']>(['modus', 'kamera', 'wetter'])
+const ZUSTANDS_ARTEN = new Set<EditorSelectionTarget['kind']>(['modus', 'kamera', 'wetter'])
 
 interface ZugZustand {
   rolle: string
@@ -3880,10 +3895,10 @@ interface ZugZustand {
   startX: number
   /** Overlay-Identität: ISO-`from` bei Pins, Index bei Audio */
   from?: string
-  mode?: Modus
-  preset?: KameraPreset
-  wetterMode?: WetterModus
-  momentArt?: MomentArt
+  mode?: TravelMode
+  preset?: CameraPreset
+  wetterMode?: WeatherMode
+  momentArt?: CameraMomentKind
   index?: number
   /** Abstand Cursor↔Balkenanfang beim Greifen (Anteil), für ruckfreies Schieben */
   griffVersatz?: number
@@ -3896,18 +3911,18 @@ interface ZugZustand {
    * setPointerCapture zeigt e.target im pointerup auf das Capture-Element
    * (#zeitleiste), nicht mehr auf das Band unter dem Finger.
    */
-  fokus?: Fokus | null
+  fokus?: EditorSelection | null
   bewegt: boolean
 }
 
 /** data-Attribute eines Bandes → Fokus-Identität. */
-function bandZuFokus(el: HTMLElement | null): Fokus | null {
+function bandZuFokus(el: HTMLElement | null): EditorSelection | null {
   const kind = el?.dataset['fokus']
-  const bezugS = Number(el?.dataset['bezugs'])
-  if (!Number.isFinite(bezugS)) return null
-  if (kind === 'modus') return { kind: 'modus', bezugS }
-  if (kind === 'kamera') return { kind: 'kamera', bezugS }
-  if (kind === 'wetter') return { kind: 'wetter', bezugS }
+  const atS = Number(el?.dataset['bezugs'])
+  if (!Number.isFinite(atS)) return null
+  if (kind === 'modus') return { kind: 'modus', atS }
+  if (kind === 'kamera') return { kind: 'kamera', atS }
+  if (kind === 'wetter') return { kind: 'wetter', atS }
   return null
 }
 
@@ -3959,7 +3974,7 @@ function spur(id: string): HTMLElement {
  * „Rand ziehen", und nichts geschah). Die Kante ist ein GRIFF, kein eigenes
  * Objekt — wer sie nur antippt, meint das Band darunter.
  */
-function bandUnterZeiger(e: PointerEvent): Fokus | null {
+function bandUnterZeiger(e: PointerEvent): EditorSelection | null {
   const direkt = (e.target as HTMLElement).closest<HTMLElement>('[data-fokus]')
   if (direkt) return bandZuFokus(direkt)
   for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
@@ -3971,7 +3986,7 @@ function bandUnterZeiger(e: PointerEvent): Fokus | null {
 
 // — Filmzeit-Achse: EINE Quelle für alle Leisten-Abbildungen —
 //
-// Position auf der Leiste ∝ Filmzeit (baueAchse in zeitleiste.ts). Die Achse
+// Position auf der Leiste ∝ Filmzeit (buildTimelineAxis in zeitleiste.ts). Die Achse
 // hängt an Overlay und Tourdaten; das Overlay wird immutabel fortgeschrieben,
 // deshalb genügt ein Referenzvergleich als Cache-Schlüssel. Der Cache ist
 // nötig: renderPlayhead läuft bei jedem Scrub-Frame und darf nicht jedes Mal
@@ -3985,8 +4000,8 @@ const TON_LANE_PX = 24
 let achseMemo: {
   edits: EditOverlay
   tourId: string
-  achse: Achse | null
-  spiel: Filmkurve | null
+  achse: TimelineAxis | null
+  spiel: FilmCurve | null
 } | null = null
 
 /**
@@ -3996,26 +4011,26 @@ let achseMemo: {
  * ohne das Objekt, das gerade in der Hand liegt (s. `schluessel` in
  * zeitleiste.ts), und drei Kopien dieser Rechnung liefen garantiert auseinander.
  */
-function achsenHalte(media: MediumAnzeige[], moments: readonly KameraMoment[]): AchsenHalt[] {
+function achsenHalte(media: MediaView[], moments: readonly CameraMoment[]): AxisStop[] {
   if (!z) return []
   const start = z.daten.time.start
   // Halt-Breite = Standzeit aller Aufnahmen des Stopps.
   // `indizes` trägt den Weg zurück zum Stopp: die Achse sortiert nach Zeit und
   // lässt Halte ohne Breite weg, ihr Index ist also nicht der der Stopp-Liste.
-  const halte: AchsenHalt[] = baueStopps(media, z.track, kumStrecke).map((s, i) => {
+  const halte: AxisStop[] = baueStopps(media, z.track, kumStrecke).map((s, i) => {
     // Ein Halt ist die KETTE seiner Aufnahmen, kein Block: nur so lässt sich
     // sagen, welche davon gerade steht. Videos zählen mit ihrer echten Länge
     // (`durationS` aus der Editor-Route), Fotos mit ihrer Standzeit.
-    const stuecke = s.items.map((m) => ({
+    const items = s.items.map((m) => ({
       id: m.id,
-      durationS: aufnahmeHaltS(m) + HALT_AUSBLEND_S,
+      durationS: mediumHoldS(m) + STOP_FADE_OUT_S,
     }))
     return {
       offsetS: s.offsetS,
-      breiteS: stuecke.reduce((summe, st) => summe + st.durationS, 0),
+      breiteS: items.reduce((summe, st) => summe + st.durationS, 0),
       kind: 'aufnahmen',
-      indizes: [i],
-      stuecke,
+      indices: [i],
+      items,
     }
   })
   // Ein Moment ist grammatikalisch ein HALT: die Kamera bleibt stehen und tut
@@ -4023,38 +4038,47 @@ function achsenHalte(media: MediumAnzeige[], moments: readonly KameraMoment[]): 
   // vollständig — an der Beispieltour 13,6 unsichtbare Filmsekunden.
   for (const m of moments) {
     halte.push({
-      offsetS: isoZuOffset(start, m.from),
+      offsetS: isoToOffset(start, m.from),
       breiteS: momentDauerS(m),
       kind: 'moment',
-      schluessel: m.from,
+      key: m.from,
     })
   }
   return halte
 }
 
 /** Filmzeit eines Moments — ohne eigene Angabe die Vorgabe seiner Art. */
-function momentDauerS(m: KameraMoment): number {
+function momentDauerS(m: CameraMoment): number {
   return m.durationS ?? MOMENT_DEFAULT_S[m.kind]
 }
 
-function aktuelleAchse(): Achse | null {
+function aktuelleAchse(): TimelineAxis | null {
   if (!z) return null
   if (achseMemo && achseMemo.edits === z.edits && achseMemo.tourId === z.tourId)
     return achseMemo.achse
-  const scale = baueSkala(z.track)
+  const scale = buildScale(z.track)
   if (!scale) return null
-  const abschnitte = zerlegeFuerAnzeige(
+  const abschnitte = splitForDisplay(
     z.daten.segments as EditorSegment[],
     z.edits,
     z.daten.time.start,
   )
-  const achse = baueAchse(abschnitte, achsenHalte(medienAnzeige(), z.edits.moments ?? []), scale)
-  achseMemo = { edits: z.edits, tourId: z.tourId, achse, spiel: baueSpielKurve(achse, abschnitte) }
+  const achse = buildTimelineAxis(
+    abschnitte,
+    achsenHalte(medienAnzeige(), z.edits.moments ?? []),
+    scale,
+  )
+  achseMemo = {
+    edits: z.edits,
+    tourId: z.tourId,
+    achse,
+    spiel: buildPlaybackCurve(achse, abschnitte),
+  }
   return achse
 }
 
 /** Abspiel-Filmkurve zur aktuellen Achse (Trim-Plateaus) — aus demselben Cache. */
-function aktuelleSpielKurve(): Filmkurve | null {
+function aktuelleSpielKurve(): FilmCurve | null {
   if (!aktuelleAchse()) return null
   return achseMemo?.spiel ?? null
 }
@@ -4101,7 +4125,7 @@ function renderZeitleiste(): void {
     d.style.width = pos(to - von)
     if (farbe) d.style.background = farbe
     d.dataset['fokus'] = kind
-    d.dataset['bezugs'] = String(anteilZuOffset(scale, (von + to) / 2))
+    d.dataset['bezugs'] = String(fractionToOffset(scale, (von + to) / 2))
     d.title = text + zusatz
     // Die Beschriftung als EIGENES Feld: `title` tragen manche Bänder als
     // Erklärung („… — automatisch ermittelt"), die nie auf dem Band stehen darf.
@@ -4132,39 +4156,39 @@ function renderZeitleiste(): void {
   /** Ein Band gilt als fokussiert, wenn seine Mitte in der Fokus-Spanne liegt. */
   const istFokus = (kind: string, von: number, to: number): boolean => {
     if (fokusInfo?.kind !== kind) return false
-    const mitte = anteilZuOffset(scale, (von + to) / 2)
+    const mitte = fractionToOffset(scale, (von + to) / 2)
     return mitte >= fokusInfo.fromS && mitte <= fokusInfo.toS
   }
 
   // — Fortbewegung: Bänder aus der Anzeige-Zerlegung (Segment-Modi + Grenzen) —
   const modusBahn = spur('spur-wege')
-  const modusAbschnitte = zerlegeFuerAnzeige(z.daten.segments as EditorSegment[], z.edits, start)
-  for (const b of baueBaender(modusAbschnitte, scale)) {
-    const d = band('modus', b.von, b.to, MODUS_NAMEN[b.mode], MODUS_FARBEN[b.mode])
-    if (!b.aktiv) d.classList.add('inaktiv')
-    if (istFokus('modus', b.von, b.to)) d.classList.add('fokus')
+  const modusAbschnitte = splitForDisplay(z.daten.segments as EditorSegment[], z.edits, start)
+  for (const b of buildBands(modusAbschnitte, scale)) {
+    const d = band('modus', b.from, b.to, MODUS_NAMEN[b.mode], MODUS_FARBEN[b.mode])
+    if (!b.active) d.classList.add('inaktiv')
+    if (istFokus('modus', b.from, b.to)) d.classList.add('fokus')
     modusBahn.appendChild(d)
   }
   // Jeder MODUS-Wechsel ist ein Griff — auch der von der Automatik erkannte.
-  // Beim ersten Zug schreibt `materialisiereModi` die Aufteilung fest; bis
+  // Beim ersten Zug schreibt `materializeTravelModes` die Aufteilung fest; bis
   // dahin ist die Kante nur eine Stelle auf der Achse. Kanten mit gleichem
   // Modus links und rechts bekommen keinen Griff: dort ist nichts zu wechseln.
   // Position = erster Punkt des neuen Abschnitts (bei Overlay-Grenzen zwischen
   // Stützpunkten der interpolierte Grenzpunkt). Identität: Overlay-`from` mit
   // Sekunden-Toleranz, sonst frisch aus der Zeit — muss zu `schreibeModiFest`
-  // / `materialisiereModi` passen.
+  // / `materializeTravelModes` passen.
   for (const [i, a] of modusAbschnitte.entries()) {
     const vorher = modusAbschnitte[i - 1]
     if (!vorher || vorher.mode === a.mode) continue
-    const fromS = (a.pts[0] as TrackPunkt)[3]
+    const fromS = (a.pts[0] as TrackPoint)[3]
     const from =
-      (z.edits.travelModes ?? []).find((g) => Math.abs(isoZuOffset(start, g.from) - fromS) < 1)
-        ?.from ?? offsetZuIso(start, fromS)
+      (z.edits.travelModes ?? []).find((g) => Math.abs(isoToOffset(start, g.from) - fromS) < 1)
+        ?.from ?? offsetToIso(start, fromS)
     modusBahn.appendChild(
       kante(
-        offsetZuAnteil(scale, fromS),
+        offsetToFraction(scale, fromS),
         'grenze',
-        { from, mode: a.mode },
+        { ab: from, mode: a.mode },
         `${MODUS_NAMEN[a.mode]} ab ${zeitText(from)} Uhr · ziehen zum Verschieben`,
       ),
     )
@@ -4172,8 +4196,8 @@ function renderZeitleiste(): void {
 
   // — Kamera: lückenlose Bänder; das Grundband zeigt „Preset des Zuschauers" —
   const kameraBahn = spur('spur-kamera')
-  const kameraBaender = baueZustandsBaender<KameraPreset | null>(
-    (z.edits.camera ?? []).map((g) => ({ from: g.from, wert: g.preset })),
+  const kameraBaender = buildStateBands<CameraPreset | null>(
+    (z.edits.camera ?? []).map((g) => ({ from: g.from, value: g.preset })),
     start,
     scale,
     null,
@@ -4186,13 +4210,13 @@ function renderZeitleiste(): void {
       feinSkala !== undefined && feinSkala !== 1 ? ` ×${String(+feinSkala.toFixed(2))}` : ''
     // Das Grundband (ohne Grenze) und ein gesetztes „Standard" sind derselbe
     // Zustand und sehen deshalb gleich aus — nur der eine hat eine Kante.
-    const istStandard = !b.wert || b.wert === 'default'
+    const istStandard = !b.value || b.value === 'default'
     const d = band(
       'kamera',
-      b.von,
-      b.to,
-      b.wert ? PRESET_NAMEN[b.wert] : KAMERA_STANDARD,
-      b.wert ? PRESET_FARBEN[b.wert] : undefined,
+      b.fromFraction,
+      b.toFraction,
+      b.value ? PRESET_NAMEN[b.value] : KAMERA_STANDARD,
+      b.value ? PRESET_FARBEN[b.value] : undefined,
       skalaTxt,
     )
     // „Standard" ist kein Leerzustand, sondern eine Aussage: hier gilt, was der
@@ -4200,15 +4224,15 @@ function renderZeitleiste(): void {
     // die beim Wetter das ehrliche „noch gar nichts ermittelt" bezeichnet.
     if (istStandard) d.title = KAMERA_STANDARD_ERKLAERT
     d.classList.add(istStandard ? 'grund' : 'hell')
-    if (istFokus('kamera', b.von, b.to)) d.classList.add('fokus')
+    if (istFokus('kamera', b.fromFraction, b.toFraction)) d.classList.add('fokus')
     kameraBahn.appendChild(d)
-    if (b.from !== null && b.wert) {
+    if (b.from !== null && b.value) {
       kameraBahn.appendChild(
         kante(
-          b.von,
+          b.fromFraction,
           'kamera',
-          { from: b.from, preset: b.wert },
-          `Kamera ${PRESET_NAMEN[b.wert]} ab ${zeitText(b.from)} Uhr · ziehen zum Verschieben`,
+          { ab: b.from, preset: b.value },
+          `Kamera ${PRESET_NAMEN[b.value]} ab ${zeitText(b.from)} Uhr · ziehen zum Verschieben`,
         ),
       )
     }
@@ -4222,8 +4246,8 @@ function renderZeitleiste(): void {
   const wetterBahn = spur('spur-wetter')
   const wetterGrenzen = anzeigeWetter()
   const eigenes = (z.edits.weather ?? []).length > 0
-  const wetterBaender = baueZustandsBaender<WetterModus | null>(
-    wetterGrenzen.map((g) => ({ from: g.from, wert: g.mode })),
+  const wetterBaender = buildStateBands<WeatherMode | null>(
+    wetterGrenzen.map((g) => ({ from: g.from, value: g.mode })),
     start,
     scale,
     wetterGrenzen.length ? 'off' : null,
@@ -4232,31 +4256,31 @@ function renderZeitleiste(): void {
     const intensity =
       b.from !== null ? wetterGrenzen.find((g) => g.from === b.from)?.intensity : undefined
     const staerkeTxt =
-      b.wert && b.wert !== 'off' && intensity !== undefined
+      b.value && b.value !== 'off' && intensity !== undefined
         ? ` ${Math.round(intensity * 100)}%`
         : ''
     const d = band(
       'wetter',
-      b.von,
-      b.to,
-      b.wert ? WETTER_NAMEN[b.wert] : 'Automatisch',
-      b.wert ? WETTER_FARBEN[b.wert] : undefined,
+      b.fromFraction,
+      b.toFraction,
+      b.value ? WETTER_NAMEN[b.value] : 'Automatisch',
+      b.value ? WETTER_FARBEN[b.value] : undefined,
       staerkeTxt,
     )
-    if (!b.wert) d.classList.add('leise')
+    if (!b.value) d.classList.add('leise')
     else d.classList.add('hell')
-    if (!eigenes && b.wert) {
-      d.title = `${WETTER_NAMEN[b.wert]}, automatisch ermittelt (Wetterarchiv, an den Fotos nachgeschärft). Ändern übernimmt die ganze Einteilung.`
+    if (!eigenes && b.value) {
+      d.title = `${WETTER_NAMEN[b.value]}, automatisch ermittelt (Wetterarchiv, an den Fotos nachgeschärft). Ändern übernimmt die ganze Einteilung.`
     }
-    if (istFokus('wetter', b.von, b.to)) d.classList.add('fokus')
+    if (istFokus('wetter', b.fromFraction, b.toFraction)) d.classList.add('fokus')
     wetterBahn.appendChild(d)
-    if (b.from !== null && b.wert) {
+    if (b.from !== null && b.value) {
       wetterBahn.appendChild(
         kante(
-          b.von,
+          b.fromFraction,
           'wetter',
-          { from: b.from, wettermode: b.wert },
-          `Wetter ${WETTER_NAMEN[b.wert]} ab ${zeitText(b.from)} Uhr · ziehen zum Verschieben`,
+          { ab: b.from, wettermode: b.value },
+          `Wetter ${WETTER_NAMEN[b.value]} ab ${zeitText(b.from)} Uhr · ziehen zum Verschieben`,
         ),
       )
     }
@@ -4275,11 +4299,11 @@ function renderZeitleiste(): void {
   // gemessen ist, bleibt er der Pin, der er war.
   const audioBahn = spur('spur-musik')
   messeTonDauern()
-  const tonKlips = loeseTonKlips(z.edits.audio ?? [], start, scale, tonDauern)
+  const tonKlips = resolveAudioClips(z.edits.audio ?? [], start, scale, tonDauern)
   // Überlappende Klips stapeln sich in Unterzeilen — die Bahn wächst mit,
   // damit jeder lesbar und greifbar bleibt (der Player mischt sie).
-  audioBahn.closest('.spur')?.setAttribute('style', `--musik-lanes: ${tonLanes(tonKlips)}`)
-  const gesamtFilmS = scale.kurve?.gesamtS ?? 0
+  audioBahn.closest('.spur')?.setAttribute('style', `--musik-lanes: ${audioLanes(tonKlips)}`)
+  const gesamtFilmS = scale.curve?.totalS ?? 0
   for (const k of tonKlips) {
     // Bibliotheks-Einträge tragen ihren KATALOGNAMEN, nicht den Dateinamen:
     // „Aufbruch" sagt, was man hört — „mus-aufbruch.mp3" nur, wo es liegt.
@@ -4290,7 +4314,7 @@ function renderZeitleiste(): void {
     if (punktfoermig) {
       const pin = document.createElement('div')
       pin.className = 'zl-sfx'
-      pin.style.left = pos(filmZuAnteil(scale, k.filmVon))
+      pin.style.left = pos(filmToFraction(scale, k.filmVon))
       pin.dataset['rolle'] = 'sfx'
       pin.dataset['index'] = String(k.index)
       // Ohne gemessene Datei kennt die Leiste die Länge nicht — deshalb (noch)
@@ -4304,15 +4328,15 @@ function renderZeitleiste(): void {
     const klip = document.createElement('div')
     klip.className = k.type === 'sfx' ? 'zl-klip effekt' : 'zl-klip'
     klip.style.top = `${TON_LANE_TOP_PX + k.lane * TON_LANE_PX}px`
-    klip.style.left = pos(filmZuAnteil(scale, k.filmVon))
+    klip.style.left = pos(filmToFraction(scale, k.filmVon))
     klip.style.width = pos(
-      Math.max(0.002, filmZuAnteil(scale, k.filmBis) - filmZuAnteil(scale, k.filmVon)),
+      Math.max(0.002, filmToFraction(scale, k.filmBis) - filmToFraction(scale, k.filmVon)),
     )
     klip.dataset['rolle'] = 'audio-balken'
     klip.dataset['index'] = String(k.index)
     klip.title =
-      `${anzeige} · ${formatiereFilmzeit(k.filmBis - k.filmVon)}` +
-      (k.startS > 0 ? ` (ab ${formatiereFilmzeit(k.startS)} der Datei)` : '') +
+      `${anzeige} · ${formatFilmTime(k.filmBis - k.filmVon)}` +
+      (k.startS > 0 ? ` (ab ${formatFilmTime(k.startS)} der Datei)` : '') +
       ' · ziehen zum Verschieben, Kanten zum Trimmen'
     if (fokussiert) klip.classList.add('fokus')
 
@@ -4324,7 +4348,7 @@ function renderZeitleiste(): void {
     // neu, sondern schreibt nur `--zeit-breite` fort. Feste Pixel blieben auf
     // dem Maßstab des letzten Renders stehen — die Wellenform behielt beim
     // Hineinzoomen ihre Größe und endete weit vor dem Klip.
-    const welle = wellenLage(k, filmGesamtS())
+    const welle = waveformPosition(k, filmGesamtS())
     const bild = eintrag ? holeWelle(k.file, audioUrl(eintrag, z.tourId)) : null
     if (welle && bild) {
       // Eigenes Fenster mit `overflow: hidden`: Der Klip selbst darf nicht
@@ -4334,9 +4358,9 @@ function renderZeitleiste(): void {
       fenster.className = 'welle-fenster'
       const spurEl = document.createElement('span')
       spurEl.className = 'welle'
-      const breite = zeitBreite(welle.breiteAnteil)
-      spurEl.style.left = zeitBreite(welle.versatzAnteil)
-      spurEl.style.width = zeitBreite(welle.breiteAnteil * welle.wiederholungen)
+      const breite = zeitBreite(welle.widthFraction)
+      spurEl.style.left = zeitBreite(welle.offsetFraction)
+      spurEl.style.width = zeitBreite(welle.widthFraction * welle.repeats)
       spurEl.style.backgroundImage = `url(${bild})`
       spurEl.style.backgroundSize = `${breite} 100%`
       fenster.appendChild(spurEl)
@@ -4395,7 +4419,7 @@ function renderZeitleiste(): void {
 //  • CONTAINER-QUERIES für die drei Ausbaustufen (nur Bild / + Name / + zweites
 //    Bild). Gemessene JS-Klassen schalteten erst beim Loslassen —
 //    `kuerzeBeschriftungen` erzwingt ein Layout und läuft im Zug bewusst nicht.
-//  • Die Miniatur kommt aus `miniaturQuelle` (thumb → src): ohne den Rückfall
+//  • Die Miniatur kommt aus `thumbnailSource` (thumb → src): ohne den Rückfall
 //    bliebe jede Tour von vor der Bildaufbereitung ohne Bild.
 
 /** Klip-Elemente je Medien-ID — die Grundlage des Reconcile. */
@@ -4403,14 +4427,18 @@ let klipEls = new Map<string, HTMLElement>()
 /** Dasselbe für Momente, geschlüsselt an ihrem `from`. */
 let momentEls = new Map<string, HTMLElement>()
 
-function renderSzenen(achse: Achse, fokusId: string | null, fokusMoment: string | null): void {
+function renderSzenen(
+  achse: TimelineAxis,
+  fokusId: string | null,
+  fokusMoment: string | null,
+): void {
   const bahn = $('spur-fotos')
   const media = new Map(medienAnzeige().map((m) => [m.id, m] as const))
-  const gesamt = achse.kurve?.gesamtS ?? 0
+  const gesamt = achse.curve?.totalS ?? 0
   const naechste = new Map<string, HTMLElement>()
   const naechsteMomente = new Map<string, HTMLElement>()
   if (gesamt > 0) {
-    for (const k of baueSzenenKlips(achse)) {
+    for (const k of buildSceneClips(achse)) {
       const m = media.get(k.id)
       if (!m) continue
       const el = klipEls.get(k.id) ?? baueKlip(m)
@@ -4422,9 +4450,9 @@ function renderSzenen(achse: Achse, fokusId: string | null, fokusMoment: string 
     // Foto — er hat nur kein Bild. Eine eigene Spur dafür unterschiede nach
     // Herkunft statt nach Wirkung (docs §2.0).
     const moments = new Map((z?.edits.moments ?? []).map((m) => [m.from, m] as const))
-    for (const halt of achse.halte ?? []) {
-      if (halt.kind !== 'moment' || halt.schluessel === undefined) continue
-      const m = moments.get(halt.schluessel)
+    for (const halt of achse.stops ?? []) {
+      if (halt.kind !== 'moment' || halt.key === undefined) continue
+      const m = moments.get(halt.key)
       if (!m) continue
       const el = momentEls.get(m.from) ?? baueMomentKlip(m.from)
       if (el.parentElement !== bahn) bahn.appendChild(el)
@@ -4486,8 +4514,8 @@ function baueMomentKlip(from: string): HTMLElement {
 /** Lage, Beschriftung und Zustand eines Moment-Klips fortschreiben. */
 function schreibeMomentKlip(
   el: HTMLElement,
-  m: KameraMoment,
-  halt: HaltIntervall,
+  m: CameraMoment,
+  halt: StopInterval,
   gesamtS: number,
   fokus: boolean,
 ): void {
@@ -4495,7 +4523,7 @@ function schreibeMomentKlip(
   el.style.left = pos(halt.filmVon / gesamtS)
   el.style.width = pos((halt.filmBis - halt.filmVon) / gesamtS)
   el.classList.toggle('fokus', fokus)
-  const dauerText = formatiereSekunden(momentDauerS(m))
+  const dauerText = formatSeconds(momentDauerS(m))
   const zeichen = el.querySelector('.m-zeichen')
   const titel = el.querySelector('.info b')
   const unten = el.querySelector('.info small')
@@ -4509,7 +4537,7 @@ function schreibeMomentKlip(
 }
 
 /** Klip-Gerüst einer Aufnahme — einmalig; danach nur noch fortgeschrieben. */
-function baueKlip(m: MediumAnzeige): HTMLElement {
+function baueKlip(m: MediaView): HTMLElement {
   const klip = document.createElement('button')
   klip.type = 'button'
   klip.className = 'halt-klip'
@@ -4566,12 +4594,12 @@ function baueKlip(m: MediumAnzeige): HTMLElement {
 
 /** Kopf- bzw. Fußminiatur. Ohne Kachel UND ohne Poster bleibt ein Video leer —
  *  ein `img` mit der .mp4 als Quelle zeigte nur das Symbol für „kaputt". */
-function bildFeld(m: MediumAnzeige, wo: 'anfang' | 'ende'): HTMLElement {
+function bildFeld(m: MediaView, wo: 'anfang' | 'ende'): HTMLElement {
   const feld = document.createElement('span')
   feld.className = `bild ${wo}`
   if (m.type === 'video' && !m.thumb && !m.poster) return feld
   const bild = document.createElement('img')
-  bild.src = miniaturQuelle(m)
+  bild.src = thumbnailSource(m)
   bild.alt = ''
   bild.loading = 'lazy'
   feld.appendChild(bild)
@@ -4581,8 +4609,8 @@ function bildFeld(m: MediumAnzeige, wo: 'anfang' | 'ende'): HTMLElement {
 /** Lage, Beschriftung und Zustand eines Klips fortschreiben (kein Neubau). */
 function schreibeKlip(
   el: HTMLElement,
-  m: MediumAnzeige,
-  k: SzenenKlip,
+  m: MediaView,
+  k: SceneClip,
   gesamtS: number,
   fokus: boolean,
 ): void {
@@ -4591,15 +4619,15 @@ function schreibeKlip(
   // classList statt className: `.zieht` überlebt so den Render mitten im Zug.
   el.classList.toggle('fokus', fokus)
   el.classList.toggle('video', m.type === 'video')
-  const durationS = aufnahmeHaltS(m)
+  const durationS = mediumHoldS(m)
   // Getrimmt sagt der ANTEIL mehr als die nackte Zahl (docs §2F).
-  const geschnitten = m.type === 'video' ? klemmeVideoTrim(m.trim, m.durationS ?? 0) : null
+  const geschnitten = m.type === 'video' ? clampMediaTrim(m.trim, m.durationS ?? 0) : null
   const dauerText =
     m.type === 'video'
       ? geschnitten
-        ? `${formatiereFilmzeit(durationS)} von ${formatiereFilmzeit(m.durationS ?? 0)}`
-        : `${formatiereFilmzeit(durationS)} Video`
-      : formatiereSekunden(durationS)
+        ? `${formatFilmTime(durationS)} von ${formatFilmTime(m.durationS ?? 0)}`
+        : `${formatFilmTime(durationS)} Video`
+      : formatSeconds(durationS)
   const name = m.caption || (m.type === 'video' ? 'Video' : 'Foto')
   const titel = el.querySelector('.info b')
   const unten = el.querySelector('.info small')
@@ -4607,7 +4635,7 @@ function schreibeKlip(
   if (unten && unten.textContent !== dauerText) unten.textContent = dauerText
   const blase = el.querySelector('.dauer-blase')
   if (blase && blase.textContent !== dauerText) blase.textContent = dauerText
-  const kette = k.anzahl > 1 ? ` · Aufnahme ${k.platz + 1} von ${k.anzahl}` : ''
+  const kette = k.count > 1 ? ` · Aufnahme ${k.slot + 1} von ${k.count}` : ''
   el.title =
     `${name}, ${uhrzeitKurz(m.takenAt)} Uhr · ${dauerText}${kette}` +
     (m.type === 'video'
@@ -4623,11 +4651,11 @@ function schreibeKlip(
  * Auswahl beantwortet sie dieselbe Frage genau dann, wenn sie gestellt wird —
  * dasselbe Muster wie der leuchtende Streckenabschnitt auf der Karte.
  */
-function renderHaltZone(achse: Achse, fokusId: string | null): void {
+function renderHaltZone(achse: TimelineAxis, fokusId: string | null): void {
   document.querySelector('#spuren .halt-zone')?.remove()
-  const gesamt = achse.kurve?.gesamtS ?? 0
+  const gesamt = achse.curve?.totalS ?? 0
   if (!fokusId || !(gesamt > 0)) return
-  const halt = (achse.halte ?? []).find((h) => h.stuecke?.some((s) => s.id === fokusId))
+  const halt = (achse.stops ?? []).find((h) => h.items?.some((s) => s.id === fokusId))
   if (!halt) return
   const el = document.createElement('div')
   el.className = 'halt-zone'
@@ -4668,7 +4696,7 @@ function ziehVideoTrim(e: PointerEvent, id: string, seite: 'von' | 'bis'): void 
   halteAbspielen()
   const klip = klipEls.get(id)
   klip?.classList.add('zieht', 'zieht-dauer')
-  const start = klemmeVideoTrim(m.trim, dateiS) ?? { fromS: 0, toS: dateiS }
+  const start = clampMediaTrim(m.trim, dateiS) ?? { fromS: 0, toS: dateiS }
   const massstab = pxProFilmS > 0 ? pxProFilmS : 1
   const startX = e.clientX
   let basisX = 0
@@ -4693,8 +4721,8 @@ function ziehVideoTrim(e: PointerEvent, id: string, seite: 'von' | 'bis'): void 
             fromS: start.fromS,
             toS: Math.min(dateiS, Math.max(start.toS + delta, start.fromS + VIDEO_TRIM_MIN_S)),
           }
-    const wirksam = klemmeVideoTrim(trim, dateiS)
-    z.edits = mitMedienEdit(z.edits, id, { trim: wirksam ?? undefined })
+    const wirksam = clampMediaTrim(trim, dateiS)
+    z.edits = withMediaEdit(z.edits, id, { trim: wirksam ?? undefined })
     renderNachZug()
   }
   const los = (): void => {
@@ -4739,7 +4767,7 @@ function ziehStandzeit(e: PointerEvent, id: string): void {
   // Eigene Klasse: `.zieht` allein trägt auch der Klip-Zug, und dort wäre eine
   // Standzeit-Blase über dem verschobenen Bild eine Angabe zur falschen Frage.
   klip?.classList.add('zieht', 'zieht-dauer')
-  const startDauer = haltedauerS(m.display)
+  const startDauer = holdS(m.display)
   const massstab = pxProFilmS > 0 ? pxProFilmS : 1
   const startX = e.clientX
   // Erst ab der Schwelle wird aus dem Drücken ein Zug — und die Rechnung setzt
@@ -4754,8 +4782,8 @@ function ziehStandzeit(e: PointerEvent, id: string): void {
       basisX = ev.clientX
       einpassen = false
     }
-    const dauer = klemmeStandzeit(startDauer + (ev.clientX - basisX) / massstab)
-    z.edits = mitMedienEdit(z.edits, id, { display: { ...m.display, holdS: dauer } })
+    const dauer = clampHoldS(startDauer + (ev.clientX - basisX) / massstab)
+    z.edits = withMediaEdit(z.edits, id, { display: { ...m.display, holdS: dauer } })
     renderNachZug()
   }
   const los = (): void => {
@@ -4782,15 +4810,15 @@ function ziehStandzeit(e: PointerEvent, id: string): void {
  * filmZug(startZeit) + Zeigerweg`.
  */
 function zugZielZeit(
-  ziehAchse: Achse,
+  ziehAchse: TimelineAxis,
   startS: number,
   anteilWeg: number,
   gesamtEchtS: number,
 ): number {
-  const zugGesamt = ziehAchse.kurve?.gesamtS ?? 0
+  const zugGesamt = ziehAchse.curve?.totalS ?? 0
   if (!(zugGesamt > 0)) return startS
-  const startFilm = anteilZuFilm(ziehAchse, offsetZuAnteil(ziehAchse, startS))
-  return anteilZuOffset(ziehAchse, (startFilm + anteilWeg * gesamtEchtS) / zugGesamt)
+  const startFilm = fractionToFilm(ziehAchse, offsetToFraction(ziehAchse, startS))
+  return fractionToOffset(ziehAchse, (startFilm + anteilWeg * gesamtEchtS) / zugGesamt)
 }
 
 /**
@@ -4824,11 +4852,11 @@ function ziehMomentDauer(e: PointerEvent, from: string): void {
       basisX = ev.clientX
       einpassen = false
     }
-    z.edits = mitMoment(
+    z.edits = withCameraMoment(
       z.edits,
       from,
       m.kind,
-      klemmeMomentDauer(startDauer + (ev.clientX - basisX) / massstab),
+      clampMomentDuration(startDauer + (ev.clientX - basisX) / massstab),
     )
     renderNachZug()
   }
@@ -4858,8 +4886,8 @@ function ziehMomentDauer(e: PointerEvent, from: string): void {
 function ziehMoment(e: PointerEvent, from: string): void {
   if (!z) return
   const achse = aktuelleAchse()
-  const scale = baueSkala(z.track)
-  if (!achse?.kurve || !scale) return
+  const scale = buildScale(z.track)
+  if (!achse?.curve || !scale) return
   const m = (z.edits.moments ?? []).find((x) => x.from === from)
   if (!m) return
   e.preventDefault()
@@ -4867,16 +4895,16 @@ function ziehMoment(e: PointerEvent, from: string): void {
   const zz = z
   const start = zz.daten.time.start
   const klip = momentEls.get(from)
-  const ziehAchse = baueAchse(
-    zerlegeFuerAnzeige(zz.daten.segments as EditorSegment[], zz.edits, start),
+  const ziehAchse = buildTimelineAxis(
+    splitForDisplay(zz.daten.segments as EditorSegment[], zz.edits, start),
     achsenHalte(
       medienAnzeige(),
       (zz.edits.moments ?? []).filter((x) => x.from !== from),
     ),
     scale,
   )
-  const gesamt = achse.kurve.gesamtS
-  const startS = isoZuOffset(start, from)
+  const gesamt = achse.curve.totalS
+  const startS = isoToOffset(start, from)
   const startX = e.clientX
   const startAnteil = spurAnteil(e.clientX)
   let bewegt = false
@@ -4894,7 +4922,7 @@ function ziehMoment(e: PointerEvent, from: string): void {
     zeigeZugEtikett(
       ev,
       'ort',
-      `${MOMENT_NAMEN[m.kind]} · km ${kmText(meterZuOffset(kumStrecke, zz.track, zielS))} · ${uhrzeitKurz(offsetZuIso(start, zielS))} Uhr`,
+      `${MOMENT_NAMEN[m.kind]} · km ${kmText(metersToOffset(kumStrecke, zz.track, zielS))} · ${uhrzeitKurz(offsetToIso(start, zielS))} Uhr`,
     )
   }
 
@@ -4944,18 +4972,18 @@ function ziehMoment(e: PointerEvent, from: string): void {
 function ziehKlip(e: PointerEvent, id: string): void {
   if (!z) return
   const achse = aktuelleAchse()
-  const scale = baueSkala(z.track)
-  if (!achse?.kurve || !scale) return
+  const scale = buildScale(z.track)
+  if (!achse?.curve || !scale) return
   const alle = medienAnzeige()
   const m = alle.find((x) => x.id === id)
-  const eigenKlip = baueSzenenKlips(achse).find((k) => k.id === id)
+  const eigenKlip = buildSceneClips(achse).find((k) => k.id === id)
   if (!m || !eigenKlip) return
   e.preventDefault()
   halteAbspielen()
-  const gesamt = achse.kurve.gesamtS
+  const gesamt = achse.curve.totalS
   const zz = z
   const stopps = baueStopps(alle, zz.track, kumStrecke)
-  const eigenerHalt = achse.halte?.[eigenKlip.haltIndex] ?? null
+  const eigenerHalt = achse.stops?.[eigenKlip.stopIndex] ?? null
   const klip = klipEls.get(id)
   const feldEl = document.getElementById('skala-feld')
   // Rückrechnung px → Zeit über eine Achse OHNE die Halte DIESER Aufnahme: auf
@@ -4964,8 +4992,8 @@ function ziehKlip(e: PointerEvent, id: string): void {
   // bewegte. Die Kette der Geschwister bleibt drin — sie steht ja weiter da.
   // Die MOMENTE bleiben drin (sie stehen ja weiter da) — sie fehlten hier, und
   // damit rechnete die Zug-Achse um deren Filmzeit daneben.
-  const ziehAchse = baueAchse(
-    zerlegeFuerAnzeige(zz.daten.segments as EditorSegment[], zz.edits, zz.daten.time.start),
+  const ziehAchse = buildTimelineAxis(
+    splitForDisplay(zz.daten.segments as EditorSegment[], zz.edits, zz.daten.time.start),
     achsenHalte(
       alle.filter((x) => x.id !== id),
       zz.edits.moments ?? [],
@@ -4993,23 +5021,23 @@ function ziehKlip(e: PointerEvent, id: string): void {
     // — Reihenfolge — nur innerhalb der Kette, in der der Zug begann
     if (
       eigenerHalt &&
-      eigenKlip.anzahl > 1 &&
+      eigenKlip.count > 1 &&
       cursorFilm >= eigenerHalt.filmVon &&
       cursorFilm <= eigenerHalt.filmBis
     ) {
-      const platz = platzInKette(eigenerHalt, cursorFilm)
-      ziel = { kind: 'reihe', platz: platz.platz }
+      const platz = slotInChain(eigenerHalt, cursorFilm)
+      ziel = { kind: 'reihe', platz: platz.slot }
       if (klip) klip.style.transform = `translateX(${(ev.clientX - startX).toFixed(1)}px)`
       zeigeEinfuegemarke(platz.filmS / gesamt)
-      zeigeZugEtikett(ev, 'reihe', `Reihenfolge · Platz ${platz.platz + 1} von ${eigenKlip.anzahl}`)
+      zeigeZugEtikett(ev, 'reihe', `Reihenfolge · Platz ${platz.slot + 1} von ${eigenKlip.count}`)
       return
     }
     verbergeEinfuegemarke()
 
     // — Ort — über einem fremden Halt andocken, sonst freie Zeit
-    const treffer = haltInnenBei(achse, cursorFilm)
-    const fremd = treffer && !treffer.stuecke?.some((s) => s.id === id) ? treffer : null
-    const andocken = fremd?.stuecke?.[0] ? (stoppVon(stopps, fremd.stuecke[0].id) ?? null) : null
+    const treffer = stopInnerAt(achse, cursorFilm)
+    const fremd = treffer && !treffer.items?.some((s) => s.id === id) ? treffer : null
+    const andocken = fremd?.items?.[0] ? (stoppVon(stopps, fremd.items[0].id) ?? null) : null
     const frei = zugZielZeit(ziehAchse, startS, anteil - startAnteil, gesamt)
     const offsetS = andocken ? andocken.offsetS : Math.max(scale.fromS, Math.min(scale.toS, frei))
     ziel = { kind: 'ort', offsetS, andocken }
@@ -5027,7 +5055,7 @@ function ziehKlip(e: PointerEvent, id: string): void {
       'ort',
       andocken
         ? `An den Halt „${andocken.items[0]?.caption || 'ohne Titel'}" anschließen`
-        : `Ort · km ${kmText(meterZuOffset(kumStrecke, zz.track, offsetS))} · ${uhrzeitKurz(offsetZuIso(zz.daten.time.start, offsetS))} Uhr`,
+        : `Ort · km ${kmText(metersToOffset(kumStrecke, zz.track, offsetS))} · ${uhrzeitKurz(offsetToIso(zz.daten.time.start, offsetS))} Uhr`,
     )
   }
 
@@ -5052,8 +5080,8 @@ function ziehKlip(e: PointerEvent, id: string): void {
     unterdrueckeKlick = true
     z.fokus = { kind: 'medium', id }
     if (ziel.kind === 'reihe') {
-      const kette = (eigenerHalt?.stuecke ?? []).map((s) => s.id)
-      const folge = ordneEin(kette, id, ziel.platz)
+      const kette = (eigenerHalt?.items ?? []).map((s) => s.id)
+      const folge = moveToSlot(kette, id, ziel.platz)
       // Zurück auf den eigenen Platz gelegt heißt: nichts ist geschehen.
       // `reiheVergeben` schriebe trotzdem ein neues Overlay — und der
       // Referenzvergleich in renderAlles machte daraus einen leeren
@@ -5067,7 +5095,7 @@ function ziehKlip(e: PointerEvent, id: string): void {
       // gerechnet läge die Aufnahme knapp daneben und der Halt zerfiele wieder.
       const anchor = ziel.andocken.items[0]?.anchor
       if (!anchor) return
-      const neu = mitMedienEdit(z.edits, id, { anchor: anchor })
+      const neu = withMediaEdit(z.edits, id, { anchor: anchor })
       z.edits = reiheVergeben(neu, [...ziel.andocken.items.map((x) => x.id), id])
       renderAlles()
       return
@@ -5079,11 +5107,11 @@ function ziehKlip(e: PointerEvent, id: string): void {
     if (!roh) return
     const fremdeMeter = alle
       .filter((x) => x.anchor && !x.removed && x.id !== id)
-      .map((x) => meterZuOffset(kumStrecke, zz.track, offsetVon(x)))
-    const sicherMeter = meterOhneCluster(meterZuOffset(kumStrecke, zz.track, roh[3]), fremdeMeter)
-    const sicher = punktZuOffset(zz.track, offsetBeiMeter(kumStrecke, zz.track, sicherMeter))
+      .map((x) => metersToOffset(kumStrecke, zz.track, offsetVon(x)))
+    const sicherMeter = meterOhneCluster(metersToOffset(kumStrecke, zz.track, roh[3]), fremdeMeter)
+    const sicher = pointAtOffset(zz.track, offsetAtMeters(kumStrecke, zz.track, sicherMeter))
     if (!sicher) return
-    z.edits = mitMedienEdit(z.edits, id, { anchor: [sicher[0], sicher[1]], order: undefined })
+    z.edits = withMediaEdit(z.edits, id, { anchor: [sicher[0], sicher[1]], order: undefined })
     renderAlles()
   }
   window.addEventListener('pointermove', bewege)
@@ -5190,7 +5218,7 @@ function spurXpx(): number {
 
 /** Filmdauer der ganzen Achse (s) — 0, solange es keine Kurve gibt. */
 function filmGesamtS(): number {
-  return aktuelleAchse()?.kurve?.gesamtS ?? 0
+  return aktuelleAchse()?.curve?.totalS ?? 0
 }
 
 /** Maßstab, bei dem der ganze Film genau ins Fenster passt (px je Filmsekunde). */
@@ -5233,7 +5261,7 @@ function setzeMassstab(neuPxProS: number, ankerAnteil: number, zielVx: number): 
   renderSkala()
   renderPlayhead()
   const fenster = document.getElementById('spuren-fenster')
-  if (fenster) fenster.scrollLeft = ankerScroll(ankerAnteil, breite, zielVx, spurXpx())
+  if (fenster) fenster.scrollLeft = scrollAnchor(ankerAnteil, breite, zielVx, spurXpx())
   zoomAnzeigen()
   // Breitere Bänder tragen wieder mehr Text — sonst bliebe „Wolkig …" stehen,
   // obwohl nach dem Hineinzoomen längst „Wolkig 52%" hineinpasst.
@@ -5325,12 +5353,12 @@ let kopfFilmS: number | null = null
  */
 function setzeMarke(tOffsetS: number): void {
   if (!z) return
-  const scale = baueSkala(z.track)
+  const scale = buildScale(z.track)
   if (!scale) return
   const geklemmt = Math.max(scale.fromS, Math.min(scale.toS, tOffsetS))
   const achse = aktuelleAchse()
-  kopfFilmS = achse?.kurve ? filmZuOffset(achse, geklemmt) : null
-  const punkt = punktZuOffset(z.track, geklemmt)
+  kopfFilmS = achse?.curve ? filmToOffset(achse, geklemmt) : null
+  const punkt = pointAtOffset(z.track, geklemmt)
   if (punkt) z.auswahl = punkt
   renderPlayhead()
 }
@@ -5339,16 +5367,16 @@ function setzeMarke(tOffsetS: number): void {
 function setzeKopfFilm(filmS: number): void {
   if (!z) return
   const achse = aktuelleAchse()
-  if (!achse?.kurve) return
-  kopfFilmS = Math.max(0, Math.min(achse.kurve.gesamtS, filmS))
+  if (!achse?.curve) return
+  kopfFilmS = Math.max(0, Math.min(achse.curve.totalS, filmS))
   leiteMarkeAusKopfAb(achse)
   renderPlayhead()
 }
 
 /** Aufnahmezeit (und damit `z.auswahl`) aus der Kopf-Filmsekunde nachziehen. */
-function leiteMarkeAusKopfAb(achse: Achse): void {
+function leiteMarkeAusKopfAb(achse: TimelineAxis): void {
   if (!z || kopfFilmS === null) return
-  const punkt = punktZuOffset(z.track, anteilZuOffset(achse, filmZuAnteil(achse, kopfFilmS)))
+  const punkt = pointAtOffset(z.track, fractionToOffset(achse, filmToFraction(achse, kopfFilmS)))
   if (punkt) z.auswahl = punkt
 }
 
@@ -5388,7 +5416,7 @@ function renderPlayhead(): void {
   const achse = aktuelleAchse()
   if (!strich || !achse) return
   if (kopfFilmS === null && z.auswahl)
-    kopfFilmS = achse.kurve ? filmZuOffset(achse, z.auswahl[3]) : 0
+    kopfFilmS = achse.curve ? filmToOffset(achse, z.auswahl[3]) : 0
   if (kopfFilmS === null) {
     strich.hidden = true
     return
@@ -5396,11 +5424,11 @@ function renderPlayhead(): void {
   strich.hidden = false
   // Die Achse kann sich geändert haben (Standzeit, Fortbewegung) — die
   // Filmsekunde bleibt, die Aufnahmezeit darunter wird nachgezogen.
-  if (achse.kurve) kopfFilmS = Math.min(kopfFilmS, achse.kurve.gesamtS)
+  if (achse.curve) kopfFilmS = Math.min(kopfFilmS, achse.curve.totalS)
   leiteMarkeAusKopfAb(achse)
-  const anteil = achse.kurve
-    ? filmZuAnteil(achse, kopfFilmS)
-    : offsetZuAnteil(achse, z.auswahl?.[3] ?? 0)
+  const anteil = achse.curve
+    ? filmToFraction(achse, kopfFilmS)
+    : offsetToFraction(achse, z.auswahl?.[3] ?? 0)
   const tOffsetS = z.auswahl?.[3] ?? achse.fromS
   strich.style.left = zeitX(anteil)
   zeigeKopfWennImBlick()
@@ -5411,13 +5439,13 @@ function renderPlayhead(): void {
   const film = document.getElementById('kopf-film')
   const filmGes = document.getElementById('kopf-film-ges')
   const spiel = aktuelleSpielKurve()
-  if (film && spiel) film.textContent = formatiereFilmzeit(filmBei(spiel, anteil))
+  if (film && spiel) film.textContent = formatFilmTime(filmAt(spiel, anteil))
   // Kein „~" mehr vor der Gesamtdauer: Es stand an genau EINER Stelle, während
   // dieselbe Zahl im Maßband, in der Dauer-Vorschau eines Zugs und in jedem
   // Klip ohne Vorbehalt auftritt. Ein Zeichen, das nur hier zweifelt, wirkt
   // wie ein Fehler und nicht wie eine Angabe zur Genauigkeit — die steht im
   // Titel der Gruppe, wo man sie liest, wenn man sie braucht.
-  if (filmGes && spiel) filmGes.textContent = formatiereFilmzeit(spiel.gesamtS)
+  if (filmGes && spiel) filmGes.textContent = formatFilmTime(spiel.totalS)
   // Der laufende Wert reserviert genau so viel, wie der Gesamtwert braucht:
   // Länger als der Film kann der Kopf nicht stehen. Eine feste Reserve am
   // ganzen Block war für kurze Touren rund 30 px zu groß und sammelte sich
@@ -5428,14 +5456,14 @@ function renderPlayhead(): void {
   const uhr = document.getElementById('kopf-uhr')
   // Ohne Sekunden: die Anzeige läuft beim Scrubben mit, da zappelt eine
   // Sekundenstelle nur.
-  const zeitIso = offsetZuIso(z.daten.time.start, tOffsetS)
+  const zeitIso = offsetToIso(z.daten.time.start, tOffsetS)
   if (uhr) uhr.textContent = uhrzeitKurz(zeitIso)
   zeigeTageszeit(zeitIso)
   // Was die Uhr als Symbol andeutet, zeigt die Karte als Licht — dieselbe
   // Kopfposition, zwei Auflösungen derselben Auskunft.
   synchronisiereStimmung(zeitIso)
   const km = document.getElementById('kopf-km')
-  if (km) km.textContent = kmText(meterZuOffset(kumStrecke, z.track, tOffsetS))
+  if (km) km.textContent = kmText(metersToOffset(kumStrecke, z.track, tOffsetS))
 
   setzeLaeufer(tOffsetS)
   synchronisiereFoto()
@@ -5621,7 +5649,7 @@ function synchronisiereStimmung(zeitIso: string): void {
   // `anzeigeWetter()` ist genau die Liste, die die Wetter-Bahn zeichnet: eigene
   // Grenzen, sonst das Auto-Wetter des Servers. Die Karte zeigt damit dasselbe,
   // was in der Leiste steht — und nicht eine zweite Wahrheit daneben.
-  const gilt = wetterBeiZeit(anzeigeWetter(), zeitIso)
+  const gilt = weatherAtTime(anzeigeWetter(), zeitIso)
   stimmung.setze(zeitIso, [z.auswahl[0], z.auswahl[1]], gilt)
 }
 
@@ -5649,7 +5677,7 @@ function uhrzeitKurz(iso: string): string {
  */
 function setzeLaeufer(tOffsetS: number): void {
   if (!z || !karte) return
-  const punkt = punktZuOffset(z.track, tOffsetS)
+  const punkt = pointAtOffset(z.track, tOffsetS)
   if (!punkt) return
   if (!laeufer) {
     const el = document.createElement('div')
@@ -5661,14 +5689,14 @@ function setzeLaeufer(tOffsetS: number): void {
   } else {
     laeufer.setLngLat([punkt[0], punkt[1]])
   }
-  const abschnitte = zerlegeFuerAnzeige(
+  const abschnitte = splitForDisplay(
     z.daten.segments as EditorSegment[],
     z.edits,
     z.daten.time.start,
   )
   const treffer = abschnitte.find((a) => {
-    const erster = a.pts[0] as TrackPunkt
-    const letzter = a.pts[a.pts.length - 1] as TrackPunkt
+    const erster = a.pts[0] as TrackPoint
+    const letzter = a.pts[a.pts.length - 1] as TrackPoint
     return tOffsetS >= erster[3] && tOffsetS <= letzter[3]
   })
   const zeichen = `#i-m-${treffer?.mode ?? 'walk'}`
@@ -5685,12 +5713,12 @@ function renderSkala(): void {
   if (!feld || !achse) return
   feld.innerHTML = ''
   const breitePx = zeitBreitePx()
-  const gesamtS = achse.kurve?.gesamtS
+  const gesamtS = achse.curve?.totalS
   if (breitePx <= 0 || !gesamtS) return
-  for (const m of baueFilmMassband(achse, breitePx / gesamtS)) {
+  for (const m of buildFilmRuler(achse, breitePx / gesamtS)) {
     const d = document.createElement('div')
-    d.className = 'skala-marke' + (m.voll ? ' voll' : '') + (m.rand ? ` am-${m.rand}` : '')
-    d.style.left = pos(m.anteil)
+    d.className = 'skala-marke' + (m.full ? ' voll' : '') + (m.edge ? ` am-${m.edge}` : '')
+    d.style.left = pos(m.fraction)
     d.append(m.text, document.createElement('i'))
     feld.appendChild(d)
   }
@@ -5716,13 +5744,17 @@ function renderNachZug(): void {
  * Sorgt dafür, dass `from` als echte Grenze im Overlay steht. Die Kanten der
  * Fortbewegungs-Spur kommen zum Teil aus der Aufzeichnung; wer eine davon
  * anfasst, schreibt damit die ganze erkannte Aufteilung fest — sonst risse die
- * neue Grenze alle folgenden Abschnitte mit sich (siehe `materialisiereModi`).
+ * neue Grenze alle folgenden Abschnitte mit sich (siehe `materializeTravelModes`).
  * Das geschieht erst beim tatsächlichen Verschieben, nicht schon beim Anfassen.
  */
 function schreibeModiFest(from: string): boolean {
   if (!z) return false
   if (z.edits.travelModes?.some((g) => g.from === from)) return true
-  const fest = materialisiereModi(z.edits, z.daten.segments as EditorSegment[], z.daten.time.start)
+  const fest = materializeTravelModes(
+    z.edits,
+    z.daten.segments as EditorSegment[],
+    z.daten.time.start,
+  )
   if (!fest.travelModes?.some((g) => g.from === from)) return false
   z.edits = fest
   return true
@@ -5748,10 +5780,10 @@ function schreibeWetterFest(): boolean {
 }
 
 /** Vom Server automatisch ermitteltes Wetter, auf gültige Modi gefiltert. */
-function autoWetterGrenzen(): Array<{ from: string; mode: WetterModus; intensity?: number }> {
+function autoWetterGrenzen(): Array<{ from: string; mode: WeatherMode; intensity?: number }> {
   return (z?.daten.autoWeather ?? [])
-    .filter((g): g is { from: string; mode: WetterModus; intensity?: number } =>
-      (WETTER_MODI as readonly string[]).includes(g.mode),
+    .filter((g): g is { from: string; mode: WeatherMode; intensity?: number } =>
+      (WEATHER_MODES as readonly string[]).includes(g.mode),
     )
     .map((g) =>
       g.intensity === undefined
@@ -5761,7 +5793,7 @@ function autoWetterGrenzen(): Array<{ from: string; mode: WetterModus; intensity
 }
 
 /** Wetter-Grenzen, die GERADE GELTEN — eigene, sonst die automatisch ermittelten. */
-function anzeigeWetter(): Array<{ from: string; mode: WetterModus; intensity?: number }> {
+function anzeigeWetter(): Array<{ from: string; mode: WeatherMode; intensity?: number }> {
   const eigene = z?.edits.weather
   return eigene?.length ? eigene : autoWetterGrenzen()
 }
@@ -5772,7 +5804,7 @@ function anzeigeWetter(): Array<{ from: string; mode: WetterModus; intensity?: n
  * Festschreiben schon beim bloßen Ansehen passieren müsste.
  */
 function editsFuerAnzeige(): EditOverlay {
-  if (!z) return LEERES_OVERLAY
+  if (!z) return EMPTY_OVERLAY
   if ((z.edits.weather ?? []).length) return z.edits
   const auto = autoWetterGrenzen()
   return auto.length ? { ...z.edits, weather: auto } : z.edits
@@ -5784,7 +5816,7 @@ function verschiebeGrenze(
   neuOffsetS: number,
 ): string | null {
   if (!z) return null
-  const scale = baueSkala(z.track)
+  const scale = buildScale(z.track)
   if (!scale) return null
   // Modus- und Wetterkanten können aus der Automatik stammen — erst
   // festschreiben, dann stehen auch die Nachbarn fest, zwischen die geklemmt wird.
@@ -5801,31 +5833,41 @@ function verschiebeGrenze(
   // Fortbewegung interpoliert Grenzen auf die Linie — Trackpunkt-Raster würde
   // die Kante wieder in großen Sprüngen einrasten lassen (Berner Oberland).
   // Kamera/Wetter bleiben am Raster: ihre Bänder hängen nicht an Abschnitten.
-  const geklemmt = klemmeGrenze(
+  const geklemmt = clampBoundary(
     nachbarn,
     altAb,
     z.daten.time.start,
     Math.max(scale.fromS, Math.min(scale.toS, neuOffsetS)),
     kind === 'modus' || kind === 'moment' ? undefined : z.track.map((p) => p[3]),
   )
-  const neuAb = offsetZuIso(z.daten.time.start, geklemmt)
+  const neuAb = offsetToIso(z.daten.time.start, geklemmt)
   if (neuAb === altAb) return altAb
   if (kind === 'modus') {
     const alt = z.edits.travelModes?.find((g) => g.from === altAb)
     if (!alt || z.edits.travelModes?.some((g) => g.from === neuAb)) return null
-    z.edits = mitModusGrenze(ohneModusGrenze(z.edits, altAb), neuAb, alt.mode)
+    z.edits = withTravelModeBoundary(withoutTravelModeBoundary(z.edits, altAb), neuAb, alt.mode)
   } else if (kind === 'kamera') {
     const alt = z.edits.camera?.find((g) => g.from === altAb)
     if (!alt || z.edits.camera?.some((g) => g.from === neuAb)) return null
-    z.edits = mitKameraGrenze(ohneKameraGrenze(z.edits, altAb), neuAb, alt.preset, alt.scale)
+    z.edits = withCameraBoundary(
+      withoutCameraBoundary(z.edits, altAb),
+      neuAb,
+      alt.preset,
+      alt.scale,
+    )
   } else if (kind === 'wetter') {
     const alt = z.edits.weather?.find((g) => g.from === altAb)
     if (!alt || z.edits.weather?.some((g) => g.from === neuAb)) return null
-    z.edits = mitWetterGrenze(ohneWetterGrenze(z.edits, altAb), neuAb, alt.mode, alt.intensity)
+    z.edits = withWeatherBoundary(
+      withoutWeatherBoundary(z.edits, altAb),
+      neuAb,
+      alt.mode,
+      alt.intensity,
+    )
   } else {
     const alt = z.edits.moments?.find((m) => m.from === altAb)
     if (!alt || z.edits.moments?.some((m) => m.from === neuAb)) return null
-    z.edits = mitMoment(ohneMoment(z.edits, altAb), neuAb, alt.kind, alt.durationS)
+    z.edits = withCameraMoment(withoutCameraMoment(z.edits, altAb), neuAb, alt.kind, alt.durationS)
     if (z.fokus?.kind === 'moment') z.fokus = { kind: 'moment', from: neuAb }
   }
   return neuAb
@@ -5855,7 +5897,7 @@ function zeitleisteZug(e: PointerEvent): void {
   }
   const start = z.daten.time.start
   const anteil = spurAnteil(e.clientX)
-  const iso = (a: number): string => offsetZuIso(start, anteilZuOffset(scale, a))
+  const iso = (a: number): string => offsetToIso(start, fractionToOffset(scale, a))
 
   switch (zug.rolle) {
     // Die drei ZUSTANDS-Kanten laufen entkoppelt: die Kante ist während des
@@ -5877,20 +5919,20 @@ function zeitleisteZug(e: PointerEvent): void {
       if (zug.index === undefined) break
       const klip = tonKlipVon(zug.index)
       if (!klip) break
-      const zielFilmS = anteilZuFilm(scale, anteil)
-      let patch: TonPatch
+      const zielFilmS = fractionToFilm(scale, anteil)
+      let patch: AudioClipPatch
       if (zug.rolle === 'audio-von') {
-        const erg = trimmeLinks(scale, start, klip, zielFilmS)
+        const erg = trimLeft(scale, start, klip, zielFilmS)
         patch = erg.patch
-        zug.amAnschlag = erg.amAnschlag
+        zug.amAnschlag = erg.atLimit
       } else if (zug.rolle === 'audio-bis') {
-        const erg = trimmeRechts(scale, start, klip, zielFilmS)
+        const erg = trimRight(scale, start, klip, zielFilmS)
         patch = erg.patch
-        zug.amAnschlag = erg.amAnschlag
+        zug.amAnschlag = erg.atLimit
       } else {
         // Verschieben: der Griffversatz hält den Klip unter dem Zeiger, statt
         // ihn mit seinem Anfang dorthin springen zu lassen.
-        patch = verschiebeTon(scale, start, klip, zielFilmS - (zug.griffVersatzFilmS ?? 0))
+        patch = moveAudioClip(scale, start, klip, zielFilmS - (zug.griffVersatzFilmS ?? 0))
         zug.amAnschlag = false
       }
       z.edits = mitAudioPatch(z.edits, zug.index, {
@@ -5947,17 +5989,17 @@ function kantenZeiten(kind: 'modus' | 'kamera' | 'wetter'): number[] {
   if (kind === 'modus') {
     // Die Fortbewegung zeigt AUCH Kanten aus der Aufzeichnung — Nachbar ist,
     // was man sieht, nicht nur was im Overlay steht.
-    const abschnitte = zerlegeFuerAnzeige(z.daten.segments as EditorSegment[], z.edits, start)
+    const abschnitte = splitForDisplay(z.daten.segments as EditorSegment[], z.edits, start)
     const zeiten: number[] = []
     for (const [i, a] of abschnitte.entries()) {
       const vorher = abschnitte[i - 1]
-      if (vorher && vorher.mode !== a.mode) zeiten.push((a.pts[0] as TrackPunkt)[3])
+      if (vorher && vorher.mode !== a.mode) zeiten.push((a.pts[0] as TrackPoint)[3])
     }
     return zeiten
   }
   const grenzen = kind === 'kamera' ? (z.edits.camera ?? []) : anzeigeWetter()
   return grenzen
-    .map((g) => isoZuOffset(start, g.from))
+    .map((g) => isoToOffset(start, g.from))
     .filter((t) => Number.isFinite(t))
     .sort((a, b) => a - b)
 }
@@ -5965,20 +6007,20 @@ function kantenZeiten(kind: 'modus' | 'kamera' | 'wetter'): number[] {
 /** Modus links und rechts einer Fortbewegungs-Kante (für Tempo und Vorschau). */
 function modiUmKante(
   tOffsetS: number,
-): { davor: Modus | null; links: Modus; rechts: Modus } | null {
+): { before: TravelMode | null; left: TravelMode; right: TravelMode } | null {
   if (!z) return null
-  const abschnitte = zerlegeFuerAnzeige(
+  const abschnitte = splitForDisplay(
     z.daten.segments as EditorSegment[],
     z.edits,
     z.daten.time.start,
   )
-  const i = abschnitte.findIndex((a) => Math.abs((a.pts[0] as TrackPunkt)[3] - tOffsetS) < 1)
+  const i = abschnitte.findIndex((a) => Math.abs((a.pts[0] as TrackPoint)[3] - tOffsetS) < 1)
   const rechts = abschnitte[i]
   const links = abschnitte[i - 1]
   // `davor` ist der Modus VOR dem Zug-Fenster: Beschleunigt der Film an dessen
   // linker Kante, liegt die Rampe IM Fenster und kostet dort Zeit.
   return rechts && links
-    ? { davor: abschnitte[i - 2]?.mode ?? null, links: links.mode, rechts: rechts.mode }
+    ? { before: abschnitte[i - 2]?.mode ?? null, left: links.mode, right: rechts.mode }
     : null
 }
 
@@ -5988,13 +6030,13 @@ function starteKantenZug(ziel: HTMLElement, rolle: string): void {
   if (!z) return
   const from = ziel.dataset['ab']
   const achse = aktuelleAchse()
-  const scale = baueSkala(z.track)
-  if (!from || !achse?.kurve || !scale) return
+  const scale = buildScale(z.track)
+  if (!from || !achse?.curve || !scale) return
   const kind = rolle === 'grenze' ? 'modus' : (rolle as 'kamera' | 'wetter')
-  const eigenS = isoZuOffset(z.daten.time.start, from)
+  const eigenS = isoToOffset(z.daten.time.start, from)
   if (!Number.isFinite(eigenS)) return
   // Die eigene Kante über den INDEX finden, nicht über eine Zeit-Toleranz: Der
-  // Overlay-Anker ist sekundengenau (`offsetZuIso` schneidet die Millisekunden
+  // Overlay-Anker ist sekundengenau (`offsetToIso` schneidet die Millisekunden
   // ab), die Wechselzeit im Track ist es nicht. Mit „alles vor mir / alles nach
   // mir" wurde die eigene Kante deshalb zum rechten Nachbarn — das Zug-Fenster
   // war der Abschnitt DAVOR, und die Kante klemmte nach 7 px fest.
@@ -6014,11 +6056,11 @@ function starteKantenZug(ziel: HTMLElement, rolle: string): void {
   // Für Tempo und Meter zählt die Kante, wie sie im Track LIEGT — nicht ihr auf
   // die Sekunde gerundeter Anker.
   const kanteS = eigenIdx >= 0 ? (zeiten[eigenIdx] as number) : eigenS
-  const gesamtS = achse.kurve.gesamtS
-  const filmVon = filmZuOffset(achse, fromS)
+  const gesamtS = achse.curve.totalS
+  const filmVon = filmToOffset(achse, fromS)
 
-  let zeitBei = (filmS: number): number => anteilZuOffset(achse, filmZuAnteil(achse, filmS))
-  let maxFilmS = filmZuOffset(achse, toS)
+  let zeitBei = (filmS: number): number => fractionToOffset(achse, filmToFraction(achse, filmS))
+  let maxFilmS = filmToOffset(achse, toS)
   let dauerBei: ((t: number) => number) | undefined
 
   if (kind === 'modus') {
@@ -6029,20 +6071,20 @@ function starteKantenZug(ziel: HTMLElement, rolle: string): void {
     // landet nach jedem Neuaufbau wieder unter dem Zeiger.
     const travelModes = modiUmKante(kanteS)
     const kurve = travelModes
-      ? baueGrenzKurve(z.track, fromS, toS, travelModes, filmVon, achse.halte ?? [])
+      ? buildBoundaryCurve(z.track, fromS, toS, travelModes, filmVon, achse.stops ?? [])
       : null
     if (!kurve || !travelModes) return
-    zeitBei = (filmS: number): number => zeitBeiFilm(kurve, filmS)
-    maxFilmS = kurve.gesamtS
-    const meterAlt = meterZuOffset(kumStrecke, z.track, kanteS)
+    zeitBei = (filmS: number): number => recordingTimeAtFilmTime(kurve, filmS)
+    maxFilmS = kurve.totalS
+    const meterAlt = metersToOffset(kumStrecke, z.track, kanteS)
     const zz = z
     dauerBei = (t: number): number =>
-      filmDauerBeiGrenze(
+      filmDurationAtBoundary(
         gesamtS,
         meterAlt,
-        meterZuOffset(kumStrecke, zz.track, t),
-        travelModes.links,
-        travelModes.rechts,
+        metersToOffset(kumStrecke, zz.track, t),
+        travelModes.left,
+        travelModes.right,
       )
   }
 
@@ -6082,20 +6124,20 @@ function kantenZugBewegen(e: PointerEvent): void {
   const kz = kantenZug
   if (!kz || !z) return
   const achse = aktuelleAchse()
-  if (!achse?.kurve) return
+  if (!achse?.curve) return
   if (!kz.bewegt) {
     kz.bewegt = true
     // Maßstab einfrieren: eingepasst skalierte die geänderte Filmdauer die
     // GANZE Leiste, auch alles vor der Kante (§2C).
     einpassen = false
   }
-  const roh = anteilZuFilm(achse, spurAnteil(e.clientX))
-  const filmS = klemmeFilmS(roh, kz.minFilmS, kz.maxFilmS, pxProFilmS)
+  const roh = fractionToFilm(achse, spurAnteil(e.clientX))
+  const filmS = clampFilmS(roh, kz.minFilmS, kz.maxFilmS, pxProFilmS)
   // Gerastet wird an den Halten, wie sie JETZT auf der Leiste stehen — und das
   // ist seit dem Live-Aufbau zugleich die Anordnung beim Loslassen.
-  const halte = (achse.halte ?? []).filter((h) => h.offsetS > kz.fromS && h.offsetS <= kz.toS)
-  const rast = rasteAnHalt(halte, anteilZuOffset(achse, filmZuAnteil(achse, filmS)), filmS)
-  const ziel = rast.halt ? rast.tOffsetS : kz.zeitBei(filmS)
+  const halte = (achse.stops ?? []).filter((h) => h.offsetS > kz.fromS && h.offsetS <= kz.toS)
+  const rast = snapToStop(halte, fractionToOffset(achse, filmToFraction(achse, filmS)), filmS)
+  const ziel = rast.stop ? rast.tOffsetS : kz.zeitBei(filmS)
 
   const neuAb = verschiebeGrenze(kz.kind, kz.from, ziel)
   if (neuAb) kz.from = neuAb
@@ -6104,26 +6146,26 @@ function kantenZugBewegen(e: PointerEvent): void {
   // Erst nach dem Aufbau: die Kante ist ein frisches Element, und wo sie steht,
   // weiß jetzt die neue Achse.
   const neuAchse = aktuelleAchse()
-  const kanteS = isoZuOffset(z.daten.time.start, kz.from)
-  const kanteFilmS = neuAchse ? filmZuOffset(neuAchse, kanteS) : filmS
+  const kanteS = isoToOffset(z.daten.time.start, kz.from)
+  const kanteFilmS = neuAchse ? filmToOffset(neuAchse, kanteS) : filmS
   for (const el of document.querySelectorAll<HTMLElement>('#zeitleiste-zone .kante')) {
     el.classList.toggle('zieht', el.dataset['ab'] === kz.from)
   }
   const teile = [
-    `${formatiereFilmzeit(kanteFilmS)} · ${uhrzeitKurz(offsetZuIso(z.daten.time.start, kanteS))} Uhr`,
+    `${formatFilmTime(kanteFilmS)} · ${uhrzeitKurz(offsetToIso(z.daten.time.start, kanteS))} Uhr`,
   ]
-  if (rast.halt) teile.push(rast.hinter ? 'rastet hinter den Halt' : 'rastet vor den Halt')
+  if (rast.stop) teile.push(rast.behind ? 'rastet hinter den Halt' : 'rastet vor den Halt')
   if (kz.dauerBei) {
     const neu = kz.dauerBei(kanteS)
     if (Math.abs(neu - kz.gesamtFilmVorher) > 0.5) {
-      teile.push(`Film ${formatiereFilmzeit(kz.gesamtFilmVorher)} → ${formatiereFilmzeit(neu)}`)
+      teile.push(`Film ${formatFilmTime(kz.gesamtFilmVorher)} → ${formatFilmTime(neu)}`)
     }
   }
-  zeigeZielLinie(kanteFilmS * pxProFilmS, teile.join(' · '), !!rast.halt)
+  zeigeZielLinie(kanteFilmS * pxProFilmS, teile.join(' · '), !!rast.stop)
   // Der Halt, an dem gerastet wird, leuchtet mit — die Erklärung passiert in
   // der Bewegung, nicht in einer Legende.
   for (const el of document.querySelectorAll('.halt-klip.rastet')) el.classList.remove('rastet')
-  for (const st of rast.halt?.stuecke ?? []) klipEls.get(st.id)?.classList.add('rastet')
+  for (const st of rast.stop?.items ?? []) klipEls.get(st.id)?.classList.add('rastet')
 }
 
 /** Loslassen: aufräumen. Geschrieben wurde schon — jetzt fällt der Undo-Punkt. */
@@ -6160,11 +6202,11 @@ function verbergeZielLinie(): void {
 }
 
 /** Den Ton-Klip an einem Overlay-Index in seiner AKTUELLEN Filmlage auflösen. */
-function tonKlipVon(index: number): TonKlip | null {
+function tonKlipVon(index: number): AudioClip | null {
   const scale = aktuelleAchse()
   if (!z || !scale) return null
   return (
-    loeseTonKlips(z.edits.audio ?? [], z.daten.time.start, scale, tonDauern).find(
+    resolveAudioClips(z.edits.audio ?? [], z.daten.time.start, scale, tonDauern).find(
       (k) => k.index === index,
     ) ?? null
   )
@@ -6177,14 +6219,14 @@ function tonKlipVon(index: number): TonKlip | null {
  * stehen bleibt, liest sich als hakender Griff — man zieht weiter und wundert
  * sich, statt zu verstehen, dass die Datei zu Ende ist.
  */
-function zeigeTonEtikett(klip: TonKlip, patch: TonPatch, amAnschlag: boolean): void {
+function zeigeTonEtikett(klip: AudioClip, patch: AudioClipPatch, amAnschlag: boolean): void {
   const scale = aktuelleAchse()
   if (!scale) return
   const filmVon =
-    patch.offsetFilmS + filmZuOffset(scale, isoZuOffset(z?.daten.time.start ?? '', patch.anchor))
+    patch.offsetFilmS + filmToOffset(scale, isoToOffset(z?.daten.time.start ?? '', patch.anchor))
   const laenge = patch.durationFilmS ?? klip.filmBis - klip.filmVon
-  const teile = [formatiereFilmzeit(laenge)]
-  if (patch.startS) teile.push(`from ${formatiereFilmzeit(patch.startS)} der Datei`)
+  const teile = [formatFilmTime(laenge)]
+  if (patch.startS) teile.push(`from ${formatFilmTime(patch.startS)} der Datei`)
   if (amAnschlag) teile.push('kein Material mehr')
   zeigeZielLinie(filmVon * pxProFilmS, teile.join(' · '), amAnschlag)
 }
@@ -6223,10 +6265,10 @@ function verdrahteZeitleiste(): void {
     // (zeitleisteZug, from ZUG_SCHWELLE_PX).
     zug = { rolle, startX: e.clientX, bewegt: false, fokus: bandUnterZeiger(e) }
     if (ziel.dataset['ab'] !== undefined) zug.from = ziel.dataset['ab']
-    if (ziel.dataset['mode']) zug.mode = ziel.dataset['mode'] as Modus
-    if (ziel.dataset['preset']) zug.preset = ziel.dataset['preset'] as KameraPreset
-    if (ziel.dataset['wettermode']) zug.wetterMode = ziel.dataset['wettermode'] as WetterModus
-    if (ziel.dataset['art']) zug.momentArt = ziel.dataset['art'] as MomentArt
+    if (ziel.dataset['mode']) zug.mode = ziel.dataset['mode'] as TravelMode
+    if (ziel.dataset['preset']) zug.preset = ziel.dataset['preset'] as CameraPreset
+    if (ziel.dataset['wettermode']) zug.wetterMode = ziel.dataset['wettermode'] as WeatherMode
+    if (ziel.dataset['art']) zug.momentArt = ziel.dataset['art'] as CameraMomentKind
     if (ziel.dataset['index'] !== undefined) zug.index = Number(ziel.dataset['index'])
     if (ZUSTANDS_KANTEN.has(rolle)) starteKantenZug(ziel, rolle)
     if (rolle === 'audio-balken') {
@@ -6237,7 +6279,7 @@ function verdrahteZeitleiste(): void {
       const scale = aktuelleAchse()
       const klip = scale ? tonKlipVon(zug.index ?? -1) : null
       if (scale && klip)
-        zug.griffVersatzFilmS = anteilZuFilm(scale, spurAnteil(e.clientX)) - klip.filmVon
+        zug.griffVersatzFilmS = fractionToFilm(scale, spurAnteil(e.clientX)) - klip.filmVon
     }
   })
 
@@ -6297,7 +6339,7 @@ function verdrahteZeitleiste(): void {
     // Aufnahmezeit übersetzt bliebe der Kopf an jeder Haltkante kleben.
     const setze = (clientX: number): void => {
       if (!scale) return
-      setzeKopfFilm(anteilZuFilm(scale, spurAnteil(clientX)))
+      setzeKopfFilm(fractionToFilm(scale, spurAnteil(clientX)))
     }
     const rand = randScroller(setze)
     const zieh = (ev: PointerEvent): void => {
@@ -6323,9 +6365,10 @@ function verdrahteZeitleiste(): void {
     const scale = aktuelleAchse()
     if (!scale) return
     const weiter = scrubGeste()
-    setzeKopfFilm(anteilZuFilm(scale, spurAnteil(e.clientX)))
+    setzeKopfFilm(fractionToFilm(scale, spurAnteil(e.clientX)))
     document.body.classList.add('scrubbt')
-    const setze = (clientX: number): void => setzeKopfFilm(anteilZuFilm(scale, spurAnteil(clientX)))
+    const setze = (clientX: number): void =>
+      setzeKopfFilm(fractionToFilm(scale, spurAnteil(clientX)))
     const rand = randScroller(setze)
     const zieh = (ev: PointerEvent): void => {
       setze(ev.clientX)
@@ -6445,7 +6488,7 @@ function verdrahteZeitleiste(): void {
     const scale = aktuelleAchse()
     // Um den Abspielkopf zoomen, wenn er sichtbar ist — sonst um die Fenstermitte
     if (z?.auswahl && scale) {
-      const anteil = offsetZuAnteil(scale, z.auswahl[3])
+      const anteil = offsetToFraction(scale, z.auswahl[3])
       const vx = spurXpx() + anteil * zeitBreitePx() - fenster.scrollLeft
       if (vx >= 0 && vx <= fenster.clientWidth) return { anteil, vx }
     }
@@ -6604,20 +6647,20 @@ function holeSpielplan(): Spielplan | null {
   // Dieselben Klips, die die Leiste zeigt — samt Einstieg und Loop. Ein zweiter
   // Weg zur Filmlage liefe hier auseinander, und die Schnittprüfung prüfte
   // einen anderen Film.
-  for (const k of loeseTonKlips(eintraege, start, achse, tonDauern)) {
+  for (const k of resolveAudioClips(eintraege, start, achse, tonDauern)) {
     const a = eintraege[k.index]
     // Was beim Rendern herausfällt (ganz außerhalb der Tour), soll auch hier
     // nicht klingen — sonst hörte man etwas, das im Film nicht vorkommt.
-    if (!a || audioWirdVerworfen(a, z.edits, start, achse)) continue
+    if (!a || audioWouldBeDropped(a, z.edits, start, achse)) continue
     const url = audioUrl(a, z.tourId)
     const volume = a.volume ?? STUDIO_PEGEL_VORGABE
-    const von = filmZuAnteil(achse, k.filmVon)
+    const von = filmToFraction(achse, k.filmVon)
     // Ein Klip MIT Ausdehnung läuft als Bereich (auch ein Effekt — der Player
     // tut seit Etappe 4 dasselbe); einer ohne bleibt die Überfahr-Marke.
     if (k.filmBis > k.filmVon) {
       musik.push({
         von,
-        to: filmZuAnteil(achse, k.filmBis),
+        to: filmToFraction(achse, k.filmBis),
         url,
         volume,
         loop: k.loop,
@@ -6638,7 +6681,7 @@ function holeSpielplan(): Spielplan | null {
     // Aus der Kopf-FILMsekunde, nicht aus der Aufnahmezeit: wer mitten in einem
     // Halt auf Play drückt, soll dort weiterlaufen und nicht an dessen Anfang
     // zurückspringen.
-    marke: filmZuAnteil(achse, kopfFilm()),
+    marke: filmToFraction(achse, kopfFilm()),
     kurve: spiel,
     musik,
     klaenge,
@@ -6657,7 +6700,7 @@ function setzeMarkeAnteil(anteil: number): void {
   if (!z) return
   const scale = aktuelleAchse()
   if (!scale) return
-  setzeKopfFilm(anteilZuFilm(scale, anteil))
+  setzeKopfFilm(fractionToFilm(scale, anteil))
   folgeKopf(anteil)
   // `folgeKarte()` stand hier einmal eigens — jetzt zieht `renderPlayhead` die
   // Karte für JEDE Kopfbewegung nach, und der Abspieler ist nur eine davon.
@@ -6954,7 +6997,7 @@ function zeigeFoto(id: string): void {
     // des Ausschnitts (der Schnitt selbst entsteht erst in der Pipeline).
     // Das rechte Ende gehört dazu: Ohne es liefe die Wiedergabe über den
     // Schnitt hinaus und in der Ausblendung des Halts gegen das Dateiende.
-    const schnitt = klemmeVideoTrim(m.trim, m.durationS ?? 0)
+    const schnitt = clampMediaTrim(m.trim, m.durationS ?? 0)
     video.dataset['vonS'] = String(schnitt?.fromS ?? 0)
     const endeS = schnitt?.toS ?? m.durationS
     if (endeS) video.dataset['bisS'] = String(endeS)
@@ -7001,10 +7044,10 @@ function zeigeFoto(id: string): void {
   // wo sie auch mit Titel stehen. Sonst spränge beim Blättern durch die Halte
   // ausgerechnet das, was bleibt.
   const meter = m.anchor
-    ? meterZuOffset(
+    ? metersToOffset(
         kumStrecke,
         z.track,
-        projiziereAufTrack(z.track, m.anchor[0], m.anchor[1]).punkt[3],
+        projectOntoTrack(z.track, m.anchor[0], m.anchor[1]).point[3],
       )
     : null
   kartenText = {
@@ -7067,7 +7110,7 @@ function kartenQuelle(): { source: KartenQuelle | null; bereit: boolean } {
  * Steht der Kopf in einem Klip, liegt dessen Bild auf der Karte; verlässt er
  * ihn, verschwindet es. Damit stimmen Abspielen und Scrubben zwangsläufig
  * überein und die Karte steht exakt so lange wie ihr Klip auf der Leiste
- * (Standzeit UND Ausblendung — `haltBeiFilmS` rechnet mit derselben Kette, aus
+ * (Standzeit UND Ausblendung — `stopAtFilmS` rechnet mit derselben Kette, aus
  * der die Klips entstehen). Vorher stieß der Abspieler die Einblendung als
  * Überfahr-Marke an und ein Timer nahm sie über die reine Standzeit zurück:
  * beim Scrubben kam gar kein Bild, beim Abspielen ging es 0,8 s zu früh.
@@ -7078,8 +7121,8 @@ function kartenQuelle(): { source: KartenQuelle | null; bereit: boolean } {
 function synchronisiereFoto(): void {
   const achse = aktuelleAchse()
   const tempo = abspieler?.tempo() ?? 0
-  const stand = achse && Math.abs(tempo) <= 1 ? haltBeiFilmS(achse, kopfFilm()) : null
-  const stueck = stand?.stueck ?? null
+  const stand = achse && Math.abs(tempo) <= 1 ? stopAtFilmS(achse, kopfFilm()) : null
+  const stueck = stand?.item ?? null
   // Solange eine Karte liegt, tritt der Niederschlag zurück — sonst regnet es
   // scharf über einem Foto, das die volle Aufmerksamkeit haben soll. Im Player
   // erledigt das der `.photo-backdrop` mit Schleier und Weichzeichner.
@@ -7089,7 +7132,7 @@ function synchronisiereFoto(): void {
     return
   }
   if (stueck.id !== eingeblendet) zeigeFoto(stueck.id)
-  synchronisiereBild(stueck.imS, stueck.durationS, tempo)
+  synchronisiereBild(stueck.inS, stueck.durationS, tempo)
 }
 
 /**
@@ -7327,7 +7370,7 @@ function fragtNachLoeschung(knopf: HTMLButtonElement, anzahl: number): boolean {
 
 async function speichern(): Promise<void> {
   if (!z) return
-  const problem = pruefeOverlay(z.edits)
+  const problem = validateOverlay(z.edits)
   if (problem) {
     status(problem, 'fehler')
     return
@@ -7336,7 +7379,7 @@ async function speichern(): Promise<void> {
   // Nur was der SERVER kennt, kann er löschen: in dieser Sitzung nachgereichte,
   // aber noch nicht gespeicherte Medien gibt es dort noch gar nicht.
   const bekannt = new Set(z.daten.media.map((m) => m.id))
-  const zuLoeschen = endgueltigZuLoeschen(z.edits).filter((id) => bekannt.has(id))
+  const zuLoeschen = idsToDelete(z.edits).filter((id) => bekannt.has(id))
   if (fragtNachLoeschung(speichernKnopf, zuLoeschen.length)) return
   // Beim zweiten Klick trägt der Knopf die Löschfrage — die echte Beschriftung
   // liegt seit dem Schärfen im Merker. Nur wer gar nicht gefragt wurde (nichts
@@ -7364,9 +7407,9 @@ async function speichern(): Promise<void> {
       // Lokal dasselbe tilgen wie der Server — und `gespeichert` mitziehen:
       // Der Server-Stand IST jetzt das gestutzte Overlay, ohne diese Zeile
       // liefe gleich ein Speichern für eine Änderung, die keine mehr ist.
-      z.edits = ohneMedien(z.edits, zuLoeschen)
+      z.edits = withoutMedia(z.edits, zuLoeschen)
       z.gespeichert = JSON.stringify(
-        ohneMedien(JSON.parse(z.gespeichert) as EditOverlay, zuLoeschen),
+        withoutMedia(JSON.parse(z.gespeichert) as EditOverlay, zuLoeschen),
       )
     }
     // 1. Overlay (falls geändert) — der Server rendert die Tour neu
@@ -7519,7 +7562,7 @@ function verdrahteEinmal(): void {
       id: z.tourId,
       title: z.daten.title,
       cover: foto?.thumb ?? foto?.poster ?? foto?.src ?? null,
-      filmS: aktuelleAchse()?.kurve?.gesamtS ?? null,
+      filmS: aktuelleAchse()?.curve?.totalS ?? null,
       finale: z.daten.finale,
     })
   })
@@ -7669,8 +7712,8 @@ function verdrahteEinmal(): void {
         e.preventDefault()
         halteAbspielen()
         const achse = aktuelleAchse()
-        if (achse?.kurve) {
-          setzeKopfFilm(schrittFilmS(achse, kopfFilm(), e.key === 'ArrowRight' ? 5 : -5))
+        if (achse?.curve) {
+          setzeKopfFilm(stepFilmS(achse, kopfFilm(), e.key === 'ArrowRight' ? 5 : -5))
         } else if (z.auswahl) {
           setzeMarke(z.auswahl[3] + (e.key === 'ArrowRight' ? 60 : -60))
         }

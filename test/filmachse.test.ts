@@ -23,8 +23,13 @@ import {
 import { NAHE_M } from '../src/geo'
 import { musikVersatzS } from '../src/audiotracks'
 import { seitKlipbeginnS } from '../src/studio/abspielen'
-import { baueAchse, baueSpielKurve, filmBei, filmZuAnteil } from '../src/studio/zeitleiste'
-import type { TrackPunkt } from '../src/studio/editmodell'
+import {
+  buildTimelineAxis,
+  buildPlaybackCurve,
+  filmAt,
+  filmToFraction,
+} from '../src/studio/zeitleiste'
+import type { TrackPoint } from '../src/studio/editmodell'
 
 interface Fall {
   name: string
@@ -172,7 +177,7 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
   const HALT_M = 480
   const HALT_S = 6
   /** Aufzeichnung am Äquator, 1 m/s — Sekunde und Meter sind dieselbe Zahl. */
-  const track: TrackPunkt[] = Array.from({ length: METER / 60 + 1 }, (_, i) => [
+  const track: TrackPoint[] = Array.from({ length: METER / 60 + 1 }, (_, i) => [
     (i * 60) / 111_320,
     0,
     0,
@@ -184,15 +189,15 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
     { meterM: HALT_M, breiteS: HALT_S },
   ])
   /** Die Achse des EDITORS samt Spielkurve (zeitleiste.ts). */
-  const editor = baueAchse(
-    [{ mode: 'walk', aktiv: true, pts: track }],
+  const editor = buildTimelineAxis(
+    [{ mode: 'walk', active: true, pts: track }],
     [{ offsetS: HALT_M, breiteS: HALT_S }],
     {
       fromS: 0,
       toS: METER,
     },
   )
-  const spielkurve = baueSpielKurve(editor, [{ aktiv: true, pts: track }])
+  const spielkurve = buildPlaybackCurve(editor, [{ active: true, pts: track }])
 
   it('misst dieselbe Filmdauer — Rampen inklusive', () => {
     // DREI Rampen: aus dem Stand los, vor dem Halt bremsen, danach wieder
@@ -202,19 +207,19 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
       METER / tempoMs('walk') + HALT_S + (3 * RAMPE_M) / tempoMs('walk'),
       6,
     )
-    expect(editor.kurve?.gesamtS).toBeCloseTo(spieler.gesamtS, 6)
+    expect(editor.curve?.totalS).toBeCloseTo(spieler.gesamtS, 6)
   })
 
   it.each([0, 240, 480, 600, 960])(
     'setzt den Ton bei %i m an derselben Stelle der Datei ein',
     (meter) => {
       const imPlayer = filmBeiStrecke(spieler, meter)
-      const imEditor = filmBei(spielkurve, filmZuAnteil(editor, imPlayer))
+      const imEditor = filmAt(spielkurve, filmToFraction(editor, imPlayer))
       expect(imEditor).toBeCloseTo(imPlayer, 6)
       // Ein Musikstück ab Filmsekunde 0, Datei 30 s, Loop — beide Bühnen greifen
       // auf dieselbe Datei-Position zu.
       expect(musikVersatzS(imPlayer, 30)).toBeCloseTo(
-        musikVersatzS(seitKlipbeginnS(filmZuAnteil(editor, imEditor), 0, spielkurve), 30),
+        musikVersatzS(seitKlipbeginnS(filmToFraction(editor, imEditor), 0, spielkurve), 30),
         6,
       )
     },

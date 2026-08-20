@@ -41,7 +41,7 @@ Voraussetzung für den Ausbau der Modus-Liste in
 
 **Wächter:** vier Tests in [studio-baukasten.test.ts](../../test/studio-baukasten.test.ts)
 (ab „describe('Fortbewegungs-Modi')") vergleichen per Regex über den Quelltext:
-`MODE_SPEED`-Deckung, Tempo-Faktoren gegen `schaetzeAnimationsdauer`, `MODE_SCALE`-Deckung
+`MODE_SPEED`-Deckung, Tempo-Faktoren gegen `estimateAnimationDuration`, `MODE_SCALE`-Deckung
 und die `d="…"`-Pfade von `MODE_ICONS` gegen den Sprite in `studio.html`.
 
 ---
@@ -140,7 +140,7 @@ und bricht den Tempo-Faktor-Test.
 
 - **[editmodell.ts:17-19](../../src/studio/editmodell.ts#L17)** — `MODI` und `type Modus`
   löschen, aus `modi.ts` re-exportieren (damit die vielen Importe in `editor.ts` und den
-  Tests unverändert bleiben). `WETTER_MODI` bleibt unangetastet — das ist ein eigenes
+  Tests unverändert bleiben). `WEATHER_MODES` bleibt unangetastet — das ist ein eigenes
   Thema mit eigenem Wächter.
 - **[editor.ts:95-111](../../src/studio/editor.ts#L95)** — `MODUS_NAMEN` und `MODUS_FARBEN`
   löschen; die vier Verwendungsstellen (Zeilen ~1184, ~1637, ~3034, ~3059) auf

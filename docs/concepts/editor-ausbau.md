@@ -129,7 +129,7 @@ beim Wetter: eine Vorgabe, punktuelle Korrektur.
 
 **Was daran hängt** — beiläufige Fotos halten nicht an:
 
-- `schaetzeAnimationsdauer` muss sie anders zählen (sonst lügt die Zahl unter den Bahnen),
+- `estimateAnimationDuration` muss sie anders zählen (sonst lügt die Zahl unter den Bahnen),
 - der Studio-Abspieler ([abspielen.ts](../../src/studio/abspielen.ts)) braucht einen zweiten
   Halt-Typ ohne Standzeit,
 - die Engine braucht eine Overlay-Ebene, die **während** `phase === 'ride'` läuft — heute
@@ -155,7 +155,7 @@ Im Player ein Multiplikator auf die Fahrgeschwindigkeit, mehr nicht.
 **Die Anzeige-Pointe:** Auf der Aufnahmezeit-Achse wird ein Zeitraffer-Band *nicht
 schmaler* — 40 km bleiben 40 km. Der Effekt zeigt sich nur in der Dauerschätzung. Damit
 das nicht wirkungslos wirkt, beschriftet das Band seinen eigenen Beitrag:
-**„Zeitraffer · 14 s statt 56 s"**. Damit wird `schaetzeAnimationsdauer` zum ersten Mal
+**„Zeitraffer · 14 s statt 56 s"**. Damit wird `estimateAnimationDuration` zum ersten Mal
 ein Werkzeug statt nur einer Anzeige.
 
 Zwei Kopplungen gleich mitentscheiden:

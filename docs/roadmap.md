@@ -56,7 +56,7 @@ Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
-* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Wellen 0 bis 2 sind durch: Verträge, API und App seit dem 2026-08-20 live (v0.67.0), am selben Tag die Server-Internals (Pipeline, Routen-Handler, Mail-Bausteine, Auth, 36 Dateinamen unter server/src). Als Nächstes Welle 3: die DOM-freien Studio-Module (editmodell, zeitleiste, tonklip, stopps, pruefung). Ganz am Ende Schritt 9: die Env-Variablen als eigener Ops-Schritt.
+* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Wellen 0 bis 3 sind durch: Verträge, API und App seit dem 2026-08-20 live (v0.67.0), am selben Tag die Server-Internals (Pipeline, Routen-Handler, Mail-Bausteine, Auth, 36 Dateinamen unter server/src) und die DOM-freien Studio-Module (editmodell, zeitleiste, tonklip, pruefung; stopps.ts geht nach Tabelle erst mit Welle 5, es teilt Stopp und NAHE_M mit geo.ts). Als Nächstes Welle 4: die Studio-Verdrahtung (editor.ts, studio.ts, abspielen, exportblatt, nachreichen, sfxbibliothek, tipp, kartenstimmung) samt Dateinamen und DOM-IDs. Ganz am Ende Schritt 9: die Env-Variablen als eigener Ops-Schritt.
 * [Konto löschen absichern](concepts/konzept_kontoloeschung_absichern.md) - Passwortpflicht für DELETE /api/auth/me; heute reicht eine offene Sitzung, um Konto, Touren und Medien zu löschen.
 * [Play Store](concepts/konzept_play_store_interner_test.md) - Die App aus dem APK-Versand herausholen. [wartet auf: concepts/konzept_codebase_english_refactoring.md]
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.

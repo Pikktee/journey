@@ -17,23 +17,23 @@ import {
   type Streckenabschnitt,
 } from '../filmachse.js'
 import {
-  isoZuOffset,
-  offsetZuIso,
-  projiziereAufTrack,
-  punktZuOffset,
-  type AnzeigeAbschnitt,
-  type AudioEintrag,
+  isoToOffset,
+  offsetToIso,
+  projectOntoTrack,
+  pointAtOffset,
+  type DisplaySegment,
+  type AudioEntry,
   type EditOverlay,
-  type KameraPreset,
-  type MediumAnzeige,
-  type MomentArt,
-  type Modus,
-  type TrackPunkt,
-  type WetterModus,
+  type CameraPreset,
+  type MediaView,
+  type CameraMomentKind,
+  type TravelMode,
+  type TrackPoint,
+  type WeatherMode,
 } from './editmodell.js'
 
 /** Zeitspanne der Aufzeichnung: Offsets (s) des ersten/letzten Trackpunkts. */
-export interface ZeitSkala {
+export interface TimeScale {
   fromS: number
   toS: number
 }
@@ -56,28 +56,28 @@ export interface ZeitSkala {
  * vergeht, Strecke steht). Die Halte sind keine Stützstellen dieser Tabelle
  * mehr — sie stecken im Kern.
  */
-export interface AchsenKurve {
+export interface AxisCurve {
   tS: number[]
   mM: number[]
-  kern: Filmachse<AchsenHaltM>
+  core: Filmachse<AxisStopM>
   /** Filmzeit der ganzen Achse inkl. Halte */
-  gesamtS: number
+  totalS: number
   /**
    * Filmsekunde, bei der `kern` beginnt. Null für die ganze Achse; das
-   * Zug-FENSTER einer Fortbewegungs-Grenze (`baueGrenzKurve`) sitzt dagegen
+   * Zug-FENSTER einer Fortbewegungs-Grenze (`buildBoundaryCurve`) sitzt dagegen
    * mitten im Film und rechnet trotzdem in absoluten Filmsekunden.
    */
-  versatzS?: number
+  offsetS?: number
 }
 
 /** Aufnahmezeit → Streckenmeter. Ein Plateau darin ist eine reale Pause. */
-function meterBeiZeit(kurve: AchsenKurve, tOffsetS: number): number {
-  return interpoliere(kurve.tS, kurve.mM, tOffsetS)
+function metersAtTime(curve: AxisCurve, tOffsetS: number): number {
+  return interpoliere(curve.tS, curve.mM, tOffsetS)
 }
 
 /** Streckenmeter → Aufnahmezeit (Umkehrung; Plateau → Ankunft). */
-function zeitBeiMeter(kurve: AchsenKurve, meterM: number): number {
-  return interpoliere(kurve.mM, kurve.tS, meterM)
+function timeAtMeters(curve: AxisCurve, meterM: number): number {
+  return interpoliere(curve.mM, curve.tS, meterM)
 }
 
 /**
@@ -87,8 +87,8 @@ function zeitBeiMeter(kurve: AchsenKurve, meterM: number): number {
  * fast). Ohne `kurve` bleibt sie linear über der Aufnahmezeit — der Fallback
  * für degenerierte Touren und der Not-Schalter des Umbaus.
  */
-export interface Achse extends ZeitSkala {
-  kurve?: AchsenKurve
+export interface TimelineAxis extends TimeScale {
+  curve?: AxisCurve
   /**
    * Die eingewebten Halte als INTERVALLE (Filmsekunden). Die Achse weiß als
    * Einzige, wie viel Filmzeit jeder Halt belegt — ohne diese Liste gibt es die
@@ -96,14 +96,14 @@ export interface Achse extends ZeitSkala {
    * AUFNAHMEzeit hat ein Halt keine Ausdehnung (zwei Stützstellen auf derselben
    * Sekunde), jede Rückrechnung fällt auf seine linke Kante.
    */
-  halte?: readonly HaltIntervall[]
+  stops?: readonly StopInterval[]
 }
 
-export function baueSkala(track: readonly TrackPunkt[]): ZeitSkala | null {
-  const erster = track[0]
-  const letzter = track[track.length - 1]
-  if (!erster || !letzter || letzter[3] <= erster[3]) return null
-  return { fromS: erster[3], toS: letzter[3] }
+export function buildScale(track: readonly TrackPoint[]): TimeScale | null {
+  const first = track[0]
+  const last = track[track.length - 1]
+  if (!first || !last || last[3] <= first[3]) return null
+  return { fromS: first[3], toS: last[3] }
 }
 
 /**
@@ -111,10 +111,10 @@ export function baueSkala(track: readonly TrackPunkt[]): ZeitSkala | null {
  * Achse liefert ein Anteil INNERHALB eines Halt-Sprungs die Halt-Zeit —
  * die Interpolation zwischen zwei gleichen `tS`-Stützstellen ist konstant.
  */
-export function anteilZuOffset(scale: ZeitSkala | Achse, anteil: number): number {
-  const a = Math.max(0, Math.min(1, anteil))
-  const kurve = (scale as Achse).kurve
-  if (kurve) return zeitBeiFilm(kurve, a * kurve.gesamtS)
+export function fractionToOffset(scale: TimeScale | TimelineAxis, fraction: number): number {
+  const a = Math.max(0, Math.min(1, fraction))
+  const curve = (scale as TimelineAxis).curve
+  if (curve) return recordingTimeAtFilmTime(curve, a * curve.totalS)
   return scale.fromS + a * (scale.toS - scale.fromS)
 }
 
@@ -123,17 +123,17 @@ export function anteilZuOffset(scale: ZeitSkala | Achse, anteil: number): number
  * Halt-Zeit selbst am Sprung-ANFANG (lower_bound trifft die erste Stützstelle
  * der Stufe); knapp danach liegt hinter dem Sprung.
  */
-export function offsetZuAnteil(scale: ZeitSkala | Achse, tOffsetS: number): number {
-  const kurve = (scale as Achse).kurve
-  if (kurve) return filmBeiZeit(kurve, tOffsetS) / kurve.gesamtS
+export function offsetToFraction(scale: TimeScale | TimelineAxis, tOffsetS: number): number {
+  const curve = (scale as TimelineAxis).curve
+  if (curve) return filmTimeAtRecordingTime(curve, tOffsetS) / curve.totalS
   return Math.max(0, Math.min(1, (tOffsetS - scale.fromS) / (scale.toS - scale.fromS)))
 }
 
 /** Film-Sekunde der ACHSE (inkl. Halte) zu einem Zeit-Offset — für Kopf-Uhr
  *  und Spielkurve. Ohne Kurve linear auf [0, 1] skaliert (degenerierter Fall). */
-export function filmZuOffset(achse: Achse, tOffsetS: number): number {
-  if (achse.kurve) return filmBeiZeit(achse.kurve, tOffsetS)
-  return offsetZuAnteil(achse, tOffsetS)
+export function filmToOffset(axis: TimelineAxis, tOffsetS: number): number {
+  if (axis.curve) return filmTimeAtRecordingTime(axis.curve, tOffsetS)
+  return offsetToFraction(axis, tOffsetS)
 }
 
 /**
@@ -142,49 +142,52 @@ export function filmZuOffset(achse: Achse, tOffsetS: number): number {
  * SFX außerhalb [Start,Ende] fliegen raus, Musik mit leerer geklemmter Spanne
  * ebenso — der Editor warnt dann, statt still nichts abzuspielen.
  */
-export function audioWirdVerworfen(
-  a: AudioEintrag,
+export function audioWouldBeDropped(
+  a: AudioEntry,
   edits: EditOverlay,
   startIso: string,
-  scale: ZeitSkala,
+  scale: TimeScale,
 ): boolean {
   const fromS =
-    edits.trim?.start !== undefined ? isoZuOffset(startIso, edits.trim.start) : scale.fromS
-  const toS = edits.trim?.end !== undefined ? isoZuOffset(startIso, edits.trim.end) : scale.toS
-  const abS = isoZuOffset(startIso, a.from)
+    edits.trim?.start !== undefined ? isoToOffset(startIso, edits.trim.start) : scale.fromS
+  const toS = edits.trim?.end !== undefined ? isoToOffset(startIso, edits.trim.end) : scale.toS
+  const abS = isoToOffset(startIso, a.from)
   if (a.type === 'sfx') return abS < fromS || abS > toS
-  const endeS = a.to !== undefined ? isoZuOffset(startIso, a.to) : toS
-  return Math.min(endeS, toS) <= Math.max(abS, fromS)
+  const endS = a.to !== undefined ? isoToOffset(startIso, a.to) : toS
+  return Math.min(endS, toS) <= Math.max(abS, fromS)
 }
 
 // — Bausteine der Leiste (alle Positionen als Anteil 0..1) —
 
-export interface ZeitBand {
-  von: number
+export interface TimeBand {
+  from: number
   to: number
-  mode: Modus
-  aktiv: boolean
+  mode: TravelMode
+  active: boolean
 }
 
 /** Modus-Bänder aus den Anzeige-Abschnitten (gleiche Quelle wie der Karten-Track). */
-export function baueBaender(abschnitte: readonly AnzeigeAbschnitt[], scale: ZeitSkala): ZeitBand[] {
-  return abschnitte
+export function buildBands(
+  displaySegments: readonly DisplaySegment[],
+  scale: TimeScale,
+): TimeBand[] {
+  return displaySegments
     .map((a) => {
-      const erster = a.pts[0] as TrackPunkt
-      const letzter = a.pts[a.pts.length - 1] as TrackPunkt
+      const first = a.pts[0] as TrackPoint
+      const last = a.pts[a.pts.length - 1] as TrackPoint
       return {
-        von: offsetZuAnteil(scale, erster[3]),
-        to: offsetZuAnteil(scale, letzter[3]),
+        from: offsetToFraction(scale, first[3]),
+        to: offsetToFraction(scale, last[3]),
         mode: a.mode,
-        aktiv: a.aktiv,
+        active: a.active,
       }
     })
-    .filter((b) => b.to > b.von)
+    .filter((b) => b.to > b.from)
 }
 
-export interface MedienDot {
+export interface MediaDot {
   id: string
-  anteil: number
+  fraction: number
   type: 'photo' | 'video'
   removed: boolean
 }
@@ -194,30 +197,30 @@ export interface MedienDot {
  * Track-Linie projiziert, sein Zeit-Offset bestimmt den Dot. Unplatzierte
  * (anker null) erscheinen nicht — der Editor zählt sie separat.
  */
-export function baueMedienDots(
-  media: readonly MediumAnzeige[],
-  track: readonly TrackPunkt[],
-  scale: ZeitSkala,
-): MedienDot[] {
-  const dots: MedienDot[] = []
+export function buildMediaDots(
+  media: readonly MediaView[],
+  track: readonly TrackPoint[],
+  scale: TimeScale,
+): MediaDot[] {
+  const dots: MediaDot[] = []
   for (const m of media) {
     if (!m.anchor || m.removed) continue
-    const projektion = projiziereAufTrack(track, m.anchor[0], m.anchor[1])
+    const projection = projectOntoTrack(track, m.anchor[0], m.anchor[1])
     dots.push({
       id: m.id,
-      anteil: offsetZuAnteil(scale, projektion.punkt[3]),
+      fraction: offsetToFraction(scale, projection.point[3]),
       type: m.type,
       removed: m.removed,
     })
   }
-  return dots.sort((a, b) => a.anteil - b.anteil)
+  return dots.sort((a, b) => a.fraction - b.fraction)
 }
 
 /** Abschnitt gleichen Zustands — mit Anfang UND Ende. */
-export interface ZustandsBand<T> {
-  von: number
-  to: number
-  wert: T
+export interface StateBand<T> {
+  fromFraction: number
+  toFraction: number
+  value: T
   /**
    * ISO-Anker der Grenze, die dieses Band eröffnet — null beim Grundband vor
    * der ersten Grenze. Identität für Ziehen/Entfernen (wie bei den Pins zuvor).
@@ -233,44 +236,44 @@ export interface ZustandsBand<T> {
  * aufhört, musste man sich bisher aus der nächsten Grenze zusammenreimen. Als
  * Band ist beides dieselbe Kante.
  */
-export function baueZustandsBaender<T>(
-  grenzen: ReadonlyArray<{ from: string; wert: T }>,
+export function buildStateBands<T>(
+  boundaries: ReadonlyArray<{ from: string; value: T }>,
   startIso: string,
-  scale: ZeitSkala,
-  grund: T,
-): Array<ZustandsBand<T>> {
-  const sortiert = grenzen
+  scale: TimeScale,
+  baseValue: T,
+): Array<StateBand<T>> {
+  const sorted = boundaries
     .map((g) => ({
       from: g.from,
-      wert: g.wert,
-      anteil: offsetZuAnteil(scale, isoZuOffset(startIso, g.from)),
+      value: g.value,
+      fraction: offsetToFraction(scale, isoToOffset(startIso, g.from)),
     }))
-    .filter((g) => Number.isFinite(g.anteil))
-    .sort((a, b) => a.anteil - b.anteil)
+    .filter((g) => Number.isFinite(g.fraction))
+    .sort((a, b) => a.fraction - b.fraction)
 
-  const baender: Array<ZustandsBand<T>> = []
-  let von = 0
-  let wert = grund
+  const bands: Array<StateBand<T>> = []
+  let fromFraction = 0
+  let value = baseValue
   let from: string | null = null
-  for (const g of sortiert) {
-    baender.push({ von, to: g.anteil, wert, from })
-    von = g.anteil
-    wert = g.wert
+  for (const g of sorted) {
+    bands.push({ fromFraction, toFraction: g.fraction, value, from })
+    fromFraction = g.fraction
+    value = g.value
     from = g.from
   }
-  baender.push({ von, to: 1, wert, from })
+  bands.push({ fromFraction, toFraction: 1, value, from })
   // Null-breite Bänder (Grenze bei 0, zwei Grenzen auf demselben Punkt) fallen weg
-  return baender.filter((b) => b.to > b.von)
+  return bands.filter((b) => b.toFraction > b.fromFraction)
 }
 
 /** Default-Haltedauer eines Fotos — entspricht „Auto (5 s)" im Editor. */
-export const HALTEDAUER_DEFAULT_S = 5
+export const HOLD_DEFAULT_S = 5
 
-export interface AudioBalken {
+export interface AudioBar {
   /** Index im Overlay-Array (Identität für Patch/Entfernen) */
   index: number
   type: 'music' | 'sfx'
-  von: number
+  from: number
   /** bei sfx gleich `von` */
   to: number
   file: string
@@ -285,46 +288,46 @@ export interface AudioBalken {
   lane: number
 }
 
-export function baueAudioBalken(
-  audio: readonly AudioEintrag[],
+export function buildAudioBars(
+  audio: readonly AudioEntry[],
   startIso: string,
-  scale: ZeitSkala,
-): AudioBalken[] {
-  const balken: AudioBalken[] = []
+  scale: TimeScale,
+): AudioBar[] {
+  const bars: AudioBar[] = []
   audio.forEach((a, index) => {
-    const von = isoZuOffset(startIso, a.from)
-    if (!Number.isFinite(von)) return
-    const vonAnteil = offsetZuAnteil(scale, von)
-    let bisAnteil = vonAnteil
+    const fromS = isoToOffset(startIso, a.from)
+    if (!Number.isFinite(fromS)) return
+    const fromFraction = offsetToFraction(scale, fromS)
+    let toFraction = fromFraction
     if (a.type === 'music') {
-      const to = a.to !== undefined ? isoZuOffset(startIso, a.to) : scale.toS
-      bisAnteil = Number.isFinite(to) ? offsetZuAnteil(scale, to) : 1
+      const to = a.to !== undefined ? isoToOffset(startIso, a.to) : scale.toS
+      toFraction = Number.isFinite(to) ? offsetToFraction(scale, to) : 1
     }
-    balken.push({ index, type: a.type, von: vonAnteil, to: bisAnteil, file: a.file, lane: 0 })
+    bars.push({ index, type: a.type, from: fromFraction, to: toFraction, file: a.file, lane: 0 })
   })
   // Unterzeilen für überlappende Musik-Klips: klassische Intervall-Färbung —
   // nach Beginn sortiert bekommt jeder Klip die oberste Zeile, deren letzter
   // Klip vor ihm endet. Die Zuordnung ist stabil gegenüber dem Overlay-Index
   // (Sortierung nur fürs Färben; zurück kommt die Original-Reihenfolge).
-  const musik = balken
+  const music = bars
     .filter((b) => b.type === 'music')
-    .sort((a, b) => a.von - b.von || a.index - b.index)
-  const laneEnden: number[] = []
-  for (const b of musik) {
-    let lane = laneEnden.findIndex((end) => end <= b.von)
+    .sort((a, b) => a.from - b.from || a.index - b.index)
+  const laneEnds: number[] = []
+  for (const b of music) {
+    let lane = laneEnds.findIndex((end) => end <= b.from)
     if (lane === -1) {
-      lane = laneEnden.length
-      laneEnden.push(0)
+      lane = laneEnds.length
+      laneEnds.push(0)
     }
-    laneEnden[lane] = b.to
+    laneEnds[lane] = b.to
     b.lane = lane
   }
-  return balken
+  return bars
 }
 
 /** Zahl der Unterzeilen der Musik-Bahn (mindestens 1) — für ihre Höhe. */
-export function musikLanes(balken: readonly AudioBalken[]): number {
-  return balken.reduce((max, b) => (b.type === 'music' ? Math.max(max, b.lane + 1) : max), 1)
+export function musicLanes(bars: readonly AudioBar[]): number {
+  return bars.reduce((max, b) => (b.type === 'music' ? Math.max(max, b.lane + 1) : max), 1)
 }
 
 // — Zeit-Eingabe im Inspector —
@@ -336,12 +339,12 @@ export function musikLanes(balken: readonly AudioBalken[]): number {
 // Mitternacht laufen.
 
 /** „14:03", „1403", „14.3" → Minuten seit Mitternacht; null bei Unsinn. */
-export function parseUhrMinuten(text: string): number | null {
-  const roh = text.trim()
-  const treffer = /^(\d{1,2})\s*[:.\s]?\s*(\d{2})$/.exec(roh)
-  if (!treffer) return null
-  const std = Number(treffer[1])
-  const min = Number(treffer[2])
+export function parseClockMinutes(text: string): number | null {
+  const raw = text.trim()
+  const hit = /^(\d{1,2})\s*[:.\s]?\s*(\d{2})$/.exec(raw)
+  if (!hit) return null
+  const std = Number(hit[1])
+  const min = Number(hit[2])
   if (!(std >= 0 && std <= 23 && min >= 0 && min <= 59)) return null
   return std * 60 + min
 }
@@ -351,37 +354,37 @@ export function parseUhrMinuten(text: string): number | null {
  * bisher angezeigten Zeit; „00:05" nach „23:50" heißt deshalb +15 Minuten und
  * nicht ein Sprung um fast einen ganzen Tag zurück.
  */
-export function uhrDiffZuOffset(
-  altOffsetS: number,
-  altText: string,
-  neuText: string,
+export function clockDiffToOffset(
+  oldOffsetS: number,
+  oldText: string,
+  newText: string,
 ): number | null {
-  const alt = parseUhrMinuten(altText)
-  const neu = parseUhrMinuten(neuText)
-  if (alt === null || neu === null) return null
-  let diffMin = neu - alt
+  const oldMin = parseClockMinutes(oldText)
+  const newMin = parseClockMinutes(newText)
+  if (oldMin === null || newMin === null) return null
+  let diffMin = newMin - oldMin
   if (diffMin > 720) diffMin -= 1440
   if (diffMin < -720) diffMin += 1440
-  return altOffsetS + diffMin * 60
+  return oldOffsetS + diffMin * 60
 }
 
 // — Fokus: die gemeinsame Auswahl von Zeitleiste, Karte und Inspector —
 //
 // Gespeichert wird bewusst nur die IDENTITÄT. Bänder entstehen aus Overlay +
 // Track und würden als kopierte Spanne veralten, sobald man eine Grenze
-// verschiebt; `loeseFokusAuf` löst sie deshalb bei JEDEM Render neu auf.
+// verschiebt; `resolveSelection` löst sie deshalb bei JEDEM Render neu auf.
 
-export type Fokus =
-  | { kind: 'modus'; bezugS: number }
-  | { kind: 'kamera'; bezugS: number }
-  | { kind: 'wetter'; bezugS: number }
+export type EditorSelection =
+  | { kind: 'modus'; atS: number }
+  | { kind: 'kamera'; atS: number }
+  | { kind: 'wetter'; atS: number }
   | { kind: 'moment'; from: string }
   | { kind: 'audio'; index: number }
   | { kind: 'medium'; id: string }
 
 /** Aufgelöster Fokus: was der Inspector zeigt und was auf der Karte leuchtet. */
-export interface FokusZiel {
-  kind: Fokus['kind']
+export interface EditorSelectionTarget {
+  kind: EditorSelection['kind']
   fromS: number
   toS: number
   /**
@@ -395,24 +398,24 @@ export interface FokusZiel {
    * einen und Ende des anderen Zustands sind dieselbe Kante — über dieses Feld
    * kann der Inspector auch das Ende verschieben. null = Band endet am Tourende.
    */
-  naechsteAb: string | null
-  mode?: Modus
-  preset?: KameraPreset
-  wetterMode?: WetterModus
+  nextFrom: string | null
+  mode?: TravelMode
+  preset?: CameraPreset
+  weatherMode?: WeatherMode
   intensity?: number
-  momentArt?: MomentArt
+  momentKind?: CameraMomentKind
   durationS?: number
   index?: number
   id?: string
 }
 
 /** Liegt `offsetS` (etwa) auf der Grenze `from`? Toleranz gegen Rundung. */
-const grenzeBei = (
-  grenzen: ReadonlyArray<{ from: string }>,
+const boundaryAt = (
+  boundaries: ReadonlyArray<{ from: string }>,
   startIso: string,
   offsetS: number,
 ): string | null =>
-  grenzen.find((g) => Math.abs(isoZuOffset(startIso, g.from) - offsetS) < 1)?.from ?? null
+  boundaries.find((g) => Math.abs(isoToOffset(startIso, g.from) - offsetS) < 1)?.from ?? null
 
 /**
  * Eine Zustands-Grenze bleibt zwischen ihren Nachbarn. Ohne diese Klemme
@@ -420,46 +423,46 @@ const grenzeBei = (
  * wäre danach eine andere als die, die man beim Anfassen sah, und der gezogene
  * Abschnitt selbst wäre verschwunden.
  *
- * `punkteS` (Trackzeiten) ist optional und nur noch für Spuren nötig, die
+ * `pointsS` (Trackzeiten) ist optional und nur noch für Spuren nötig, die
  * Zustand ausschließlich an Stützpunkten auswerten. Fortbewegung interpoliert
- * Zwischenzeiten auf die Linie (`zerlegeFuerAnzeige`) — dort reicht eine
+ * Zwischenzeiten auf die Linie (`splitForDisplay`) — dort reicht eine
  * Sekunde Abstand, sonst rastete die Kante auf dünnen Tracks in großen
- * Schritten. Ohne `punkteS` genügt diese Sekunde sowieso: zwei Grenzen auf
+ * Schritten. Ohne `pointsS` genügt diese Sekunde sowieso: zwei Grenzen auf
  * derselben Sekunde verschlucken sich gegenseitig (Ersetzen-Semantik).
  */
-export function klemmeGrenze(
-  grenzen: ReadonlyArray<{ from: string }>,
-  altAb: string,
+export function clampBoundary(
+  boundaries: ReadonlyArray<{ from: string }>,
+  oldFrom: string,
   startIso: string,
   offsetS: number,
-  punkteS?: readonly number[],
+  pointsS?: readonly number[],
 ): number {
-  const zeiten = grenzen
-    .map((g) => isoZuOffset(startIso, g.from))
+  const times = boundaries
+    .map((g) => isoToOffset(startIso, g.from))
     .filter((s) => Number.isFinite(s))
     .sort((a, b) => a - b)
-  const eigen = isoZuOffset(startIso, altAb)
-  const vorher = zeiten.filter((s) => s < eigen).pop()
-  const nachher = zeiten.find((s) => s > eigen)
-  /** Späteste Zeit, die den Abschnitt bis `grenzeS` noch mit einem Punkt füllt. */
-  const letzterPunktVor = (grenzeS: number): number =>
-    punkteS?.filter((p) => p < grenzeS).pop() ?? grenzeS - 1
-  const ersterPunktNach = (grenzeS: number): number =>
-    punkteS?.find((p) => p > grenzeS) ?? grenzeS + 1
+  const own = isoToOffset(startIso, oldFrom)
+  const before = times.filter((s) => s < own).pop()
+  const after = times.find((s) => s > own)
+  /** Späteste Zeit, die den Abschnitt bis `boundaryS` noch mit einem Punkt füllt. */
+  const lastPointBefore = (boundaryS: number): number =>
+    pointsS?.filter((p) => p < boundaryS).pop() ?? boundaryS - 1
+  const firstPointAfter = (boundaryS: number): number =>
+    pointsS?.find((p) => p > boundaryS) ?? boundaryS + 1
 
-  let wert = offsetS
-  if (vorher !== undefined) wert = Math.max(wert, ersterPunktNach(vorher))
-  if (nachher !== undefined) wert = Math.min(wert, letzterPunktVor(nachher))
-  return wert
+  let value = offsetS
+  if (before !== undefined) value = Math.max(value, firstPointAfter(before))
+  if (after !== undefined) value = Math.min(value, lastPointBefore(after))
+  return value
 }
 
-export function loeseFokusAuf(
-  fokus: Fokus | null,
+export function resolveSelection(
+  selection: EditorSelection | null,
   edits: EditOverlay,
-  abschnitte: readonly AnzeigeAbschnitt[],
-  track: readonly TrackPunkt[],
+  displaySegments: readonly DisplaySegment[],
+  track: readonly TrackPoint[],
   startIso: string,
-  media: readonly MediumAnzeige[],
+  media: readonly MediaView[],
   /**
    * Spanne eines Ton-Klips in AUFNAHMEZEIT-Offsets, aufgelöst über die
    * Film-Achse (der Aufrufer kennt sie, dieses Modul nicht).
@@ -468,148 +471,152 @@ export function loeseFokusAuf(
    * Etappe 4 keinen Vorrang mehr: Der Inspector zeigte dann die ALTE Lage,
    * während die Leiste daneben die neue zeichnet.
    */
-  tonSpanne?: (index: number) => { fromS: number; toS: number } | null,
-): FokusZiel | null {
-  if (!fokus) return null
-  const scale = baueSkala(track)
+  audioSpan?: (index: number) => { fromS: number; toS: number } | null,
+): EditorSelectionTarget | null {
+  if (!selection) return null
+  const scale = buildScale(track)
   if (!scale) return null
 
-  if (fokus.kind === 'modus') {
+  if (selection.kind === 'modus') {
     // Aus den Anzeige-Abschnitten: die tragen echte Trackpunkte, also echte Zeiten
-    const i = abschnitte.findIndex((a) => {
-      const von = (a.pts[0] as TrackPunkt)[3]
-      const to = (a.pts[a.pts.length - 1] as TrackPunkt)[3]
-      return fokus.bezugS >= von && fokus.bezugS <= to
+    const i = displaySegments.findIndex((a) => {
+      const fromT = (a.pts[0] as TrackPoint)[3]
+      const to = (a.pts[a.pts.length - 1] as TrackPoint)[3]
+      return selection.atS >= fromT && selection.atS <= to
     })
-    const treffer = abschnitte[i]
-    if (!treffer) return null
-    const fromS = (treffer.pts[0] as TrackPunkt)[3]
-    const toS = (treffer.pts[treffer.pts.length - 1] as TrackPunkt)[3]
+    const hit = displaySegments[i]
+    if (!hit) return null
+    const fromS = (hit.pts[0] as TrackPoint)[3]
+    const toS = (hit.pts[hit.pts.length - 1] as TrackPoint)[3]
     // Verantwortliche Grenze: die letzte, die zu Bandbeginn schon gilt und
     // denselben Modus setzt.
     let from: string | null = null
     for (const g of edits.travelModes ?? []) {
-      const gS = isoZuOffset(startIso, g.from)
+      const gS = isoToOffset(startIso, g.from)
       if (!Number.isFinite(gS) || gS > fromS + 1) break
-      if (g.mode === treffer.mode) from = g.from
+      if (g.mode === hit.mode) from = g.from
     }
     // Fehlt sie, stammt die Kante aus der Aufzeichnung — sie bekommt trotzdem
-    // eine Identität, damit sie sich anfassen lässt (`materialisiereModi`
+    // eine Identität, damit sie sich anfassen lässt (`materializeTravelModes`
     // schreibt die erkannte Aufteilung beim ersten Zug fest). NUR echte
     // Modus-Wechsel zählen: eine Trim-Kante teilt das Band ebenfalls, ist aber
     // keine Grenze — würde man an ihr ziehen, entstünde ein Wechsel aus dem
     // Nichts. Der Tour-Anfang bleibt fest.
-    const wechselBei = (nachbar: AnzeigeAbschnitt | undefined, offsetS: number): string | null =>
-      nachbar && nachbar.mode !== treffer.mode ? offsetZuIso(startIso, offsetS) : null
+    const changeAt = (neighbor: DisplaySegment | undefined, offsetS: number): string | null =>
+      neighbor && neighbor.mode !== hit.mode ? offsetToIso(startIso, offsetS) : null
     return {
       kind: 'modus',
       fromS,
       toS,
-      from: from ?? wechselBei(abschnitte[i - 1], fromS),
-      naechsteAb:
-        grenzeBei(edits.travelModes ?? [], startIso, toS) ?? wechselBei(abschnitte[i + 1], toS),
-      mode: treffer.mode,
+      from: from ?? changeAt(displaySegments[i - 1], fromS),
+      nextFrom:
+        boundaryAt(edits.travelModes ?? [], startIso, toS) ?? changeAt(displaySegments[i + 1], toS),
+      mode: hit.mode,
     }
   }
 
-  if (fokus.kind === 'kamera' || fokus.kind === 'wetter') {
-    const istWetter = fokus.kind === 'wetter'
+  if (selection.kind === 'kamera' || selection.kind === 'wetter') {
+    const isWeather = selection.kind === 'wetter'
     // Wetter-Grund ist „klar" (off), sobald IRGENDeine Grenze existiert — dann
     // ersetzt das Overlay das Auto-Wetter vollständig; sonst „automatisch".
-    const grenzen = istWetter
+    const boundaries = isWeather
       ? (edits.weather ?? []).map((g) => ({
           from: g.from,
-          wert: g.mode as KameraPreset | WetterModus,
+          value: g.mode as CameraPreset | WeatherMode,
         }))
       : (edits.camera ?? []).map((g) => ({
           from: g.from,
-          wert: g.preset as KameraPreset | WetterModus,
+          value: g.preset as CameraPreset | WeatherMode,
         }))
-    const grund: KameraPreset | WetterModus | null = istWetter && grenzen.length > 0 ? 'off' : null
-    const baender = baueZustandsBaender(grenzen, startIso, scale, grund)
-    const i = baender.findIndex(
+    const baseValue: CameraPreset | WeatherMode | null =
+      isWeather && boundaries.length > 0 ? 'off' : null
+    const bands = buildStateBands(boundaries, startIso, scale, baseValue)
+    const i = bands.findIndex(
       (b) =>
-        fokus.bezugS >= anteilZuOffset(scale, b.von) && fokus.bezugS <= anteilZuOffset(scale, b.to),
+        selection.atS >= fractionToOffset(scale, b.fromFraction) &&
+        selection.atS <= fractionToOffset(scale, b.toFraction),
     )
-    const treffer = baender[i]
-    if (!treffer) return null
-    const ziel: FokusZiel = {
-      kind: fokus.kind,
-      fromS: anteilZuOffset(scale, treffer.von),
-      toS: anteilZuOffset(scale, treffer.to),
-      from: treffer.from,
-      naechsteAb: baender[i + 1]?.from ?? null,
+    const hit = bands[i]
+    if (!hit) return null
+    const target: EditorSelectionTarget = {
+      kind: selection.kind,
+      fromS: fractionToOffset(scale, hit.fromFraction),
+      toS: fractionToOffset(scale, hit.toFraction),
+      from: hit.from,
+      nextFrom: bands[i + 1]?.from ?? null,
     }
-    if (treffer.wert) {
-      if (istWetter) ziel.wetterMode = treffer.wert as WetterModus
-      else ziel.preset = treffer.wert as KameraPreset
+    if (hit.value) {
+      if (isWeather) target.weatherMode = hit.value as WeatherMode
+      else target.preset = hit.value as CameraPreset
     }
-    if (istWetter && treffer.from !== null) {
-      const intensity = edits.weather?.find((g) => g.from === treffer.from)?.intensity
-      if (intensity !== undefined) ziel.intensity = intensity
+    if (isWeather && hit.from !== null) {
+      const intensity = edits.weather?.find((g) => g.from === hit.from)?.intensity
+      if (intensity !== undefined) target.intensity = intensity
     }
-    if (!istWetter && treffer.from !== null) {
-      const feinSkala = edits.camera?.find((g) => g.from === treffer.from)?.scale
-      if (feinSkala !== undefined) ziel.intensity = feinSkala
+    if (!isWeather && hit.from !== null) {
+      const fineScale = edits.camera?.find((g) => g.from === hit.from)?.scale
+      if (fineScale !== undefined) target.intensity = fineScale
     }
-    return ziel
+    return target
   }
 
-  if (fokus.kind === 'moment') {
-    const m = (edits.moments ?? []).find((x) => x.from === fokus.from)
+  if (selection.kind === 'moment') {
+    const m = (edits.moments ?? []).find((x) => x.from === selection.from)
     if (!m) return null
-    const s = isoZuOffset(startIso, m.from)
+    const s = isoToOffset(startIso, m.from)
     return {
       kind: 'moment',
       fromS: s,
       toS: s,
       from: m.from,
-      naechsteAb: null,
-      momentArt: m.kind,
+      nextFrom: null,
+      momentKind: m.kind,
       ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
     }
   }
 
-  if (fokus.kind === 'audio') {
-    const a = (edits.audio ?? [])[fokus.index]
+  if (selection.kind === 'audio') {
+    const a = (edits.audio ?? [])[selection.index]
     if (!a) return null
-    const ausAchse = tonSpanne?.(fokus.index)
-    const fromS = ausAchse ? ausAchse.fromS : isoZuOffset(startIso, a.from)
-    const toS = ausAchse
-      ? ausAchse.toS
+    const fromAxis = audioSpan?.(selection.index)
+    const fromS = fromAxis ? fromAxis.fromS : isoToOffset(startIso, a.from)
+    const toS = fromAxis
+      ? fromAxis.toS
       : a.type === 'sfx'
         ? fromS
         : a.to !== undefined
-          ? isoZuOffset(startIso, a.to)
+          ? isoToOffset(startIso, a.to)
           : scale.toS
-    return { kind: 'audio', fromS, toS, from: a.from, naechsteAb: null, index: fokus.index }
+    return { kind: 'audio', fromS, toS, from: a.from, nextFrom: null, index: selection.index }
   }
 
-  const m = media.find((x) => x.id === fokus.id)
+  const m = media.find((x) => x.id === selection.id)
   if (!m?.anchor) return null
-  const p = projiziereAufTrack(track, m.anchor[0], m.anchor[1])
+  const p = projectOntoTrack(track, m.anchor[0], m.anchor[1])
   return {
     kind: 'medium',
-    fromS: p.punkt[3],
-    toS: p.punkt[3],
+    fromS: p.point[3],
+    toS: p.point[3],
     from: null,
-    naechsteAb: null,
+    nextFrom: null,
     id: m.id,
   }
 }
 
 /** Trim-Griffe als Anteile (Default 0/1, wenn kein Trim gesetzt). */
-export function baueTrimGriffe(
+export function buildTrimHandles(
   edits: EditOverlay,
   startIso: string,
-  scale: ZeitSkala,
+  scale: TimeScale,
 ): { start: number; end: number } {
   const start =
     edits.trim?.start !== undefined
-      ? offsetZuAnteil(scale, isoZuOffset(startIso, edits.trim.start))
+      ? offsetToFraction(scale, isoToOffset(startIso, edits.trim.start))
       : 0
   const end =
-    edits.trim?.end !== undefined ? offsetZuAnteil(scale, isoZuOffset(startIso, edits.trim.end)) : 1
+    edits.trim?.end !== undefined
+      ? offsetToFraction(scale, isoToOffset(startIso, edits.trim.end))
+      : 1
   return { start, end }
 }
 
@@ -624,11 +631,11 @@ export function baueTrimGriffe(
 // und importfrei, Studio und Player lesen dieselben Zahlen (`tempoMs`). Genauso
 // stehen Standzeit und Ausblendung in `einblendung.ts`. Die alten Namen bleiben,
 // sie stehen im ganzen Editor.
-export const HALT_ENGINE_S = HOLD_HIDE
-export const HALT_AUSBLEND_S = HOLD_AUSBLEND
+export const STOP_ENGINE_S = HOLD_HIDE
+export const STOP_FADE_OUT_S = HOLD_AUSBLEND
 
 /** Meter zwischen zwei Trackpunkten (lokale Plattkarte — auf Segmentlänge genau genug). */
-function meterZwischen(a: TrackPunkt, b: TrackPunkt): number {
+function metersBetween(a: TrackPoint, b: TrackPoint): number {
   const kx = 111_320 * Math.cos((a[1] * Math.PI) / 180)
   const dx = (b[0] - a[0]) * kx
   const dy = (b[1] - a[1]) * 110_540
@@ -644,31 +651,31 @@ function meterZwischen(a: TrackPunkt, b: TrackPunkt): number {
  * Zuschauer startet. Für die Frage „grob zwei Minuten oder eher zehn?" reicht
  * das; deshalb wird der Wert auch mit „~" angezeigt.
  */
-export function schaetzeAnimationsdauer(
-  abschnitte: ReadonlyArray<{ mode: Modus; aktiv: boolean; pts: readonly TrackPunkt[] }>,
-  haltedauernS: readonly number[],
+export function estimateAnimationDuration(
+  displaySegments: ReadonlyArray<{ mode: TravelMode; active: boolean; pts: readonly TrackPoint[] }>,
+  holdDurationsS: readonly number[],
 ): number {
-  let sekunden = 0
-  for (const a of abschnitte) {
-    if (!a.aktiv) continue // weggetrimmt: läuft nicht mit
-    sekunden += fahrzeitS(a)
+  let seconds = 0
+  for (const a of displaySegments) {
+    if (!a.active) continue // weggetrimmt: läuft nicht mit
+    seconds += rideS(a)
   }
-  for (const halt of haltedauernS) sekunden += halt + HALT_AUSBLEND_S
-  return sekunden
+  for (const stop of holdDurationsS) seconds += stop + STOP_FADE_OUT_S
+  return seconds
 }
 
 /** Fahr-Filmzeit eines Abschnitts (s): Länge ÷ modusabhängiges Tempo. */
-function fahrzeitS(a: { mode: Modus; pts: readonly TrackPunkt[] }): number {
-  let meter = 0
+function rideS(a: { mode: TravelMode; pts: readonly TrackPoint[] }): number {
+  let meters = 0
   for (let i = 1; i < a.pts.length; i++) {
-    meter += meterZwischen(a.pts[i - 1] as TrackPunkt, a.pts[i] as TrackPunkt)
+    meters += metersBetween(a.pts[i - 1] as TrackPoint, a.pts[i] as TrackPoint)
   }
-  return meter / tempoMs(a.mode)
+  return meters / tempoMs(a.mode)
 }
 
 /** Haltedauer eines Fotos, wie die Engine sie anwendet (display.holdS oder Default). */
-export function haltedauerS(display?: { holdS?: number }): number {
-  return display?.holdS ?? HALT_ENGINE_S
+export function holdS(display?: { holdS?: number }): number {
+  return display?.holdS ?? STOP_ENGINE_S
 }
 
 /**
@@ -680,7 +687,7 @@ export function haltedauerS(display?: { holdS?: number }): number {
  * (unverarbeiteter Altbestand, `durationS` fehlt), bleibt es bei der Foto-Annahme;
  * die Leiste zeigt dann zu wenig, aber nichts bricht.
  */
-export function aufnahmeHaltS(m: {
+export function mediumHoldS(m: {
   type: 'photo' | 'video'
   durationS?: number
   display?: { holdS?: number }
@@ -703,15 +710,15 @@ export function aufnahmeHaltS(m: {
  * einen Schnitt und sieht später einen anderen. Ein Drift-Wächter in
  * test/studio-baukasten.test.ts hält beide zusammen.
  */
-export function klemmeVideoTrim(
+export function clampMediaTrim(
   trim: { fromS: number; toS?: number } | undefined,
-  dateiS: number,
+  fileS: number,
 ): { fromS: number; toS: number } | null {
-  if (!trim || !(dateiS > 0)) return null
-  const fromS = Math.min(Math.max(0, trim.fromS), dateiS)
-  const toS = trim.toS === undefined ? dateiS : Math.min(Math.max(0, trim.toS), dateiS)
+  if (!trim || !(fileS > 0)) return null
+  const fromS = Math.min(Math.max(0, trim.fromS), fileS)
+  const toS = trim.toS === undefined ? fileS : Math.min(Math.max(0, trim.toS), fileS)
   if (!(toS - fromS > VIDEO_TRIM_MIN_S)) return null
-  if (fromS <= 0 && toS >= dateiS) return null // Vollschnitt ist kein Schnitt
+  if (fromS <= 0 && toS >= fileS) return null // Vollschnitt ist kein Schnitt
   return { fromS, toS }
 }
 
@@ -726,9 +733,9 @@ export const VIDEO_TRIM_MIN_S = 0.05
  * wird sein Halt schmaler, die Achse baut sich neu — und alles Folgende rückt
  * vor. Eine Lücke kann gar nicht entstehen.
  */
-export function videoFilmS(dateiS: number, trim?: { fromS: number; toS?: number }): number {
-  const geklemmt = klemmeVideoTrim(trim, dateiS)
-  return geklemmt ? geklemmt.toS - geklemmt.fromS : dateiS
+export function videoFilmS(fileS: number, trim?: { fromS: number; toS?: number }): number {
+  const clamped = clampMediaTrim(trim, fileS)
+  return clamped ? clamped.toS - clamped.fromS : fileS
 }
 
 /**
@@ -746,8 +753,8 @@ export { videoStandS } from '../einblendung.js'
  * Für den Inspector: Zu einem Band gehört nicht nur „ab wann", sondern auch,
  * wie lange es gilt.
  */
-export function formatiereDauer(sekunden: number): string {
-  const s = Math.max(0, Math.round(sekunden))
+export function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
   if (s < 60) return `${s} Sek`
   const min = Math.round(s / 60)
   if (min < 60) return `${min} Min`
@@ -759,7 +766,7 @@ export function formatiereDauer(sekunden: number): string {
 // Übersetzt zwischen Achsen-ANTEIL und FILMSEKUNDE der Wiedergabe — das
 // Tempo-Gesetz des Abspielens (abspielen.ts). Auf der film-proportionalen
 // Achse ist sie die Identität; Plateaus entstehen über weggetrimmten
-// Bereichen (`baueSpielKurve`), die der Kopf überfliegt.
+// Bereichen (`buildPlaybackCurve`), die der Kopf überfliegt.
 //
 // Beide Richtungen laufen über dieselbe lower_bound-Interpolation. Deren eine
 // Konvention trägt alle Sonderfälle: Über einem Plateau ist `filmS` konstant
@@ -767,24 +774,24 @@ export function formatiereDauer(sekunden: number): string {
 // Ankommens (dieselbe Wahl wie `zeitZurPosition` im Server).
 
 /** Achsen-Anteil ↔ Filmsekunden, beide Arrays monoton nicht-fallend. */
-export interface Filmkurve {
-  anteile: number[]
+export interface FilmCurve {
+  fractions: number[]
   filmS: number[]
   /** Filmzeit der ganzen Wiedergabe (letzter filmS-Wert) */
-  gesamtS: number
+  totalS: number
 }
 
 // `interpoliere` mit ihrer lower_bound-Konvention steht seit Paket D in
 // filmachse.ts — sie war zwischen Studio und Server schon byte-identisch.
 
 /** Fahr-Filmsekunde an einem Achsen-Anteil. */
-export function filmBei(kurve: Filmkurve, anteil: number): number {
-  return interpoliere(kurve.anteile, kurve.filmS, anteil)
+export function filmAt(curve: FilmCurve, fraction: number): number {
+  return interpoliere(curve.fractions, curve.filmS, fraction)
 }
 
 /** Achsen-Anteil zu einer Fahr-Filmsekunde (Umkehrung; Plateau → Ankunft). */
-export function anteilBei(kurve: Filmkurve, filmS: number): number {
-  return interpoliere(kurve.filmS, kurve.anteile, filmS)
+export function fractionAt(curve: FilmCurve, filmS: number): number {
+  return interpoliere(curve.filmS, curve.fractions, filmS)
 }
 
 // — Filmzeit-ACHSE —
@@ -796,14 +803,14 @@ export function anteilBei(kurve: Filmkurve, filmS: number): number {
 // ohne die Halte fände der Großteil des Films auf null Breite statt.
 
 /** Eine Aufnahme innerhalb eines Halts — Kette statt Stapel (docs §2A). */
-export interface HaltStueck {
+export interface StopItem {
   id: string
   /** Filmzeit dieser Aufnahme inkl. ihrer Ausblendung */
   durationS: number
 }
 
 /** Ein Halt für die Achse: wo er liegt und wie viel Filmzeit er kostet. */
-export interface AchsenHalt {
+export interface AxisStop {
   offsetS: number
   breiteS: number
   /**
@@ -817,20 +824,20 @@ export interface AchsenHalt {
    * Stopps). Die Achse rechnet damit nicht, sie reicht sie durch: Wer beim
    * Kopfstand „Halt · ‹Titel›" schreiben will, braucht den Rückweg zum Objekt.
    */
-  indizes?: readonly number[]
+  indices?: readonly number[]
   /**
    * Stabile Identität des Halts (im Editor: `from` eines Moments). Anders als
    * `indizes` übersteht sie das Weglassen eines Halts — und genau das braucht
    * jeder Zug: Er rechnet px → Zeit auf einer Achse OHNE das gezogene Objekt,
    * sonst läge um dessen Ruhelage eine tote Zone von seiner eigenen Breite.
    */
-  schluessel?: string
+  key?: string
   /**
    * Die Aufnahmen des Halts in Abspielreihenfolge. Erst damit lässt sich sagen,
    * WELCHE Aufnahme gerade steht — ein Halt mit drei Fotos ist im Film eine
    * Folge von dreien, kein einzelner Block.
    */
-  stuecke?: readonly HaltStueck[]
+  items?: readonly StopItem[]
 }
 
 /**
@@ -838,33 +845,33 @@ export interface AchsenHalt {
  * Zeit→Strecke-Adapters (E12). Der Editor gibt Halte in Aufnahmezeit herein,
  * die Achse rechnet in Metern.
  */
-export interface AchsenHaltM extends AchsenHalt {
+export interface AxisStopM extends AxisStop {
   meterM: number
 }
 
 /** Ein eingewebter Halt: dazu, wo er im FILM liegt. */
-export interface HaltIntervall extends AchsenHaltM {
+export interface StopInterval extends AxisStopM {
   filmVon: number
   filmBis: number
 }
 
 /** Wo der Kopf in einem Halt steht — die Auskunft für die Statuszeile. */
-export interface HaltStand {
+export interface StopState {
   /** Index in `achse.halte` */
   index: number
-  halt: HaltIntervall
+  stop: StopInterval
   /** verstrichene Standzeit (s) */
-  imHaltS: number
+  inStopS: number
   /** verbleibende Standzeit (s) */
-  restS: number
+  remainingS: number
   /** Welche Aufnahme des Halts gerade steht — fehlt, wenn keine bekannt sind. */
-  stueck?: {
+  item?: {
     /** 1-basiert, wie es in der Statuszeile steht */
-    nr: number
-    anzahl: number
+    no: number
+    count: number
     id: string
     /** verstrichene Zeit IN dieser Aufnahme */
-    imS: number
+    inS: number
     durationS: number
   }
 }
@@ -877,44 +884,41 @@ export interface HaltStand {
  * einem Halt, steht der Kopf dort bis zur letzten Sekunde in ihm und nicht im
  * Nichts dahinter.
  */
-export function haltBeiFilmS(achse: Achse, filmS: number): HaltStand | null {
-  const halte = achse.halte
-  if (!halte?.length) return null
-  const end = achse.kurve?.gesamtS ?? 0
-  for (const [index, halt] of halte.entries()) {
-    if (filmS < halt.filmVon) return null // Halte sind sortiert — ab hier kommt nur Späteres
+export function stopAtFilmS(axis: TimelineAxis, filmS: number): StopState | null {
+  const stops = axis.stops
+  if (!stops?.length) return null
+  const end = axis.curve?.totalS ?? 0
+  for (const [index, stop] of stops.entries()) {
+    if (filmS < stop.filmVon) return null // Halte sind sortiert — ab hier kommt nur Späteres
     // Toleranz gegen die Rundung der Achsen-Summe: der letzte Halt endet
-    // rechnerisch selten exakt auf `gesamtS`.
-    const amEnde = halt.filmBis >= end - 1e-6
-    const drin = filmS < halt.filmBis || (amEnde && filmS <= end + 1e-6)
-    if (drin) {
-      const imHaltS = Math.min(Math.max(filmS - halt.filmVon, 0), halt.breiteS)
-      const stueck = stueckBei(halt.stuecke, imHaltS)
-      return { index, halt, imHaltS, restS: halt.breiteS - imHaltS, ...(stueck ? { stueck } : {}) }
+    // rechnerisch selten exakt auf `totalS`.
+    const atEnd = stop.filmBis >= end - 1e-6
+    const inside = filmS < stop.filmBis || (atEnd && filmS <= end + 1e-6)
+    if (inside) {
+      const inStopS = Math.min(Math.max(filmS - stop.filmVon, 0), stop.breiteS)
+      const item = itemAt(stop.items, inStopS)
+      return { index, stop, inStopS, remainingS: stop.breiteS - inStopS, ...(item ? { item } : {}) }
     }
   }
   return null
 }
 
 /** Welche Aufnahme der Kette bei `imHaltS` läuft (letzte gewinnt am Ende). */
-function stueckBei(
-  stuecke: readonly HaltStueck[] | undefined,
-  imHaltS: number,
-): HaltStand['stueck'] | null {
-  if (!stuecke?.length) return null
-  let gelaufen = 0
-  for (const [i, s] of stuecke.entries()) {
-    const letzte = i === stuecke.length - 1
-    if (imHaltS < gelaufen + s.durationS || letzte) {
+function itemAt(items: readonly StopItem[] | undefined, inStopS: number): StopState['item'] | null {
+  if (!items?.length) return null
+  let elapsed = 0
+  for (const [i, s] of items.entries()) {
+    const last = i === items.length - 1
+    if (inStopS < elapsed + s.durationS || last) {
       return {
-        nr: i + 1,
-        anzahl: stuecke.length,
+        no: i + 1,
+        count: items.length,
         id: s.id,
-        imS: Math.min(Math.max(imHaltS - gelaufen, 0), s.durationS),
+        inS: Math.min(Math.max(inStopS - elapsed, 0), s.durationS),
         durationS: s.durationS,
       }
     }
-    gelaufen += s.durationS
+    elapsed += s.durationS
   }
   return null
 }
@@ -928,13 +932,13 @@ function stueckBei(
 // und die Kette liegt lückenlos hintereinander.
 
 /** Eine Aufnahme als Klip der Szenen-Bahn — von Filmsekunde bis Filmsekunde. */
-export interface SzenenKlip {
+export interface SceneClip {
   id: string
   /** Index des Halts in `achse.halte` — der Rückweg zur Kette */
-  haltIndex: number
+  stopIndex: number
   /** Platz in der Kette (0-basiert) und deren Länge */
-  platz: number
-  anzahl: number
+  slot: number
+  count: number
   filmVon: number
   filmBis: number
 }
@@ -944,31 +948,31 @@ export interface SzenenKlip {
  * (Kamera-Momente: sie halten den Film an, aber keine Aufnahme steht dahinter)
  * bleiben außen vor — sie haben ihre eigene Bahn.
  */
-export function baueSzenenKlips(achse: Achse): SzenenKlip[] {
-  const klips: SzenenKlip[] = []
-  for (const [haltIndex, halt] of (achse.halte ?? []).entries()) {
-    const stuecke = halt.stuecke
-    if (!stuecke?.length) continue
-    let film = halt.filmVon
-    for (const [platz, s] of stuecke.entries()) {
-      klips.push({
+export function buildSceneClips(axis: TimelineAxis): SceneClip[] {
+  const clips: SceneClip[] = []
+  for (const [stopIndex, stop] of (axis.stops ?? []).entries()) {
+    const items = stop.items
+    if (!items?.length) continue
+    let film = stop.filmVon
+    for (const [slot, s] of items.entries()) {
+      clips.push({
         id: s.id,
-        haltIndex,
-        platz,
-        anzahl: stuecke.length,
+        stopIndex,
+        slot,
+        count: items.length,
         filmVon: film,
         filmBis: film + s.durationS,
       })
       film += s.durationS
     }
   }
-  return klips
+  return clips
 }
 
 /** Einfüge-Platz in einer Kette samt der Filmsekunde, an der die Marke steht. */
-export interface KettenPlatz {
+export interface ChainSlot {
   /** 0..n — vor dem ersten Klip bis hinter den letzten */
-  platz: number
+  slot: number
   /** Filmsekunde der Fuge (dort steht die Einfügemarke) */
   filmS: number
 }
@@ -979,15 +983,15 @@ export interface KettenPlatz {
  * gegen die Kanten ließe die Marke erst umspringen, wenn man den Nachbarn
  * schon ganz überfahren hat.
  */
-export function platzInKette(halt: HaltIntervall, filmS: number): KettenPlatz {
-  let fuge = halt.filmVon
-  let platz = 0
-  for (const s of halt.stuecke ?? []) {
-    if (filmS < fuge + s.durationS / 2) break
-    platz += 1
-    fuge += s.durationS
+export function slotInChain(stop: StopInterval, filmS: number): ChainSlot {
+  let gap = stop.filmVon
+  let slot = 0
+  for (const s of stop.items ?? []) {
+    if (filmS < gap + s.durationS / 2) break
+    slot += 1
+    gap += s.durationS
   }
-  return { platz, filmS: fuge }
+  return { slot, filmS: gap }
 }
 
 /**
@@ -995,73 +999,73 @@ export function platzInKette(halt: HaltIntervall, filmS: number): KettenPlatz {
  * Wandert der Eintrag nach hinten, rückt alles dazwischen um eins vor —
  * deshalb `platz - 1`, sonst landete er immer eine Stelle zu weit rechts.
  */
-export function ordneEin(ids: readonly string[], id: string, platz: number): string[] {
-  const von = ids.indexOf(id)
-  if (von < 0) return [...ids]
-  const nach = Math.max(0, Math.min(ids.length - 1, platz > von ? platz - 1 : platz))
-  if (nach === von) return [...ids]
-  const folge = [...ids]
-  folge.splice(von, 1)
-  folge.splice(nach, 0, id)
-  return folge
+export function moveToSlot(ids: readonly string[], id: string, slot: number): string[] {
+  const current = ids.indexOf(id)
+  if (current < 0) return [...ids]
+  const target = Math.max(0, Math.min(ids.length - 1, slot > current ? slot - 1 : slot))
+  if (target === current) return [...ids]
+  const next = [...ids]
+  next.splice(current, 1)
+  next.splice(target, 0, id)
+  return next
 }
 
 /**
  * Halt, in dessen INNEREM `filmS` liegt — das Andockziel eines Klip-Zugs.
  *
- * Anders als `haltBeiFilmS` zählen die Kanten NICHT dazu: genau dort beginnt
+ * Anders als `stopAtFilmS` zählen die Kanten NICHT dazu: genau dort beginnt
  * bzw. endet die Fahrt, und ein Klip, der an der Ankunft schon andockte,
  * ließe sich nicht mehr davor absetzen.
  */
-export function haltInnenBei(achse: Achse, filmS: number): HaltIntervall | null {
-  for (const halt of achse.halte ?? []) {
-    if (filmS <= halt.filmVon) break // Halte sind sortiert
-    if (filmS < halt.filmBis) return halt
+export function stopInnerAt(axis: TimelineAxis, filmS: number): StopInterval | null {
+  for (const stop of axis.stops ?? []) {
+    if (filmS <= stop.filmVon) break // Halte sind sortiert
+    if (filmS < stop.filmBis) return stop
   }
   return null
 }
 
 /** Grenzen der Standzeit (s) — Spiegel des Server-Schemas (schema/edits.ts). */
-export const STANDZEIT_MIN_S = 2
-export const STANDZEIT_MAX_S = 60
+export const HOLD_MIN_S = 2
+export const HOLD_MAX_S = 60
 
 /**
  * Standzeit auf gültige Grenzen und Zehntelsekunden bringen. Ohne die Rundung
  * schriebe jeder Zieh-Frame eine neue Nachkommastelle ins Overlay; ohne die
  * Klemme liefe der Griff in einen Wert, den der Server beim Speichern ablehnt.
  */
-export function klemmeStandzeit(sekunden: number): number {
-  const s = Math.round(sekunden * 10) / 10
-  return Math.max(STANDZEIT_MIN_S, Math.min(STANDZEIT_MAX_S, s))
+export function clampHoldS(seconds: number): number {
+  const s = Math.round(seconds * 10) / 10
+  return Math.max(HOLD_MIN_S, Math.min(HOLD_MAX_S, s))
 }
 
 /** Grenzen der Moment-Dauer (s) — Spiegel des Server-Schemas (schema/edits.ts). */
 export const MOMENT_MIN_S = 1
 export const MOMENT_MAX_S = 30
 
-/** Wie `klemmeStandzeit`, nur für die Dauer eines Kamera-Moments. */
-export function klemmeMomentDauer(sekunden: number): number {
-  const s = Math.round(sekunden * 10) / 10
+/** Wie `clampHoldS`, nur für die Dauer eines Kamera-Moments. */
+export function clampMomentDuration(seconds: number): number {
+  const s = Math.round(seconds * 10) / 10
   return Math.max(MOMENT_MIN_S, Math.min(MOMENT_MAX_S, s))
 }
 
 /** Filmsekunde → Anteil 0..1 auf der Leiste (die Achse IST film-proportional). */
-export function filmZuAnteil(achse: Achse, filmS: number): number {
-  const gesamt = achse.kurve?.gesamtS ?? 0
-  return gesamt > 0 ? Math.max(0, Math.min(1, filmS / gesamt)) : 0
+export function filmToFraction(axis: TimelineAxis, filmS: number): number {
+  const total = axis.curve?.totalS ?? 0
+  return total > 0 ? Math.max(0, Math.min(1, filmS / total)) : 0
 }
 
 /** Anteil 0..1 → Filmsekunde. */
-export function anteilZuFilm(achse: Achse, anteil: number): number {
-  return Math.max(0, Math.min(1, anteil)) * (achse.kurve?.gesamtS ?? 0)
+export function fractionToFilm(axis: TimelineAxis, fraction: number): number {
+  return Math.max(0, Math.min(1, fraction)) * (axis.curve?.totalS ?? 0)
 }
 
 /** Sekunden für die Statuszeile: „2,1" — eine Nachkommastelle, deutsches Komma. */
-const sekText = (s: number): string => s.toFixed(1).replace('.', ',')
+const secondsText = (s: number): string => s.toFixed(1).replace('.', ',')
 
 /** Sekunden mit Einheit („5,2 s") — für Klip-Beschriftung und Dauer-Blase. */
-export function formatiereSekunden(sekunden: number): string {
-  return `${sekText(sekunden)} s`
+export function formatSeconds(seconds: number): string {
+  return `${secondsText(seconds)} s`
 }
 
 /**
@@ -1071,11 +1075,11 @@ export function formatiereSekunden(sekunden: number): string {
  * sagt nichts, was man nicht sieht. Ohne bekannte Stücke zählt die Zeit im
  * ganzen Halt.
  */
-export function beschreibeHaltStand(stand: HaltStand): string {
-  const s = stand.stueck
-  if (!s) return `${sekText(stand.imHaltS)} s von ${sekText(stand.halt.breiteS)} s`
-  const zeit = `${sekText(s.imS)} s von ${sekText(s.durationS)} s`
-  return s.anzahl > 1 ? `Aufnahme ${s.nr} von ${s.anzahl} · ${zeit}` : zeit
+export function describeStopState(state: StopState): string {
+  const s = state.item
+  if (!s) return `${secondsText(state.inStopS)} s von ${secondsText(state.stop.breiteS)} s`
+  const time = `${secondsText(s.inS)} s von ${secondsText(s.durationS)} s`
+  return s.count > 1 ? `Aufnahme ${s.no} von ${s.count} · ${time}` : time
 }
 
 /**
@@ -1084,9 +1088,9 @@ export function beschreibeHaltStand(stand: HaltStand): string {
  * Schritt keinen Halt mehr: in Aufnahmezeit gerechnet fiel er auf die linke
  * Haltkante zurück und kam an einem 6-s-Halt nie vorbei (docs §1).
  */
-export function schrittFilmS(achse: Achse, filmS: number, deltaFilmS: number): number {
-  const gesamt = achse.kurve?.gesamtS ?? 0
-  return Math.max(0, Math.min(gesamt, filmS + deltaFilmS))
+export function stepFilmS(axis: TimelineAxis, filmS: number, deltaFilmS: number): number {
+  const total = axis.curve?.totalS ?? 0
+  return Math.max(0, Math.min(total, filmS + deltaFilmS))
 }
 
 /**
@@ -1095,7 +1099,7 @@ export function schrittFilmS(achse: Achse, filmS: number, deltaFilmS: number): n
  * Trim wird bewusst IGNORIERT (alle Abschnitte zählen voll): die Achse ist
  * Bearbeitungsfläche — ein weggetrimmter Rand mit Breite 0 wäre nicht mehr
  * anfassbar. Wie lang der Film WIRKLICH läuft, sagt die Spielkurve
- * (`baueSpielKurve`), die über getrimmte Bereiche hinwegfliegt.
+ * (`buildPlaybackCurve`), die über getrimmte Bereiche hinwegfliegt.
  *
  * Degeneriert-Wächter: erst NACH dem Einweben der Halte — eine Foto-Tour ohne
  * nennenswerte Fahrstrecke hat trotzdem einen echten Film (fast nur
@@ -1103,22 +1107,22 @@ export function schrittFilmS(achse: Achse, filmS: number, deltaFilmS: number): n
  * Aufnahmezeit-Achse am falschesten. Ohne Fahrzeit UND ohne Halte kommt die
  * Achse OHNE Kurve zurück (linearer Fallback).
  */
-export function baueAchse(
-  abschnitte: ReadonlyArray<{ mode: Modus; aktiv: boolean; pts: readonly TrackPunkt[] }>,
-  halte: readonly AchsenHalt[],
-  scale: ZeitSkala,
-): Achse {
-  const adapter = baueAdapter(abschnitte)
-  if (adapter.tS.length < 2) return { ...scale, halte: [] }
+export function buildTimelineAxis(
+  displaySegments: ReadonlyArray<{ mode: TravelMode; active: boolean; pts: readonly TrackPoint[] }>,
+  stops: readonly AxisStop[],
+  scale: TimeScale,
+): TimelineAxis {
+  const adapter = buildAdapter(displaySegments)
+  if (adapter.tS.length < 2) return { ...scale, stops: [] }
 
-  const kern = baueFilmachse(adapter.grenzen, adapter.gesamtM, halteAufStrecke(adapter, halte))
+  const core = baueFilmachse(adapter.boundaries, adapter.totalM, stopsOnDistance(adapter, stops))
   // Degeneriert-Wächter erst NACH den Halten: Eine Foto-Tour ohne nennenswerte
   // Fahrstrecke hat trotzdem einen echten Film (fast nur Standzeiten).
-  if (kern.gesamtS < 1) return { ...scale, halte: [] }
+  if (core.gesamtS < 1) return { ...scale, stops: [] }
   return {
     ...scale,
-    kurve: { tS: adapter.tS, mM: adapter.mM, kern, gesamtS: kern.gesamtS },
-    halte: kern.halte,
+    curve: { tS: adapter.tS, mM: adapter.mM, core, totalS: core.gesamtS },
+    stops: core.halte,
   }
 }
 
@@ -1126,8 +1130,8 @@ export function baueAchse(
 interface Adapter {
   tS: number[]
   mM: number[]
-  grenzen: Streckenabschnitt[]
-  gesamtM: number
+  boundaries: Streckenabschnitt[]
+  totalM: number
 }
 
 /**
@@ -1135,29 +1139,29 @@ interface Adapter {
  * Metern, je Punkt ein Stützwert.
  *
  * Der Abstand ZWISCHEN zwei Abschnitten wird bewusst nicht gezählt: Sie teilen
- * sich ihren Wechselpunkt (`zerlegeFuerAnzeige`), er zählt also bereits im
+ * sich ihren Wechselpunkt (`splitForDisplay`), er zählt also bereits im
  * linken. Die Dedup-Regel („gleiche Zeit UND gleicher Meterstand") hält die
  * Naht aus der Tabelle heraus.
  */
-function baueAdapter(
-  abschnitte: ReadonlyArray<{ mode: Modus; pts: readonly TrackPunkt[] }>,
+function buildAdapter(
+  displaySegments: ReadonlyArray<{ mode: TravelMode; pts: readonly TrackPoint[] }>,
 ): Adapter {
   const tS: number[] = []
   const mM: number[] = []
-  const grenzen: Streckenabschnitt[] = []
-  let meter = 0
-  for (const a of abschnitte) {
-    grenzen.push({ abM: meter, mode: a.mode })
+  const boundaries: Streckenabschnitt[] = []
+  let meters = 0
+  for (const a of displaySegments) {
+    boundaries.push({ abM: meters, mode: a.mode })
     for (let i = 0; i < a.pts.length; i++) {
-      const p = a.pts[i] as TrackPunkt
-      if (i > 0) meter += meterZwischen(a.pts[i - 1] as TrackPunkt, p)
-      const letzter = tS.length - 1
-      if (letzter >= 0 && tS[letzter] === p[3] && mM[letzter] === meter) continue
+      const p = a.pts[i] as TrackPoint
+      if (i > 0) meters += metersBetween(a.pts[i - 1] as TrackPoint, p)
+      const last = tS.length - 1
+      if (last >= 0 && tS[last] === p[3] && mM[last] === meters) continue
       tS.push(p[3])
-      mM.push(meter)
+      mM.push(meters)
     }
   }
-  return { tS, mM, grenzen, gesamtM: meter }
+  return { tS, mM, boundaries, totalM: meters }
 }
 
 /**
@@ -1168,8 +1172,8 @@ function baueAdapter(
  * Kern behält dann ihre Reihenfolge im Film. Genau dorthin wandert mit E12 die
  * Mehrdeutigkeit, die vorher bei den Pausen lag.
  */
-function halteAufStrecke(adapter: Adapter, halte: readonly AchsenHalt[]): AchsenHaltM[] {
-  return [...halte]
+function stopsOnDistance(adapter: Adapter, stops: readonly AxisStop[]): AxisStopM[] {
+  return [...stops]
     .sort((a, b) => a.offsetS - b.offsetS)
     .map((h) => ({ ...h, meterM: interpoliere(adapter.tS, adapter.mM, h.offsetS) }))
 }
@@ -1215,51 +1219,51 @@ function halteAufStrecke(adapter: Adapter, halte: readonly AchsenHalt[]): Achsen
  * Null, wenn im Fenster keine zwei Trackpunkte liegen: dann gibt es nichts zu
  * ziehen.
  */
-export function baueGrenzKurve(
-  track: readonly TrackPunkt[],
+export function buildBoundaryCurve(
+  track: readonly TrackPoint[],
   fromS: number,
   toS: number,
-  travelModes: { davor: Modus | null; links: Modus; rechts: Modus },
-  filmBeiVon: number,
-  halte: readonly AchsenHalt[],
-): AchsenKurve | null {
-  const { davor, links, rechts } = travelModes
-  const pts = punkteZwischen(track, fromS, toS)
+  travelModes: { before: TravelMode | null; left: TravelMode; right: TravelMode },
+  filmAtFrom: number,
+  stops: readonly AxisStop[],
+): AxisCurve | null {
+  const { before, left, right } = travelModes
+  const pts = pointsBetween(track, fromS, toS)
   if (pts.length < 2) return null
-  const adapter = baueAdapter([{ mode: links, pts }])
+  const adapter = buildAdapter([{ mode: left, pts }])
   // Ein Halt GENAU auf der linken Fensterkante zählt schon zu `filmBeiVon`
   // (lower_bound trifft die Stützstelle vor dem Sprung) — sonst zählte er
   // doppelt und die Kante liefe um seine Standzeit davon.
-  const imFenster = halte.filter((h) => h.offsetS > fromS && h.offsetS <= toS)
+  const inWindow = stops.filter((h) => h.offsetS > fromS && h.offsetS <= toS)
   // Mit welchem Tempo betritt der Film das Fenster? Am Tour-Anfang aus dem
   // Stand (0), sonst mit dem Tempo des Abschnitts davor — daraus baut die Achse
   // die Rampe an der linken Fensterkante selbst.
-  const kern = baueFilmachse(
-    adapter.grenzen,
-    adapter.gesamtM,
-    halteAufStrecke(adapter, imFenster),
+  const core = baueFilmachse(
+    adapter.boundaries,
+    adapter.totalM,
+    stopsOnDistance(adapter, inWindow),
     {
-      startTempoMs: filmBeiVon <= 0 ? 0 : davor === null ? null : tempoMs(davor),
+      startTempoMs: filmAtFrom <= 0 ? 0 : before === null ? null : tempoMs(before),
     },
   )
-  const versatzS = filmBeiVon + rampenVersatzS(tempoMs(links), tempoMs(rechts))
+  const offsetS = filmAtFrom + rampenVersatzS(tempoMs(left), tempoMs(right))
   return {
     tS: adapter.tS,
     mM: adapter.mM,
-    kern,
-    gesamtS: versatzS + kern.gesamtS,
-    versatzS,
+    core,
+    totalS: offsetS + core.gesamtS,
+    offsetS,
   }
 }
 
 /** Trackpunkte im Zeitfenster, mit interpolierten Rändern (nie leer bei Bedarf). */
-function punkteZwischen(track: readonly TrackPunkt[], fromS: number, toS: number): TrackPunkt[] {
-  const rand = (t: number): TrackPunkt | null => punktZuOffset(track, t)
-  const links = rand(fromS)
-  const rechts = rand(toS)
-  if (!links || !rechts) return []
-  const mitte = track.filter((p) => p[3] > fromS && p[3] < toS)
-  return [links, ...mitte, rechts]
+function pointsBetween(track: readonly TrackPoint[], fromS: number, toS: number): TrackPoint[] {
+  const edge = (t: number): TrackPoint | null => pointAtOffset(track, t)
+  const left = edge(fromS)
+  const right = edge(toS)
+  if (!left || !right) return []
+  const middle = track.filter((p) => p[3] > fromS && p[3] < toS)
+  return [left, ...middle, right]
 }
 
 /**
@@ -1269,13 +1273,13 @@ function punkteZwischen(track: readonly TrackPunkt[], fromS: number, toS: number
  * Zeit über den Adapter. In einer realen PAUSE ist der zweite mehrdeutig — dort
  * gilt die Ankunft, dieselbe lower_bound-Konvention wie überall.
  */
-export function zeitBeiFilm(kurve: AchsenKurve, filmS: number): number {
-  return zeitBeiMeter(kurve, streckeBeiFilm(kurve.kern, filmS - (kurve.versatzS ?? 0)))
+export function recordingTimeAtFilmTime(curve: AxisCurve, filmS: number): number {
+  return timeAtMeters(curve, streckeBeiFilm(curve.core, filmS - (curve.offsetS ?? 0)))
 }
 
 /** Filmsekunde zu einer Aufnahmezeit (Zeit → Strecke → Film). */
-export function filmBeiZeit(kurve: AchsenKurve, tOffsetS: number): number {
-  return (kurve.versatzS ?? 0) + filmBeiStrecke(kurve.kern, meterBeiZeit(kurve, tOffsetS))
+export function filmTimeAtRecordingTime(curve: AxisCurve, tOffsetS: number): number {
+  return (curve.offsetS ?? 0) + filmBeiStrecke(curve.core, metersAtTime(curve, tOffsetS))
 }
 
 /**
@@ -1286,14 +1290,14 @@ export function filmBeiZeit(kurve: AchsenKurve, tOffsetS: number): number {
  * ändert sich um die Differenz der Kehrwerte der Tempi — alles andere bleibt.
  * (Für die Vorschau „Film 3:00 → 3:29" im Zug-Etikett.)
  */
-export function filmDauerBeiGrenze(
-  gesamtS: number,
-  meterAlt: number,
-  meterNeu: number,
-  links: Modus,
-  rechts: Modus,
+export function filmDurationAtBoundary(
+  totalS: number,
+  metersOld: number,
+  metersNew: number,
+  left: TravelMode,
+  right: TravelMode,
 ): number {
-  return gesamtS + (meterNeu - meterAlt) * (1 / tempoMs(links) - 1 / tempoMs(rechts))
+  return totalS + (metersNew - metersOld) * (1 / tempoMs(left) - 1 / tempoMs(right))
 }
 
 // — Einrasten an Haltkanten —
@@ -1305,21 +1309,21 @@ export function filmDauerBeiGrenze(
 // unsichtbar schmal.
 
 /** Wie nah an einer Haltkante gerastet wird (Aufnahme-Sekunden). */
-export const RAST_TOLERANZ_S = 0.5
+export const SNAP_TOLERANCE_S = 0.5
 /**
  * Abstand für „hinter dem Halt". Nicht kleiner: Overlay-Anker sind ISO-Zeiten
- * mit SEKUNDEN-Auflösung (`offsetZuIso` schneidet die Millisekunden ab) — ein
+ * mit SEKUNDEN-Auflösung (`offsetToIso` schneidet die Millisekunden ab) — ein
  * Epsilon fiele auf dieselbe Sekunde zurück und die Kante schnappte sichtbar
  * vor den Halt.
  */
-export const RAST_HINTER_S = 1
+export const SNAP_BEHIND_S = 1
 
-export interface Rastung {
+export interface SnapResult {
   tOffsetS: number
   /** Halt, an dem gerastet wurde — null heißt: freie Lage */
-  halt: HaltIntervall | null
+  stop: StopInterval | null
   /** true = hinter dem Halt (er läuft davor ab) */
-  hinter: boolean
+  behind: boolean
 }
 
 /**
@@ -1342,46 +1346,46 @@ export interface Rastung {
  * Zurück kommt die Landezeit als AUFNAHMEzeit — die ist in beiden Systemen
  * dieselbe Größe und deshalb der einzige saubere Übergabepunkt.
  */
-export function rasteAnHalt(
-  halte: readonly HaltIntervall[],
+export function snapToStop(
+  stops: readonly StopInterval[],
   tOffsetS: number,
   filmS: number,
-): Rastung {
-  let treffer: HaltIntervall | null = null
-  let bestAb = Infinity
-  for (const h of halte) {
-    const drin = filmS > h.filmVon && filmS < h.filmBis
+): SnapResult {
+  let hit: StopInterval | null = null
+  let bestDelta = Infinity
+  for (const h of stops) {
+    const inside = filmS > h.filmVon && filmS < h.filmBis
     const from = Math.abs(h.offsetS - tOffsetS)
-    if (!drin && from > RAST_TOLERANZ_S) continue
-    if (drin || from < bestAb) {
-      bestAb = drin ? -1 : from
-      treffer = h
+    if (!inside && from > SNAP_TOLERANCE_S) continue
+    if (inside || from < bestDelta) {
+      bestDelta = inside ? -1 : from
+      hit = h
     }
   }
-  if (!treffer) return { tOffsetS, halt: null, hinter: false }
-  const hinter = filmS >= (treffer.filmVon + treffer.filmBis) / 2
-  return { tOffsetS: treffer.offsetS + (hinter ? RAST_HINTER_S : 0), halt: treffer, hinter }
+  if (!hit) return { tOffsetS, stop: null, behind: false }
+  const behind = filmS >= (hit.filmVon + hit.filmBis) / 2
+  return { tOffsetS: hit.offsetS + (behind ? SNAP_BEHIND_S : 0), stop: hit, behind }
 }
 
 /**
  * Die Zug-Filmsekunde in ihr Fenster klemmen — in PIXELN, nicht in Sekunden.
  *
  * Mit ±1 s konnten zwei Grenzen so nah zusammenrücken, dass das Band dazwischen
- * unsichtbar und unanfassbar wurde (dieselbe Sorge wie `klemmeGrenze`, die
+ * unsichtbar und unanfassbar wurde (dieselbe Sorge wie `clampBoundary`, die
  * mindestens einen Trackpunkt im Abschnitt lässt). Ein Mindestabstand in
  * Pixeln hält das Band greifbar, egal wie die Achse dort gestaucht ist.
  */
 export const BAND_MIN_PX = 14
 
-export function klemmeFilmS(
+export function clampFilmS(
   filmS: number,
   minFilmS: number,
   maxFilmS: number,
   pxProFilmS: number,
 ): number {
-  const luft = pxProFilmS > 0 ? BAND_MIN_PX / pxProFilmS : 0
-  const min = minFilmS + luft
-  const max = maxFilmS - luft
+  const slack = pxProFilmS > 0 ? BAND_MIN_PX / pxProFilmS : 0
+  const min = minFilmS + slack
+  const max = maxFilmS - slack
   // Ist das Fenster schmaler als zweimal Luft, bleibt nur seine Mitte übrig —
   // besser als eine Klemme, die sich selbst überkreuzt.
   if (max <= min) return (minFilmS + maxFilmS) / 2
@@ -1394,30 +1398,30 @@ export function klemmeFilmS(
  * Trim Plateaus über den inaktiven Bereichen — der Kopf fliegt darüber
  * hinweg, statt hypothetische Randbereiche abzuspielen.
  */
-export function baueSpielKurve(
-  achse: Achse,
-  abschnitte: ReadonlyArray<{ aktiv: boolean; pts: readonly TrackPunkt[] }>,
-): Filmkurve {
-  const kurve = achse.kurve
-  if (!kurve) return { anteile: [0, 1], filmS: [0, 1], gesamtS: 1 }
-  if (abschnitte.every((a) => a.aktiv)) {
-    return { anteile: [0, 1], filmS: [0, kurve.gesamtS], gesamtS: kurve.gesamtS }
+export function buildPlaybackCurve(
+  axis: TimelineAxis,
+  displaySegments: ReadonlyArray<{ active: boolean; pts: readonly TrackPoint[] }>,
+): FilmCurve {
+  const curve = axis.curve
+  if (!curve) return { fractions: [0, 1], filmS: [0, 1], totalS: 1 }
+  if (displaySegments.every((a) => a.active)) {
+    return { fractions: [0, 1], filmS: [0, curve.totalS], totalS: curve.totalS }
   }
-  const anteile: number[] = [0]
+  const fractions: number[] = [0]
   const filmS: number[] = [0]
   let film = 0
-  for (const a of abschnitte) {
-    const vonT = (a.pts[0] as TrackPunkt)[3]
-    const bisT = (a.pts[a.pts.length - 1] as TrackPunkt)[3]
-    if (a.aktiv) film += filmZuOffset(achse, bisT) - filmZuOffset(achse, vonT)
-    anteile.push(offsetZuAnteil(achse, bisT))
+  for (const a of displaySegments) {
+    const fromT = (a.pts[0] as TrackPoint)[3]
+    const toT = (a.pts[a.pts.length - 1] as TrackPoint)[3]
+    if (a.active) film += filmToOffset(axis, toT) - filmToOffset(axis, fromT)
+    fractions.push(offsetToFraction(axis, toT))
     filmS.push(film)
   }
-  anteile.push(1)
+  fractions.push(1)
   filmS.push(film)
   return film >= 1
-    ? { anteile, filmS, gesamtS: film }
-    : { anteile: [0, 1], filmS: [0, 1], gesamtS: 1 }
+    ? { fractions, filmS, totalS: film }
+    : { fractions: [0, 1], filmS: [0, 1], totalS: 1 }
 }
 
 // — Maßband —
@@ -1429,36 +1433,36 @@ export function baueSpielKurve(
 // bei der zwei Beschriftungen noch `MARKE_MIN_PX` auseinanderliegen.
 
 /** Stufen in Film-Sekunden, aufsteigend — von der Sekunde bis zur Stunde. */
-const STUFEN_S = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600] as const
+const STEPS_S = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600] as const
 /** Mindestabstand zweier Beschriftungen in px (eine „m:ss" ist ~34 px breit). */
-const MARKE_MIN_PX = 58
+const MARK_MIN_PX = 58
 /** Halbe Beschriftungsbreite — darunter würde die Marke am Rand angeschnitten. */
-const MARKE_HALB_PX = 20
+const MARK_HALF_PX = 20
 
 /** Feinste Stufe (Film-Sekunden), die bei diesem Maßstab noch lesbar bleibt. */
-export function waehleFilmStufe(pxProS: number): number {
-  for (const s of STUFEN_S) {
-    if (s * pxProS >= MARKE_MIN_PX) return s
+export function chooseFilmStep(pxProS: number): number {
+  for (const s of STEPS_S) {
+    if (s * pxProS >= MARK_MIN_PX) return s
   }
-  return STUFEN_S[STUFEN_S.length - 1] as number
+  return STEPS_S[STEPS_S.length - 1] as number
 }
 
 /** Filmzeit als „m:ss", ab einer Stunde „h:mm:ss". */
-export function formatiereFilmzeit(sekunden: number): string {
-  const s = Math.max(0, Math.round(sekunden))
+export function formatFilmTime(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
   const mm = Math.floor(s / 60)
   const ss = String(s % 60).padStart(2, '0')
   if (mm < 60) return `${mm}:${ss}`
   return `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}:${ss}`
 }
 
-export interface Massbandmarke {
-  anteil: number
+export interface RulerMark {
+  fraction: number
   text: string
   /** volle Minute — kräftigerer Teilstrich als die Zwischenstufen */
-  voll: boolean
+  full: boolean
   /** am Rand angeschnitten? Dann links- statt mittenbündig ausrichten. */
-  rand: 'anfang' | 'ende' | null
+  edge: 'anfang' | 'ende' | null
 }
 
 /**
@@ -1467,24 +1471,24 @@ export interface Massbandmarke {
  * Filmzeit, dort stehen sie genauso. Ohne Kurve (degenerierte Tour) gibt es
  * nichts Sinnvolles zu beschriften: leeres Band.
  */
-export function baueFilmMassband(achse: Achse, pxProS: number): Massbandmarke[] {
-  const gesamtS = achse.kurve?.gesamtS
-  if (!gesamtS || !(pxProS > 0)) return []
+export function buildFilmRuler(axis: TimelineAxis, pxProS: number): RulerMark[] {
+  const totalS = axis.curve?.totalS
+  if (!totalS || !(pxProS > 0)) return []
 
-  const stufeS = waehleFilmStufe(pxProS)
-  const breitePx = gesamtS * pxProS
-  const marken: Massbandmarke[] = []
-  for (let filmT = 0; filmT <= gesamtS; filmT += stufeS) {
-    const anteil = filmT / gesamtS
-    const x = anteil * breitePx
-    marken.push({
-      anteil,
-      text: formatiereFilmzeit(filmT),
-      voll: filmT % 60 === 0,
-      rand: x < MARKE_HALB_PX ? 'anfang' : x > breitePx - MARKE_HALB_PX ? 'ende' : null,
+  const stepS = chooseFilmStep(pxProS)
+  const widthPx = totalS * pxProS
+  const marks: RulerMark[] = []
+  for (let filmT = 0; filmT <= totalS; filmT += stepS) {
+    const fraction = filmT / totalS
+    const x = fraction * widthPx
+    marks.push({
+      fraction,
+      text: formatFilmTime(filmT),
+      full: filmT % 60 === 0,
+      edge: x < MARK_HALF_PX ? 'anfang' : x > widthPx - MARK_HALF_PX ? 'ende' : null,
     })
   }
-  return marken
+  return marks
 }
 
 // — Streckenmeter —
@@ -1494,56 +1498,56 @@ export function baueFilmMassband(achse: Achse, pxProS: number): Massbandmarke[] 
 // Trackpunkt aufbauen und zwischen den Punkten linear interpolieren.
 
 /** Kumulierte Streckenmeter je Trackpunkt (Index-gleich zu `track`). */
-export function kumMeter(track: readonly TrackPunkt[]): number[] {
-  const kum: number[] = new Array(track.length)
-  kum[0] = 0
+export function cumMeters(track: readonly TrackPoint[]): number[] {
+  const cum: number[] = new Array(track.length)
+  cum[0] = 0
   for (let i = 1; i < track.length; i++) {
-    kum[i] =
-      (kum[i - 1] as number) + meterZwischen(track[i - 1] as TrackPunkt, track[i] as TrackPunkt)
+    cum[i] =
+      (cum[i - 1] as number) + metersBetween(track[i - 1] as TrackPoint, track[i] as TrackPoint)
   }
-  return kum
+  return cum
 }
 
 /** Zurückgelegte Meter zum Zeit-Offset (s), zwischen den Punkten interpoliert. */
-export function meterZuOffset(
-  kum: readonly number[],
-  track: readonly TrackPunkt[],
+export function metersToOffset(
+  cum: readonly number[],
+  track: readonly TrackPoint[],
   tOffsetS: number,
 ): number {
   if (track.length === 0) return 0
-  const erster = track[0] as TrackPunkt
-  const letzter = track[track.length - 1] as TrackPunkt
-  if (tOffsetS <= erster[3]) return 0
-  if (tOffsetS >= letzter[3]) return (kum[kum.length - 1] as number) ?? 0
+  const first = track[0] as TrackPoint
+  const last = track[track.length - 1] as TrackPoint
+  if (tOffsetS <= first[3]) return 0
+  if (tOffsetS >= last[3]) return (cum[cum.length - 1] as number) ?? 0
   let i = 1
-  while (i < track.length - 1 && (track[i] as TrackPunkt)[3] < tOffsetS) i++
-  const a = track[i - 1] as TrackPunkt
-  const b = track[i] as TrackPunkt
-  const spanne = b[3] - a[3]
-  const f = spanne > 0 ? (tOffsetS - a[3]) / spanne : 0
-  return (kum[i - 1] as number) + f * ((kum[i] as number) - (kum[i - 1] as number))
+  while (i < track.length - 1 && (track[i] as TrackPoint)[3] < tOffsetS) i++
+  const a = track[i - 1] as TrackPoint
+  const b = track[i] as TrackPoint
+  const span = b[3] - a[3]
+  const f = span > 0 ? (tOffsetS - a[3]) / span : 0
+  return (cum[i - 1] as number) + f * ((cum[i] as number) - (cum[i - 1] as number))
 }
 
-/** Zeit-Offset (s) zu zurückgelegten Metern — Umkehrung von `meterZuOffset`. */
-export function offsetBeiMeter(
-  kum: readonly number[],
-  track: readonly TrackPunkt[],
-  meter: number,
+/** Zeit-Offset (s) zu zurückgelegten Metern — Umkehrung von `metersToOffset`. */
+export function offsetAtMeters(
+  cum: readonly number[],
+  track: readonly TrackPoint[],
+  meters: number,
 ): number {
   if (track.length === 0) return 0
-  const erster = track[0] as TrackPunkt
-  const letzter = track[track.length - 1] as TrackPunkt
-  const max = (kum[kum.length - 1] as number) ?? 0
-  if (meter <= 0) return erster[3]
-  if (meter >= max) return letzter[3]
+  const first = track[0] as TrackPoint
+  const last = track[track.length - 1] as TrackPoint
+  const max = (cum[cum.length - 1] as number) ?? 0
+  if (meters <= 0) return first[3]
+  if (meters >= max) return last[3]
   let i = 1
-  while (i < kum.length - 1 && (kum[i] as number) < meter) i++
-  const a = kum[i - 1] as number
-  const b = kum[i] as number
-  const spanne = b - a
-  const f = spanne > 0 ? (meter - a) / spanne : 0
-  const ta = (track[i - 1] as TrackPunkt)[3]
-  const tb = (track[i] as TrackPunkt)[3]
+  while (i < cum.length - 1 && (cum[i] as number) < meters) i++
+  const a = cum[i - 1] as number
+  const b = cum[i] as number
+  const span = b - a
+  const f = span > 0 ? (meters - a) / span : 0
+  const ta = (track[i - 1] as TrackPoint)[3]
+  const tb = (track[i] as TrackPoint)[3]
   return ta + f * (tb - ta)
 }
 
@@ -1552,11 +1556,11 @@ export function offsetBeiMeter(
  * an derselben Stelle im Fenster steht — sonst springt der Blick beim Zoomen
  * irgendwohin. `spurXpx` ist die feste Breite der Namensspalte links.
  */
-export function ankerScroll(
-  ankerAnteil: number,
-  zeitBreitePx: number,
-  zielVx: number,
-  spurXpx: number,
+export function scrollAnchor(
+  anchorFraction: number,
+  timeWidthPx: number,
+  targetVx: number,
+  laneXpx: number,
 ): number {
-  return Math.max(0, spurXpx + ankerAnteil * zeitBreitePx - zielVx)
+  return Math.max(0, laneXpx + anchorFraction * timeWidthPx - targetVx)
 }

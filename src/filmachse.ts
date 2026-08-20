@@ -208,7 +208,7 @@ export const RAMPE_M = 120
  * Was eine Modus-Rampe VOR ihrer Grenze gegenüber reiner Reise kostet (s).
  *
  * Für das Zug-Fenster einer Fortbewegungs-Grenze im Editor
- * ([zeitleiste.ts](studio/zeitleiste.ts), `baueGrenzKurve`): Dessen Kurve
+ * ([zeitleiste.ts](studio/zeitleiste.ts), `buildBoundaryCurve`): Dessen Kurve
  * rechnet das Fenster durchgehend im LINKEN Modus, weil die Filmposition der
  * Kante nur von dem abhängt, was vor ihr liegt.
  *
@@ -237,7 +237,7 @@ export interface Rampenwahl {
    * Mit welchem Tempo (m/s) betritt der Film dieses Stück?
    *
    * Vorgabe `0` — eine Tour fährt aus dem Stand los, und daraus wird die
-   * Anfahr-Rampe. Das Zug-Fenster einer Fortbewegungs-Grenze (`baueGrenzKurve`
+   * Anfahr-Rampe. Das Zug-Fenster einer Fortbewegungs-Grenze (`buildBoundaryCurve`
    * im Editor) beginnt dagegen mitten in der Fahrt: Dort gibt es kein Anfahren,
    * sondern höchstens einen Tempowechsel an der linken Kante. `null` heißt
    * „kein Wechsel, der Film läuft schon im Tempo des ersten Abschnitts".

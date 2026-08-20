@@ -321,7 +321,7 @@ Web-Hälfte in [test/filmachse.test.ts](test/filmachse.test.ts), Server-Hälfte 
 Player braucht Filmsekunde → Streckenposition, und über der Aufnahmezeit endet die Rechnung bei
 einer Aufnahmezeit, die er nicht weiterverwenden kann (`cfg.timeline` ist Pseudo-Zeit mit
 Pausen-Zeitraffer, nicht die Aufnahmeuhr). Wer in Aufnahmezeit verankert — die Zeitleiste des
-Editors, Medien, Ton-Klips —, legt einen **Zeit→Strecke-Adapter** daneben (`AchsenKurve` in
+Editors, Medien, Ton-Klips —, legt einen **Zeit→Strecke-Adapter** daneben (`AxisCurve` in
 [zeitleiste.ts](src/studio/zeitleiste.ts): je Stützpunkt seine Zeit und sein Meterstand) — der
 Server-Spiegel seit Etappe 4 genauso; die Anker selbst bleiben Zeitstempel, umgestellt ist die
 Achse, nicht die Verankerung. Drei Dinge,
@@ -520,10 +520,10 @@ vergleicht die Listen (und die Tempo-Faktoren) jetzt automatisch.
 Der Modus wird bei der Aufnahme EINMAL angegeben; wo jemand stattdessen zu Fuß war, trennt
 [server/src/pipeline/tempo.ts](server/src/pipeline/tempo.ts) beim Rendern selbst ab (s. unten).
 Im Editor ist **jeder Modus-Wechsel eine ziehbare Kante** — auch die von der Automatik
-erkannte. Beim ersten Zug schreibt `materialisiereModi` ([editmodell.ts](src/studio/editmodell.ts))
+erkannte. Beim ersten Zug schreibt `materializeTravelModes` ([editmodell.ts](src/studio/editmodell.ts))
 die ganze erkannte Aufteilung als Grenzen fest: `edits.travelModes` ist eine Stufenfunktion, die AB
 ihrem Punkt alles Folgende übersteuert — eine einzelne neue Grenze mitten in der Automatik
-risse die späteren Abschnitte mit. `klemmeGrenze` hält jede Kante zwischen ihren Nachbarn UND
+risse die späteren Abschnitte mit. `clampBoundary` hält jede Kante zwischen ihren Nachbarn UND
 lässt mindestens einen Trackpunkt im Abschnitt: sonst gälte der Zustand für keinen Punkt, das
 Band verschwände aus der Anzeige und wäre nicht mehr anzufassen.
 

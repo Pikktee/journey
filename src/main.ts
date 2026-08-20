@@ -426,7 +426,7 @@ const sBeiRoh = (roh: number) => interpoliere(rohKum, route.wpS, roh)
  * Filmzeit und keine Strecke — genau das drückt die Achse aus.
  *
  * Die Breite einer Aufnahme ist ihr KLIP (Standzeit + Ausblendung), dieselbe Rechnung
- * wie im Editor (`aufnahmeHaltS`); fehlt einem Video die Länge, gilt in BEIDEN
+ * wie im Editor (`mediumHoldS`); fehlt einem Video die Länge, gilt in BEIDEN
  * Bühnen die Foto-Annahme (Konzept, Falle 4). Die `stuecke` fallen aus
  * DERSELBEN Rechnung ab — die Engine schaltet die Karte danach weiter, statt
  * die Standzeiten ein zweites Mal zu addieren.

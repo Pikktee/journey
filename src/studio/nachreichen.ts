@@ -8,7 +8,7 @@
 //
 // DOM-frei und ohne fetch, damit es unter Vitest prüfbar bleibt.
 
-import { distanzM } from './pruefung.js'
+import { distanceM } from './pruefung.js'
 
 /** Was aus einer gewählten Datei gelesen wurde (EXIF, sonst Datei-Datum). */
 export interface NeueAufnahme {
@@ -175,7 +175,7 @@ export function abstandsFunktion(
   return (ort) => {
     let best = Infinity
     for (const p of punkte) {
-      const d = distanzM(ort, p)
+      const d = distanceM(ort, p)
       if (d < best) best = d
     }
     return best

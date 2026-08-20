@@ -13,7 +13,7 @@ import {
 // Die Studio-Liste und nicht die des Servers: Sie ist von hier importierbar
 // (server/ hat einen eigenen `rootDir`) und ihrerseits gegen das Server-Schema
 // gewacht — test/studio-baukasten.test.ts vergleicht beide.
-import { WETTER_MODI } from '../src/studio/editmodell.js'
+import { WEATHER_MODES } from '../src/studio/editmodell.js'
 
 const TRAVEL_MODES: SzenenWetter[] = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm']
 
@@ -21,7 +21,7 @@ describe('himmelBei', () => {
   it('kennt jede Lage, die das Overlay setzen kann', () => {
     // Die Liste ist die des Servers — läuft sie auseinander, zeigt der Editor
     // für eine gültige Grenze gar nichts, und niemand meldet es.
-    for (const m of WETTER_MODI) expect(WETTER_HIMMEL[m as SzenenWetter]).toBeDefined()
+    for (const m of WEATHER_MODES) expect(WETTER_HIMMEL[m as SzenenWetter]).toBeDefined()
   })
 
   it('spannt die Deckung über die Stärke', () => {

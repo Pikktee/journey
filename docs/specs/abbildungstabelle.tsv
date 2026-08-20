@@ -1062,7 +1062,7 @@ anteilZuFilm	fractionToFilm	export-funktion	src/studio/zeitleiste.ts	3	wie fract
 anteilZuOffset	fractionToOffset	export-funktion	src/studio/zeitleiste.ts	3	VORSCHLAG: Anteil→fraction ausgeschrieben (frac-Kuerzel nicht in §6.0 Regel 7, im Player aber etabliert; vereinheitlichen)
 audioWirdVerworfen	audioWouldBeDropped	export-funktion	src/studio/zeitleiste.ts	3	VORSCHLAG: dropped wie droppedFrames (§6.3a); ob ein Ton-Klip beim Rendern entfiele
 aufnahmeHaltS	mediumHoldS	export-funktion	src/studio/zeitleiste.ts	3	VORSCHLAG: Aufnahme→medium (§6.1); Standzeit einer einzelnen Aufnahme
-baueAchse	buildFilmAxis	export-funktion	src/studio/zeitleiste.ts	3	wie Achse→FilmAxis; Kollision mit einem Player-Bauer (W5) beim Umbau pruefen
+baueAchse	buildTimelineAxis	export-funktion	src/studio/zeitleiste.ts	3	ENTSCHIEDEN 2026-08-20 (Welle 3): wie TimelineAxis; buildFilmAxis gehoert baueFilmachse in src/filmachse.ts (Welle 5), das hier importiert wird
 baueAudioBalken	buildAudioBars	export-funktion	src/studio/zeitleiste.ts	3	Sammlung Plural (§6.0 Regel 4); Ton-Balken bauen
 baueBaender	buildBands	export-funktion	src/studio/zeitleiste.ts	3	baue→build; Baender der Zeitleiste bauen
 baueFilmMassband	buildFilmRuler	export-funktion	src/studio/zeitleiste.ts	3	VORSCHLAG: wie ruler; Massband der Zeitleiste bauen
@@ -1162,7 +1162,7 @@ STANDZEIT_MAX_S	HOLD_MAX_S	export-konstante	src/studio/zeitleiste.ts	3	Standzeit
 STANDZEIT_MIN_S	HOLD_MIN_S	export-konstante	src/studio/zeitleiste.ts	3	Standzeit→hold (Glossar-Kopf); Untergrenze
 TON_MIN_S	AUDIO_MIN_S	export-konstante	src/studio/tonklip.ts	3	VORSCHLAG: Ton→audio (§6.1 audioClip); Mindestlaenge eines Ton-Klips; Datei wird audio-clip.ts (W4)
 WETTER_MODI	WEATHER_MODES	export-konstante	src/studio/editmodell.ts	3	§5-Tabelle; Liste der Wettermodi
-Achse	FilmAxis	export-typ	src/studio/zeitleiste.ts	3	Filmachse→filmAxis (§6.3a); Editor-Typ; Namensgleichheit mit dem Player-Modul (W5) beim Umbau pruefen
+Achse	TimelineAxis	export-typ	src/studio/zeitleiste.ts	3	ENTSCHIEDEN 2026-08-20 (Welle 3): NICHT FilmAxis — der Name gehoert dem geteilten src/filmachse.ts (Welle 5), das zeitleiste.ts importiert; §6.3 Zeitleiste=timeline
 AchsenHalt	AxisStop	export-typ	src/studio/zeitleiste.ts	3	VORSCHLAG: AxisStop; Halt in Achsen-Koordinaten
 AchsenHaltM	AxisStopM	export-typ	src/studio/zeitleiste.ts	3	VORSCHLAG: wie AxisStop, Einheit M bleibt; Halt mit Meterstand
 AchsenKurve	AxisCurve	export-typ	src/studio/zeitleiste.ts	3	§6.3 AxisCurve; Zeit-zu-Strecke-Adapter der Achse
@@ -1171,8 +1171,8 @@ AudioBalken	AudioBar	export-typ	src/studio/zeitleiste.ts	3	VORSCHLAG: Balken→b
 AudioEintrag	AudioEntry	export-typ	src/studio/editmodell.ts	3	§5-Tabelle; Ton-Eintrag im Edit-Overlay
 AufnahmeBefund	MediumReport	export-typ	src/studio/pruefung.ts	3	VORSCHLAG: Befund je Aufnahme→MediumReport (der Gesamtbefund ist ImportReport §6.1)
 Filmkurve	FilmCurve	export-typ	src/studio/zeitleiste.ts	3	VORSCHLAG: FilmCurve; stueckweise Kurve Zeit zu Filmzeit
-Fokus	Selection	export-typ	src/studio/zeitleiste.ts	3	§6.3 Fokus (Auswahl) = selection; Achtung Kollision mit lib.dom Selection, ggf. EditorSelection und Glossar ergaenzen
-FokusZiel	SelectionTarget	export-typ	src/studio/zeitleiste.ts	3	§6.3 selection; Art des fokussierten Elements
+Fokus	EditorSelection	export-typ	src/studio/zeitleiste.ts	3	ENTSCHIEDEN 2026-08-20 (Welle 3): die in der Bemerkung genannte Ausweichform; Selection verdeckt den lib.dom-Typ in jeder importierenden Datei
+FokusZiel	EditorSelectionTarget	export-typ	src/studio/zeitleiste.ts	3	ENTSCHIEDEN 2026-08-20 (Welle 3): wie EditorSelection
 GpxPunkt	GpxPoint	export-typ	src/studio/pruefung.ts	3	Punkt→Point; Punkt aus der GPX-Datei
 HaltStand	StopState	export-typ	src/studio/zeitleiste.ts	3	VORSCHLAG: Stand→state; Zustand innerhalb eines Halts
 HaltStueck	StopItem	export-typ	src/studio/zeitleiste.ts	3	§6.1 Halt-Stueck = stopItem; Teilstueck eines Halts auf der Achse
@@ -3448,3 +3448,65 @@ server/test/seiten.test.ts	server/test/page-meta.test.ts	datei	server/test/seite
 server/test/signatur.test.ts	server/test/signature.test.ts	datei	server/test/signatur.test.ts	2	NACHTRAG 2026-08-20 (Welle 2): §6.6 nennt die Testdateien als bekannte Lücke; sie folgen ihrem Modul. Ohne Zeile bleiben die ohne eindeutiges Modul (bildfassungen, medien-nachreichen, vertrag-tourjson, leiter, helfer).
 server/test/warteliste.test.ts	server/test/waitlist.test.ts	datei	server/test/warteliste.test.ts	2	NACHTRAG 2026-08-20 (Welle 2): §6.6 nennt die Testdateien als bekannte Lücke; sie folgen ihrem Modul. Ohne Zeile bleiben die ohne eindeutiges Modul (bildfassungen, medien-nachreichen, vertrag-tourjson, leiter, helfer).
 server/test/zeit.test.ts	server/test/time.test.ts	datei	server/test/zeit.test.ts	2	NACHTRAG 2026-08-20 (Welle 2): §6.6 nennt die Testdateien als bekannte Lücke; sie folgen ihrem Modul. Ohne Zeile bleiben die ohne eindeutiges Modul (bildfassungen, medien-nachreichen, vertrag-tourjson, leiter, helfer).
+ordneEin	moveToSlot	export-funktion	src/studio/zeitleiste.ts	3	ENTSCHIEDEN 2026-08-20 (Welle 3): passt zu slotInChain/ChainSlot; nicht zu verwechseln mit ordneEin in nachreichen.ts (eigene Funktion, Welle 4)
+videoFilmS	videoFilmS	export-funktion	src/studio/zeitleiste.ts	-	bleibt (beide Wortteile schon englisch, wie BAND_MIN_PX); Filmzeit eines Videos samt Schnitt
+MOMENT_MIN_S	MOMENT_MIN_S	export-konstante	src/studio/zeitleiste.ts	-	bleibt (schon englisch); Untergrenze der Moment-Dauer
+MOMENT_MAX_S	MOMENT_MAX_S	export-konstante	src/studio/zeitleiste.ts	-	bleibt (schon englisch); Obergrenze
+VIDEO_TRIM_MIN_S	VIDEO_TRIM_MIN_S	export-konstante	src/studio/zeitleiste.ts	-	bleibt (schon englisch); kuerzester Video-Ausschnitt
+historie	past	property	src/studio/editmodell.ts	3	UndoStack; Gegenstueck zu future
+zukunft	future	property	src/studio/editmodell.ts	3	UndoStack
+punkt	point	property	src/studio/editmodell.ts	3	TrackProjection; Punkt AUF der Track-Linie
+aktiv	active	property	src/studio/editmodell.ts	3	DisplaySegment; liegt in der Trim-Spanne
+gpsAnker	gpsAnchor	property	src/studio/editmodell.ts	3	NACHZUEGLER aus Welle 1: die API liefert gpsAnchor (routes/tours.ts, api.ts), der Editor-Typ trug noch den deutschen Namen
+kern	core	property	src/studio/zeitleiste.ts	3	AxisCurve; die geteilte Achse unter dem Zeit-zu-Strecke-Adapter
+gesamtS	totalS	property	src/studio/zeitleiste.ts	3	AxisCurve und FilmCurve; NICHT die gleichnamige Eigenschaft von Filmachse (src/filmachse.ts, Welle 5)
+gesamtM	totalM	property	src/studio/zeitleiste.ts	3	Adapter (modulintern)
+versatzS	offsetS	property	src/studio/zeitleiste.ts	3	AxisCurve; Filmsekunde, bei der der Kern beginnt
+kurve	curve	property	src/studio/zeitleiste.ts	3	TimelineAxis
+halte	stops	property	src/studio/zeitleiste.ts	3	TimelineAxis; die eingewebten Halt-Intervalle
+anteil	fraction	property	src/studio/zeitleiste.ts	3	MediaDot, RulerMark
+anteile	fractions	property	src/studio/zeitleiste.ts	3	FilmCurve
+indizes	indices	property	src/studio/zeitleiste.ts	3	AxisStop; Rueckweg zu den Stopps des Aufrufers
+schluessel	key	property	src/studio/zeitleiste.ts	3	AxisStop; stabile Identitaet des Halts
+stuecke	items	property	src/studio/zeitleiste.ts	3	AxisStop; die Aufnahmen des Halts
+stueck	item	property	src/studio/zeitleiste.ts	3	StopState
+imHaltS	inStopS	property	src/studio/zeitleiste.ts	3	StopState; verstrichene Standzeit
+restS	remainingS	property	src/studio/zeitleiste.ts	3	StopState
+imS	inS	property	src/studio/zeitleiste.ts	3	StopState.item; verstrichene Zeit IN der Aufnahme
+nr	no	property	src/studio/zeitleiste.ts	3	StopState.item; 1-basiert
+anzahl	count	property	src/studio/zeitleiste.ts	3	StopState.item, SceneClip (§6.0 Regel 4)
+haltIndex	stopIndex	property	src/studio/zeitleiste.ts	3	SceneClip
+platz	slot	property	src/studio/zeitleiste.ts	3	SceneClip, ChainSlot
+hinter	behind	property	src/studio/zeitleiste.ts	3	SnapResult
+voll	full	property	src/studio/zeitleiste.ts	3	RulerMark; volle Minute
+rand	edge	property	src/studio/zeitleiste.ts	3	RulerMark; die WERTE anfang/ende bleiben, sie bauen die CSS-Klasse am-anfang (Welle 4)
+naechsteAb	nextFrom	property	src/studio/zeitleiste.ts	3	EditorSelectionTarget; Grenze, die das Band schliesst
+wetterMode	weatherMode	property	src/studio/zeitleiste.ts	3	EditorSelectionTarget
+momentArt	momentKind	property	src/studio/zeitleiste.ts	3	EditorSelectionTarget; kind, nicht type (§6.0 Regel 8)
+bezugS	atS	property	src/studio/zeitleiste.ts	3	EditorSelection; Aufnahmezeit, an der das Band gesucht wird
+von	from	property	src/studio/zeitleiste.ts	3	TimeBand und AudioBar (§6.9 von zu from); in StateBand ist from schon der ISO-Anker, dort fromFraction
+to	toFraction	property	src/studio/zeitleiste.ts	3	NUR in StateBand — dort ist from der ISO-Anker der Grenze, das Anteils-Paar heisst fromFraction/toFraction
+wert	value	property	src/studio/zeitleiste.ts	3	StateBand; der Zustand, den das Band traegt
+dateiS	fileS	property	src/studio/tonklip.ts	3	AudioClip; gemessene Dateilaenge
+altVerankert	legacyAnchored	property	src/studio/tonklip.ts	3	AudioClip; traegt noch die alte from/to-Verankerung
+laengeGesetzt	hasExplicitLength	property	src/studio/tonklip.ts	3	AudioClip; Laenge steht ausdruecklich im Overlay (§6.0 Regel 2)
+amAnschlag	atLimit	property	src/studio/tonklip.ts	3	TrimResult; die Kante steht am Material
+breiteAnteil	widthFraction	property	src/studio/tonklip.ts	3	waveformPosition; Anteil der ganzen Achse, nie Pixel
+versatzAnteil	offsetFraction	property	src/studio/tonklip.ts	3	waveformPosition
+wiederholungen	repeats	property	src/studio/tonklip.ts	3	waveformPosition; Dateidurchlaeufe unter dem Klip
+zeitMs	takenAtMs	property	src/studio/pruefung.ts	3	MediumReport; Aufnahmezeit (§6.1 recordingTime, Feld takenAt)
+zeitGeraten	takenAtGuessed	property	src/studio/pruefung.ts	3	MediumReport; Zeit stammt aus der Dateizeit
+ort	location	property	src/studio/pruefung.ts	3	MediumReport; GPS-Ort der Aufnahme
+ton	tone	property	src/studio/pruefung.ts	3	Message; Ton der Meldung (die WERTE hinweis/warnung bleiben, sie werden in studio.ts verglichen)
+dateien	files	property	src/studio/pruefung.ts	3	Message; die Dateien, um die es geht
+punkte	points	property	src/studio/pruefung.ts	3	ImportReport.track
+aufnahmen	media	property	src/studio/pruefung.ts	3	ImportReport (§6.1 medium/media)
+vonMs	fromMs	property	src/studio/pruefung.ts	3	ImportReport; Zeitachse des Filmstreifens
+bisMs	toMs	property	src/studio/pruefung.ts	3	ImportReport
+meldungen	messages	property	src/studio/pruefung.ts	3	ImportReport
+bereit	ready	property	src/studio/pruefung.ts	3	ImportReport; kann daraus eine Tour werden
+quelle	source	property	src/studio/pruefung.ts	3	ImportReport; die WERTE aufzeichnung/fotos/keine bleiben (Welle 4 mit studio.ts)
+bild	image	property	src/studio/pruefung.ts	3	projectPreview; die Bildpunkte je Eingabepunkt
+breiteS	breiteS	property	src/studio/zeitleiste.ts	5	BLEIBT BIS WELLE 5: AxisStop erfuellt strukturell Halt aus src/filmachse.ts — die Umbenennung oeffnet den Player-Kern und seinen Server-Zwilling
+filmVon	filmVon	property	src/studio/zeitleiste.ts, src/studio/tonklip.ts	5	BLEIBT BIS WELLE 5: StopInterval spiegelt HaltIntervall aus src/filmachse.ts; AudioClip haelt dieselbe Schreibweise
+filmBis	filmBis	property	src/studio/zeitleiste.ts, src/studio/tonklip.ts	5	BLEIBT BIS WELLE 5: dito

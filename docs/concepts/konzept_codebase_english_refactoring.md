@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-20
-status: Wellen 0 bis 2 abgeschlossen. Welle 1 am 2026-08-20 als v0.67.0 AUSGELIEFERT (Start-Migration auf Produktion gelaufen: 15 Touren auf tour@2, Marker 2, user_version 23), Nachbesserung v0.67.1. Welle 2 (Server-Internals) am 2026-08-20 gebaut: 427 Tabellenzeilen, 36 Modul- und 16 Testdateien umbenannt, Gates grün; noch nicht ausgeliefert. Wellen 3 bis 8 offen, Schritt 9 (Env) ganz am Ende.
+status: Wellen 0 bis 3 abgeschlossen. Welle 1 am 2026-08-20 als v0.67.0 AUSGELIEFERT (Start-Migration auf Produktion gelaufen: 15 Touren auf tour@2, Marker 2, user_version 23), Nachbesserung v0.67.1. Welle 2 (Server-Internals) am 2026-08-20 gebaut: 427 Tabellenzeilen, 36 Modul- und 16 Testdateien umbenannt, Gates grün; noch nicht ausgeliefert. Welle 3 (DOM-freie Studio-Module) am 2026-08-20 gebaut: editmodell, zeitleiste, tonklip und pruefung englisch, 240 Tabellenzeilen; stopps.ts bleibt nach Tabelle bei Welle 5. Wellen 4 bis 8 offen, Schritt 9 (Env) ganz am Ende.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -10,6 +10,9 @@ betrifft:
   - src/studio/api.ts
   - src/remote.ts
   - src/studio/editmodell.ts
+  - src/studio/zeitleiste.ts
+  - src/studio/tonklip.ts
+  - src/studio/pruefung.ts
   - src/filmachse.ts
   - src/kartenmaler.ts
   - android/app/src/main/java/app/maptale/daten/Entities.kt
@@ -605,7 +608,7 @@ mit Leser.
 | **0** ✅ | Zahlen aus §4.5, **Abbildungstabelle** gebaut und abgenommen (§11), Glossar eingefroren, Sprachregel in `CLAUDE.md`, DB-Snapshot, Abnahme-Checkliste, Roadmap sortiert | keins |
 | **1** ✅ | **Verträge und ihre Leser**: SQLite (Spalten, Tabellen, Werte, Blobs), `upload@2`, `edits@2`, `enrichment@2`, `tour@2`, **HTTP-API** (Pfade und Felder), Room v4, Start-Migration, Re-Render, plus aller Code, der dadurch rot wird, plus die Nähte aus §3.3; die beiden Specs | mittel, und heute am billigsten |
 | **2** ✅ | Server-Internals: Pipeline, Routen-Handler, Mail-Bausteine, Auth, Dateiumbenennungen in `server/src` | mittel |
-| **3** | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `stopps`, `pruefung`) | niedrig |
+| **3** ✅ | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `pruefung`; `stopps` geht nach Tabelle mit Welle 5) | niedrig |
 | **4** | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `abspielen`, `exportblatt`, `nachreichen`, `sfxbibliothek`, `tipp`, `kartenstimmung`) + Dateiumbenennungen | mittel |
 | **5** | Player-Engine (`tour`, `filmachse`, `filmuhr`, `kartenmaler`, `kartenschicht`, `einblendung`, `streckenanker`, `ui`, `main`, `exportfilm`, `exportformat`, `vollbild`, `karteninfo`, `tourtexte`, `wetterhimmel`, `pinmodell`) + `window.__j` + `scripts/messungen` + `test/fixtures/filmachse.json` mit Server-Spiegel | mittel |
 | **6** | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
@@ -722,6 +725,50 @@ Rot geworden sind vier Text-Wächter im Web, und das war die gute Nachricht:
 `AUTO_MUSIC`), `newsletter-einwilligung.test.ts` (`CONSENT_TEXTS`) und
 `markdown-links.test.ts` mit 60 toten Doku-Links. Angepasst wurde der Wächter,
 nicht der Code.
+
+### Welle 3: gebaut am 2026-08-20
+
+Die vier DOM-freien Studio-Module `editmodell.ts`, `zeitleiste.ts`, `tonklip.ts`
+und `pruefung.ts`, umbenannt wie Welle 2 über den TypeScript-Language-Service
+(`findRenameLocations`), nicht per Textersetzung. Rot geworden ist dabei nur,
+was Aufrufstelle ist: `editor.ts`, `studio.ts`, `stopps.ts`, `abspielen.ts`,
+`nachreichen.ts`, `kartenstimmung.ts` und die Testdateien. Fünf Dinge, die dabei
+aufgefallen sind:
+
+- **`stopps.ts` bleibt deutsch.** Der Wellenplan oben zählt es zu Welle 3, die
+  Abbildungstabelle stellt alle seine Zeilen auf 5 — und die Tabelle hat recht:
+  `Stopp` und `NAHE_M` haben Zwillinge in [geo.ts](../../src/geo.ts), gehalten
+  von einem Drift-Wächter. Angefasst wurde darin nur, was durch `editmodell`
+  und `zeitleiste` rot wurde.
+- **Zwei Zielformen der Tabelle kollidierten mit Welle 5**, und beide waren
+  dort als „beim Umbau prüfen" markiert: `Achse` → `FilmAxis` trifft
+  `Filmachse` → `FilmAxis`, `baueAchse` → `buildFilmAxis` trifft
+  `baueFilmachse` → `buildFilmAxis` — und `zeitleiste.ts` IMPORTIERT beide aus
+  [filmachse.ts](../../src/filmachse.ts). Der Editor-Typ heißt jetzt
+  `TimelineAxis` / `buildTimelineAxis` (§6.3: Zeitleiste = `timeline`), der
+  Name `FilmAxis` bleibt dem geteilten Modul. Dieselbe Sorte Befund wie
+  `TrackerAnbieter` in Welle 2, nur diesmal in der Tabelle vorhergesehen.
+- **`Fokus` heißt `EditorSelection`, nicht `Selection`.** Der bloße Name
+  verdeckt den gleichnamigen lib.dom-Typ in jeder importierenden Datei; die
+  Tabelle nannte die Ausweichform bereits.
+- **Drei Eigenschaften bleiben deutsch, und das ist Absicht**: `breiteS`,
+  `filmVon` und `filmBis`. `AxisStop` erfüllt strukturell `Halt` aus
+  `filmachse.ts`, `StopInterval` spiegelt dessen `HaltIntervall` — die
+  Umbenennung öffnet den Player-Kern samt Server-Zwilling und gehört nach
+  Welle 5. Sie stehen mit dieser Begründung als eigene Zeilen in der Tabelle.
+- **Die WERTE der modulinternen Unions bleiben**, obwohl ihre Felder wandern:
+  `EditorSelection['kind']` (`modus`/`kamera`/`wetter`) teilt seine Wörter mit
+  den `data-spur`-Werten und dem `GrenzArt` von `editor.ts`, `RulerMark.edge`
+  (`anfang`/`ende`) baut die CSS-Klasse `am-anfang`, und `Message.tone`
+  (`hinweis`/`warnung`) wird in `studio.ts` verglichen. Alle vier gehören damit
+  in Welle 4, nicht hierher.
+
+Neu in der Tabelle: 55 Zeilen — die Eigenschaften der Editor-Typen als Art
+`property`, dazu `moveToSlot` (für `ordneEin`, das es in `nachreichen.ts` ein
+zweites Mal gibt) und die „bleibt"-Zeilen. Modulinterne Variablennamen sind
+mitgegangen, aber bewusst NICHT eingetragen: Sie haben keinen Leser außerhalb
+ihrer Funktion, und 200 Zeilen davon machten die Tabelle für die Wellen danach
+unlesbarer, nicht genauer.
 
 ### Wellen 3 bis 6: Namen
 

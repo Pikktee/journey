@@ -14,7 +14,7 @@ import {
   type SpielStand,
   type Spielplan,
 } from '../src/studio/abspielen'
-import type { Filmkurve } from '../src/studio/zeitleiste'
+import type { FilmCurve } from '../src/studio/zeitleiste'
 
 /**
  * Der Weg, den das Abspielen tatsächlich geht: Filmzeit seit Klipbeginn (über
@@ -25,17 +25,17 @@ import type { Filmkurve } from '../src/studio/zeitleiste'
 const versatz = (
   anteil: number,
   klipVon: number,
-  kurve: Filmkurve,
+  kurve: FilmCurve,
   dauerS?: number,
   einstiegS?: number,
   loop?: boolean,
 ): number => musikVersatzS(seitKlipbeginnS(anteil, klipVon, kurve), dauerS, einstiegS, loop)
 
 /** Tour, die bei 1× in 100 Sekunden durchläuft (lineare Kurve). */
-const LINEAR_100: Filmkurve = { anteile: [0, 1], filmS: [0, 100], gesamtS: 100 }
+const LINEAR_100: FilmCurve = { fractions: [0, 1], filmS: [0, 100], totalS: 100 }
 /** Spielkurve mit Trim-Plateau: 50 s Film — Plateau — 50 s Film. */
-const MIT_PAUSE: Filmkurve = { anteile: [0, 0.25, 0.75, 1], filmS: [0, 50, 50, 100], gesamtS: 100 }
-const plan = (kurve: Filmkurve = LINEAR_100): Spielplan => ({
+const MIT_PAUSE: FilmCurve = { fractions: [0, 0.25, 0.75, 1], filmS: [0, 50, 50, 100], totalS: 100 }
+const plan = (kurve: FilmCurve = LINEAR_100): Spielplan => ({
   marke: 0,
   kurve,
   musik: [],
@@ -93,7 +93,7 @@ describe('tick — Fahrt', () => {
   it('läuft auf einer nichtlinearen Kurve je Achsenstück verschieden schnell', () => {
     // Erste Achsenhälfte 20 Filmsekunden, zweite 80: nach 20 s steht die
     // Marke bei 0,5, nach weiteren 40 s bei 0,75.
-    const kurve: Filmkurve = { anteile: [0, 0.5, 1], filmS: [0, 20, 100], gesamtS: 100 }
+    const kurve: FilmCurve = { fractions: [0, 0.5, 1], filmS: [0, 20, 100], totalS: 100 }
     expect(tick(stand(), 20, plan(kurve)).stand.marke).toBeCloseTo(0.5, 6)
     expect(tick(stand({ marke: 0.5 }), 40, plan(kurve)).stand.marke).toBeCloseTo(0.75, 6)
   })

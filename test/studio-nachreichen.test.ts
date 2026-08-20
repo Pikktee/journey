@@ -3,7 +3,7 @@
 // Konzept: docs/concepts/konzept_medien_nachreichen_und_loeschen.md
 
 import { describe, expect, it } from 'vitest'
-import { endgueltigZuLoeschen, ohneMedien, type EditOverlay } from '../src/studio/editmodell.js'
+import { idsToDelete, withoutMedia, type EditOverlay } from '../src/studio/editmodell.js'
 import {
   abstandsFunktion,
   befundSaetze,
@@ -187,30 +187,28 @@ describe('Endgültiges Löschen im Overlay', () => {
   }
 
   it('findet, was beim Speichern endgültig verschwindet', () => {
-    expect(endgueltigZuLoeschen(overlay).sort()).toEqual(['m1', 'm3'])
+    expect(idsToDelete(overlay).sort()).toEqual(['m1', 'm3'])
   })
 
   it('meldet nichts, wenn nichts entfernt wurde', () => {
-    expect(endgueltigZuLoeschen({ schema: 'maptale/edits@2' })).toEqual([])
-    expect(
-      endgueltigZuLoeschen({ schema: 'maptale/edits@2', media: { m1: { caption: 'da' } } }),
-    ).toEqual([])
+    expect(idsToDelete({ schema: 'maptale/edits@2' })).toEqual([])
+    expect(idsToDelete({ schema: 'maptale/edits@2', media: { m1: { caption: 'da' } } })).toEqual([])
   })
 
   it('tilgt Overlay-Spuren gelöschter Medien samt Titelbild-Verweis', () => {
-    const danach = ohneMedien(overlay, ['m1', 'm3'])
+    const danach = withoutMedia(overlay, ['m1', 'm3'])
     expect(Object.keys(danach.media ?? {})).toEqual(['m2'])
     // Ein Titelbild, das ins Leere zeigt, verhinderte die Neuwahl beim Render
     expect(danach.cover).toBeUndefined()
   })
 
   it('lässt ein Titelbild stehen, das ein anderes Medium meint', () => {
-    const danach = ohneMedien({ ...overlay, cover: 'm2' }, ['m1'])
+    const danach = withoutMedia({ ...overlay, cover: 'm2' }, ['m1'])
     expect(danach.cover).toBe('m2')
   })
 
   it('räumt den leeren medien-Block weg (das gespeicherte JSON bleibt minimal)', () => {
-    const danach = ohneMedien({ schema: 'maptale/edits@2', media: { m1: { removed: true } } }, [
+    const danach = withoutMedia({ schema: 'maptale/edits@2', media: { m1: { removed: true } } }, [
       'm1',
     ])
     expect('medien' in danach).toBe(false)
@@ -221,6 +219,6 @@ describe('Endgültiges Löschen im Overlay', () => {
       ...overlay,
       audio: [{ file: 'mus-aufbruch.mp3', type: 'music', from: '2026-07-04T08:00:00Z' }],
     }
-    expect(ohneMedien(mitTon, ['m1']).audio).toEqual(mitTon.audio)
+    expect(withoutMedia(mitTon, ['m1']).audio).toEqual(mitTon.audio)
   })
 })

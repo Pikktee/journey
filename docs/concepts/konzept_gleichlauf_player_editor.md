@@ -356,8 +356,8 @@ nicht nötig — beide Uhren sind dann dieselbe.
 [tour.ts](../../src/tour.ts) liest die Position aus der Achse statt sie zu integrieren:
 `s = streckeBeiFilm(achse, filmS)`.
 
-> **Nicht `anteilBei(kurve, filmS) · total`**, wie eine frühere Fassung schrieb. `anteilBei`
-> arbeitet auf der **Spielkurve** und liefert einen *Film*-Anteil — `baueSpielKurve` gibt ohne
+> **Nicht `fractionAt(kurve, filmS) · total`**, wie eine frühere Fassung schrieb. `fractionAt`
+> arbeitet auf der **Spielkurve** und liefert einen *Film*-Anteil — `buildPlaybackCurve` gibt ohne
 > Trim `{anteile: [0,1], filmS: [0, gesamtS]}` zurück, die Leisten-Achse ist bereits
 > filmlinear. Mit `· total` käme ein `s` heraus, das linear in der Filmzeit läuft: Modi und
 > Halte fielen heraus. Gebraucht wird die Achse über der Strecke (E12).
@@ -391,7 +391,7 @@ Der Kern ist ohnehin distanzparametrisiert beschrieben (*Abschnittslängen, Modu
 Halte als Position + Breite*) — was fehlt, sind die Adapter: `zeitleiste.ts` rechnet
 durchgehend in Aufnahmezeit, `projiziereAufReihe` im Server ebenso, und die Anker von Medien
 und Ton-Klips bleiben Aufnahme-Zeitstempel (trim-stabil, so begründet es die Spec). Sie
-brauchen einen Zeit→Strecke-Schritt; das Studio hat mit `kumMeter`/`meterZuOffset` schon
+brauchen einen Zeit→Strecke-Schritt; das Studio hat mit `cumMeters`/`metersToOffset` schon
 Werkzeug dafür.
 
 ⇒ **Etappe 3 ist der teuerste Schritt des Plans, nicht Etappe 4**, und sie liegt hart auf dem
@@ -450,8 +450,8 @@ hat ihn noch. **Nicht filmlinear werden:** Pseudo-Uhrzeit, Sonnenstand, Wetter-T
 
 **Der rechnende Kern ist schon zur Hälfte geteilt** — nichts davon ist neu zu bauen:
 `videoTonHuelle`, `videoLautstaerke`, `videoMusikDuck`, `VIDEO_FADE_S`, `VIDEO_DUCK`,
-`STUDIO_PEGEL_VORGABE` ([audiotracks.ts](../../src/audiotracks.ts)); `klemmeVideoTrim`,
-`videoFilmS`, `videoStandS`, `aufnahmeHaltS`, `HALT_ENGINE_S`/`HALT_AUSBLEND_S`
+`STUDIO_PEGEL_VORGABE` ([audiotracks.ts](../../src/audiotracks.ts)); `clampMediaTrim`,
+`videoFilmS`, `videoStandS`, `mediumHoldS`, `STOP_ENGINE_S`/`STOP_FADE_OUT_S`
 ([zeitleiste.ts](../../src/studio/zeitleiste.ts)); `NAHE_M` samt Gruppierungsregel.
 
 Doppelt sind die DOM-/CSS-Schicht (~200 Zeilen TS + ~110 Zeilen CSS je Seite) und die Zahlen
@@ -702,7 +702,7 @@ der Filmzeit ableiten; Bremsweg-Vorgriff und Ausrollschwelle entfallen; Scrubben
 
 **Rückwärts fährt über dieselbe Kurve (E13).** Die frühere Sorge — „an jedem Halt kleben" —
 hat sich an der Praxis erledigt: Der Editor macht es seit Monaten genau so
-([abspielen.ts](../../src/studio/abspielen.ts), `tick` rechnet `filmBei(kurve, alt) + tempo · dt`
+([abspielen.ts](../../src/studio/abspielen.ts), `tick` rechnet `filmAt(kurve, alt) + tempo · dt`
 mit negativem Tempo bis −4×), die Halte sind dort Plateaus derselben Kurve, und es ist
 niemandem als Mangel aufgefallen. Der Player bekommt damit dasselbe Verhalten wie der Editor
 statt eines eigenen.

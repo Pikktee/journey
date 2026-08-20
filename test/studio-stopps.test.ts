@@ -6,12 +6,12 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
-  effektiveMedien,
-  LEERES_OVERLAY,
-  mitMedienEdit,
-  offsetZuIso,
-  type MediumBasis,
-  type TrackPunkt,
+  effectiveMedia,
+  EMPTY_OVERLAY,
+  withMediaEdit,
+  offsetToIso,
+  type MediaBase,
+  type TrackPoint,
 } from '../src/studio/editmodell'
 import {
   baueStopps,
@@ -23,23 +23,23 @@ import {
   stoppSignatur,
   stoppVon,
 } from '../src/studio/stopps'
-import { kumMeter, meterZuOffset, offsetBeiMeter } from '../src/studio/zeitleiste'
+import { cumMeters, metersToOffset, offsetAtMeters } from '../src/studio/zeitleiste'
 import { NAHE_M as PLAYER_NAHE_M } from '../src/geo.js'
 import { reihenfolgeImHalt } from '../src/einblendung.js'
 
 const START = '2026-03-12T07:10:00Z'
-const iso = (s: number): string => offsetZuIso(START, s)
+const iso = (s: number): string => offsetToIso(START, s)
 
 // Gerade Ost-West-Linie auf 47° Breite: 0,01° ≈ 759 m. 11 Punkte = ~7,6 km.
 const GRAD_JE_METER = 1 / (111_320 * Math.cos((47 * Math.PI) / 180))
-const track: TrackPunkt[] = Array.from(
+const track: TrackPoint[] = Array.from(
   { length: 11 },
-  (_, i) => [9 + i * 0.01, 47, 0, i * 360] as TrackPunkt,
+  (_, i) => [9 + i * 0.01, 47, 0, i * 360] as TrackPoint,
 )
-const kum = kumMeter(track)
+const kum = cumMeters(track)
 
 /** Ein Foto, dessen Anker `meter` weit auf der Strecke liegt. */
-function foto(id: string, meter: number, takenAtS = 0): MediumBasis {
+function foto(id: string, meter: number, takenAtS = 0): MediaBase {
   return {
     id,
     type: 'photo',
@@ -50,8 +50,8 @@ function foto(id: string, meter: number, takenAtS = 0): MediumBasis {
     placement: 'gps',
   }
 }
-const stopps = (basis: MediumBasis[], edits = LEERES_OVERLAY): ReturnType<typeof baueStopps> =>
-  baueStopps(effektiveMedien(basis, edits), track, kum)
+const stopps = (basis: MediaBase[], edits = EMPTY_OVERLAY): ReturnType<typeof baueStopps> =>
+  baueStopps(effectiveMedia(basis, edits), track, kum)
 
 describe('baueStopps', () => {
   it('fasst Aufnahmen unter 120 m zusammen und trennt darüber', () => {
@@ -76,12 +76,12 @@ describe('baueStopps', () => {
 
   it('überspringt Unplatzierte und Gelöschte', () => {
     const basis = [foto('a', 1000), foto('b', 3000)]
-    const ohneAnker: MediumBasis[] = [
+    const ohneAnker: MediaBase[] = [
       ...basis,
       { ...foto('c', 0), anchor: null, placement: 'unplaced' },
     ]
     expect(stopps(ohneAnker)).toHaveLength(2)
-    const geloescht = mitMedienEdit(LEERES_OVERLAY, 'b', { removed: true })
+    const geloescht = withMediaEdit(EMPTY_OVERLAY, 'b', { removed: true })
     expect(stopps(basis, geloescht)).toHaveLength(1)
   })
 
@@ -90,19 +90,19 @@ describe('baueStopps', () => {
     const basis = [foto('a', 1000, 300), foto('b', 1050, 600), foto('c', 1100, 0)]
     expect(stopps(basis)[0]!.items.map((m) => m.id)).toEqual(['c', 'a', 'b'])
 
-    let e = reiheVergeben(LEERES_OVERLAY, ['b', 'a', 'c'])
+    let e = reiheVergeben(EMPTY_OVERLAY, ['b', 'a', 'c'])
     expect(stopps(basis, e)[0]!.items.map((m) => m.id)).toEqual(['b', 'a', 'c'])
 
     // Lücke: wer keine reihe hat, kommt ans Ende (nach Aufnahmezeit)
-    e = mitMedienEdit(LEERES_OVERLAY, 'b', { order: 0 })
+    e = withMediaEdit(EMPTY_OVERLAY, 'b', { order: 0 })
     expect(stopps(basis, e)[0]!.items.map((m) => m.id)).toEqual(['b', 'c', 'a'])
   })
 
   it('behält `order: 0` — sie darf nicht als „leer" wegfallen', () => {
-    const e = mitMedienEdit(LEERES_OVERLAY, 'x', { order: 0 })
+    const e = withMediaEdit(EMPTY_OVERLAY, 'x', { order: 0 })
     expect(e.media?.['x']?.order).toBe(0)
     // undefined räumt sie dagegen weg
-    expect(mitMedienEdit(e, 'x', { order: undefined }).media).toBeUndefined()
+    expect(withMediaEdit(e, 'x', { order: undefined }).media).toBeUndefined()
   })
 
   it('liefert Ort und Zeit des Halts als Mittel seiner Mitglieder', () => {
@@ -160,12 +160,12 @@ describe('meterOhneCluster / dOffsetOhneCluster', () => {
     // Kopf bei Offset 0 → Meter 0; Ziel-Versatz auf Meter ~50 (unter NAHE_M zu 0)
     // Fremder bei Meter 0: nach dem Zug auf ~50 m müsste er auf 120 m rutschen
     const fremdBei0 = 0
-    const zielOffset = offsetBeiMeter(kum, track, 50)
+    const zielOffset = offsetAtMeters(kum, track, 50)
     const d = dOffsetOhneCluster([0], zielOffset, [fremdBei0], kum, track)
-    const meter = meterZuOffset(kum, track, 0 + d)
+    const meter = metersToOffset(kum, track, 0 + d)
     expect(meter).toBeGreaterThanOrEqual(NAHE_M)
     expect(
-      baueStopps(effektiveMedien([foto('a', meter), foto('b', 0)], LEERES_OVERLAY), track, kum),
+      baueStopps(effectiveMedia([foto('a', meter), foto('b', 0)], EMPTY_OVERLAY), track, kum),
     ).toHaveLength(2)
   })
 })

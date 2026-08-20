@@ -10,7 +10,7 @@
 // (test/studio-baukasten.test.ts) hält die Dateinamen-Menge beider Seiten
 // synchron.
 
-/** Wie ein Effekt abgespielt wird — deckt sich mit AudioEintrag.typ. */
+/** Wie ein Effekt abgespielt wird — deckt sich mit AudioEntry.typ. */
 export type SfxTyp = 'music' | 'sfx'
 
 export interface SfxEffekt {

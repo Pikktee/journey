@@ -14,7 +14,7 @@
 // Zahlen an Atmosphäre und Grading. Was der Editor nicht zeigt, sind die
 // Tropfen — dass es regnet und wie stark, sagt der Schleier.
 
-/** Die Wetterlagen der Szene. Spiegel von `WETTER_MODI` (studio/editmodell.ts). */
+/** Die Wetterlagen der Szene. Spiegel von `WEATHER_MODES` (studio/editmodell.ts). */
 export type SzenenWetter = 'off' | 'clouds' | 'fog' | 'rain' | 'snow' | 'storm'
 
 /**

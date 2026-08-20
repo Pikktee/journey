@@ -19,14 +19,14 @@ import {
 } from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
-  baueFotoSegmente,
-  medienAusBefund,
-  projiziereVorschau,
-  pruefe,
-  punktZuZeit,
-  schaetzeFahrtS,
-  type AufnahmeBefund,
-  type Pruefbefund,
+  buildPhotoSegments,
+  mediaFromReport,
+  projectPreview,
+  validate,
+  pointAtTime,
+  estimateRideS,
+  type MediumReport,
+  type ImportReport,
 } from './pruefung.js'
 import { baueUploadManifest, exifDatumZuMs, isoMitZone, medientyp } from './upload.js'
 
@@ -1219,8 +1219,8 @@ function escape(s: string): string {
 let gpxDatei: File | null = null
 let gpxText: string | null = null
 let medienDateien: File[] = []
-let befunde: AufnahmeBefund[] = []
-let befund: Pruefbefund | null = null
+let befunde: MediumReport[] = []
+let befund: ImportReport | null = null
 let laeuftUpload = false
 const vorschauUrls = new Map<string, string>()
 
@@ -1300,18 +1300,18 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
   for (const file of neueMedien) {
     const type = medientyp(file.name)
     if (!type) continue
-    let zeitMs = file.lastModified
-    let zeitGeraten = true
-    let ort: [number, number] | null = null
+    let takenAtMs = file.lastModified
+    let takenAtGuessed = true
+    let location: [number, number] | null = null
     if (type === 'photo') {
       const exif = liesExif(await file.arrayBuffer())
       if (exif.datum) {
-        zeitMs = exifDatumZuMs(exif.datum, ZONE)
-        zeitGeraten = false
+        takenAtMs = exifDatumZuMs(exif.datum, ZONE)
+        takenAtGuessed = false
       }
-      if (exif.gps) ort = exif.gps
+      if (exif.gps) location = exif.gps
     }
-    befunde.push({ file: file.name, type, zeitMs, zeitGeraten, ort })
+    befunde.push({ file: file.name, type, takenAtMs, takenAtGuessed, location })
     if (warLeer) zeigeLesen(++gelesen, neueMedien.length)
   }
   renderNeu()
@@ -1388,13 +1388,13 @@ function dauerText(ms: number): string {
 }
 
 function renderNeu(): void {
-  befund = pruefe(gpxText, befunde)
+  befund = validate(gpxText, befunde)
   const anzahl = befunde.length
   els.neuUnter.textContent = anzahl
     ? `${anzahl} Aufnahme${anzahl > 1 ? 'n' : ''}${gpxDatei ? ` · ${gpxDatei.name}` : ''}`
     : ''
-  els.neuBauen.disabled = !befund.bereit || laeuftUpload
-  els.neuModusWrap.hidden = !befund.bereit
+  els.neuBauen.disabled = !befund.ready || laeuftUpload
+  els.neuModusWrap.hidden = !befund.ready
   // Der Fuß bleibt leer, solange nichts abgelegt ist: „Aufnahmen hinzufügen"
   // heißt NACHLEGEN (der Leerzustand sagt dasselbe größer und besser mit
   // „Dateien wählen"), und die Sichtbarkeit entscheidet über eine Tour, die es
@@ -1435,7 +1435,7 @@ function renderNeu(): void {
   raster.appendChild(baueVorschau(befund))
   raster.appendChild(baueDaten(befund))
   els.neuRumpf.appendChild(raster)
-  if (befund.aufnahmen.length) els.neuRumpf.appendChild(baueZeitband(befund))
+  if (befund.media.length) els.neuRumpf.appendChild(baueZeitband(befund))
   setzeFenstergroesse(false)
 }
 
@@ -1451,32 +1451,32 @@ function setzeFenstergroesse(klein: boolean): void {
 }
 
 /** Die Strecke als Form — eine Karte wäre gelogen, die Kartendaten holt erst der Player. */
-function baueVorschau(b: Pruefbefund): HTMLElement {
+function baueVorschau(b: ImportReport): HTMLElement {
   const el = document.createElement('div')
   el.className = 'vorschau'
   const punkte: Array<readonly [number, number]> =
-    b.track?.punkte.map((p) => [p[0], p[1]] as const) ??
-    b.aufnahmen.filter((a) => a.ort).map((a) => a.ort as [number, number])
-  const proj = projiziereVorschau(punkte)
+    b.track?.points.map((p) => [p[0], p[1]] as const) ??
+    b.media.filter((a) => a.location).map((a) => a.location as [number, number])
+  const proj = projectPreview(punkte)
   if (!proj) {
     el.innerHTML = `<div class="quelle">noch keine Strecke</div>`
     return el
   }
   // Foto-Marken: mit Aufzeichnung am zeitlich nächsten Trackpunkt, ohne
   // Aufzeichnung sind die Fotos selbst die Punkte.
-  const marken = b.aufnahmen
+  const marken = b.media
     .map((a, i) => {
       const index = b.track
-        ? punktZuZeit(b.track.punkte, a.zeitMs)
-        : b.aufnahmen.filter((x) => x.ort).findIndex((x) => x === a)
-      const p = proj.bild[index]
+        ? pointAtTime(b.track.points, a.takenAtMs)
+        : b.media.filter((x) => x.location).findIndex((x) => x === a)
+      const p = proj.image[index]
       if (!p) return ''
-      const ohneOrt = !a.ort && !b.track
+      const ohneOrt = !a.location && !b.track
       return `<circle class="marke${ohneOrt ? ' ohne-ort' : ''}" cx="${p[0]}" cy="${p[1]}" r="2.1"><title>Aufnahme ${i + 1}</title></circle>`
     })
     .join('')
-  const anfang = proj.bild[0] as [number, number]
-  const schluss = proj.bild[proj.bild.length - 1] as [number, number]
+  const anfang = proj.image[0] as [number, number]
+  const schluss = proj.image[proj.image.length - 1] as [number, number]
   el.innerHTML = `<svg viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <path class="linie${b.track ? '' : ' geraten'}" d="${escape(proj.d)}"/>
       ${marken}
@@ -1487,13 +1487,13 @@ function baueVorschau(b: Pruefbefund): HTMLElement {
   return el
 }
 
-function baueDaten(b: Pruefbefund): HTMLElement {
+function baueDaten(b: ImportReport): HTMLElement {
   const el = document.createElement('div')
   el.className = 'neu-daten'
   // Die Zahlen beschreiben die REISE, nicht die Zeitachse: die reicht bei einem
   // Ausreißer über Tage, die Tour selbst dauerte drei Stunden.
-  const vonMs = b.track?.startMs ?? b.vonMs
-  const bisMs = b.track?.endMs ?? b.bisMs
+  const vonMs = b.track?.startMs ?? b.fromMs
+  const bisMs = b.track?.endMs ?? b.toMs
   const spanneMs = bisMs - vonMs
   const km = b.track?.km ?? 0
   const zahl = (symbol: string, kicker: string, wert: string): string =>
@@ -1505,38 +1505,38 @@ function baueDaten(b: Pruefbefund): HTMLElement {
       ${zahl('route', 'Strecke', km ? `${String(km).replace('.', ',')} km` : '–')}
       ${zahl('uhr', 'Unterwegs', spanneMs > 0 ? dauerText(spanneMs) : '–')}
       ${zahl('kalender', b.track ? 'Aufgezeichnet' : 'Aufgenommen', spanneMs > 0 ? `${tag} · ${uhr(vonMs)}–${uhr(bisMs)}` : '–')}
-      ${zahl('kamera', 'Kamerafahrt', b.bereit ? `≈ ${dauerText(schaetzeFahrtS(km, b.aufnahmen.length) * 1000)}` : '–')}
+      ${zahl('kamera', 'Kamerafahrt', b.ready ? `≈ ${dauerText(estimateRideS(km, b.media.length) * 1000)}` : '–')}
     </div>`
   const meldungen = document.createElement('div')
   meldungen.className = 'meldungen'
-  for (const m of b.meldungen) {
+  for (const m of b.messages) {
     const zeile = document.createElement('div')
-    zeile.className = `meldung ${m.ton}`
-    zeile.innerHTML = `<span class="zeichen">${m.ton === 'warnung' ? '!' : '?'}</span><span>${escape(m.text)}</span>`
+    zeile.className = `meldung ${m.tone}`
+    zeile.innerHTML = `<span class="zeichen">${m.tone === 'warnung' ? '!' : '?'}</span><span>${escape(m.text)}</span>`
     // Nur wo es etwas zu entscheiden gibt, steht ein Knopf — und er benennt,
     // was er tut, statt „OK" zu sagen.
-    if (m.ton === 'warnung' && m.dateien.length) {
+    if (m.tone === 'warnung' && m.files.length) {
       const knopf = document.createElement('button')
       knopf.type = 'button'
-      knopf.textContent = m.dateien.length === 1 ? 'Weglassen' : 'Alle weglassen'
-      knopf.addEventListener('click', () => entferneAufnahmen(m.dateien))
+      knopf.textContent = m.files.length === 1 ? 'Weglassen' : 'Alle weglassen'
+      knopf.addEventListener('click', () => entferneAufnahmen(m.files))
       zeile.appendChild(knopf)
     }
     meldungen.appendChild(zeile)
   }
-  if (b.meldungen.length) el.appendChild(meldungen)
+  if (b.messages.length) el.appendChild(meldungen)
   return el
 }
 
 /** Jede Aufnahme an ihrer Uhrzeit — das Zeitband zeigt Lücken und Ausreißer. */
-function baueZeitband(b: Pruefbefund): HTMLElement {
+function baueZeitband(b: ImportReport): HTMLElement {
   const el = document.createElement('div')
   el.className = 'zeitband'
-  const spanne = Math.max(1, b.bisMs - b.vonMs)
-  const anteil = (ms: number): number => ((ms - b.vonMs) / spanne) * 100
+  const spanne = Math.max(1, b.toMs - b.fromMs)
+  const anteil = (ms: number): number => ((ms - b.fromMs) / spanne) * 100
   const kopf = document.createElement('div')
   kopf.className = 'kopf'
-  kopf.textContent = `${b.aufnahmen.length} Aufnahme${b.aufnahmen.length > 1 ? 'n' : ''} an ihrer Uhrzeit`
+  kopf.textContent = `${b.media.length} Aufnahme${b.media.length > 1 ? 'n' : ''} an ihrer Uhrzeit`
   el.appendChild(kopf)
 
   const innen = document.createElement('div')
@@ -1546,15 +1546,15 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
   bahn.className = 'bahn'
   // Zu dicht beieinander liegende Aufnahmen zu einer Marke bündeln — sonst
   // überdecken sich bei 50 Fotos die Bilder gegenseitig.
-  const gruppen: Array<{ anteil: number; items: AufnahmeBefund[] }> = []
-  for (const a of b.aufnahmen) {
-    const x = anteil(a.zeitMs)
+  const gruppen: Array<{ anteil: number; items: MediumReport[] }> = []
+  for (const a of b.media) {
+    const x = anteil(a.takenAtMs)
     const letzte = gruppen[gruppen.length - 1]
     if (letzte && x - letzte.anteil < 3.6) letzte.items.push(a)
     else gruppen.push({ anteil: x, items: [a] })
   }
   for (const g of gruppen) {
-    const erste = g.items[0] as AufnahmeBefund
+    const erste = g.items[0] as MediumReport
     const file = medienDateien.find((d) => d.name === erste.file)
     const stiel = document.createElement('div')
     stiel.className = 'stiel'
@@ -1564,10 +1564,11 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
     bild.className = 'bild'
     bild.style.left = `${g.anteil.toFixed(2)}%`
     bild.style.bottom = '18px'
-    if (!erste.ort) bild.classList.add('ohne-ort')
+    if (!erste.location) bild.classList.add('ohne-ort')
     if (
       b.track &&
-      (erste.zeitMs < b.track.startMs - 20 * 60000 || erste.zeitMs > b.track.endMs + 20 * 60000)
+      (erste.takenAtMs < b.track.startMs - 20 * 60000 ||
+        erste.takenAtMs > b.track.endMs + 20 * 60000)
     ) {
       bild.classList.add('ausserhalb')
     }
@@ -1579,7 +1580,7 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
       zahl.textContent = String(g.items.length)
       bild.appendChild(zahl)
     }
-    bild.title = g.items.map((i) => `${i.file} · ${uhr(i.zeitMs)}`).join('\n')
+    bild.title = g.items.map((i) => `${i.file} · ${uhr(i.takenAtMs)}`).join('\n')
     bahn.appendChild(bild)
   }
   innen.appendChild(bahn)
@@ -1610,10 +1611,10 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
   const stunden = document.createElement('div')
   stunden.className = 'stunden'
   const schrittH = Math.max(1, Math.ceil(spanne / 3600000 / 5))
-  const erste = new Date(b.vonMs)
+  const erste = new Date(b.fromMs)
   erste.setMinutes(0, 0, 0)
-  for (let t = erste.getTime(); t <= b.bisMs; t += schrittH * 3600000) {
-    if (t < b.vonMs) continue
+  for (let t = erste.getTime(); t <= b.toMs; t += schrittH * 3600000) {
+    if (t < b.fromMs) continue
     const marke = document.createElement('span')
     marke.style.left = `${anteil(t).toFixed(2)}%`
     marke.textContent = uhr(t)
@@ -1673,7 +1674,7 @@ async function warteAufBereit(id: string): Promise<'ready' | 'failed' | 'process
 }
 
 els.neuBauen.addEventListener('click', async () => {
-  if (!befund?.bereit || laeuftUpload) return
+  if (!befund?.ready || laeuftUpload) return
   if (uploadGesperrt) {
     setzeNeuStatus('Bitte zuerst die E-Mail-Adresse bestätigen.', 'fehler')
     return
@@ -1685,12 +1686,12 @@ els.neuBauen.addEventListener('click', async () => {
   const medienUpload = medienDateien.filter((d) => befunde.some((b) => b.file === d.name))
 
   try {
-    const media = medienAusBefund(befund, (ms) => isoMitZone(ms, ZONE))
-    const kennung = `studio:${(gpxDatei?.name ?? befund.aufnahmen[0]?.file ?? 'tour').slice(0, 60)}:${befund.vonMs}`
+    const media = mediaFromReport(befund, (ms) => isoMitZone(ms, ZONE))
+    const kennung = `studio:${(gpxDatei?.name ?? befund.media[0]?.file ?? 'tour').slice(0, 60)}:${befund.fromMs}`
     const manifest = baueUploadManifest({
       clientTourId: kennung,
       title: null,
-      zeitspanne: { startMs: befund.vonMs, endMs: befund.bisMs },
+      zeitspanne: { startMs: befund.fromMs, endMs: befund.toMs },
       zone: ZONE,
       trackMode: modus,
       media,
@@ -1698,7 +1699,7 @@ els.neuBauen.addEventListener('click', async () => {
     // Ohne Aufzeichnung sind die Foto-Orte die Strecke: das Manifest trägt dann
     // `segments` statt `trackFile` (beides erlaubt das Schema, genau eines).
     if (!befund.track) {
-      const segmente = baueFotoSegmente(befund.aufnahmen, modus)
+      const segmente = buildPhotoSegments(befund.media, modus)
       if (!segmente.length) throw new Error('Zu wenige verortete Fotos für eine Strecke.')
       delete (manifest as { trackFile?: string }).trackFile
       ;(manifest as unknown as { segments: unknown }).segments = segmente
@@ -1748,7 +1749,7 @@ els.neuBauen.addEventListener('click', async () => {
   } finally {
     laeuftUpload = false
     els.neuFortschritt.hidden = true
-    els.neuBauen.disabled = !befund?.bereit
+    els.neuBauen.disabled = !befund?.ready
   }
 })
 

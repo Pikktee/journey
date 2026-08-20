@@ -201,7 +201,7 @@ describe('DOM-Kennungen gegen das Markup', () => {
  * der Wächter die neue Welle nicht, und das ist die einzige Stelle, an der er
  * still zu wenig tut.
  */
-const GEBAUTE_WELLEN = new Set(['1', '2'])
+const GEBAUTE_WELLEN = new Set(['1', '2', '3'])
 
 /**
  * Ist-Werte aus gebauten Wellen: Wörter, die im Markup nichts mehr zu suchen

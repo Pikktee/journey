@@ -28,14 +28,19 @@
 // Alles hier ist DOM-frei und unter Vitest getestet; die Verdrahtung (Ziehen,
 // Wellenform, Inspector) liegt in editor.ts.
 
-import { isoZuOffset, offsetZuIso, type AudioEintrag } from './editmodell.js'
-import { filmBeiZeit, filmZuOffset, zeitBeiFilm, type Achse } from './zeitleiste.js'
+import { isoToOffset, offsetToIso, type AudioEntry } from './editmodell.js'
+import {
+  filmTimeAtRecordingTime,
+  filmToOffset,
+  recordingTimeAtFilmTime,
+  type TimelineAxis,
+} from './zeitleiste.js'
 
 /** Kürzester Klip in Filmsekunden — darunter ist er nicht mehr zu greifen. */
-export const TON_MIN_S = 0.2
+export const AUDIO_MIN_S = 0.2
 
 /** Ein aufgelöster Ton-Klip: wo er im FILM liegt und was er aus seiner Datei zeigt. */
-export interface TonKlip {
+export interface AudioClip {
   /** Index im Overlay-Array — die Identität (zwei Klips dürfen dieselbe Datei tragen) */
   index: number
   type: 'music' | 'sfx'
@@ -46,14 +51,14 @@ export interface TonKlip {
   startS: number
   loop: boolean
   /** Länge der Datei (s), sofern gemessen — der Anschlag beider Kanten */
-  dateiS?: number
+  fileS?: number
   /** Unterzeile bei Überlappung (der Player MISCHT, also stapelt die Leiste) */
   lane: number
   /**
    * Trägt der Eintrag noch die alte `from`/`to`-Verankerung? Dann ist seine Lage
    * aus der Aufnahmezeit abgeleitet — beim ersten Eingriff wird sie festgeschrieben.
    */
-  altVerankert: boolean
+  legacyAnchored: boolean
   /**
    * Steht die Länge AUSDRÜCKLICH im Overlay — oder ist sie nur abgeleitet?
    *
@@ -64,11 +69,11 @@ export interface TonKlip {
    * beim Scrubben anders anspringt. Erst wer an einer Kante zieht, sagt etwas
    * über die Länge.
    */
-  laengeGesetzt: boolean
+  hasExplicitLength: boolean
 }
 
 /** Was eine Geste ins Overlay schreibt. */
-export interface TonPatch {
+export interface AudioClipPatch {
   anchor: string
   offsetFilmS: number
   durationFilmS?: number
@@ -84,26 +89,26 @@ export interface TonPatch {
  * innerhalb eines Halts, wo es gar keine unterscheidbare Aufnahmezeit gibt,
  * fielen alle Lagen auf die linke Haltkante zusammen.
  */
-export function verankere(
-  achse: Achse,
+export function anchorClips(
+  axis: TimelineAxis,
   startIso: string,
   filmVon: number,
 ): { anchor: string; offsetFilmS: number } {
-  if (!achse.kurve) return { anchor: offsetZuIso(startIso, filmVon), offsetFilmS: 0 }
-  const offsetS = zeitBeiFilm(achse.kurve, filmVon)
-  // Auf ganze Sekunden runden: `offsetZuIso` schreibt einen sekundengenauen
+  if (!axis.curve) return { anchor: offsetToIso(startIso, filmVon), offsetFilmS: 0 }
+  const offsetS = recordingTimeAtFilmTime(axis.curve, filmVon)
+  // Auf ganze Sekunden runden: `offsetToIso` schreibt einen sekundengenauen
   // Stempel, und was dabei verlorenginge, landete sonst still im Versatz.
-  const ankerS = Math.round(offsetS)
+  const anchorS = Math.round(offsetS)
   return {
-    anchor: offsetZuIso(startIso, ankerS),
-    offsetFilmS: rundeAuf(filmVon - filmBeiZeit(achse.kurve, ankerS), 3),
+    anchor: offsetToIso(startIso, anchorS),
+    offsetFilmS: roundTo(filmVon - filmTimeAtRecordingTime(axis.curve, anchorS), 3),
   }
 }
 
 /** Auf `stellen` Nachkommastellen runden — hält das Overlay lesbar und stabil. */
-function rundeAuf(wert: number, stellen: number): number {
-  const f = 10 ** stellen
-  return Math.round(wert * f) / f
+function roundTo(value: number, digits: number): number {
+  const f = 10 ** digits
+  return Math.round(value * f) / f
 }
 
 /**
@@ -114,72 +119,73 @@ function rundeAuf(wert: number, stellen: number): number {
  * vor Etappe 4 bleibt lesbar und rendert unverändert, bis jemand den Klip
  * anfasst.
  */
-function loeseLage(
-  a: AudioEintrag,
+function resolvePosition(
+  a: AudioEntry,
   startIso: string,
-  achse: Achse,
-  dateiS: number | undefined,
-): { filmVon: number; filmBis: number; altVerankert: boolean; laengeGesetzt: boolean } {
-  const gesamtS = achse.kurve?.gesamtS ?? 0
-  const neu = a.anchor !== undefined || a.offsetFilmS !== undefined || a.durationFilmS !== undefined
-  const basisIso = a.anchor ?? a.from
+  axis: TimelineAxis,
+  fileS: number | undefined,
+): { filmVon: number; filmBis: number; legacyAnchored: boolean; hasExplicitLength: boolean } {
+  const totalS = axis.curve?.totalS ?? 0
+  const isNew =
+    a.anchor !== undefined || a.offsetFilmS !== undefined || a.durationFilmS !== undefined
+  const baseIso = a.anchor ?? a.from
   const filmVon =
-    filmZuOffset(achse, isoZuOffset(startIso, basisIso)) + (neu ? (a.offsetFilmS ?? 0) : 0)
+    filmToOffset(axis, isoToOffset(startIso, baseIso)) + (isNew ? (a.offsetFilmS ?? 0) : 0)
 
   let filmBis: number
-  let laengeGesetzt = true
+  let hasExplicitLength = true
   if (a.durationFilmS !== undefined) {
     filmBis = filmVon + a.durationFilmS
   } else if (a.type === 'music' && a.to !== undefined) {
-    filmBis = filmZuOffset(achse, isoZuOffset(startIso, a.to))
+    filmBis = filmToOffset(axis, isoToOffset(startIso, a.to))
   } else if (a.type === 'music') {
     // Musik ohne Ende läuft bis zum Tour-Ende (so rendert es die Pipeline).
-    filmBis = gesamtS
-    laengeGesetzt = false
+    filmBis = totalS
+    hasExplicitLength = false
   } else {
     // Ein Effekt klingt, solange seine DATEI dauert — der Player spielt sie
     // aus. Die Marke ohne Länge war eine Lüge der ANZEIGE, nicht des Films;
     // sobald die Datei gemessen ist, zeigt die Leiste, was ohnehin passiert.
-    filmBis = dateiS !== undefined && dateiS > 0 ? filmVon + dateiS : filmVon
-    laengeGesetzt = false
+    filmBis = fileS !== undefined && fileS > 0 ? filmVon + fileS : filmVon
+    hasExplicitLength = false
   }
-  return { filmVon, filmBis: Math.max(filmVon, filmBis), altVerankert: !neu, laengeGesetzt }
+  return { filmVon, filmBis: Math.max(filmVon, filmBis), legacyAnchored: !isNew, hasExplicitLength }
 }
 
 /**
  * Alle Ton-Klips auflösen und in Unterzeilen stapeln.
  *
- * `dateiDauern` sind die gemessenen Dateilängen (der Editor misst sie lazy per
+ * `fileDurations` sind die gemessenen Dateilängen (der Editor misst sie lazy per
  * `loadedmetadata`); fehlt eine, bleibt der Klip ohne Materialanschlag und ein
  * Effekt ohne Breite — nichts bricht, es wird nur weniger gezeigt.
  */
-export function loeseTonKlips(
-  audio: readonly AudioEintrag[],
+export function resolveAudioClips(
+  audio: readonly AudioEntry[],
   startIso: string,
-  achse: Achse,
-  dateiDauern?: ReadonlyMap<string, number>,
-): TonKlip[] {
-  const klips: TonKlip[] = []
+  axis: TimelineAxis,
+  fileDurations?: ReadonlyMap<string, number>,
+): AudioClip[] {
+  const clips: AudioClip[] = []
   audio.forEach((a, index) => {
-    const dateiS = dateiDauern?.get(a.file)
-    const lage = loeseLage(a, startIso, achse, dateiS)
-    if (!Number.isFinite(lage.filmVon)) return
-    klips.push({
+    const fileS = fileDurations?.get(a.file)
+    const position = resolvePosition(a, startIso, axis, fileS)
+    if (!Number.isFinite(position.filmVon)) return
+    clips.push({
       index,
       type: a.type,
       file: a.file,
-      filmVon: lage.filmVon,
-      filmBis: lage.filmBis,
+      filmVon: position.filmVon,
+      filmBis: position.filmBis,
       startS: a.startS ?? 0,
       loop: a.loop ?? a.type === 'music',
-      ...(dateiS !== undefined ? { dateiS } : {}),
+      ...(fileS !== undefined ? { fileS } : {}),
       lane: 0,
-      altVerankert: lage.altVerankert,
-      laengeGesetzt: lage.laengeGesetzt,
+      legacyAnchored: position.legacyAnchored,
+      hasExplicitLength: position.hasExplicitLength,
     })
   })
-  verteileLanes(klips)
-  return klips
+  distributeLanes(clips)
+  return clips
 }
 
 /**
@@ -190,32 +196,32 @@ export function loeseTonKlips(
  * ungreifbar. Anders als vorher stapeln sich jetzt auch Effekte: seit sie eine
  * Breite haben, können sie einander überdecken.
  */
-function verteileLanes(klips: TonKlip[]): void {
-  const sortiert = [...klips].sort((a, b) => a.filmVon - b.filmVon || a.index - b.index)
-  const laneEnden: number[] = []
-  for (const k of sortiert) {
-    let lane = laneEnden.findIndex((end) => end <= k.filmVon)
+function distributeLanes(clips: AudioClip[]): void {
+  const sorted = [...clips].sort((a, b) => a.filmVon - b.filmVon || a.index - b.index)
+  const laneEnds: number[] = []
+  for (const k of sorted) {
+    let lane = laneEnds.findIndex((end) => end <= k.filmVon)
     if (lane === -1) {
-      lane = laneEnden.length
-      laneEnden.push(0)
+      lane = laneEnds.length
+      laneEnds.push(0)
     }
     // Ein Klip ohne Breite (unvermessener Effekt) belegt seine Zeile trotzdem
     // für einen Moment — sonst lägen zwei Pins am selben Ort übereinander.
-    laneEnden[lane] = Math.max(k.filmBis, k.filmVon + TON_MIN_S)
+    laneEnds[lane] = Math.max(k.filmBis, k.filmVon + AUDIO_MIN_S)
     k.lane = lane
   }
 }
 
 /** Zahl der Unterzeilen (mindestens 1) — für die Höhe der Bahn. */
-export function tonLanes(klips: readonly TonKlip[]): number {
-  return klips.reduce((max, k) => Math.max(max, k.lane + 1), 1)
+export function audioLanes(clips: readonly AudioClip[]): number {
+  return clips.reduce((max, k) => Math.max(max, k.lane + 1), 1)
 }
 
 /** Ergebnis einer Trimm-Geste: was geschrieben wird und ob das Material endet. */
-export interface TrimErgebnis {
-  patch: TonPatch
+export interface TrimResult {
+  patch: AudioClipPatch
   /** true = die Kante steht am Material und geht nicht weiter */
-  amAnschlag: boolean
+  atLimit: boolean
 }
 
 /**
@@ -225,22 +231,22 @@ export interface TrimErgebnis {
  * Anker wandert. Genau das macht ihn zum „connected clip": Er hängt danach an
  * einer anderen Stelle der REISE und rückt mit ihr mit.
  */
-export function verschiebeTon(
-  achse: Achse,
+export function moveAudioClip(
+  axis: TimelineAxis,
   startIso: string,
-  klip: TonKlip,
-  neuFilmVon: number,
-): TonPatch {
-  const gesamtS = achse.kurve?.gesamtS ?? 0
-  const laenge = klip.filmBis - klip.filmVon
+  clip: AudioClip,
+  newFilmVon: number,
+): AudioClipPatch {
+  const totalS = axis.curve?.totalS ?? 0
+  const length = clip.filmBis - clip.filmVon
   // Ein Klip mit fester Länge bleibt ganz in der Tour; einer, der bis zum Ende
   // läuft, darf überall hin (er wird nur kürzer).
-  const rechteGrenze = klip.laengeGesetzt ? Math.max(0, gesamtS - laenge) : gesamtS
-  const fromS = Math.max(0, Math.min(neuFilmVon, rechteGrenze))
+  const rightLimit = clip.hasExplicitLength ? Math.max(0, totalS - length) : totalS
+  const fromS = Math.max(0, Math.min(newFilmVon, rightLimit))
   return {
-    ...verankere(achse, startIso, fromS),
-    ...(klip.laengeGesetzt && laenge > 0 ? { durationFilmS: rundeAuf(laenge, 3) } : {}),
-    ...(klip.startS > 0 ? { startS: rundeAuf(klip.startS, 3) } : {}),
+    ...anchorClips(axis, startIso, fromS),
+    ...(clip.hasExplicitLength && length > 0 ? { durationFilmS: roundTo(length, 3) } : {}),
+    ...(clip.startS > 0 ? { startS: roundTo(clip.startS, 3) } : {}),
   }
 }
 
@@ -251,27 +257,27 @@ export function verschiebeTon(
  * frei, statt zu verschieben. Anschlag ist der DATEIANFANG, und daran ändert
  * Loop nichts: Vor dem Anfang gibt es nichts zu wiederholen.
  */
-export function trimmeLinks(
-  achse: Achse,
+export function trimLeft(
+  axis: TimelineAxis,
   startIso: string,
-  klip: TonKlip,
-  neuFilmVon: number,
-): TrimErgebnis {
+  clip: AudioClip,
+  newFilmVon: number,
+): TrimResult {
   // Wie weit die Kante nach LINKS darf, sagt der Einstieg: so viel Datei liegt
   // vor dem, was gerade zu hören ist.
-  const minVon = klip.filmVon - klip.startS
+  const minFrom = clip.filmVon - clip.startS
   // Nach rechts darf sie bis kurz vor die andere Kante — ein Klip ohne Länge
   // wäre nicht mehr zu greifen.
-  const maxVon = klip.filmBis - TON_MIN_S
-  const ziel = Math.max(minVon, Math.min(neuFilmVon, maxVon))
-  const delta = ziel - klip.filmVon
+  const maxFrom = clip.filmBis - AUDIO_MIN_S
+  const target = Math.max(minFrom, Math.min(newFilmVon, maxFrom))
+  const delta = target - clip.filmVon
   return {
     patch: {
-      ...verankere(achse, startIso, ziel),
-      durationFilmS: rundeAuf(klip.filmBis - ziel, 3),
-      startS: rundeAuf(Math.max(0, klip.startS + delta), 3),
+      ...anchorClips(axis, startIso, target),
+      durationFilmS: roundTo(clip.filmBis - target, 3),
+      startS: roundTo(Math.max(0, clip.startS + delta), 3),
     },
-    amAnschlag: neuFilmVon < minVon,
+    atLimit: newFilmVon < minFrom,
   }
 }
 
@@ -282,29 +288,29 @@ export function trimmeLinks(
  * Stille, und Stille gehört zwischen die Klips, nicht in einen. MIT Loop fällt
  * genau dieser eine Anschlag weg: die Datei fängt am Ende wieder von vorn an.
  */
-export function trimmeRechts(
-  achse: Achse,
+export function trimRight(
+  axis: TimelineAxis,
   startIso: string,
-  klip: TonKlip,
-  neuFilmBis: number,
-): TrimErgebnis {
-  const minBis = klip.filmVon + TON_MIN_S
+  clip: AudioClip,
+  newFilmBis: number,
+): TrimResult {
+  const minTo = clip.filmVon + AUDIO_MIN_S
   // Rest des Materials hinter dem Einstieg. Unbekannt (noch nicht gemessen) →
   // kein Anschlag: lieber ziehen lassen als eine Kante, die grundlos klemmt.
-  const maxBis =
-    !klip.loop && klip.dateiS !== undefined
-      ? klip.filmVon + Math.max(0, klip.dateiS - klip.startS)
+  const maxTo =
+    !clip.loop && clip.fileS !== undefined
+      ? clip.filmVon + Math.max(0, clip.fileS - clip.startS)
       : Infinity
-  const ziel = Math.max(minBis, Math.min(neuFilmBis, maxBis))
+  const target = Math.max(minTo, Math.min(newFilmBis, maxTo))
   return {
     // Die linke Kante bewegt sich nicht — sie wird nur mitgeschrieben, damit
     // ein Klip in alter Verankerung mit derselben Geste fest wird.
     patch: {
-      ...verankere(achse, startIso, klip.filmVon),
-      durationFilmS: rundeAuf(ziel - klip.filmVon, 3),
-      ...(klip.startS > 0 ? { startS: rundeAuf(klip.startS, 3) } : {}),
+      ...anchorClips(axis, startIso, clip.filmVon),
+      durationFilmS: roundTo(target - clip.filmVon, 3),
+      ...(clip.startS > 0 ? { startS: roundTo(clip.startS, 3) } : {}),
     },
-    amAnschlag: neuFilmBis > maxBis,
+    atLimit: newFilmBis > maxTo,
   }
 }
 
@@ -317,8 +323,11 @@ export function trimmeRechts(
  * jemand etwas über die Wiederholung gesagt hätte. `undefined` heißt: die neue
  * Vorgabe trifft es ohnehin, das Feld gehört nicht ins Overlay.
  */
-export function loopNachRollenwechsel(klip: TonKlip, neu: 'music' | 'sfx'): boolean | undefined {
-  return klip.loop === (neu === 'music') ? undefined : klip.loop
+export function loopAfterRoleChange(
+  clip: AudioClip,
+  newRole: 'music' | 'sfx',
+): boolean | undefined {
+  return clip.loop === (newRole === 'music') ? undefined : clip.loop
 }
 
 /**
@@ -331,29 +340,38 @@ export function loopNachRollenwechsel(klip: TonKlip, neu: 'music' | 'sfx'): bool
  *
  * Loop AN nimmt den Anschlag nur weg; die Länge bleibt, wie sie ist.
  */
-export function setzeLoop(achse: Achse, startIso: string, klip: TonKlip, loop: boolean): TonPatch {
+export function setLoop(
+  axis: TimelineAxis,
+  startIso: string,
+  clip: AudioClip,
+  loop: boolean,
+): AudioClipPatch {
   // Ohne gemessene Datei gibt es keinen Anschlag, an den man zurückholen
   // könnte — dann bliebe nur, die Länge grundlos festzuschreiben.
-  if (loop || klip.dateiS === undefined) return schreibeTonFest(achse, startIso, klip)
-  return trimmeRechts(achse, startIso, { ...klip, loop: false }, klip.filmBis).patch
+  if (loop || clip.fileS === undefined) return commitAudioClip(axis, startIso, clip)
+  return trimRight(axis, startIso, { ...clip, loop: false }, clip.filmBis).patch
 }
 
 /**
  * Die Filmlage eines Klips unverändert festschreiben — die Aufwertung.
  *
- * Muster von `materialisiereModi`/`schreibeWetterFest`, mit einem Unterschied:
+ * Muster von `materializeTravelModes`/`schreibeWetterFest`, mit einem Unterschied:
  * Dort MUSS die ganze Stufenfunktion auf einmal fest werden, weil eine einzelne
  * neue Grenze die späteren Abschnitte mitrisse. Ton-Klips sind dagegen
  * unabhängige Objekte — festgeschrieben wird nur der, den man anfasst. Alle
  * anderen bleiben in ihrer alten Verankerung und rendern unverändert.
  */
-export function schreibeTonFest(achse: Achse, startIso: string, klip: TonKlip): TonPatch {
+export function commitAudioClip(
+  axis: TimelineAxis,
+  startIso: string,
+  clip: AudioClip,
+): AudioClipPatch {
   return {
-    ...verankere(achse, startIso, klip.filmVon),
-    ...(klip.laengeGesetzt && klip.filmBis > klip.filmVon
-      ? { durationFilmS: rundeAuf(klip.filmBis - klip.filmVon, 3) }
+    ...anchorClips(axis, startIso, clip.filmVon),
+    ...(clip.hasExplicitLength && clip.filmBis > clip.filmVon
+      ? { durationFilmS: roundTo(clip.filmBis - clip.filmVon, 3) }
       : {}),
-    ...(klip.startS > 0 ? { startS: rundeAuf(klip.startS, 3) } : {}),
+    ...(clip.startS > 0 ? { startS: roundTo(clip.startS, 3) } : {}),
   }
 }
 
@@ -365,7 +383,7 @@ export function schreibeTonFest(achse: Achse, startIso: string, klip: TonKlip): 
  * dadurch der AUSSCHNITT: man sieht, was man wegschneidet. Gestaucht (Wellenform
  * auf Klipbreite) sähe jeder Trim wie ein Tempowechsel aus.
  *
- * `wiederholungen` ist die Zahl der Dateidurchläufe, die der Klip überdeckt —
+ * `repeats` ist die Zahl der Dateidurchläufe, die der Klip überdeckt —
  * nur bei Loop mehr als eine.
  *
  * GERECHNET WIRD IN ANTEILEN DER GANZEN ACHSE, nicht in Pixeln. Das ist keine
@@ -376,21 +394,21 @@ export function schreibeTonFest(achse: Achse, startIso: string, klip: TonKlip): 
  * Größe und endete nach dem Hineinzoomen weit vor dem Klip. Als Anteil
  * ausgedrückt skaliert der Browser sie mit, ohne dass etwas neu gebaut wird.
  *
- * Bezug ist `gesamtFilmS`, weil genau dafür `--zeit-breite` steht
- * (`zeitBreitePx` = gesamtFilmS × pxProFilmS — und zwar in genau dem Fall, in
+ * Bezug ist `totalFilmS`, weil genau dafür `--zeit-breite` steht
+ * (`timeWidthPx` = totalFilmS × pxProFilmS — und zwar in genau dem Fall, in
  * dem eine Filmsekunde überhaupt existiert; ohne Kurve fällt die Breite auf
  * die Fensterbreite zurück, und dann gibt es hier nichts zu zeichnen).
  */
-export function wellenLage(
-  klip: TonKlip,
-  gesamtFilmS: number,
-): { breiteAnteil: number; versatzAnteil: number; wiederholungen: number } | null {
-  if (!(klip.dateiS && klip.dateiS > 0) || !(gesamtFilmS > 0)) return null
-  const klipS = klip.filmBis - klip.filmVon
-  const wiederholungen = klip.loop ? Math.max(1, Math.ceil((klip.startS + klipS) / klip.dateiS)) : 1
+export function waveformPosition(
+  clip: AudioClip,
+  totalFilmS: number,
+): { widthFraction: number; offsetFraction: number; repeats: number } | null {
+  if (!(clip.fileS && clip.fileS > 0) || !(totalFilmS > 0)) return null
+  const clipS = clip.filmBis - clip.filmVon
+  const repeats = clip.loop ? Math.max(1, Math.ceil((clip.startS + clipS) / clip.fileS)) : 1
   return {
-    breiteAnteil: klip.dateiS / gesamtFilmS,
-    versatzAnteil: -klip.startS / gesamtFilmS,
-    wiederholungen,
+    widthFraction: clip.fileS / totalFilmS,
+    offsetFraction: -clip.startS / totalFilmS,
+    repeats,
   }
 }

@@ -16,7 +16,7 @@
 // Foto-Halte sind seit der Filmzeit-Achse ACHSENBREITE (die Standzeit steckt
 // als Sprung in der Achse): die Marke läuft gleichmäßig durch den Halt
 // hindurch. WELCHE Aufnahme dabei zu sehen ist, entscheidet dieses Modul NICHT
-// mehr — das ist eine Funktion der Kopfposition (`haltBeiFilmS`), und der
+// mehr — das ist eine Funktion der Kopfposition (`stopAtFilmS`), und der
 // Editor wertet sie bei jeder Kopfbewegung aus. Als Überfahr-MARKE gedacht
 // (der Abspieler stieß die Einblendung an, ein Timer nahm sie zurück) hatte sie
 // zwei Fehler, die derselbe Satz erklärt: Sie hing nicht am Kopf, sondern an
@@ -35,7 +35,7 @@ import {
   videoMusikDuck,
   type DuckPegel,
 } from '../audiotracks.js'
-import { anteilBei, filmBei, type Filmkurve } from './zeitleiste.js'
+import { fractionAt, filmAt, type FilmCurve } from './zeitleiste.js'
 
 /** Musik-Bereich auf der Zeitachse. */
 export interface MusikKlip {
@@ -64,8 +64,8 @@ export interface KlangMarke {
 export interface Spielplan {
   /** Startposition (Anteil 0..1) */
   marke: number
-  /** Achsen-Anteil ↔ Filmsekunden der Wiedergabe (zeitleiste.ts, baueSpielKurve) */
-  kurve: Filmkurve
+  /** Achsen-Anteil ↔ Filmsekunden der Wiedergabe (zeitleiste.ts, buildPlaybackCurve) */
+  kurve: FilmCurve
   musik: MusikKlip[]
   klaenge: KlangMarke[]
 }
@@ -98,7 +98,7 @@ export const LEERER_STAND: SpielStand = { marke: 0, tempo: 0 }
  */
 export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
   const alt = stand.marke
-  let m = anteilBei(plan.kurve, filmBei(plan.kurve, alt) + stand.tempo * dtS)
+  let m = fractionAt(plan.kurve, filmAt(plan.kurve, alt) + stand.tempo * dtS)
   // Richtungsklemme: Steht die Marke MITTEN in einem Plateau (dorthin
   // gescrubbt), liefert der Roundtrip den Plateau-Anfang — vorwärts darf sie
   // dadurch nie zurückspringen (erster Frame hat dt = 0), rückwärts nie vor.
@@ -125,8 +125,8 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
  * die gemeinsame Rechnung beider Bühnen, und der Player hat keine Filmkurve,
  * sondern eine Filmachse.
  */
-export function seitKlipbeginnS(anteil: number, klipVon: number, kurve: Filmkurve): number {
-  return Math.max(0, filmBei(kurve, anteil) - filmBei(kurve, klipVon))
+export function seitKlipbeginnS(anteil: number, klipVon: number, kurve: FilmCurve): number {
+  return Math.max(0, filmAt(kurve, anteil) - filmAt(kurve, klipVon))
 }
 
 /**
@@ -310,12 +310,12 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     // im Anteil hinge sie an der Länge der Tour, und dieselbe Geste feuerte in
     // einem kurzen Film anders als in einem langen. Der Umweg über die Kurve
     // ist zugleich der Grund, dass beide Bühnen dieselbe Zahl vergleichen.
-    const filmVorher = filmBei(plan.kurve, vorher)
-    const filmNachher = filmBei(plan.kurve, nachher)
+    const filmVorher = filmAt(plan.kurve, vorher)
+    const filmNachher = filmAt(plan.kurve, nachher)
     for (const k of plan.klaenge) {
       // Dieselbe Regel wie im Player (audiotracks.ts): nur beim Vorwärts-
       // Überfahren, und ein Sprung „verbraucht" die Marke lautlos.
-      if (!sfxSollFeuern(filmVorher, filmNachher, filmBei(plan.kurve, k.anteil), true)) continue
+      if (!sfxSollFeuern(filmVorher, filmNachher, filmAt(plan.kurve, k.anteil), true)) continue
       const a = new Audio(k.url)
       a.volume = Math.max(0, Math.min(1, k.volume))
       if (k.startS) a.currentTime = k.startS // linker Trim gilt auch beim One-Shot

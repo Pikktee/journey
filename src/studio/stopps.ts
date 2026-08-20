@@ -10,13 +10,13 @@
 
 import { reihenfolgeImHalt } from '../einblendung.js'
 import {
-  mitMedienEdit,
-  projiziereAufTrack,
+  withMediaEdit,
+  projectOntoTrack,
   type EditOverlay,
-  type MediumAnzeige,
-  type TrackPunkt,
+  type MediaView,
+  type TrackPoint,
 } from './editmodell.js'
-import { meterZuOffset, offsetBeiMeter } from './zeitleiste.js'
+import { metersToOffset, offsetAtMeters } from './zeitleiste.js'
 
 /**
  * Abstand, unter dem zwei Aufnahmen als „am selben Ort" gelten (Streckenmeter).
@@ -26,8 +26,8 @@ import { meterZuOffset, offsetBeiMeter } from './zeitleiste.js'
 export const NAHE_M = 120
 
 export interface Stopp {
-  /** Aufnahmen des Halts, in ihrer Reihenfolge (siehe MediumEdit.order) */
-  items: MediumAnzeige[]
+  /** Aufnahmen des Halts, in ihrer Reihenfolge (siehe MediaEdit.order) */
+  items: MediaView[]
   /** Streckenmeter des Halts (Mittel der Mitglieder) */
   meter: number
   /** Zeit-Offset (s) des Halts — dort steht seine Miniatur auf der Achse */
@@ -36,13 +36,13 @@ export interface Stopp {
 
 /** Streckenmeter und Zeit-Offset einer Aufnahme (Anker auf die Linie projiziert). */
 function ortVon(
-  m: MediumAnzeige,
-  track: readonly TrackPunkt[],
+  m: MediaView,
+  track: readonly TrackPoint[],
   kum: readonly number[],
 ): { meter: number; offsetS: number } | null {
   if (!m.anchor || m.removed) return null
-  const p = projiziereAufTrack(track, m.anchor[0], m.anchor[1])
-  return { meter: meterZuOffset(kum, track, p.punkt[3]), offsetS: p.punkt[3] }
+  const p = projectOntoTrack(track, m.anchor[0], m.anchor[1])
+  return { meter: metersToOffset(kum, track, p.point[3]), offsetS: p.point[3] }
 }
 
 /**
@@ -53,18 +53,16 @@ function ortVon(
  * Autors und keine Messung. Ohne `order` entscheidet die Aufnahmezeit.
  */
 export function baueStopps(
-  media: readonly MediumAnzeige[],
-  track: readonly TrackPunkt[],
+  media: readonly MediaView[],
+  track: readonly TrackPoint[],
   kum: readonly number[],
 ): Stopp[] {
   const mitOrt = media
     .map((m) => ({ m, ort: ortVon(m, track, kum) }))
-    .filter(
-      (x): x is { m: MediumAnzeige; ort: { meter: number; offsetS: number } } => x.ort !== null,
-    )
+    .filter((x): x is { m: MediaView; ort: { meter: number; offsetS: number } } => x.ort !== null)
     .sort((a, b) => a.ort.meter - b.ort.meter)
 
-  const gruppen: Array<{ items: MediumAnzeige[]; meter: number[]; offsets: number[] }> = []
+  const gruppen: Array<{ items: MediaView[]; meter: number[]; offsets: number[] }> = []
   for (const x of mitOrt) {
     const letzte = gruppen[gruppen.length - 1]
     // Gemessen wird zum ANFANG des Halts, nicht zum Vorgänger — sonst könnte
@@ -96,7 +94,7 @@ export function baueStopps(
  * dort die Streckenmeter, hier die Aufnahmezeit. Eine Aufnahme ohne
  * verlässlichen Ort ist im Editor trotzdem einzuordnen.
  */
-function sortiereItems(items: MediumAnzeige[]): MediumAnzeige[] {
+function sortiereItems(items: MediaView[]): MediaView[] {
   return reihenfolgeImHalt(items, (m) => Date.parse(m.takenAt))
 }
 
@@ -163,7 +161,7 @@ export function dOffsetOhneCluster(
   dOffset: number,
   fremdeMeter: readonly number[],
   kum: readonly number[],
-  track: readonly TrackPunkt[],
+  track: readonly TrackPoint[],
   schwelleM = NAHE_M,
 ): number {
   if (fremdeMeter.length === 0 || gruppeOffset0.length === 0) return dOffset
@@ -173,7 +171,7 @@ export function dOffsetOhneCluster(
   for (let iter = 0; iter < fremdeMeter.length + 1; iter++) {
     let deltaM: number | null = null
     for (const o0 of gruppeOffset0) {
-      const m = meterZuOffset(kum, track, o0 + d)
+      const m = metersToOffset(kum, track, o0 + d)
       for (const f of fremdeMeter) {
         const from = m - f
         if (Math.abs(from) < schwelleM) {
@@ -184,8 +182,8 @@ export function dOffsetOhneCluster(
       }
     }
     if (deltaM === null) return d
-    const mJetzt = meterZuOffset(kum, track, kopf + d)
-    d = offsetBeiMeter(kum, track, mJetzt + deltaM) - kopf
+    const mJetzt = metersToOffset(kum, track, kopf + d)
+    d = offsetAtMeters(kum, track, mJetzt + deltaM) - kopf
   }
   return d
 }
@@ -207,7 +205,7 @@ export function stoppSignatur(stopps: readonly Stopp[]): string {
 export function reiheVergeben(edits: EditOverlay, ids: readonly string[]): EditOverlay {
   let naechste = edits
   ids.forEach((id, i) => {
-    naechste = mitMedienEdit(naechste, id, { order: i })
+    naechste = withMediaEdit(naechste, id, { order: i })
   })
   return naechste
 }

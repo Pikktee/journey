@@ -144,7 +144,7 @@ export function oeffneSpurMenue(args: {
   knopf: HTMLElement
   markeOffset: () => number
   // Callbacks: Moment anlegen, Audio einsetzen, …
-  beiMoment: (art: MomentArt) => void
+  beiMoment: (art: CameraMomentKind) => void
   beiAudioAusBibliothek: () => void
   // …
 }): void
@@ -169,7 +169,7 @@ leichter.
 **Fallen (aus Studio-CLAUDE):**
 - Marker **fortschreiben**, nicht abreißen (sonst leere Kreise beim Klick).
 - Fokus-Leuchten nur für den **ausgewählten** Halt, nicht alle.
-- Kartenklick projiziert auf Track (`projiziereAufTrack` aus `editmodell`).
+- Kartenklick projiziert auf Track (`projectOntoTrack` aus `editmodell`).
 
 **Fertig wenn:** Marker ziehen, Fokus-Abschnitt, Kartenklick → Anker; Tests zu
 Stopps/Projektion unverändert grün.
@@ -185,12 +185,12 @@ Stopps/Projektion unverändert grün.
 - Tour-Einstellungen (`oeffneTourEinstellungen` und Panel-Inhalt)
 
 **Schnitt:** Inspector **baut DOM und hängt Listener**; Schreiben läuft über dieselben
-`mitMedienEdit` / `mitAudioPatch` / … wie heute. Kein zweites Overlay-Modell.
+`withMediaEdit` / `mitAudioPatch` / … wie heute. Kein zweites Overlay-Modell.
 
 **Fallen:**
 - Flex-`flex-shrink` am hohen EXIF-Block (`flex: none`).
 - Globale `button:hover` schlägt Klassen — Primärflächen in `:hover` wiederholen.
-- Fokus speichert Identität; Spanne kommt aus `loeseFokusAuf()` je Render.
+- Fokus speichert Identität; Spanne kommt aus `resolveSelection()` je Render.
 
 **Fertig wenn:** alle Fokus-Arten (Medium, Ton, Band, Moment, Tour) editierbar;
 Inspector-Tests (`studio-inspektor.test.ts` soweit vorhanden) grün.
@@ -208,7 +208,7 @@ Inspector-Tests (`studio-inspektor.test.ts` soweit vorhanden) grün.
   `renderPlayhead` / Klip-Bau (`baueKlip`, …)
 
 **Nicht mitnehmen / nicht neu erfinden:**
-- `baueAchse`, `baueGrenzKurve`, `haltBeiFilmS`, … bleiben in `zeitleiste.ts`
+- `buildTimelineAxis`, `buildBoundaryCurve`, `stopAtFilmS`, … bleiben in `zeitleiste.ts`
 - Ton-Trim-Mathe bleibt in `tonklip.ts`
 
 **Schnittstelle:** Modul bekommt `host`-Elemente (Bahnen, Maßband, Kopf) und ein
@@ -228,7 +228,7 @@ type ZeitleisteApi = {
 - Während des Zugs: Maßstab einfrieren; bei Klip-Zug kein kompletter Listen-Neubau.
 - `setPointerCapture`: Ziel im `pointerdown` merken.
 - Auswahlrahmen innen (`inset` / `::after`), sonst frisst `overflow` den Rand.
-- Fortbewegungs-Grenze über `baueGrenzKurve`, nicht Bisektion.
+- Fortbewegungs-Grenze über `buildBoundaryCurve`, nicht Bisektion.
 
 **Fertig wenn:** Smoke-Checkliste §6 komplett; bestehende Tests
 (`studio-abspielen`, `studio-tonklip`, `studio-stopps`, …) grün; kein spürbarer

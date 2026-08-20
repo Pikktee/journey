@@ -3,15 +3,15 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  baueFotoSegmente,
-  formatiereAbstand,
-  gpxPunkte,
-  medienAusBefund,
-  projiziereVorschau,
-  pruefe,
-  punktZuZeit,
-  schaetzeFahrtS,
-  type AufnahmeBefund,
+  buildPhotoSegments,
+  formatDistance,
+  gpxPoints,
+  mediaFromReport,
+  projectPreview,
+  validate,
+  pointAtTime,
+  estimateRideS,
+  type MediumReport,
 } from '../src/studio/pruefung'
 
 const T0 = Date.parse('2026-07-21T07:00:00Z')
@@ -34,19 +34,19 @@ const track = gpx([
 const foto = (
   file: string,
   m: number,
-  ort: [number, number] | null = null,
-  zeitGeraten = false,
-): AufnahmeBefund => ({
+  location: [number, number] | null = null,
+  takenAtGuessed = false,
+): MediumReport => ({
   file,
   type: 'photo',
-  zeitMs: min(m),
-  zeitGeraten,
-  ort,
+  takenAtMs: min(m),
+  takenAtGuessed,
+  location,
 })
 
-describe('gpxPunkte', () => {
+describe('gpxPoints', () => {
   it('liest Ort und Zeit jedes Trackpunkts', () => {
-    const p = gpxPunkte(track)
+    const p = gpxPoints(track)
     expect(p).toHaveLength(3)
     expect(p[0]![0]).toBeCloseTo(100.0, 5)
     expect(p[0]![1]).toBeCloseTo(9.7, 5)
@@ -55,33 +55,33 @@ describe('gpxPunkte', () => {
 
   it('überspringt Punkte ohne Koordinaten und verträgt fehlende Zeiten', () => {
     const xml = '<gpx><trkpt lat="9.7"></trkpt><trkpt lat="9.7" lon="100"></trkpt></gpx>'
-    const p = gpxPunkte(xml)
+    const p = gpxPoints(xml)
     expect(p).toHaveLength(1)
     expect(Number.isNaN(p[0]![2])).toBe(true)
   })
 })
 
-describe('projiziereVorschau', () => {
+describe('projectPreview', () => {
   it('legt die Route in den 0..100-Kasten und liefert je Punkt ein Bild', () => {
-    const v = projiziereVorschau([
+    const v = projectPreview([
       [100, 9.7],
       [100.1, 9.8],
     ])!
-    expect(v.bild).toHaveLength(2)
-    for (const [x, y] of v.bild) {
+    expect(v.image).toHaveLength(2)
+    for (const [x, y] of v.image) {
       expect(x).toBeGreaterThanOrEqual(0)
       expect(x).toBeLessThanOrEqual(100)
       expect(y).toBeGreaterThanOrEqual(0)
       expect(y).toBeLessThanOrEqual(100)
     }
     // Norden oben: der nördlichere Punkt hat das kleinere y
-    expect(v.bild[1]![1]).toBeLessThan(v.bild[0]![1])
+    expect(v.image[1]![1]).toBeLessThan(v.image[0]![1])
   })
 
   it('gibt null zurück, wo es keine Ausdehnung gibt', () => {
-    expect(projiziereVorschau([[100, 9.7]])).toBeNull()
+    expect(projectPreview([[100, 9.7]])).toBeNull()
     expect(
-      projiziereVorschau([
+      projectPreview([
         [100, 9.7],
         [100, 9.7],
       ]),
@@ -89,99 +89,99 @@ describe('projiziereVorschau', () => {
   })
 })
 
-describe('punktZuZeit', () => {
+describe('pointAtTime', () => {
   it('findet den zeitlich nächsten Trackpunkt', () => {
-    const p = gpxPunkte(track)
-    expect(punktZuZeit(p, min(55))).toBe(1)
-    expect(punktZuZeit(p, min(0))).toBe(0)
-    expect(punktZuZeit(p, min(9999))).toBe(2)
+    const p = gpxPoints(track)
+    expect(pointAtTime(p, min(55))).toBe(1)
+    expect(pointAtTime(p, min(0))).toBe(0)
+    expect(pointAtTime(p, min(9999))).toBe(2)
   })
 })
 
-describe('pruefe — mit Aufzeichnung', () => {
+describe('validate — mit Aufzeichnung', () => {
   it('liest Strecke, Spanne und Aufnahmen', () => {
-    const b = pruefe(track, [foto('a.jpg', 30, [100.02, 9.72]), foto('b.jpg', 90)])
-    expect(b.quelle).toBe('aufzeichnung')
-    expect(b.bereit).toBe(true)
+    const b = validate(track, [foto('a.jpg', 30, [100.02, 9.72]), foto('b.jpg', 90)])
+    expect(b.source).toBe('aufzeichnung')
+    expect(b.ready).toBe(true)
     expect(b.track!.km).toBeGreaterThan(10)
-    expect(b.vonMs).toBe(min(0))
-    expect(b.bisMs).toBe(min(120))
+    expect(b.fromMs).toBe(min(0))
+    expect(b.toMs).toBe(min(120))
   })
 
   it('sortiert die Aufnahmen nach Zeit', () => {
-    const b = pruefe(track, [foto('spaet.jpg', 90), foto('frueh.jpg', 10)])
-    expect(b.aufnahmen.map((a) => a.file)).toEqual(['frueh.jpg', 'spaet.jpg'])
+    const b = validate(track, [foto('spaet.jpg', 90), foto('frueh.jpg', 10)])
+    expect(b.media.map((a) => a.file)).toEqual(['frueh.jpg', 'spaet.jpg'])
   })
 
   it('meldet fehlende Ortsangaben als Hinweis — die Uhrzeit reicht', () => {
-    const b = pruefe(track, [foto('a.jpg', 30), foto('b.jpg', 60)])
-    const m = b.meldungen.find((x) => x.kind === 'ohne-ort')!
-    expect(m.ton).toBe('hinweis')
-    expect(m.dateien).toEqual(['a.jpg', 'b.jpg'])
+    const b = validate(track, [foto('a.jpg', 30), foto('b.jpg', 60)])
+    const m = b.messages.find((x) => x.kind === 'ohne-ort')!
+    expect(m.tone).toBe('hinweis')
+    expect(m.files).toEqual(['a.jpg', 'b.jpg'])
   })
 
   it('meldet Aufnahmen außerhalb der Aufzeichnung als Warnung', () => {
     // 101 min nach dem Track-Ende — jemand hat ein fremdes Foto mit hineingezogen
-    const b = pruefe(track, [foto('fremd.jpg', 221, [100, 9.7])])
-    const m = b.meldungen.find((x) => x.kind === 'ausserhalb')!
-    expect(m.ton).toBe('warnung')
+    const b = validate(track, [foto('fremd.jpg', 221, [100, 9.7])])
+    const m = b.messages.find((x) => x.kind === 'ausserhalb')!
+    expect(m.tone).toBe('warnung')
     expect(m.text).toContain('1 h 41 min')
-    expect(m.dateien).toEqual(['fremd.jpg'])
+    expect(m.files).toEqual(['fremd.jpg'])
   })
 
   it('lässt eine Aufnahme kurz vor dem Start in Ruhe', () => {
     // 10 min davor: das ist das Foto vom Aufbruch, kein Ausreißer
-    const b = pruefe(track, [foto('start.jpg', -10, [100, 9.7])])
-    expect(b.meldungen.some((m) => m.kind === 'ausserhalb')).toBe(false)
+    const b = validate(track, [foto('start.jpg', -10, [100, 9.7])])
+    expect(b.messages.some((m) => m.kind === 'ausserhalb')).toBe(false)
   })
 
   it('nimmt Ausreißer in die Zeitachse auf — sonst sähe man sie nicht', () => {
-    const b = pruefe(track, [foto('fremd.jpg', 300, [100, 9.7])])
-    expect(b.bisMs).toBe(min(300))
+    const b = validate(track, [foto('fremd.jpg', 300, [100, 9.7])])
+    expect(b.toMs).toBe(min(300))
   })
 
   it('meldet geratene Zeitstempel', () => {
-    const b = pruefe(track, [foto('a.jpg', 30, [100, 9.7], true)])
-    expect(b.meldungen.find((m) => m.kind === 'ohne-zeit')?.text).toContain('Datum der Datei')
+    const b = validate(track, [foto('a.jpg', 30, [100, 9.7], true)])
+    expect(b.messages.find((m) => m.kind === 'ohne-zeit')?.text).toContain('Datum der Datei')
   })
 })
 
-describe('pruefe — ohne Aufzeichnung', () => {
+describe('validate — ohne Aufzeichnung', () => {
   it('macht aus verorteten Fotos eine Strecke', () => {
-    const b = pruefe(null, [foto('a.jpg', 0, [100, 9.7]), foto('b.jpg', 30, [100.1, 9.8])])
-    expect(b.quelle).toBe('fotos')
-    expect(b.bereit).toBe(true)
-    expect(b.meldungen.find((m) => m.kind === 'ohne-track')?.text).toContain('von Foto zu Foto')
+    const b = validate(null, [foto('a.jpg', 0, [100, 9.7]), foto('b.jpg', 30, [100.1, 9.8])])
+    expect(b.source).toBe('fotos')
+    expect(b.ready).toBe(true)
+    expect(b.messages.find((m) => m.kind === 'ohne-track')?.text).toContain('von Foto zu Foto')
   })
 
   it('sagt klar, was fehlt, wenn es keine zwei Orte gibt', () => {
-    const b = pruefe(null, [foto('a.jpg', 0), foto('b.jpg', 30, [100, 9.7])])
-    expect(b.quelle).toBe('keine')
-    expect(b.bereit).toBe(false)
-    expect(b.meldungen.find((m) => m.kind === 'keine-orte')?.ton).toBe('warnung')
+    const b = validate(null, [foto('a.jpg', 0), foto('b.jpg', 30, [100, 9.7])])
+    expect(b.source).toBe('keine')
+    expect(b.ready).toBe(false)
+    expect(b.messages.find((m) => m.kind === 'keine-orte')?.tone).toBe('warnung')
   })
 
   it('ohne Aufzeichnung wiegt eine fehlende Ortsangabe schwerer', () => {
     // Mit Track ist das ein Hinweis; ohne Track fehlt dem Foto sein Platz.
-    const b = pruefe(null, [
+    const b = validate(null, [
       foto('a.jpg', 0, [100, 9.7]),
       foto('b.jpg', 30, [100.1, 9.8]),
       foto('c.jpg', 60),
     ])
-    expect(b.meldungen.find((m) => m.kind === 'ohne-ort')?.ton).toBe('warnung')
+    expect(b.messages.find((m) => m.kind === 'ohne-ort')?.tone).toBe('warnung')
   })
 
   it('verträgt gar nichts', () => {
-    const b = pruefe(null, [])
-    expect(b.bereit).toBe(false)
-    expect(b.meldungen).toEqual([])
-    expect(b.aufnahmen).toEqual([])
+    const b = validate(null, [])
+    expect(b.ready).toBe(false)
+    expect(b.messages).toEqual([])
+    expect(b.media).toEqual([])
   })
 })
 
-describe('baueFotoSegmente', () => {
+describe('buildPhotoSegments', () => {
   it('reiht die verorteten Fotos zeitlich auf', () => {
-    const seg = baueFotoSegmente(
+    const seg = buildPhotoSegments(
       [foto('b.jpg', 30, [100.1, 9.8]), foto('a.jpg', 0, [100, 9.7]), foto('x.jpg', 5)],
       'walk',
     )
@@ -194,24 +194,24 @@ describe('baueFotoSegmente', () => {
   })
 
   it('liefert nichts, wo keine Strecke entstehen kann', () => {
-    expect(baueFotoSegmente([foto('a.jpg', 0, [100, 9.7])], 'walk')).toEqual([])
+    expect(buildPhotoSegments([foto('a.jpg', 0, [100, 9.7])], 'walk')).toEqual([])
   })
 })
 
 describe('Kleinteile', () => {
   it('formatiert Abstände in lesbaren Größen', () => {
-    expect(formatiereAbstand(18 * 60_000)).toBe('18 min')
-    expect(formatiereAbstand(101 * 60_000)).toBe('1 h 41 min')
-    expect(formatiereAbstand(120 * 60_000)).toBe('2 h')
+    expect(formatDistance(18 * 60_000)).toBe('18 min')
+    expect(formatDistance(101 * 60_000)).toBe('1 h 41 min')
+    expect(formatDistance(120 * 60_000)).toBe('2 h')
   })
 
   it('schätzt die Fahrtdauer aus Strecke und Halten', () => {
-    expect(schaetzeFahrtS(10, 5)).toBe(270)
+    expect(estimateRideS(10, 5)).toBe(270)
   })
 
   it('macht aus dem Befund Medien-Einträge in Zeitreihenfolge', () => {
-    const b = pruefe(track, [foto('spaet.jpg', 90, [100.1, 9.8]), foto('frueh.jpg', 10)])
-    const medien = medienAusBefund(b, (ms) => new Date(ms).toISOString())
+    const b = validate(track, [foto('spaet.jpg', 90, [100.1, 9.8]), foto('frueh.jpg', 10)])
+    const medien = mediaFromReport(b, (ms) => new Date(ms).toISOString())
     expect(medien.map((m) => [m.id, m.file])).toEqual([
       ['m1', 'frueh.jpg'],
       ['m2', 'spaet.jpg'],

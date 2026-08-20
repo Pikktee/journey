@@ -17,7 +17,7 @@ der Zeitleiste — mit Messwerten und verworfenen Alternativen.
 
 ## 1. Der Kernbefund: die Achse ist an Halten nicht umkehrbar
 
-Die Filmzeit-Achse ([zeitleiste.ts `baueAchse`](../../src/studio/zeitleiste.ts)) webt
+Die Filmzeit-Achse ([zeitleiste.ts `buildTimelineAxis`](../../src/studio/zeitleiste.ts)) webt
 jeden Foto-Halt als **Sprung** ein: zwei Stützstellen auf derselben Aufnahmesekunde,
 `filmS` davor und danach. Ein Halt verbraucht Filmzeit, aber keine Aufnahmezeit —
 deshalb gibt es in Aufnahmezeit **keinen Wert für „mitten im Halt"**.
@@ -99,7 +99,7 @@ Mal darüber.
   Zahl-Plakette. Der „Cluster" war nie ein eigenes Ding, sondern die Folge
   zusammenfallender Anker — als Stapel dargestellt, weil *Punkte* an derselben
   Stelle übereinanderlägen. Klips mit Breite haben das Problem nicht: Breite =
-  Standzeit + Ausblendung (`HALT_ENGINE_S`/`HALT_AUSBLEND_S`).
+  Standzeit + Ausblendung (`STOP_ENGINE_S`/`STOP_FADE_OUT_S`).
 - **Standzeit am rechten Griff** des Klips (Foto: `display.holdS`), live während
   des Zugs, Dauer-Blase am Griff. **Videos haben diesen Griff nicht** — ihre
   Standzeit ist eine Tatsache der Datei (der Player läuft bis zum Ende, `holdS`
@@ -191,7 +191,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
   vorher bei 0:36 bzw. mit 116-px-Sprung; mit festem Maßstab: **gelandet 0:30,
   Sprung 0 px, links pixelidentisch.**
 - Das Maßband wählt seine Stufe **nach Maßstab**, nicht nach Filmdauer
-  (`waehleFilmStufe(pxProS)` existiert bereits): feinste Stufe mit ≥ 90 px
+  (`chooseFilmStep(pxProS)` existiert bereits): feinste Stufe mit ≥ 90 px
   Abstand — eingepasst 0:15er-Schritte, voll gezoomt 0:02er.
 - Waagerechter Scroll entsteht damit nur als Folge einer Nutzerhandlung
   (hineinzoomen oder Film verlängern), **nie beim Öffnen**.
@@ -203,7 +203,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
   Nutzer-Feedback): Gruppierung „Im Film / Auf der Strecke", „Reise"-Klappspur,
   Kamera/Wetter als Unterspuren, Wechsel-Marken statt Bändern,
   blass/kräftig-Unterscheidung Automatik vs. Entscheidung („man sollte direkt
-  sehen, was ist" — zumal `materialisiereModi` die Unterscheidung beim ersten
+  sehen, was ist" — zumal `materializeTravelModes` die Unterscheidung beim ersten
   Eingriff ohnehin auflöst).
 - **Der Griff ist EIN Riegel auf der Fuge** (3 px, dunkler Ring, hover/Zug
   orange), Bandtext mit 11 px Abstand. Zwei Fallen, die die Griffe vorher
@@ -223,7 +223,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
   und auf der Leiste unsichtbar schmal.
 - **Grenzen klemmen in Pixeln (14 px), nicht in Sekunden** — mit ±1 s konnten
   zwei Grenzen so nah zusammenrücken, dass das Band dazwischen unsichtbar und
-  unanfassbar wurde. Dieselbe Sorge wie `klemmeGrenze` (mindestens ein
+  unanfassbar wurde. Dieselbe Sorge wie `clampBoundary` (mindestens ein
   Trackpunkt bleibt im Abschnitt).
 - **Fortbewegung: Aufnahmezeit ↔ Filmsekunde ist eine Fixpunktsuche.** Die
   Grenze beeinflusst die Abbildung, auf der sie liegt; mit der Achse des letzten
@@ -275,7 +275,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
   beim Trimmen wandert der *Ausschnitt*, man sieht, was man wegschneidet.
   Gestaucht sähe jeder Trim wie ein Tempowechsel aus.
 - **Überlappende Klips mischen sich** (wie der Player es tut) und stapeln in
-  Lanes (greedy, `musikLanes` existiert).
+  Lanes (greedy, `musicLanes` existiert).
 
 ### F. Video: trimmen wie Ton, rücken wie eine Kette
 
@@ -294,7 +294,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
 
 Schema-ID bleibt `maptale/edits@1`; neue Felder sind optional, alte bleiben
 gültig. Aufwertung nach dem bewährten Muster „erster Eingriff schreibt fest"
-(`materialisiereModi`, `schreibeWetterFest`): das Studio schreibt beim ersten
+(`materializeTravelModes`, `schreibeWetterFest`): das Studio schreibt beim ersten
 Speichern die neuen Felder, der Render bevorzugt sie, `ab`/`bis` bleiben als
 Fallback lesbar. **Nie destruktiv.**
 
@@ -366,7 +366,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
   Neues: Seit der Halt ein Klip mit Breite ist, steht der Kopf sichtbar
   darin, und Restdauer wie Stelle in der Kette liest man dort ab (dazu zeigt
   die Karte das eingeblendete Bild). Die AUSKUNFT bleibt
-  (`haltBeiFilmS`/`beschreibeHaltStand`, getestet) — sie gehört ab Etappe 2 auf
+  (`stopAtFilmS`/`describeStopState`, getestet) — sie gehört ab Etappe 2 auf
   den Klip selbst, wo sie nichts verschiebt. Mit ihr ist auch die
   Zeitraffer-Erkennung wieder raus.
 - **Bandbeschriftungen kürzen in Stufen und SAGEN es.** Passt „Wolkig 52%"
@@ -380,9 +380,9 @@ Abweichungen von der Planung, gemessen am echten Editor:
   breit, dann gehört der volle Text wieder hinein; und unter 74 px Bandbreite
   rückt der Text per **Container-Query** an den Rand, weil dort die Polsterung
   (2×9 px) der größte Posten ist.
-- **`aufnahmeHaltS`** (neu) ersetzt `haltedauerS` überall dort, wo es um die
+- **`mediumHoldS`** (neu) ersetzt `holdS` überall dort, wo es um die
   Filmzeit EINER Aufnahme geht — Achse, Halt-Breite, Überfahr-Marken der
-  Wiedergabe, Inspector-Summe. `haltedauerS` bleibt für die Foto-Standzeit.
+  Wiedergabe, Inspector-Summe. `holdS` bleibt für die Foto-Standzeit.
 - Die **Editor-Route** nimmt `dauerS` aus drei Quellen (Manifest → Anreicherungs-
   Cache → tour.json), nicht nur aus dem tour.json: die App misst schon beim
   Aufnehmen, und dann steht die Länge vor dem ersten Rendern zur Verfügung.
@@ -391,21 +391,21 @@ Abweichungen von der Planung, gemessen am echten Editor:
   Scrub-Frame rechnen. Gilt weiter, auch ohne die gestrichene Anzeige: ab
   Etappe 2 fragt der Klip dieselbe Funktion.
 
-1. `baueAchse` gibt die Halte als **Intervalle** zurück (`{offsetS, breiteS,
+1. `buildTimelineAxis` gibt die Halte als **Intervalle** zurück (`{offsetS, breiteS,
    filmVon, filmBis, indizes}` statt nur `{offsetS, breiteS}`) — die Auskunft
    „steht der Kopf in einem Halt, und wo darin?" gibt es heute nicht.
 2. **Playhead führend in Filmsekunden** (Scrubben, Klick, Pfeiltasten,
    Abspielen aus einer Quelle). Die Auskunft „wo im Halt" entsteht als
-   Funktion (`haltBeiFilmS`/`beschreibeHaltStand`) und wird getestet — sie
+   Funktion (`stopAtFilmS`/`describeStopState`) und wird getestet — sie
    bekommt aber KEINE eigene Anzeige in der Kopfleiste, s. Abweichungen oben.
 3. **Videolänge**: Editor-Route liefert `dauerS`; Achse und Szenen-Breite nutzen
    sie. **Momente** bekommen Achsenbreite (als Halte).
 4. **Zoom-Modell auf px/Filmsekunde umstellen** — das bestehende Faktor-Modell
-   (`zoom`, `wendeZoomAn`, `ankerScroll`) bleibt als Bedienung, aber die
+   (`zoom`, `wendeZoomAn`, `scrollAnchor`) bleibt als Bedienung, aber die
    gespeicherte Größe wird der Maßstab; fit = Startzustand. Beim Zug einer
    Fortbewegungs-Grenze (Etappe 3) wird er eingefroren; hier reicht: Maßstab
    ändert sich nur durch Zoomen/Einpassen, nie durch Datenänderung.
-   `waehleFilmStufe(pxProS)` ist schon maßstabsfähig.
+   `chooseFilmStep(pxProS)` ist schon maßstabsfähig.
 5. Tests in [test/](../../test/): Halt-Intervalle, Kopf-in-Halt-Auskunft,
    Pfeiltasten über einen Halt, Achse mit Videolänge, Stufenwahl.
 
@@ -452,7 +452,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
   Einblendung war eine Überfahr-Marke des Abspielers), und beim Abspielen ging
   es 0,8 s vor seinem Klip aus (der Timer lief über die reine Standzeit, der
   Klip über Standzeit + Ausblendung). `synchronisiereFoto` liest bei jeder
-  Kopfbewegung `haltBeiFilmS` — dieselbe Kette, aus der die Klips entstehen.
+  Kopfbewegung `stopAtFilmS` — dieselbe Kette, aus der die Klips entstehen.
   `ZeigeMarke`/`Schritt.zeige` sind entfallen; das ist wieder die Merkregel aus
   §2B: eine Anzeige, die einen Mangel kompensiert, verschwindet mit ihm.
 - **Die Dauer-Blase hängt an einer EIGENEN Klasse** (`zieht-dauer`), nicht an
@@ -498,11 +498,11 @@ Aufnahmen als drei anfassbare Klips liegt.
 Abweichungen von der Planung, gemessen am echten Editor:
 
 - **Die Bisektion ist NICHT eingebaut** — die geforderte Messung hat sie
-  erledigt. Ein Zieh-Frame kostet 14 Achsenbauten (`zerlegeFuerAnzeige` +
-  `baueAchse`), gemessen in Node auf einem M4, **ohne** den Rest des Frames
+  erledigt. Ein Zieh-Frame kostet 14 Achsenbauten (`splitForDisplay` +
+  `buildTimelineAxis`), gemessen in Node auf einem M4, **ohne** den Rest des Frames
   (Ø / max über 40 Läufe):
 
-  | Trackpunkte | Bisektion, voll | Bisektion, Halte vorgerechnet | `baueGrenzKurve` |
+  | Trackpunkte | Bisektion, voll | Bisektion, Halte vorgerechnet | `buildBoundaryCurve` |
   |---|---|---|---|
   | 335 (Koh Pha-ngan, echt) | 0,62 / 1,04 ms | 0,29 / 0,33 ms | 0,017 ms **einmal** |
   | 993 | 1,39 / 1,46 ms | 0,73 / 0,78 ms | 0,041 ms einmal |
@@ -514,7 +514,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
   bleiben 6,6 ms — kein Puffer, wenn Render und Karte noch dazukommen. Die
   Auswertung der Kurve liegt je Frame unter der Messschwelle (< 0,005 ms).
 
-  **Warum `baueGrenzKurve` sie ersetzt — und dabei einfacher ist.** Die
+  **Warum `buildBoundaryCurve` sie ersetzt — und dabei einfacher ist.** Die
   Filmposition der Grenze hängt NUR von dem ab, was VOR ihr liegt: Bis zur
   vorigen Grenze ändert sich beim Ziehen gar nichts, und dazwischen gilt das
   Tempo des LINKEN Bands, egal wohin man zieht. Also ist F(t) eine feste,
@@ -527,18 +527,18 @@ Abweichungen von der Planung, gemessen am echten Editor:
   ohnehin als hypothetisch: Der Editor-Track ist serverseitig auf 5 m
   vereinfacht ([tours.ts](../../server/src/routes/tours.ts)) — aus einem GPX mit
   9 000 Punkten kommen im Editor **541** an.
-- **Dieselbe Rechnung trägt die Filmdauer-Vorschau** (`filmDauerBeiGrenze`):
+- **Dieselbe Rechnung trägt die Filmdauer-Vorschau** (`filmDurationAtBoundary`):
   Verschiebt man die Kante, wechselt genau die Strecke zwischen alter und neuer
   Lage den Modus; ihre Filmzeit ändert sich um die Differenz der Kehrwerte der
   Tempi. Keine zweite Achse nötig.
 - **Die eigene Kante wird über den INDEX gefunden, nicht über eine
-  Zeit-Toleranz.** Der Overlay-Anker ist sekundengenau (`offsetZuIso` schneidet
+  Zeit-Toleranz.** Der Overlay-Anker ist sekundengenau (`offsetToIso` schneidet
   die Millisekunden ab), die Wechselzeit im Track ist es nicht — 7839,1 gegen
   7840. Mit „alles vor mir / alles nach mir" wurde die eigene Kante zum rechten
   Nachbarn, das Zug-Fenster war der Abschnitt DAVOR, und die Kante klemmte nach
   7 px fest. Kostete eine Runde.
 - **Der Rast-Bug beim Rechtsziehen: drei Fassungen, eine Ursache.** Meldung des
-  Nutzers nach der ersten Fassung: „`rasteAnHalt` mischt Filmsekunden aus der
+  Nutzers nach der ersten Fassung: „`snapToStop` mischt Filmsekunden aus der
   Grenzkurve mit Halt-Positionen aus der Achse — die beiden laufen rechts der
   ursprünglichen Kante auseinander." Genau so war es, und die zwei Anläufe
   danach haben gezeigt, dass die Ursache tiefer liegt als das Mischen:
@@ -574,7 +574,7 @@ Abweichungen von der Planung, gemessen am echten Editor:
   sieht, und §7 ist entschieden.
 - **Möglich ist das erst durch die exakte Umrechnung.** Der ursprüngliche Grund
   für die Entkopplung war, dass die Kante dem Zeiger davonlief (116 px) — das
-  lag an der Achse des Vorframes, nicht am Live-Schreiben. Mit `baueGrenzKurve`
+  lag an der Achse des Vorframes, nicht am Live-Schreiben. Mit `buildBoundaryCurve`
   steht die Kante nach jedem Neuaufbau wieder unter dem Zeiger (gemessen
   0,1 px; Restabweichung ist die Sekundenrundung des ISO-Ankers).
 - **Kosten gemessen**: 5,5 ms je Zieh-Frame im Median (Koh Pha-ngan, 335
@@ -608,7 +608,7 @@ Undo-Schritt.
 1. Drei schmale Bahnen (19 px), Bänder mit Text, Riegel-Griffe (§2D; CSS-Fallen
    in §5 beachten).
 2. Zug-Entkopplung: Kante am Zeiger (Anzeigegröße), Modell erst beim Loslassen;
-   Ziellinie + Etikett; Einrasten ±0,5 s; Klemmen in Pixeln. `materialisiereModi`
+   Ziellinie + Etikett; Einrasten ±0,5 s; Klemmen in Pixeln. `materializeTravelModes`
    und `schreibeWetterFest` bleiben unverändert die Schreib-Muster.
 3. Fortbewegung: Maßstab beim Zug einfrieren, Filmdauer-Vorschau im Etikett,
    Bisektion für die Loslass-Zeit. **Vorher an der Frankfurt-Tour messen**
@@ -629,7 +629,7 @@ und links davon nichts wandert.
 3. Player + Studio-Abspielen: `loop` aus Overlay, SFX-Loop mit Ende,
    `einstiegS`-Seek.
 4. Pipeline: Video-Trim (Transcode-Zwang), `durationS` getrimmt; Drift-Wächter,
-   dass Editor-Annahmen (`HALT_ENGINE_S` etc.) und Pipeline synchron bleiben,
+   dass Editor-Annahmen (`STOP_ENGINE_S` etc.) und Pipeline synchron bleiben,
    existiert (filmtempo).
 5. Tests: Trim-Anschläge (auch Loop-links-Verbot), Magnetik (Standzeit ±10 s →
    Ton rückt exakt), Alt-Daten-Aufwertung idempotent.
@@ -656,7 +656,7 @@ gerenderten Film an der richtigen Stelle schneidet.
 - **Die Pipeline braucht eine eigene Film-Achse**
   ([server/src/pipeline/film-axis.ts](../../server/src/pipeline/film-axis.ts)):
   Ein Versatz in Filmsekunden ist ohne die Halte nicht auffindbar. Sie ist der
-  Spiegel von `baueAchse` — gleiche Gruppierung (120 m), gleiche Halt-Dauern,
+  Spiegel von `buildTimelineAxis` — gleiche Gruppierung (120 m), gleiche Halt-Dauern,
   gleiche lower_bound-Konvention; Drift-Wächter halten beides zusammen.
 - **Nachtrag: Momente sind auch SERVERSEITIG Halte** (`baueMomentHalte`). Die
   Achse der Pipeline kannte anfangs nur platzierte Medien, während das Studio
@@ -684,7 +684,7 @@ gerenderten Film an der richtigen Stelle schneidet.
   kürzer schneidet. Dateilängen stehen nirgends im Datenmodell (der Katalog
   führt Namen, keine Sekunden) — der Editor misst sie per `loadedmetadata`.
 - **Aufgewertet wird nur der Klip, den man ANFASST.** Anders als bei
-  `materialisiereModi`: Dort MUSS die ganze Stufenfunktion fest werden, weil
+  `materializeTravelModes`: Dort MUSS die ganze Stufenfunktion fest werden, weil
   eine einzelne neue Grenze die späteren Abschnitte mitrisse. Ton-Klips sind
   unabhängige Objekte.
 - **Der Ripple kostet keine Zeile.** Ein Video liegt in einer Halt-Kette ohne
@@ -698,8 +698,8 @@ gerenderten Film an der richtigen Stelle schneidet.
   Zeitpunkt") beschrieb eine Form, die es nicht mehr gibt → „Rolle: Filmmusik ·
   Ton der Szene". Der Umschalter verlor dabei zwei Dinge still: `bis` fiel weg
   (Länge geht jetzt vorher nach `dauerFilmS`) und die Loop-Vorgabe hängt an der
-  Rolle (`loopNachRollenwechsel`).
-- **Loop AUS holt den Klip ans Material zurück** (`setzeLoop`, ebenfalls
+  Rolle (`loopAfterRoleChange`).
+- **Loop AUS holt den Klip ans Material zurück** (`setLoop`, ebenfalls
   Nutzer-Befund). Vorher blieb die überschüssige Länge stehen und füllte sich
   hinter der Wellenform mit Stille — man musste von Hand nachziehen, um zu
   sehen, wo das Material endet. Gemessen: 113,3 s → 100,08 s = exakt die Datei.
@@ -707,7 +707,7 @@ gerenderten Film an der richtigen Stelle schneidet.
   `ab`/`bis`, die seit der Aufwertung keinen Vorrang mehr haben — ab dem ersten
   Kantenzug wirkungslos, und beim LESEN zeigten sie eine Zeit, die im Film
   nichts bedeutet (08:37 statt 08:32). Sie gehen jetzt durch dieselben
-  `verschiebeTon`/`trimmeRechts` wie der Zug; `loeseFokusAuf` bekommt die
+  `moveAudioClip`/`trimRight` wie der Zug; `resolveSelection` bekommt die
   Ton-Spanne als Rückruf herein, weil das Modul die Achse nicht kennt.
 - **Gemessen an der Probetour** (34-s-Video, 3 Aufnahmen, 3 Ton-Klips): linke
   Kante +80 px → „1:03 · ab 0:17 der Datei" (Anfang und Einstieg wandern
@@ -743,7 +743,7 @@ liegt und sich dort auswählen, verschieben und in der Dauer ändern lässt.
 Aufnahme (eigene Reconcile-Karte `momentEls`, geschlüsselt an `ab`), nur ohne
 Miniatur: an ihrer Stelle das Muster in Koralle. Sein rechter Griff zieht
 `momente[].dauerS` — dieselbe Geste wie die Standzeit eines Fotos, andere
-Grenzen (`klemmeMomentDauer`, 1–30 s aus schema/edits.ts). Zwei Dinge sind
+Grenzen (`clampMomentDuration`, 1–30 s aus schema/edits.ts). Zwei Dinge sind
 dabei UMGEBAUT worden, nicht nur umgehängt:
 
 - **Der Zug schreibt nicht mehr live.** Als Punkt ohne Breite durfte er das
@@ -751,7 +751,7 @@ dabei UMGEBAUT worden, nicht nur umgehängt:
   Ruhelage eine tote Zone von seiner eigenen Breite, weil die Rückrechnung
   px → Zeit über sein eigenes Plateau geht. Er folgt jetzt wie der
   Aufnahme-Klip dem Zeiger und schreibt einmal beim Loslassen — über eine
-  Zug-Achse OHNE diesen Moment. Dafür trägt ein `AchsenHalt` seit hier einen
+  Zug-Achse OHNE diesen Moment. Dafür trägt ein `AxisStop` seit hier einen
   `schluessel`: `indizes` überlebt das Weglassen eines Halts nicht.
 - **Die Halte für die Achse baut `achsenHalte()`**, eine Stelle statt drei
   Kopien (Achse, Klip-Zug, Moment-Zug). Nebenbei behoben: die Zug-Achse des
@@ -800,7 +800,7 @@ Dazu die, die erst der echte Editor gekostet hat (Etappen 2 und 3):
    DERSELBEN stammen. Der einzige saubere Übergabepunkt zwischen beiden ist die
    AUFNAHMEZEIT. Sauber wird es aber erst, wenn die Leiste im Zug mitgeht (§4,
    Etappe 3).
-10. **Overlay-Anker sind SEKUNDENgenau** (`offsetZuIso` schneidet die
+10. **Overlay-Anker sind SEKUNDENgenau** (`offsetToIso` schneidet die
     Millisekunden ab), Track-Zeiten sind es nicht. Zeit-Toleranzen unter einer
     Sekunde unterscheiden deshalb nichts Verlässliches: Die eigene Kante eines
     Zugs findet man über den INDEX in der Kantenliste, nicht über „alles vor
@@ -869,7 +869,7 @@ Dazu die, die erst der echte Editor gekostet hat (Etappen 2 und 3):
 | dito, Fassung 3 (kein Rasten, Zeiger im Halt) | Rücksprung 5,4 s / 17,6 px (lower_bound, §1) |
 | Halt beim Rechtsziehen | wandert 41 px nach (644,8 → 686,3 px), weil der Film wächst |
 | Zieh-Frame mit Live-Aufbau | Median 5,5 ms / p95 6,7 (335 Punkte, 12 Klips) · 4,0 / 4,9 ms (541 Punkte, 0 Medien) |
-| `baueGrenzKurve` statt Bisektion | 0,205 ms EINMAL bei 10 000 Punkten statt 12,5 ms je Frame |
+| `buildBoundaryCurve` statt Bisektion | 0,205 ms EINMAL bei 10 000 Punkten statt 12,5 ms je Frame |
 | Editor-Track nach Server-Vereinfachung (5 m) | GPX mit 9 000 Punkten → **541** im Editor |
 
 ---

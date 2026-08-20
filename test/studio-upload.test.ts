@@ -50,7 +50,7 @@ describe('medientyp', () => {
   })
 })
 
-describe('isoMitZone / exifDatumZuMs', () => {
+describe('isoWithZone / exifDatumZuMs', () => {
   it('formatiert mit Zonen-Offset', () => {
     expect(isoMitZone(Date.parse('2026-07-04T08:00:00Z'), 'UTC')).toBe('2026-07-04T08:00:00+00:00')
     // Sommerzeit Berlin = +02:00
