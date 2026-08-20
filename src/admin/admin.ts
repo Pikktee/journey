@@ -157,13 +157,13 @@ interface Zustand {
   /** Ist das Laden gescheitert, steht der Grund IN der Liste — samt zweitem Versuch. */
   fehler: string
   benutzer: AdminBenutzer[]
-  einladungen: AdminEinladung[]
+  invitations: AdminEinladung[]
   warteliste: AdminWartender[]
   mailvorlagen: MailVorlage[]
-  einladungPflicht: boolean
-  wartelisteOffen: boolean
-  registrierungOffen: boolean
-  basisUrl: string
+  invitationRequired: boolean
+  waitlistOpen: boolean
+  registrationOpen: boolean
+  baseUrl: string
   kontenSuche: string
   kontenFilter: KontenFilter
   einladungenSuche: string
@@ -187,13 +187,13 @@ const z: Zustand = {
   laedt: true,
   fehler: '',
   benutzer: [],
-  einladungen: [],
+  invitations: [],
   warteliste: [],
   mailvorlagen: [],
-  einladungPflicht: true,
-  wartelisteOffen: true,
-  registrierungOffen: true,
-  basisUrl: location.origin,
+  invitationRequired: true,
+  waitlistOpen: true,
+  registrationOpen: true,
+  baseUrl: location.origin,
   kontenSuche: '',
   kontenFilter: 'alle',
   einladungenSuche: '',
@@ -335,26 +335,26 @@ async function lade(): Promise<void> {
         api.mailvorlagen(),
         api.protokoll(),
         api.statistiken().catch(() => ({
-          echtzeit: 0,
-          heute: { aufrufe: 0, besucher: 0 },
-          letzte7Tage: { aufrufe: 0, besucher: 0 },
-          gesamt: 0,
+          realtime: 0,
+          today: { pageviews: 0, visitors: 0 },
+          last7Days: { pageviews: 0, visitors: 0 },
+          total: 0,
           referrer: [],
-          seiten: [],
+          pages: [],
         })),
       ])
     z.benutzer = konten.benutzer
-    z.einladungen = einladungen.einladungen
-    z.einladungPflicht = einladungen.einladungPflicht
-    z.registrierungOffen = einladungen.registrierungOffen
-    z.basisUrl = einladungen.basisUrl || location.origin
-    z.warteliste = warteliste.eintraege
-    z.wartelisteOffen = warteliste.wartelisteOffen
+    z.invitations = einladungen.invitations
+    z.invitationRequired = einladungen.invitationRequired
+    z.registrationOpen = einladungen.registrationOpen
+    z.baseUrl = einladungen.baseUrl || location.origin
+    z.warteliste = warteliste.entries
+    z.waitlistOpen = warteliste.waitlistOpen
     z.rueckmeldungen = rueckmeldungen.rueckmeldungen
-    z.protokoll = protokoll.eintraege
+    z.protokoll = protokoll.entries
     z.protokollWartend = []
-    z.protokollGestartet = protokoll.gestartet
-    z.mailvorlagen = mails.vorlagen
+    z.protokollGestartet = protokoll.startedAt
+    z.mailvorlagen = mails.templates
     rendereStatistiken(stats)
   } catch (fehler) {
     z.fehler = fehlerText(fehler)
@@ -368,17 +368,17 @@ async function lade(): Promise<void> {
 function rendereStatistiken(s: api.AdminStatistiken): void {
   const format = (n: number) => n.toLocaleString('de-DE')
   const echtzeit = $('stat-echtzeit')
-  if (echtzeit) echtzeit.textContent = format(s.echtzeit)
+  if (echtzeit) echtzeit.textContent = format(s.realtime)
   const heuteAufrufe = $('stat-heute-aufrufe')
-  if (heuteAufrufe) heuteAufrufe.textContent = format(s.heute.aufrufe)
+  if (heuteAufrufe) heuteAufrufe.textContent = format(s.today.pageviews)
   const heuteBesucher = $('stat-heute-besucher')
-  if (heuteBesucher) heuteBesucher.textContent = `${format(s.heute.besucher)} Besucher`
+  if (heuteBesucher) heuteBesucher.textContent = `${format(s.today.visitors)} Besucher`
   const tage7Aufrufe = $('stat-7d-aufrufe')
-  if (tage7Aufrufe) tage7Aufrufe.textContent = format(s.letzte7Tage.aufrufe)
+  if (tage7Aufrufe) tage7Aufrufe.textContent = format(s.last7Days.pageviews)
   const tage7Besucher = $('stat-7d-besucher')
-  if (tage7Besucher) tage7Besucher.textContent = `${format(s.letzte7Tage.besucher)} Besucher`
+  if (tage7Besucher) tage7Besucher.textContent = `${format(s.last7Days.visitors)} Besucher`
   const gesamt = $('stat-gesamt')
-  if (gesamt) gesamt.textContent = format(s.gesamt)
+  if (gesamt) gesamt.textContent = format(s.total)
 
   const refListe = $('stat-referrer-liste')
   if (refListe) {
@@ -389,7 +389,7 @@ function rendereStatistiken(s: api.AdminStatistiken): void {
       refListe.innerHTML = s.referrer
         .map(
           (r) =>
-            `<div class="stat-zeile"><span class="name">${r.quelle}</span><span class="anzahl">${format(r.anzahl)}</span></div>`,
+            `<div class="stat-zeile"><span class="name">${r.quelle}</span><span class="anzahl">${format(r.count)}</span></div>`,
         )
         .join('')
     }
@@ -397,14 +397,14 @@ function rendereStatistiken(s: api.AdminStatistiken): void {
 
   const seitenListe = $('stat-seiten-liste')
   if (seitenListe) {
-    if (!s.seiten.length) {
+    if (!s.pages.length) {
       seitenListe.innerHTML =
         '<div style="color: var(--text-3); font-size: 13px; padding: 6px 0;">Noch keine Daten erfasst.</div>'
     } else {
-      seitenListe.innerHTML = s.seiten
+      seitenListe.innerHTML = s.pages
         .map(
           (p) =>
-            `<div class="stat-zeile"><span class="name">${p.pfad}</span><span class="anzahl">${format(p.anzahl)}</span></div>`,
+            `<div class="stat-zeile"><span class="name">${p.path}</span><span class="anzahl">${format(p.count)}</span></div>`,
         )
         .join('')
     }
@@ -447,7 +447,7 @@ async function start(): Promise<void> {
     els.sperre.hidden = false
     return
   }
-  if (sitzung.benutzer.rolle !== 'admin') {
+  if (sitzung.benutzer.role !== 'admin') {
     els.sperre.hidden = false
     return
   }
@@ -472,7 +472,7 @@ async function start(): Promise<void> {
 function reiterZahl(id: TabId): { wert: number; wichtig: boolean } {
   if (id === 'konten') return { wert: z.benutzer.length, wichtig: false }
   if (id === 'statistiken') return { wert: 0, wichtig: false }
-  if (id === 'einladungen') return { wert: zaehleEinladungen(z.einladungen).offen, wichtig: false }
+  if (id === 'einladungen') return { wert: zaehleEinladungen(z.invitations).offen, wichtig: false }
   if (id === 'warteliste') {
     const wartend = zaehleWarteliste(z.warteliste).wartend
     return { wert: wartend, wichtig: wartend > 0 }
@@ -498,29 +498,29 @@ function rendereReiter(): void {
   els.reiter.replaceChildren(
     ...TABS.map((t) => {
       const aktiv = t.id === z.tab
-      const knopf = document.createElement('button')
-      knopf.type = 'button'
-      knopf.id = `reiter-${t.id}`
-      knopf.setAttribute('role', 'tab')
-      knopf.setAttribute('aria-selected', String(aktiv))
-      knopf.setAttribute('aria-controls', `panel-${t.id}`)
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.id = `reiter-${t.id}`
+      button.setAttribute('role', 'tab')
+      button.setAttribute('aria-selected', String(aktiv))
+      button.setAttribute('aria-controls', `panel-${t.id}`)
       // Rollender Tabindex: Aus der Leiste führt EIN Tabstopp heraus, zwischen
       // den Reitern bewegt man sich mit den Pfeiltasten (ARIA-Muster „tabs").
-      knopf.tabIndex = aktiv ? 0 : -1
+      button.tabIndex = aktiv ? 0 : -1
       const name = document.createElement('span')
       name.textContent = t.name
-      knopf.append(name)
+      button.append(name)
       if (!z.laedt) {
         const { wert, wichtig } = reiterZahl(t.id)
         const zahl = document.createElement('span')
         zahl.className = wichtig ? 'z wichtig' : 'z'
         zahl.textContent = String(wert)
-        knopf.append(zahl)
-        knopf.setAttribute('aria-label', `${t.name}, ${wert} ${t.zaehlt}`)
-        knopf.title = `${wert} ${t.zaehlt}`
+        button.append(zahl)
+        button.setAttribute('aria-label', `${t.name}, ${wert} ${t.zaehlt}`)
+        button.title = `${wert} ${t.zaehlt}`
       }
-      knopf.addEventListener('click', () => setzeTab(t.id))
-      return knopf
+      button.addEventListener('click', () => setzeTab(t.id))
+      return button
     }),
   )
 }
@@ -543,11 +543,11 @@ function setzeTab(id: TabId, opt: { fokus?: boolean } = {}): void {
   z.tab = id
   zeigeTab(id)
   rendereReiter()
-  const knopf = document.getElementById(`reiter-${id}`)
+  const button = document.getElementById(`reiter-${id}`)
   // Am Telefon passen nicht alle vier in die Leiste. `block: 'nearest'` hält
   // die Seite dabei senkrecht in Ruhe — sonst spränge sie bei jedem Wechsel.
-  knopf?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  if (opt.fokus) knopf?.focus()
+  button?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  if (opt.fokus) button?.focus()
   const anhang = `#${id}`
   if (location.hash !== anhang) history.replaceState(null, '', anhang)
 }
@@ -595,26 +595,26 @@ function rendereFilter<T extends string>(
 ): void {
   el.replaceChildren(
     ...chips.map((c) => {
-      const knopf = document.createElement('button')
-      knopf.type = 'button'
-      knopf.setAttribute('aria-pressed', String(c.wert === aktiv))
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.setAttribute('aria-pressed', String(c.wert === aktiv))
       const name = document.createElement('span')
       name.textContent = c.name
       const zahl = document.createElement('span')
       zahl.className = 'z'
       zahl.textContent = String(c.zahl)
-      knopf.append(name, zahl)
+      button.append(name, zahl)
       // Aus dem Inhalt gelesen ergäbe der Name „Alle3" — zwei aneinander
       // stoßende Inline-Elemente bekommen keinen Zwischenraum.
-      knopf.setAttribute('aria-label', `${c.name}, ${c.zahl}`)
-      knopf.addEventListener('click', () => waehle(c.wert))
-      return knopf
+      button.setAttribute('aria-label', `${c.name}, ${c.zahl}`)
+      button.addEventListener('click', () => waehle(c.wert))
+      return button
     }),
   )
 }
 
-function skelett(anzahl: number): HTMLElement[] {
-  return Array.from({ length: anzahl }, () => {
+function skelett(count: number): HTMLElement[] {
+  return Array.from({ length: count }, () => {
     const zeile = document.createElement('div')
     zeile.className = 'skelett'
     zeile.append(document.createElement('span'), document.createElement('span'))
@@ -635,11 +635,11 @@ function leerZustand(
   p.textContent = text
   leer.append(b, p)
   if (aktion) {
-    const knopf = document.createElement('button')
-    knopf.type = 'button'
-    knopf.textContent = aktion.name
-    knopf.addEventListener('click', aktion.tu)
-    leer.append(knopf)
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.textContent = aktion.name
+    button.addEventListener('click', aktion.tu)
+    leer.append(button)
   }
   return leer
 }
@@ -725,18 +725,18 @@ function griff(
   tu: () => void,
   opt: { gefahr?: boolean; gesperrt?: string } = {},
 ): HTMLButtonElement {
-  const knopf = document.createElement('button')
-  knopf.type = 'button'
-  knopf.className = opt.gefahr ? 'still gefahr' : 'still'
-  knopf.textContent = wort
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = opt.gefahr ? 'still gefahr' : 'still'
+  button.textContent = wort
   if (opt.gesperrt) {
-    knopf.disabled = true
-    knopf.title = opt.gesperrt
-    knopf.setAttribute('aria-label', `${wort}, ${opt.gesperrt}`)
+    button.disabled = true
+    button.title = opt.gesperrt
+    button.setAttribute('aria-label', `${wort}, ${opt.gesperrt}`)
   } else {
-    knopf.addEventListener('click', tu)
+    button.addEventListener('click', tu)
   }
-  return knopf
+  return button
 }
 
 function griffe(...knoepfe: HTMLElement[]): HTMLElement {
@@ -760,23 +760,23 @@ function render(): void {
 }
 
 function rendereRegistrierung(): void {
-  els.pflichtSchalter.setAttribute('aria-pressed', String(z.einladungPflicht))
-  els.pflichtText.textContent = z.einladungPflicht
+  els.pflichtSchalter.setAttribute('aria-pressed', String(z.invitationRequired))
+  els.pflichtText.textContent = z.invitationRequired
     ? 'Neue Konten entstehen nur über einen Einladungscode. Schalte es aus, damit sich jeder selbst anmelden kann.'
     : 'Jeder kann sich selbst anmelden. Die Bestätigungsmail bleibt Pflicht. Schalte es ein, um wieder nur Eingeladene hereinzulassen.'
-  els.zuWarnung.hidden = z.registrierungOffen
+  els.zuWarnung.hidden = z.registrationOpen
 
-  els.wlSchalter.setAttribute('aria-pressed', String(z.wartelisteOffen))
+  els.wlSchalter.setAttribute('aria-pressed', String(z.waitlistOpen))
   // Der Schalter ist eingeschaltet und trotzdem wirkungslos, solange sich jeder
   // anmelden kann — das gehört dazugesagt, sonst sucht man den Eintrag
   // vergeblich vor der Tür. Und weil die Ursache im anderen Reiter liegt,
   // steht daneben der Weg dorthin.
   const wirkungslos =
-    z.wartelisteOffen &&
-    !wartelisteAngeboten(z.wartelisteOffen, z.einladungPflicht, z.registrierungOffen)
+    z.waitlistOpen &&
+    !wartelisteAngeboten(z.waitlistOpen, z.invitationRequired, z.registrationOpen)
   els.wlSchalterText.textContent = wirkungslos
     ? 'Angeschaltet, aber ohne Wirkung: Solange sich jeder selbst anmelden kann, braucht niemand eine Warteliste.'
-    : z.wartelisteOffen
+    : z.waitlistOpen
       ? 'Wer keinen Code hat, kann seine Adresse hinterlassen und wird per Mail eingeladen.'
       : 'Ohne Code endet der Weg vor der Tür. Schalte es ein, um Adressen zu sammeln.'
   els.wlZurPflicht.hidden = !wirkungslos
@@ -794,12 +794,12 @@ function rendereKonten(): void {
       {
         wert: 'admins',
         name: 'Administratoren',
-        zahl: gesucht.filter((b) => b.rolle === 'admin').length,
+        zahl: gesucht.filter((b) => b.role === 'admin').length,
       },
       {
         wert: 'unbestaetigt',
         name: 'Unbestätigt',
-        zahl: gesucht.filter((b) => !b.verifiziert).length,
+        zahl: gesucht.filter((b) => !b.verified).length,
       },
     ] satisfies Chip<KontenFilter>[],
     z.kontenFilter,
@@ -818,13 +818,13 @@ function rendereKonten(): void {
     const name = document.createElement('span')
     name.className = 'name'
     name.textContent = b.name || b.email
-    kopf.oben.append(name, plakette(b.rolle, b.rolle === 'admin' ? 'Administrator' : 'Nutzer'))
-    if (b.fest) {
+    kopf.oben.append(name, plakette(b.role, b.role === 'admin' ? 'Administrator' : 'Nutzer'))
+    if (b.fixed) {
       kopf.oben.append(
         plakette('nutzer', 'Fest', 'Steht in der Konfiguration: Rolle und Konto sind unantastbar'),
       )
     }
-    if (!b.verifiziert) {
+    if (!b.verified) {
       kopf.oben.append(
         plakette(
           'unbestaetigt',
@@ -835,16 +835,16 @@ function rendereKonten(): void {
     }
     const unten = document.createElement('div')
     unten.className = 'unten'
-    unten.textContent = `${b.email} · seit ${formatiereDatum(b.angelegtAm)}`
+    unten.textContent = `${b.email} · seit ${formatiereDatum(b.createdAt)}`
     kopf.text.append(unten)
 
     zeile.append(
       kopf.wurzel,
-      kennzahl(String(b.touren), b.touren === 1 ? 'Tour' : 'Touren'),
-      kennzahl(formatiereBytes(b.speicher), 'belegt'),
+      kennzahl(String(b.tours), b.tours === 1 ? 'Tour' : 'Touren'),
+      kennzahl(formatiereBytes(b.storage), 'belegt'),
       griffe(
         griff('Bearbeiten', () => oeffneKonto(b)),
-        griff('Löschen', () => void loescheKonto(b), {
+        griff('Löschen', () => void deleteAccount(b), {
           gefahr: true,
           gesperrt: loeschenGesperrt(b, z.ichId, admins),
         }),
@@ -880,7 +880,7 @@ function rendereKonten(): void {
 }
 
 function rendereEinladungen(): void {
-  const gesucht = filtereEinladungen(z.einladungen, z.einladungenSuche)
+  const gesucht = filtereEinladungen(z.invitations, z.einladungenSuche)
   const zahl = zaehleEinladungen(gesucht)
   rendereFilter(
     els.einladungenFilter,
@@ -909,8 +909,8 @@ function rendereEinladungen(): void {
     kopf.oben.append(
       code,
       plakette(
-        e.zustand,
-        { offen: 'Offen', eingeloest: 'Eingelöst', abgelaufen: 'Abgelaufen' }[e.zustand],
+        e.state,
+        { offen: 'Offen', eingeloest: 'Eingelöst', abgelaufen: 'Abgelaufen' }[e.state],
       ),
     )
     if (e.notiz) {
@@ -926,23 +926,23 @@ function rendereEinladungen(): void {
     kopf.text.append(unten)
 
     const knoepfe: HTMLElement[] = []
-    if (e.zustand === 'offen') knoepfe.push(griff('Link kopieren', () => void kopiereLink(e.code)))
+    if (e.state === 'offen') knoepfe.push(griff('Link kopieren', () => void kopiereLink(e.code)))
     knoepfe.push(
-      griff(e.zustand === 'offen' ? 'Widerrufen' : 'Entfernen', () => void widerrufe(e), {
+      griff(e.state === 'offen' ? 'Widerrufen' : 'Entfernen', () => void widerrufe(e), {
         gefahr: true,
       }),
     )
 
     zeile.append(
       kopf.wurzel,
-      kennzahl(formatiereDatum(e.erstelltAm), 'erstellt'),
+      kennzahl(formatiereDatum(e.createdAt), 'erstellt'),
       griffe(...knoepfe),
     )
     return zeile
   })
 
   fuelleListe(els.einladungenListe, zeilen, () =>
-    z.einladungen.length
+    z.invitations.length
       ? leerZustand(
           'Keine passende Einladung',
           'Kein Code und keine Notiz trifft die Suche, oder der Filter blendet sie aus.',
@@ -997,8 +997,8 @@ function rendereWarteliste(): void {
     kopf.oben.append(
       adresse,
       plakette(
-        { unbestaetigt: 'unbestaetigt', wartend: 'offen', eingeladen: 'eingeloest' }[e.zustand],
-        { unbestaetigt: 'Unbestätigt', wartend: 'Wartet', eingeladen: 'Eingeladen' }[e.zustand],
+        { unbestaetigt: 'unbestaetigt', wartend: 'offen', eingeladen: 'eingeloest' }[e.state],
+        { unbestaetigt: 'Unbestätigt', wartend: 'Wartet', eingeladen: 'Eingeladen' }[e.state],
       ),
     )
     const unten = document.createElement('div')
@@ -1025,7 +1025,7 @@ function rendereWarteliste(): void {
 
     zeile.append(
       kopf.wurzel,
-      kennzahl(formatiereDatum(e.eingetragenAm), 'eingetragen'),
+      kennzahl(formatiereDatum(e.joinedAt), 'eingetragen'),
       griffe(
         einladen,
         griff('Entfernen', () => void entferneWartenden(e), { gefahr: true }),
@@ -1070,7 +1070,7 @@ function rendereMailvorlagen(): void {
     els.mailListe.replaceChildren()
     return
   }
-  const angepasst = z.mailvorlagen.filter((v) => v.angepasst).length
+  const angepasst = z.mailvorlagen.filter((v) => v.customized).length
   els.mailZusammenfassung.textContent = angepasst
     ? `${z.mailvorlagen.length} Vorlagen · ${angepasst} angepasst. Bearbeitbar sind die Worte; Layout und Logo stehen fest.`
     : `${z.mailvorlagen.length} Vorlagen im Auslieferungszustand. Bearbeitbar sind die Worte; Layout und Logo stehen fest.`
@@ -1087,19 +1087,19 @@ function rendereMailvorlagen(): void {
       name.textContent = v.name
       oben.append(
         name,
-        plakette(v.angepasst ? 'angepasst' : 'standard', v.angepasst ? 'Angepasst' : 'Standard'),
+        plakette(v.customized ? 'angepasst' : 'standard', v.customized ? 'Angepasst' : 'Standard'),
       )
 
       const betreff = document.createElement('div')
       betreff.className = 'betreff'
-      betreff.textContent = v.bausteine.betreff
-      betreff.title = v.bausteine.betreff
+      betreff.textContent = v.blocks.subject
+      betreff.title = v.blocks.subject
 
       const unten = document.createElement('div')
       unten.className = 'unten'
       unten.textContent = beschreibeVorlage(v)
 
-      const test = griff('Testmail', () => void schickeTestmail(v.schluessel, undefined, test))
+      const test = griff('Testmail', () => void schickeTestmail(v.key, undefined, test))
       karte.append(
         oben,
         betreff,
@@ -1175,7 +1175,7 @@ function rendereRueckmeldungen(): void {
 
     const unten = document.createElement('div')
     unten.className = 'unten'
-    unten.textContent = `${formatiereDatum(r.angelegtAm)} · ${kontextZeile(r)}`
+    unten.textContent = `${formatiereDatum(r.createdAt)} · ${kontextZeile(r)}`
     unten.title = kontextZeile(r)
     kopf.text.append(unten)
 
@@ -1341,7 +1341,7 @@ function rendereProtokoll(): void {
         meldung.append(detail)
       }
 
-      zeile.append(zeit, plakette(e.stufe, e.stufe === 'fehler' ? 'Fehler' : 'Warnung'), meldung)
+      zeile.append(zeit, plakette(e.level, e.level === 'fehler' ? 'Fehler' : 'Warnung'), meldung)
       return zeile
     }),
     () =>
@@ -1364,11 +1364,11 @@ function rendereProtokoll(): void {
   // Was WÄHREND des Lesens eintraf, rutscht nicht von selbst in die Liste —
   // es wartet hinter einem Streifen, bis jemand ihn antippt.
   if (z.protokollWartend.length) {
-    const anzahl = z.protokollWartend.length
+    const count = z.protokollWartend.length
     const streifen = document.createElement('button')
     streifen.type = 'button'
     streifen.className = 'protokoll-neu'
-    streifen.textContent = `${anzahl} neue ${anzahl === 1 ? 'Meldung' : 'Meldungen'} anzeigen`
+    streifen.textContent = `${count} neue ${count === 1 ? 'Meldung' : 'Meldungen'} anzeigen`
     streifen.addEventListener('click', () => {
       z.protokoll = [...z.protokollWartend, ...z.protokoll]
       z.protokollWartend = []
@@ -1390,18 +1390,18 @@ async function holeNeueMeldungen(): Promise<void> {
   if (z.tab !== 'protokoll' || document.hidden || z.laedt || z.fehler) return
   const hoechste = Math.max(
     0,
-    ...z.protokoll.map((e) => e.nr),
-    ...z.protokollWartend.map((e) => e.nr),
+    ...z.protokoll.map((e) => e.no),
+    ...z.protokollWartend.map((e) => e.no),
   )
   try {
     const antwort = await api.protokoll(hoechste)
-    if (antwort.gestartet !== z.protokollGestartet) {
+    if (antwort.startedAt !== z.protokollGestartet) {
       const frisch = await api.protokoll()
-      z.protokoll = frisch.eintraege
+      z.protokoll = frisch.entries
       z.protokollWartend = []
-      z.protokollGestartet = frisch.gestartet
-    } else if (antwort.eintraege.length) {
-      z.protokollWartend = [...antwort.eintraege, ...z.protokollWartend]
+      z.protokollGestartet = frisch.startedAt
+    } else if (antwort.entries.length) {
+      z.protokollWartend = [...antwort.entries, ...z.protokollWartend]
     } else {
       return
     }
@@ -1423,7 +1423,7 @@ document.addEventListener('visibilitychange', () => {
 // — Aktionen —
 
 async function kopiereLink(code: string): Promise<void> {
-  const link = einladungsLink(z.basisUrl, code)
+  const link = einladungsLink(z.baseUrl, code)
   try {
     await navigator.clipboard.writeText(link)
     flash('Einladungslink kopiert')
@@ -1435,7 +1435,7 @@ async function kopiereLink(code: string): Promise<void> {
 }
 
 async function widerrufe(e: AdminEinladung): Promise<void> {
-  const offen = e.zustand === 'offen'
+  const offen = e.state === 'offen'
   const ja = await frage({
     titel: offen ? `Einladung ${e.code} widerrufen?` : `Einladung ${e.code} entfernen?`,
     text: offen
@@ -1462,21 +1462,21 @@ async function widerrufe(e: AdminEinladung): Promise<void> {
  * an die falsche Person. Der Knopf sperrt währenddessen — der Server erzeugt
  * sonst zwei Codes für dieselbe Zeile.
  */
-async function ladeEinAusWarteliste(e: AdminWartender, knopf: HTMLButtonElement): Promise<void> {
+async function ladeEinAusWarteliste(e: AdminWartender, button: HTMLButtonElement): Promise<void> {
   const ja = await frage({
     titel: `Einladung an ${e.email} schicken?`,
     text: 'Der Code geht sofort per Mail raus.',
     ja: 'Einladung schicken',
   })
   if (!ja) return
-  knopf.disabled = true
+  button.disabled = true
   try {
     const { einladung } = await api.ladeWartendenEin(e.id)
     await lade()
     flash(`Einladung ${einladung.code} an ${e.email} verschickt`)
   } catch (fehler) {
     flash(fehlerText(fehler), 'fehler')
-    knopf.disabled = false
+    button.disabled = false
   }
 }
 
@@ -1497,10 +1497,10 @@ async function entferneWartenden(e: AdminWartender): Promise<void> {
   }
 }
 
-async function loescheKonto(b: AdminBenutzer): Promise<void> {
+async function deleteAccount(b: AdminBenutzer): Promise<void> {
   const was =
-    b.touren > 0
-      ? `Damit gehen ${b.touren} ${b.touren === 1 ? 'Tour' : 'Touren'} samt Fotos verloren.`
+    b.tours > 0
+      ? `Damit gehen ${b.tours} ${b.tours === 1 ? 'Tour' : 'Touren'} samt Fotos verloren.`
       : 'Das Konto hat noch keine Touren.'
   const ja = await frage({
     titel: `Konto „${b.name || b.email}" endgültig löschen?`,
@@ -1519,12 +1519,12 @@ async function loescheKonto(b: AdminBenutzer): Promise<void> {
 }
 
 els.pflichtSchalter.addEventListener('click', async () => {
-  const neu = !z.einladungPflicht
+  const neu = !z.invitationRequired
   els.pflichtSchalter.disabled = true
   try {
-    const antwort = await api.setzeEinstellungen({ einladungPflicht: neu })
-    z.einladungPflicht = antwort.einladungPflicht
-    z.wartelisteOffen = antwort.wartelisteOffen
+    const antwort = await api.setzeEinstellungen({ invitationRequired: neu })
+    z.invitationRequired = antwort.invitationRequired
+    z.waitlistOpen = antwort.waitlistOpen
     rendereRegistrierung()
     flash(neu ? 'Registrierung nur noch mit Einladung' : 'Registrierung steht allen offen')
   } catch (fehler) {
@@ -1535,12 +1535,12 @@ els.pflichtSchalter.addEventListener('click', async () => {
 })
 
 els.wlSchalter.addEventListener('click', async () => {
-  const neu = !z.wartelisteOffen
+  const neu = !z.waitlistOpen
   els.wlSchalter.disabled = true
   try {
-    const antwort = await api.setzeEinstellungen({ wartelisteOffen: neu })
-    z.einladungPflicht = antwort.einladungPflicht
-    z.wartelisteOffen = antwort.wartelisteOffen
+    const antwort = await api.setzeEinstellungen({ waitlistOpen: neu })
+    z.invitationRequired = antwort.invitationRequired
+    z.waitlistOpen = antwort.waitlistOpen
     rendereRegistrierung()
     flash(
       neu ? 'Die Warteliste steht wieder vor der Tür' : 'Die Warteliste wird nicht mehr angeboten',
@@ -1591,8 +1591,8 @@ function oeffneKonto(b: AdminBenutzer | null): void {
   kdPasswortfeld.leere()
   els.kdPasswort.required = !b
   els.kdPwZusatz.textContent = b ? 'leer lassen, um es nicht zu ändern' : 'mindestens 8 Zeichen'
-  els.kdRolle.value = b?.rolle ?? 'nutzer'
-  els.kdVerifiziert.checked = b ? b.verifiziert : true
+  els.kdRolle.value = b?.role ?? 'nutzer'
+  els.kdVerifiziert.checked = b ? b.verified : true
   els.kdSpeichern.textContent = b ? 'Speichern' : 'Anlegen'
 
   // Eine Rolle, die der Server ohnehin ablehnen würde, gar nicht erst anbieten.
@@ -1621,7 +1621,7 @@ els.kontoForm.addEventListener('submit', async (e) => {
       const felder: api.KontoFelder = { name, email, verifiziert }
       // Die Rolle nur mitschicken, wenn sie überhaupt wählbar war — sonst
       // hinge an einem gesperrten Feld eine stille Änderung.
-      if (!els.kdRolle.disabled) felder.rolle = rolle
+      if (!els.kdRolle.disabled) felder.role = rolle
       if (passwort) felder.passwort = passwort
       await api.aendere(bearbeitet.id, felder)
     } else {
@@ -1678,11 +1678,11 @@ let letztesFeld: HTMLInputElement | HTMLTextAreaElement = els.mdText
 const mailFelder = [els.mdBetreff, els.mdMtitel, els.mdText, els.mdKnopf, els.mdFuss]
 
 const bausteineAusFeldern = (): MailBausteine => ({
-  betreff: els.mdBetreff.value,
+  subject: els.mdBetreff.value,
   titel: els.mdMtitel.value,
   text: els.mdText.value,
-  knopf: els.mdKnopf.value,
-  fuss: els.mdFuss.value,
+  button: els.mdKnopf.value,
+  footer: els.mdFuss.value,
 })
 
 function setzeMailStand(text: string, art: 'ok' | 'fehler' = 'ok'): void {
@@ -1696,12 +1696,12 @@ function oeffneMail(v: MailVorlage): void {
   setzeMailStand('')
   els.mdTitel.textContent = v.name
   els.mdAnlass.textContent = v.anlass
-  els.mdBetreff.value = v.bausteine.betreff
-  els.mdMtitel.value = v.bausteine.titel
-  els.mdText.value = v.bausteine.text
-  els.mdKnopf.value = v.bausteine.knopf
-  els.mdFuss.value = v.bausteine.fuss
-  els.mdZuruecksetzen.hidden = !v.angepasst
+  els.mdBetreff.value = v.blocks.subject
+  els.mdMtitel.value = v.blocks.titel
+  els.mdText.value = v.blocks.text
+  els.mdKnopf.value = v.blocks.button
+  els.mdFuss.value = v.blocks.footer
+  els.mdZuruecksetzen.hidden = !v.customized
   letztesFeld = els.mdText
 
   // Die Chips tragen die Erklärung im `title`: Was `{{code}}` einsetzt, sieht
@@ -1741,16 +1741,16 @@ function planeVorschau(): void {
 
 async function zieheVorschau(): Promise<void> {
   if (!mailVorlage) return
-  const schluessel = mailVorlage.schluessel
+  const key = mailVorlage.key
   try {
-    const antwort = await api.vorschau(schluessel, bausteineAusFeldern())
+    const antwort = await api.vorschau(key, bausteineAusFeldern())
     // Zwischenzeitlich einen anderen Dialog geöffnet? Dann ist diese Antwort alt.
-    if (mailVorlage?.schluessel !== schluessel) return
-    els.mdVbetreff.textContent = antwort.betreff || '–'
+    if (mailVorlage?.key !== key) return
+    els.mdVbetreff.textContent = antwort.subject || '–'
     els.mdVorschau.srcdoc = antwort.html
-    els.mdProbleme.textContent = antwort.probleme.join(' ')
-    els.mdProbleme.hidden = antwort.probleme.length === 0
-    els.mdSpeichern.disabled = antwort.probleme.length > 0
+    els.mdProbleme.textContent = antwort.issues.join(' ')
+    els.mdProbleme.hidden = antwort.issues.length === 0
+    els.mdSpeichern.disabled = antwort.issues.length > 0
   } catch (fehler) {
     els.mdFehler.textContent = fehlerText(fehler)
   }
@@ -1786,7 +1786,7 @@ els.mailForm.addEventListener('submit', async (e) => {
   els.mdFehler.textContent = ''
   els.mdSpeichern.disabled = true
   try {
-    await api.speichereVorlage(mailVorlage.schluessel, bausteineAusFeldern())
+    await api.speichereVorlage(mailVorlage.key, bausteineAusFeldern())
     schliesseMail()
     await lade()
     flash('Mail-Text gespeichert')
@@ -1810,7 +1810,7 @@ els.mdZuruecksetzen.addEventListener('click', async () => {
   })
   if (!ja) return
   try {
-    await api.setzeVorlageZurueck(v.schluessel)
+    await api.setzeVorlageZurueck(v.key)
     schliesseMail()
     await lade()
     flash('Auf den Standardtext zurückgesetzt')
@@ -1823,7 +1823,7 @@ els.mdTest.addEventListener('click', () => {
   if (!mailVorlage) return
   // Aus dem offenen Dialog geht die Fassung raus, die gerade in den Feldern
   // steht — sonst prüfte die Testmail den alten Stand.
-  void schickeTestmail(mailVorlage.schluessel, bausteineAusFeldern(), els.mdTest)
+  void schickeTestmail(mailVorlage.key, bausteineAusFeldern(), els.mdTest)
 })
 
 /**
@@ -1834,22 +1834,22 @@ els.mdTest.addEventListener('click', () => {
  * dessen Backdrop. Aus dem Dialog heraus meldet deshalb seine Fußzeile.
  */
 async function schickeTestmail(
-  schluessel: string,
-  bausteine: MailBausteine | undefined,
-  knopf: HTMLButtonElement,
+  key: string,
+  blocks: MailBausteine | undefined,
+  button: HTMLButtonElement,
 ): Promise<void> {
   const imDialog = els.mailDialog.open
-  knopf.disabled = true
+  button.disabled = true
   if (imDialog) setzeMailStand('Wird verschickt …')
   try {
-    const { an } = await api.testeVorlage(schluessel, bausteine)
+    const { an } = await api.testeVorlage(key, blocks)
     if (imDialog) setzeMailStand(`Testmail an ${an} verschickt`)
     else flash(`Testmail an ${an} verschickt`)
   } catch (fehler) {
     if (imDialog) setzeMailStand(fehlerText(fehler), 'fehler')
     else flash(fehlerText(fehler), 'fehler')
   } finally {
-    knopf.disabled = false
+    button.disabled = false
   }
 }
 

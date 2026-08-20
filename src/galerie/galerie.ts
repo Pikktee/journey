@@ -91,7 +91,7 @@ export async function starteGalerie(): Promise<void> {
       const antwort = await fetch(`/api/galerie?limit=${SEITE}&offset=${offset}`)
       if (!antwort.ok) throw new Error(String(antwort.status))
       const daten = (await antwort.json()) as GalerieAntwort
-      if (offset === 0 && daten.touren.length === 0) {
+      if (offset === 0 && daten.tours.length === 0) {
         zeigeFehler(
           gitter!,
           'Hier ist noch nichts zu sehen. Die erste öffentliche Reise fehlt noch.',
@@ -99,9 +99,9 @@ export async function starteGalerie(): Promise<void> {
         mehrKnopf!.hidden = true
         return
       }
-      for (const tour of daten.touren) gitter!.appendChild(karteElement(alsKarte(tour)))
-      offset += daten.touren.length
-      mehrKnopf!.hidden = !daten.mehr
+      for (const tour of daten.tours) gitter!.appendChild(karteElement(alsKarte(tour)))
+      offset += daten.tours.length
+      mehrKnopf!.hidden = !daten.hasMore
     } catch {
       zeigeFehler(gitter!, 'Die Galerie ließ sich gerade nicht laden.')
       mehrKnopf!.hidden = true

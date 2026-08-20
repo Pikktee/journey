@@ -13,18 +13,18 @@ import type {
   RueckmeldungStatus,
 } from './adminmodell.js'
 
-export class ApiFehler extends Error {
+export class ApiError extends Error {
   constructor(
     public readonly status: number,
     nachricht: string,
   ) {
     super(nachricht)
-    this.name = 'ApiFehler'
+    this.name = 'ApiError'
   }
 }
 
-async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
-  const res = await fetch(`/api${pfad}`, { credentials: 'same-origin', ...optionen })
+async function anfrage<T>(path: string, optionen: RequestInit = {}): Promise<T> {
+  const res = await fetch(`/api${path}`, { credentials: 'same-origin', ...optionen })
   const text = await res.text()
   let json: unknown = null
   try {
@@ -33,7 +33,7 @@ async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> 
     /* Nicht-JSON (leerer Body o. Ä.) */
   }
   if (!res.ok)
-    throw new ApiFehler(
+    throw new ApiError(
       res.status,
       (json as { fehler?: string } | null)?.fehler ?? `HTTP ${res.status}`,
     )
@@ -43,7 +43,7 @@ async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> 
 const jsonKopf = { 'content-type': 'application/json' }
 
 export interface Sitzung {
-  benutzer: { id: string; email: string; name: string; rolle: Rolle } | null
+  benutzer: { id: string; email: string; name: string; role: Rolle } | null
 }
 
 export async function me(): Promise<Sitzung> {
@@ -59,12 +59,12 @@ export async function benutzer(): Promise<{ benutzer: AdminBenutzer[]; quotaLimi
 }
 
 export interface AdminStatistiken {
-  echtzeit: number
-  heute: { aufrufe: number; besucher: number }
-  letzte7Tage: { aufrufe: number; besucher: number }
-  gesamt: number
-  referrer: Array<{ quelle: string; anzahl: number }>
-  seiten: Array<{ pfad: string; anzahl: number }>
+  realtime: number
+  today: { pageviews: number; visitors: number }
+  last7Days: { pageviews: number; visitors: number }
+  total: number
+  referrer: Array<{ quelle: string; count: number }>
+  pages: Array<{ path: string; count: number }>
 }
 
 export async function statistiken(): Promise<AdminStatistiken> {
@@ -74,13 +74,13 @@ export async function statistiken(): Promise<AdminStatistiken> {
 export interface KontoFelder {
   email?: string
   name?: string
-  rolle?: Rolle
-  verifiziert?: boolean
-  passwort?: string
+  role?: Rolle
+  verified?: boolean
+  password?: string
 }
 
 export function legeAn(
-  felder: KontoFelder & { email: string; name: string; passwort: string },
+  felder: KontoFelder & { email: string; name: string; password: string },
 ): Promise<unknown> {
   return anfrage('/admin/benutzer', {
     method: 'POST',
@@ -102,11 +102,11 @@ export function loesche(id: string): Promise<unknown> {
 }
 
 export interface EinladungsStand {
-  einladungen: AdminEinladung[]
-  einladungPflicht: boolean
+  invitations: AdminEinladung[]
+  invitationRequired: boolean
   /** Harter Riegel aus der Umgebung — steht er auf zu, hilft auch kein Code. */
-  registrierungOffen: boolean
-  basisUrl: string
+  registrationOpen: boolean
+  baseUrl: string
 }
 
 export function einladungen(): Promise<EinladungsStand> {
@@ -115,12 +115,12 @@ export function einladungen(): Promise<EinladungsStand> {
 
 export function ladeEin(
   notiz: string,
-  gueltigTage: number,
+  validDays: number,
 ): Promise<{ einladung: AdminEinladung }> {
   return anfrage('/admin/einladungen', {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify({ notiz, gueltigTage }),
+    body: JSON.stringify({ notiz, validDays }),
   })
 }
 
@@ -129,8 +129,8 @@ export function widerrufe(code: string): Promise<unknown> {
 }
 
 export interface Einstellungen {
-  einladungPflicht: boolean
-  wartelisteOffen: boolean
+  invitationRequired: boolean
+  waitlistOpen: boolean
 }
 
 export function setzeEinstellungen(felder: Partial<Einstellungen>): Promise<Einstellungen> {
@@ -142,10 +142,10 @@ export function setzeEinstellungen(felder: Partial<Einstellungen>): Promise<Eins
 }
 
 export interface WartelistenStand {
-  eintraege: AdminWartender[]
-  wartelisteOffen: boolean
+  entries: AdminWartender[]
+  waitlistOpen: boolean
   /** Steht das Formular gerade wirklich vor der Tür? Der Schalter allein sagt das nicht. */
-  angeboten: boolean
+  offered: boolean
 }
 
 export function warteliste(): Promise<WartelistenStand> {
@@ -171,7 +171,7 @@ export function loescheWartenden(id: string): Promise<unknown> {
 
 export interface RueckmeldungsStand {
   rueckmeldungen: AdminRueckmeldung[]
-  zaehlung: Record<RueckmeldungStatus | 'gesamt', number>
+  counts: Record<RueckmeldungStatus | 'gesamt', number>
 }
 
 export function rueckmeldungen(): Promise<RueckmeldungsStand> {
@@ -196,8 +196,8 @@ export function loescheRueckmeldung(id: string): Promise<unknown> {
 // — System-Mails —
 
 export interface VorlagenStand {
-  vorlagen: MailVorlage[]
-  basisUrl: string
+  templates: MailVorlage[]
+  baseUrl: string
 }
 
 export function mailvorlagen(): Promise<VorlagenStand> {
@@ -205,55 +205,55 @@ export function mailvorlagen(): Promise<VorlagenStand> {
 }
 
 export function speichereVorlage(
-  schluessel: string,
-  bausteine: MailBausteine,
-): Promise<{ vorlagen: MailVorlage[] }> {
-  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}`, {
+  key: string,
+  blocks: MailBausteine,
+): Promise<{ templates: MailVorlage[] }> {
+  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(key)}`, {
     method: 'PATCH',
     headers: jsonKopf,
-    body: JSON.stringify(bausteine),
+    body: JSON.stringify(blocks),
   })
 }
 
-export function setzeVorlageZurueck(schluessel: string): Promise<{ vorlagen: MailVorlage[] }> {
-  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}`, { method: 'DELETE' })
+export function setzeVorlageZurueck(key: string): Promise<{ templates: MailVorlage[] }> {
+  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(key)}`, { method: 'DELETE' })
 }
 
 export interface VorschauAntwort {
-  betreff: string
+  subject: string
   html: string
   text: string
   /** Was den Versand verhindern würde — dieselbe Prüfung wie beim Speichern. */
-  probleme: string[]
+  issues: string[]
 }
 
 /** Rendert die noch nicht gespeicherte Fassung — das Layout kommt vom Server. */
-export function vorschau(schluessel: string, bausteine: MailBausteine): Promise<VorschauAntwort> {
-  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}/vorschau`, {
+export function vorschau(key: string, blocks: MailBausteine): Promise<VorschauAntwort> {
+  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(key)}/vorschau`, {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify(bausteine),
+    body: JSON.stringify(blocks),
   })
 }
 
 /** Testmail an die eigene Adresse; ohne Bausteine geht die gespeicherte Fassung raus. */
 export function testeVorlage(
-  schluessel: string,
-  bausteine?: MailBausteine,
+  key: string,
+  blocks?: MailBausteine,
 ): Promise<{ an: string }> {
-  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}/test`, {
+  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(key)}/test`, {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify(bausteine ? { bausteine } : {}),
+    body: JSON.stringify(blocks ? { blocks } : {}),
   })
 }
 
 export interface ProtokollAntwort {
-  eintraege: ProtokollEintrag[]
-  gesamt: number
+  entries: ProtokollEintrag[]
+  total: number
   fehler: number
   /** Start der API — der Puffer reicht nie weiter zurück. */
-  gestartet: string
+  startedAt: string
 }
 
 /**

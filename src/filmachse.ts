@@ -58,7 +58,7 @@ export function filmsekunden(meter: number, mode: string): number {
 }
 
 /** Standzeit eines Kamera-Moments je Art (s) — Vorgabe ohne eigene Dauer. */
-export const MOMENT_DEFAULT_S = { umkreisen: 6, aufstieg: 5, innehalten: 4 }
+export const MOMENT_DEFAULT_S = { orbit: 6, ascend: 5, linger: 4 }
 
 /**
  * Standzeit eines Kamera-Moments. OHNE Ausblendung — anders als eine Aufnahme:

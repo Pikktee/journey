@@ -40,9 +40,9 @@ const ZEICHEN: Record<string, string> = {
 const FARBEN: Record<string, string> = {
   fotos: 'var(--akzent)',
   videos: 'var(--akzent-2)',
-  klaenge: 'var(--lila)',
-  aufzeichnungen: 'var(--blau)',
-  sonstiges: 'rgba(242, 237, 227, 0.42)',
+  audio: 'var(--lila)',
+  recordings: 'var(--blau)',
+  other: 'rgba(242, 237, 227, 0.42)',
 }
 
 function zeichne(art: string, strichstaerke = '1.7'): SVGElement {
@@ -102,14 +102,14 @@ function zeigeHinweis(text: string, link?: { text: string; href: string }): void
 }
 
 interface MeAntwort {
-  benutzer: { id: string; email: string; name: string; rolle: string } | null
-  verifiziert?: boolean
+  benutzer: { id: string; email: string; name: string; role: string } | null
+  verified?: boolean
   newsletter?: boolean
-  profil?: {
+  profile?: {
     handle: string | null
-    anzeigename: string | null
-    sichtbarkeit: 'private' | 'public'
-    suchmaschinen?: boolean
+    displayName: string | null
+    visibility: 'private' | 'public'
+    searchIndexing?: boolean
   }
   export?: ExportStand | null
 }
@@ -123,7 +123,7 @@ function zeichneKonto(daten: MeAntwort): void {
   const stand = $('k-mailstand')
   if (stand) {
     stand.replaceChildren()
-    if (daten.verifiziert) {
+    if (daten.verified) {
       stand.className = 'marke gut'
       stand.appendChild(zeichne('haken', '2.4'))
       stand.appendChild(document.createTextNode('bestätigt'))
@@ -139,33 +139,33 @@ function zeichneKonto(daten: MeAntwort): void {
 
 // ————— Geräte —————
 
-function geraeteZeile(geraet: Geraet, beiAbmelden: (g: Geraet) => void): HTMLElement {
-  const zeile = el('div', geraet.dieses ? 'zeile hier' : 'zeile')
+function geraeteZeile(device: Geraet, beiAbmelden: (g: Geraet) => void): HTMLElement {
+  const zeile = el('div', device.current ? 'zeile hier' : 'zeile')
 
   const symbol = el('span', 'sym')
-  symbol.appendChild(zeichne(geraeteSymbol(geraet)))
+  symbol.appendChild(zeichne(geraeteSymbol(device)))
   zeile.appendChild(symbol)
 
   const z = el('span', 'z')
   const titel = el('span', 't')
-  titel.appendChild(document.createTextNode(geraeteName(geraet)))
-  if (geraet.dieses) {
+  titel.appendChild(document.createTextNode(geraeteName(device)))
+  if (device.current) {
     const selbst = el('span', 'selbst', ' · dieses Gerät')
     titel.appendChild(selbst)
   }
   z.appendChild(titel)
-  const unterzeile = geraeteUnterzeile(geraet)
+  const unterzeile = geraeteUnterzeile(device)
   if (unterzeile) z.appendChild(el('span', 'b', unterzeile))
   zeile.appendChild(z)
 
   // Das eigene Gerät bekommt keinen Knopf: Sich hier abzumelden gewinnt nichts,
   // außer sich gleich wieder anmelden zu dürfen — dafür gibt es das Konto-Menü.
-  if (!geraet.dieses) {
+  if (!device.current) {
     const knopf = el('button', 'knopf gefahr', 'Abmelden')
     knopf.type = 'button'
     knopf.addEventListener('click', () => {
       knopf.disabled = true
-      beiAbmelden(geraet)
+      beiAbmelden(device)
     })
     zeile.appendChild(knopf)
   }
@@ -175,29 +175,29 @@ function geraeteZeile(geraet: Geraet, beiAbmelden: (g: Geraet) => void): HTMLEle
 async function ladeGeraete(): Promise<void> {
   const tafel = $('geraete')
   if (!tafel) return
-  let geraete: Geraet[] = []
+  let devices: Geraet[] = []
   try {
     const antwort = await fetch('/api/auth/me/geraete')
     if (!antwort.ok) throw new Error(String(antwort.status))
-    geraete = ((await antwort.json()) as { geraete: Geraet[] }).geraete
+    devices = ((await antwort.json()) as { devices: Geraet[] }).devices
   } catch {
     tafel.replaceChildren(zeileMitText('Die Geräteliste ließ sich gerade nicht laden.'))
     return
   }
 
-  const abmelden = async (geraet: Geraet): Promise<void> => {
-    const antwort = await fetch(`/api/auth/me/geraete/${encodeURIComponent(geraet.id)}`, {
+  const abmelden = async (device: Geraet): Promise<void> => {
+    const antwort = await fetch(`/api/auth/me/devices/${encodeURIComponent(device.id)}`, {
       method: 'DELETE',
     })
     if (!antwort.ok) {
       melde('Das Gerät ließ sich nicht abmelden.')
       return
     }
-    melde(`${geraeteName(geraet)} wurde abgemeldet.`)
+    melde(`${geraeteName(device)} wurde abgemeldet.`)
     void ladeGeraete()
   }
 
-  tafel.replaceChildren(...geraete.map((g) => geraeteZeile(g, (ziel) => void abmelden(ziel))))
+  tafel.replaceChildren(...devices.map((g) => geraeteZeile(g, (ziel) => void abmelden(ziel))))
 }
 
 function zeileMitText(text: string): HTMLElement {
@@ -227,7 +227,7 @@ async function ladeSpeicher(): Promise<void> {
   }
 
   const belegt = $('sp-belegt')
-  if (belegt) belegt.textContent = groesse(stand.benutzt)
+  if (belegt) belegt.textContent = groesse(stand.used)
   const von = $('sp-von')
   if (von) von.textContent = `von ${groesse(stand.limit)} belegt`
   const prozent = $('sp-prozent')
@@ -238,7 +238,7 @@ async function ladeSpeicher(): Promise<void> {
     ...abschnitte.map((a) => {
       const i = el('i')
       i.style.width = `${a.prozent}%`
-      i.style.background = FARBEN[a.art] ?? FARBEN.sonstiges!
+      i.style.background = FARBEN[a.art] ?? FARBEN.other!
       return i
     }),
   )
@@ -246,7 +246,7 @@ async function ladeSpeicher(): Promise<void> {
     ...abschnitte.map((a) => {
       const span = el('span')
       const punkt = el('i')
-      punkt.style.background = FARBEN[a.art] ?? FARBEN.sonstiges!
+      punkt.style.background = FARBEN[a.art] ?? FARBEN.other!
       span.appendChild(punkt)
       span.appendChild(document.createTextNode(`${a.wort} `))
       span.appendChild(el('b', undefined, groesse(a.bytes)))
@@ -266,9 +266,9 @@ function verdrahteSichtbarkeit(daten: MeAntwort): void {
   const schalter = $('s-profil') as HTMLInputElement | null
   const erklaerung = $('s-profil-erklaerung')
   if (!schalter) return
-  const handle = daten.profil?.handle ?? null
+  const handle = daten.profile?.handle ?? null
   const adresse = handle ? `${window.location.host}${profilPfad(handle)}` : 'deiner Profilseite'
-  schalter.checked = daten.profil?.sichtbarkeit === 'public'
+  schalter.checked = daten.profile?.visibility === 'public'
   const zeigeSatz = (): void => {
     if (erklaerung) erklaerung.textContent = profilSichtbarSatz(schalter.checked, adresse)
   }
@@ -279,7 +279,7 @@ function verdrahteSichtbarkeit(daten: MeAntwort): void {
     const antwort = await fetch('/api/auth/me/profil', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sichtbarkeit: gewuenscht ? 'public' : 'private' }),
+      body: JSON.stringify({ visibility: gewuenscht ? 'public' : 'private' }),
     }).catch(() => null)
     schalter.disabled = false
     if (!antwort?.ok) {
@@ -326,7 +326,7 @@ function zeigeSuche(): void {
 function verdrahteSuche(daten: MeAntwort): void {
   const schalter = $('s-suche') as HTMLInputElement | null
   if (!schalter) return
-  schalter.checked = daten.profil?.suchmaschinen === true
+  schalter.checked = daten.profile?.searchIndexing === true
   zeigeSuche()
 
   schalter.addEventListener('change', async () => {
@@ -420,7 +420,7 @@ function verdrahteNewsletter(daten: MeAntwort): void {
   if (!schalter) return
   schalter.checked = daten.newsletter === true
   const zeigeRuht = (): void => {
-    if (ruht) ruht.hidden = !(schalter.checked && daten.verifiziert !== true)
+    if (ruht) ruht.hidden = !(schalter.checked && daten.verified !== true)
   }
   zeigeRuht()
 
@@ -444,7 +444,7 @@ function verdrahteNewsletter(daten: MeAntwort): void {
     zeigeRuht()
     melde(
       gewuenscht
-        ? daten.verifiziert === true
+        ? daten.verified === true
           ? 'Du bekommst künftig Updates von Maptale.'
           : 'Notiert. Es geht los, sobald deine E-Mail-Adresse bestätigt ist.'
         : 'Du bekommst keine Updates mehr.',
@@ -576,7 +576,7 @@ export async function starteKonto(): Promise<void> {
     // Name und Adresse fließen in die Bewertung ein: Ein Passwort, in dem der
     // eigene Name steht, ist kein gutes.
     const persoenlich = (): string[] =>
-      [daten.benutzer?.name, daten.benutzer?.email, daten.profil?.anzeigename].filter(
+      [daten.benutzer?.name, daten.benutzer?.email, daten.profile?.displayName].filter(
         (w): w is string => !!w,
       )
     ;(await dialoge()).oeffnePasswortDialog((text) => {

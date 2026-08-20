@@ -6,29 +6,29 @@
 import { profilPfad } from '../routen.js'
 import type { GalerieTour } from '../galerie/galeriemodell.js'
 
-/** Die Antwort von `GET /api/benutzer/:wen/profil`. */
+/** Die Antwort von `GET /api/benutzer/:wen/profile`. */
 export interface ProfilAntwort {
   handle: string | null
-  anzeigename: string | null
+  displayName: string | null
   bio: string | null
-  ort: string | null
+  location: string | null
   /** Nackte Formen ohne Schema bzw. ohne `@` — der Server speichert sie so. */
   website: string | null
   instagram: string | null
   avatarUrl: string | null
-  titelbildUrl: string | null
+  bannerUrl: string | null
   /** ISO-Zeitpunkt der Registrierung; angezeigt wird nur der Monat. */
-  dabeiSeit: string | null
-  kennzahlen: Kennzahlen | null
+  memberSince: string | null
+  stats: Kennzahlen | null
   /** Nur wahr, wenn der Besitzer sein noch privates Profil ansieht. */
-  nurFuerDich?: boolean
-  touren: GalerieTour[]
+  ownerOnly?: boolean
+  tours: GalerieTour[]
 }
 
 export interface Kennzahlen {
-  touren: number
+  tours: number
   km: number
-  hm: number
+  elevationGain: number
 }
 
 /** Ein Chip unter dem Profilkopf. */
@@ -62,23 +62,23 @@ export interface LinkChip {
  * Der Handle fällt dann aus dem Beiwerk heraus — zweimal `@henrik`
  * untereinander liest sich wie ein Fehler.
  */
-export function profilKopf(profil: ProfilAntwort): {
+export function profilKopf(profile: ProfilAntwort): {
   name: string
   bio: string | null
   bild: string | null
   handle: string | null
-  ort: string | null
-  dabeiSeit: string
+  location: string | null
+  memberSince: string
 } {
-  const anzeigename = profil.anzeigename?.trim()
-  const handle = profil.handle ? `@${profil.handle}` : null
+  const anzeigename = profile.displayName?.trim()
+  const handle = profile.handle ? `@${profile.handle}` : null
   return {
     name: anzeigename || handle || 'Ohne Namen',
-    bio: profil.bio?.trim() || null,
-    bild: profil.avatarUrl,
+    bio: profile.bio?.trim() || null,
+    bild: profile.avatarUrl,
     handle: anzeigename ? handle : null,
-    ort: profil.ort?.trim() || null,
-    dabeiSeit: dabeiSeit(profil.dabeiSeit),
+    location: profile.location?.trim() || null,
+    memberSince: dabeiSeit(profile.memberSince),
   }
 }
 
@@ -101,20 +101,20 @@ export function dabeiSeit(iso: string | null | undefined): string {
  * nur öffentliche Touren. Hier nachzurechnen (etwa aus `touren.length`) wäre
  * dasselbe Ergebnis auf einem Weg, den man versehentlich ändert.
  */
-export function kennzahlChips(kennzahlen: Kennzahlen | null): KennzahlChip[] {
-  if (!kennzahlen) return []
+export function kennzahlChips(stats: Kennzahlen | null): KennzahlChip[] {
+  if (!stats) return []
   const chips: KennzahlChip[] = []
-  if (kennzahlen.touren > 0) {
+  if (stats.tours > 0) {
     chips.push({
       art: 'touren',
-      zahl: zahl(kennzahlen.touren),
-      wort: kennzahlen.touren === 1 ? 'Tour' : 'Touren',
+      zahl: zahl(stats.tours),
+      wort: stats.tours === 1 ? 'Tour' : 'Touren',
     })
   }
-  if (kennzahlen.km >= 1)
-    chips.push({ art: 'km', zahl: zahl(Math.round(kennzahlen.km)), wort: 'km unterwegs' })
-  if (kennzahlen.hm >= 1)
-    chips.push({ art: 'hm', zahl: zahl(Math.round(kennzahlen.hm)), wort: 'Höhenmeter' })
+  if (stats.km >= 1)
+    chips.push({ art: 'km', zahl: zahl(Math.round(stats.km)), wort: 'km unterwegs' })
+  if (stats.elevationGain >= 1)
+    chips.push({ art: 'hm', zahl: zahl(Math.round(stats.elevationGain)), wort: 'Höhenmeter' })
   return chips
 }
 
@@ -139,11 +139,11 @@ export function zahl(wert: number): string {
  * `henrikheil.net` ein RELATIVER Pfad und der Link zeigte auf
  * `maptale.io/@henrik/henrikheil.net`.
  */
-export function linkChips(profil: ProfilAntwort): LinkChip[] {
+export function linkChips(profile: ProfilAntwort): LinkChip[] {
   const chips: LinkChip[] = []
-  const web = profil.website?.trim()
+  const web = profile.website?.trim()
   if (web) chips.push({ art: 'web', text: web, href: `https://${web}` })
-  const insta = profil.instagram?.trim().replace(/^@/, '')
+  const insta = profile.instagram?.trim().replace(/^@/, '')
   if (insta) {
     chips.push({
       art: 'instagram',
@@ -164,11 +164,11 @@ export function linkChips(profil: ProfilAntwort): LinkChip[] {
  * gäbe es sonst als angebotenen Bearbeiten-Knopf, der nicht funktioniert.
  */
 export function istEigenes(
-  profil: ProfilAntwort,
+  profile: ProfilAntwort,
   eigenerHandle: string | null | undefined,
 ): boolean {
-  if (!profil.handle || !eigenerHandle) return false
-  return profil.handle.toLowerCase() === eigenerHandle.toLowerCase()
+  if (!profile.handle || !eigenerHandle) return false
+  return profile.handle.toLowerCase() === eigenerHandle.toLowerCase()
 }
 
 /** Die Adresse, die der Teilen-Knopf weitergibt — vollständig, zum Vorlesen. */
@@ -184,7 +184,7 @@ export function profilAdresse(handle: string | null, herkunft: string): string {
  * Namen, und ein „t" neben „Reisende" sieht aus wie ein Fehler. Ohne Namen
  * bleibt der Handle die zweite Wahl, sonst ein neutrales Zeichen.
  */
-export function anfangsbuchstabe(profil: ProfilAntwort): string {
-  const quelle = profil.anzeigename?.trim() || profil.handle?.trim() || ''
+export function anfangsbuchstabe(profile: ProfilAntwort): string {
+  const quelle = profile.displayName?.trim() || profile.handle?.trim() || ''
   return [...quelle][0]?.toUpperCase() ?? '·'
 }

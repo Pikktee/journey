@@ -132,7 +132,7 @@ docker compose -f docker-compose.cloudpanel.yml up -d
 docker compose -f docker-compose.cloudpanel.yml logs -f api   # „läuft auf Port 8787"
 ```
 
-Test: `curl -s http://127.0.0.1:8790/api/gesundheit` → `{"ok":true}`. (Host-Port
+Test: `curl -s http://127.0.0.1:8790/api/health` → `{"ok":true}`. (Host-Port
 8790, weil 8787 auf dem Server belegt ist; container-intern loggt die API 8787.)
 
 ## 4. Web-Build ausliefern

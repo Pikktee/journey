@@ -17,13 +17,13 @@ import { MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S } from '../filmachse.js'
  * der Engine — sie lief schon einmal auseinander (Studio kannte moped/jeep nicht,
  * obwohl Engine, Icons und Motorsound sie längst hatten).
  */
-export const MODI = ['walk', 'bike', 'moped', 'jeep', 'tram', 'ferry'] as const
+export const TRAVEL_MODES = ['walk', 'bike', 'moped', 'jeep', 'tram', 'ferry'] as const
 
-export type Modus = (typeof MODI)[number]
+export type Modus = (typeof TRAVEL_MODES)[number]
 
 /**
- * Wetter-Modi — deckungsgleich mit WETTER_MODI in server/src/pipeline/weather.ts
- * (und der Wetterwelt des Players in src/weather.js). Ein Drift-Wächter in
+ * Wetter-Modi — deckungsgleich mit WETTER_MODI in server/src/pipeline/wetter.ts
+ * (und der Wetterwelt des Players in src/wetter.js). Ein Drift-Wächter in
  * test/studio-baukasten.test.ts vergleicht die Liste mit dem Server.
  */
 export const WETTER_MODI = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm'] as const
@@ -41,26 +41,26 @@ export interface DisplayEdit {
 export interface MediumEdit {
   caption?: string
   anchor?: [number, number]
-  geloescht?: boolean
+  removed?: boolean
   display?: DisplayEdit
   /**
    * Platz INNERHALB des Stopps (0-basiert). Fotos am selben Ort zeigt der Player
    * nacheinander; welches zuerst kommt, ist eine Entscheidung und keine Messung —
    * ohne dieses Feld entschiede die Projektion auf die Route darüber.
-   * Spiegel von MediumEdit.reihe in server/src/schema/edits.ts.
+   * Spiegel von MediumEdit.order in server/src/schema/edits.ts.
    */
-  reihe?: number
+  order?: number
   /**
    * Schnitt eines Videos in DATEI-Sekunden (Etappe 4, docs §2F). Anschlag ist
    * an beiden Kanten das Material; Loop gibt es hier nicht — bei einem Video
    * wäre er Unsinn. Angewandt wird der Schnitt in der Pipeline (video.ts).
    * Spiegel von MediumEdit.trim in server/src/schema/edits.ts.
    */
-  trim?: { vonS: number; bisS?: number }
+  trim?: { fromS: number; toS?: number }
 }
 
 export interface ModusGrenze {
-  ab: string
+  from: string
   mode: Modus
 }
 
@@ -71,10 +71,10 @@ export interface ModusGrenze {
  * server/src/schema/edits.ts.
  */
 export interface WetterGrenze {
-  ab: string
+  from: string
   mode: WetterModus
   /** Stärke k (0..1); fehlt = Standardstärke des Players */
-  staerke?: number
+  intensity?: number
 }
 
 /**
@@ -95,7 +95,7 @@ export function wetterBeiZeit(grenzen: readonly WetterGrenze[], iso: string): We
   if (!Number.isFinite(t)) return null
   let gilt: WetterGrenze | null = null
   for (const g of grenzen) {
-    if (Date.parse(g.ab) > t) break
+    if (Date.parse(g.from) > t) break
     gilt = g
   }
   return gilt
@@ -108,18 +108,18 @@ export function wetterBeiZeit(grenzen: readonly WetterGrenze[], iso: string): We
  * Grenze — man kam nicht dorthin zurück, ohne das Band zu löschen, und ein
  * gelöschtes Band nahm die Stelle mit, an der es stand.
  */
-export type KameraPreset = 'nah' | 'mittel' | 'weit' | 'standard'
+export type KameraPreset = 'near' | 'mid' | 'far' | 'default'
 
 /** Kamera-Preset ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
 export interface KameraGrenze {
-  ab: string
+  from: string
   preset: KameraPreset
   /**
    * Stufenlose Feinjustierung von Abstand UND Höhe (0.5 = halb so weit weg,
    * 2 = doppelt). Fehlt oder 1 = Preset unverändert. Multipliziert im Player die
    * behind/hover-Werte des Presets (setPreset in src/tour.js).
    */
-  skala?: number
+  scale?: number
 }
 
 /**
@@ -127,12 +127,12 @@ export interface KameraGrenze {
  * eine dramatische Bewegung aus. Punkt-Ereignis (kein Band) — verankert am
  * absoluten Zeitpunkt wie eine Grenze.
  */
-export type MomentArt = 'umkreisen' | 'aufstieg' | 'innehalten'
+export type MomentArt = 'orbit' | 'ascend' | 'linger'
 export interface KameraMoment {
-  ab: string
-  art: MomentArt
+  from: string
+  kind: MomentArt
   /** Dauer in s; fehlt = Default der Art (siehe MOMENT_DEFAULT_S). */
-  dauerS?: number
+  durationS?: number
 }
 
 /**
@@ -144,52 +144,52 @@ export const MOMENT_DEFAULT_S: Record<MomentArt, number> = ENGINE_MOMENT_DEFAULT
 
 /** Platziertes Audio-Asset: Musik mit Bereich [ab,bis], SFX als Einzelschuss. */
 export interface AudioEintrag {
-  datei: string
-  typ: 'musik' | 'sfx'
-  ab: string
-  bis?: string
-  lautstaerke?: number
+  file: string
+  type: 'music' | 'sfx'
+  from: string
+  to?: string
+  volume?: number
   /**
-   * Herkunft der Datei. Fehlt = tour-lokal hochgeladen (→ /api/media/…).
-   * 'bibliothek' = kuratierter Effekt aus [[sfxbibliothek]] (→ /audio/sfx/…),
+   * Herkunft der Datei. Fehlt = tour-lokal hochgeladen (→ /api/medien/…).
+   * 'library' = kuratierter Effekt aus [[sfxbibliothek]] (→ /audio/sfx/…),
    * liegt global und wird nicht mit der Tour hochgeladen.
-   * 'benutzer' = eigener Upload in der benutzerweiten Bibliothek — liegt einmal
+   * 'user' = eigener Upload in der benutzerweiten Bibliothek — liegt einmal
    * beim Konto und ist in jeder Tour einsetzbar (→ /api/audio-bibliothek/…).
    */
-  quelle?: 'bibliothek' | 'benutzer'
+  source?: 'library' | 'user'
   /**
    * Verankerung an der REISE statt an einer Filmsekunde (Etappe 4, docs §2E) —
-   * der „connected clip". `anker` ist die Stelle der Reise (Aufnahmezeit),
-   * `versatzFilmS` die Feinlage in FILMsekunden (darf in einer Standzeit
-   * liegen), `dauerFilmS` die Länge im Film. Alle drei haben Vorrang vor
-   * `ab`/`bis`; fehlen sie, gilt die alte Verankerung unverändert weiter.
+   * der „connected clip". `anchor` ist die Stelle der Reise (Aufnahmezeit),
+   * `offsetFilmS` die Feinlage in FILMsekunden (darf in einer Standzeit
+   * liegen), `durationFilmS` die Länge im Film. Alle drei haben Vorrang vor
+   * `from`/`to`; fehlen sie, gilt die alte Verankerung unverändert weiter.
    * Rechnende Teile in [[tonklip]].
    */
-  anker?: string
-  versatzFilmS?: number
-  dauerFilmS?: number
+  anchor?: string
+  offsetFilmS?: number
+  durationFilmS?: number
   /** Einstieg in die DATEI (s) — der linke Trim. Anschlag: der Dateianfang. */
-  einstiegS?: number
+  startS?: number
   /** Wiederholung über das Dateiende hinaus; fehlt = Musik ja, Effekt nein. */
   loop?: boolean
 }
 
 export interface EditOverlay {
-  schema: 'maptale/edits@1'
-  medien?: Record<string, MediumEdit>
-  modi?: ModusGrenze[]
-  trim?: { start?: string; ende?: string }
-  kamera?: KameraGrenze[]
-  momente?: KameraMoment[]
+  schema: 'maptale/edits@2'
+  media?: Record<string, MediumEdit>
+  travelModes?: ModusGrenze[]
+  trim?: { start?: string; end?: string }
+  camera?: KameraGrenze[]
+  moments?: KameraMoment[]
   audio?: AudioEintrag[]
-  wetter?: WetterGrenze[]
+  weather?: WetterGrenze[]
   /**
    * Selbst gewähltes Titelbild (Medien-ID). Der Editor SETZT es (noch) nicht,
    * aber das Overlay läuft durch ihn hindurch — und wer ein Medium endgültig
    * löscht, muss den Verweis mitnehmen, sonst griffe `bestimmeCover` beim
    * nächsten Render ins Leere, statt ein neues Titelbild zu wählen.
    */
-  titelbild?: string
+  cover?: string
 }
 
 export interface EditorSegment {
@@ -197,7 +197,7 @@ export interface EditorSegment {
   pts: TrackPunkt[]
 }
 
-export const LEERES_OVERLAY: EditOverlay = { schema: 'maptale/edits@1' }
+export const LEERES_OVERLAY: EditOverlay = { schema: 'maptale/edits@2' }
 
 // — Undo: das Overlay ist immutabel, ein Stapel von Ständen genügt —
 
@@ -235,12 +235,12 @@ export function erfasseUndo(
 
 // — Zeit-Umrechnung —
 
-/** tOffset (s ab time.start) → absolute ISO-Zeit (UTC, sekundengenau). */
+/** tOffset (s from time.start) → absolute ISO-Zeit (UTC, sekundengenau). */
 export function offsetZuIso(startIso: string, tOffsetS: number): string {
   return new Date(Date.parse(startIso) + tOffsetS * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z')
 }
 
-/** absolute ISO-Zeit → tOffset (s ab time.start); NaN bei Unparsebarem. */
+/** absolute ISO-Zeit → tOffset (s from time.start); NaN bei Unparsebarem. */
 export function isoZuOffset(startIso: string, iso: string): number {
   return (Date.parse(iso) - Date.parse(startIso)) / 1000
 }
@@ -354,14 +354,14 @@ export function naechsterPunktIndex(
 export interface MediumEditPatch {
   caption?: string | undefined
   anchor?: [number, number] | undefined
-  trim?: { vonS: number; bisS?: number } | undefined
-  geloescht?: boolean | undefined
+  trim?: { fromS: number; toS?: number } | undefined
+  removed?: boolean | undefined
   display?: DisplayEdit | undefined
-  reihe?: number | undefined
+  order?: number | undefined
 }
 
 export function mitMedienEdit(edits: EditOverlay, id: string, patch: MediumEditPatch): EditOverlay {
-  const eintrag: MediumEdit = { ...(edits.medien?.[id] ?? {}) }
+  const eintrag: MediumEdit = { ...(edits.media?.[id] ?? {}) }
   for (const key of ['caption', 'anchor', 'geloescht', 'display', 'reihe', 'trim'] as const) {
     if (!(key in patch)) continue
     const wert = patch[key]
@@ -369,62 +369,62 @@ export function mitMedienEdit(edits: EditOverlay, id: string, patch: MediumEditP
     if (wert === undefined || wert === false || leeresDisplay) delete eintrag[key]
     else (eintrag as Record<string, unknown>)[key] = wert
   }
-  const medien = { ...(edits.medien ?? {}) }
-  if (Object.keys(eintrag).length) medien[id] = eintrag
-  else delete medien[id]
+  const media = { ...(edits.media ?? {}) }
+  if (Object.keys(eintrag).length) media[id] = eintrag
+  else delete media[id]
   const naechste: EditOverlay = { ...edits }
-  if (Object.keys(medien).length) naechste.medien = medien
-  else delete naechste.medien
+  if (Object.keys(media).length) naechste.media = media
+  else delete naechste.media
   return naechste
 }
 
 /**
  * Die Medien, die beim Speichern ENDGÜLTIG gelöscht werden: alles, was in
- * dieser Sitzung als `geloescht` markiert wurde.
+ * dieser Sitzung als `removed` markiert wurde.
  *
  * Das Overlay-Flag ist seit dem endgültigen Löschen nur noch der
  * ZWISCHENZUSTAND bis zum Speichern — es hält Undo/Redo am Leben, während die
  * Datei noch liegt. Erst das Speichern räumt wirklich weg.
  */
 export function endgueltigZuLoeschen(edits: EditOverlay): string[] {
-  return Object.entries(edits.medien ?? {})
-    .filter(([, e]) => e?.geloescht === true)
+  return Object.entries(edits.media ?? {})
+    .filter(([, e]) => e?.removed === true)
     .map(([id]) => id)
 }
 
 /**
  * Overlay-Spuren gelöschter Medien tilgen — Gegenstück zu dem, was der Server
- * beim endgültigen Löschen an SEINER Fassung tut (routes/media.ts).
+ * beim endgültigen Löschen an SEINER Fassung tut (routes/medien.ts).
  *
  * Ein Edit auf eine Datei, die es nicht mehr gibt, ist toter Zustand; ein
- * `titelbild`, das auf sie zeigt, ließe `bestimmeCover` beim nächsten Render
+ * `cover`, das auf sie zeigt, ließe `bestimmeCover` beim nächsten Render
  * ins Leere greifen, statt ein neues Titelbild zu wählen.
  */
 export function ohneMedien(edits: EditOverlay, ids: readonly string[]): EditOverlay {
   const weg = new Set(ids)
   const naechste: EditOverlay = { ...edits }
-  const medien = Object.fromEntries(
-    Object.entries(edits.medien ?? {}).filter(([id]) => !weg.has(id)),
+  const media = Object.fromEntries(
+    Object.entries(edits.media ?? {}).filter(([id]) => !weg.has(id)),
   )
-  if (Object.keys(medien).length) naechste.medien = medien
-  else delete naechste.medien
-  if (naechste.titelbild && weg.has(naechste.titelbild)) delete naechste.titelbild
+  if (Object.keys(media).length) naechste.media = media
+  else delete naechste.media
+  if (naechste.cover && weg.has(naechste.cover)) delete naechste.cover
   return naechste
 }
 
-/** Grenze setzen/ersetzen (gleicher `ab`-Zeitpunkt = ersetzen), sortiert. */
-export function mitModusGrenze(edits: EditOverlay, ab: string, mode: Modus): EditOverlay {
-  const modi = (edits.modi ?? []).filter((g) => g.ab !== ab)
-  modi.push({ ab, mode })
-  modi.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
-  return { ...edits, modi }
+/** Grenze setzen/ersetzen (gleicher `from`-Zeitpunkt = ersetzen), sortiert. */
+export function mitModusGrenze(edits: EditOverlay, from: string, mode: Modus): EditOverlay {
+  const travelModes = (edits.travelModes ?? []).filter((g) => g.from !== from)
+  travelModes.push({ from, mode })
+  travelModes.sort((a, b) => Date.parse(a.from) - Date.parse(b.ab))
+  return { ...edits, travelModes }
 }
 
-export function ohneModusGrenze(edits: EditOverlay, ab: string): EditOverlay {
-  const modi = (edits.modi ?? []).filter((g) => g.ab !== ab)
+export function ohneModusGrenze(edits: EditOverlay, from: string): EditOverlay {
+  const travelModes = (edits.travelModes ?? []).filter((g) => g.from !== from)
   const naechste: EditOverlay = { ...edits }
-  if (modi.length) naechste.modi = modi
-  else delete naechste.modi
+  if (travelModes.length) naechste.travelModes = travelModes
+  else delete naechste.travelModes
   return naechste
 }
 
@@ -433,7 +433,7 @@ export function ohneModusGrenze(edits: EditOverlay, ab: string): EditOverlay {
  *
  * Die Fortbewegungs-Bänder kommen zum großen Teil nicht aus dem Overlay,
  * sondern aus der Aufzeichnung (Segmente + die Gehabschnitts-Automatik des
- * Servers). Solche Kanten ließen sich nicht anfassen: `edits.modi` ist eine
+ * Servers). Solche Kanten ließen sich nicht anfassen: `edits.travelModes` ist eine
  * Stufenfunktion, die AB ihrem Punkt alles Folgende übersteuert — eine einzelne
  * neue Grenze mitten in der erkannten Aufteilung würde die späteren Abschnitte
  * mitreißen. Erst wenn die ganze Aufteilung als Grenzen dasteht, verschiebt ein
@@ -449,8 +449,8 @@ export function materialisiereModi(
   startIso: string,
 ): EditOverlay {
   const startMs = Date.parse(startIso)
-  const grenzen = (edits.modi ?? [])
-    .map((g) => ({ abS: (Date.parse(g.ab) - startMs) / 1000, mode: g.mode }))
+  const grenzen = (edits.travelModes ?? [])
+    .map((g) => ({ abS: (Date.parse(g.from) - startMs) / 1000, mode: g.mode }))
     .filter((g) => Number.isFinite(g.abS))
     .sort((a, b) => a.abS - b.abS)
   const modusZu = (t: number, original: Modus): Modus => {
@@ -462,17 +462,17 @@ export function materialisiereModi(
     return m
   }
 
-  const modi: ModusGrenze[] = []
+  const travelModes: ModusGrenze[] = []
   let letzter: Modus | null = null
   for (const seg of segmente) {
     for (const p of seg.pts) {
       const mode = modusZu(p[3], seg.mode)
       if (mode === letzter) continue
-      modi.push({ ab: offsetZuIso(startIso, p[3]), mode })
+      travelModes.push({ from: offsetZuIso(startIso, p[3]), mode })
       letzter = mode
     }
   }
-  return modi.length ? { ...edits, modi } : edits
+  return travelModes.length ? { ...edits, travelModes } : edits
 }
 
 export function mitTrim(
@@ -489,68 +489,68 @@ export function mitTrim(
   return naechste
 }
 
-/** Grenze setzen/ersetzen (gleicher `ab`-Zeitpunkt = ersetzen), sortiert.
+/** Grenze setzen/ersetzen (gleicher `from`-Zeitpunkt = ersetzen), sortiert.
  *  skala 1/undefined wird weggelassen — hält das gespeicherte JSON minimal. */
 export function mitKameraGrenze(
   edits: EditOverlay,
-  ab: string,
+  from: string,
   preset: KameraPreset,
-  skala?: number,
+  scale?: number,
 ): EditOverlay {
-  const kamera = (edits.kamera ?? []).filter((g) => g.ab !== ab)
-  kamera.push(skala !== undefined && skala !== 1 ? { ab, preset, skala } : { ab, preset })
-  kamera.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
-  return { ...edits, kamera }
+  const camera = (edits.camera ?? []).filter((g) => g.from !== from)
+  camera.push(scale !== undefined && scale !== 1 ? { from, preset, scale } : { from, preset })
+  camera.sort((a, b) => Date.parse(a.from) - Date.parse(b.ab))
+  return { ...edits, camera }
 }
 
-export function ohneKameraGrenze(edits: EditOverlay, ab: string): EditOverlay {
-  const kamera = (edits.kamera ?? []).filter((g) => g.ab !== ab)
+export function ohneKameraGrenze(edits: EditOverlay, from: string): EditOverlay {
+  const camera = (edits.camera ?? []).filter((g) => g.from !== from)
   const naechste: EditOverlay = { ...edits }
-  if (kamera.length) naechste.kamera = kamera
-  else delete naechste.kamera
+  if (camera.length) naechste.camera = camera
+  else delete naechste.camera
   return naechste
 }
 
-/** Wetter-Grenze setzen/ersetzen (gleicher `ab` = ersetzen), sortiert.
+/** Wetter-Grenze setzen/ersetzen (gleicher `from` = ersetzen), sortiert.
  *  staerke undefined wird weggelassen — hält das gespeicherte JSON minimal. */
 export function mitWetterGrenze(
   edits: EditOverlay,
-  ab: string,
+  from: string,
   mode: WetterModus,
-  staerke?: number,
+  intensity?: number,
 ): EditOverlay {
-  const wetter = (edits.wetter ?? []).filter((g) => g.ab !== ab)
-  wetter.push(staerke !== undefined ? { ab, mode, staerke } : { ab, mode })
-  wetter.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
-  return { ...edits, wetter }
+  const weather = (edits.weather ?? []).filter((g) => g.from !== from)
+  weather.push(intensity !== undefined ? { from, mode, intensity } : { from, mode })
+  weather.sort((a, b) => Date.parse(a.from) - Date.parse(b.ab))
+  return { ...edits, weather }
 }
 
-export function ohneWetterGrenze(edits: EditOverlay, ab: string): EditOverlay {
-  const wetter = (edits.wetter ?? []).filter((g) => g.ab !== ab)
+export function ohneWetterGrenze(edits: EditOverlay, from: string): EditOverlay {
+  const weather = (edits.weather ?? []).filter((g) => g.from !== from)
   const naechste: EditOverlay = { ...edits }
-  if (wetter.length) naechste.wetter = wetter
+  if (weather.length) naechste.wetter = weather
   else delete naechste.wetter
   return naechste
 }
 
-/** Moment setzen/ersetzen (gleicher `ab` = ersetzen), sortiert. */
+/** Moment setzen/ersetzen (gleicher `from` = ersetzen), sortiert. */
 export function mitMoment(
   edits: EditOverlay,
-  ab: string,
-  art: MomentArt,
-  dauerS?: number,
+  from: string,
+  kind: MomentArt,
+  durationS?: number,
 ): EditOverlay {
-  const momente = (edits.momente ?? []).filter((m) => m.ab !== ab)
-  momente.push(dauerS !== undefined ? { ab, art, dauerS } : { ab, art })
-  momente.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
-  return { ...edits, momente }
+  const moments = (edits.moments ?? []).filter((m) => m.from !== from)
+  moments.push(durationS !== undefined ? { from, kind, durationS } : { from, kind })
+  moments.sort((a, b) => Date.parse(a.from) - Date.parse(b.ab))
+  return { ...edits, moments }
 }
 
-export function ohneMoment(edits: EditOverlay, ab: string): EditOverlay {
-  const momente = (edits.momente ?? []).filter((m) => m.ab !== ab)
+export function ohneMoment(edits: EditOverlay, from: string): EditOverlay {
+  const moments = (edits.moments ?? []).filter((m) => m.from !== from)
   const naechste: EditOverlay = { ...edits }
-  if (momente.length) naechste.momente = momente
-  else delete naechste.momente
+  if (moments.length) naechste.moments = moments
+  else delete naechste.moments
   return naechste
 }
 
@@ -561,26 +561,26 @@ export function mitAudioEintrag(edits: EditOverlay, eintrag: AudioEintrag): Edit
 }
 
 /** Patch-Semantik wie MediumEditPatch: Schlüssel vorhanden + undefined = entfernen.
- *  `datei`+`quelle` zusammen ersetzen das STÜCK eines Eintrags, ohne seine
- *  Platzierung (ab/bis/Lautstärke) anzufassen — `quelle: undefined` heißt dabei
+ *  `file`+`source` zusammen ersetzen das STÜCK eines Eintrags, ohne seine
+ *  Platzierung (ab/bis/Lautstärke) anzufassen — `source: undefined` heißt dabei
  *  ausdrücklich „tour-lokal" (Schlüssel wird entfernt). */
 export interface AudioPatch {
-  typ?: 'musik' | 'sfx'
-  ab?: string
-  bis?: string | undefined
-  lautstaerke?: number | undefined
-  datei?: string
-  quelle?: 'bibliothek' | 'benutzer' | undefined
-  anker?: string | undefined
-  versatzFilmS?: number | undefined
-  dauerFilmS?: number | undefined
-  einstiegS?: number | undefined
+  type?: 'music' | 'sfx'
+  from?: string
+  to?: string | undefined
+  volume?: number | undefined
+  file?: string
+  source?: 'library' | 'user' | undefined
+  anchor?: string | undefined
+  offsetFilmS?: number | undefined
+  durationFilmS?: number | undefined
+  startS?: number | undefined
   loop?: boolean | undefined
 }
 
 /**
  * Felder, die `mitAudioPatch` durchreicht. `undefined` im Patch LÖSCHT das Feld
- * — so nimmt ein Trim auf Null-Einstieg den `einstiegS` wieder heraus, statt
+ * — so nimmt ein Trim auf Null-Einstieg den `startS` wieder heraus, statt
  * eine 0 zu hinterlassen, die niemand mehr los wird.
  */
 const AUDIO_FELDER = [
@@ -607,9 +607,9 @@ export function mitAudioPatch(edits: EditOverlay, index: number, patch: AudioPat
       if (wert === undefined) delete neu[key]
       else (neu as unknown as Record<string, unknown>)[key] = wert
     }
-    // `bis` ist die ALTE Endmarke in Aufnahmezeit — ein Effekt hatte nie eine.
-    // Seine Länge (falls getrimmt) steht seit Etappe 4 in `dauerFilmS`.
-    if (neu.typ === 'sfx') delete neu.bis
+    // `to` ist die ALTE Endmarke in Aufnahmezeit — ein Effekt hatte nie eine.
+    // Seine Länge (falls getrimmt) steht seit Etappe 4 in `durationFilmS`.
+    if (neu.type === 'sfx') delete neu.to
     return neu
   })
   return { ...edits, audio }
@@ -625,54 +625,54 @@ export function ohneAudioEintrag(edits: EditOverlay, index: number): EditOverlay
 
 /** Semantik-Prüfung vor dem Speichern (Spiegel der Server-Prüfung). */
 export function pruefeOverlay(edits: EditOverlay): string | null {
-  const { start, ende } = edits.trim ?? {}
-  if (start !== undefined && ende !== undefined && Date.parse(start) >= Date.parse(ende)) {
+  const { start, end } = edits.trim ?? {}
+  if (start !== undefined && end !== undefined && Date.parse(start) >= Date.parse(end)) {
     return 'Trim-Start muss vor dem Trim-Ende liegen'
   }
   // Mengen-Limits des Server-Schemas gespiegelt — sonst käme beim Speichern
   // nur ein generisches „Ungültige Anfrage" zurück
-  if ((edits.modi ?? []).length > 200) return 'Zu viele Modus-Grenzen (maximal 200)'
-  if ((edits.kamera ?? []).length > 100) return 'Zu viele Kamera-Grenzen (maximal 100)'
-  if ((edits.momente ?? []).length > 100) return 'Zu viele Kamera-Momente (maximal 100)'
+  if ((edits.travelModes ?? []).length > 200) return 'Zu viele Modus-Grenzen (maximal 200)'
+  if ((edits.camera ?? []).length > 100) return 'Zu viele Kamera-Grenzen (maximal 100)'
+  if ((edits.moments ?? []).length > 100) return 'Zu viele Kamera-Momente (maximal 100)'
   if ((edits.audio ?? []).length > 50) return 'Zu viele Audio-Einträge (maximal 50)'
-  if ((edits.wetter ?? []).length > 200) return 'Zu viele Wetter-Grenzen (maximal 200)'
-  for (const g of edits.wetter ?? []) {
-    if (!Number.isFinite(Date.parse(g.ab))) return `Unparsebare Wetter-Grenze: ${g.ab}`
+  if ((edits.weather ?? []).length > 200) return 'Zu viele Wetter-Grenzen (maximal 200)'
+  for (const g of edits.weather ?? []) {
+    if (!Number.isFinite(Date.parse(g.from))) return `Unparsebare Wetter-Grenze: ${g.from}`
     if (
-      g.staerke !== undefined &&
-      !(Number.isFinite(g.staerke) && g.staerke >= 0 && g.staerke <= 1)
+      g.intensity !== undefined &&
+      !(Number.isFinite(g.intensity) && g.intensity >= 0 && g.intensity <= 1)
     ) {
       return `Wetter-Stärke muss zwischen 0 und 1 liegen`
     }
   }
-  for (const g of edits.kamera ?? []) {
-    if (!Number.isFinite(Date.parse(g.ab))) return `Unparsebare Kamera-Grenze: ${g.ab}`
-    if (g.skala !== undefined && !(Number.isFinite(g.skala) && g.skala >= 0.5 && g.skala <= 2)) {
+  for (const g of edits.camera ?? []) {
+    if (!Number.isFinite(Date.parse(g.from))) return `Unparsebare Kamera-Grenze: ${g.from}`
+    if (g.scale !== undefined && !(Number.isFinite(g.scale) && g.scale >= 0.5 && g.scale <= 2)) {
       return `Kamera-Feinjustierung muss zwischen 0.5 und 2 liegen`
     }
   }
-  for (const m of edits.momente ?? []) {
-    if (!Number.isFinite(Date.parse(m.ab))) return `Unparsebarer Kamera-Moment: ${m.ab}`
-    if (m.dauerS !== undefined && !(Number.isFinite(m.dauerS) && m.dauerS >= 1 && m.dauerS <= 30)) {
+  for (const m of edits.moments ?? []) {
+    if (!Number.isFinite(Date.parse(m.from))) return `Unparsebarer Kamera-Moment: ${m.from}`
+    if (m.durationS !== undefined && !(Number.isFinite(m.durationS) && m.durationS >= 1 && m.durationS <= 30)) {
       return `Moment-Dauer muss zwischen 1 und 30 Sekunden liegen`
     }
   }
   for (const [i, a] of (edits.audio ?? []).entries()) {
-    if (!Number.isFinite(Date.parse(a.ab))) return `Audio ${i + 1}: unparsebarer Beginn`
-    if (a.bis !== undefined) {
-      if (a.typ !== 'musik') return `Audio ${i + 1}: ein Ende gibt es nur für Musik`
-      if (!Number.isFinite(Date.parse(a.bis))) return `Audio ${i + 1}: unparsebares Ende`
-      if (Date.parse(a.bis) <= Date.parse(a.ab))
+    if (!Number.isFinite(Date.parse(a.from))) return `Audio ${i + 1}: unparsebarer Beginn`
+    if (a.to !== undefined) {
+      if (a.type !== 'music') return `Audio ${i + 1}: ein Ende gibt es nur für Musik`
+      if (!Number.isFinite(Date.parse(a.to))) return `Audio ${i + 1}: unparsebares Ende`
+      if (Date.parse(a.to) <= Date.parse(a.from))
         return `Audio ${i + 1}: das Ende muss nach dem Beginn liegen`
     }
     if (
-      a.lautstaerke !== undefined &&
-      !(Number.isFinite(a.lautstaerke) && a.lautstaerke >= 0 && a.lautstaerke <= 1)
+      a.volume !== undefined &&
+      !(Number.isFinite(a.volume) && a.volume >= 0 && a.volume <= 1)
     ) {
       return `Audio ${i + 1}: Lautstärke muss zwischen 0 und 1 liegen`
     }
   }
-  for (const [id, m] of Object.entries(edits.medien ?? {})) {
+  for (const [id, m] of Object.entries(edits.media ?? {})) {
     const holdS = m.display?.holdS
     if (holdS !== undefined && !(Number.isFinite(holdS) && holdS >= 2 && holdS <= 60)) {
       return `Haltedauer für ${id} muss zwischen 2 und 60 Sekunden liegen`
@@ -709,13 +709,13 @@ export function zerlegeFuerAnzeige(
   startIso: string,
 ): AnzeigeAbschnitt[] {
   const startMs = Date.parse(startIso)
-  const grenzen = (edits.modi ?? [])
-    .map((g) => ({ abS: (Date.parse(g.ab) - startMs) / 1000, mode: g.mode }))
+  const grenzen = (edits.travelModes ?? [])
+    .map((g) => ({ abS: (Date.parse(g.from) - startMs) / 1000, mode: g.mode }))
     .filter((g) => Number.isFinite(g.abS))
     .sort((a, b) => a.abS - b.abS)
   const trimVon =
     edits.trim?.start !== undefined ? isoZuOffset(startIso, edits.trim.start) : -Infinity
-  const trimBis = edits.trim?.ende !== undefined ? isoZuOffset(startIso, edits.trim.ende) : Infinity
+  const trimBis = edits.trim?.end !== undefined ? isoZuOffset(startIso, edits.trim.end) : Infinity
 
   const modusZu = (t: number, original: Modus): Modus => {
     let m = original
@@ -727,14 +727,14 @@ export function zerlegeFuerAnzeige(
   }
 
   /** Zustandswechsel streng zwischen zwei Stützpunkt-Zeiten (Endpunkte zählen dort selbst). */
-  const spaltenZwischen = (vonS: number, bisS: number): number[] => {
-    if (!(bisS > vonS)) return []
+  const spaltenZwischen = (fromS: number, toS: number): number[] => {
+    if (!(toS > fromS)) return []
     const zeiten: number[] = []
     for (const g of grenzen) {
-      if (g.abS > vonS && g.abS < bisS) zeiten.push(g.abS)
+      if (g.abS > fromS && g.abS < toS) zeiten.push(g.abS)
     }
-    if (Number.isFinite(trimVon) && trimVon > vonS && trimVon < bisS) zeiten.push(trimVon)
-    if (Number.isFinite(trimBis) && trimBis > vonS && trimBis < bisS) zeiten.push(trimBis)
+    if (Number.isFinite(trimVon) && trimVon > fromS && trimVon < toS) zeiten.push(trimVon)
+    if (Number.isFinite(trimBis) && trimBis > fromS && trimBis < toS) zeiten.push(trimBis)
     zeiten.sort((a, b) => a - b)
     return zeiten.filter((t, i) => i === 0 || t !== zeiten[i - 1])
   }
@@ -807,11 +807,11 @@ export interface MediumBasis {
   /** Kachel-Fassung für Miniaturen; fehlt bei unaufbereitetem Altbestand */
   thumb?: string
   /**
-   * Echte Länge eines Videos in Sekunden (nur type=video). Fehlt bei
+   * Echte Länge eines Videos in Sekunden (nur typ=video). Fehlt bei
    * unverarbeitetem Altbestand — dann rechnet die Zeitleiste mit der
    * Foto-Standzeit weiter, was für ein langes Video sichtbar zu wenig ist.
    */
-  dauerS?: number
+  durationS?: number
   takenAt: string
   caption: string
   anchor: [number, number] | null
@@ -833,12 +833,12 @@ export function miniaturQuelle(m: Pick<MediumBasis, 'type' | 'src' | 'poster' | 
 }
 
 export interface MediumAnzeige extends MediumBasis {
-  geloescht: boolean
+  removed: boolean
   display?: DisplayEdit
-  /** Platz im Stopp, falls gesetzt (s. MediumEdit.reihe) */
-  reihe?: number
+  /** Platz im Stopp, falls gesetzt (s. MediumEdit.order) */
+  order?: number
   /** Video-Schnitt aus dem Overlay (s. MediumEdit.trim) */
-  trim?: { vonS: number; bisS?: number }
+  trim?: { fromS: number; toS?: number }
 }
 
 /** Overlay auf die Auto-Platzierung legen; Gelöschte bleiben (markiert) drin. */
@@ -847,15 +847,15 @@ export function effektiveMedien(
   edits: EditOverlay,
 ): MediumAnzeige[] {
   return basis.map((m) => {
-    const e = edits.medien?.[m.id]
+    const e = edits.media?.[m.id]
     return {
       ...m,
       caption: e?.caption !== undefined ? e.caption : m.caption,
       anchor: e?.anchor ?? m.anchor,
       placement: e?.anchor ? 'manuell' : m.placement,
-      geloescht: e?.geloescht === true,
+      removed: e?.removed === true,
       ...(e?.display ? { display: e.display } : {}),
-      ...(e?.reihe !== undefined ? { reihe: e.reihe } : {}),
+      ...(e?.order !== undefined ? { order: e.order } : {}),
       ...(e?.trim ? { trim: e.trim } : {}),
     }
   })

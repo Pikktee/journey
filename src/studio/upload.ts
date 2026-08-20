@@ -35,7 +35,7 @@ export function gpxZeitspanne(xml: string): { startMs: number; endMs: number } |
   let anzahl = 0
   while (tagRe.exec(xml) !== null) {
     // festes Fenster statt unbeschränktem indexOf (das ohne Treffer bei jedem
-    // offenen Tag bis Dateiende scannt → O(N²), siehe parseGpx im Server)
+    // offenen Tag to Dateiende scannt → O(N²), siehe parseGpx im Server)
     const inhalt = xml.slice(tagRe.lastIndex, tagRe.lastIndex + 500)
     const t = /<time>([^<]+)<\/time>/.exec(inhalt)?.[1]
     if (t) {
@@ -119,7 +119,7 @@ export function baueUploadManifest(opts: {
   zeitspanne: { startMs: number; endMs: number }
   zone: string
   trackMode: string
-  medien: MediumEingabe[]
+  media: MediumEingabe[]
 }): UploadManifest {
   return {
     schema: 'maptale/upload@1',
@@ -133,6 +133,6 @@ export function baueUploadManifest(opts: {
     },
     trackFile: 'track.gpx',
     trackMode: opts.trackMode,
-    media: opts.medien,
+    media: opts.media,
   }
 }

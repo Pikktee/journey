@@ -41,8 +41,8 @@ export interface ExportBlattTour {
   id: string
   title: string | null
   cover: string | null
-  /** Routen-Signatur aus `stats.spur`; fehlt bei Touren vor der Aufbereitung. */
-  spur?: { d: string; start: [number, number]; ende: [number, number] } | null
+  /** Routen-Signatur aus `stats.trackSignature`; fehlt bei Touren vor der Aufbereitung. */
+  spur?: { d: string; start: [number, number]; end: [number, number] } | null
   /** Länge des FILMS in Sekunden aus `stats.filmS`; fehlt bei Altbestand. */
   filmS?: number | null
   /** Endscreen — er zählt zur Länge der DATEI, s. `clipDauerS`. */
@@ -74,7 +74,7 @@ function baueBlatt(): HTMLElement {
     <div class="neu-fenster export-fenster" role="dialog" aria-modal="true" aria-labelledby="export-titel">
       <div class="neu-kopf">
         <div class="titelblock">
-          <h2 id="export-titel">Als Video exportieren<button class="export-info" type="button" aria-label="Was passiert dabei?" aria-describedby="export-tip"><svg aria-hidden="true"><use href="#i-info"/></svg></button></h2>
+          <h2 id="export-titel">Als Video exportieren<button class="export-info" typ="button" aria-label="Was passiert dabei?" aria-describedby="export-tip"><svg aria-hidden="true"><use href="#i-info"/></svg></button></h2>
           <div class="unter" id="export-unter"></div>
         </div>
         <!-- Der Tipp hängt an der KOPFZEILE, nicht am Knopf: Am Knopf lief er
@@ -97,15 +97,15 @@ function baueBlatt(): HTMLElement {
           <div class="export-reihe">
             <div class="export-etikett">Ausrichtung</div>
             <div class="insp-knoepfe" role="radiogroup" aria-label="Ausrichtung">
-              <button type="button" data-lage="quer">Quer</button>
-              <button type="button" data-lage="hoch">Hochkant</button>
+              <button typ="button" data-lage="quer">Quer</button>
+              <button typ="button" data-lage="hoch">Hochkant</button>
             </div>
           </div>
           <div class="export-reihe">
             <div class="export-etikett">Größe</div>
             <div class="insp-knoepfe" role="radiogroup" aria-label="Größe">
-              <button type="button" data-groesse="720">720p</button>
-              <button type="button" data-groesse="1080">1080p</button>
+              <button typ="button" data-groesse="720">720p</button>
+              <button typ="button" data-groesse="1080">1080p</button>
             </div>
           </div>
           <div class="export-reihe">
@@ -124,11 +124,11 @@ function baueBlatt(): HTMLElement {
         </div>
       </div>
       <div class="neu-fuss">
-        <button class="knopf" type="button" data-abbrechen>Abbrechen</button>
-        <button class="knopf-primaer" type="button" data-speichern hidden>
+        <button class="knopf" typ="button" data-abbrechen>Abbrechen</button>
+        <button class="knopf-primaer" typ="button" data-speichern hidden>
           <svg aria-hidden="true"><use href="#i-download"/></svg>Speichern
         </button>
-        <button class="knopf-primaer" type="button" data-starten>
+        <button class="knopf-primaer" typ="button" data-starten>
           <svg aria-hidden="true"><use href="#i-film"/></svg>Video erzeugen
         </button>
       </div>
@@ -142,8 +142,8 @@ function baueBlatt(): HTMLElement {
         <div class="export-frage-karte" role="alertdialog" aria-labelledby="export-frage-text">
           <p id="export-frage-text">Der Film ist noch nicht fertig. Brichst du jetzt ab, fängt er beim nächsten Mal von vorn an.</p>
           <div class="export-frage-knoepfe">
-            <button class="knopf" type="button" data-abbruch-ja>Ja, abbrechen</button>
-            <button class="knopf-primaer" type="button" data-weiter>Weiter rendern</button>
+            <button class="knopf" typ="button" data-abbruch-ja>Ja, abbrechen</button>
+            <button class="knopf-primaer" typ="button" data-weiter>Weiter rendern</button>
           </div>
         </div>
       </div>
@@ -421,7 +421,7 @@ function brichAb(): void {
 function beiMeldung(e: MessageEvent): void {
   if (e.origin !== location.origin || !hinter) return
   const m = e.data as ExportMeldung | undefined
-  if (!m || m.typ !== EXPORT_NACHRICHT) return
+  if (!m || m.type !== EXPORT_NACHRICHT) return
   const stand = $('#export-stand', hinter)
   const rest = $('#export-rest', hinter)
   const fuell = $('#export-fuell', hinter)

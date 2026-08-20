@@ -19,9 +19,9 @@ export interface FeedbackKontext {
   seite?: string
   version?: string
   browser?: string
-  plattform?: string
-  schirm?: string
-  sprache?: string
+  platform?: string
+  screen?: string
+  language?: string
 }
 
 /**
@@ -52,34 +52,34 @@ export function sammleKontext(opts: {
   userAgent: string
   breite: number
   hoehe: number
-  sprache?: string
+  language?: string
 }): FeedbackKontext {
-  const kontext: FeedbackKontext = {
+  const context: FeedbackKontext = {
     seite: sauberePfadangabe(opts.href),
     version: opts.version,
   }
   const browser = browserAus(opts.userAgent)
   const system = systemAus(opts.userAgent)
-  if (browser) kontext.browser = browser
-  if (system) kontext.plattform = system
-  if (opts.breite > 0 && opts.hoehe > 0) kontext.schirm = `${opts.breite}×${opts.hoehe}`
-  if (opts.sprache) kontext.sprache = opts.sprache
-  return kontext
+  if (browser) context.browser = browser
+  if (system) context.platform = system
+  if (opts.breite > 0 && opts.hoehe > 0) context.screen = `${opts.breite}×${opts.hoehe}`
+  if (opts.language) context.language = opts.language
+  return context
 }
 
 /** Menschenlesbare Paare für den Aufklapper. Reihenfolge fest, damit sie nicht springt. */
-export function kontextZeilen(kontext: FeedbackKontext): Array<[string, string]> {
+export function kontextZeilen(context: FeedbackKontext): Array<[string, string]> {
   const namen: Array<[keyof FeedbackKontext, string]> = [
-    ['seite', 'Seite'],
+    ['page', 'Seite'],
     ['version', 'Version'],
     ['browser', 'Browser'],
-    ['plattform', 'System'],
-    ['schirm', 'Fenster'],
-    ['sprache', 'Sprache'],
+    ['platform', 'System'],
+    ['screen', 'Fenster'],
+    ['language', 'Sprache'],
   ]
   return namen
-    .filter(([schluessel]) => kontext[schluessel])
-    .map(([schluessel, name]) => [name, String(kontext[schluessel])])
+    .filter(([schluessel]) => context[schluessel])
+    .map(([schluessel, name]) => [name, String(context[schluessel])])
 }
 
 /**

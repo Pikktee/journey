@@ -12,8 +12,8 @@ import { distanzM } from './pruefung.js'
 
 /** Was aus einer gewählten Datei gelesen wurde (EXIF, sonst Datei-Datum). */
 export interface NeueAufnahme {
-  datei: string
-  typ: 'photo' | 'video'
+  file: string
+  type: 'photo' | 'video'
   /** Aufnahmezeit in ms — aus EXIF, sonst der Dateizeit (dann `zeitGeraten`) */
   zeitMs: number
   zeitGeraten: boolean

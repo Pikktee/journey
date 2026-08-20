@@ -111,7 +111,7 @@ export function appHeaderHtml(opts: { aktiv: AppNavSeite; variante?: AppHeaderVa
       `<div class="nav-right" id="nav-right">` +
       `<a href="${pfad('app')}" class="nav-cta" data-gast>Anmelden</a>` +
       `<div class="konto-wrap" data-dabei>` +
-      `<button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">` +
+      `<button typ="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">` +
       `<span class="punkt"></span><span class="nav-profil-name"></span>` +
       `</button></div></div>`
   }
@@ -161,18 +161,18 @@ export function appFooterHtml(opts?: { links?: AppFooterLink[]; ariaLabel?: stri
 
 /** Schreibt die Fußzeile in einen vorhandenen `footer`-Mount (synchron). */
 export function schreibeAppFooter(
-  fuss: Element | null,
+  footer: Element | null,
   opts?: { links?: AppFooterLink[]; ariaLabel?: string },
 ): void {
-  if (!fuss) return
-  fuss.innerHTML = appFooterHtml(opts)
+  if (!footer) return
+  footer.innerHTML = appFooterHtml(opts)
 }
 
-type Quota = { benutzt: number; limit: number }
+type Quota = { used: number; limit: number }
 
 type MeAntwort = {
-  benutzer?: { name?: string; email?: string; rolle?: string }
-  profil?: { anzeigename?: string; avatarUrl?: string; handle?: string | null }
+  benutzer?: { name?: string; email?: string; role?: string }
+  profile?: { displayName?: string; avatarUrl?: string; handle?: string | null }
   quota?: Quota
 }
 
@@ -182,9 +182,9 @@ function mb(b: number): string {
 
 function quotaHtml(quota: Quota | undefined): string {
   if (!quota || !(quota.limit > 0)) return ''
-  const anteil = Math.min(100, (quota.benutzt / quota.limit) * 100)
+  const anteil = Math.min(100, (quota.used / quota.limit) * 100)
   return `<div class="km-quota">
-    <div class="km-quota-kopf"><span>Speicher</span><span>${mb(quota.benutzt)} / ${mb(quota.limit)} MB</span></div>
+    <div class="km-quota-kopf"><span>Speicher</span><span>${mb(quota.used)} / ${mb(quota.limit)} MB</span></div>
     <div class="km-balken"><span style="width:${anteil.toFixed(0)}%"${anteil > 90 ? ' class="voll"' : ''}></span></div>
   </div>`
 }
@@ -266,21 +266,21 @@ export async function montiereNavRechts(
     }
     merkeAngemeldet()
 
-    const name = daten.profil?.anzeigename || daten.benutzer.name || 'Profil'
+    const name = daten.profile?.displayName || daten.benutzer.name || 'Profil'
     const initial = (name.trim().charAt(0) || '?').toUpperCase()
-    const avatar = daten.profil?.avatarUrl
+    const avatar = daten.profile?.avatarUrl
     const mail = daten.benutzer.email || ''
 
     merkeProfilCache({ name, initial, avatarUrl: avatar })
     wendeProfilDatenAn(container, { name, initial, avatarUrl: avatar })
 
     const adminLink =
-      daten.benutzer.rolle === 'admin'
+      daten.benutzer.role === 'admin'
         ? `<a href="${pfad('verwaltung')}" class="km-eintrag">${ICON_ADMIN}Administration</a>`
         : ''
 
-    const profilLink = daten.profil?.handle
-      ? `<a href="${profilPfad(daten.profil.handle)}" class="km-eintrag">${ICON_PROFIL}Mein Profil</a>`
+    const profilLink = daten.profile?.handle
+      ? `<a href="${profilPfad(daten.profile.handle)}" class="km-eintrag">${ICON_PROFIL}Mein Profil</a>`
       : ''
 
     let kontoWrap = container.querySelector('.konto-wrap') as HTMLElement | null

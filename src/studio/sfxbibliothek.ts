@@ -11,97 +11,97 @@
 // synchron.
 
 /** Wie ein Effekt abgespielt wird — deckt sich mit AudioEintrag.typ. */
-export type SfxTyp = 'musik' | 'sfx'
+export type SfxTyp = 'music' | 'sfx'
 
 export interface SfxEffekt {
-  /** Dateiname unter public/audio/sfx/ — zugleich die Overlay-Referenz (audio.datei). */
-  datei: string
+  /** Dateiname unter public/audio/sfx/ — zugleich die Overlay-Referenz (audio.file). */
+  file: string
   /** Anzeigename im Studio-Katalog. */
   name: string
   /**
-   * 'musik' = komponiertes Stück (Loop über eine Spanne, typ 'musik'),
-   * 'umgebung' = Dauer-Atmosphäre (ebenfalls Loop, typ 'musik'),
+   * 'music' = komponiertes Stück (Loop über eine Spanne, typ 'music'),
+   * 'umgebung' = Dauer-Atmosphäre (ebenfalls Loop, typ 'music'),
    * 'effekt' = punktueller One-Shot (typ 'sfx').
    */
-  kategorie: 'musik' | 'umgebung' | 'effekt'
-  typ: SfxTyp
+  kategorie: 'music' | 'umgebung' | 'effekt'
+  type: SfxTyp
   /** Ein Satz zum Charakter — Tooltip im Studio. */
   beschreibung: string
 }
 
 // Musik: zehn Stücke für die Stimmungen, die auf einer Reise vorkommen. Sie
-// laufen über eine Spanne und schleifen — deshalb typ 'musik' wie die
+// laufen über eine Spanne und schleifen — deshalb typ 'music' wie die
 // Atmosphären, aber eine eigene Kategorie: eine Komposition ist etwas anderes
 // als der Klang eines Ortes.
 const MUSIK: SfxEffekt[] = [
   {
-    datei: 'mus-aufbruch.mp3',
+    file: 'mus-aufbruch.mp3',
     name: 'Aufbruch',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Hoffnungsvoller Folk zum Losfahren, Gitarre, Shaker, Glockenspiel',
   },
   {
-    datei: 'mus-fernweh.mp3',
+    file: 'mus-fernweh.mp3',
     name: 'Fernweh',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Weit und sehnsüchtig: Klavier über langsamen Streichern',
   },
   {
-    datei: 'mus-kuestenstrasse.mp3',
+    file: 'mus-kuestenstrasse.mp3',
     name: 'Küstenstraße',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Sonnige Fahrt am Meer, Surfgitarre, lockeres Schlagzeug',
   },
   {
-    datei: 'mus-nachtfahrt.mp3',
+    file: 'mus-nachtfahrt.mp3',
     name: 'Nachtfahrt',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Pulsierender Synthwave durchs Dunkel',
   },
   {
-    datei: 'mus-bergpass.mp3',
+    file: 'mus-bergpass.mp3',
     name: 'Bergpass',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Weite Streicher und Hörner in dünner Höhenluft',
   },
   {
-    datei: 'mus-tropen.mp3',
+    file: 'mus-tropen.mp3',
     name: 'Tropen',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Marimba, Nylongitarre, warme Perkussion',
   },
   {
-    datei: 'mus-stadtpuls.mp3',
+    file: 'mus-stadtpuls.mp3',
     name: 'Stadtpuls',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Trockener Groove, Funkgitarre, tiefer Bass',
   },
   {
-    datei: 'mus-goldene-stunde.mp3',
+    file: 'mus-goldene-stunde.mp3',
     name: 'Goldene Stunde',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Glühende Gitarrenflächen, fast ohne Takt',
   },
   {
-    datei: 'mus-regentag.mp3',
+    file: 'mus-regentag.mp3',
     name: 'Regentag',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Stilles Klavier, sparsam gesetzt',
   },
   {
-    datei: 'mus-heimkehr.mp3',
+    file: 'mus-heimkehr.mp3',
     name: 'Heimkehr',
-    kategorie: 'musik',
-    typ: 'musik',
+    kategorie: 'music',
+    type: 'music',
     beschreibung: 'Ruhig auflösend, Gitarre und Klavier zum Ankommen',
   },
 ]
@@ -109,73 +109,73 @@ const MUSIK: SfxEffekt[] = [
 // Umgebungs-Atmosphären: nahtlose Loops, laufen über einen Streckenbereich.
 const UMGEBUNG: SfxEffekt[] = [
   {
-    datei: 'amb-hafen.mp3',
+    file: 'amb-hafen.mp3',
     name: 'Hafen',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Möwen, Wellen an der Kaimauer, ferne Boote',
   },
   {
-    datei: 'amb-wald.mp3',
+    file: 'amb-wald.mp3',
     name: 'Wald',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Vogelgezwitscher und Blätterrauschen',
   },
   {
-    datei: 'amb-stadt.mp3',
+    file: 'amb-stadt.mp3',
     name: 'Stadt',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Belebte Straße: ferner Verkehr, Schritte, Stimmen',
   },
   {
-    datei: 'amb-markt.mp3',
+    file: 'amb-markt.mp3',
     name: 'Markt',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Stimmengewirr, Rufe, geschäftiges Treiben',
   },
   {
-    datei: 'amb-brandung.mp3',
+    file: 'amb-brandung.mp3',
     name: 'Strand',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Sanfte Meeresbrandung, auslaufende Wellen',
   },
   {
-    datei: 'amb-grillen.mp3',
+    file: 'amb-grillen.mp3',
     name: 'Tropennacht',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Grillen und Zikaden in warmer Nacht',
   },
   {
-    datei: 'amb-bach.mp3',
+    file: 'amb-bach.mp3',
     name: 'Bach',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Plätscherndes Wasser über Steine',
   },
   {
-    datei: 'amb-bergwind.mp3',
+    file: 'amb-bergwind.mp3',
     name: 'Bergwind',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Sanfter Wind in der Höhe, ferne Kuhglocken',
   },
   {
-    datei: 'amb-fahrtwind.mp3',
+    file: 'amb-fahrtwind.mp3',
     name: 'Fahrtwind',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Luftrauschen der schnellen Vorwärtsfahrt',
   },
   {
-    datei: 'amb-seewind.mp3',
+    file: 'amb-seewind.mp3',
     name: 'Seewind',
     kategorie: 'umgebung',
-    typ: 'musik',
+    type: 'music',
     beschreibung: 'Frischer Wind über offenem Wasser',
   },
 ]
@@ -183,59 +183,59 @@ const UMGEBUNG: SfxEffekt[] = [
 // Punktuelle Effekte: feuern einmal beim Überfahren ihrer Marke.
 const EFFEKT: SfxEffekt[] = [
   {
-    datei: 'sfx-tempelglocke.mp3',
+    file: 'sfx-tempelglocke.mp3',
     name: 'Tempelglocke',
     kategorie: 'effekt',
-    typ: 'sfx',
+    type: 'sfx',
     beschreibung: 'Einzelner Schlag einer asiatischen Tempelglocke',
   },
   {
-    datei: 'sfx-kirchenglocke.mp3',
+    file: 'sfx-kirchenglocke.mp3',
     name: 'Kirchenglocke',
     kategorie: 'effekt',
-    typ: 'sfx',
+    type: 'sfx',
     beschreibung: 'Läuten einer Kirchenglocke',
   },
   {
-    datei: 'sfx-moewe.mp3',
+    file: 'sfx-moewe.mp3',
     name: 'Möwe',
     kategorie: 'effekt',
-    typ: 'sfx',
+    type: 'sfx',
     beschreibung: 'Einzelner Möwenschrei',
   },
   {
-    datei: 'sfx-schiffshorn.mp3',
+    file: 'sfx-schiffshorn.mp3',
     name: 'Schiffshorn',
     kategorie: 'effekt',
-    typ: 'sfx',
+    type: 'sfx',
     beschreibung: 'Tiefes Horn eines auslaufenden Schiffs',
   },
   {
-    datei: 'sfx-hupe.mp3',
+    file: 'sfx-hupe.mp3',
     name: 'Hupe',
     kategorie: 'effekt',
-    typ: 'sfx',
+    type: 'sfx',
     beschreibung: 'Kurze Autohupe',
   },
   {
-    datei: 'sfx-hund.mp3',
+    file: 'sfx-hund.mp3',
     name: 'Hund',
     kategorie: 'effekt',
-    typ: 'sfx',
+    type: 'sfx',
     beschreibung: 'Bellender Hund',
   },
   {
-    datei: 'sfx-applaus.mp3',
+    file: 'sfx-applaus.mp3',
     name: 'Applaus',
     kategorie: 'effekt',
-    typ: 'sfx',
+    type: 'sfx',
     beschreibung: 'Kurzer Jubel und Applaus',
   },
   {
-    datei: 'sfx-kamera.mp3',
+    file: 'sfx-camera.mp3',
     name: 'Kamera',
     kategorie: 'effekt',
-    typ: 'sfx',
+    type: 'sfx',
     beschreibung: 'Auslöser einer Spiegelreflexkamera',
   },
 ]
@@ -250,9 +250,9 @@ export const KATEGORIE_NAMEN: Record<SfxEffekt['kategorie'], string> = {
 }
 
 /** Menge der Bibliotheks-Dateinamen — für die Validierung (Server/Player-Referenz). */
-export const SFX_DATEIEN: ReadonlySet<string> = new Set(SFX_BIBLIOTHEK.map((e) => e.datei))
+export const SFX_DATEIEN: ReadonlySet<string> = new Set(SFX_BIBLIOTHEK.map((e) => e.file))
 
 /** Katalog-Eintrag zu einem Dateinamen (für Anzeige eines gesetzten Bibliothekseffekts). */
-export function sfxEffekt(datei: string): SfxEffekt | undefined {
-  return SFX_BIBLIOTHEK.find((e) => e.datei === datei)
+export function sfxEffekt(file: string): SfxEffekt | undefined {
+  return SFX_BIBLIOTHEK.find((e) => e.file === file)
 }

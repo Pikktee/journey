@@ -32,18 +32,18 @@ export interface Kameradistanz {
 // Bewusst weit gespreizt: Nah klebt dicht hinterm Fahrer, Weit ist Panorama —
 // die Stufen sollen sich wie drei verschiedene Einstellungsgrößen anfühlen
 export const PRESETS = {
-  nah: { behind: 280, hover: 160 },
-  mittel: { behind: 720, hover: 410 },
-  weit: { behind: 1900, hover: 1300 },
+  near: { behind: 280, hover: 160 },
+  mid: { behind: 720, hover: 410 },
+  far: { behind: 1900, hover: 1300 },
 } satisfies Record<string, Kameradistanz>
 
 /**
  * Die Namen kommen aus dem DOM (`data-preset`) und aus Tour-Keyframes des
- * Servers — beides freie Zeichenketten. Unbekanntes fällt auf „mittel", genau
- * wie der Bestand es mit `PRESETS[p] ?? PRESETS.mittel` tat.
+ * Servers — beides freie Zeichenketten. Unbekanntes fällt auf „mid", genau
+ * wie der Bestand es mit `PRESETS[p] ?? PRESETS.mid` tat.
  */
 const distanzFuer = (name: string): Kameradistanz =>
-  (PRESETS as Record<string, Kameradistanz | undefined>)[name] ?? PRESETS.mittel
+  (PRESETS as Record<string, Kameradistanz | undefined>)[name] ?? PRESETS.mid
 
 // Standzeit und Ausblendung gehören der Foto-Karte, nicht der Engine — sie
 // stehen in einer Datei, die auch das Studio importieren kann (einblendung.ts).
@@ -358,7 +358,7 @@ export class Tour {
     this.speed = 0
     this.mult = 1
     this.dir = 1 // Wiedergaberichtung: +1 vorwärts, −1 rückwärts (JKL-Shuttle)
-    this.preset = PRESETS.mittel
+    this.preset = PRESETS.mid
     this.itemIdx = 0 // Foto innerhalb des aktuellen Halts
     this.photoShown = false
     this.glide = 1 // Tau-Multiplikator, >1 direkt nach Phasenwechseln (epischere Schwenks)

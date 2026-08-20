@@ -8,27 +8,27 @@ export interface Geraet {
   id: string
   art: 'sitzung' | 'app'
   /** Roher User-Agent (Sitzung) bzw. das Label der App-Anmeldung. */
-  kennung: string | null
-  ipPraefix: string | null
-  angemeldetAm: string
-  zuletztGesehen: string | null
+  label: string | null
+  ipPrefix: string | null
+  signedInAt: string
+  lastSeenAt: string | null
   /** Die Sitzung, aus der gefragt wurde — sie trägt keinen Abmelden-Knopf. */
-  dieses?: boolean
+  current?: boolean
 }
 
 export interface SpeicherAufteilung {
   fotos: number
   videos: number
-  klaenge: number
-  aufzeichnungen: number
-  sonstiges: number
+  audio: number
+  recordings: number
+  other: number
 }
 
 export interface SpeicherStand {
-  benutzt: number
+  used: number
   limit: number
-  frei: number
-  aufteilung: SpeicherAufteilung
+  free: number
+  breakdown: SpeicherAufteilung
 }
 
 // ————— Geräte —————
@@ -83,9 +83,9 @@ export function istHandgeraet(userAgent: string): boolean {
  * schlimmer als das Eingeständnis, denn an dieser Zeile hängt die Entscheidung,
  * ob jemand ein fremdes Gerät abmeldet.
  */
-export function geraeteName(geraet: Geraet): string {
-  if (geraet.art === 'app') return `Maptale App${geraet.kennung ? ` · ${geraet.kennung}` : ''}`
-  const ua = geraet.kennung ?? ''
+export function geraeteName(device: Geraet): string {
+  if (device.art === 'app') return `Maptale App${device.label ? ` · ${device.label}` : ''}`
+  const ua = device.label ?? ''
   const browser = browserAus(ua)
   const system = systemAus(ua)
   if (browser && system) return `${browser} auf ${system}`
@@ -93,9 +93,9 @@ export function geraeteName(geraet: Geraet): string {
 }
 
 /** Rechner, Telefon oder App — nur das Zeichen links in der Zeile. */
-export function geraeteSymbol(geraet: Geraet): 'app' | 'telefon' | 'rechner' {
-  if (geraet.art === 'app') return 'app'
-  return istHandgeraet(geraet.kennung ?? '') ? 'telefon' : 'rechner'
+export function geraeteSymbol(device: Geraet): 'app' | 'telefon' | 'rechner' {
+  if (device.art === 'app') return 'app'
+  return istHandgeraet(device.label ?? '') ? 'telefon' : 'rechner'
 }
 
 /**
@@ -104,10 +104,10 @@ export function geraeteSymbol(geraet: Geraet): 'app' | 'telefon' | 'rechner' {
  * Was fehlt, steht nicht als Platzhalter da — ein „—" zwischen zwei Punkten
  * sieht nach kaputter Anzeige aus. Ohne jede Angabe bleibt die Zeile leer.
  */
-export function geraeteUnterzeile(geraet: Geraet, jetzt: Date = new Date()): string {
+export function geraeteUnterzeile(device: Geraet, jetzt: Date = new Date()): string {
   const teile: string[] = []
-  if (geraet.ipPraefix) teile.push(geraet.ipPraefix)
-  const zeitpunkt = geraet.zuletztGesehen ?? geraet.angemeldetAm
+  if (device.ipPrefix) teile.push(device.ipPrefix)
+  const zeitpunkt = device.lastSeenAt ?? device.signedInAt
   const wann = relativeZeit(zeitpunkt, jetzt)
   if (wann) teile.push(`zuletzt ${wann}`)
   return teile.join(' · ')
@@ -150,9 +150,9 @@ export interface SpeicherAbschnitt {
 const WORTE: Record<keyof SpeicherAufteilung, string> = {
   fotos: 'Fotos',
   videos: 'Videos',
-  klaenge: 'Eigene Klänge',
-  aufzeichnungen: 'Aufzeichnungen',
-  sonstiges: 'Sonstiges',
+  audio: 'Eigene Klänge',
+  recordings: 'Aufzeichnungen',
+  other: 'Sonstiges',
 }
 
 /**
@@ -168,8 +168,8 @@ export function speicherAbschnitte(stand: SpeicherStand): SpeicherAbschnitt[] {
     .map((art) => ({
       art,
       wort: WORTE[art],
-      bytes: stand.aufteilung?.[art] ?? 0,
-      prozent: ((stand.aufteilung?.[art] ?? 0) / limit) * 100,
+      bytes: stand.breakdown?.[art] ?? 0,
+      prozent: ((stand.breakdown?.[art] ?? 0) / limit) * 100,
     }))
     .filter((a) => a.bytes > 0)
 }
@@ -177,7 +177,7 @@ export function speicherAbschnitte(stand: SpeicherStand): SpeicherAbschnitt[] {
 /** Belegt in Prozent — gedeckelt, damit ein übervolles Konto den Balken nicht sprengt. */
 export function belegtProzent(stand: SpeicherStand): number {
   if (!(stand.limit > 0)) return 0
-  return Math.min(100, (stand.benutzt / stand.limit) * 100)
+  return Math.min(100, (stand.used / stand.limit) * 100)
 }
 
 /**
@@ -213,11 +213,11 @@ export function groesse(bytes: number): string {
 export interface ExportStand {
   id: string
   status: 'laeuft' | 'fertig' | 'fehler'
-  angefordertAm: string
-  fertigAm: string | null
-  laeuftAbAm: string | null
+  requestedAt: string
+  finishedAt: string | null
+  expiresAt: string | null
   bytes: number | null
-  dateien: number | null
+  files: number | null
 }
 
 /**
@@ -249,7 +249,7 @@ export function exportZeile(
     return 'Dein Archiv wird gerade gebaut. Die Mail kommt, sobald es fertig ist.'
   if (stand.status === 'fehler')
     return 'Der letzte Versuch ist fehlgeschlagen. Fordere das Archiv noch einmal an.'
-  const ablauf = stand.laeuftAbAm ? new Date(stand.laeuftAbAm) : null
+  const ablauf = stand.expiresAt ? new Date(stand.expiresAt) : null
   if (!ablauf || ablauf <= jetzt) return 'Dein letztes Archiv ist abgelaufen und wurde gelöscht.'
   const stunden = Math.max(1, Math.round((ablauf.getTime() - jetzt.getTime()) / 3_600_000))
   const wieLange = stunden === 1 ? 'noch eine Stunde' : `noch ${stunden} Stunden`

@@ -12,11 +12,11 @@ export interface AnbieterStand {
   id: string
   name: string
   /** Zugangsdaten hinterlegt UND Token-Schlüssel gesetzt — sonst geht Verbinden nicht. */
-  verfuegbar: boolean
-  verbunden: boolean
+  available: boolean
+  connected: boolean
   status: VerknuepfungsStatus | null
-  verbundenSeit: string | null
-  zuletztSync: string | null
+  connectedAt: string | null
+  lastSyncAt: string | null
   fehler: string | null
 }
 
@@ -26,22 +26,22 @@ export interface TourKurz {
   km: number | null
   fotos: number | null
   status: string
-  sichtbarkeit: string | null
+  visibility: string | null
 }
 
 export interface ImportStand {
   id: string
-  anbieter: string
-  externeId: string
+  provider: string
+  externalId: string
   status: ImportStatus
   tourId: string | null
-  gemeldetAm: string
-  fertigAm: string | null
+  reportedAt: string
+  finishedAt: string | null
   fehler: string | null
   /** Wie oft angelaufen (≥ 1). */
-  versuche?: number
+  attempts?: number
   /** Wartet die Aktivität noch auf einen neuen Anlauf? */
-  wiederholbar?: boolean
+  retryable?: boolean
   /** Die angelegte Tour, wenn es eine gibt (und sie noch existiert). */
   tour?: TourKurz | null
 }
@@ -54,15 +54,15 @@ export interface ImportStand {
  * jemand auf Touren, die nie kommen, und sieht keinen Grund dafür.
  */
 export function anbieterSatz(a: AnbieterStand): string {
-  if (!a.verfuegbar) return 'Auf diesem Server noch nicht eingerichtet.'
+  if (!a.available) return 'Auf diesem Server noch nicht eingerichtet.'
   if (a.status === 'abgelaufen') {
     return a.fehler
-      ? `Der Zugang gilt nicht mehr: ${a.fehler} Bitte neu verbinden.`
+      ? `Der Zugang gilt nicht hasMore: ${a.fehler} Bitte neu verbinden.`
       : 'Der Zugang gilt nicht mehr — bitte neu verbinden.'
   }
-  if (!a.verbunden)
+  if (!a.connected)
     return 'Neue Aufzeichnungen landen nach dem Verbinden von selbst in deiner Bibliothek.'
-  const seit = a.verbundenSeit ? ` seit ${kurzesDatum(a.verbundenSeit)}` : ''
+  const seit = a.connectedAt ? ` seit ${kurzesDatum(a.connectedAt)}` : ''
   return `Verbunden${seit}. Neue Aufzeichnungen kommen von selbst an.`
 }
 
@@ -78,10 +78,10 @@ export function anbieterSatz(a: AnbieterStand): string {
  * `null`, solange nichts angekommen ist: Ein „noch nichts" unter einer frisch
  * verbundenen Uhr sagt nichts, was der Satz darüber nicht schon sagt.
  */
-export function letzterAnkunftsSatz(importe: readonly ImportStand[]): string | null {
-  const letzter = importe[0]
+export function letzterAnkunftsSatz(imports: readonly ImportStand[]): string | null {
+  const letzter = imports[0]
   if (!letzter) return null
-  const wann = datumMitZeit(letzter.fertigAm ?? letzter.gemeldetAm)
+  const wann = datumMitZeit(letzter.finishedAt ?? letzter.reportedAt)
   if (letzter.status === 'fertig') {
     const titel = letzter.tour?.titel?.trim()
     return titel ? `Zuletzt: ${titel} · ${wann}` : `Zuletzt angekommen: ${wann}`
@@ -95,9 +95,9 @@ export function letzterAnkunftsSatz(importe: readonly ImportStand[]): string | n
 export function anbieterKnopf(
   a: AnbieterStand,
 ): { text: string; art: 'primaer' | 'gefahr' } | null {
-  if (!a.verfuegbar) return null
+  if (!a.available) return null
   if (a.status === 'abgelaufen') return { text: 'Neu verbinden', art: 'primaer' }
-  return a.verbunden ? { text: 'Trennen', art: 'gefahr' } : { text: 'Verbinden', art: 'primaer' }
+  return a.connected ? { text: 'Trennen', art: 'gefahr' } : { text: 'Verbinden', art: 'primaer' }
 }
 
 /**
@@ -161,9 +161,9 @@ export function importTitel(i: ImportStand): string | null {
  * lieber nichts sagen als das Falsche.
  */
 function nachsatz(i: ImportStand): string {
-  if (i.wiederholbar === undefined) return ''
-  if (i.wiederholbar) return ', wird noch einmal versucht'
-  return (i.versuche ?? 1) > 1 ? `, aufgegeben nach ${i.versuche} Versuchen` : ''
+  if (i.retryable === undefined) return ''
+  if (i.retryable) return ', wird noch einmal versucht'
+  return (i.attempts ?? 1) > 1 ? `, aufgegeben nach ${i.attempts} Versuchen` : ''
 }
 
 /** Ton der Zeile: nur echte Fehler werden als solche markiert. */

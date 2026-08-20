@@ -120,7 +120,7 @@ const els = {
   neuOben: $<HTMLButtonElement>('neu-oben'),
   // Bibliothek
   bibKopf: $('bib-kopf'),
-  bibliothek: $('bibliothek'),
+  bibliothek: $('library'),
   suche: $<HTMLInputElement>('suche'),
   sortierung: $<HTMLSelectElement>('sortierung'),
   ansicht: $('ansicht'),
@@ -215,13 +215,13 @@ function versteckeBoot(): void {
  * Profil, Klarname nur als Fallback. Sonst stünde „Henrik Heil" statt
  * „Henrik", und das Profilbild fehlte ganz.
  */
-function zeigeBenutzer(sitzung: api.Sitzung): void {
-  const benutzer = sitzung.benutzer
-  const anzeige = sitzung.profil?.anzeigename?.trim() || benutzer?.name || benutzer?.email || ''
+function zeigeBenutzer(sitzung: api.Session): void {
+  const benutzer = sitzung.user
+  const anzeige = sitzung.profile?.anzeigename?.trim() || benutzer?.name || benutzer?.email || ''
   els.benutzerName.textContent = anzeige
   els.kmMail.textContent = benutzer?.email ?? ''
 
-  const avatar = sitzung.profil?.avatarUrl
+  const avatar = sitzung.profile?.avatarUrl
   const initial = (anzeige.trim().charAt(0) || '?').toUpperCase()
   merkeProfilCache({ name: anzeige, initial, avatarUrl: avatar })
 
@@ -320,13 +320,13 @@ els.authBox.querySelectorAll<HTMLButtonElement>('[data-modus]').forEach((btn) =>
 /** Verifikations-Stand: Banner + Upload-Sperre + Quota-Balken aktualisieren. */
 let uploadGesperrt = false
 
-function zeigeSitzung(sitzung: api.Sitzung): void {
-  const unbestaetigt = sitzung.benutzer !== null && sitzung.verifiziert === false
+function zeigeSitzung(sitzung: api.Session): void {
+  const unbestaetigt = sitzung.user !== null && sitzung.verified === false
   els.verifyBanner.hidden = !unbestaetigt
-  els.kmVerwaltung.hidden = sitzung.benutzer?.rolle !== 'admin'
+  els.kmVerwaltung.hidden = sitzung.user?.rolle !== 'admin'
   // „Mein Profil" zeigt auf die Adresse der Person, nicht auf /profil — dort
   // stünde ohne Handle nichts. Ohne Handle bleibt der Eintrag weg.
-  const handle = sitzung.profil?.handle
+  const handle = sitzung.profile?.handle
   els.kmProfil.hidden = !handle
   if (handle) els.kmProfil.href = profilPfad(handle)
   uploadGesperrt = unbestaetigt
@@ -357,11 +357,11 @@ function setzeBestaetigtenCode(code: string): void {
   els.regCodeWert.textContent = code
 }
 
-function zeigeRegistrierungsmodus(sitzung: api.Sitzung): void {
-  einladungPflicht = sitzung.registrierung?.einladungPflicht ?? false
+function zeigeRegistrierungsmodus(sitzung: api.Session): void {
+  einladungPflicht = sitzung.registration?.einladungPflicht ?? false
   // Der Weg zur Warteliste steht nur da, wo der Server ihn anbietet — sonst
   // führte ein Link auf ein Formular, dessen Route mit 403 antwortet.
-  els.zurWarteliste.hidden = !sitzung.registrierung?.warteliste
+  els.zurWarteliste.hidden = !sitzung.registration?.warteliste
   // Steht die Tür wieder offen, ist ein bestätigter Code gegenstandslos —
   // sonst hinge der Chip über einem Formular, das gar nichts mehr fragt.
   if (!einladungPflicht) setzeBestaetigtenCode('')
@@ -373,12 +373,12 @@ function zeigeRegistrierungsmodus(sitzung: api.Sitzung): void {
   if (!els.registerForm.hidden && einladungPflicht && !bestaetigterCode) zeigeAuthModus('code')
 }
 
-async function ladeSitzung(): Promise<api.Sitzung> {
+async function ladeSitzung(): Promise<api.Session> {
   const sitzung = await api.me()
   zeigeBenutzer(sitzung)
-  zeige(!!sitzung.benutzer)
+  zeige(!!sitzung.user)
   zeigeRegistrierungsmodus(sitzung)
-  if (sitzung.benutzer) {
+  if (sitzung.user) {
     merkeAngemeldet()
     zeigeSitzung(sitzung)
     // Deep-Link: /studio.html?edit=<tourId> — Editor ZUERST, Liste danach.
@@ -455,7 +455,7 @@ async function behandleAuthHash(): Promise<boolean> {
     // bereits hinter sich — außer der Code taugt nicht, dann landet er dort und
     // sieht, warum.
     try {
-      await api.pruefeEinladung(code)
+      await api.checkInvitation(code)
       setzeBestaetigtenCode(code)
       zeigeAuthModus('register')
       els.regEmail.focus()
@@ -472,11 +472,11 @@ async function behandleAuthHash(): Promise<boolean> {
     history.replaceState(null, '', location.pathname + location.search)
     const token = decodeURIComponent(wlBestaetigen)
     try {
-      const { email } = await api.bestaetigeWarteliste(token)
+      const { email } = await api.confirmWaitlist(token)
       zeigeWartelistenInfo(
         'Du stehst auf der Liste',
         `${email} ist vorgemerkt. Sobald ein Platz frei wird, kommt dein Einladungscode per E-Mail.`,
-        { wort: 'Wieder austragen', tun: () => trageAusWarteliste(token) },
+        { wort: 'Wieder austragen', tun: () => leaveWaitlist(token) },
       )
     } catch (fehler) {
       zeigeWartelistenInfo('Dieser Link geht nicht mehr', (fehler as Error).message)
@@ -489,14 +489,14 @@ async function behandleAuthHash(): Promise<boolean> {
     zeigeWartelistenInfo(
       'Aus der Warteliste austragen?',
       'Wir löschen deine Adresse sofort und schicken dir keine Einladung mehr.',
-      { wort: 'Ja, austragen', tun: () => trageAusWarteliste(token) },
+      { wort: 'Ja, austragen', tun: () => leaveWaitlist(token) },
     )
     return true
   }
   if (verify) {
     history.replaceState(null, '', location.pathname + location.search)
     try {
-      await api.verifiziereEmail(decodeURIComponent(verify))
+      await api.verifyEmail(decodeURIComponent(verify))
       hinweisToast('E-Mail bestätigt. Du kannst jetzt hochladen.') // danach eingeloggt → App-View sichtbar
     } catch (fehler) {
       // Fehlschlag heißt: nicht eingeloggt → App-View bleibt verborgen. Die
@@ -574,7 +574,7 @@ els.codeForm.addEventListener('submit', async (e) => {
   els.codeWeiter.disabled = true
   els.codeWeiter.textContent = 'Wird geprüft …'
   try {
-    await api.pruefeEinladung(code)
+    await api.checkInvitation(code)
     setzeBestaetigtenCode(code)
     zeigeAuthModus('register')
     els.regEmail.focus()
@@ -602,7 +602,7 @@ els.registerForm.addEventListener('submit', async (e) => {
   try {
     // Der Haken geht als ausdrückliches `true` mit — und nur dann. Er ist kein
     // Bestandteil der Anmeldung: Fehlt er, entsteht das Konto unverändert.
-    await api.registriere(
+    await api.register(
       els.regEmail.value.trim(),
       els.regPasswort.value,
       bestaetigterCode || undefined,
@@ -665,11 +665,11 @@ els.wlInfoAktion.addEventListener('click', () => void wlAktion?.())
  * Knopf: Mail-Programme und Virenscanner öffnen Links vorab, und eine Löschung
  * durch einen Scanner wäre eine, die niemand wollte.
  */
-async function trageAusWarteliste(token: string): Promise<void> {
+async function leaveWaitlist(token: string): Promise<void> {
   els.wlInfoFehler.textContent = ''
   els.wlInfoAktion.disabled = true
   try {
-    await api.trageAusWarteliste(token)
+    await api.leaveWaitlist(token)
     zeigeWartelistenInfo(
       'Ausgetragen',
       'Deine Adresse ist gelöscht. Du bekommst keine Post mehr von uns.',
@@ -687,7 +687,7 @@ els.wartelisteForm.addEventListener('submit', async (e) => {
   els.wlAbsenden.disabled = true
   const adresse = els.wlEmail.value.trim()
   try {
-    await api.trageInWarteliste(adresse, els.wlNotiz.value.trim() || undefined)
+    await api.joinWaitlist(adresse, els.wlNotiz.value.trim() || undefined)
     els.wlEmail.value = ''
     els.wlNotiz.value = ''
     // Bewusst dieselbe Antwort für jede Lage (neu, schon eingetragen, schon
@@ -706,7 +706,7 @@ els.wartelisteForm.addEventListener('submit', async (e) => {
 
 els.resetAnfordernForm.addEventListener('submit', async (e) => {
   e.preventDefault()
-  await api.passwortResetAnfordern(els.resetEmail.value.trim())
+  await api.requestPasswordReset(els.resetEmail.value.trim())
   // Bewusst neutrale Rückmeldung (keine Existenz-Auskunft)
   els.resetAnfordernStatus.textContent =
     'Wenn es ein Konto mit dieser Adresse gibt, ist die E-Mail unterwegs.'
@@ -718,7 +718,7 @@ els.resetSetzenForm.addEventListener('submit', async (e) => {
   els.resetSetzenFehler.textContent = ''
   if (!resetToken) return
   try {
-    await api.passwortReset(resetToken, els.resetPasswort.value)
+    await api.resetPassword(resetToken, els.resetPasswort.value)
     resetToken = null
     await ladeSitzung()
   } catch (fehler) {
@@ -764,7 +764,7 @@ function hinweisToast(text: string, fehler = false): void {
 // Kacheln statt Zeilen, weil eine Reise ein Bild hat. Die Form der Route liegt
 // als Signatur über dem Titelbild — Fotos sehen einander ähnlich, Routen nicht.
 
-let touren: api.TourListe[] = []
+let touren: api.TourListItem[] = []
 let ansicht: 'raster' | 'liste' =
   localStorage.getItem('maptale.ansicht') === 'liste' ? 'liste' : 'raster'
 let sortierung: 'neu' | 'alt' | 'km' | 'az' = 'neu'
@@ -791,22 +791,22 @@ function datum(iso: string): string {
 }
 
 /** Zeile unter dem Titel: Strecke · Aufnahmen · Datum — nur, was es gibt. */
-function metaZeile(t: api.TourListe): string {
+function metaZeile(t: api.TourListItem): string {
   const teile: string[] = []
   if (t.stats?.km) teile.push(`${String(t.stats.km).replace('.', ',')} km`)
-  if (t.stats?.fotos) teile.push(t.stats.fotos === 1 ? '1 Aufnahme' : `${t.stats.fotos} Aufnahmen`)
+  if (t.stats?.placedMedia) teile.push(t.stats.placedMedia === 1 ? '1 Aufnahme' : `${t.stats.placedMedia} Aufnahmen`)
   teile.push(datum(t.createdAt))
   return teile.filter(Boolean).join(' · ')
 }
 
-function sichtbare(): api.TourListe[] {
+function sichtbare(): api.TourListItem[] {
   const suche = suchtext.trim().toLowerCase()
   const gefiltert = suche
     ? touren.filter(
         (t) => (t.title ?? '').toLowerCase().includes(suche) || t.no.toLowerCase().includes(suche),
       )
     : [...touren]
-  const nachDatum = (a: api.TourListe, b: api.TourListe): number =>
+  const nachDatum = (a: api.TourListItem, b: api.TourListItem): number =>
     Date.parse(b.createdAt) - Date.parse(a.createdAt)
   if (sortierung === 'alt') return gefiltert.sort((a, b) => -nachDatum(a, b))
   if (sortierung === 'km') return gefiltert.sort((a, b) => (b.stats?.km ?? 0) - (a.stats?.km ?? 0))
@@ -821,7 +821,7 @@ async function ladeListe(): Promise<void> {
       '<div class="skelett"><div></div><div></div><div></div><div></div></div>'
   }
   try {
-    touren = await api.listeTouren()
+    touren = await api.listTours()
   } catch {
     els.bibliothek.innerHTML =
       '<div class="leer-buehne"><h2>Touren konnten nicht geladen werden</h2><p>Der Server hat nicht geantwortet. Kurz warten und die Seite neu laden.</p></div>'
@@ -917,8 +917,8 @@ function beobachteNeuKachel(kachel: HTMLElement): void {
 }
 
 /** Die Form der Tour über dem Titelbild — nur, wenn der Server sie mitliefert. */
-function spurSignet(t: api.TourListe): string {
-  const s = t.stats?.spur
+function spurSignet(t: api.TourListItem): string {
+  const s = t.stats?.trackSignature
   if (!s) return ''
   return `<svg class="spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
     <path class="linie" d="${escape(s.d)}"/>
@@ -926,16 +926,16 @@ function spurSignet(t: api.TourListe): string {
     <circle class="ende" cx="${s.ende[0]}" cy="${s.ende[1]}" r="3.2"/></svg>`
 }
 
-function baueKarte(t: api.TourListe): HTMLElement {
+function baueKarte(t: api.TourListItem): HTMLElement {
   const el = document.createElement('article')
   const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
   el.className = `karte${arbeitet ? ' arbeitet' : ''}${t.status === 'fehler' ? ' defekt' : ''}`
   el.dataset['tour'] = t.id
   // Kachel-Fassung, wo es sie gibt: die Bibliothek zog bisher je Kachel das
   // volle Titelfoto (mehrere MB) für ein Bild von wenigen hundert Pixeln.
-  const titelbild = t.coverThumb ?? t.cover
-  const bild = titelbild
-    ? `<div class="bild"><img src="${escape(titelbild)}" alt="" loading="lazy" />${spurSignet(t)}</div>`
+  const cover = t.coverThumb ?? t.cover
+  const bild = cover
+    ? `<div class="bild"><img src="${escape(cover)}" alt="" loading="lazy" />${spurSignet(t)}</div>`
     : `<div class="bild ohne">${icon('route')}${spurSignet(t)}</div>`
 
   // Auf der Übersicht nur das Zeichen; was schiefging, steht in der geöffneten Tour.
@@ -989,7 +989,7 @@ function baueKarte(t: api.TourListe): HTMLElement {
   return el
 }
 
-function baueZeile(t: api.TourListe): HTMLElement {
+function baueZeile(t: api.TourListItem): HTMLElement {
   const el = document.createElement('div')
   el.className = 'zeile'
   const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
@@ -1034,7 +1034,7 @@ async function loescheZweistufig(knopf: HTMLButtonElement, id: string): Promise<
     return
   }
   knopf.disabled = true
-  await api.loescheTour(id)
+  await api.deleteTour(id)
   await ladeListe()
 }
 
@@ -1047,13 +1047,13 @@ function spielAb(id: string): void {
   location.href = tourPfad(`srv:${id}`)
 }
 
-async function oeffneFilmFuer(t: api.TourListe): Promise<void> {
+async function oeffneFilmFuer(t: api.TourListItem): Promise<void> {
   const { oeffneExportBlatt } = await import('./exportblatt.js')
   oeffneExportBlatt({
     id: t.id,
     title: t.title,
     cover: t.coverThumb ?? t.cover,
-    spur: t.stats?.spur ?? null,
+    spur: t.stats?.trackSignature ?? null,
     filmS: t.stats?.filmS ?? null,
     finale: t.stats?.finale ?? null,
   })
@@ -1127,7 +1127,7 @@ function schliesseSichtMenue(): void {
     .forEach((k) => k.setAttribute('aria-expanded', 'false'))
 }
 
-function oeffneSichtMenue(karte: HTMLElement, t: api.TourListe): void {
+function oeffneSichtMenue(karte: HTMLElement, t: api.TourListItem): void {
   const schonOffen = karte.classList.contains('menue-offen')
   schliesseSichtMenue()
   if (schonOffen) return
@@ -1248,11 +1248,11 @@ function leereAuswahl(): void {
   setzeNeuStatus('')
 }
 
-function vorschauUrl(datei: File): string {
-  const schluessel = `${datei.name}:${datei.size}:${datei.lastModified}`
+function vorschauUrl(file: File): string {
+  const schluessel = `${file.name}:${file.size}:${file.lastModified}`
   let url = vorschauUrls.get(schluessel)
   if (!url) {
-    url = URL.createObjectURL(datei)
+    url = URL.createObjectURL(file)
     vorschauUrls.set(schluessel, url)
   }
   return url
@@ -1271,18 +1271,18 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
   }
   let ignoriert = 0
   const neueMedien: File[] = []
-  for (const datei of dateien) {
-    if (datei.name.toLowerCase().endsWith('.gpx')) {
-      gpxDatei = datei
-      gpxText = await datei.text()
-    } else if (medientyp(datei.name)) {
+  for (const file of dateien) {
+    if (file.name.toLowerCase().endsWith('.gpx')) {
+      gpxDatei = file
+      gpxText = await file.text()
+    } else if (medientyp(file.name)) {
       const doppelt = medienDateien.some(
         (m) =>
-          m.name === datei.name && m.size === datei.size && m.lastModified === datei.lastModified,
+          m.name === file.name && m.size === file.size && m.lastModified === file.lastModified,
       )
       if (!doppelt) {
-        medienDateien.push(datei)
-        neueMedien.push(datei)
+        medienDateien.push(file)
+        neueMedien.push(file)
       }
     } else {
       ignoriert++
@@ -1297,21 +1297,21 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
   // EXIF nur für die NEUEN lesen — bei 50 Fotos ist das der Unterschied
   // zwischen „gleich da" und einer Kaffeepause je Nachschlag.
   let gelesen = 0
-  for (const datei of neueMedien) {
-    const typ = medientyp(datei.name)
-    if (!typ) continue
-    let zeitMs = datei.lastModified
+  for (const file of neueMedien) {
+    const type = medientyp(file.name)
+    if (!type) continue
+    let zeitMs = file.lastModified
     let zeitGeraten = true
     let ort: [number, number] | null = null
-    if (typ === 'photo') {
-      const exif = liesExif(await datei.arrayBuffer())
+    if (type === 'photo') {
+      const exif = liesExif(await file.arrayBuffer())
       if (exif.datum) {
         zeitMs = exifDatumZuMs(exif.datum, ZONE)
         zeitGeraten = false
       }
       if (exif.gps) ort = exif.gps
     }
-    befunde.push({ datei: datei.name, typ, zeitMs, zeitGeraten, ort })
+    befunde.push({ file: file.name, type, zeitMs, zeitGeraten, ort })
     if (warLeer) zeigeLesen(++gelesen, neueMedien.length)
   }
   renderNeu()
@@ -1555,7 +1555,7 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
   }
   for (const g of gruppen) {
     const erste = g.items[0] as AufnahmeBefund
-    const datei = medienDateien.find((d) => d.name === erste.datei)
+    const file = medienDateien.find((d) => d.name === erste.datei)
     const stiel = document.createElement('div')
     stiel.className = 'stiel'
     stiel.style.left = `${g.anteil.toFixed(2)}%`
@@ -1571,7 +1571,7 @@ function baueZeitband(b: Pruefbefund): HTMLElement {
     ) {
       bild.classList.add('ausserhalb')
     }
-    if (erste.typ === 'photo' && datei) bild.style.backgroundImage = `url("${vorschauUrl(datei)}")`
+    if (erste.typ === 'photo' && file) bild.style.backgroundImage = `url("${vorschauUrl(file)}")`
     else bild.innerHTML = `<span class="film">${icon('film')}</span>`
     if (g.items.length > 1) {
       const zahl = document.createElement('span')
@@ -1685,7 +1685,7 @@ els.neuBauen.addEventListener('click', async () => {
   const medienUpload = medienDateien.filter((d) => befunde.some((b) => b.datei === d.name))
 
   try {
-    const medien = medienAusBefund(befund, (ms) => isoMitZone(ms, ZONE))
+    const media = medienAusBefund(befund, (ms) => isoMitZone(ms, ZONE))
     const kennung = `studio:${(gpxDatei?.name ?? befund.aufnahmen[0]?.datei ?? 'tour').slice(0, 60)}:${befund.vonMs}`
     const manifest = baueUploadManifest({
       clientTourId: kennung,
@@ -1693,7 +1693,7 @@ els.neuBauen.addEventListener('click', async () => {
       zeitspanne: { startMs: befund.vonMs, endMs: befund.bisMs },
       zone: ZONE,
       trackMode: modus,
-      medien,
+      media,
     })
     // Ohne Aufzeichnung sind die Foto-Orte die Strecke: das Manifest trägt dann
     // `segments` statt `trackFile` (beides erlaubt das Schema, genau eines).
@@ -1705,7 +1705,7 @@ els.neuBauen.addEventListener('click', async () => {
     }
 
     zeigeFortschritt(0, medienUpload.length + 2)
-    const { id, wiederverwendet } = await api.legeTourAn(manifest)
+    const { id, wiederverwendet } = await api.createTour(manifest)
     if (wiederverwendet) {
       const vorhanden = await api.tour(id)
       if (vorhanden.schema === 'maptale/tour@1' || vorhanden.status === 'bereit') {
@@ -1716,19 +1716,19 @@ els.neuBauen.addEventListener('click', async () => {
 
     let getan = 0
     if (gpxText) {
-      await api.ladeTrack(id, gpxText)
+      await api.uploadTrack(id, gpxText)
       zeigeFortschritt(++getan, medienUpload.length + 2)
     }
-    for (const eintrag of medien) {
-      const datei = medienUpload.find((d) => d.name === eintrag.file)
-      if (!datei) continue
-      await api.ladeMedium(id, eintrag.id, datei)
+    for (const eintrag of media) {
+      const file = medienUpload.find((d) => d.name === eintrag.file)
+      if (!file) continue
+      await api.uploadMedium(id, eintrag.id, file)
       zeigeFortschritt(++getan, medienUpload.length + 2)
     }
     if (sicht !== 'private') await api.patchTour(id, { visibility: sicht })
 
     setzeNeuStatus('Verarbeitung läuft …')
-    await api.finalisiere(id)
+    await api.finalize(id)
     // Das Fenster darf jetzt zu: die Kachel in der Bibliothek zeigt weiter an,
     // dass die Tour entsteht — dafür muss niemand hier warten.
     laeuftUpload = false

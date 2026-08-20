@@ -1,5 +1,5 @@
 // Das Bearbeiten-Modal — nur für den Besitzer, deshalb erst hier nachgeladen
-// (s. profil.ts). Es baut seinen DOM selbst: Als Markup in profil.html läge es
+// (s. profile.ts). Es baut seinen DOM selbst: Als Markup in profile.html läge es
 // bei jedem Besucher im Dokument, der es nie öffnen kann.
 //
 // Bewusst ein Modal und kein `contenteditable` im Text: Enter, eingefügtes
@@ -18,13 +18,13 @@ import { TITELBILDER, titelbildPfad } from './titelbilder.js'
 const BIO_MAX = 300
 
 interface Felder {
-  anzeigename: HTMLInputElement
-  ort: HTMLInputElement
+  displayName: HTMLInputElement
+  location: HTMLInputElement
   handle: HTMLInputElement
   bio: HTMLTextAreaElement
   website: HTMLInputElement
   instagram: HTMLInputElement
-  sichtbarkeit: HTMLInputElement
+  visibility: HTMLInputElement
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -89,7 +89,7 @@ async function sendeProfil(
  * des Avatars. Beide enden im selben Feld — welcher Fall vorliegt, erkennt der
  * Server am Schrägstrich (s. server/src/profilfelder.ts).
  */
-function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
+function oeffneTitelbild(profile: ProfilAntwort, fertig: () => void): void {
   const { koerper, fuss, schliesse } = oeffneSchicht('Titelbild')
   koerper.appendChild(el('p', 'sp-hinweis', 'Quer, breit und am besten aus einer deiner Touren.'))
 
@@ -129,7 +129,7 @@ function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
     // eine Auskunft über den Knopf, und die Vorlesehilfe bekommt sie mit. Was
     // heute im Banner steht, ist von Anfang an markiert — sonst sieht der
     // Dialog aus, als stünde dort noch nichts.
-    knopf.setAttribute('aria-pressed', String(profil.titelbildUrl === titelbildPfad(bild.datei)))
+    knopf.setAttribute('aria-pressed', String(profile.bannerUrl === titelbildPfad(bild.datei)))
     knopf.setAttribute('aria-label', bild.wort)
     const probe = el('span', 'probe')
     probe.style.backgroundImage = `url("${titelbildPfad(bild.datei)}")`
@@ -154,8 +154,8 @@ function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
   // man beide unterscheidet, ist der Pfad: Vorschläge liegen als statische
   // Datei unter /titelbilder/, eigene Bilder kommen aus der API.
   const eigenesBild =
-    !!profil.titelbildUrl &&
-    !TITELBILDER.some((b) => titelbildPfad(b.datei) === profil.titelbildUrl)
+    !!profile.bannerUrl &&
+    !TITELBILDER.some((b) => titelbildPfad(b.datei) === profile.bannerUrl)
   const entfernen = el('button', 'still', 'Zurücksetzen')
   entfernen.type = 'button'
   if (eigenesBild) fuss.append(entfernen, el('span', 'sp-luft'))
@@ -198,7 +198,7 @@ function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
     // Auch die gewählte Vorschlags-WAHL muss weg, nicht nur das hochgeladene
     // Bild: Zurückgesetzt wird auf „keine eigene Entscheidung" — was danach im
     // Banner steht, bestimmt `standardTitelbild`.
-    await sendeProfil({ titelbild: '' })
+    await sendeProfil({ banner: '' })
     schliesse()
     fertig()
   })
@@ -206,7 +206,7 @@ function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
   uebernehmen.addEventListener('click', async () => {
     if (!wahl) return schliesse()
     uebernehmen.disabled = true
-    const ergebnis = await sendeProfil({ titelbild: wahl })
+    const ergebnis = await sendeProfil({ banner: wahl })
     if (!ergebnis.ok) {
       scheitere(ergebnis.fehler)
       uebernehmen.disabled = false
@@ -223,17 +223,17 @@ function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
  *
  * Das Bild geht SOFORT zum Server und nicht erst beim Speichern — es ist eine
  * eigene Route (`PUT /api/auth/me/avatar`, der Rest des Formulars läuft über
- * `PATCH …/profil`), und ein Bild bis zum Absenden im Speicher zu halten hieße,
+ * `PATCH …/profile`), und ein Bild bis zum Absenden im Speicher zu halten hieße,
  * es zweimal hochzuladen, wenn jemand sich umentscheidet. Der Dialog bleibt
  * dabei offen: Ein `fertig()` lüde die Seite neu und würfe alles weg, was
  * daneben schon getippt war.
  */
-function avatarFeld(profil: ProfilAntwort, scheitere: (text: string) => void): HTMLElement {
+function avatarFeld(profile: ProfilAntwort, scheitere: (text: string) => void): HTMLElement {
   const spalte = el('div', 'sp-avatar-spalte')
   const knopf = el('button', 'sp-avatar-box')
   knopf.type = 'button'
   knopf.setAttribute('aria-label', 'Profilbild ändern')
-  const buchstabe = el('span', undefined, anfangsbuchstabe(profil))
+  const buchstabe = el('span', undefined, anfangsbuchstabe(profile))
   const bild = el('img')
   bild.alt = ''
   const ueber = el('span', 'ueber')
@@ -268,11 +268,11 @@ function avatarFeld(profil: ProfilAntwort, scheitere: (text: string) => void): H
         kopfbild.alt = ''
         imKopf.appendChild(kopfbild)
       } else {
-        imKopf.textContent = anfangsbuchstabe(profil)
+        imKopf.textContent = anfangsbuchstabe(profile)
       }
     }
   }
-  zeige(profil.avatarUrl)
+  zeige(profile.avatarUrl)
 
   knopf.addEventListener('click', () => datei.click())
   datei.addEventListener('change', async () => {
@@ -306,7 +306,7 @@ function avatarFeld(profil: ProfilAntwort, scheitere: (text: string) => void): H
 }
 
 /** Das Profil-Formular. */
-function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
+function oeffneProfil(profile: ProfilAntwort, fertig: () => void): void {
   const { koerper, fuss, schliesse } = oeffneSchicht('Profil bearbeiten')
 
   const melde = el('p', 'sp-fehler')
@@ -316,20 +316,20 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
     melde.hidden = false
   }
 
-  const name = feld('e-name', 'Name', profil.anzeigename ?? '')
-  const ort = feld('e-ort', 'Ort', profil.ort ?? '')
+  const name = feld('e-name', 'Name', profile.displayName ?? '')
+  const ort = feld('e-ort', 'Ort', profile.location ?? '')
   const paar = el('div', 'sp-reihe')
   paar.append(name.huelle, ort.huelle)
   // Der Avatar teilt sich die Zeile mit Name und Ort: als eigener Block darüber
   // kostete er die Höhe, ab der das Modal zu scrollen beginnt.
   const kopfreihe = el('div', 'sp-kopfreihe')
-  kopfreihe.append(avatarFeld(profil, scheitere), paar)
+  kopfreihe.append(avatarFeld(profile, scheitere), paar)
   koerper.appendChild(kopfreihe)
 
   const handle = feld(
     'e-handle',
     'Profil-Adresse',
-    profil.handle ?? '',
+    profile.handle ?? '',
     `${window.location.host}/@`,
   )
   handle.eingabe.maxLength = 30
@@ -348,14 +348,14 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
   const bio = el('textarea')
   bio.id = 'e-bio'
   bio.maxLength = BIO_MAX
-  bio.value = profil.bio ?? ''
+  bio.value = profile.bio ?? ''
   bio.placeholder = 'Zwei Sätze über dich und deine Reisen.'
   bioHuelle.appendChild(bio)
   koerper.appendChild(bioHuelle)
 
-  const web = feld('e-web', 'Website', profil.website ?? '', 'https://')
+  const web = feld('e-web', 'Website', profile.website ?? '', 'https://')
   web.eingabe.placeholder = 'beispiel.de'
-  const insta = feld('e-insta', 'Instagram', profil.instagram ?? '', '@')
+  const insta = feld('e-insta', 'Instagram', profile.instagram ?? '', '@')
   insta.eingabe.placeholder = 'benutzername'
   const linkPaar = el('div', 'sp-reihe')
   linkPaar.append(web.huelle, insta.huelle)
@@ -375,20 +375,20 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
   schalter.id = 's-profil'
   schalter.type = 'checkbox'
   schalter.className = 'schalter'
-  schalter.checked = !profil.nurFuerDich
+  schalter.checked = !profile.ownerOnly
   schalterZeile.append(schalterText, schalter)
   koerper.appendChild(schalterZeile)
 
   koerper.appendChild(melde)
 
   const felder: Felder = {
-    anzeigename: name.eingabe,
-    ort: ort.eingabe,
+    displayName: name.eingabe,
+    location: ort.eingabe,
     handle: handle.eingabe,
     bio,
     website: web.eingabe,
     instagram: insta.eingabe,
-    sichtbarkeit: schalter,
+    visibility: schalter,
   }
 
   const abbrechen = el('button', 'still', 'Abbrechen')
@@ -418,7 +418,7 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
 
   const zeigeHandle = (): void => {
     const wert = felder.handle.value.trim().toLowerCase()
-    const eigener = (profil.handle ?? '').toLowerCase()
+    const eigener = (profile.handle ?? '').toLowerCase()
     // Der eigene Handle ist immer in Ordnung — die Prüfung sagt sonst
     // „reserviert", sobald jemand zufällig so heißt wie eine Seite.
     const fehler = wert === eigener ? null : pruefeHandleForm(wert)
@@ -460,19 +460,19 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
   })
   zeigeBio()
   zeigeHandle()
-  window.setTimeout(() => felder.anzeigename.focus(), 0)
+  window.setTimeout(() => felder.displayName.focus(), 0)
 
   speichern.addEventListener('click', async () => {
     speichern.disabled = true
     melde.hidden = true
     const ergebnis = await sendeProfil({
-      anzeigename: felder.anzeigename.value,
-      ort: felder.ort.value,
+      displayName: felder.displayName.value,
+      location: felder.location.value,
       handle: felder.handle.value,
       bio: felder.bio.value,
       website: felder.website.value,
       instagram: felder.instagram.value,
-      sichtbarkeit: felder.sichtbarkeit.checked ? 'public' : 'private',
+      visibility: felder.visibility.checked ? 'public' : 'private',
     })
     if (!ergebnis.ok) {
       melde.textContent = ergebnis.fehler
@@ -491,15 +491,15 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
  * Hand nachzuziehen (der Sichtbarkeits-Schalter ändert auch, was der Server
  * überhaupt ausliefert).
  */
-export function montiereBearbeiten(profil: ProfilAntwort, fertig: () => void): void {
+export function montiereBearbeiten(profile: ProfilAntwort, fertig: () => void): void {
   const bearbeiten = document.getElementById('btn-bearbeiten') as HTMLButtonElement | null
   if (bearbeiten) {
     bearbeiten.hidden = false
-    bearbeiten.addEventListener('click', () => oeffneProfil(profil, fertig))
+    bearbeiten.addEventListener('click', () => oeffneProfil(profile, fertig))
   }
   const titelbild = document.getElementById('btn-titelbild') as HTMLButtonElement | null
   if (titelbild) {
     titelbild.hidden = false
-    titelbild.addEventListener('click', () => oeffneTitelbild(profil, fertig))
+    titelbild.addEventListener('click', () => oeffneTitelbild(profile, fertig))
   }
 }

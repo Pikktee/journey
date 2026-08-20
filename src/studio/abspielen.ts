@@ -40,11 +40,11 @@ import { anteilBei, filmBei, type Filmkurve } from './zeitleiste.js'
 /** Musik-Bereich auf der Zeitachse. */
 export interface MusikKlip {
   von: number
-  bis: number
+  to: number
   url: string
-  lautstaerke: number
+  volume: number
   /** Einstieg in die DATEI (s, linker Trim); fehlt = Dateianfang */
-  einstiegS?: number
+  startS?: number
   /** Wiederholung über das Dateiende hinaus; fehlt = ja (das alte Verhalten) */
   loop?: boolean
 }
@@ -55,9 +55,9 @@ export interface KlangMarke {
   index: number
   anteil: number
   url: string
-  lautstaerke: number
+  volume: number
   /** Einstieg in die DATEI (s, linker Trim); fehlt = Dateianfang */
-  einstiegS?: number
+  startS?: number
 }
 
 /** Alles, was eine Wiedergabe braucht — beim Start einmal eingesammelt. */
@@ -73,7 +73,7 @@ export interface Spielplan {
 /** Laufender Zustand der Wiedergabe. */
 export interface SpielStand {
   marke: number
-  /** 0 = angehalten, 1 = normal, ±2 bis ±8 = Schnelllauf (J/L wie in Final Cut) */
+  /** 0 = angehalten, 1 = normal, ±2 to ±8 = Schnelllauf (J/L wie in Final Cut) */
   tempo: number
 }
 
@@ -83,7 +83,7 @@ export interface Schritt {
   /** Marke VOR dem Schritt — die Kante, an der Klänge auslösen */
   vorher: number
   /** Streckenende in Laufrichtung erreicht */
-  ende: boolean
+  end: boolean
 }
 
 export const LEERER_STAND: SpielStand = { marke: 0, tempo: 0 }
@@ -104,16 +104,16 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
   // dadurch nie zurückspringen (erster Frame hat dt = 0), rückwärts nie vor.
   if (stand.tempo > 0) m = Math.max(alt, m)
   else if (stand.tempo < 0) m = Math.min(alt, m)
-  let ende = false
+  let end = false
   if (stand.tempo > 0 && m >= 1) {
     m = 1
-    ende = true
+    end = true
   } else if (stand.tempo < 0 && m <= 0) {
     m = 0
-    ende = true
+    end = true
   }
 
-  return { stand: { marke: m, tempo: stand.tempo }, vorher: alt, ende }
+  return { stand: { marke: m, tempo: stand.tempo }, vorher: alt, end }
 }
 
 /**
@@ -140,7 +140,7 @@ export function seitKlipbeginnS(anteil: number, klipVon: number, kurve: Filmkurv
 export function klipsBei(musik: readonly MusikKlip[], anteil: number): number[] {
   const indizes: number[] = []
   musik.forEach((k, i) => {
-    if (anteil >= k.von && anteil < k.bis) indizes.push(i)
+    if (anteil >= k.von && anteil < k.to) indizes.push(i)
   })
   return indizes
 }
@@ -204,7 +204,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
   let duck = 1
 
   /** Pegel eines Klips inklusive Dämpfung — die EINE Stelle, die el.volume rechnet. */
-  const pegel = (klip: MusikKlip): number => Math.max(0, Math.min(1, klip.lautstaerke * duck))
+  const pegel = (klip: MusikKlip): number => Math.max(0, Math.min(1, klip.volume * duck))
 
   function stoppeKlaenge(): void {
     for (const el of musikElemente.values()) el.pause()
@@ -268,7 +268,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
               el.currentTime = musikVersatzS(
                 seitKlipbeginnS(beiEintritt, klip.von, kurve),
                 el.duration,
-                klip.einstiegS,
+                klip.startS,
                 el.loop,
               )
             } catch {
@@ -289,7 +289,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
             el.currentTime = musikVersatzS(
               seitKlipbeginnS(anteil, klip.von, plan.kurve),
               el.duration,
-              klip.einstiegS,
+              klip.startS,
               el.loop,
             )
           } catch {
@@ -317,8 +317,8 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
       // Überfahren, und ein Sprung „verbraucht" die Marke lautlos.
       if (!sfxSollFeuern(filmVorher, filmNachher, filmBei(plan.kurve, k.anteil), true)) continue
       const a = new Audio(k.url)
-      a.volume = Math.max(0, Math.min(1, k.lautstaerke))
-      if (k.einstiegS) a.currentTime = k.einstiegS // linker Trim gilt auch beim One-Shot
+      a.volume = Math.max(0, Math.min(1, k.volume))
+      if (k.startS) a.currentTime = k.startS // linker Trim gilt auch beim One-Shot
       aktiveKlaenge.push(a)
       a.addEventListener('ended', () => {
         aktiveKlaenge = aktiveKlaenge.filter((x) => x !== a)

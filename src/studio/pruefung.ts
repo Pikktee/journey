@@ -86,8 +86,8 @@ export function punktZuZeit(punkte: readonly GpxPunkt[], ms: number): number {
 }
 
 export interface AufnahmeBefund {
-  datei: string
-  typ: 'photo' | 'video'
+  file: string
+  type: 'photo' | 'video'
   /** Aufnahmezeit in ms — aus EXIF, sonst der Dateizeit (dann `zeitGeraten`) */
   zeitMs: number
   zeitGeraten: boolean
@@ -97,7 +97,7 @@ export interface AufnahmeBefund {
 export type MeldungArt = 'ohne-ort' | 'ohne-zeit' | 'ausserhalb' | 'keine-orte' | 'ohne-track'
 
 export interface Meldung {
-  art: MeldungArt
+  kind: MeldungArt
   /** Ton der Meldung: `hinweis` erklärt nur, `warnung` verlangt eine Entscheidung */
   ton: 'hinweis' | 'warnung'
   text: string
@@ -120,7 +120,7 @@ export interface Pruefbefund {
   /** Kann daraus eine Tour werden? */
   bereit: boolean
   /** Wie die Strecke zustande kommt — die Tour aus Fotos hat keine aufgezeichnete */
-  quelle: 'aufzeichnung' | 'fotos' | 'keine'
+  source: 'aufzeichnung' | 'fotos' | 'keine'
 }
 
 /** Aufnahmen, die weiter als das hinter/vor der Aufzeichnung liegen, werden gemeldet. */
@@ -151,13 +151,13 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
     // Uhrzeit sagt, wo jemand war. Deshalb Hinweis, nicht Warnung.
     if (ohneOrt.length) {
       meldungen.push({
-        art: 'ohne-ort',
+        kind: 'ohne-ort',
         ton: 'hinweis',
         text:
           ohneOrt.length === 1
             ? 'Eine Aufnahme ohne Ortsangabe, eingeordnet nach ihrer Uhrzeit.'
             : `${ohneOrt.length} Aufnahmen ohne Ortsangabe, eingeordnet nach ihrer Uhrzeit.`,
-        dateien: ohneOrt.map((a) => a.datei),
+        dateien: ohneOrt.map((a) => a.file),
       })
     }
     const ausserhalb = aufnahmen.filter(
@@ -170,37 +170,37 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
         ...ausserhalb.map((a) => Math.max(track.startMs - a.zeitMs, a.zeitMs - track.endMs)),
       )
       meldungen.push({
-        art: 'ausserhalb',
+        kind: 'ausserhalb',
         ton: 'warnung',
         text:
           ausserhalb.length === 1
             ? `Eine Aufnahme liegt ${formatiereAbstand(abstand)} außerhalb der Aufzeichnung.`
             : `${ausserhalb.length} Aufnahmen liegen bis zu ${formatiereAbstand(abstand)} außerhalb der Aufzeichnung.`,
-        dateien: ausserhalb.map((a) => a.datei),
+        dateien: ausserhalb.map((a) => a.file),
       })
     }
   } else if (mitOrt.length >= 2) {
     // Kein Track, aber verortete Fotos: die Orte SIND die Strecke.
     meldungen.push({
-      art: 'ohne-track',
+      kind: 'ohne-track',
       ton: 'hinweis',
       text: 'Keine Aufzeichnung dabei, die Kamera fliegt von Foto zu Foto, in der Reihenfolge der Uhrzeiten.',
       dateien: [],
     })
     if (ohneOrt.length) {
       meldungen.push({
-        art: 'ohne-ort',
+        kind: 'ohne-ort',
         ton: 'warnung',
         text:
           ohneOrt.length === 1
             ? 'Eine Aufnahme hat keine Ortsangabe, sie bekommt im Editor von Hand einen Platz.'
             : `${ohneOrt.length} Aufnahmen haben keine Ortsangabe, sie bekommen im Editor von Hand einen Platz.`,
-        dateien: ohneOrt.map((a) => a.datei),
+        dateien: ohneOrt.map((a) => a.file),
       })
     }
   } else if (aufnahmen.length) {
     meldungen.push({
-      art: 'keine-orte',
+      kind: 'keine-orte',
       ton: 'warnung',
       text: 'Ohne Aufzeichnung braucht es mindestens zwei Fotos mit Ortsangabe, sonst gibt es keine Strecke, über die die Kamera fliegen könnte.',
       dateien: [],
@@ -209,17 +209,17 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
 
   if (ohneZeit.length) {
     meldungen.push({
-      art: 'ohne-zeit',
+      kind: 'ohne-zeit',
       ton: 'hinweis',
       text:
         ohneZeit.length === 1
           ? 'Eine Aufnahme hat keinen Zeitstempel, es gilt das Datum der Datei.'
           : `${ohneZeit.length} Aufnahmen haben keinen Zeitstempel, es gilt das Datum der Datei.`,
-      dateien: ohneZeit.map((a) => a.datei),
+      dateien: ohneZeit.map((a) => a.file),
     })
   }
 
-  const quelle: Pruefbefund['quelle'] = track
+  const source: Pruefbefund['quelle'] = track
     ? 'aufzeichnung'
     : mitOrt.length >= 2
       ? 'fotos'
@@ -230,8 +230,8 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
     vonMs: Number.isFinite(vonMs) ? vonMs : 0,
     bisMs: Number.isFinite(bisMs) ? bisMs : 0,
     meldungen,
-    bereit: quelle !== 'keine',
-    quelle,
+    bereit: source !== 'keine',
+    source,
   }
 }
 
@@ -288,8 +288,8 @@ export function medienAusBefund(
   return befund.aufnahmen.map((a, i) => {
     const eintrag: MediumEingabe = {
       id: `m${i + 1}`,
-      type: a.typ,
-      file: a.datei,
+      type: a.type,
+      file: a.file,
       takenAt: isoMitZone(a.zeitMs),
     }
     if (a.ort) eintrag.anchor = a.ort

@@ -25,7 +25,7 @@ export interface ExifDaten {
  */
 export interface ExifAufnahme {
   /** Hersteller + Modell zusammengezogen („Apple iPhone 15 Pro") */
-  kamera?: string
+  camera?: string
   objektiv?: string
   /** Belichtungszeit in Sekunden (0.004 = 1/250 s) */
   belichtungS?: number
@@ -84,24 +84,24 @@ function rational(view: DataView, off: number, le: boolean): number {
 
 /** Wert eines RATIONAL-Tags (Typ 5) bzw. SRATIONAL (Typ 10, vorzeichenbehaftet). */
 function rationalTag(view: DataView, tiff: number, entry: number, le: boolean): number | undefined {
-  const typ = view.getUint16(entry + 2, le)
+  const type = view.getUint16(entry + 2, le)
   const off = tiff + view.getUint32(entry + 8, le) // 8 B > 4 → immer ausgelagert
   if (off + 8 > view.byteLength) return undefined
-  if (typ === 10) {
+  if (type === 10) {
     const num = view.getInt32(off, le)
     const den = view.getInt32(off + 4, le)
     return den === 0 ? undefined : num / den
   }
-  if (typ !== 5) return undefined
+  if (type !== 5) return undefined
   const den = view.getUint32(off + 4, le)
   return den === 0 ? undefined : view.getUint32(off, le) / den
 }
 
 /** Wert eines SHORT/LONG-Tags (Typ 3/4) — steht bei count=1 direkt im Eintrag. */
 function zahlTag(view: DataView, entry: number, le: boolean): number | undefined {
-  const typ = view.getUint16(entry + 2, le)
-  if (typ === 3) return view.getUint16(entry + 8, le)
-  if (typ === 4) return view.getUint32(entry + 8, le)
+  const type = view.getUint16(entry + 2, le)
+  if (type === 3) return view.getUint16(entry + 8, le)
+  if (type === 4) return view.getUint32(entry + 8, le)
   return undefined
 }
 
@@ -180,7 +180,7 @@ function komma(n: number, stellen = 1): string {
  */
 export function beschreibeAufnahme(a: ExifAufnahme): Array<[string, string]> {
   const zeilen: Array<[string, string]> = []
-  if (a.kamera) zeilen.push(['Kamera', a.kamera])
+  if (a.camera) zeilen.push(['Kamera', a.camera])
   if (a.objektiv) zeilen.push(['Objektiv', a.objektiv])
 
   // Belichtung als eine Zeile, wie sie auf jedem Kameradisplay steht.
@@ -239,10 +239,10 @@ function liesAufnahmeIntern(buf: ArrayBuffer): ExifAufnahme {
   const make = makeE ? textTag(view, tiff, makeE, le) : undefined
   const model = modelE ? textTag(view, tiff, modelE, le) : undefined
   if (make && model)
-    a.kamera = model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`
+    a.camera = model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`
   else {
     const einzeln = model ?? make
-    if (einzeln !== undefined) a.kamera = einzeln
+    if (einzeln !== undefined) a.camera = einzeln
   }
 
   const exifPtr = findTag(view, tiff, ifd0, 0x8769, le)

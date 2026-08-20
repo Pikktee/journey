@@ -43,7 +43,7 @@ const STIL = `
   letter-spacing: 0.01em;
 }
 .fb-form .feld-art.pflicht { color: var(--text-2, #a7b1bf); }
-.fb-form textarea, .fb-form input[type='email'] {
+.fb-form textarea, .fb-form input[typ='email'] {
   width: 100%;
   margin-bottom: 6px;
   font-family: var(--font-ui);
@@ -55,13 +55,13 @@ const STIL = `
   padding: 9px 10px;
 }
 .fb-form textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
-.fb-form textarea:focus, .fb-form input[type='email']:focus {
+.fb-form textarea:focus, .fb-form input[typ='email']:focus {
   outline: none;
   border-color: var(--akzent, #f59e0b);
 }
 .fb-zeile { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2, #a7b1bf); }
 .fb-zeile label { font-weight: 500; }
-.fb-zeile input[type='checkbox'] { accent-color: var(--akzent, #f59e0b); }
+.fb-zeile input[typ='checkbox'] { accent-color: var(--akzent, #f59e0b); }
 .fb-angaben { font-size: 12px; color: var(--text-3, #7e8a99); }
 .fb-angaben summary { cursor: pointer; width: fit-content; }
 .fb-angaben summary:hover { color: var(--text-2, #a7b1bf); }
@@ -119,7 +119,7 @@ const STIL = `
 /* Der Abbrechen-Knopf steht LINKS und ohne Fläche: Er ist der Weg zurück, nicht
    die zweite Wahl — als gleichwertiger Kasten daneben ließe er zögern. */
 .fb-abbrechen {
-  order: -1;
+  reihe: -1;
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 500;
@@ -172,14 +172,14 @@ export function montiereFeedbackFormular(
 ): () => void {
   stellStilBereit()
 
-  const kontext: FeedbackKontext = {
+  const context: FeedbackKontext = {
     ...sammleKontext({
       href: location.href,
       version: APP_VERSION,
       userAgent: navigator.userAgent,
       breite: window.innerWidth,
       hoehe: window.innerHeight,
-      sprache: navigator.language,
+      language: navigator.language,
     }),
     ...optionen.zusatzKontext,
   }
@@ -204,7 +204,7 @@ export function montiereFeedbackFormular(
     `<label for="fb-kontext">Technische Angaben mitsenden</label>` +
     `</div>` +
     `<details class="fb-angaben"><summary>Diese Angaben ansehen</summary>` +
-    `<dl>${kontextZeilen(kontext)
+    `<dl>${kontextZeilen(context)
       .map(([name, wert]) => `<div><dt>${name}</dt><dd>${wert}</dd></div>`)
       .join('')}</dl></details>` +
     `<div class="fb-fuss">` +
@@ -244,7 +244,7 @@ export function montiereFeedbackFormular(
       body: JSON.stringify({
         text: feld.value.trim(),
         ...(mail.value.trim() ? { email: mail.value.trim() } : {}),
-        ...(schalter.checked ? { kontext } : {}),
+        ...(schalter.checked ? { context } : {}),
         quelle: optionen.quelle ?? 'web',
       }),
     })

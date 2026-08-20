@@ -23,7 +23,7 @@
 // falsch war, hing an dieser fehlenden Bindung: Es regnete bei stehendem Kopf,
 // es klang beim Scrubben, der Ton lief nach dem Verlassen der Tour weiter.
 // Geblieben ist aus jener Runde der Befund zu `clouds`/`fog` — die haben in
-// weather.ts kein Profil (ihren Himmel zeichnet im Player die Atmosphäre), für
+// wetter.ts kein Profil (ihren Himmel zeichnet im Player die Atmosphäre), für
 // sie trägt der Schleier allein.
 //
 // Nicht übertragbar bleiben `setLight` (braucht Gelände, damit eine
@@ -53,7 +53,7 @@ const NEUTRAL: Rastergrading = { brightnessMax: 1, brightnessMin: 0, saturation:
 
 export interface Wetterstand {
   mode: WetterModus
-  staerke?: number
+  intensity?: number
 }
 
 export interface Kartenstimmung {
@@ -61,7 +61,7 @@ export interface Kartenstimmung {
    * Die Stimmung am Abspielkopf setzen. Aufzurufen, wo auch das Foto und die
    * Kartenposition nachziehen — eine FUNKTION der Kopfposition, kein Ereignis.
    */
-  setze(zeitIso: string, ort: [number, number], wetter: Wetterstand | null): void
+  setze(zeitIso: string, ort: [number, number], weather: Wetterstand | null): void
   setTagNacht(an: boolean): void
   setWetter(an: boolean): void
   /**
@@ -104,7 +104,7 @@ export function erzeugeKartenstimmung(
   // Letzter bekannter Stand, damit ein Schalter sofort greift statt erst beim
   // nächsten Kopfschritt: Wer „Wetter an" drückt und nichts sieht, drückt noch
   // einmal.
-  let stand: { zeitIso: string; ort: [number, number]; wetter: Wetterstand | null } | null = null
+  let stand: { zeitIso: string; ort: [number, number]; weather: Wetterstand | null } | null = null
 
   /**
    * Der Schleier ist ein DIV, kein Canvas.
@@ -183,7 +183,7 @@ export function erzeugeKartenstimmung(
    */
   const wetterBild = (w: Wetterstand | null): { schnee: number; bild: Wettergrading } => {
     const modus: SzenenWetter = (wetterAn && w ? w.mode : 'off') as SzenenWetter
-    const s = schleierFuer(modus, w?.staerke ?? 0.7)
+    const s = schleierFuer(modus, w?.intensity ?? 0.7)
     // Zwei Farbflächen übereinander plus, bei Nebel, ein weicher Verlauf von
     // den Rändern her — dieselbe Reihenfolge wie im Player (`wash` über `dark`).
     const nebel =
@@ -211,9 +211,9 @@ export function erzeugeKartenstimmung(
     if (partikel || (laeuft && modus !== 'off')) {
       const o = holePartikel()
       if (o.mode !== modus) o.setMode(modus)
-      if (modus !== 'off') o.setIntensity(w?.staerke ?? 0.7)
+      if (modus !== 'off') o.setIntensity(w?.intensity ?? 0.7)
     }
-    return { schnee: s.schnee, bild: bildwirkung(modus, w?.staerke ?? 0.7) }
+    return { schnee: s.schnee, bild: bildwirkung(modus, w?.intensity ?? 0.7) }
   }
 
   /** Wetter auf ein fertiges Grading legen — Licht mal Faktor, Farbe minus Abzug. */
@@ -229,7 +229,7 @@ export function erzeugeKartenstimmung(
 
   const anwenden = (): void => {
     if (!stand) return
-    const { schnee, bild } = wetterBild(stand.wetter)
+    const { schnee, bild } = wetterBild(stand.weather)
     if (tagNacht) {
       // Der Sonnenstand hängt an Datum UND Ort — deshalb beides. Die
       // Stunden-Heuristik des Uhr-Symbols reicht hier nicht: Sie kennt weder
@@ -248,7 +248,7 @@ export function erzeugeKartenstimmung(
 
   return {
     setze(zeitIso, ort, w) {
-      stand = { zeitIso, ort, wetter: w }
+      stand = { zeitIso, ort, weather: w }
       anwenden()
     },
     setTagNacht(an) {

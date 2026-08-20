@@ -102,7 +102,7 @@ interface SpielerTour {
   /** Der Satz unter dem Titel (Studio, max. 150 Zeichen) — kuratierte Touren haben keinen */
   description?: string | null
   /** Aufnehmer (nur aufgezeichnete Touren, s. remote.ts) */
-  autor?: { anzeigename: string; avatarUrl: string | null; id?: string; handle?: string | null }
+  author?: { displayName: string; avatarUrl: string | null; id?: string; handle?: string | null }
   finaleTitle: string
   showFinale?: boolean
   /** Ohne `time` bleibt die Tag/Nacht-Regie (und damit die Atmosphäre) aus */
@@ -115,9 +115,9 @@ interface SpielerTour {
   weatherF?: Array<{ f: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
   /** `filmS` (E10) geht `f` vor — s. Kamera-Folger unten */
-  camera?: Array<{ f: number; preset: string; skala?: number; filmS?: number }>
+  camera?: Array<{ f: number; preset: string; scale?: number; filmS?: number }>
   /** `filmS` bleibt hier ungelesen: Ein Moment IST ein Halt (s. unten) */
-  moments?: Array<{ f: number; art: string; dauerS?: number; filmS?: number }>
+  moments?: Array<{ f: number; kind: string; durationS?: number; filmS?: number }>
   audio?: TourAudio[]
   /** Master über `audio`; fehlt = KURATIERTER_PEGEL (s. TourConfig.audioPegel) */
   audioPegel?: number
@@ -152,7 +152,7 @@ interface PlayerDebug {
    * Rückfall der Normalfall — bei einer aufgezeichneten ein Datenfehler, der
    * sich sonst als „alles wie früher" tarnt.
    */
-  anker?: 'tabelle' | 'rueckfall'
+  anchor?: 'tabelle' | 'rueckfall'
   /**
    * Die Filmachse dieser Tour (Strecke → Filmzeit). Sie treibt den Player noch
    * nicht an (Etappe 4), der Ton hängt aber schon an ihr — und zum Nachmessen
@@ -179,7 +179,7 @@ declare global {
 }
 
 // Das Objekt entsteht VOR dem ersten Eintrag. Vorher wurde es erst beim
-// Karten-Aufbau angelegt — `window.__j.anker = …` lief davor und warf
+// Karten-Aufbau angelegt — `window.__j.anchor = …` lief davor und warf
 // `Cannot set properties of undefined`, was das ganze Modul abbrach; und selbst
 // ohne den Fehler hätte das spätere `window.__j = { … }` alles Frühere wieder
 // weggeworfen. Deshalb wird ab hier nur noch ERGÄNZT.
@@ -394,7 +394,7 @@ const stops = gruppiereStopps(photos)
 // genau das seine Filmsekunde überhaupt erst erzeugt. Das Feld im JSON ist die
 // Auskunft, WANN er im Film liegt, kein Eingang für den Player.
 const moments: KameraMoment[] = (cfg.moments ?? [])
-  .map((m) => ({ s: sBeiF(m.f), art: m.art, dauerS: m.dauerS }))
+  .map((m) => ({ s: sBeiF(m.f), kind: m.kind, durationS: m.durationS }))
   .sort((a, b) => a.s - b.s)
 // — Die Filmachse: Strecke → Filmzeit (Etappe 3) —
 //
@@ -440,17 +440,17 @@ const sBeiRoh = (roh: number) => interpoliere(rohKum, route.wpS, roh)
  */
 const achsenHalte: Array<Streckenhalt & Omit<Spielhalt, 'filmVon' | 'filmBis'>> = [
   ...stops.map((halt) => {
-    let ab = 0
+    let from = 0
     const stuecke = halt.items.map((m) => {
       const standS = standzeitS({
         ...m,
-        ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}),
+        ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
       })
-      const stueck = { abS: ab, standS }
-      ab += klipDauerS(standS)
+      const stueck = { abS: from, standS }
+      from += klipDauerS(standS)
       return stueck
     })
-    return { meterM: rohBeiS(halt.s), breiteS: ab, stopp: halt, moment: null, stuecke }
+    return { meterM: rohBeiS(halt.s), breiteS: from, stopp: halt, moment: null, stuecke }
   }),
   ...moments.map((m) => ({
     meterM: rohBeiS(m.s),
@@ -549,7 +549,7 @@ const routeSichtbar = zeigeRoute(cfg.stops, cfg.titleHtml)
 setText('intro-route', cfg.stops.join('  →  '))
 $('intro-route').hidden = !routeSichtbar
 
-// Die Beschreibung aus dem Studio. Sie war bis hierher nie angekommen: Der
+// Die Beschreibung aus dem Studio. Sie war to hierher nie angekommen: Der
 // Antwort-Typ trug sie, `baueCfg` ließ sie fallen.
 const beschreibung = kuerzeBeschreibung(cfg.description)
 if (beschreibung) setText('intro-desc', beschreibung)
@@ -572,7 +572,7 @@ function setzeKennzahlen(hoehenmeter: number): void {
     hoehenmeter,
     fotos: photos.length,
   })
-  const chip = (art: string) => werte.find((w) => w.art === art)
+  const chip = (kind: string) => werte.find((w) => w.art === kind)
   const setze = (id: string, textId: string, wert: { text: string } | undefined) => {
     if (wert) $(textId).textContent = wert.text
     $(id).hidden = !wert
@@ -589,7 +589,7 @@ setzeKennzahlen(route.gain)
 // Aufnahmedatum ist eine Randnotiz und bekam dort die kräftigste Farbe der
 // Seite. Das Datum kommt aus der Aufnahmezeit der Tour, nicht aus einem
 // eigenen Feld — es ist dieselbe Angabe.
-const autor = cfg.autor
+const autor = cfg.author
 const aufnahmeDatum = (() => {
   if (!cfg.time?.start) return ''
   const ms = Date.parse(cfg.time.start)
@@ -610,15 +610,15 @@ const aufnahmeDatum = (() => {
     }).format(ms)
   }
 })()
-if (autor?.anzeigename) {
-  setText('intro-autor-name', autor.anzeigename)
+if (autor?.displayName) {
+  setText('intro-autor-name', autor.displayName)
   setText('intro-autor-datum', aufnahmeDatum)
   $('intro-autor-datum').hidden = !aufnahmeDatum
   ;($('intro-autor').querySelector('.intro-autor-punkt') as HTMLElement).hidden = !aufnahmeDatum
   const avatar = $('intro-avatar')
   if (autor.avatarUrl) avatar.style.backgroundImage = `url("${autor.avatarUrl}")`
   // Ohne Bild die Initiale, wie überall sonst im Produkt.
-  else avatar.textContent = [...autor.anzeigename.trim()][0]?.toUpperCase() ?? ''
+  else avatar.textContent = [...autor.displayName.trim()][0]?.toUpperCase() ?? ''
   // Verlinkt wird nur, wenn es eine Profilseite gibt UND der Sprung dorthin
   // einen Rückweg hat: In der App-WebView führt die Tourliste zurück, ein
   // Profil im selben Fenster hätte nur ein Schließkreuz.
@@ -713,8 +713,8 @@ map.on('load', () => {
   ui.zeitzone = cfg.time?.zone ?? null
   {
     const von = Date.parse(cfg.time?.start ?? '')
-    const bis = Date.parse(cfg.time?.end ?? '')
-    ui.zeitfenster = Number.isFinite(von) && Number.isFinite(bis) ? [von, bis] : null
+    const to = Date.parse(cfg.time?.end ?? '')
+    ui.zeitfenster = Number.isFinite(von) && Number.isFinite(to) ? [von, to] : null
   }
   /** Zählerstand der verworfenen Frames beim letzten Nachziehen (s. updateTrace). */
   let gesehenVerworfen = 0
@@ -849,40 +849,40 @@ map.on('load', () => {
       .map((k) => ({
         filmS: k.filmS ?? filmBeiS(sBeiF(k.f)),
         preset: k.preset,
-        ...(k.skala !== undefined ? { skala: k.skala } : {}),
+        ...(k.scale !== undefined ? { scale: k.scale } : {}),
       }))
       .sort((a, b) => a.filmS - b.filmS)
     // Vor dem ersten Keyframe gilt der Player-Default — der ist beim Boot der
     // aktive Button (statisch „mittel"). Auch nach Rückwärts-Scrub/Restart.
     const defaultPreset =
-      document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mittel'
+      document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mid'
     let kamAktiv: string | null = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
     kamFolger = (filmS) => {
       if (exportModus || kamManuell) return
       // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
-      let k: { filmS: number; preset: string; skala?: number } | null = null
+      let k: { filmS: number; preset: string; scale?: number } | null = null
       for (const kf of keyframes) if (kf.filmS <= filmS) k = kf
-      // `standard` ist ein echter Keyframe-Wert und bedeutet dasselbe wie „vor
+      // `default` ist ein echter Keyframe-Wert und bedeutet dasselbe wie „vor
       // dem ersten Keyframe": zurück auf die Einstellung des Zuschauers. Ohne
-      // diese Zeile fiele er in setPreset auf „mittel" (PRESETS['standard']
+      // diese Zeile fiele er in setPreset auf „mid" (PRESETS['default']
       // gibt es nicht) und überschriebe genau die Wahl, die er meint.
       const preset = k
-        ? k.preset === 'standard'
+        ? k.preset === 'default'
           ? defaultPreset
           : k.preset
         : kamAktiv === null
           ? null
           : defaultPreset
-      // Eine Feinjustierung gehört zu einem gewählten Abstand — auf „standard"
+      // Eine Feinjustierung gehört zu einem gewählten Abstand — auf „default"
       // angewandt verböge sie die Einstellung des Zuschauers.
-      const skala = k && k.preset !== 'standard' ? (k.skala ?? 1) : 1
+      const scale = k && k.preset !== 'default' ? (k.scale ?? 1) : 1
       if (preset === null) return
       // Kennung aus Preset+Skala: eine reine Feinjustierung (gleiches Preset,
       // andere Skala) muss ebenfalls neu angewendet werden.
-      const kennung = `${preset}:${skala}`
+      const kennung = `${preset}:${scale}`
       if (kennung === kamAktiv) return
       kamAktiv = kennung
-      tour.setPreset(preset, skala)
+      tour.setPreset(preset, scale)
       // Button-Zustand nachziehen (gleiches Muster wie der Klick-Handler unten)
       document.querySelector('.preset-btn.active')?.classList.remove('active')
       document.querySelector(`.preset-btn[data-preset="${preset}"]`)?.classList.add('active')
@@ -930,7 +930,7 @@ map.on('load', () => {
   // Wetter-Stärke: drei UI-Stufen auf einer stufenlosen Skala (die API nimmt jedes
   // 0..1 — ein späteres Echtwetter kann feiner dosieren). Default Mittel.
   const WEATHER_INT: Record<string, number> = { leicht: 0.4, mittel: 0.7, stark: 1 }
-  let weatherInt = 'mittel'
+  let weatherInt = 'mid'
   const stufenStaerke = () => WEATHER_INT[weatherInt] ?? 0.7
   // Himmel je Wetter-Modus: Wolkendeckung als SPANNE über die Stärke — die
   // Atmosphäre formt daraus die Wolken selbst (locker → aufgerissen →
@@ -1013,7 +1013,7 @@ map.on('load', () => {
     }
   }
   // Beim Fahren die Abschnittsmitten überwachen (die Übergänge blenden weich in
-  // weather.ts/atmosphere.ts) — 0,8 s reichen, Wetter ändert sich gemächlich.
+  // wetter.ts/atmosphere.ts) — 0,8 s reichen, Wetter ändert sich gemächlich.
   // Zugleich den Wetter-Ton beim Finale („Ziel erreicht") ausblenden (nur der
   // Sound; die Regen-Partikel laufen im Orbit weiter) — kommt beim Neustart zurück.
   setInterval(() => {
@@ -1032,7 +1032,7 @@ map.on('load', () => {
   weatherMenu.querySelectorAll<HTMLElement>('[data-wlevel]').forEach((el) => {
     el.addEventListener('click', () => {
       const stufe = el.dataset.wlevel
-      weatherInt = stufe && WEATHER_INT[stufe] ? stufe : 'mittel'
+      weatherInt = stufe && WEATHER_INT[stufe] ? stufe : 'mid'
       // Im Auto-Modus bleibt Auto aktiv (die Stärke kommt dort aus den Wetterdaten,
       // die Stufe greift erst wieder bei manueller Wahl)
       applyWeather(weatherAuto ? 'auto' : weather.mode)
@@ -1314,10 +1314,10 @@ map.on('load', () => {
 
   for (const btn of document.querySelectorAll<HTMLElement>('.preset-btn')) {
     btn.addEventListener('click', () => {
-      kamManuell = true // manueller Eingriff: Kamera-Folger dauerhaft aus (bis Reload)
+      kamManuell = true // manueller Eingriff: Kamera-Folger dauerhaft aus (to Reload)
       document.querySelector('.preset-btn.active')?.classList.remove('active')
       btn.classList.add('active')
-      tour.setPreset(btn.dataset.preset ?? 'mittel')
+      tour.setPreset(btn.dataset.preset ?? 'mid')
     })
   }
 
@@ -1701,12 +1701,12 @@ map.on('load', () => {
       if (!remoteCfg || !istEigeneBereiteTour(tourParam, liste)) {
         const satz = 'Export nur für eigene, fertige Touren.'
         if (stand) stand.textContent = satz
-        melde?.({ typ: EXPORT_NACHRICHT, stand: 'fehler', text: satz })
+        melde?.({ type: EXPORT_NACHRICHT, stand: 'fehler', text: satz })
         return
       }
       applyWeather('auto', false)
-      const bis = Date.now() + 8000
-      while (!wxTimeline && Date.now() < bis) await new Promise((r) => window.setTimeout(r, 200))
+      const to = Date.now() + 8000
+      while (!wxTimeline && Date.now() < to) await new Promise((r) => window.setTimeout(r, 200))
 
       const fahrtS = tour.film.gesamtS
       const introS = EXPORT_INTRO_S
@@ -1748,7 +1748,7 @@ map.on('load', () => {
       const klips = [
         ...ausSpuren.klips,
         // Motor und Wetter kommen als Abschnitte aus der Achse; die Nähte
-        // blenden, wie sie es im Player tun (vehicle.ts ~0,7 s, weather.ts
+        // blenden, wie sie es im Player tun (vehicle.ts ~0,7 s, wetter.ts
         // koppelt an die Intensität). Hart geschnitten knackt jede Kante.
         ...motorAbs.map((a) => ({
           src: a.src,

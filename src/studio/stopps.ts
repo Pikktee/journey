@@ -26,7 +26,7 @@ import { meterZuOffset, offsetBeiMeter } from './zeitleiste.js'
 export const NAHE_M = 120
 
 export interface Stopp {
-  /** Aufnahmen des Halts, in ihrer Reihenfolge (siehe MediumEdit.reihe) */
+  /** Aufnahmen des Halts, in ihrer Reihenfolge (siehe MediumEdit.order) */
   items: MediumAnzeige[]
   /** Streckenmeter des Halts (Mittel der Mitglieder) */
   meter: number
@@ -40,7 +40,7 @@ function ortVon(
   track: readonly TrackPunkt[],
   kum: readonly number[],
 ): { meter: number; offsetS: number } | null {
-  if (!m.anchor || m.geloescht) return null
+  if (!m.anchor || m.removed) return null
   const p = projiziereAufTrack(track, m.anchor[0], m.anchor[1])
   return { meter: meterZuOffset(kum, track, p.punkt[3]), offsetS: p.punkt[3] }
 }
@@ -49,15 +49,15 @@ function ortVon(
  * Platzierte Aufnahmen zu Stopps gruppieren.
  *
  * Gruppiert wird über die STRECKE (wie im Player), geordnet innerhalb eines
- * Stopps über `reihe` — welches Bild zuerst kommt, ist eine Entscheidung des
- * Autors und keine Messung. Ohne `reihe` entscheidet die Aufnahmezeit.
+ * Stopps über `order` — welches Bild zuerst kommt, ist eine Entscheidung des
+ * Autors und keine Messung. Ohne `order` entscheidet die Aufnahmezeit.
  */
 export function baueStopps(
-  medien: readonly MediumAnzeige[],
+  media: readonly MediumAnzeige[],
   track: readonly TrackPunkt[],
   kum: readonly number[],
 ): Stopp[] {
-  const mitOrt = medien
+  const mitOrt = media
     .map((m) => ({ m, ort: ortVon(m, track, kum) }))
     .filter(
       (x): x is { m: MediumAnzeige; ort: { meter: number; offsetS: number } } => x.ort !== null,
@@ -89,7 +89,7 @@ export function baueStopps(
 }
 
 /**
- * `reihe` zuerst (0-basiert), danach die Aufnahmezeit.
+ * `order` zuerst (0-basiert), danach die Aufnahmezeit.
  *
  * Die Regel ist mit dem Player geteilt (`reihenfolgeImHalt` in
  * src/einblendung.ts); verschieden ist nur die natürliche Ordnung dahinter —
@@ -117,9 +117,9 @@ export function snapZiel(
   let best: { id: string; meter: number } | null = null
   let bestAb = Infinity
   for (const f of fremde) {
-    const ab = Math.abs(f.meter - zielMeter)
-    if (ab < bestAb) {
-      bestAb = ab
+    const from = Math.abs(f.meter - zielMeter)
+    if (from < bestAb) {
+      bestAb = from
       best = f
     }
   }
@@ -141,9 +141,9 @@ export function meterOhneCluster(
     let hit: { meter: number } | null = null
     let bestAb = Infinity
     for (const f of fremdeMeter) {
-      const ab = Math.abs(f - m)
-      if (ab < schwelleM && ab < bestAb) {
-        bestAb = ab
+      const from = Math.abs(f - m)
+      if (from < schwelleM && from < bestAb) {
+        bestAb = from
         hit = { meter: f }
       }
     }
@@ -175,9 +175,9 @@ export function dOffsetOhneCluster(
     for (const o0 of gruppeOffset0) {
       const m = meterZuOffset(kum, track, o0 + d)
       for (const f of fremdeMeter) {
-        const ab = m - f
-        if (Math.abs(ab) < schwelleM) {
-          const zielM = ab >= 0 ? f + schwelleM : f - schwelleM
+        const from = m - f
+        if (Math.abs(from) < schwelleM) {
+          const zielM = from >= 0 ? f + schwelleM : f - schwelleM
           const braucht = zielM - m
           if (deltaM === null || Math.abs(braucht) > Math.abs(deltaM)) deltaM = braucht
         }
@@ -201,13 +201,13 @@ export function stoppSignatur(stopps: readonly Stopp[]): string {
 
 /**
  * Die Reihenfolge eines Stopps festschreiben: jedes Mitglied bekommt seinen
- * Platz als `reihe` 0..n−1. Ohne das Feld entschiede die Projektion auf die
+ * Platz als `order` 0..n−1. Ohne das Feld entschiede die Projektion auf die
  * Route über die Abfolge — für den Autor unkontrollierbar.
  */
 export function reiheVergeben(edits: EditOverlay, ids: readonly string[]): EditOverlay {
   let naechste = edits
   ids.forEach((id, i) => {
-    naechste = mitMedienEdit(naechste, id, { reihe: i })
+    naechste = mitMedienEdit(naechste, id, { order: i })
   })
   return naechste
 }

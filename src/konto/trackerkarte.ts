@@ -48,16 +48,16 @@ export function loeseTrackerRueckkehrEin(): string | null {
 
 function anbieterZeile(
   a: AnbieterStand,
-  importe: readonly ImportStand[],
+  imports: readonly ImportStand[],
   beiKlick: (a: AnbieterStand) => void,
 ): HTMLElement {
   // Ein Anbieter, den dieser Server nicht anbietet, tritt zurück — dieselbe
   // Sprache wie eine Zeile, deren Schalter auf etwas wartet.
-  const zeile = el('div', a.verfuegbar ? 'zeile' : 'zeile ruht')
+  const zeile = el('div', a.available ? 'zeile' : 'zeile ruht')
   const z = el('span', 'z')
   z.appendChild(el('span', 't', a.name))
   z.appendChild(el('span', 'b', anbieterSatz(a)))
-  const ankunft = letzterAnkunftsSatz(importe)
+  const ankunft = letzterAnkunftsSatz(imports)
   if (ankunft) z.appendChild(el('span', 'b', ankunft))
   zeile.appendChild(z)
 
@@ -65,7 +65,7 @@ function anbieterZeile(
   // Die Frage „was ist von Polar angekommen?" stellt man bei Polar. Der Knopf
   // erscheint nur, wenn es etwas zu zeigen gibt — ein Symbol, das einen leeren
   // Dialog öffnet, ist eine Zusage ohne Inhalt.
-  if (importe.length) {
+  if (imports.length) {
     const verlauf = el('button', 'knopf still')
     // Ein SVG und kein Emoji: Die Seite zeichnet ihre Symbole (`.sym svg`)
     // durchgehend als Strichgrafik in der Textfarbe — ein Emoji brächte eine
@@ -77,7 +77,7 @@ function anbieterZeile(
     verlauf.type = 'button'
     verlauf.title = `Verlauf von ${a.name} ansehen`
     verlauf.setAttribute('aria-label', `Verlauf von ${a.name} ansehen`)
-    verlauf.addEventListener('click', () => zeigeVerlauf(a, importe))
+    verlauf.addEventListener('click', () => zeigeVerlauf(a, imports))
     zeile.appendChild(verlauf)
   }
 
@@ -150,7 +150,7 @@ function importZeile(i: ImportStand): HTMLElement {
   // Der Zeitpunkt der ANKUNFT, nicht der Meldung: Bei einem Import, der
   // dreimal anlief, ist die erste Meldung nicht der Moment, in dem die Tour da
   // war.
-  zeile.appendChild(el('span', 'wann', datumMitZeit(i.fertigAm ?? i.gemeldetAm)))
+  zeile.appendChild(el('span', 'wann', datumMitZeit(i.finishedAt ?? i.reportedAt)))
   return zeile
 }
 
@@ -162,10 +162,10 @@ function importZeile(i: ImportStand): HTMLElement {
  * gibt, ohne einen Weg dorthin. In einem Dialog, der scrollt, kostet die
  * ganze Liste nichts.
  */
-function zeigeVerlauf(a: AnbieterStand, importe: readonly ImportStand[]): void {
+function zeigeVerlauf(a: AnbieterStand, imports: readonly ImportStand[]): void {
   const dialog = oeffneSchicht(`Verlauf · ${a.name}`)
   const tafel = el('div', 'tafel verlauf')
-  tafel.replaceChildren(...importe.map((i) => importZeile(i)))
+  tafel.replaceChildren(...imports.map((i) => importZeile(i)))
   dialog.koerper.appendChild(tafel)
   const schliessen = el('button', 'knopf', 'Schließen')
   schliessen.type = 'button'
@@ -185,11 +185,11 @@ export async function ladeTracker(melde: (text: string) => void): Promise<void> 
   const tafel = $('tracker')
   if (!block || !tafel) return
 
-  let anbieter: AnbieterStand[] = []
+  let provider: AnbieterStand[] = []
   try {
     const antwort = await fetch('/api/tracker/providers')
     if (!antwort.ok) throw new Error(String(antwort.status))
-    anbieter = ((await antwort.json()) as { anbieter: AnbieterStand[] }).anbieter
+    provider = ((await antwort.json()) as { provider: AnbieterStand[] }).provider
   } catch {
     // Kein Hinweis-Kasten: Ein Dienst, den es vielleicht gar nicht gibt, soll
     // die Kontoseite nicht mit einer Fehlermeldung beginnen lassen.
@@ -197,7 +197,7 @@ export async function ladeTracker(melde: (text: string) => void): Promise<void> 
   }
   // Nichts registriert: Der ganze Block bleibt aus. Eine Überschrift über
   // einer leeren Tafel wäre eine Auskunft über nichts.
-  if (!anbieter.length) return
+  if (!provider.length) return
   block.hidden = false
 
   const verbinde = async (a: AnbieterStand): Promise<void> => {
@@ -205,10 +205,10 @@ export async function ladeTracker(melde: (text: string) => void): Promise<void> 
       const antwort = await fetch(`/api/tracker/${encodeURIComponent(a.id)}/connect`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ziel: 'web' }),
+        body: JSON.stringify({ target: 'web' }),
       })
       if (!antwort.ok) throw new Error(String(antwort.status))
-      const { autorisierungsUrl } = (await antwort.json()) as { autorisierungsUrl: string }
+      const { authorizationUrl } = (await antwort.json()) as { authorizationUrl: string }
       // Kein neues Fenster: Der Weg führt über den Anbieter zurück auf genau
       // diese Seite (`/konto#tracker=…`) — ein zweiter Tab hätte danach keinen
       // Weg zurück, nur ein Schließkreuz.
@@ -237,15 +237,15 @@ export async function ladeTracker(melde: (text: string) => void): Promise<void> 
   // Der Verlauf wird VOR den Zeilen geholt, weil jede ihren letzten Stand
   // nennt. Fällt er aus, bleibt die Karte trotzdem bedienbar — verbinden und
   // trennen hängen nicht daran.
-  const importe = await ladeImporte()
+  const imports = await ladeImporte()
 
   tafel.replaceChildren(
-    ...anbieter.map((a) =>
+    ...provider.map((a) =>
       anbieterZeile(
         a,
-        importe.filter((i) => i.anbieter === a.id),
+        imports.filter((i) => i.provider === a.id),
         (ziel) => {
-          if (ziel.verbunden && ziel.status !== 'abgelaufen') void trenne(ziel)
+          if (ziel.connected && ziel.status !== 'abgelaufen') void trenne(ziel)
           else void verbinde(ziel)
         },
       ),
@@ -258,7 +258,7 @@ async function ladeImporte(): Promise<ImportStand[]> {
   try {
     const antwort = await fetch('/api/tracker/imports')
     if (!antwort.ok) throw new Error(String(antwort.status))
-    return ((await antwort.json()) as { importe: ImportStand[] }).importe
+    return ((await antwort.json()) as { imports: ImportStand[] }).imports
   } catch {
     return []
   }

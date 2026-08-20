@@ -4,29 +4,29 @@
 
 import type { UploadManifest } from './upload.js'
 
-export class ApiFehler extends Error {
+export class ApiError extends Error {
   constructor(
     public readonly status: number,
     nachricht: string,
   ) {
     super(nachricht)
-    this.name = 'ApiFehler'
+    this.name = 'ApiError'
   }
 }
 
-export interface TourListe {
+export interface TourListItem {
   id: string
   no: string
   status: string
   visibility: string
   title: string | null
-  /** `fotos` und `spur` entstehen beim Anreichern — ältere Touren haben sie erst
-   *  nach dem nächsten Rendern, die Kachel muss ohne sie auskommen. */
+  /** `placedMedia` und `trackSignature` entstehen beim Anreichern — ältere Touren
+   *  haben sie erst nach dem nächsten Rendern, die Kachel muss ohne sie auskommen. */
   stats: {
     km: number
     gainM: number
-    fotos?: number
-    spur?: { d: string; start: [number, number]; ende: [number, number] }
+    placedMedia?: number
+    trackSignature?: { d: string; start: [number, number]; end: [number, number] }
     /** Länge des FILMS in Sekunden (nicht der Aufzeichnung), s. TourStats. */
     filmS?: number
     /** Endscreen „Ziel erreicht" — zählt zur Länge des exportierten Films. */
@@ -35,50 +35,50 @@ export interface TourListe {
   cover: string | null
   /** Kachel-Fassung des Titelbilds; fehlt bei Touren ohne aufbereitete Fassungen */
   coverThumb?: string | null
-  fehler: string | null
+  error: string | null
   createdAt: string
 }
 
-export interface Benutzer {
+export interface User {
   id: string
   email: string
   /** Klarname aus der Registrierung — privat, nicht für die öffentliche UI. */
   name?: string
   /** 'admin' schaltet den Weg zur Benutzerverwaltung frei (admin.html). */
-  rolle?: 'nutzer' | 'admin'
+  role?: 'user' | 'admin'
 }
 
 /** Öffentliches Profil — getrennt vom Konto (s. server/auth). */
-export interface Profil {
+export interface Profile {
   /** Die Adresse der Person: `/@henrik` (s. src/handle.ts). */
   handle?: string | null
-  anzeigename: string | null
+  displayName: string | null
   bio?: string | null
   avatarUrl: string | null
-  sichtbarkeit?: string
+  visibility?: string
 }
 
 export interface Quota {
-  benutzt: number
+  used: number
   limit: number
-  frei: number
+  free: number
 }
 
 /** Antwort von GET /auth/me — angemeldet um Verifikation + Quota angereichert. */
-export interface Sitzung {
-  benutzer: Benutzer | null
-  profil?: Profil | null
-  verifiziert?: boolean
+export interface Session {
+  user: User | null
+  profile?: Profile | null
+  verified?: boolean
   quota?: Quota
   /**
    * Wie neue Konten entstehen — kommt AUCH ohne Anmeldung, denn genau das
    * braucht das Registrierungsformular (fragt es nach einem Code?).
    */
-  registrierung?: {
-    offen: boolean
-    einladungPflicht: boolean
+  registration?: {
+    open: boolean
+    invitationRequired: boolean
     /** Steht die Warteliste vor der Tür? (Schalter UND Lage — s. Server.) */
-    warteliste?: boolean
+    waitlist?: boolean
   }
 }
 
@@ -92,28 +92,28 @@ async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> 
     /* Nicht-JSON (leerer Body o. Ä.) */
   }
   if (!res.ok) {
-    const fehler = (json as { fehler?: string } | null)?.fehler ?? `HTTP ${res.status}`
-    throw new ApiFehler(res.status, fehler)
+    const fehler = (json as { error?: string } | null)?.error ?? `HTTP ${res.status}`
+    throw new ApiError(res.status, fehler)
   }
   return json as T
 }
 
 const jsonKopf = { 'content-type': 'application/json' }
 
-export function login(email: string, passwort: string): Promise<{ benutzer: Benutzer }> {
+export function login(email: string, passwort: string): Promise<{ user: User }> {
   return anfrage('/auth/login', {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify({ email, passwort }),
+    body: JSON.stringify({ email, password: passwort }),
   })
 }
 
 /** Voller Sitzungs-Zustand (benutzer=null wenn nicht angemeldet). Wirft nie. */
-export async function me(): Promise<Sitzung> {
+export async function me(): Promise<Session> {
   try {
-    return await anfrage<Sitzung>('/auth/me')
+    return await anfrage<Session>('/auth/me')
   } catch {
-    return { benutzer: null }
+    return { user: null }
   }
 }
 
@@ -124,12 +124,12 @@ export function logout(): Promise<unknown> {
 // — Selbst-Registrierung & Passwort-Reset (M9) —
 
 /** `code` ist die Einladung — Pflicht, solange die Instanz auf „nur mit Code" steht. */
-export function registriere(
+export function register(
   email: string,
   passwort: string,
   code?: string,
   wahl: { newsletter?: boolean } = {},
-): Promise<{ benutzer: Benutzer; verifiziert: boolean }> {
+): Promise<{ user: User; verified: boolean }> {
   // Kein `name`: Das Formular fragt nur E-Mail und Passwort ab, den
   // Anzeigenamen leitet der Server aus der Adresse ab (nameAusEmail).
   //
@@ -141,7 +141,7 @@ export function registriere(
     headers: jsonKopf,
     body: JSON.stringify({
       email,
-      passwort,
+      password: passwort,
       ...(code ? { code } : {}),
       ...(wahl.newsletter ? { newsletter: true } : {}),
     }),
@@ -154,8 +154,8 @@ export function registriere(
  * Verbraucht ihn NICHT — das passiert erst beim Anlegen des Kontos. Wirft mit
  * der Begründung des Servers (unbekannt / verbraucht / abgelaufen).
  */
-export function pruefeEinladung(code: string): Promise<{ ok: boolean; pflicht: boolean }> {
-  return anfrage('/auth/einladung-pruefen', {
+export function checkInvitation(code: string): Promise<{ ok: boolean; required: boolean }> {
+  return anfrage('/auth/check-invitation', {
     method: 'POST',
     headers: jsonKopf,
     body: JSON.stringify({ code }),
@@ -168,70 +168,70 @@ export function pruefeEinladung(code: string): Promise<{ ok: boolean; pflicht: b
 // Adresse schon eingetragen ist, noch ob es zu ihr ein Konto gibt. Die
 // Oberfläche zeigt darum immer denselben Satz.
 
-export function trageInWarteliste(email: string, notiz?: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/warteliste', {
+export function joinWaitlist(email: string, notiz?: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/waitlist', {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify(notiz ? { email, notiz } : { email }),
+    body: JSON.stringify(notiz ? { email, note: notiz } : { email }),
   })
 }
 
 /** Der Klick aus der Bestätigungsmail; gibt die eingetragene Adresse zurück. */
-export function bestaetigeWarteliste(token: string): Promise<{ ok: boolean; email: string }> {
-  return anfrage('/auth/warteliste/bestaetigen', {
+export function confirmWaitlist(token: string): Promise<{ ok: boolean; email: string }> {
+  return anfrage('/auth/waitlist/confirm', {
     method: 'POST',
     headers: jsonKopf,
     body: JSON.stringify({ token }),
   })
 }
 
-export function trageAusWarteliste(token: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/warteliste/austragen', {
+export function leaveWaitlist(token: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/waitlist/leave', {
     method: 'POST',
     headers: jsonKopf,
     body: JSON.stringify({ token }),
   })
 }
 
-export function verifiziereEmail(token: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/verifiziere', {
+export function verifyEmail(token: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/verify', {
     method: 'POST',
     headers: jsonKopf,
     body: JSON.stringify({ token }),
   })
 }
 
-export function passwortResetAnfordern(email: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/passwort-reset-anfordern', {
+export function requestPasswordReset(email: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/password-reset-request', {
     method: 'POST',
     headers: jsonKopf,
     body: JSON.stringify({ email }),
   })
 }
 
-export function passwortReset(token: string, passwort: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/passwort-reset', {
+export function resetPassword(token: string, passwort: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/password-reset', {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify({ token, passwort }),
+    body: JSON.stringify({ token, password: passwort }),
   })
 }
 
-export function loescheKonto(): Promise<unknown> {
+export function deleteAccount(): Promise<unknown> {
   return anfrage('/auth/me', { method: 'DELETE' })
 }
 
-export async function listeTouren(): Promise<TourListe[]> {
-  return (await anfrage<{ tours: TourListe[] }>('/tours')).tours
+export async function listTours(): Promise<TourListItem[]> {
+  return (await anfrage<{ tours: TourListItem[] }>('/tours')).tours
 }
 
-export function legeTourAn(
+export function createTour(
   manifest: UploadManifest,
-): Promise<{ id: string; wiederverwendet?: boolean }> {
+): Promise<{ id: string; reused?: boolean }> {
   return anfrage('/tours', { method: 'POST', headers: jsonKopf, body: JSON.stringify(manifest) })
 }
 
-export function ladeTrack(id: string, gpx: string): Promise<unknown> {
+export function uploadTrack(id: string, gpx: string): Promise<unknown> {
   return anfrage(`/tours/${id}/track`, {
     method: 'PUT',
     headers: { 'content-type': 'application/gpx+xml' },
@@ -239,20 +239,20 @@ export function ladeTrack(id: string, gpx: string): Promise<unknown> {
   })
 }
 
-export function ladeMedium(id: string, mid: string, datei: Blob): Promise<unknown> {
+export function uploadMedium(id: string, mid: string, file: Blob): Promise<unknown> {
   return anfrage(`/tours/${id}/media/${mid}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/octet-stream' },
-    body: datei,
+    body: file,
   })
 }
 
-export function finalisiere(id: string): Promise<unknown> {
+export function finalize(id: string): Promise<unknown> {
   return anfrage(`/tours/${id}/finalize`, { method: 'POST' })
 }
 
 /** Ein nachzureichendes Medium — die ID vergibt der SERVER (s. reicheMedienNach). */
-export interface NachreichEingabe {
+export interface AddMediaInput {
   type: 'photo' | 'video'
   file: string
   takenAt: string
@@ -268,14 +268,14 @@ export interface NachreichEingabe {
  * kommen vom Server, weil beim Nachreichen — anders als beim Anlegen — keine
  * idempotente Wiederholung nötig ist und so keine ID kollidieren kann.
  */
-export function reicheMedienNach(
+export function addMedia(
   id: string,
-  medien: NachreichEingabe[],
-): Promise<{ medien: Array<{ id: string; datei: string }> }> {
-  return anfrage(`/tours/${id}/medien`, {
+  media: AddMediaInput[],
+): Promise<{ media: Array<{ id: string; file: string }> }> {
+  return anfrage(`/tours/${id}/media`, {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify({ medien }),
+    body: JSON.stringify({ media: media }),
   })
 }
 
@@ -284,20 +284,20 @@ export function reicheMedienNach(
  * danach weg, der Speicher ist frei. Der Server rendert anschließend neu (aus
  * dem Cache) — der Aufrufer wartet also auf „bereit", bevor er weiterschreibt.
  */
-export function loescheMedium(id: string, mid: string): Promise<{ ok: boolean }> {
+export function deleteMedium(id: string, mid: string): Promise<{ ok: boolean }> {
   return anfrage(`/tours/${id}/media/${mid}`, { method: 'DELETE' })
 }
 
 export function tour(id: string): Promise<{
   status?: string
-  fehler?: string | null
+  error?: string | null
   schema?: string
   media?: Array<{ placement?: string }>
 }> {
   return anfrage(`/tours/${id}`)
 }
 
-export function loescheTour(id: string): Promise<unknown> {
+export function deleteTour(id: string): Promise<unknown> {
   return anfrage(`/tours/${id}`, { method: 'DELETE' })
 }
 
@@ -315,10 +315,10 @@ export interface EditorMedium {
   anchor: [number, number] | null
   placement: string
   /** roher Manifest-GPS-Anker (auch wenn die Auto-Platzierung ihn verwarf) */
-  gpsAnker?: [number, number]
+  gpsAnchor?: [number, number]
 }
 
-export interface EditorDaten {
+export interface EditorPayload {
   id: string
   status: string
   title: string | null
@@ -327,37 +327,37 @@ export interface EditorDaten {
    * Die Dachzeile über dem Titel. `null` = nie gesetzt (der Render nimmt seine
    * Vorbelegung), `''` = ausdrücklich keine Zeile.
    */
-  dachzeile: string | null
+  kicker: string | null
   /**
    * Vorschläge dafür: die Adress-Ebenen des Startpunkts, fein → grob
    * („Völklingen", „Regionalverband Saarbrücken", „Saarland", „Deutschland").
    * Leer bei Touren, die vor dieser Änderung gerendert wurden.
    */
-  dachzeileVorschlaege?: string[]
+  kickerSuggestions?: string[]
   /** Endscreen „Ziel erreicht" (Default false) */
   finale: boolean
   /** Zielname für den Endscreen; null/leer = Ortsname am Ende */
-  finaleZiel: string | null
+  finaleTarget: string | null
   time: { start: string; end: string; zone: string }
-  segmente: Array<{ mode: string; pts: Array<[number, number, number, number]> }>
-  medien: EditorMedium[]
-  /** hochgeladene Audio-Assets (Dateien unter media/ mit Audio-Endung) */
-  audio: Array<{ datei: string; groesse: number }>
+  segments: Array<{ mode: string; pts: Array<[number, number, number, number]> }>
+  media: EditorMedium[]
+  /** hochgeladene Audio-Assets (Dateien unter medien/ mit Audio-Endung) */
+  audio: Array<{ file: string; size: number }>
   /**
    * Das automatisch ermittelte Wetter als Grenzen — dieselbe Form wie
-   * `edits.wetter`. Die Wetterspur zeigt es, solange niemand eingegriffen hat;
+   * `edits.weather`. Die Wetterspur zeigt es, solange niemand eingegriffen hat;
    * der erste Eingriff schreibt es ins Overlay fest. Leer bei Touren, die noch
    * nie gerendert wurden (oder deren Wetter schon aus dem Studio stammt).
    */
-  autoWetter?: Array<{ ab: string; mode: string; staerke?: number }>
+  autoWeather?: Array<{ from: string; mode: string; intensity?: number }>
   edits: unknown
 }
 
-export function editorDaten(id: string): Promise<EditorDaten> {
+export function loadEditorPayload(id: string): Promise<EditorPayload> {
   return anfrage(`/tours/${id}/editor`)
 }
 
-export function speichereEdits(
+export function saveEdits(
   id: string,
   edits: unknown,
 ): Promise<{ ok: boolean; status: string }> {
@@ -373,9 +373,9 @@ export function patchTour(
   felder: {
     title?: string
     description?: string
-    dachzeile?: string
+    kicker?: string
     finale?: boolean
-    finaleZiel?: string
+    finaleTarget?: string
     visibility?: 'private' | 'unlisted' | 'public'
   },
 ): Promise<unknown> {
@@ -392,46 +392,46 @@ export function reprocess(id: string): Promise<unknown> {
 
 // — Audio-Assets (Kreativbaukasten) —
 
-export function ladeAudio(
+export function uploadAudio(
   id: string,
-  datei: string,
+  file: string,
   daten: Blob,
-): Promise<{ datei: string; bytes: number }> {
-  return anfrage(`/tours/${id}/audio/${encodeURIComponent(datei)}`, {
+): Promise<{ file: string; bytes: number }> {
+  return anfrage(`/tours/${id}/audio/${encodeURIComponent(file)}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/octet-stream' },
     body: daten,
   })
 }
 
-export function loescheAudio(id: string, datei: string): Promise<unknown> {
-  return anfrage(`/tours/${id}/audio/${encodeURIComponent(datei)}`, { method: 'DELETE' })
+export function deleteAudio(id: string, file: string): Promise<unknown> {
+  return anfrage(`/tours/${id}/audio/${encodeURIComponent(file)}`, { method: 'DELETE' })
 }
 
 // — Benutzerweite Audio-Bibliothek: eigene Uploads, in jeder Tour einsetzbar —
 
-export interface BibliotheksDatei {
-  datei: string
-  groesse: number
+export interface LibraryFile {
+  file: string
+  size: number
   /** Touren, die die Datei (noch) verwenden — solange nicht leer, ist Löschen gesperrt. */
-  verwendetVon: Array<{ id: string; titel: string }>
+  usedBy: Array<{ id: string; title: string }>
 }
 
-export async function listeBibliothek(): Promise<BibliotheksDatei[]> {
-  return (await anfrage<{ dateien: BibliotheksDatei[] }>('/audio-bibliothek')).dateien
+export async function listLibrary(): Promise<LibraryFile[]> {
+  return (await anfrage<{ files: LibraryFile[] }>('/audio-library')).files
 }
 
-export function ladeBibliotheksAudio(
-  datei: string,
+export function uploadLibraryAudio(
+  file: string,
   daten: Blob,
-): Promise<{ datei: string; bytes: number }> {
-  return anfrage(`/audio-bibliothek/${encodeURIComponent(datei)}`, {
+): Promise<{ file: string; bytes: number }> {
+  return anfrage(`/audio-library/${encodeURIComponent(file)}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/octet-stream' },
     body: daten,
   })
 }
 
-export function loescheBibliotheksAudio(datei: string): Promise<unknown> {
-  return anfrage(`/audio-bibliothek/${encodeURIComponent(datei)}`, { method: 'DELETE' })
+export function deleteLibraryAudio(file: string): Promise<unknown> {
+  return anfrage(`/audio-library/${encodeURIComponent(file)}`, { method: 'DELETE' })
 }

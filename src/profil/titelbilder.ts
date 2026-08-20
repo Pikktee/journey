@@ -7,7 +7,7 @@
  * mit — ein Eintrag ohne Datei zeigt eine leere Kachel, eine Datei ohne Eintrag
  * ist unerreichbar.
  *
- * Vier, nicht mehr: Das Raster bleibt zweizeilig, und die Wahl soll eine
+ * Vier, nicht hasMore: Das Raster bleibt zweizeilig, und die Wahl soll eine
  * Entscheidung sein, kein Katalog. Sie unterscheiden sich bewusst in
  * Landschaft, Tageszeit und Farbklima — sie stehen nebeneinander und müssen auf
  * einen Blick auseinanderzuhalten sein. Erzeugt über fal.ai,
@@ -46,9 +46,9 @@ export function titelbildPfad(datei: string): string {
  * verschiedene Bilder. Der Streuwert ist eine simple Summenfunktion — es geht
  * um Verteilung, nicht um Kryptografie.
  */
-export function standardTitelbild(schluessel: string | null | undefined): string {
+export function standardTitelbild(key: string | null | undefined): string {
   const bilder = TITELBILDER
-  const wort = schluessel?.trim().toLowerCase() ?? ''
+  const wort = key?.trim().toLowerCase() ?? ''
   let summe = 0
   for (let i = 0; i < wort.length; i++) summe = (summe * 31 + wort.charCodeAt(i)) % 100_000
   return bilder[summe % bilder.length]!.datei

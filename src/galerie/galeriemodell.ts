@@ -14,9 +14,9 @@ export interface GalerieTour {
   /** Kachel-Fassung des Titelbilds; fehlt bei Touren ohne aufbereitete Fassungen */
   coverThumb?: string | null
   km: number | null
-  erstelltAm: string
-  autor: {
-    anzeigename: string
+  createdAt: string
+  author: {
+    displayName: string
     avatarUrl: string | null
     id?: string
     handle?: string | null
@@ -24,8 +24,8 @@ export interface GalerieTour {
 }
 
 export interface GalerieAntwort {
-  touren: GalerieTour[]
-  mehr: boolean
+  tours: GalerieTour[]
+  hasMore: boolean
 }
 
 /** Anzeigefertige Karte. */
@@ -59,9 +59,9 @@ const ERSATZTITEL = 'Namenlose Reise'
  * davor) und bleibt für immer bedienbar: Solche Links stehen in Mails und
  * Chats. Ohne freigegebenes Profil gibt es gar keinen Link.
  */
-export function profilLink(autor: GalerieTour['autor']): string | null {
-  if (autor?.handle) return profilPfad(autor.handle)
-  if (autor?.id) return pfad('profil', `?id=${encodeURIComponent(autor.id)}`)
+export function profilLink(author: GalerieTour['author']): string | null {
+  if (author?.handle) return profilPfad(author.handle)
+  if (author?.id) return pfad('profil', `?id=${encodeURIComponent(author.id)}`)
   return null
 }
 
@@ -70,16 +70,16 @@ export function alsKarte(tour: GalerieTour): Karte {
     id: tour.id,
     titel: tour.titel?.trim() || ERSATZTITEL,
     cover: tour.coverThumb ?? tour.cover,
-    unterzeile: [entfernung(tour.km), monat(tour.erstelltAm)].filter(Boolean).join(' · '),
-    autorName: tour.autor?.anzeigename ?? null,
-    autorBild: tour.autor?.avatarUrl ?? null,
-    autorLink: profilLink(tour.autor),
+    unterzeile: [entfernung(tour.km), monat(tour.createdAt)].filter(Boolean).join(' · '),
+    autorName: tour.author?.displayName ?? null,
+    autorBild: tour.author?.avatarUrl ?? null,
+    autorLink: profilLink(tour.author),
     spielLink: tourPfad(`srv:${tour.id}`),
   }
 }
 
 export function alsKarten(antwort: GalerieAntwort): Karte[] {
-  return antwort.touren.map(alsKarte)
+  return antwort.tours.map(alsKarte)
 }
 
 /** „12,4 km"; unter 100 m ist die Angabe wertlos und entfällt. */

@@ -1,5 +1,5 @@
 // Remote-Touren: lädt aufgezeichnete Touren vom Maptale-Backend (/tour/t_<id>)
-// und adaptiert das Server-JSON (`maptale/tour@1`) auf die cfg-Form der
+// und adaptiert das Server-JSON (`maptale/tour@2`) auf die cfg-Form der
 // statischen TOURS-Registry — der restliche Player merkt keinen Unterschied.
 
 import { STUDIO_PEGEL_VORGABE } from './audiotracks.js'
@@ -14,7 +14,7 @@ export interface RemoteMedium {
   caption: string
   /** null = unplatziert (M6): kein Track-Anker, wird nicht abgespielt */
   anchor: [number, number] | null
-  /** Herkunft des Ankers (M6): gps | zeit | manuell | unplatziert */
+  /** Herkunft des Ankers (M6): gps | time | manual | unplaced */
   placement?: string
   takenAt: string
   durationS?: number
@@ -24,15 +24,15 @@ export interface RemoteMedium {
   /** Anzeige-Optionen aus dem Studio (Kreativbaukasten): Haltedauer + Ken-Burns */
   display?: { holdS?: number; kenBurns?: boolean }
   /** Platz im Foto-Stopp (0-basiert) — greift in gruppiereStopps (src/geo.ts) */
-  reihe?: number
+  order?: number
 }
 
-/** Server-JSON `luhambo/tour@1` (Ausschnitt, den der Player braucht). */
+/** Server-JSON `maptale/tour@2` (Ausschnitt, den der Player braucht). */
 export interface TourJsonAntwort {
   schema: string
   id: string
   status?: string
-  fehler?: string | null
+  error?: string | null
   no: string
   brandTitle: string
   kicker: string
@@ -49,8 +49,8 @@ export interface TourJsonAntwort {
    * niemand einen Anzeigenamen gesetzt hat; `handle`/`id` nur bei öffentlichem
    * Profil, sonst gibt es keine Seite, auf die der Name führen könnte.
    */
-  autor?: {
-    anzeigename: string
+  author?: {
+    displayName: string
     avatarUrl: string | null
     id?: string
     handle?: string | null
@@ -71,9 +71,9 @@ export interface TourJsonAntwort {
    * Kamera-Keyframes (Kreativbaukasten): Preset ab dieser Stelle. `f` ist der
    * Streckenanteil, `filmS` die Filmsekunde (E10) — sie geht vor, wo sie steht.
    */
-  camera?: Array<{ f: number; preset: string; skala?: number; filmS?: number }>
+  camera?: Array<{ f: number; preset: string; scale?: number; filmS?: number }>
   /** Kamera-Momente: Punkt-Ereignisse (Umkreisen/…) mit Streckenanteil und Filmsekunde */
-  moments?: Array<{ f: number; art: string; dauerS?: number; filmS?: number }>
+  moments?: Array<{ f: number; kind: string; durationS?: number; filmS?: number }>
   /** Audio-Spuren: Musik-Bereiche [f0,f1) + SFX (f0=f1), dazu ihre Film-Anker (E10) */
   audio?: Array<{
     type: string
@@ -100,7 +100,7 @@ export interface RemoteTourCfg {
   /** Der Satz unter dem Titel — aus dem Studio, gekürzt in src/tourtexte.ts. */
   description?: string | null
   /** Aufnehmer der Tour; fehlt bei Konten ohne Anzeigenamen */
-  autor?: NonNullable<TourJsonAntwort['autor']>
+  author?: NonNullable<TourJsonAntwort['author']>
   /** true = Endscreen; fehlt/false = zurück zum Startscreen */
   showFinale?: boolean
   finaleTitle: string
@@ -134,9 +134,9 @@ export interface RemoteTourCfg {
   weatherF?: Array<{ f: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
   /** Kamera-Keyframes (roh — main.ts übersetzt f bzw. filmS selbst) */
-  camera?: Array<{ f: number; preset: string; skala?: number; filmS?: number }>
+  camera?: Array<{ f: number; preset: string; scale?: number; filmS?: number }>
   /** Kamera-Momente (roh, f-basiert — main.ts verankert sie an s) */
-  moments?: Array<{ f: number; art: string; dauerS?: number; filmS?: number }>
+  moments?: Array<{ f: number; kind: string; durationS?: number; filmS?: number }>
   /** Tour-eigene Audio-Spuren (roh — main.ts übersetzt in Filmsekunden) */
   audio?: TourAudio[]
   /**
@@ -171,11 +171,11 @@ export class RemoteTourFehler extends Error {
  * — das war der Rückfall `f × total` in Verkleidung.
  */
 export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
-  if (tour.schema !== 'maptale/tour@1' && tour.schema !== 'luhambo/tour@1') {
+  if (tour.schema !== 'maptale/tour@2') {
     throw new RemoteTourFehler(
-      tour.status === 'verarbeitung'
+      tour.status === 'processing'
         ? 'Die Tour wird noch verarbeitet. Gleich noch einmal versuchen.'
-        : `Tour nicht abspielbar (Status: ${tour.status ?? 'unbekannt'}${tour.fehler ? `, ${tour.fehler}` : ''})`,
+        : `Tour nicht abspielbar (Status: ${tour.status ?? 'unbekannt'}${tour.error ? `, ${tour.error}` : ''})`,
       tour.status,
     )
   }
@@ -190,14 +190,14 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     // der Editor pflegte sie, die Datenbank hielt sie, und der Player warf sie
     // an genau dieser Stelle weg.
     description: tour.description,
-    ...(tour.autor ? { autor: tour.autor } : {}),
+    ...(tour.author ? { author: tour.author } : {}),
     showFinale: tour.showFinale === true,
     finaleTitle: tour.finaleTitle,
     time: tour.time,
     segments: tour.segments,
     // Fotos UND Videos (M4): beide werden im Foto-Overlay als Stopp gezeigt,
     // Videos halten bis zum Ende statt für eine feste Dauer (tour.ts/ui.ts).
-    // Unplatzierte Medien (anchor null, M6) hat der Player nirgends zu verorten.
+    // Unplatzierte Medien (anker null, M6) hat der Player nirgends zu verorten.
     photos: tour.media
       .filter((m) => Array.isArray(m.anchor))
       .map((m) => ({
@@ -211,7 +211,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
         ...(m.poster !== undefined ? { poster: m.poster } : {}),
         ...(m.thumb !== undefined ? { thumb: m.thumb } : {}),
         ...(m.display !== undefined ? { display: m.display } : {}),
-        ...(m.reihe !== undefined ? { reihe: m.reihe } : {}),
+        ...(m.order !== undefined ? { order: m.order } : {}),
       })),
     stats: tour.stats,
   }
@@ -240,7 +240,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     // f muss endlich sein (landet als s-Anker in der Engine); dauerS optional,
     // aber wenn gesetzt endlich (sonst NaN-Timer im Moment-Zweig).
     const momente = tour.moments.filter(
-      (m) => Number.isFinite(m.f) && (m.dauerS === undefined || Number.isFinite(m.dauerS)),
+      (m) => Number.isFinite(m.f) && (m.durationS === undefined || Number.isFinite(m.durationS)),
     )
     if (momente.length) cfg.moments = momente
   }
@@ -343,7 +343,7 @@ export async function ladeServerTouren(
     const json = (await antwort.json()) as {
       tours: Array<{ id: string; title: string | null; status: string }>
     }
-    return json.tours.filter((t) => t.status === 'bereit')
+    return json.tours.filter((t) => t.status === 'ready')
   } catch {
     return []
   }

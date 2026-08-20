@@ -23,10 +23,10 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /** Die Zeichen der Oberfläche — Pfaddaten, damit sie nicht als Markup im HTML stehen. */
 const ZEICHEN: Record<string, string> = {
-  touren: 'M4 17l4-10 4 6 3-4 5 8|M8 7a1.4 1.4 0 100-.01|M19 17a1.4 1.4 0 100-.01',
+  tours: 'M4 17l4-10 4 6 3-4 5 8|M8 7a1.4 1.4 0 100-.01|M19 17a1.4 1.4 0 100-.01',
   km: 'M5 17.5c3.5 0 3-8 7-8s3.5 5 7 5',
-  hm: 'M2.5 19l6-9 3.5 4.5 3-4 6.5 8.5z|M8.5 10L11 6.5',
-  ort: 'M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z|M12 12.6a2.6 2.6 0 100-5.2 2.6 2.6 0 000 5.2z',
+  elevationGain: 'M2.5 19l6-9 3.5 4.5 3-4 6.5 8.5z|M8.5 10L11 6.5',
+  location: 'M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z|M12 12.6a2.6 2.6 0 100-5.2 2.6 2.6 0 000 5.2z',
   web: 'M20.5 12a8.5 8.5 0 11-17 0 8.5 8.5 0 0117 0z|M3.5 12h17|M12 3.5c2.6 2.7 2.6 14.3 0 17-2.6-2.7-2.6-14.3 0-17z',
   instagram:
     'M8.6 4h6.8A4.6 4.6 0 0120 8.6v6.8a4.6 4.6 0 01-4.6 4.6H8.6A4.6 4.6 0 014 15.4V8.6A4.6 4.6 0 018.6 4z|M15.6 12a3.6 3.6 0 11-7.2 0 3.6 3.6 0 017.2 0z|M17.4 7.1a.9.9 0 11-1.8 0 .9.9 0 011.8 0z',
@@ -112,8 +112,8 @@ function tourKachel(tour: GalerieTour): HTMLElement {
 }
 
 /** Der Kopf: Avatar, Name, Handle, Ort, Beitritt. */
-function zeichneKopf(profil: ProfilAntwort): void {
-  const kopf = profilKopf(profil)
+function zeichneKopf(profile: ProfilAntwort): void {
+  const kopf = profilKopf(profile)
   document.title = `${kopf.name} · Maptale`
 
   const avatar = $('avatar')
@@ -125,7 +125,7 @@ function zeichneKopf(profil: ProfilAntwort): void {
       img.alt = ''
       avatar.appendChild(img)
     } else {
-      avatar.textContent = anfangsbuchstabe(profil)
+      avatar.textContent = anfangsbuchstabe(profile)
     }
   }
 
@@ -141,17 +141,17 @@ function zeichneKopf(profil: ProfilAntwort): void {
       h.textContent = kopf.handle
       beiwerk.appendChild(h)
     }
-    if (kopf.ort) {
+    if (kopf.location) {
       const o = document.createElement('span')
       o.appendChild(zeichne('ort'))
       const t = document.createElement('span')
-      t.textContent = kopf.ort
+      t.textContent = kopf.location
       o.appendChild(t)
       beiwerk.appendChild(o)
     }
-    if (kopf.dabeiSeit) {
+    if (kopf.memberSince) {
       const d = document.createElement('span')
-      d.textContent = kopf.dabeiSeit
+      d.textContent = kopf.memberSince
       beiwerk.appendChild(d)
     }
   }
@@ -171,19 +171,19 @@ function zeichneKopf(profil: ProfilAntwort): void {
  * sondern 230 px graue Fläche über fast jedem Profil. Die ruhige Fläche
  * (`.leer`) bleibt als Rückfall im CSS, falls das Bild nicht lädt.
  */
-function zeichneBanner(profil: ProfilAntwort): void {
+function zeichneBanner(profile: ProfilAntwort): void {
   const banner = $('p-banner')
   if (!banner) return
-  const bild = profil.titelbildUrl ?? titelbildPfad(standardTitelbild(profil.handle))
+  const bild = profile.bannerUrl ?? titelbildPfad(standardTitelbild(profile.handle))
   banner.style.backgroundImage = `url("${bild.replace(/"/g, '%22')}")`
   banner.classList.remove('leer')
 }
 
-function zeichneLinks(profil: ProfilAntwort): void {
+function zeichneLinks(profile: ProfilAntwort): void {
   const ziel = $('p-links')
   if (!ziel) return
   ziel.replaceChildren()
-  for (const chip of linkChips(profil)) {
+  for (const chip of linkChips(profile)) {
     const a = document.createElement('a')
     a.className = 'link-chip'
     a.href = chip.href
@@ -199,11 +199,11 @@ function zeichneLinks(profil: ProfilAntwort): void {
   }
 }
 
-function zeichneKennzahlen(profil: ProfilAntwort): void {
+function zeichneKennzahlen(profile: ProfilAntwort): void {
   const ziel = $('p-kennzahlen')
   if (!ziel) return
   ziel.replaceChildren()
-  for (const chip of kennzahlChips(profil.kennzahlen)) {
+  for (const chip of kennzahlChips(profile.stats)) {
     const span = document.createElement('span')
     span.className = 'kz'
     span.appendChild(zeichne(chip.art))
@@ -222,10 +222,10 @@ function zeichneKennzahlen(profil: ProfilAntwort): void {
  * Telefon, „Link kopieren" am Schreibtisch. Ein Knopf, der „Teilen" verspricht
  * und dann nur kopiert, ist ein gebrochenes Versprechen.
  */
-function verdrahteTeilen(profil: ProfilAntwort): void {
+function verdrahteTeilen(profile: ProfilAntwort): void {
   const knopf = $('btn-teilen') as HTMLButtonElement | null
-  if (!knopf || !profil.handle) return
-  const adresse = new URL(profilPfad(profil.handle), window.location.origin).href
+  if (!knopf || !profile.handle) return
+  const adresse = new URL(profilPfad(profile.handle), window.location.origin).href
   const kannTeilen = typeof navigator.share === 'function'
   const beschriftung = $('teilen-text')
   if (beschriftung) beschriftung.textContent = kannTeilen ? 'Teilen' : 'Link kopieren'
@@ -254,8 +254,8 @@ async function eigenerHandle(): Promise<string | null> {
   try {
     const antwort = await fetch('/api/auth/me')
     if (!antwort.ok) return null
-    const daten = (await antwort.json()) as { profil?: { handle?: string | null } }
-    return daten.profil?.handle ?? null
+    const daten = (await antwort.json()) as { profile?: { handle?: string | null } }
+    return daten.profile?.handle ?? null
   } catch {
     return null
   }
@@ -279,7 +279,7 @@ export async function starteProfil(): Promise<void> {
 
   let daten: ProfilAntwort
   try {
-    const antwort = await fetch(`/api/benutzer/${encodeURIComponent(wen)}/profil`)
+    const antwort = await fetch(`/api/benutzer/${encodeURIComponent(wen)}/profile`)
     if (antwort.status === 404) {
       buehne.hidden = true
       zeigeFehler(meldung, 'Dieses Profil gibt es nicht (mehr).')
@@ -307,17 +307,17 @@ export async function starteProfil(): Promise<void> {
   zeichneLinks(daten)
   zeichneKennzahlen(daten)
 
-  if (daten.touren.length === 0) {
+  if (daten.tours.length === 0) {
     const leer = document.createElement('p')
     leer.className = 'hinweis'
     leer.textContent = 'Noch keine öffentlichen Reisen.'
     gitter.replaceWith(leer)
   } else {
-    gitter.replaceChildren(...daten.touren.map(tourKachel))
+    gitter.replaceChildren(...daten.tours.map(tourKachel))
   }
 
   const meins = istEigenes(daten, await eigenerHandle())
-  if (daten.nurFuerDich) {
+  if (daten.ownerOnly) {
     // Der Hinweis gilt nur dem Besitzer — sonst käme die Antwort gar nicht erst
     // an (404). Statt eines toten Teilen-Knopfes steht hier, warum.
     const chip = $('privat-chip')
