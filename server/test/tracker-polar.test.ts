@@ -45,7 +45,7 @@ function uebung(teil: Record<string, unknown> = {}): Record<string, unknown> {
 
 /**
  * Ein Netz-Fake: Antworten je URL-Muster, dazu eine Mitschrift der Aufrufe.
- * Dasselbe Muster wie `FesterGeocoder` — Produktion reicht `fetch` herein.
+ * Dasselbe Muster wie `FixedGeocoder` — Produktion reicht `fetch` herein.
  */
 function baueHol(antworten: Array<[RegExp, { status?: number; json?: unknown; text?: string }]>): {
   hol: (url: string, init?: RequestInit) => Promise<Response>

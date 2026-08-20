@@ -103,7 +103,7 @@ export function toHandle(roh: string): string {
 /**
  * Aus einer E-Mail-Adresse einen Vorschlag bauen — die Vergabe beim Anlegen
  * eines Kontos. Der lokale Teil ohne Plus-Zusatz (`mira+maptale@` → `mira`),
- * durch `zuHandle` gedreht. Bleibt zu wenig übrig (`ä@…`, `ab@…`), gibt es
+ * durch `toHandle` gedreht. Bleibt zu wenig übrig (`ä@…`, `ab@…`), gibt es
  * `reisende` als Stamm — der Zähler in `vergebeHandle` macht daraus einen
  * eigenen Namen.
  */

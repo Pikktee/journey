@@ -1,5 +1,5 @@
 // Ein erfundener Anbieter mit festen Antworten — das Spiegelbild eines echten
-// Adapters, wie `FesterGeocoder` und `FesteWetterQuelle` es für ihre Dienste
+// Adapters, wie `FixedGeocoder` und `FixedWeatherSource` es für ihre Dienste
 // sind.
 //
 // Er liegt in src/ und nicht in test/, weil er dieselbe Rolle hat wie jene:

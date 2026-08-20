@@ -1,6 +1,6 @@
 // Aus einem Rohtrack wird eine Tour — über DIESELBEN Pfade wie ein Upload.
 //
-// Der TourAnleger ruft `legeTourAn` und `finalisiereTour` aus routes/tours.ts;
+// Der TourAnleger ruft `createTour` und `finalizeTour` aus routes/tours.ts;
 // er baut kein eigenes Manifest-Format, keine eigene Statuslogik und keinen
 // zweiten Pipeline-Zweig. Genau das ist die dritte Anforderung des Konzepts:
 // Eine Cloud-Tour ist nach dem Anlegen von einer App-Tour nicht mehr zu
@@ -111,7 +111,7 @@ export class QuotaError extends Error {
  *
  * Der Ablauf ist exakt der des Uploads: Manifest anlegen → `track.gpx`
  * schreiben → finalisieren. Die Reihenfolge ist keine Geschmacksfrage —
- * `finalisiereTour` prüft, ob die Track-Datei liegt, und gäbe sonst 409
+ * `finalizeTour` prüft, ob die Track-Datei liegt, und gäbe sonst 409
  * zurück.
  */
 export async function createTourFromTrack(

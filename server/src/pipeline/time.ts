@@ -152,7 +152,7 @@ function rampeFilmS(dauerS: number): number {
  * die Uhr also wieder richtig, und das Tourende trägt die Uhrzeit, zu der es
  * wirklich stattfand.
  *
- * Die Pausenpunkte selbst liegen (nach `kollabierePausen`) alle auf demselben
+ * Die Pausenpunkte selbst liegen (nach `collapsePauses`) alle auf demselben
  * Ort und bekommen deshalb dieselbe Pseudo-Zeit — im Film ist die Pause ein
  * Augenblick, kein Halt. Erzählt wird sie von der Rampe drumherum.
  */
@@ -280,8 +280,8 @@ export function pseudoTimes(reihe: TimeSeries): number[] {
 /**
  * Streckenanteil, an dem die Pseudo-Uhr die Aufnahmezeit `tSek` ZEIGT.
  *
- * Die Umkehrung von `raffePausen` und damit das Gegenstück zu
- * `positionZurZeit`: Jene beantwortet „wo war die Tour um 21 Uhr?" (der Ort,
+ * Die Umkehrung von `compressPauses` und damit das Gegenstück zu
+ * `positionAtTime`: Jene beantwortet „wo war die Tour um 21 Uhr?" (der Ort,
  * für den das Wetter gilt), diese „an welcher Stelle des Films steht 21 Uhr
  * auf der Uhr?". In einer Pause fallen alle Stunden auf denselben ORT — aber
  * auf verschiedene Stellen der Zeitraffer-Rampe. Ohne diese Unterscheidung
@@ -428,7 +428,7 @@ export function positionAtTime(
 }
 
 /**
- * Umkehrung von `positionZurZeit`: Tour-Zeit zum Streckenanteil `f`.
+ * Umkehrung von `positionAtTime`: Tour-Zeit zum Streckenanteil `f`.
  *
  * Gebraucht, um Streckenanteile des Tour-JSONs (Wetter-Keyframes) zurück in
  * absolute Zeiten zu übersetzen — die Ankerform aller Studio-Edits. Steht die

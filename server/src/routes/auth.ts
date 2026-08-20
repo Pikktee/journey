@@ -24,7 +24,7 @@ interface LoginBody {
 
 /**
  * Handle und Titelbild stehen neben den Profilfeldern, aber nicht in
- * `ProfilAenderung`: Beide können scheitern bzw. brauchen eine eigene Behandlung
+ * `ProfileUpdate`: Beide können scheitern bzw. brauchen eine eigene Behandlung
  * (Aufräumen der alten Datei) und laufen deshalb an `setzeProfil` vorbei — s. Route.
  */
 type ProfilBody = ProfileUpdate & { handle?: string; banner?: string }
@@ -113,7 +113,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     tokenId?: string | null,
   ): { id: string; ablauf: Date } => {
     // Gerät und grober Ort wandern in die Sitzung, damit die Kontoeinstellungen
-    // sie später wiedererkennbar auflisten können (s. AuthDienst.geraete).
+    // sie später wiedererkennbar auflisten können (s. AuthService.geraete).
     //
     // Eine vorhandene Sitzung desselben App-Tokens wird WIEDERVERWENDET statt
     // ergänzt: Die App tauscht vor jedem Abspielen, und jeder Tausch legte
@@ -204,7 +204,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // `newsletter` ist das Kästchen unter den Feldern — nicht vorangekreuzt und
   // nicht gekoppelt: Fehlt es oder steht es auf `false`, ändert das an der
   // Registrierung nichts. Wirksam wird die Einwilligung erst mit der
-  // Bestätigung der Adresse (Riegel in `NewsletterDienst.empfaenger`), womit
+  // Bestätigung der Adresse (Riegel in `NewsletterService.empfaenger`), womit
   // der Klick auf den Bestätigungslink das Double-Opt-in gleich miterledigt.
   app.post<{
     Body: { email: string; password: string; name?: string; code?: string; newsletter?: boolean }
@@ -488,7 +488,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // — E-Mail-Adresse ändern: anstoßen —
   //
   // Die Mail geht an die NEUE Adresse, und erst der Klick dort macht sie gültig
-  // (der Token trägt sie bis dahin, s. AuthDienst.loeseMailTokenMitNutzlast).
+  // (der Token trägt sie bis dahin, s. AuthService.loeseMailTokenMitNutzlast).
   // Sonst genügte ein Tippfehler, um sich selbst auszusperren. Das Passwort
   // steht dabei aus demselben Grund wie oben.
   //
@@ -581,7 +581,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
   // — Angemeldete Geräte —
   //
-  // Sitzungen UND App-Tokens (s. AuthDienst.geraete). `current` markiert die
+  // Sitzungen UND App-Tokens (s. AuthService.geraete). `current` markiert die
   // Sitzung, aus der gefragt wird: Sie trägt in der Oberfläche keinen
   // Abmelden-Knopf — wer sich selbst hier abmeldet, hat nichts gewonnen, außer
   // sich noch einmal anmelden zu dürfen.
@@ -619,7 +619,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   //
   // Solange die Adresse unbestätigt ist, wird der Wunsch trotzdem angenommen —
   // gesperrt ist nicht der Schalter, sondern der VERSAND (s.
-  // `NewsletterDienst.empfaenger`). Ein Schalter, der sich nicht umlegen lässt,
+  // `NewsletterService.empfaenger`). Ein Schalter, der sich nicht umlegen lässt,
   // wäre eine Einwilligung, die man erst nach einem Umweg geben darf; ein
   // Versand an eine unbestätigte Adresse dagegen wäre die Mail, gegen die das
   // Double-Opt-in gebaut ist. Die Oberfläche sagt das an der Zeile dazu.

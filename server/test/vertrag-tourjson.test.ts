@@ -98,8 +98,8 @@ const VIDEO_QUELL_S = 34.2
 /**
  * Video-Metadaten, wie sie die Route liefern würde.
  *
- * Der Schnitt (Etappe 4) wirkt NICHT in `reichereAn`, sondern in
- * `bereiteVideosAuf` — es ist die Aufbereitung, die eine geschnittene Datei
+ * Der Schnitt (Etappe 4) wirkt NICHT in `enrichTour`, sondern in
+ * `prepareVideos` — es ist die Aufbereitung, die eine geschnittene Datei
  * erzeugt und die Länge kürzt. Damit der Vertrag den sichtbaren Effekt trotzdem
  * abdeckt, spiegelt der Harnisch hier, was tours.ts tut: klemmen, benennen,
  * Länge setzen.

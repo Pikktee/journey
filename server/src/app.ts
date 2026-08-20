@@ -58,7 +58,7 @@ export interface AppDependencies {
    *
    * Das Interface ist auf Touren zugeschnitten, aber tatsächlich ein
    * ID-benannter Ablagebereich: Pfadprüfung, atomares Schreiben, Größenlimit
-   * und das Wegräumen eines ganzen Bereichs (`loescheTour`) passen unverändert.
+   * und das Wegräumen eines ganzen Bereichs (`deleteTour`) passen unverändert.
    * Der erste Parameter jeder Methode ist hier die Benutzer-ID.
    */
   benutzerStorage: Storage
@@ -80,7 +80,7 @@ export interface AppDependencies {
    *
    * Ein dritter Bereich neben Touren und Benutzerdateien, kein Unterordner:
    * Ein Archiv gehört zu keiner Tour, es hat eine eigene Lebensdauer (48 h),
-   * und `loescheTour(auftragId)` räumt es in einem Zug weg.
+   * und `deleteTour(auftragId)` räumt es in einem Zug weg.
    */
   archive: Storage
   /**
@@ -143,7 +143,7 @@ declare module 'fastify' {
      * Mit WELCHEM App-Token diese Anfrage kam (null bei Sitzungs-Cookie).
      *
      * Nur die Push-Registrierung liest das: Ihr Gerät soll mit genau diesem
-     * Zugang stehen und fallen (s. `AuthDienst.anmeldungAusToken`).
+     * Zugang stehen und fallen (s. `AuthService.anmeldungAusToken`).
      */
     appTokenId: string | null
   }

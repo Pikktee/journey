@@ -70,10 +70,10 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
   })
 
   /**
-   * Das Archiv. Kein `erfordereBenutzer` — der Token IST der Nachweis.
+   * Das Archiv. Kein `requireUser` — der Token IST der Nachweis.
    *
    * Drei Dinge stehen bewusst so: Der Token wird in konstanter Zeit geprüft
-   * (`ExportDienst.ausToken`), die Frist kommt aus der Zeile und nicht aus dem
+   * (`DataExportService.ausToken`), die Frist kommt aus der Zeile und nicht aus dem
    * Token, und die Antwort trägt `Cache-Control: private, no-store` — ein Proxy,
    * der das Archiv einer Person zwischenspeichert, wäre das Gegenteil des
    * Zwecks.

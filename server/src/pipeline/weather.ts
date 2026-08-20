@@ -284,7 +284,7 @@ export function weatherFromOverlay(
 }
 
 /**
- * Umkehrung von `wetterAusOverlay`: Player-Keyframes → Wetter-Grenzen in
+ * Umkehrung von `weatherFromOverlay`: Player-Keyframes → Wetter-Grenzen in
  * absoluter Zeit, wie sie im Edit-Overlay stehen.
  *
  * WOZU. Das Auto-Wetter war im Studio bislang unsichtbar — die Wetterspur zeigte

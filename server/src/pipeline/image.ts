@@ -90,7 +90,7 @@ export class FfmpegImageTool implements ImageTool {
     ]
       .filter(Boolean)
       .join(',')
-    // HEIC/HEIF braucht einen Zwischenschritt — s. `istKachelbild`.
+    // HEIC/HEIF braucht einen Zwischenschritt — s. `isTiledImage`.
     const quelle = isTiledImage(quellPfad) ? await this.setzeKachelnZusammen(quellPfad) : quellPfad
     try {
       await execFileP(
@@ -135,7 +135,7 @@ export class FfmpegImageTool implements ImageTool {
  * Bilder, die vor dem Skalieren aufgelöst werden müssen.
  *
  * An der ENDUNG erkannt und nicht am Inhalt: Der Ablagename entsteht aus der
- * geprüften Endung des Uploads (`mediumDateiname`), ist also keine Behauptung
+ * geprüften Endung des Uploads (`mediumFilename`), ist also keine Behauptung
  * des Clients, sondern eine Zusage des Servers.
  */
 export function isTiledImage(pfad: string): boolean {

@@ -80,7 +80,7 @@ async function migriereDatei(
 /**
  * Die Signaturen werden NEU BERECHNET, nicht abgebildet.
  *
- * `trimSignatur` und `videoSchnittSignatur` sind kein Schlüssel, sondern
+ * `trimSignature` und `videoCutSignature` sind kein Schlüssel, sondern
  * stringifiziertes JSON der Edits. Nach der Umbenennung `start/ende` und
  * `vonS/bisS` passte die gespeicherte Zeichenkette nie wieder zur neu
  * gerechneten — jede Tour liefe in die volle Anreicherung samt Geocoding und

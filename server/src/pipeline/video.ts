@@ -395,7 +395,7 @@ async function bereiteEinVideoAuf(
     //   2. Er ist tauglich, aber der Index liegt hinten → nur umschreiben.
     // Fall 2 ist der Alltagsfall der App: Ein Pixel liefert H.264/AAC in .mp4
     // und wurde deshalb unangetastet durchgereicht — samt `moov` am Ende, das
-    // jede Wiedergabe um Sekunden verzögerte (s. hatFaststart).
+    // jede Wiedergabe um Sekunden verzögerte (s. hasFaststart).
     let videoDatei = quellDatei
     if (originalDa && needsWebConversion(info, originalDatei)) {
       videoDatei = webName

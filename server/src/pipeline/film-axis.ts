@@ -10,7 +10,7 @@
 // Beide müssen dasselbe rechnen, sonst startet ein Klip im fertigen Film woanders
 // als im Editor gezeigt — genau die Sorte Drift, an der schon die
 // Gehabschnitts-Erkennung einmal hing. Deshalb: dieselbe Gruppierung (120
-// Streckenmeter, src/geo.ts), dieselben Halt-Dauern (`aufnahmeHaltS` +
+// Streckenmeter, src/geo.ts), dieselben Halt-Dauern (`mediumHoldS` +
 // Ausblendung), dieselben RAMPEN (E14 — an jedem Tempowechsel, am Halt auf
 // beiden Seiten, an einer Modus-Grenze ganz im schnelleren Abschnitt) und
 // dieselbe Interpolations-Konvention (Plateau → Ankunft).

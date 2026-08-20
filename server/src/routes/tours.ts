@@ -767,7 +767,7 @@ export function registerTourRoutes(app: FastifyInstance): void {
     // einmal über dem Titel und einmal in der Herkunftszeile neben dem Namen.
     // Ein Re-Render aller Touren nur dafür wäre unverhältnismäßig, also fällt
     // er hier weg — solange niemand eine eigene Dachzeile gesetzt hat. Beim
-    // nächsten Render der Tour entsteht der Wert regulär in `baueBenennung`.
+    // nächsten Render der Tour entsteht der Wert regulär in `buildNaming`.
     if (tour.kicker === null && /^Aufgezeichnet am /.test(String(tourJson.kicker ?? '')))
       tourJson.kicker = ''
 
@@ -881,7 +881,7 @@ async function ladeOriginalSegmente(
   //
   // Weil hier lange nur der erste Fall bedacht war, lief bei App-Aufnahmen
   // überhaupt keine Erkennung: Eine Straßenbahnfahrt mit Fußwegen blieb ein
-  // einziges „zu Fuß" über die ganze Tour. `istAufzeichnung` trennt die Fälle
+  // einziges „zu Fuß" über die ganze Tour. `isRecording` trennt die Fälle
   // an der Form der Daten (dichtes Zeitraster), denn ein Manifest-Feld dafür
   // gibt es nicht — und Bestandstouren hätten es ohnehin nicht.
   //

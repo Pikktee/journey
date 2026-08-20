@@ -247,7 +247,7 @@ describe('kollabierePausen', () => {
     // Zeiten des Ergebnisses identisch zur Eingabe
     expect((erg[0] as UploadSegment).pts.map((p) => p[3])).toEqual(roh[0]?.pts.map((p) => p[3]))
     // Punkte klar außerhalb der Pause unverändert — die Erkennung verwischt
-    // die Ränder um wenige Rasterpunkte (s. findePausen-Test: < +240 s)
+    // die Ränder um wenige Rasterpunkte (s. findPauses-Test: < +240 s)
     const aussen = (p: readonly number[]): boolean => p[3]! < 1800 - 240 || p[3]! >= 3300 + 240
     const aussenRoh = roh[0]?.pts.filter(aussen)
     const aussenErg = (erg[0] as UploadSegment).pts.filter(aussen)

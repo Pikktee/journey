@@ -188,7 +188,7 @@ export interface EnrichmentInput {
   beschreibungOverride: string | null
   /**
    * Die Dachzeile über dem Titel. `null` = nie gesetzt (Vorbelegung greift),
-   * leerer String = ausdrücklich keine Zeile (s. baueBenennung).
+   * leerer String = ausdrücklich keine Zeile (s. buildNaming).
    */
   dachzeileOverride?: string | null
   /** Endscreen zeigen? Default false — die meisten Touren haben kein konkretes Ziel */
@@ -307,7 +307,7 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
   // Feld muss der Player `f × route.total` rechnen — und seine Route ist durch
   // Catmull-Rom + 14-m-Resampling 2,2–3,0 % länger als die Rohgeometrie, in der
   // hier gemessen wird, UNGLEICHMÄSSIG verteilt. Der Rest ist nicht clientseitig
-  // zu beheben: `vereinfacheSegment` wirft Punkte weg, die Länge tragen.
+  // zu beheben: `simplifySegment` wirft Punkte weg, die Länge tragen.
   // Das Feld ist additiv — Bestandstouren bekommen es
   // bei ihrem nächsten Render.
   let punktIndex = 0

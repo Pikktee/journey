@@ -166,7 +166,7 @@ export class NoRouteError extends Error {
 
 /**
  * Die Aktivität ist zu klein für eine Tour — dieselbe Sorte wie
- * `OhneRouteFehler`: eine Aussage über die Aktivität, nicht über den Moment
+ * `NoRouteError`: eine Aussage über die Aktivität, nicht über den Moment
  * (also `uebersprungen` und kein neuer Anlauf).
  *
  * Steht hier im VERTRAG und nicht beim TourAnleger, obwohl der sie am

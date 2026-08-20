@@ -101,7 +101,7 @@ export async function quotaStatus(
 /**
  * Derselbe belegte Platz, nur nach Art aufgeschlüsselt (Kontoeinstellungen).
  *
- * Läuft über dieselben Quellen wie `benutzteBytes` — Touren plus die
+ * Läuft über dieselben Quellen wie `usedBytes` — Touren plus die
  * benutzerweite Klangbibliothek —, damit die Summe der Teile dem Balken
  * entspricht. Avatar und Titelbild bleiben wie dort außen vor.
  */

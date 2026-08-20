@@ -180,6 +180,16 @@ Der Blick auf die laufenden Seiten war der letzte offene §8-Punkt, und er hat
 Dazu eine UI-Regression: Die Reiterzähler der Verwaltung zeigten „0 open"
 statt „0 offen" (§2.5 — UI-Strings wandern nicht mit).
 
+**Nachtrag aus Welle 2 (2026-08-20): tote Symbol-Verweise in Kommentaren.** Die
+Sprachregel lässt Kommentare deutsch, und das ist richtig — aber ein Kommentar,
+der ein SYMBOL nennt (`s. AuthDienst.hebeAdmins`), zeigt nach der Umbenennung
+ins Leere. Nach Welle 2 waren es 56 Stellen in 29 Dateien; kein Test sieht sie,
+denn es ist Prosa. Gezogen werden darf nur der Verweis, nie die Prosa: „von
+Einladung zu Einladung" in einer Mail-Vorlage muss stehen bleiben. Erkennung
+über den Kontext (Backtick, Punkt-Notation, „s. "), Skript im Scratchpad der
+Sitzung; ein Alternations-Regex über alle Namen, sonst läuft es minutenlang.
+**Für jede weitere Welle mitmachen.**
+
 **Die Lehre für die Wellen 2 bis 8:** Drei billige Wächter hätten vier der fünf
 Sorten gefunden, und alle drei sind ein Skript, kein Lesedurchgang:
 

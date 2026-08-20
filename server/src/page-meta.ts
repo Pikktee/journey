@@ -26,8 +26,8 @@
  * ein Abruf pro Cache-Periode, keine Kopplung an den Build, kein zusätzlicher
  * Deploy-Schritt.
  *
- * **Was ersetzt wird.** Nur der Block zwischen zwei Markern (`MARKE_AUF` /
- * `MARKE_ZU`). Der Rest der Seite bleibt Byte für Byte, wie der Build sie
+ * **Was ersetzt wird.** Nur der Block zwischen zwei Markern (`MARKER_OPEN` /
+ * `MARKER_CLOSE`). Der Rest der Seite bleibt Byte für Byte, wie der Build sie
  * geschrieben hat — insbesondere die gehashten Asset-Verweise, die niemand
  * hier kennen muss. Fehlt der Marker (alte Datei, kaputter Build), wird die
  * Seite unverändert durchgereicht: schlechter Kopf ist besser als keine Seite.

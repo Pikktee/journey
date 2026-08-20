@@ -1,7 +1,7 @@
 // Push-Benachrichtigungen: Geräte, Versand und der Anschluss an den Importlauf.
 //
 // Kein Netz in der Suite — `SammelPush` ist das Spiegelbild von `FcmPush`, wie
-// `FesterGeocoder` es für den Geocoder ist. Was gegen die ECHTE FCM-API läuft
+// `FixedGeocoder` es für den Geocoder ist. Was gegen die ECHTE FCM-API läuft
 // (JWT-Bau, Fehlercodes), wird gegen eine injizierte Hol-Funktion geprüft.
 
 import { generateKeyPairSync } from 'node:crypto'

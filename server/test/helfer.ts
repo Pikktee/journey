@@ -203,7 +203,7 @@ export async function baueTestApp(
 /**
  * Registrierung ohne Einladungscode erlauben.
  *
- * Die Vorgabe einer frischen Instanz ist „nur mit Code" (s. EinladungsDienst) —
+ * Die Vorgabe einer frischen Instanz ist „nur mit Code" (s. InvitationService) —
  * Tests, die den offenen Fluss prüfen, machen die Tür hier ausdrücklich auf.
  */
 export function oeffneRegistrierung(u: TestUmgebung): void {

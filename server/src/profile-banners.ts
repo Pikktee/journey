@@ -12,7 +12,7 @@
  * die Seite dahinter ein Bergpass-Banner, wären es zwei verschiedene Auskünfte
  * über dieselbe Seite. Die PRÜFUNG eines gesetzten Titelbilds bleibt davon
  * unberührt — sie sieht weiter nur die Form des Namens an
- * (`istTitelbildVorschlag` in `profilfelder.ts`), denn ein erfundener Name
+ * (`isBannerSuggestion` in `profilfelder.ts`), denn ein erfundener Name
  * kostet nichts außer einem leeren Banner beim Urheber.
  */
 

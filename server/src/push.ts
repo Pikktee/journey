@@ -51,7 +51,7 @@ export interface Delivery {
 
 /**
  * Der Versandweg hinter einem schmalen Interface — dieselbe Linie wie
- * `MailVersand`, `Geocoder`, `WetterQuelle`: Die Routen kennen nur das
+ * `MailTransport`, `Geocoder`, `WeatherSource`: Die Routen kennen nur das
  * Interface, Produktion reicht `FcmPush` herein, Tests eine Fassung ohne Netz.
  */
 export interface PushTransport {
@@ -167,7 +167,7 @@ export class PushService {
    * Fehler hier darf den Importlauf nicht kippen, und der periodische Abruf der
    * App holt die Meldung ohnehin nach.
    *
-   * Abgelehnte Tokens werden gelöscht, nicht protokolliert (s. `Zustellung`).
+   * Abgelehnte Tokens werden gelöscht, nicht protokolliert (s. `Delivery`).
    */
   async melde(benutzerId: string, nachricht: PushMessage): Promise<number> {
     if (!this.versand?.einsatzbereit) return 0

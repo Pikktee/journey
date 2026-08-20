@@ -181,7 +181,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       // Abgelaufener Zugang und ein stummer Anbieter sind erwartete Zustände,
       // keine Serverstörungen: Ungefangen liefen beide in den allgemeinen
       // Handler und der Nutzer läse „Interner Fehler" statt dessen, was zu tun
-      // ist. `TokensUngueltigFehler` hat die Verknüpfung dabei schon auf
+      // ist. `InvalidTokensError` hat die Verknüpfung dabei schon auf
       // `abgelaufen` gesetzt — die Oberfläche zeigt danach „neu verbinden".
       let ereignisse
       let tokens
@@ -216,7 +216,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
           runImports(app, app.tracker, rest).finally(() => app.trackerLaeufe.delete(schluessel)),
         )
       }
-      // Der Sync-Zeitpunkt kommt aus `fuehreImporteAus` (nur wenn nichts offen
+      // Der Sync-Zeitpunkt kommt aus `runImports` (nur wenn nichts offen
       // blieb — er ist der Cursor des nächsten Abrufs). Ohne Aufträge gibt es
       // dort nichts zu entscheiden, und „nichts Neues" ist ein Erfolg.
       if (!auftraege.length) app.tracker.merkeSync(verknuepfung.id)

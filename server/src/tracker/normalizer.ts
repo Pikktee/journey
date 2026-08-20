@@ -31,7 +31,7 @@ function koord(n: number): string {
 /**
  * Punkte → GPX. Punkte ohne brauchbare Koordinate fallen raus (Anbieter liefern
  * in Pausen gern `null`-Einträge in den Streams); bleibt nichts übrig, ist das
- * eine Aktivität OHNE Route und kein Fehler — s. `OhneRouteFehler`.
+ * eine Aktivität OHNE Route und kein Fehler — s. `NoRouteError`.
  */
 export function pointsToGpx(punkte: readonly RawPoint[], titel?: string | null): string {
   const gute = punkte

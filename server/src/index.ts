@@ -101,7 +101,7 @@ if (gehoben > 0) app.log.info(`${gehoben} Konto/Konten auf die Admin-Rolle gehob
 // täglich. `unref` hält den Prozess nicht wach — die Aufräumerei ist nichts,
 // worauf ein Herunterfahren warten müsste.
 // Dazu die überholten Newsletter-Protokollzeilen: Der Nachweis muss drei Jahre
-// tragen, danach ist er Sammeln ohne Zweck (s. NewsletterDienst.raeumeAuf).
+// tragen, danach ist er Sammeln ohne Zweck (s. NewsletterService.raeumeAuf).
 const raeumeWarteliste = (): void => {
   const weg = app.warteliste.raeumeAuf()
   if (weg > 0) app.log.info(`${weg} abgelaufene Wartelisten-Einträge gelöscht`)

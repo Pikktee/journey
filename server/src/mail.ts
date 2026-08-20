@@ -1,5 +1,5 @@
 // Transaktionaler Mail-Versand (M9) hinter einem schmalen Interface — genau wie
-// Storage/Geocoder/Wetter/Video: die Routen kennen nur `MailVersand`, die
+// Storage/Geocoder/Wetter/Video: die Routen kennen nur `MailTransport`, die
 // konkrete Implementierung wird in index.ts (Prod) bzw. den Tests (Fake)
 // hereingereicht. Damit sind die Registrierungs-/Reset-Flüsse ohne echten
 // Mailserver testbar, und ein Anbieterwechsel zieht keine Ringe durch den Code.

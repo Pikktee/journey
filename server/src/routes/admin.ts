@@ -1,12 +1,12 @@
 // Benutzerverwaltung: Konten anlegen, ändern, löschen — dazu Einladungen und
 // der Schalter, ob Registrierungen überhaupt frei stehen.
 //
-// Jede Route hier liegt hinter `erfordereAdmin`. Drei Regeln ziehen sich durch,
+// Jede Route hier liegt hinter `requireAdmin`. Drei Regeln ziehen sich durch,
 // alle aus derselben Sorge — man soll sich nicht selbst die Tür zumauern:
 //
 //   1. Wer in der Konfiguration als Admin steht (`adminEmails`), lässt sich
 //      weder herabstufen noch löschen. Sonst wäre die Änderung ohnehin nur bis
-//      zum nächsten Start gültig (s. AuthDienst.hebeAdmins) — ein stiller
+//      zum nächsten Start gültig (s. AuthService.hebeAdmins) — ein stiller
 //      Rückfall ist schlimmer als ein ehrliches „geht nicht".
 //   2. Das eigene Konto lässt sich nicht herabstufen oder löschen. Wer gehen
 //      will, nimmt „Konto löschen" im Studio; dort steht die Warnung dazu.

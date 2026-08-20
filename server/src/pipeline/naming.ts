@@ -234,7 +234,7 @@ export function buildNaming(args: {
 /**
  * Benennung in einem Rutsch (Geocoding + Zusammenbau) — Bequemlichkeit für
  * Direktaufrufe und Tests. Der Produktionspfad (Anreicherung) nutzt stattdessen
- * `geocodiereEndpunkte` (gecacht) + `baueBenennung` (pro Render).
+ * `geocodeEndpoints` (gecacht) + `buildNaming` (pro Render).
  */
 export async function nameTour(args: {
   nutzerTitel: string | null

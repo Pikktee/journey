@@ -51,7 +51,7 @@ export function registerPageRoutes(app: FastifyInstance): void {
   /**
    * `/@henrik` — die Profilseite mit ihrem eigenen Kopf.
    *
-   * Der Handle wird gegen `HANDLE_REGELN` geprüft, bevor irgendetwas anderes
+   * Der Handle wird gegen `HANDLE_PATTERN` geprüft, bevor irgendetwas anderes
    * passiert: Unter `/@` darf nur landen, was auch ein Handle sein könnte.
    */
   app.get<{ Params: { handle: string } }>('/@:handle', async (request, reply) => {

@@ -1,7 +1,7 @@
 // Wie lange ein Streckenstück im fertigen Film dauert.
 //
 // Die Kamerafahrt fährt nicht nach der Uhr, sondern nach der STRECKE: pro
-// Sekunde legt sie `BASIS_TEMPO_MS` Meter zurück, skaliert mit dem
+// Sekunde legt sie `BASE_TEMPO_MS` Meter zurück, skaliert mit dem
 // Fortbewegungsmittel. Der Server braucht dieselbe Rechnung, um Ereignisse in
 // Filmsekunden zu bemessen statt in Metern — 200 m sind zu Fuß gut vier
 // Sekunden und auf der Fähre eine halbe.
@@ -38,7 +38,7 @@ export const MODUS_TEMPO: Record<TravelMode, number> = {
 export const STOP_ENGINE_S = 5.2
 /** `HOLD_AUSBLEND` in src/tour.ts: Ausblendung nach der Anzeige, bevor es weitergeht. */
 export const STOP_FADE_OUT_S = 0.8
-/** `NAHE_M` in src/geo.ts: Streckenabstand, unter dem Aufnahmen EINEN Halt bilden. */
+/** `NEAR_M` in src/geo.ts: Streckenabstand, unter dem Aufnahmen EINEN Halt bilden. */
 export const NEAR_M = 120
 
 /**
@@ -79,7 +79,7 @@ export function filmSeconds(meter: number, mode: TravelMode): number {
  *
  * Ein Video zählt mit seiner echten Länge — der Player läuft bis zum Dateiende,
  * `display.holdS` ist dort wirkungslos (src/tour.ts). Spiegel von
- * `aufnahmeHaltS` in src/studio/zeitleiste.ts; laufen die beiden auseinander,
+ * `mediumHoldS` in src/studio/zeitleiste.ts; laufen die beiden auseinander,
  * zeigt die Zeitleiste eine andere Filmdauer, als der Film hat.
  */
 export function mediumHoldS(m: {
