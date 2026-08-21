@@ -3,8 +3,8 @@ import { extname, join } from 'node:path'
 
 import { defineConfig } from 'vite'
 
-import { HANDLE_REGELN } from './src/handle.ts'
-import { EINSTIEGE, PFAD_ZU_DATEI, ROUTEN, tourAusPfad } from './src/routen.ts'
+import { HANDLE_PATTERN } from './src/handle.ts'
+import { ENTRIES, PATH_TO_FILE, ROUTES, tourFromPath } from './src/routes.ts'
 
 /**
  * URLs ohne `.html` — im Dev und in der Vorschau.
@@ -26,24 +26,24 @@ function saubereUrls() {
     // ist das `location ~ ^/@`. Der Handle bleibt in der Adresszeile stehen;
     // die Seite liest ihn dort.
     //
-    // Geprüft wird gegen HANDLE_REGELN und nicht bloß auf `/@`: Vite bedient
+    // Geprüft wird gegen HANDLE_PATTERN und nicht bloß auf `/@`: Vite bedient
     // unter genau diesem Präfix seine eigenen Adressen (`/@vite/client`,
     // `/@fs/…`, `/@react-refresh`). Ein pauschales Umschreiben lieferte dem
     // Dev-Server statt seines Clients eine HTML-Seite — und zwar nur im Dev,
     // wo es keine Entsprechung in Produktion gibt.
     // `/tour/<kennung>` ist der zweite parametrisierte Namensraum (s.
-    // src/routen.ts); in Nginx ist das `location ^~ /tour/`. Anders als beim
+    // src/routes.ts); in Nginx ist das `location ^~ /tour/`. Anders als beim
     // Handle braucht es hier keine Zeichenprüfung — unter `/tour/` bedient
     // Vite nichts Eigenes.
     const handle = pfad.startsWith('/@') ? pfad.slice(2) : null
     const datei =
       pfad === '/'
         ? null
-        : handle && HANDLE_REGELN.test(handle)
-          ? ROUTEN.profil.datei
-          : tourAusPfad(pfad)
-            ? ROUTEN.player.datei
-            : PFAD_ZU_DATEI[pfad]
+        : handle && HANDLE_PATTERN.test(handle)
+          ? ROUTES.profile.file
+          : tourFromPath(pfad)
+            ? ROUTES.player.file
+            : PATH_TO_FILE[pfad]
     if (datei) req.url = `/${datei}${rest}`
   }
   // Bewusst kein Ausdrucks-Body: `middlewares.use()` gibt die Connect-App
@@ -345,14 +345,14 @@ function beobachteDoku(server) {
  * Werkzeug-Knopf schreibt, wie vorher in der Seite auch). Nicht stattdessen
  * `@import` in jeden `<style>`-Block — Vite löst den zwar korrekt auf, kopiert
  * die Dateien dann aber in JEDE Seite; der geteilte Browser-Cache über alle
- * Einstiege war der Grund für die eigenen Dateien (s. Kopf von src/basis.css).
+ * Einstiege war der Grund für die eigenen Dateien (s. Kopf von src/base.css).
  */
 /**
  * Die geteilten Blätter in der Reihenfolge, in der sie gelten müssen. Sie
- * tragen ihren Namen als Custom Property (`--blatt-basis: 1` usw.) — s. unten,
+ * tragen ihren Namen als Custom Property (`--sheet-base: 1` usw.) — s. unten,
  * warum der DATEINAME nach dem Bauen nichts mehr taugt.
  */
-export const GETEILTE_BLAETTER = ['basis', 'werkzeug', 'grundelemente']
+export const GETEILTE_BLAETTER = ['base', 'toolkit', 'page-elements']
 
 export function basisZuerst() {
   return {
@@ -369,17 +369,17 @@ export function basisZuerst() {
         if (!verweise.length) return html
 
         // Untereinander zählt die Reihenfolge auch: `.km-eintrag` aus
-        // grundelemente.css überschreibt bewusst den Werkzeug-Knopf, wie
+        // page-elements.css überschreibt bewusst den Werkzeug-Knopf, wie
         // vorher in der Seite auch. Der Dateiname trägt das nicht mehr — Vite
         // benennt eine CSS-Datei nach dem JS-Chunk, in den sie fällt, und
-        // grundelemente.css heißt im dist `app-nav-<hash>.css`, weil Galerie,
+        // page-elements.css heißt im dist `app-nav-<hash>.css`, weil Galerie,
         // Konto und Profil sich dieses Modul teilen. `originalFileNames` ist
         // für CSS-Assets leer. Also erkennt jedes Blatt sich an seiner eigenen
         // Custom Property, die die Minifizierung nicht wegwirft.
         const rang = (verweis) => {
           const pfad = verweis.match(/href="\/?([^"]+)"/)?.[1]
           const quelle = String(ctx.bundle?.[pfad?.replace(/^\//, '')]?.source ?? '')
-          const treffer = GETEILTE_BLAETTER.findIndex((b) => quelle.includes(`--blatt-${b}:`))
+          const treffer = GETEILTE_BLAETTER.findIndex((b) => quelle.includes(`--sheet-${b}:`))
           return treffer === -1 ? GETEILTE_BLAETTER.length : treffer
         }
         const sortiert = verweise
@@ -414,12 +414,12 @@ export default defineConfig({
     // Targets (TLA: Chrome 89+/Firefox 89+/Safari 15+) kann die App ohnehin
     // voraussetzen, MapLibre GL verlangt moderne Browser.
     target: ['es2022', 'chrome107', 'edge107', 'firefox104', 'safari16'],
-    // Einstiegsseiten kommen aus src/routen.ts — derselben Tabelle, aus der
+    // Einstiegsseiten kommen aus src/routes.ts — derselben Tabelle, aus der
     // sich Links, Dev-Middleware und der Nginx-Block ableiten. `/` ist die
     // schlanke Landing (kein MapLibre), der Player liegt unter /erlebnis —
     // Alt-Deeplinks `/?tour=…` (und die App-WebView) fängt ein Redirect in
     // index.html ab.
-    rollupOptions: { input: EINSTIEGE },
+    rollupOptions: { input: ENTRIES },
   },
   server: {
     port: Number(process.env.PORT) || 5173,
@@ -436,7 +436,7 @@ export default defineConfig({
       //
       // Als Regex und nicht als Präfix `/@`: Vite bedient unter genau diesem
       // Präfix seine EIGENEN Adressen (`/@vite/client`, `/@fs/…`). Das Muster
-      // verlangt deshalb, was auch ein Handle sein darf (HANDLE_REGELN) —
+      // verlangt deshalb, was auch ein Handle sein darf (HANDLE_PATTERN) —
       // insbesondere keinen Schrägstrich, den Vites Pfade alle haben.
       //
       // Das Gegenstück in `saubereUrls()` schreibt weiterhin auf profil.html

@@ -24,8 +24,8 @@ warten, das nicht.
 darf vor dem Code laufen. Der Rest wartet auf den nächsten Release.
 Was wo liegt: [src/handle.ts](../../src/handle.ts) (Regeln, reservierte Wörter,
 `zuHandle`) mit Server-Kopie [server/src/handle.ts](../../server/src/handle.ts)
-und Drift-Wächter; `profilPfad`/`handleAusPfad` in
-[src/routen.ts](../../src/routen.ts); Migration 11+12 in
+und Drift-Wächter; `profilePath`/`handleAusPfad` in
+[src/routes.ts](../../src/routes.ts); Migration 11+12 in
 [server/src/db.ts](../../server/src/db.ts); Vergabe und 90-Tage-Sperre in
 [server/src/auth/auth.ts](../../server/src/auth/auth.ts).
 
@@ -39,7 +39,7 @@ Ohne jede sichtbare Änderung an der Oberfläche.
 - Vergabe beim Anlegen des Kontos: aus dem Lokalteil der E-Mail
   transliteriert (`zuHandle()` aus dem Mockup), bei Kollision mit Zähler.
   Bestandskonten bekommen ihren Handle in derselben Migration.
-- Reservierte Wörter **neben** [src/routen.ts](../../src/routen.ts) pflegen, samt
+- Reservierte Wörter **neben** [src/routes.ts](../../src/routes.ts) pflegen, samt
   Drift-Wächter: Ein neuer Pfad darf keinen vergebenen Handle überschreiben.
 - `GET /api/benutzer/:handle/profil` zusätzlich zur ID-Variante
   ([server/src/routes/gallery.ts](../../server/src/routes/gallery.ts) kennt heute
@@ -49,8 +49,8 @@ Ohne jede sichtbare Änderung an der Oberfläche.
   die Client-Prüfung bleibt reine Bequemlichkeit).
 
 **Web**
-- [src/routen.ts](../../src/routen.ts): Eintrag `profil` bekommt eine Funktion
-  `profilPfad(handle)` → `/@henrik`. Die alte Form `?id=…` bleibt als Alias
+- [src/routes.ts](../../src/routes.ts): Eintrag `profil` bekommt eine Funktion
+  `profilePath(handle)` → `/@henrik`. Die alte Form `?id=…` bleibt als Alias
   bestehen und leitet weiter — Mail- und Chat-Links sind in der Welt.
 - **Vhost von Hand nachziehen.** Der Deploy zieht ihn nicht mit; die Datei liegt
   auf dem Server unter `/etc/nginx/sites-enabled/maptale.io.conf` (SSH als
@@ -66,7 +66,7 @@ Ohne jede sichtbare Änderung an der Oberfläche.
   `systemctl reload nginx`, dann Gegenprobe mit `curl -I https://maptale.io/@henrik`.
   [deploy/cloudpanel-nginx.conf](../../deploy/cloudpanel-nginx.conf) ist nur die
   Vorlage im Repo und muss dieselbe Zeile bekommen, sonst driftet sie weiter
-  ab. Der Wächter in [test/routen.test.ts](../../test/routen.test.ts) prüft die
+  ab. Der Wächter in [test/routes.test.ts](../../test/routes.test.ts) prüft die
   neue Regel mit.
 - Reihenfolge beim Ausrollen: Vhost zuerst schadet nicht (`/@…` antwortet dann
   mit der Profilseite, die den unbekannten Handle als „nicht gefunden" zeigt),
@@ -74,7 +74,7 @@ Ohne jede sichtbare Änderung an der Oberfläche.
 - Dev-Middleware in [vite.config.js](../../vite.config.js) analog.
 
 **Fallstrick:** `@` ist in URLs erlaubt, aber `encodeURIComponent('@')` macht
-`%40` daraus. In `pfad()` also nicht durch die Query-Kodierung schicken.
+`%40` daraus. In `path()` also nicht durch die Query-Kodierung schicken.
 
 ---
 
@@ -93,7 +93,7 @@ dasselbe Ergebnis liefert.
 **Nachgezogen am 6. August 2026** (zusammen mit Etappe 3): Ein Profil ohne Anzeigenamen
 zeigt jetzt seinen Handle statt „Ohne Namen" (und dann nicht zweimal), und ohne gewähltes
 Titelbild steht im Banner eines der vier Vorschlagsbilder — deterministisch aus dem Handle
-gewählt (`standardTitelbild`), damit dieselbe Person nicht bei jedem Aufruf ein anderes
+gewählt (`defaultBanner`), damit dieselbe Person nicht bei jedem Aufruf ein anderes
 Kopfbild hat. Der Knopf im Titelbild-Dialog heißt deshalb „Zurücksetzen" statt „Entfernen":
 Danach steht dort nicht nichts.
 
@@ -112,8 +112,8 @@ für Fremde wie für den Besitzer, mit Bearbeiten-Modal.
 **Web**
 - Profilseite: Titelbild, Avatar, Handle, Ort, Links, Kennzahl-Chips,
   Tourenraster. Rechnende Teile DOM-frei nach
-  [src/galerie/galeriemodell.ts](../../src/galerie/galeriemodell.ts) bzw. ein
-  neues `profilmodell.ts` (Handle-Prüfung, Kennzahlen, Link-Typen) — testbar
+  [src/gallery/gallery-model.ts](../../src/gallery/gallery-model.ts) bzw. ein
+  neues `profile-model.ts` (Handle-Prüfung, Kennzahlen, Link-Typen) — testbar
   ohne Browser, wie im Projekt üblich.
 - Bearbeiten-Modal nur, wenn die Sitzung dem Profil gehört.
 
@@ -125,7 +125,7 @@ nicht das Formular.
 ## Etappe 3 — Kontoeinstellungen ✅
 
 **Umgesetzt am 6. August 2026.** Seite [konto.html](../../konto.html) +
-[src/konto/](../../src/konto/) unter `/konto`; Migration 15 (Sitzungs-Kennzeichen,
+[src/account/](../../src/account/) unter `/konto`; Migration 15 (Sitzungs-Kennzeichen,
 `mail_tokens.nutzlast` + Zweck `email`); Routen `POST /api/auth/me/passwort`,
 `POST /api/auth/me/email`, `POST /api/auth/email-bestaetigen`,
 `GET|DELETE /api/auth/me/geraete[/:id]`, `GET /api/auth/me/speicher`; Mail-Vorlage
@@ -160,8 +160,8 @@ Gerät nicht dabei, das im Mockup als „Maptale App · Pixel 9" gezeichnet ist.
   vier Balkenabschnitte braucht es die Aufteilung nach Medienart.
 
 **Web**
-- Neuer Eintrag in [src/routen.ts](../../src/routen.ts) (`konto` → `/konto`),
-  neue Datei `konto.html` + `src/konto/`. Konto-Menü im Studio bekommt die zwei
+- Neuer Eintrag in [src/routes.ts](../../src/routes.ts) (`konto` → `/konto`),
+  neue Datei `konto.html` + `src/account/`. Konto-Menü im Studio bekommt die zwei
   Einträge „Mein Profil" und „Kontoeinstellungen".
 
 **Nicht vergessen:** Umami-Tag. Die Seite gehört in die Gruppe „mit Tag" oder
@@ -276,7 +276,7 @@ Etwa eine Stunde, unabhängig vom Rest.
   `public/og/maptale.jpg` (1200 × 630) aus dem Landing-Hero plus Wortmarke.
 
 Zusammengehalten wird das Ganze von einem Wächter in
-[test/routen.test.ts](../../test/routen.test.ts): Jeder Pfad aus `ROUTEN` muss
+[test/routes.test.ts](../../test/routes.test.ts): Jeder Pfad aus `ROUTES` muss
 in der Sitemap stehen, in der robots.txt gesperrt sein oder ausdrücklich als
 „gecrawlt, nicht gelistet" geführt werden. Eine neue Seite, die in keiner von
 beiden vorkommt, funktioniert sonst tadellos — sie taucht nur nie in einer
@@ -285,8 +285,8 @@ Suche auf, und niemand merkt es.
 ### Nachgezogen: die Tour bekommt eine eigene Adresse
 
 Aus der Frage „warum eigentlich `?tour=…` und nicht `/tour/<nr>`?" wurde ein
-eigener Namensraum: **`/tour/<kennung>`** (`tourPfad`/`tourAusPfad` in
-[src/routen.ts](../../src/routen.ts), `location ^~ /tour/` im Vhost,
+eigener Namensraum: **`/tour/<kennung>`** (`tourPath`/`tourFromPath` in
+[src/routes.ts](../../src/routes.ts), `location ^~ /tour/` im Vhost,
 Gegenstück in [vite.config.js](../../vite.config.js)). Ein Query-Parameter ist
 kein Ort — solange die Tour einer war, konnte sie weder eine eigene
 Vorschaukarte noch einen Sitemap-Eintrag bekommen. Der Pfad ist die
@@ -437,10 +437,10 @@ etwas anderes, als unter dem eigenen Namen auffindbar zu sein).
 Das ist keine gewachsene Eigenheit, sondern Duplikation mit messbarem Drift.
 Die Radien sind nur das Symptom, an dem es auffiel.
 
-**Der Weg: eine echte CSS-Datei, kein Kompromiss.** `src/basis.css` mit den
+**Der Weg: eine echte CSS-Datei, kein Kompromiss.** `src/base.css` mit den
 Tokens (Farben, Radien, Schatten, Typo) und den Grundelementen, die auf jeder
 Seite vorkommen — Knöpfe, Felder, Topbar, Dialogschicht, Tafeln. Eingebunden per
-`import './basis.css'` im Einstiegs-TS jeder Seite; Vite bündelt, hasht und
+`import './base.css'` im Einstiegs-TS jeder Seite; Vite bündelt, hasht und
 hängt das `<link>` beim Build selbst ein. Seitenspezifisches CSS bleibt
 zunächst, wo es ist, und wandert schrittweise nach.
 
@@ -457,7 +457,7 @@ niemand sieht. Festgeschrieben wird er in [DESIGN.md](../../DESIGN.md).
 
 **Reihenfolge**, damit das nicht ein Umbau über alles wird:
 
-1. `basis.css` mit den Tokens, EIN Namenssystem (`--akzent` gewinnt, weil es in
+1. `base.css` mit den Tokens, EIN Namenssystem (`--akzent` gewinnt, weil es in
    vier von sechs Dateien steht). Alle Seiten importieren sie; die lokalen
    `:root`-Blöcke fallen weg, `--amber`/`--ink` werden umbenannt.
 2. Die Grundelemente nachziehen (Knöpfe, Felder, Topbar, Dialoge) — Seite für
@@ -469,12 +469,12 @@ Schritt 1 ist klein und bringt den größten Teil des Nutzens. Die Schritte 2 un
 3 können liegen bleiben, ohne dass etwas inkonsistent wird.
 
 **Umgesetzt am 6. August 2026, alle drei Schritte.** Was wo liegt:
-[src/basis.css](../../src/basis.css) (Tokens, jede Seite),
-[src/grundelemente.css](../../src/grundelemente.css) (Kopfleiste, Konto-Menü,
+[src/base.css](../../src/base.css) (Tokens, jede Seite),
+[src/page-elements.css](../../src/page-elements.css) (Kopfleiste, Konto-Menü,
 Dialogschicht, Fußzeile — die Produkt-Seiten) und
-[src/werkzeug.css](../../src/werkzeug.css) (Knöpfe, Felder, Etiketten von Studio
+[src/toolkit.css](../../src/toolkit.css) (Knöpfe, Felder, Etiketten von Studio
 und Verwaltung). Der Drift-Wächter steht in
-[test/basis-css.test.ts](../../test/basis-css.test.ts).
+[test/base-css.test.ts](../../test/base-css.test.ts).
 
 Vier Dinge, die beim Umsetzen anders kamen als geplant:
 

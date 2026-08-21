@@ -52,7 +52,7 @@ Fehlen schließen, und genau dieses Schließen kostet den Moment Unsicherheit, d
 macht. Die Texte dieser Bereiche kommen ohne Gedankenstrich aus (zwei Sätze statt einem mit
 Einschub) und ohne Sätze, die nur die Überschrift wiederholen; die Fehlermeldungen des Servers
 gehören dazu, sie erscheinen in denselben Formularen. Beim ANMELDEN hängt am Passwortfeld nur
-der Sichtbarkeits-Schalter, keine Stärkeanzeige (`haengePasswortfeld(el, { bewertung: false })`):
+der Sichtbarkeits-Schalter, keine Stärkeanzeige (`attachPasswordField(el, { showStrength: false })`):
 Ein bestehendes Passwort zu benoten ändert nichts mehr.
 
 **Die Bibliothek ist die Bühne.** Kacheln mit Titelbild statt Zeilen; über dem Bild liegt die
@@ -170,7 +170,7 @@ nichts Ungespeichertes im Editor steht** (`canAddMedia`, gefragt vor der Dateiau
 Der Lauf endet mit `loadData`, und das baut den Zustand aus der Server-Fassung neu auf —
 samt leerer Undo-Historie. Die Fußzeile verspricht „Deine Schnitte bleiben"; für
 ungespeicherte war das vorher das Gegenteil der Wahrheit. Die Ablage-
-Aufnahme ist im Streifen ein **Ring, kein zweiter Farbton** — `--warn` und `--akzent` sind
+Aufnahme ist im Streifen ein **Ring, kein zweiter Farbton** — `--warn` und `--primary` sind
 beide Bernstein und nebeneinander nicht zu unterscheiden (gefüllt = sitzt auf der Strecke,
 offen = hat noch keinen Ort). `STRIP_EDGE` in [editor.ts](editor.ts) und
 `--strip-margin` im CSS sind DIESELBE Zahl; laufen sie auseinander, sitzen die Punkte neben

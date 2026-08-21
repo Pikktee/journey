@@ -16,7 +16,7 @@ import {
 } from '../card-timing.js'
 import type { CardMedium, CardSource, CardText } from '../card-painter.js'
 import { createCardLayer, type CardLayer } from '../card-layer.js'
-import { pfad, tourPfad } from '../routen.js'
+import { path, tourPath } from '../routes.js'
 import { DESCRIPTION_MAX } from '../tour-texts.js'
 import { wireTooltips } from './tooltip.js'
 import * as api from './api.js'
@@ -379,7 +379,7 @@ export async function openEditor(tourId: string, back: () => void): Promise<void
     await loadData(tourId)
     status('')
   } catch (error) {
-    status((error as Error).message, 'fehler')
+    status((error as Error).message, 'error')
   }
 }
 
@@ -413,7 +413,7 @@ async function loadData(tourId: string): Promise<void> {
   ;($('editor-finale-target') as HTMLInputElement).value = data.finaleTarget ?? ''
   ;($('editor-finale-target-field') as HTMLElement).hidden = !finaleOn
   showTitleInHeader()
-  ;($('editor-preview') as HTMLAnchorElement).href = tourPfad(`srv:${tourId}`)
+  ;($('editor-preview') as HTMLAnchorElement).href = tourPath(`srv:${tourId}`)
   ;($('editor-preview') as HTMLAnchorElement).style.display = data.status === 'ready' ? '' : 'none'
   ;($('editor-film') as HTMLButtonElement).hidden = data.status !== 'ready'
 
@@ -835,7 +835,7 @@ function buildMarkerEntry(stop: Stop, _key: string): MarkerEntry | null {
   el.appendChild(core)
   if (count > 1) {
     const plakette = document.createElement('span')
-    plakette.className = 'anzahl'
+    plakette.className = 'count'
     plakette.textContent = String(count)
     el.appendChild(plakette)
   }
@@ -1381,7 +1381,7 @@ function countDescription(): void {
   if (!field || !counter) return
   const length = field.value.trim().length
   counter.textContent = `${length} / ${DESCRIPTION_MAX}`
-  counter.classList.toggle('knapp', length > DESCRIPTION_MAX)
+  counter.classList.toggle('low', length > DESCRIPTION_MAX)
 }
 
 function hasUnsaved(state: State): boolean {
@@ -1413,7 +1413,7 @@ function canAddMedia(): boolean {
   if (hasUnsaved(z)) {
     status(
       'Erst speichern: Beim Hinzufügen baut der Server die Tour neu, und alles, was noch nicht gespeichert ist, ginge dabei verloren.',
-      'warnung',
+      'warning',
     )
     return false
   }
@@ -1427,7 +1427,7 @@ async function openAddMedia(fileList: FileList | null): Promise<void> {
   if (!usable.length) {
     status(
       'Keine brauchbare Datei dabei — es gehen Fotos (JPG, PNG, WebP) und Videos (MP4, MOV, WebM).',
-      'fehler',
+      'error',
     )
     return
   }
@@ -1541,7 +1541,7 @@ function renderAddMedia(): void {
     const row = document.createElement('div')
     row.className = `add-row ${a.classification}${travel ? ' remove' : ''}`
     const time = document.createElement('span')
-    time.className = 'zeit'
+    time.className = 'time'
     time.textContent =
       a.classification === 'tray' && a.timeGuessed ? '—' : clockTimeFromMs(a.timeMs)
     const name = document.createElement('span')
@@ -1673,7 +1673,7 @@ async function addAfter(): Promise<void> {
     )
   } catch (error) {
     const reason = (error as Error).message
-    hint.className = 'add-hint fehler'
+    hint.className = 'add-hint error'
     const stays = registeredIds.length ? await takeAddMediaBack(tourId, registeredIds, hint) : []
     if (stays.length) {
       // Auch das Aufräumen ist gescheitert: Ein zweiter Versuch legte jetzt
@@ -1817,7 +1817,7 @@ function hint(text: string): HTMLElement {
  *  statt sie mit einem Nachsatz zu verlängern (Muster wie in der Bibliothek). */
 function field(label: string, content: HTMLElement, explanation?: string): HTMLElement {
   const d = document.createElement('div')
-  d.className = 'feld'
+  d.className = 'field'
   const l = document.createElement('label')
   l.textContent = label
   if (explanation) {
@@ -2765,7 +2765,7 @@ function buildMediumFields(m: MediaView): HTMLElement {
   if (!m.anchor) {
     const place = document.createElement('button')
     place.textContent = z?.place === m.id ? 'Platzieren abbrechen' : 'Auf der Karte platzieren'
-    if (z?.place === m.id) place.classList.add('aktiv')
+    if (z?.place === m.id) place.classList.add('active')
     place.addEventListener('click', () => {
       if (!z) return
       z.place = z.place === m.id ? null : m.id
@@ -2837,7 +2837,7 @@ function showLarge(id: string): void {
 
   const links = document.createElement('button')
   links.type = 'button'
-  links.className = 'browse links'
+  links.className = 'browse left'
   links.setAttribute('aria-label', 'Vorige')
   links.innerHTML = icon('arrow-l')
   links.disabled = i <= 0
@@ -3257,7 +3257,7 @@ function startPreview(a: AudioEntry): void {
   })
   void audio
     .play()
-    .catch(() => audioStatus('Vorhören blockiert. Einmal in die Seite klicken.', 'fehler'))
+    .catch(() => audioStatus('Vorhören blockiert. Einmal in die Seite klicken.', 'error'))
   preview = { audio, file: a.file }
 }
 
@@ -3286,7 +3286,7 @@ async function libraryUpload(file: File): Promise<void> {
   if (!AUDIO_EXTENSIONS.includes(extension)) {
     audioStatus(
       `Nicht unterstützt: .${extension} (erlaubt: ${AUDIO_EXTENSIONS.join(', ')})`,
-      'fehler',
+      'error',
     )
     return
   }
@@ -3304,7 +3304,7 @@ async function libraryUpload(file: File): Promise<void> {
   try {
     await api.uploadLibraryAudio(name, file)
   } catch (error) {
-    audioStatus((error as Error).message, 'fehler')
+    audioStatus((error as Error).message, 'error')
     return
   }
   library = [...(library ?? []), { file: name, size: file.size, usedBy: [] }]
@@ -3387,7 +3387,7 @@ let sfxTarget: SfxTarget = { travelMode: 'einsetzen' }
 
 /** Meldungen zum Dialog-Geschehen: solange er offen ist, in seine eigene
  *  Fußzeile — die Editor-Statuszeile läge unsichtbar hinter dem Backdrop. */
-function sfxStatus(text: string, kind?: 'ok' | 'fehler'): void {
+function sfxStatus(text: string, kind?: 'ok' | 'error'): void {
   const dialog = $('sfx-dialog') as HTMLDialogElement
   if (!dialog.open) {
     audioStatus(text, kind)
@@ -3529,7 +3529,7 @@ function sfxPreview(id: string, url: string): void {
     })
     void dialogAudio
       .play()
-      .catch(() => sfxStatus('Vorhören blockiert. Einmal in die Seite klicken.', 'fehler'))
+      .catch(() => sfxStatus('Vorhören blockiert. Einmal in die Seite klicken.', 'error'))
   }
   buildSfxList()
 }
@@ -3709,7 +3709,7 @@ async function libraryDelete(file: string): Promise<void> {
     library = (library ?? []).filter((d) => d.file !== file)
     sfxStatus(`${file} gelöscht.`, 'ok')
   } catch (error) {
-    sfxStatus((error as Error).message, 'fehler')
+    sfxStatus((error as Error).message, 'error')
     // Der Server kennt die Wahrheit (z. B. inzwischen in einer Tour verwendet) —
     // die Verwendungs-Info auffrischen, damit die Sperre sichtbar wird.
     void loadLibrary()
@@ -3890,7 +3890,7 @@ async function deleteAudioFile(file: string, silent = false): Promise<void> {
     z.data.audio = (z.data.audio ?? []).filter((a) => a.file !== file)
     if (!silent) audioStatus(`${file} gelöscht.`, 'ok')
   } catch (error) {
-    if (!silent) audioStatus((error as Error).message, 'fehler')
+    if (!silent) audioStatus((error as Error).message, 'error')
   }
   renderAll()
 }
@@ -4280,7 +4280,7 @@ function renderTimeline(): void {
       b.value ? WEATHER_COLORS[b.value] : undefined,
       intensityTxt,
     )
-    if (!b.value) d.classList.add('leise')
+    if (!b.value) d.classList.add('quiet')
     else d.classList.add('bright')
     if (!hasOwnWeather && b.value) {
       d.title = `${WEATHER_NAMES[b.value]}, automatisch ermittelt (Wetterarchiv, an den Fotos nachgeschärft). Ändern übernimmt die ganze Einteilung.`
@@ -4497,7 +4497,7 @@ function buildMomentClip(from: string): HTMLElement {
   clip.dataset['from'] = from
 
   const content = document.createElement('span')
-  content.className = 'inhalt'
+  content.className = 'content'
   const glyph = document.createElement('span')
   glyph.className = 'moment-mark'
   const info = document.createElement('span')
@@ -4561,7 +4561,7 @@ function buildClip(m: MediaView): HTMLElement {
   clip.dataset['ids'] = m.id
 
   const content = document.createElement('span')
-  content.className = 'inhalt'
+  content.className = 'content'
   const info = document.createElement('span')
   info.className = 'info'
   info.append(document.createElement('b'), document.createElement('small'))
@@ -4609,7 +4609,7 @@ function buildClip(m: MediaView): HTMLElement {
  *  ein `img` mit der .mp4 als Quelle zeigte nur das Symbol für „kaputt". */
 function imageField(m: MediaView, where: 'start' | 'end'): HTMLElement {
   const field = document.createElement('span')
-  field.className = `bild ${where}`
+  field.className = `image ${where}`
   if (m.type === 'video' && !m.thumb && !m.poster) return field
   const image = document.createElement('img')
   image.src = thumbnailSource(m)
@@ -5729,7 +5729,7 @@ function renderRuler(): void {
   if (widthPx <= 0 || !totalS) return
   for (const m of buildFilmRuler(axis, widthPx / totalS)) {
     const d = document.createElement('div')
-    d.className = 'scale-mark' + (m.full ? ' voll' : '') + (m.edge ? ` at-${m.edge}` : '')
+    d.className = 'scale-mark' + (m.full ? ' full' : '') + (m.edge ? ` at-${m.edge}` : '')
     d.style.left = pos(m.fraction)
     d.append(m.text, document.createElement('i'))
     field.appendChild(d)
@@ -6424,7 +6424,7 @@ function wireTimeline(): void {
   // — Werkzeuge: Hand pannt, Zoom klickt/zieht. Der Abspielkopf bleibt in
   //   jedem Werkzeug greifbar (er ist von diesem Handler ausgenommen). —
   $('timeline-zone')
-    .querySelector('.werkzeuge')
+    .querySelector('.tools')
     ?.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('.tool')
       if (b?.dataset['tool']) setTool(b.dataset['tool'] as typeof tool)
@@ -6552,7 +6552,7 @@ function setTool(w: typeof tool): void {
 /**
  * Flash-Meldung unter der Kopfleiste (DESIGN.md → Flash Messages). EIN Element,
  * eine neue Meldung ersetzt die alte — die Semantik der früheren Statuszeile.
- * 'ok' blendet nach ~4 s aus, 'fehler' nach ~7 s; eine neutrale Meldung
+ * 'ok' blendet nach ~4 s aus, 'error' nach ~7 s; eine neutrale Meldung
  * („… wird geladen") trägt einen Kreisel und bleibt, bis sie abgelöst oder mit
  * status('') aufgeräumt wird.
  *
@@ -6568,19 +6568,19 @@ function status(text: string, className = ''): void {
     clearTimeout(flashClock)
     flashClock = null
   }
-  const wasVisible = el.classList.contains('zeigt')
+  const wasVisible = el.classList.contains('showing')
   if (!text) {
-    el.classList.remove('zeigt', 'pop')
+    el.classList.remove('showing', 'pop')
     return
   }
-  el.className = `editor-flash zeigt ${className}`
+  el.className = `editor-flash showing ${className}`
   // Symbol statisch, der TEXT über textContent — Meldungen tragen Dateinamen.
   el.innerHTML =
     className === 'ok'
       ? icon('check')
-      : className === 'fehler'
+      : className === 'error'
         ? icon('x')
-        : className === 'warnung'
+        : className === 'warning'
           ? icon('warning')
           : '<span class="spinner"></span>'
   const span = document.createElement('span')
@@ -6595,12 +6595,12 @@ function status(text: string, className = ''): void {
   if (className) {
     flashClock = window.setTimeout(
       () => {
-        el.classList.remove('zeigt', 'pop')
+        el.classList.remove('showing', 'pop')
         flashClock = null
       },
       // Die Warnung steht so lange wie der geschärfte Knopf: Sie ERKLÄRT ihn.
       // Verschwände sie früher, bliebe ein Knopf mit einer Frage ohne Kontext.
-      className === 'fehler' ? 7000 : className === 'warnung' ? 6000 : 4000,
+      className === 'error' ? 7000 : className === 'warning' ? 6000 : 4000,
     )
   }
 }
@@ -7372,7 +7372,7 @@ function asksForDeletion(button: HTMLButtonElement, count: number): boolean {
     count === 1
       ? 'Beim Speichern wird die entfernte Aufnahme endgültig gelöscht — Datei und Speicherplatz sind danach weg. Nochmal klicken, um zu speichern.'
       : `Beim Speichern werden ${count} entfernte Aufnahmen endgültig gelöscht — Dateien und Speicherplatz sind danach weg. Nochmal klicken, um zu speichern.`,
-    'warnung',
+    'warning',
   )
   setTimeout(() => {
     if (button.isConnected) disarmSave(button)
@@ -7384,7 +7384,7 @@ async function save(): Promise<void> {
   if (!z) return
   const problem = validateOverlay(z.edits)
   if (problem) {
-    status(problem, 'fehler')
+    status(problem, 'error')
     return
   }
   const saveButton = $('editor-save') as HTMLButtonElement
@@ -7466,7 +7466,7 @@ async function save(): Promise<void> {
       'ok',
     )
   } catch (error) {
-    status((error as Error).message, 'fehler')
+    status((error as Error).message, 'error')
   } finally {
     saveButton.disabled = false
     saveButton.innerHTML = label
@@ -7513,7 +7513,7 @@ async function reprocess(): Promise<void> {
     await loadData(z.tourId)
     status('Neu verarbeitet. Bearbeitungen sind erhalten.', 'ok')
   } catch (error) {
-    status((error as Error).message, 'fehler')
+    status((error as Error).message, 'error')
   } finally {
     button.disabled = false
   }
@@ -7653,7 +7653,7 @@ function wireOnce(): void {
         closeLarge()
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        large.querySelector<HTMLButtonElement>('.links')?.click()
+        large.querySelector<HTMLButtonElement>('.left')?.click()
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
         large.querySelector<HTMLButtonElement>('.right')?.click()

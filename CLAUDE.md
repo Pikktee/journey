@@ -33,21 +33,21 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 - **Studio** ([studio.html](studio.html) + [src/studio/](src/studio/)): Weboberfläche zum
   Hochladen und Bearbeiten aufgezeichneter Touren (s. eigener Abschnitt unten).
 - **Öffentliche Seiten**: [galerie.html](galerie.html) (alle auf `public` gestellten Touren,
-  Logik in [src/galerie/](src/galerie/)) und [profil.html](profil.html) (`/@henrik`, die
-  Reisen einer Person; `?id=…` bleibt als Alias, Logik in [src/profil/](src/profil/)). Beide
+  Logik in [src/gallery/](src/gallery/)) und [profil.html](profil.html) (`/@henrik`, die
+  Reisen einer Person; `?id=…` bleibt als Alias, Logik in [src/profile/](src/profile/)). Beide
   ohne Anmeldung; die Kartendaten teilen sie sich
-  ([galeriemodell.ts](src/galerie/galeriemodell.ts)), alles Übrige der Profilseite —
+  ([gallery-model.ts](src/gallery/gallery-model.ts)), alles Übrige der Profilseite —
   Kennzahlen, Link-Chips, „gehört mir?" — steht DOM-frei in
-  [profilmodell.ts](src/profil/profilmodell.ts). **Kennzahlen summiert der SERVER und nur
+  [profile-model.ts](src/profile/profile-model.ts). **Kennzahlen summiert der SERVER und nur
   über öffentliche Touren**: „12 Touren" neben drei sichtbaren Karten wäre eine Auskunft über
   die anderen neun. Das Bearbeiten-Modal wird erst für den Besitzer nachgeladen
-  ([profilbearbeiten.ts](src/profil/profilbearbeiten.ts)). Ohne Anzeigenamen steht im Kopf
+  ([edit-profile.ts](src/profile/edit-profile.ts)). Ohne Anzeigenamen steht im Kopf
   der HANDLE (nicht „Ohne Namen" — das beschrieb ein leeres Datenbankfeld, nicht die
   Person; er fällt dann aus dem Beiwerk, sonst stünde er zweimal), und ohne gewähltes
   Titelbild zeigt das Banner eines der vier mitgelieferten, deterministisch aus dem Handle
-  gewählt ([titelbilder.ts](src/profil/titelbilder.ts) `standardTitelbild`) — zufällig
+  gewählt ([profile-banners.ts](src/profile/profile-banners.ts) `defaultBanner`) — zufällig
   bekäme dieselbe Person bei jedem Aufruf ein anderes Kopfbild.
-- **Kontoeinstellungen** ([konto.html](konto.html) + [src/konto/](src/konto/)): eigene Seite
+- **Kontoeinstellungen** ([konto.html](konto.html) + [src/account/](src/account/)): eigene Seite
   unter `/konto`, nicht im Studio (s. eigener Abschnitt unten).
 - **Benutzerverwaltung** ([admin.html](admin.html) + [src/admin/](src/admin/)): Konten,
   Rollen und Einladungen (s. eigener Abschnitt unten).
@@ -81,15 +81,15 @@ färbt ihn amber und bekommt den Halo `--fokus-ring`; was keinen hat (Knöpfe, L
 bekommt `outline: 2px` mit `outline-offset: 2px`. Beides zusammen war der Doppelring, der im
 Studio stand — Rand amber, Outline mit Abstand daneben, Fläche dunkler: drei Signale für einen
 Zustand, und keines davon so in DESIGN.md. Ein Wächter hält jetzt beide Hälften
-([test/basis-css.test.ts](test/basis-css.test.ts)): jeder abweichende Offset (er war einmal
+([test/base-css.test.ts](test/base-css.test.ts)): jeder abweichende Offset (er war einmal
 3 px, einmal −2 px) und jeder selbst gemischte Halo (15 %, 22 %, 55 % Amber für dieselbe
 Sache) fällt auf. Nach innen darf die Outline nur, wo der Überstand ohnehin beschnitten wird —
 die Galerie-Karte und der Aufklapper im Inspector stehen als benannte Ausnahmen im Test.
 
-**Im Web sind die Tokens genau eine Datei:** [`src/basis.css`](src/basis.css) — Farben,
+**Im Web sind die Tokens genau eine Datei:** [`src/base.css`](src/base.css) — Farben,
 Radien, Schrift, Maße, aus dem YAML-Kopf von DESIGN.md abgeleitet. Daneben liegen die
-geteilten Bausteine: [`grundelemente.css`](src/grundelemente.css) (Kopfleiste, Konto-Menü,
-Dialogschicht, Fußzeile — die Produkt-Seiten) und [`werkzeug.css`](src/werkzeug.css) (Knöpfe,
+geteilten Bausteine: [`page-elements.css`](src/page-elements.css) (Kopfleiste, Konto-Menü,
+Dialogschicht, Fußzeile — die Produkt-Seiten) und [`toolkit.css`](src/toolkit.css) (Knöpfe,
 Felder, Etiketten von Studio und Verwaltung). **Zwei Dateien und nicht eine**, weil es zwei
 Knopf-Register gibt — Pillen auf den öffentlichen Seiten, Kästen im Werkzeug —, und
 `button.knopf` (Pille) `button, .knopf` (Kasten) durch die höhere Spezifität schlägt; in
@@ -101,12 +101,12 @@ Drei Regeln, die man dabei leicht kippt: **Die Blätter hängen als `<link>` VOR
 Verwaltung wurde so 80 px breiter, ohne dass sich eine Zeile ihres CSS änderte). Der
 Dev-Server tut das NICHT, es fiele erst nach dem Deploy auf; `basisZuerst()` in
 [vite.config.js](vite.config.js) stellt die Reihenfolge nach dem Bauen wieder her und erkennt
-die Blätter an einer eigenen Custom Property (`--blatt-basis: 1`), weil Vite eine CSS-Datei
+die Blätter an einer eigenen Custom Property (`--sheet-base: 1`), weil Vite eine CSS-Datei
 nach ihrem JS-Chunk benennt und nicht nach der Quelle. **Was zweimal vorkommt, gehört in ein
 Blatt; was einmal vorkommt, bleibt in der Seite** — dort stehen nur noch ihre Abweichungen
 (Lesebreite, Dialogbreite, Zeitleisten-Maße). Und **keine Farbe steht zweimal**: weder als
 eigenes Token in einer HTML-Datei noch roh in einer Regel. Ein Drift-Wächter
-([test/basis-css.test.ts](test/basis-css.test.ts)) hält DESIGN.md und `basis.css`
+([test/base-css.test.ts](test/base-css.test.ts)) hält DESIGN.md und `base.css`
 deckungsgleich, verbietet beides und findet Regeln, die eine Variable lesen, die es nicht
 gibt (`var(--text-3)` im Passwortfeld war so ein Fall — auf zwei von drei Seiten undefiniert,
 das Augen-Icon erbte deshalb die Textfarbe). `public/404.html` ist die eine erlaubte Kopie:
@@ -171,11 +171,11 @@ Es gibt drei unabhängige Frontends: den **Player** ([erlebnis.html](erlebnis.ht
 [src/studio/](src/studio/)) und eine schlanke **Landing** ([index.html](index.html), kein
 MapLibre). Alle sind eigene Vite-Einstiege ([vite.config.js](vite.config.js)).
 
-**Der URL-Raum steht in [src/routen.ts](src/routen.ts) — und nur dort.** Kein Router: Nginx
+**Der URL-Raum steht in [src/routes.ts](src/routes.ts) — und nur dort.** Kein Router: Nginx
 liefert die Seiten statisch aus, nur `/api` geht in den Container. Aus der Tabelle leiten sich
-die Vite-Eingänge, alle Links (`pfad('galerie')`), die Dev-Middleware in
+die Vite-Eingänge, alle Links (`path('gallery')`), die Dev-Middleware in
 [vite.config.js](vite.config.js) und die `location`-Blöcke des Vhosts ab; ein Drift-Wächter
-([test/routen.test.ts](test/routen.test.ts)) hält Vhost und die Server-Kopie
+([test/routes.test.ts](test/routes.test.ts)) hält Vhost und die Server-Kopie
 ([server/src/web-paths.ts](server/src/web-paths.ts), Mail-Links — eigener `rootDir`, kann nicht
 importieren) dagegen. **URLs tragen kein `.html`**; die `…​.html`-Adressen antworten zwar
 weiterhin (die Dateien liegen im Build), aber nichts im Code zeigt mehr dorthin — Nebeneffekt,
@@ -194,13 +194,13 @@ den sprachneutralen Namen, nicht den Pfad, und ändern sich nicht.
 
 **Neben der Tabelle liegen zwei parametrisierte Namensräume.** Der erste ist `/@henrik` — die Adresse einer
 Person ([src/handle.ts](src/handle.ts), Server-Kopie [server/src/handle.ts](server/src/handle.ts),
-Vhost `location ~ ^/@`). Er steht bewusst NICHT in `ROUTEN`: Ohne das `@` teilte sich ein
+Vhost `location ~ ^/@`). Er steht bewusst NICHT in `ROUTES`: Ohne das `@` teilte sich ein
 Handle den Namensraum mit allen Seitenpfaden, und jeder neue Pfad entwertete still einen
 vergebenen Handle. Aus demselben Grund ist die Liste reservierter Wörter eine eigene und
-keine Ableitung aus `ROUTEN` — der Wächter prüft nur die eine Richtung (jeder Pfad muss
+keine Ableitung aus `ROUTES` — der Wächter prüft nur die eine Richtung (jeder Pfad muss
 reserviert sein). Drei Dinge, die man dabei zerstört: `encodeURIComponent('@')` macht `%40`
-daraus (deshalb baut `profilPfad` den Pfad selbst); die Dev-Middleware muss gegen
-`HANDLE_REGELN` prüfen statt bloß auf `/@`, weil Vite unter genau diesem Präfix seine eigenen
+daraus (deshalb baut `profilePath` den Pfad selbst); die Dev-Middleware muss gegen
+`HANDLE_PATTERN` prüfen statt bloß auf `/@`, weil Vite unter genau diesem Präfix seine eigenen
 Adressen bedient (`/@vite/client`, `/@fs/…`); und ein geänderter Handle wandert 90 Tage in
 `reserved_handles`, damit alte Links weiter zur Person führen, statt an den nächsten
 Interessenten zu fallen. Die alte Form `?id=…` bleibt für immer bedienbar — die Profilseite
@@ -214,7 +214,7 @@ denselben Nginx (`MAPTALE_WEB_URL`, fünf Minuten im Speicher) und ersetzt darin
 Block zwischen `<!-- maptale:meta -->` und `<!-- /maptale:meta -->`** — die gehashten
 Asset-Verweise bleiben unangetastet, es gibt keine Kopplung an den Web-Build. Fehlen die
 Marker, wird die Seite stumm unverändert durchgereicht (Wächter in
-[test/routen.test.ts](test/routen.test.ts)). Drei Regeln, die man leicht kippt: **Indexiert
+[test/routes.test.ts](test/routes.test.ts)). Drei Regeln, die man leicht kippt: **Indexiert
 wird nur, wer BEIDES will** — öffentliches Profil UND den Schalter „In Suchmaschinen
 erscheinen" (`users.suchmaschinen`, Standard aus); **ein privates oder unbekanntes Profil
 verrät im Kopf nichts** (generischer Titel statt Name plus `noindex` — der Meta-Kopf steht im
@@ -226,8 +226,8 @@ und der öffentlichen Touren kommen aus der Datenbank (`/sitemap-profile.xml`,
 bleibt für die gebauten Seiten, und die robots.txt nennt alle drei. Fällt die API aus, ist die Profilseite
 weg — der Preis dafür, dass sie überhaupt etwas über sich sagen kann.
 
-**Der zweite ist `/tour/<kennung>`** — die Adresse einer Tour (`tourPfad`/`tourAusPfad` in
-[src/routen.ts](src/routen.ts), Vhost `location ^~ /tour/`). Vorher war die Tour ein
+**Der zweite ist `/tour/<kennung>`** — die Adresse einer Tour (`tourPath`/`tourFromPath` in
+[src/routes.ts](src/routes.ts), Vhost `location ^~ /tour/`). Vorher war die Tour ein
 Query-Parameter, und damit kein Ort: keine eigene Vorschaukarte, kein eigener Titel, kein
 Sitemap-Eintrag — all das hängt an einer Adresse, die für sich steht. Der Pfad ist die
 Vorbedingung dafür, dass der Server ihn mit Etappe 6 selbst beantwortet. **Die Kennung ist
@@ -985,13 +985,13 @@ steht in **[server/CLAUDE.md](server/CLAUDE.md)**.
 
 ## Kontoeinstellungen
 
-Eigene Seite ([konto.html](konto.html) + [src/konto/](src/konto/)), erreichbar über das
+Eigene Seite ([konto.html](konto.html) + [src/account/](src/account/)), erreichbar über das
 Konto-Menü — dort stehen seither zwei Einträge: „Mein Profil" (auf `/@handle`, nicht auf
 `/profil`) und „Kontoeinstellungen". Sie liegt NICHT im Studio: Das Studio ist der
 Schneideraum, das hier der Ordner mit den Papieren. Rechnende Teile stehen DOM-frei in
-[kontomodell.ts](src/konto/kontomodell.ts), die Formulare werden nachgeladen
-([kontodialoge.ts](src/konto/kontodialoge.ts)); die Dialogschicht teilt sie sich mit der
-Profilseite ([src/dialogschicht.ts](src/dialogschicht.ts)).
+[account-model.ts](src/account/account-model.ts), die Formulare werden nachgeladen
+([kontodialoge.ts](src/account/account-dialogs.ts)); die Dialogschicht teilt sie sich mit der
+Profilseite ([src/dialog-layer.ts](src/dialog-layer.ts)).
 
 Vier Dinge, die man dabei leicht „vereinfacht":
 
@@ -1011,7 +1011,7 @@ Vier Dinge, die man dabei leicht „vereinfacht":
   nicht dabei, an das die meisten zuerst denken. Die IDs tragen deshalb ein Präfix
   (`sitzung:` / `app:`). Von der Herkunft wird nur gespeichert, was zum Wiedererkennen
   nötig ist: roher User-Agent (die Deutung „Chrome auf macOS" passiert in
-  `kontomodell.ts`, damit eine bessere Deutung keine Migration kostet) und **zwei Oktette**
+  `account-model.ts`, damit eine bessere Deutung keine Migration kostet) und **zwei Oktette**
   der IP. Das steht so auch in [datenschutz.html](datenschutz.html) — wer es erweitert,
   ändert dort eine Zusage.
 - **Der Speicherbalken misst am LIMIT, nicht an der Summe**, und die Teile ergeben das
@@ -1034,8 +1034,8 @@ Vier Dinge, die man dabei leicht „vereinfacht":
   läuft VOR jeder Anmeldeprüfung und braucht keine Sitzung: signierter Token, ohne Frist.
 
 - **„Verbundene Dienste" ist die Oberfläche der Tracker-Anbindung**
-  ([trackerkarte.ts](src/konto/trackerkarte.ts), Sätze und Ton DOM-frei in
-  [trackermodell.ts](src/konto/trackermodell.ts)). Der ganze Block bleibt AUS, solange kein
+  ([tracker-card.ts](src/account/tracker-card.ts), Sätze und Ton DOM-frei in
+  [tracker-model.ts](src/account/tracker-model.ts)). Der ganze Block bleibt AUS, solange kein
   Anbieter registriert ist — eine Überschrift über einer leeren Tafel wäre eine Auskunft über
   nichts. Vier Zustände müssen unterscheidbar bleiben, und der teuerste Fehler wäre,
   `abgelaufen` wie „nicht verbunden" aussehen zu lassen: Dann wartet jemand auf Touren, die
@@ -1054,7 +1054,7 @@ auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.
   öffentlichem Profil. Bei privatem Profil ist er **gesperrt**, und die Zeile darunter sagt,
   worauf er wartet: Ein bedienbarer Schalter, der nichts tut, ist die schlechtere Auskunft
   als einer, der sichtbar auf etwas wartet. Die Sätze unter beiden Schaltern stehen in
-  [src/sichtbarkeit.ts](src/sichtbarkeit.ts) — sie erscheinen hier UND im Bearbeiten-Modal
+  [src/visibility.ts](src/visibility.ts) — sie erscheinen hier UND im Bearbeiten-Modal
   der Profilseite und waren genau deshalb schon einmal auseinandergelaufen. Was er bewirkt,
   entscheidet der Server: `index` nur bei öffentlichem Profil UND gesetztem Schalter
   ([server/src/routes/pages.ts](server/src/routes/pages.ts)). Das steht so auch in
@@ -1082,21 +1082,21 @@ auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.
 Eigene Seite ([admin.html](admin.html) + [src/admin/](src/admin/)), nicht Teil des Studios:
 Das Studio ist der Schneideraum für Touren, das hier ist Hausverwaltung. Erreichbar über das
 Konto-Menü im Studio — der Eintrag erscheint nur für Admins. Rechnende Teile liegen DOM-frei in
-[adminmodell.ts](src/admin/adminmodell.ts), Server-Seite in
+[admin-model.ts](src/admin/admin-model.ts), Server-Seite in
 [server/src/routes/admin.ts](server/src/routes/admin.ts) hinter `requireAdmin`.
 
 Die Reiter, das Protokoll und die Dialog-Fallen der Oberfläche stehen in
 **[src/admin/CLAUDE.md](src/admin/CLAUDE.md)**; Rollen, Einladungspflicht, Warteliste (DSGVO-
 Fristen!) und die System-Mails in **[server/CLAUDE.md](server/CLAUDE.md)**.
 
-**Passwörter werden bewertet, nicht reglementiert.** [passwortstaerke.ts](src/passwortstaerke.ts)
+**Passwörter werden bewertet, nicht reglementiert.** [password-strength.ts](src/password-strength.ts)
 (DOM-frei, getestet) folgt der NIST-Linie: **Länge ist der Hebel**, erzwungene Zeichenklassen
 sind es nicht — „Hund!2026" erfüllt jede klassische Regel und ist trotzdem schlecht,
 „lampe wolke treppe" erfüllt keine und ist gut. Abzüge gibt es für bekannte Muster,
 Tastaturwege, Wiederholungen und alles, was in Name oder E-Mail steht (deshalb bekommt die
 Bewertung diese Felder als FUNKTION — sie ändern sich, während das Passwort schon getippt ist).
 Bewusst kein zxcvbn: dessen Wörterbücher lägen im Basis-Bundle jeder Anmeldeseite.
-[passwortfeld.ts](src/passwortfeld.ts) hängt Balken, Rat und Sichtbarkeits-Schalter an ein
+[password-field.ts](src/password-field.ts) hängt Balken, Rat und Sichtbarkeits-Schalter an ein
 vorhandenes Input (Studio-Registrierung, Passwort-Reset, Admin-Dialog) und bringt sein CSS
 selbst mit — sonst stünde derselbe Block in zwei HTML-Dateien und liefe auseinander. Der
 Absende-Knopf sperrt erst, wenn tatsächlich etwas Schwaches im Feld steht: Ein von Anfang an
@@ -1198,7 +1198,7 @@ automatisch, sobald unter `android/` gearbeitet wird.
   WebView lädt; Aufzeichnen und Hochladen laufen an Umami vorbei.
 
 - **Rückmeldungen sind ein eigener Knopf, kein Postfach.** Die Kopfleiste trägt neben dem
-  Konto einen Feedback-Griff ([src/feedbackknopf.ts](src/feedbackknopf.ts)); er öffnet das
+  Konto einen Feedback-Griff ([src/feedback-button.ts](src/feedback-button.ts)); er öffnet das
   Formular ÜBER der aktuellen Seite, damit der technische Kontext die Seite nennt, auf der
   jemand etwas bemerkt hat. Dieselbe Maske steht unter `/feedback` — von dort holt sie die
   Android-App im WebView (`?app=1`, Kopf- und Fußzeile aus). **Für den Absender ist es EIN
@@ -1206,7 +1206,7 @@ automatisch, sobald unter `android/` gearbeitet wird.
   Verwaltung. Jede Pflichtangabe im Formular kostet in einer Alpha Meldungen.
   **Die technischen Angaben sind freiwillig und sichtbar** — Häkchen (Standard an) plus
   Aufklapper, der aus DEMSELBEN Objekt gebaut wird, das gesendet wird
-  ([feedbackmodell.ts](src/feedbackmodell.ts)); ein Häkchen ohne Einblick verlangt Vertrauen
+  ([feedback-model.ts](src/feedback-model.ts)); ein Häkchen ohne Einblick verlangt Vertrauen
   für etwas, das man zeigen kann. Die Seitenangabe trägt nur den PFAD: Query und Fragment
   tragen hier Einlöse-Token (`#email=…`, `#reset=…`). Welche Felder überhaupt ankommen,
   entscheidet der Server ([server/src/routes/feedback.ts](server/src/routes/feedback.ts)
@@ -1216,7 +1216,7 @@ automatisch, sobald unter `android/` gearbeitet wird.
   schicken.
 
 - **Der Entwicklungsstand steht hinter der Wortmarke** — das kleine Wort „Alpha", Markup und
-  Text aus [src/entwicklungsstand.ts](src/entwicklungsstand.ts). Es ist ANKLICKBAR und das ist
+  Text aus [src/release-stage.ts](src/release-stage.ts). Es ist ANKLICKBAR und das ist
   kein Beiwerk: Wer das Wort nicht kennt, klickt und liest dort, was der Stand für seine Daten
   bedeutet — ein bekannteres Wort wie „Beta" würde man zu verstehen glauben und nie öffnen.
   **Nicht „Preview"**, weil „Vorschau" hier bereits ein Fachwort der Oberfläche ist
@@ -1225,7 +1225,7 @@ automatisch, sobald unter `android/` gearbeitet wird.
   mehr Blicke auf sich als die Marke — der Stand soll genannt sein, nicht beworben. Und
   **erklären ist nicht melden**: Der Weg zur Rückmeldung ist ein eigener Knopf daneben (s.
   oben), nicht ein zweiter Klick im Hinweis.
-  **Das CSS steht STATISCH** in [grundelemente.css](src/grundelemente.css) und — weil die
+  **Das CSS steht STATISCH** in [page-elements.css](src/page-elements.css) und — weil die
   Landing dieses Blatt nicht lädt — noch einmal in [index.html](index.html): Per JavaScript
   eingehängte Regeln kommen nach dem Markup, das Wort blitzte dadurch bei jedem Laden kurz
   ungestaltet neben der Marke auf. Nur die Optik des Kärtchens hängt das Modul selbst ein, es
@@ -1239,17 +1239,17 @@ automatisch, sobald unter `android/` gearbeitet wird.
   in dem der Schriftzug steckt; dort trägt der Hinweis einen gemessenen `margin-bottom`, der
   sich aus der Logo-Geometrie ergibt (Grundlinie bei y=33,5 von 46 Einheiten, bei 40 px
   Anzeigehöhe also 9,2 px über der Bildunterkante). Wer Logo oder Höhe ändert, ändert diesen
-  Wert mit. Der Knopf steht NEBEN `.nav-right`, nicht darin: `montiereNavRechts`
+  Wert mit. Der Knopf steht NEBEN `.nav-right`, nicht darin: `mountNavRight`
   schreibt diesen Container neu, sobald `/auth/me` antwortet. Der **Player bekommt beides
   bewusst nicht** — oben links steht dort genau ein Element, der Weg hinaus. Gehalten von zwei
   Wächtern: der Vergleich gegen `appHeaderHtml` ([test/app-nav.test.ts](test/app-nav.test.ts))
-  deckt die fünf Produkt-Seiten ab, [test/entwicklungsstand.test.ts](test/entwicklungsstand.test.ts)
+  deckt die fünf Produkt-Seiten ab, [test/release-stage.test.ts](test/release-stage.test.ts)
   die Landing mit ihrer eigenen Kopfleiste.
 
-- **Auffindbarkeit ist eine dritte Ableitung von `ROUTEN`.** [public/robots.txt](public/robots.txt)
+- **Auffindbarkeit ist eine dritte Ableitung von `ROUTES`.** [public/robots.txt](public/robots.txt)
   sperrt Verwaltung, Konto und die Studio-Tür; [public/sitemap.xml](public/sitemap.xml) listet
   die vier statischen Seiten. Wer eine Seite dazunimmt, entscheidet also auch hier, in welche
-  Gruppe sie gehört — der Wächter in [test/routen.test.ts](test/routen.test.ts) verlangt für
+  Gruppe sie gehört — der Wächter in [test/routes.test.ts](test/routes.test.ts) verlangt für
   jeden Pfad genau eines: gelistet, gesperrt oder ausdrücklich „gecrawlt, nicht gelistet"
   (heute `/erlebnis` und `/profil`). **`Disallow` und `noindex` schließen sich aus**: Was nicht
   geholt werden darf, kann auch nicht gelesen werden — die URL landet dann ohne Inhalt im

@@ -1,6 +1,6 @@
 /**
  * Die mitgelieferten Titelbilder — Server-Kopie von
- * [src/profil/titelbilder.ts](../../src/profil/titelbilder.ts).
+ * [src/profile/profile-banners.ts](../../src/profile/profile-banners.ts).
  *
  * Zweite Fassung derselben Liste, wie bei `handle.ts` und `webpfade.ts`: Der
  * Server hat einen eigenen `rootDir` und kann `src/` nicht importieren. Ein

@@ -98,8 +98,8 @@ export type MessageType = 'ohne-ort' | 'ohne-zeit' | 'ausserhalb' | 'keine-orte'
 
 export interface Message {
   kind: MessageType
-  /** Ton der Meldung: `hinweis` erklärt nur, `warnung` verlangt eine Entscheidung */
-  tone: 'hinweis' | 'warnung'
+  /** Ton der Meldung: `hint` erklärt nur, `warning` verlangt eine Entscheidung */
+  tone: 'hint' | 'warning'
   text: string
   /** Dateien, um die es geht — der Knopf „Weglassen" greift genau auf sie zu */
   files: string[]
@@ -152,7 +152,7 @@ export function validate(gpx: string | null, media: readonly MediumReport[]): Im
     if (withoutLocation.length) {
       messages.push({
         kind: 'ohne-ort',
-        tone: 'hinweis',
+        tone: 'hint',
         text:
           withoutLocation.length === 1
             ? 'Eine Aufnahme ohne Ortsangabe, eingeordnet nach ihrer Uhrzeit.'
@@ -171,7 +171,7 @@ export function validate(gpx: string | null, media: readonly MediumReport[]): Im
       )
       messages.push({
         kind: 'ausserhalb',
-        tone: 'warnung',
+        tone: 'warning',
         text:
           outside.length === 1
             ? `Eine Aufnahme liegt ${formatDistance(delta)} außerhalb der Aufzeichnung.`
@@ -183,14 +183,14 @@ export function validate(gpx: string | null, media: readonly MediumReport[]): Im
     // Kein Track, aber verortete Fotos: die Orte SIND die Strecke.
     messages.push({
       kind: 'ohne-track',
-      tone: 'hinweis',
+      tone: 'hint',
       text: 'Keine Aufzeichnung dabei, die Kamera fliegt von Foto zu Foto, in der Reihenfolge der Uhrzeiten.',
       files: [],
     })
     if (withoutLocation.length) {
       messages.push({
         kind: 'ohne-ort',
-        tone: 'warnung',
+        tone: 'warning',
         text:
           withoutLocation.length === 1
             ? 'Eine Aufnahme hat keine Ortsangabe, sie bekommt im Editor von Hand einen Platz.'
@@ -201,7 +201,7 @@ export function validate(gpx: string | null, media: readonly MediumReport[]): Im
   } else if (media.length) {
     messages.push({
       kind: 'keine-orte',
-      tone: 'warnung',
+      tone: 'warning',
       text: 'Ohne Aufzeichnung braucht es mindestens zwei Fotos mit Ortsangabe, sonst gibt es keine Strecke, über die die Kamera fliegen könnte.',
       files: [],
     })
@@ -210,7 +210,7 @@ export function validate(gpx: string | null, media: readonly MediumReport[]): Im
   if (withoutTime.length) {
     messages.push({
       kind: 'ohne-zeit',
-      tone: 'hinweis',
+      tone: 'hint',
       text:
         withoutTime.length === 1
           ? 'Eine Aufnahme hat keinen Zeitstempel, es gilt das Datum der Datei.'

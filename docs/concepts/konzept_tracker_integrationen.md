@@ -4,7 +4,7 @@ status: Etappen 0–6 gebaut, Polar live (2026-08-10)
 betrifft:
   - server/
   - android/
-  - src/konto/
+  - src/account/
   - später ios/
 icon: puls
 ---
@@ -725,7 +725,7 @@ server/src/routes/
 server/test/tracker-*.test.ts
 server/test/fixtures/tracker/…      # echte, anonymisierte Payloads + FIT-Beispiel
 
-src/konto/trackerkarte.ts           # Web: Verknüpfungen in den Kontoeinstellungen
+src/account/tracker-card.ts           # Web: Verknüpfungen in den Kontoeinstellungen
 android/app/src/main/java/app/maptale/tracker/   # dünn: OAuth-Start, Deep Link, Foto-Nachzug
 ```
 

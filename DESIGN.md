@@ -18,6 +18,9 @@ colors:
   bg-deep: "#06080C"
   line: "rgba(255, 255, 255, 0.08)"
   topbar: "rgba(13, 17, 24, 0.82)"
+  # Die opake Trennlinie — Feldränder, Tafelkanten, Kopfleiste. `topbar-border`
+  # ist derselbe Wert unter dem Namen, unter dem ihn die Kopfleiste sucht.
+  border: "#232d3d"
   topbar-border: "#232d3d"
   on-cta: "#1a1206"
   # Flächenstufen über dem Grund — Karten, Felder, gehobene Zeilen.
@@ -85,7 +88,7 @@ rounded:
   full: 999px
 elevation:
   shadow: "0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35)"
-  focus-ring: "0 0 0 3px color-mix(in srgb, var(--akzent) 22%, transparent)"
+  focus-ring: "0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent)"
 spacing:
   wrap: 1160px
   page-gutter: 22px
@@ -155,35 +158,35 @@ Dunkle Flächen, ein warmer Akzentverlauf, cremefarbenes Textweiß.
 - **Line:** feine Trenner `rgba(255, 255, 255, 0.08)`; Topbar-Rand oft `#222b37`.
 - **On-CTA (`#1a1206`):** Text auf Amber/Coral-Knöpfen.
 
-### Ein Namenssystem: `src/basis.css`
+### Ein Namenssystem: `src/base.css`
 
 Die Werte oben stehen genau einmal im Code, als CSS-Variablen in
-[`src/basis.css`](src/basis.css). Jede Seite bindet sie ein (Einstiegsmodul per `import`,
+[`src/base.css`](src/base.css). Jede Seite bindet sie ein (Einstiegsmodul per `import`,
 die Landing und die Rechtstexte per `<link>` bzw. `@import` — sie haben kein Bundle).
 **Keine HTML-Datei definiert eigene Farb-Tokens**, und die Werte selbst stehen nirgends
-sonst roh im Code. Ein Drift-Wächter ([`test/basis-css.test.ts`](test/basis-css.test.ts))
+sonst roh im Code. Ein Drift-Wächter ([`test/base-css.test.ts`](test/base-css.test.ts))
 liest den YAML-Kopf dieser Datei und hält beides nach.
 
-Es gab zwei Namenssysteme für dieselben Farben (`--akzent`/`--text`/`--fl-1` in Studio,
+Es gab zwei Namenssysteme für dieselben Farben (`--primary`/`--text`/`--surface-1` in Studio,
 Admin, Galerie und Landing gegen `--amber`/`--ink` in Konto und Profil) — dazu ein drittes
 im Player, wo `--ink` nicht der Text, sondern der HINTERGRUND war. Es gilt das erste:
 
 | YAML | CSS-Variable | | YAML | CSS-Variable |
 |---|---|---|---|---|
-| `primary` / `amber` | `--akzent` | | `surface-1…3` | `--fl-1` … `--fl-3` |
-| `secondary` / `coral` | `--akzent-2` | | `border-strong` | `--rand-hell` |
+| `primary` / `amber` | `--primary` | | `surface-1…3` | `--surface-1` … `--surface-3` |
+| `secondary` / `coral` | `--secondary` | | `border-strong` | `--border-strong` |
 | `text` | `--text` | | `text-2` / `text-3` | `--text-2` / `--text-3` |
-| `muted` | `--text-gedaempft` | | `card` | `--tafel` |
-| `faint` | `--text-zart` | | `success` / `danger` | `--gruen` / `--rot` |
-| `bg` | `--bg` | | `info` / `accent-violet` | `--blau` / `--lila` |
-| `bg-deep` | `--bg-tief` | | `warning` | `--warn` |
-| `line` | `--linie` | | `glass` / `glass-border` | `--glas` / `--glas-rand` |
-| `topbar` | `--topbar-bg` | | `paper` | `--papier` |
-| `topbar-border` | `--rand` | | `rounded.*` | `--radius-sm` … `--radius-full` |
-| `on-cta` | `--auf-akzent` | | `elevation.shadow` | `--schatten` |
+| `muted` | `--muted` | | `card` | `--card` |
+| `faint` | `--faint` | | `success` / `danger` | `--success` / `--danger` |
+| `bg` | `--bg` | | `info` / `accent-violet` | `--info` / `--accent-violet` |
+| `bg-deep` | `--bg-deep` | | `warning` | `--warn` |
+| `line` | `--line` | | `glass` / `glass-border` | `--glass` / `--glass-border` |
+| `topbar` | `--topbar-bg` | | `paper` | `--paper` |
+| `border` / `topbar-border` | `--border` | | `rounded.*` | `--radius-sm` … `--radius-full` |
+| `on-cta` | `--on-cta` | | `elevation.shadow` | `--shadow` |
 
-`--rand` ist eine FARBE (die opake Trennlinie). Wer einen Seitenabstand meint, nimmt
-`--seitenrand` — die Landing hatte beides unter demselben Namen.
+`--border` ist eine FARBE (die opake Trennlinie). Wer einen Seitenabstand meint, nimmt
+`--page-margin` — die Landing hatte beides unter demselben Namen.
 
 ## Typography
 
@@ -217,7 +220,7 @@ Versalien-Eyebrow-Tracking.
   Wrap-Gutter 44px, CTA-Polster), damit Chip/CTA beim Wechsel nicht springen —
   nur der transparente→Scroll-Hintergrund bleibt Landing-eigen.
 - App-Nav in zwei Zonen: **Logo + Meine Touren / Entdecken links | rechts Aktionen**.
-  Zwischen Marke und Nav bewusst Luft (`--nav-marken-gap`), damit die Links nicht
+  Zwischen Marke und Nav bewusst Luft (`--nav-brand-gap`), damit die Links nicht
   am Logo kleben. Nicht viewport-mittig — bei breitem rechtem Cluster (Neue Tour +
   Chip) wirkte eine zentrierte Nav optisch zu weit rechts.
 - Wortmarke: `logo-mark.svg` (28px) + Text „Maptale“, `inline-flex`, `align-items: center`,
@@ -244,10 +247,10 @@ Primär-CTAs dürfen einen warmen Amber-Glow tragen. Player: dezentes Grain + Vi
   Seiten (sie liegen über Fotos und Karten), Kästen im Werkzeug und in den
   Formular-Dialogen — dort stehen Knöpfe neben Feldern, und die sind Kästen.
 - Menüs und Dialogfelder: 12px → `--radius-lg`. Karten und Tafeln: 14px →
-  `--radius-karte`. Dialoge: 16px → `--radius-xl`.
+  `--radius-card`. Dialoge: 16px → `--radius-xl`.
 - **Fokus, zwei Fälle — und zwar nach dem Element, nicht nach der Seite:**
   - *Hat es einen eigenen Rand* (Eingabefeld, Textbereich, Auswahlfeld)? Dann
-    färbt sich der Rand amber und bekommt den Halo `--fokus-ring` (3px,
+    färbt sich der Rand amber und bekommt den Halo `--focus-ring` (3px,
     22 % Amber). **Keine Outline.** Ein Feld zeigt seine Grenze schon; eine
     Outline zieht mit Abstand eine zweite daneben, und das liest sich als zwei
     Objekte statt als ein fokussiertes Feld.
@@ -308,7 +311,7 @@ Avatare (`50%`).
     anderes als die Pflichtigkeit — sie bleiben auch dort, wo „Pflicht" entfällt.
 
   Verwendet in den Auth-Formularen (`studio.html`) und im Rückmelde-Formular
-  (`src/feedbackformular.ts`). Quellen: [NN/g, Marking Required Fields in
+  (`src/feedback-form.ts`). Quellen: [NN/g, Marking Required Fields in
   Forms](https://www.nngroup.com/articles/required-fields/) · [Baymard, Mark Both Required and
   Optional Fields](https://baymard.com/blog/required-optional-form-fields).
 - **Assets:** Favicon, Apple-Touch und Logo unter `public/` / `public/branding/` — nicht neu erfinden.

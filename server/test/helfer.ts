@@ -24,7 +24,7 @@ import type { UploadManifest } from '../src/schema/upload.js'
  * Nötige gekürzt. Fest hinterlegt statt aus dem Repo gelesen: Der Test prüft,
  * ob der Server den Block zwischen den Markern ersetzt, nicht, was die echte
  * Seite sonst enthält. Dass die Marker dort tatsächlich stehen, prüft der
- * Wächter im Web-Test (test/routen.test.ts).
+ * Wächter im Web-Test (test/routes.test.ts).
  */
 export const TEST_PROFIL_HTML =
   '<!doctype html><html><head>\n  <!-- maptale:meta -->\n  <title>Profil · Maptale</title>\n  <meta name="robots" content="noindex" />\n  <!-- /maptale:meta -->\n  <link rel="stylesheet" href="/assets/profil-abc123.css" />\n</head><body>Profil</body></html>'

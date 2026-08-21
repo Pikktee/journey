@@ -116,7 +116,7 @@ describe('validate — mit Aufzeichnung', () => {
   it('meldet fehlende Ortsangaben als Hinweis — die Uhrzeit reicht', () => {
     const b = validate(track, [foto('a.jpg', 30), foto('b.jpg', 60)])
     const m = b.messages.find((x) => x.kind === 'ohne-ort')!
-    expect(m.tone).toBe('hinweis')
+    expect(m.tone).toBe('hint')
     expect(m.files).toEqual(['a.jpg', 'b.jpg'])
   })
 
@@ -124,7 +124,7 @@ describe('validate — mit Aufzeichnung', () => {
     // 101 min nach dem Track-Ende — jemand hat ein fremdes Foto mit hineingezogen
     const b = validate(track, [foto('fremd.jpg', 221, [100, 9.7])])
     const m = b.messages.find((x) => x.kind === 'ausserhalb')!
-    expect(m.tone).toBe('warnung')
+    expect(m.tone).toBe('warning')
     expect(m.text).toContain('1 h 41 min')
     expect(m.files).toEqual(['fremd.jpg'])
   })
@@ -158,7 +158,7 @@ describe('validate — ohne Aufzeichnung', () => {
     const b = validate(null, [foto('a.jpg', 0), foto('b.jpg', 30, [100, 9.7])])
     expect(b.source).toBe('keine')
     expect(b.ready).toBe(false)
-    expect(b.messages.find((m) => m.kind === 'keine-orte')?.tone).toBe('warnung')
+    expect(b.messages.find((m) => m.kind === 'keine-orte')?.tone).toBe('warning')
   })
 
   it('ohne Aufzeichnung wiegt eine fehlende Ortsangabe schwerer', () => {
@@ -168,7 +168,7 @@ describe('validate — ohne Aufzeichnung', () => {
       foto('b.jpg', 30, [100.1, 9.8]),
       foto('c.jpg', 60),
     ])
-    expect(b.messages.find((m) => m.kind === 'ohne-ort')?.tone).toBe('warnung')
+    expect(b.messages.find((m) => m.kind === 'ohne-ort')?.tone).toBe('warning')
   })
 
   it('verträgt gar nichts', () => {

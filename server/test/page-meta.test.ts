@@ -388,12 +388,12 @@ describe('Titelbilder', () => {
     // Läuft sie auseinander, zeigt die Vorschaukarte im Chat ein anderes Bild
     // als das Banner auf der Seite — dieselbe Sorte stiller Fehler wie bei
     // handle.ts, deshalb dieselbe Sorte Wächter.
-    const quelle = readFileSync(join(wurzel, 'src/profil/titelbilder.ts'), 'utf8')
-    const dateien = [...quelle.matchAll(/datei: '([^']+)'/g)].map((t) => t[1])
+    const quelle = readFileSync(join(wurzel, 'src/profile/profile-banners.ts'), 'utf8')
+    const dateien = [...quelle.matchAll(/file: '([^']+)'/g)].map((t) => t[1])
     expect(dateien).toEqual([...BANNER_FILES])
     // Und derselbe Streuwert: Ein anderer verteilte dieselben Handles anders.
     for (const handle of ['anna', 'henrik', 'a', '', 'zzz-lange-adresse']) {
-      const web = quelle.includes('summe * 31')
+      const web = quelle.includes('sum * 31')
       expect(web).toBe(true)
       expect(BANNER_FILES).toContain(defaultBanner(handle))
     }

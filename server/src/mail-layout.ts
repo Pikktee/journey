@@ -265,9 +265,9 @@ ${vorschauZeile(textFassung)}
         <tr>
           <td align="center" style="padding:24px 12px 0;font-family:${SCHRIFT};font-size:12.5px;line-height:1.7;color:${FARBEN.leise};">
             <span style="color:${FARBEN.gedaempft};">Maptale</span> · deine Reisen als filmischer 3D-Flug.<br />
-            <a href="${basis}${WEB_PATHS.impressum}" style="color:${FARBEN.leise};text-decoration:underline;">Impressum</a>
+            <a href="${basis}${WEB_PATHS.imprint}" style="color:${FARBEN.leise};text-decoration:underline;">Impressum</a>
             &nbsp;·&nbsp;
-            <a href="${basis}${WEB_PATHS.datenschutz}" style="color:${FARBEN.leise};text-decoration:underline;">Datenschutz</a>
+            <a href="${basis}${WEB_PATHS.privacy}" style="color:${FARBEN.leise};text-decoration:underline;">Datenschutz</a>
           </td>
         </tr>
       </table>

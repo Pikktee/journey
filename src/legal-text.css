@@ -1,0 +1,434 @@
+/*
+ * Impressum und Datenschutzerklärung — zwei Seiten, die dieselbe Sache sind:
+ * Fließtext unter der Marke. Deshalb EIN Blatt statt zweier Inline-Blöcke;
+ * die standen bis hierher doppelt und wären beim nächsten Handgriff
+ * auseinandergelaufen.
+ *
+ * Beide Seiten sind eigene Vite-Einstiege (`src/routes.ts`) und binden diese
+ * Datei per `<link rel="stylesheet">` ein — kein JS. Eine Seite, auf der die
+ * Pflichtangaben stehen, darf nicht von einem Bundle abhängen.
+ *
+ * Maße und Farben folgen der Galerie (DESIGN.md): Topbar 58 px, Wortmarke
+ * `logo-mark.svg` 28 px + „Maptale", Outfit überall, kein Mono.
+ */
+
+/* Die Marken-Tokens per @import und nicht per <link> in den beiden Seiten:
+   Der Bundler zieht sie beim Build in DIESE Datei hinein, damit es bei einem
+   Stylesheet bleibt — und beide Seiten weiterhin ohne JS auskommen. */
+@import './base.css';
+
+:root {
+  /* Lesebreite. Der Fließtext hört bei ~72 Zeichen auf, die Kopfleiste nicht —
+     sonst klebte die Marke bei 1440 px in der Bildmitte. */
+  --reading-width: 760px;
+}
+
+/* Sanftes Springen zu den Abschnitten — die Gliederung soll zeigen, WOHIN es
+   geht, nicht bloß umschalten. `scroll-margin-top` an `.prose h2` hält die
+   Überschrift dabei unter der Kopfleiste. */
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  width: min(var(--wrap), 100% - 44px);
+  margin-inline: auto;
+}
+
+/* Alles Geschriebene fluchtet links mit der Marke und endet auf Lesebreite.
+   Deshalb liegt `.column` IM `.wrap` und nicht auf demselben Element: `.wrap`
+   zentriert sich per `margin-inline: auto`, und beides an einem Element hieße
+   einen 760-px-Block in der Fenstermitte — die Marke stünde 200 px weiter
+   links als der Titel darunter. */
+.wrap > .column {
+  max-width: var(--reading-width);
+}
+
+/* — Kopfleiste: links die Marke, rechts der Weg zum Gegenstück — */
+
+nav.nav {
+  height: var(--topbar-h);
+  border-bottom: 1px solid var(--border);
+  background: rgba(13, 17, 24, 0.82);
+  backdrop-filter: blur(14px);
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  view-transition-name: maptale-nav;
+}
+nav.nav .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 100%;
+}
+.brand {
+  text-decoration: none;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.brand img {
+  display: block;
+  height: 28px;
+  width: auto;
+  translate: 0 1px;
+}
+.brand:focus-visible,
+.nav-counterpart:focus-visible,
+footer a:focus-visible,
+.prose a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.nav-counterpart {
+  color: var(--text-2);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.nav-counterpart:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* — Der Weg zurück —
+   Die Marke daneben führt IMMER auf die Startseite; hierher kommt man aber
+   meistens aus einer Anmeldung, einem Studio oder einem Player, und dorthin
+   will man auch wieder. Deshalb ein eigener Griff, der die Geschichte nutzt
+   (das Skript in den beiden Seiten); ohne Verlauf bleibt es beim href. */
+
+.exit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: color 0.18s ease;
+}
+.exit-pill:hover {
+  color: var(--text);
+}
+.exit-pill:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.exit-pill span {
+  font-size: 15px;
+  line-height: 1;
+  translate: 0 -1px;
+}
+
+/* — Seitenkopf: der Titel steht ganz oben, direkt unter der Marke — */
+
+header.header {
+  padding: 40px 0 6px;
+  background:
+    radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--bg), transparent 70%);
+}
+header.header h1 {
+  font-size: clamp(31px, 5vw, 46px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+header.header p.lead {
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.6;
+  margin: 14px 0 0;
+}
+header.header .as-of {
+  margin: 18px 0 0;
+  font-size: 13.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* — Der Text — */
+
+.prose {
+  padding: 26px 0 20px;
+}
+.prose h2 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 42px 0 0;
+  scroll-margin-top: calc(var(--topbar-h) + 18px);
+}
+.prose h2:first-child {
+  margin-top: 0;
+}
+.prose h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 26px 0 0;
+  color: var(--text);
+}
+.prose p,
+.prose ul {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+.prose strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.prose ul {
+  padding-left: 20px;
+}
+.prose li {
+  margin: 7px 0;
+}
+.prose li::marker {
+  color: color-mix(in srgb, var(--primary) 65%, transparent);
+}
+.prose a {
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.prose a:hover {
+  border-bottom-color: var(--primary);
+}
+.prose .address {
+  font-style: normal;
+  color: var(--text);
+}
+.prose code {
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+/* Herausgehobener Merksatz — für das, was jemand wirklich wissen muss
+   (was öffentlich wird, wohin Fotos gehen). Kein Kasten, nur eine Kante. */
+.callout {
+  margin: 22px 0 0;
+  padding: 2px 0 2px 18px;
+  border-left: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  color: var(--text);
+}
+
+/* Sprungliste der Abschnitte (nur Datenschutz — beim Impressum wäre sie
+   länger als der Text). */
+/* — Gliederung — */
+
+/* Auf breiten Schirmen eine eigene Spalte rechts, die beim Scrollen stehen
+   bleibt; darunter wieder eine Reihe im Fluss. Das Grid steht auf `main`, nicht
+   auf `.wrap`: Der Text behält seine Lesebreite (s. `.wrap > .column`), die
+   Gliederung bekommt den Platz, der rechts davon ohnehin frei war. */
+main.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+}
+.outline > b {
+  display: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.content .number {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.5em;
+}
+.content a {
+  display: inline-block;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  padding: 6px 13px;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+.content a:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+}
+
+@media (min-width: 1120px) {
+  main.wrap {
+    grid-template-columns: minmax(0, var(--reading-width)) minmax(180px, 232px);
+    gap: 0 56px;
+    align-items: start;
+  }
+  /* Die Gliederung steht im Markup VOR dem Text (erst der Überblick, dann die
+     Erklärung — für Tastatur und Vorlese-Werkzeuge die richtige Reihenfolge),
+     im Bild aber rechts daneben. */
+  .outline {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: calc(var(--topbar-h) + 26px);
+    max-height: calc(100vh - var(--topbar-h) - 52px);
+    overflow-y: auto;
+    padding-left: 18px;
+    border-left: 1px solid var(--line);
+  }
+  .column.prose { grid-column: 1; grid-row: 1; }
+  .outline > b { display: block; margin-bottom: 12px; }
+  /* Als Liste, nicht als Pillen-Reihe: In einer schmalen Spalte stünden
+     Kapseln zerrissen untereinander. Der aktive Punkt trägt eine Marke am
+     linken Rand — dort, wo die Linie ohnehin läuft. */
+  .content {
+    flex-direction: column;
+    gap: 1px;
+  }
+  .content a {
+    display: grid;
+    grid-template-columns: 1.6em 1fr;
+    align-items: baseline;
+    border: none;
+    border-radius: 0;
+    padding: 6px 0 6px 12px;
+    margin-left: -19px;
+    border-left: 2px solid transparent;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--text-3);
+  }
+  .content .number { margin-right: 0; }
+  .content a:hover {
+    color: var(--text);
+    border-color: transparent;
+    border-left-color: var(--border-strong);
+  }
+  /* Der gelesene Abschnitt trägt Farbe UND Gewicht: Die Kante allein ist am
+     Rand des Blickfelds zu leise, und wer die Gliederung nur streift, soll
+     seinen Platz auf einen Blick finden. */
+  .content a[aria-current] {
+    color: var(--text);
+    font-weight: 550;
+    border-left-color: var(--primary);
+  }
+  .content a[aria-current] .number { color: var(--primary); }
+}
+
+/* — Fuß — */
+
+/* Dieselbe Fußzeile wie auf den Produkt-Seiten (Markup aus app-nav.ts): Marke
+   mit Version links, Links rechts. Die Maße bleiben etwas großzügiger als
+   dort — ein Rechtstext endet, er geht nicht in die nächste Tafel über. */
+footer {
+  border-top: 1px solid var(--line);
+  margin-top: 56px;
+  padding: 22px 0 44px;
+}
+footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 28px;
+  justify-content: space-between;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--faint);
+}
+footer .footer-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+footer .footer-version {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+  opacity: 0.72;
+}
+footer .footer-links {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+footer .footer-sep {
+  color: var(--faint);
+  opacity: 0.55;
+  user-select: none;
+}
+footer a {
+  color: var(--faint);
+  text-decoration: none;
+}
+footer a:hover {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    width: calc(100% - 40px);
+  }
+  header.header {
+    padding-top: 36px;
+  }
+  .prose h2 {
+    margin-top: 34px;
+  }
+  /* Elf Sprungmarken sind am Telefon vier Zeilen — kompakter, sonst steht das
+     Verzeichnis länger auf dem Schirm als der erste Abschnitt. */
+  .content {
+    gap: 6px;
+    margin-top: 24px;
+  }
+  .content a {
+    font-size: 12.5px;
+    padding: 5px 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

@@ -183,7 +183,7 @@ if (!schriftLokal) {
 
 /* Blätter, Skript, Marke */
 cpSync(join(HIER, 'assets'), join(SITE, 'assets'), { recursive: true })
-cpSync(join(WURZEL, 'src', 'basis.css'), join(SITE, 'assets', 'basis.css'))
+cpSync(join(WURZEL, 'src', 'base.css'), join(SITE, 'assets', 'base.css'))
 schreibe('assets/marke.svg', markeSvg())
 
 /* Dokumentseiten */

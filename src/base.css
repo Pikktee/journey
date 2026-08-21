@@ -1,0 +1,172 @@
+/*
+ * Die Tokens der Marke — Farben, Radien, Typografie, Maße.
+ *
+ * ABLEITUNG, KEINE QUELLE. Was hier steht, steht im YAML-Kopf von DESIGN.md;
+ * bei Widerspruch gilt DESIGN.md. Der Drift-Wächter in test/basis-css.test.ts
+ * hält beide Seiten deckungsgleich und verbietet zugleich, dass eine HTML-Datei
+ * eigene Farb-Tokens definiert oder einen dieser Werte roh hinschreibt.
+ *
+ * Vorher lagen 4519 Zeilen CSS inline in neun HTML-Dateien, mit ZWEI
+ * Namenssystemen für dieselben Farben (`--primary`/`--text`/`--surface-1` gegen
+ * `--amber`/`--ink`) — und einem dritten im Player, wo `--ink` nicht der Text,
+ * sondern der Hintergrund war. Wer dort `var(--ink)` las, wusste nicht, welche
+ * Farbe kommt, ohne die Datei zu kennen.
+ *
+ * EINGEBUNDEN wird sie als `<link rel="stylesheet" href="/src/base.css">` im
+ * <head> JEDER Seite, und zwar VOR deren <style>-Block. Die Reihenfolge ist
+ * keine Kosmetik: Bei gleicher Spezifität gewinnt die zuletzt deklarierte
+ * Regel, und stünde die Basis hinten, schlüge sie genau das, was die Seite
+ * absichtlich anders macht. Früher an einer schmaleren Verwaltung gemessen —
+ * die Seite wurde 80 px breiter, ohne dass sich eine Zeile ihres eigenen CSS
+ * geändert hätte.
+ *
+ * ACHTUNG, DIE FALLE: Vite hängt gebautes CSS grundsätzlich ans ENDE des
+ * <head>, egal wo der Verweis im Quelltext stand. Der Dev-Server tut das
+ * NICHT — der Unterschied fiele also erst nach dem Deploy auf. Deshalb zieht
+ * `basisZuerst()` in vite.config.js den Verweis nach dem Bauen wieder nach
+ * vorn. Wer das Plugin entfernt, dreht in Produktion die Kaskade um.
+ *
+ * Warum überhaupt eine eigene Datei und nicht `@import` in jeden <style>?
+ * Weil Vite den @import zwar korrekt auflöst, die Tokens dann aber in JEDE
+ * Seite kopiert. So fällt der Roundtrip genau einmal an; danach liegt die
+ * Datei im Cache und gilt für alle Einstiege, zwischen denen ohnehin
+ * gewechselt wird (Studio → Konto → Profil → Galerie → Player).
+ *
+ * Zwei Sonderfälle: Impressum/Datenschutz ziehen sie per `@import` in
+ * legal-text.css hinein (dort steht sie ebenfalls vorn), damit die zwei Seiten
+ * bei EINEM Stylesheet bleiben und weiter ohne JS auskommen. Und
+ * public/404.html trägt ihre Werte selbst — sie liegt außerhalb des Builds,
+ * weil eine Fehlerseite auch dann stehen muss, wenn das Bundle fehlt.
+ */
+
+:root {
+  /* ─── Marke ─── */
+  --primary: #f59e0b; /* Sonne: Primärakzent, Fokusringe, aktive Zustände */
+  --secondary: #ff6f52; /* Koralle: Verlaufsende und warmer Zweitakzent */
+  --on-cta: #1a1206; /* Text auf Amber/Koralle */
+
+  /* ─── Text ───
+     Zwei Reihen, weil es zwei verschiedene Farben sind und nicht zwei Namen:
+     `--muted`/`--faint` sind Creme mit Deckkraft (sie nehmen den
+     Grund an, gut auf Bildern und Glas), `--text-2`/`--text-3` sind blaugrau
+     und stehen fest — Tabellen und Zeilen sollen nicht mit dem Grund wandern. */
+  --text: #f2ede3;
+  --muted: rgba(242, 237, 227, 0.64);
+  --faint: rgba(242, 237, 227, 0.42);
+  --text-2: #a7b1bf;
+  --text-3: #7e8a99;
+
+  /* ─── Flächen ─── */
+  --bg: #090c11; /* Seitengrund */
+  --bg-deep: #06080c; /* der Grund darunter — Ränder, Felder, Seitenkörper */
+  --surface-1: #111722; /* Karten und ruhige Tafeln */
+  --surface-2: #161e2c; /* Knöpfe, gehobene Zeilen */
+  --surface-3: #1e283a; /* dasselbe im Zeigen-Zustand */
+  --card: rgba(255, 255, 255, 0.035); /* Glastafel über Bildern */
+
+  /* ─── Linien ───
+     `--border` ist eine FARBE. Wer den Seitenabstand meint, nimmt --page-margin. */
+  --border: #232d3d;
+  --border-strong: #2e3b4e;
+  --line: rgba(255, 255, 255, 0.08);
+
+  /* ─── Status ───
+     Koralle steht hier bewusst nicht: Sie ist Zweitakzent, nie Fehlerrot. */
+  --success: #3ecf8e;
+  --danger: #e5484d;
+  --info: #5b9dff;
+  --accent-violet: #c58bff;
+  --warn: #e8a13c;
+
+  /* ─── Player: Glas über der Karte ─── */
+  --glass: rgba(12, 15, 20, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --paper: #f6f1e7;
+
+  /* ─── Kopfleiste ─── */
+  --topbar-bg: rgba(13, 17, 24, 0.82);
+  --topbar-h: 58px;
+
+  /* ─── Form ───
+     Ein Wert je Rolle, damit die Frage nicht bei jeder neuen Seite neu
+     beantwortet wird: Chips, Knöpfe und Felder md; Menüs lg; Karten und
+     Tafeln karte; Dialoge xl; CTAs full. Der Bestand trug daneben 8, 10, 13
+     und 15 px — jede Seite mit ihrer eigenen Antwort auf dieselbe Frage.
+     Detailmaße ohne Marken-Rolle (Scrollbalken, Wellenform-Ecken,
+     Fortschrittsbalken, Avatare) bleiben rohe Werte; sie sind Geometrie. */
+  --radius-sm: 7px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-card: 14px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  /* ─── Tiefe ───
+     Hierarchie über Tonwerte und feine Ränder, nicht über Schattenstapel. */
+  --shadow:
+    0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35);
+  /* Der Fokus-Halo für Elemente, die schon einen Rand haben (Felder). Wer
+     keinen hat (Knöpfe, Links, Karten), bekommt stattdessen die 2px-Outline —
+     s. DESIGN.md, Shapes. Beides zusammen war der Doppelring, der im Studio
+     stand: Rand amber, Outline daneben, Fläche dunkler, drei Signale für einen
+     Zustand. */
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+
+  /* ─── Schrift ───
+     EINE UI-Schrift. Zahlen richtet `font-variant-numeric: tabular-nums` aus,
+     nicht Mono; --font-mono gilt nur für Karten-Attribution und Debug.
+     „Outfit Fallback“ (unten) hält die Metriken bis Outfit da ist — sonst
+     zeichnet display:swap erst system-ui (~8 % breiter) und die Nav springt. */
+  --font-ui: 'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* ─── Maß ───
+     Seiten mit anderer Lesebreite überschreiben lokal (Konto: Spalte 780 in
+     voller 1160-er Schale). --wrap selbst ist der Marken-/Chrome-Wert. */
+  --wrap: 1160px;
+
+  /* Erkennungsmarke für basisZuerst() in vite.config.js: Nach dem Bauen heißt
+     eine CSS-Datei nach ihrem JS-Chunk, nicht nach ihrer Quelle. Eine Custom
+     Property überlebt die Minifizierung — daran findet das Plugin dieses Blatt
+     wieder und bringt die drei in die richtige Reihenfolge. */
+  --sheet-base: 1;
+  color-scheme: dark;
+}
+
+/* Metrik-Zwilling für Outfit: Arial lokal, auf Outfit-Laufweite skaliert.
+   Ohne das blitzt auf der Landing (und bei kaltem Cache überall) zuerst
+   system-ui/SF Pro — die Menüpunkte laufen breiter und rutschen beim Swap
+   zusammen. size-adjust an Nav-Labels gemessen (13,5 px / 500). */
+@font-face {
+  font-family: 'Outfit Fallback';
+  src: local('Arial');
+  size-adjust: 101.7%;
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
+/* Klassische Scrollbalken (macOS „Immer“, Windows) nehmen ~15 px Breite.
+   Ohne stabile Gutter springt Wrap/Nav, wenn die Leiste kommt oder geht.
+   Overflow gehört auf `html` (nicht nur `scrollbar-gutter`): `overflow-x` am
+   body erzwingt dort `overflow-y: auto` — dann scrollt der body, und die
+   Gutter auf html läuft leer (Landing hatte genau das).
+   Overlay-Scrollbars (macOS-Standard) ignorieren die Property. */
+html {
+  overflow-x: clip;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Cross-Document View Transitions: beim MPA-Wechsel bleibt der alte Frame
+   sichtbar und blendet zur neuen Seite — kein schwarzes Zwischenloch.
+   Opt-in auf beiden Dokumenten; ohne Browser-Support harmlos. */
+@view-transition {
+  navigation: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}

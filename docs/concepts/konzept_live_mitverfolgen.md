@@ -5,7 +5,7 @@ betrifft:
   - android/
   - server/
   - Web-Player (eigene Live-Ansicht)
-  - src/routen.ts
+  - src/routes.ts
   - später ggf. iOS
 icon: antenne
 ---
@@ -256,8 +256,8 @@ Eigener Namensraum, nicht `/tour/…` (das verspricht einen fertigen Film):
 ```
 
 - Parametrisiert wie `/@handle` und `/tour/<id>` — **nicht** als flacher Eintrag
-  in `ROUTEN`, sondern Helfer `livePfad(token)` neben `tourPfad` /
-  `profilPfad` in [src/routen.ts](../../src/routen.ts) (oder schmale Parallel-
+  in `ROUTES`, sondern Helfer `livePath(token)` neben `tourPath` /
+  `profilePath` in [src/routes.ts](../../src/routes.ts) (oder schmale Parallel-
   Datei), plus Vhost/`proxy_pass` zum Server oder statische Seite + API.
 - Empfehlung: schlanke `live.html` (Vite-Eingang) oder Server liefert HTML wie
   bei `/@` / `/tour/` mit Meta-Markern. Token nur im Pfad, nicht als langlebige

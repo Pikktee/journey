@@ -18,27 +18,27 @@
   <script>
     (function () {
       try {
-        var dabei = document.cookie.split(';').some(function (c) {
-          return c.trim().indexOf('maptale_dabei=') === 0
+        var signedIn = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_returning=') === 0
         })
-        if (dabei) document.documentElement.classList.add('nav-dabei')
+        if (signedIn) document.documentElement.classList.add('nav-returning')
       } catch (e) {}
     })()
   </script>
 
   <!-- Marken-Tokens vor dem Stilblock dieser Seite (s. konto.html). -->
-  <link rel="stylesheet" href="/src/basis.css" />
-  <link rel="stylesheet" href="/src/grundelemente.css" />
+  <link rel="stylesheet" href="/src/base.css" />
+  <link rel="stylesheet" href="/src/page-elements.css" />
 
   <style>
     /* Nur die Abweichungen dieser Seite: eine Lesespalte. Alles andere steht
-       in basis.css und grundelemente.css. */
+       in base.css und page-elements.css. */
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--bg-tief);
+      background: var(--bg-deep);
       color: var(--text);
       font-family: var(--font-ui);
       display: flex;
@@ -61,7 +61,7 @@
       margin: 0 0 10px;
     }
 
-    .vorspann {
+    .intro {
       color: var(--text-2);
       font-size: 15px;
       line-height: 1.55;
@@ -81,7 +81,7 @@
 
   <main>
     <h1>Rückmeldung geben</h1>
-    <p class="vorspann">
+    <p class="intro">
       Maptale ist in der Alpha. Jedes Feedback fließt direkt in die Entwicklung: ob
       Fehler, fehlende Funktion oder ein Satz, der niemandem einleuchtet.
     </p>
@@ -91,17 +91,17 @@
   <footer id="app-footer"></footer>
 
   <script type="module">
-    import { montiereAppHeader, schreibeAppFooter } from '/src/app-nav.ts'
-    import { montiereFeedbackFormular } from '/src/feedbackformular.ts'
+    import { mountAppHeader, writeAppFooter } from '/src/app-nav.ts'
+    import { mountFeedbackForm } from '/src/feedback-form.ts'
 
     // `?app=1` markiert die Android-WebView — dieselbe Kennung wie im Player.
     if (new URLSearchParams(location.search).has('app')) document.body.classList.add('app')
 
-    void montiereAppHeader(document.getElementById('app-header'), { aktiv: 'konto' })
-    schreibeAppFooter(document.getElementById('app-footer'))
+    void mountAppHeader(document.getElementById('app-header'), { active: 'account' })
+    writeAppFooter(document.getElementById('app-footer'))
 
-    const quelle = document.body.classList.contains('app') ? 'app' : 'web'
-    montiereFeedbackFormular(document.getElementById('feedback-mount'), { quelle })
+    const source = document.body.classList.contains('app') ? 'app' : 'web'
+    mountFeedbackForm(document.getElementById('feedback-mount'), { source })
   </script>
 </body>
 </html>

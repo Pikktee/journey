@@ -14,7 +14,7 @@
 // Drei Dinge, die man beim Lesen leicht für Nachlässigkeit hält und die
 // ausdrücklich so gewollt sind:
 //
-//   1. `prefers-reduced-motion` ist ein SCHALTER im Aufruf (`buehne.ruhig`) und
+//   1. `prefers-reduced-motion` ist ein SCHALTER im Aufruf (`stage.calm`) und
 //      kein `matchMedia` hier drin (Falle 2). Der Maler läuft auch im Export,
 //      und die Einstellung des rendernden Rechners darf die ausgelieferte Datei
 //      nicht verändern.

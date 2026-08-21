@@ -7,16 +7,16 @@
 // (Foto-Metadaten); hier nur DOM und Ablaufsteuerung.
 
 import * as api from './api.js'
-import { schreibeAppFooter, schreibeAppHeader } from '../app-nav.js'
-import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
-import { haengePasswortfeld } from '../passwortfeld.js'
-import { ROUTEN, pfad, profilPfad, tourPfad } from '../routen.js'
+import { writeAppFooter, writeAppHeader } from '../app-nav.js'
+import { codeComplete, formatInvitationCode } from '../invitation-code.js'
+import { attachPasswordField } from '../password-field.js'
+import { ROUTES, path, profilePath, tourPath } from '../routes.js'
 import {
-  leseProfilCache,
-  merkeAngemeldet,
-  merkeProfilCache,
-  vergesseAngemeldet,
-} from '../session-hinweis.js'
+  readProfileCache,
+  rememberSignedIn,
+  rememberProfileCache,
+  forgetSignedIn,
+} from '../session-notice.js'
 import { readExif } from './exif.js'
 import {
   buildPhotoSegments,
@@ -31,22 +31,22 @@ import {
 import { buildUploadManifest, exifDateToMs, isoWithZone, mediaType } from './upload.js'
 
 // Header/Footer synchron vor den Element-Lookups — sonst finden die IDs nichts.
-schreibeAppHeader(document.querySelector('#app-view > .nav'), {
-  aktiv: 'studio',
-  variante: 'studio',
+writeAppHeader(document.querySelector('#app-view > .nav'), {
+  active: 'studio',
+  variant: 'studio',
 })
-schreibeAppFooter(document.getElementById('app-footer'))
+writeAppFooter(document.getElementById('app-footer'))
 // Chip aus dem Cache, sobald das Markup steht (vorher Inline-Skript im HTML).
 ;(() => {
   try {
-    const u = leseProfilCache()
+    const u = readProfileCache()
     if (!u) return
-    const n = document.getElementById('benutzer-name')
-    const pk = document.getElementById('benutzer-initial')
+    const n = document.getElementById('user-name')
+    const pk = document.getElementById('user-initial')
     if (n && u.name) n.textContent = u.name
     if (pk && u.avatarUrl) {
       const i = document.createElement('img')
-      i.className = 'punkt'
+      i.className = 'dot'
       i.src = u.avatarUrl
       i.width = 20
       i.height = 20
@@ -63,9 +63,9 @@ const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 const els = {
   loginView: $('login-view'),
   appView: $('app-view'),
-  logOut: $<HTMLButtonElement>('abmelden'),
-  userChip: $<HTMLButtonElement>('benutzer-chip'),
-  userName: $('benutzer-name'),
+  logOut: $<HTMLButtonElement>('logout'),
+  userChip: $<HTMLButtonElement>('user-chip'),
+  userName: $('user-name'),
   loginForm: $<HTMLFormElement>('login-form'),
   email: $<HTMLInputElement>('email'),
   passwort: $<HTMLInputElement>('password'),
@@ -109,15 +109,15 @@ const els = {
   resetSubmit: $<HTMLButtonElement>('reset-submit'),
   resetSetError: $('reset-set-error'),
   // M9: Konto-Menü + Verifikations-Banner
-  accountMenu: $('konto-menue'),
-  kmMail: $('km-mail'),
-  kmProfile: $<HTMLAnchorElement>('km-profil'),
-  kmAdmin: $('km-verwaltung'),
-  kmQuotaText: $('km-quota-text'),
-  kmBarFill: $('km-balken-fuell'),
+  accountMenu: $('account-menu'),
+  kmMail: $('am-mail'),
+  kmProfile: $<HTMLAnchorElement>('am-profile'),
+  kmAdmin: $('am-admin'),
+  kmQuotaText: $('am-quota-text'),
+  kmBarFill: $('am-bar-fill'),
   verifyBanner: $('verify-banner'),
   files: $<HTMLInputElement>('files'),
-  newTop: $<HTMLButtonElement>('neu-oben'),
+  newTop: $<HTMLButtonElement>('new-top'),
   // Bibliothek
   libHeader: $('library-header'),
   library: $('library'),
@@ -152,22 +152,22 @@ const icon = (name: string, className?: string): string =>
  * Der Pfad folgt der Ansicht.
  *
  * Dieselbe Datei liegt unter drei Adressen (`/anmelden`, `/registrieren`,
- * `/app` — s. [routen.ts](../routen.ts)), weil sie drei Dinge ist: die Tür und
+ * `/app` — s. [routes.ts](../routes.ts)), weil sie drei Dinge ist: die Tür und
  * der Raum dahinter. Welche gerade gilt, weiß nur der Anmeldezustand, nicht der
  * Server — also schreibt die Seite den Pfad nach. `replaceState`, nicht
  * `pushState`: Anmelden ist kein Ort, an den die Zurück-Taste führen sollte.
  */
 const TITLE = {
   app: 'Maptale Studio',
-  anmelden: 'Anmelden · Maptale',
-  registrieren: 'Konto erstellen · Maptale',
+  login: 'Anmelden · Maptale',
+  register: 'Konto erstellen · Maptale',
 } as const
 
-function setPath(side: 'app' | 'anmelden' | 'registrieren'): void {
+function setPath(side: 'app' | 'login' | 'register'): void {
   // Der Titel läuft mit, aber VOR dem Abbruch: Beim ersten Laden stimmt der
   // Pfad schon, der Titel („Maptale" aus dem Boot) noch nicht.
   document.title = TITLE[side]
-  const target = ROUTEN[side].pfad
+  const target = ROUTES[side].path
   if (location.pathname === target) return
   history.replaceState(history.state, '', target + location.search + location.hash)
 }
@@ -179,7 +179,7 @@ function setGuestPath(): void {
     !els.codeForm.hidden ||
     !els.waitlistForm.hidden ||
     !els.waitlistInfo.hidden
-  setPath(onTheWayIn ? 'registrieren' : 'anmelden')
+  setPath(onTheWayIn ? 'register' : 'login')
 }
 
 function show(loggedIn: boolean): void {
@@ -189,7 +189,7 @@ function show(loggedIn: boolean): void {
   els.loginView.hidden = loggedIn
   els.appView.hidden = !loggedIn
   els.userChip.hidden = !loggedIn
-  // `neu-oben` bleibt hier IMMER aus: Ob er erscheint, entscheidet nicht die
+  // `new-top` bleibt hier IMMER aus: Ob er erscheint, entscheidet nicht die
   // Anmeldung, sondern ob die „Neue Tour"-Kachel gerade zu sehen ist
   // (s. beobachteNeuKachel).
   els.newTop.hidden = true
@@ -223,16 +223,16 @@ function showUser(session: api.Session): void {
 
   const avatar = session.profile?.avatarUrl
   const initial = (display.trim().charAt(0) || '?').toUpperCase()
-  merkeProfilCache({ name: display, initial, avatarUrl: avatar })
+  rememberProfileCache({ name: display, initial, avatarUrl: avatar })
 
-  const point = els.userChip.querySelector('.punkt')
+  const point = els.userChip.querySelector('.dot')
   if (!point) return
   if (avatar) {
     if (point instanceof HTMLImageElement) {
       point.src = avatar
     } else {
       const img = document.createElement('img')
-      img.className = 'punkt'
+      img.className = 'dot'
       img.src = avatar
       img.alt = ''
       img.width = 20
@@ -243,8 +243,8 @@ function showUser(session: api.Session): void {
     const initial = (display.trim().charAt(0) || '?').toUpperCase()
     if (point instanceof HTMLImageElement) {
       const span = document.createElement('span')
-      span.className = 'punkt'
-      span.id = 'benutzer-initial'
+      span.className = 'dot'
+      span.id = 'user-initial'
       span.textContent = initial
       point.replaceWith(span)
     } else {
@@ -322,7 +322,7 @@ function showSession(session: api.Session): void {
   // stünde ohne Handle nichts. Ohne Handle bleibt der Eintrag weg.
   const handle = session.profile?.handle
   els.kmProfile.hidden = !handle
-  if (handle) els.kmProfile.href = profilPfad(handle)
+  if (handle) els.kmProfile.href = profilePath(handle)
   uploadLocked = unconfirmed
   els.newBuild.title = unconfirmed ? 'Erst E-Mail bestätigen' : ''
   if (session.quota) {
@@ -330,7 +330,7 @@ function showSession(session: api.Session): void {
     const fraction = session.quota.limit > 0 ? session.quota.used / session.quota.limit : 0
     els.kmQuotaText.textContent = `${mb(session.quota.used)} / ${mb(session.quota.limit)} MB`
     els.kmBarFill.style.width = `${Math.min(100, fraction * 100).toFixed(0)}%`
-    els.kmBarFill.classList.toggle('voll', fraction > 0.9)
+    els.kmBarFill.classList.toggle('full', fraction > 0.9)
   }
 }
 
@@ -373,7 +373,7 @@ async function loadSession(): Promise<api.Session> {
   show(!!session.user)
   showRegisterMode(session)
   if (session.user) {
-    merkeAngemeldet()
+    rememberSignedIn()
     showSession(session)
     // Deep-Link: /studio.html?edit=<tourId> — Editor ZUERST, Liste danach.
     // Sonst rendert die Bibliothek unter dem Boot und blitzt beim Ausblenden
@@ -387,7 +387,7 @@ async function loadSession(): Promise<api.Session> {
     }
   } else {
     // Hinweis war gesetzt, Sitzung aber weg (abgelaufen) → zurück zum Login.
-    vergesseAngemeldet()
+    forgetSignedIn()
     document.documentElement.classList.remove('studio-signed-in')
   }
   return session
@@ -435,7 +435,7 @@ async function handleAuthHash(): Promise<boolean> {
     !invitation &&
     !wlConfirm &&
     !wlLeave &&
-    (hash === 'registrieren' || location.pathname === ROUTEN.registrieren.pfad)
+    (hash === 'registrieren' || location.pathname === ROUTES.register.path)
   if (directToRegister) {
     history.replaceState(null, '', location.pathname + location.search)
     showAuthMode('register')
@@ -443,7 +443,7 @@ async function handleAuthHash(): Promise<boolean> {
   }
   if (invitation) {
     history.replaceState(null, '', location.pathname + location.search)
-    const code = formatiereEinladungscode(decodeURIComponent(invitation))
+    const code = formatInvitationCode(decodeURIComponent(invitation))
     els.regCode.value = code
     // Den Code gleich prüfen: Wer einem Einladungslink folgt, hat Schritt 1
     // bereits hinter sich — außer der Code taugt nicht, dann landet er dort und
@@ -513,26 +513,26 @@ let resetToken: string | null = null
 // steht: Ein von Anfang an grauer Knopf sähe aus, als wäre das Formular kaputt,
 // und beim leeren Feld greift ohnehin `required`.
 const bindSubmit =
-  (field: HTMLInputElement, button: HTMLButtonElement) => (report: { reicht: boolean }) => {
-    button.disabled = field.value.length > 0 && !report.reicht
+  (field: HTMLInputElement, button: HTMLButtonElement) => (report: { acceptable: boolean }) => {
+    button.disabled = field.value.length > 0 && !report.acceptable
   }
 
-const regPasswordField = haengePasswortfeld(els.regPasswort, {
+const regPasswordField = attachPasswordField(els.regPasswort, {
   // Name und Adresse stehen im selben Formular und ändern sich noch, während
   // das Passwort schon getippt ist — deshalb als Funktion, nicht als Wert.
-  persoenlich: () => [els.regEmail.value],
-  beiAenderung: bindSubmit(els.regPasswort, els.regSubmit),
+  personal: () => [els.regEmail.value],
+  onChange: bindSubmit(els.regPasswort, els.regSubmit),
 })
 
 // Beim Anmelden nur der Sichtbarkeits-Schalter: Ein bestehendes Passwort zu
 // bewerten hilft niemandem, aber ein Tippfehler im verdeckten Feld ist der
 // häufigste Grund, warum eine Anmeldung scheitert.
-haengePasswortfeld(els.passwort, { bewertung: false })
+attachPasswordField(els.passwort, { showStrength: false })
 
-haengePasswortfeld(els.resetPasswort, {
+attachPasswordField(els.resetPasswort, {
   // Beim Reset kennen wir nur die Adresse aus dem Anmeldefeld — besser als nichts.
-  persoenlich: () => [els.email.value],
-  beiAenderung: bindSubmit(els.resetPasswort, els.resetSubmit),
+  personal: () => [els.email.value],
+  onChange: bindSubmit(els.resetPasswort, els.resetSubmit),
 })
 
 els.loginForm.addEventListener('submit', async (e) => {
@@ -553,15 +553,15 @@ els.loginForm.addEventListener('submit', async (e) => {
 // fällt weg. Die Schreibmarke ans Ende zu setzen genügt, weil nur vorwärts
 // getippt wird — beim Einfügen ist das Ende ohnehin die richtige Stelle.
 els.regCode.addEventListener('input', () => {
-  els.regCode.value = formatiereEinladungscode(els.regCode.value)
+  els.regCode.value = formatInvitationCode(els.regCode.value)
   els.codeError.textContent = ''
 })
 
 els.codeForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   els.codeError.textContent = ''
-  const code = formatiereEinladungscode(els.regCode.value)
-  if (!codeVollstaendig(code)) {
+  const code = formatInvitationCode(els.regCode.value)
+  if (!codeComplete(code)) {
     els.codeError.textContent = 'Ein Code hat acht Zeichen. Bitte gib ihn vollständig ein.'
     return
   }
@@ -604,7 +604,7 @@ els.registerForm.addEventListener('submit', async (e) => {
         newsletter: els.regNewsletter.checked,
       },
     )
-    regPasswordField.leere()
+    regPasswordField.clear()
     await loadSession() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
   } catch (error) {
     els.registerError.textContent = (error as Error).message
@@ -642,7 +642,7 @@ function showWaitlistInfo(
   els.wlInfoAction.textContent = action?.word ?? ''
   wlAction = action?.run ?? null
   // Die Bühne gehört jetzt dieser Meldung — auch bei bestehender Sitzung. Der
-  // Boot-Vorgriff (Cookie `maptale_dabei`) hat die Bibliothek sonst schon
+  // Boot-Vorgriff (Cookie `maptale_returning`) hat die Bibliothek sonst schon
   // eingeblendet, bevor der Link überhaupt gelesen wurde, und der Austragen-Weg
   // endete für jeden Angemeldeten in seiner Tourliste.
   show(false)
@@ -704,7 +704,7 @@ els.resetRequestForm.addEventListener('submit', async (e) => {
   // Bewusst neutrale Rückmeldung (keine Existenz-Auskunft)
   els.resetRequestStatus.textContent =
     'Wenn es ein Konto mit dieser Adresse gibt, ist die E-Mail unterwegs.'
-  els.resetRequestStatus.className = 'hinweis ok'
+  els.resetRequestStatus.className = 'hint ok'
 })
 
 els.resetSetForm.addEventListener('submit', async (e) => {
@@ -728,7 +728,7 @@ els.logOut.addEventListener('click', async () => {
     closeEditor()
   }
   await api.logout()
-  vergesseAngemeldet()
+  forgetSignedIn()
   document.documentElement.classList.remove('studio-signed-in')
   show(false)
   showAuthMode('login')
@@ -741,7 +741,7 @@ els.userChip.addEventListener('click', () => {
   els.userChip.setAttribute('aria-expanded', String(on))
 })
 document.addEventListener('click', (e) => {
-  if (!els.accountMenu.hidden && !(e.target as HTMLElement).closest('.konto-wrap')) {
+  if (!els.accountMenu.hidden && !(e.target as HTMLElement).closest('.account-wrap')) {
     els.accountMenu.hidden = true
     els.userChip.setAttribute('aria-expanded', 'false')
   }
@@ -749,7 +749,7 @@ document.addEventListener('click', (e) => {
 
 /** Kurze Rückmeldung im Fenster „Neue Tour" — der einzige Ort mit Statuszeile. */
 function hintToast(text: string, error = false): void {
-  setNewStatus(text, error ? 'fehler' : '')
+  setNewStatus(text, error ? 'error' : '')
   if (error) els.newBackdrop.hidden = false
 }
 
@@ -813,7 +813,7 @@ function visibleTours(): api.TourListItem[] {
 async function loadList(): Promise<void> {
   if (!touren.length) {
     els.library.innerHTML =
-      '<div class="skelett"><div></div><div></div><div></div><div></div></div>'
+      '<div class="skeleton"><div></div><div></div><div></div><div></div></div>'
   }
   try {
     touren = await api.listTours()
@@ -843,7 +843,7 @@ function renderLibrary(): void {
       <svg class="route" viewBox="0 0 1200 320" preserveAspectRatio="none" aria-hidden="true"><path d="M-20 250C160 232 190 96 380 84s250 128 420 62 280-168 440-176"/></svg>
       <h2>Hier entsteht deine erste Tour</h2>
       <p>Eine Aufzeichnung, ein paar Fotos, Maptale benennt die Orte, holt das Wetter des Tages und baut daraus eine Kamerafahrt.</p>
-      <button class="knopf-primaer" id="empty-choose">${icon('upload')}Dateien wählen</button>`
+      <button class="button-primary" id="empty-choose">${icon('upload')}Dateien wählen</button>`
     els.library.appendChild(empty)
     empty.querySelector('#empty-choose')?.addEventListener('click', () => openNew())
     return
@@ -861,7 +861,7 @@ function renderLibrary(): void {
 
   if (view === 'liste') {
     const host = document.createElement('div')
-    host.className = 'liste'
+    host.className = 'list'
     for (const t of list) host.appendChild(buildRow(t))
     els.library.appendChild(host)
     return
@@ -924,19 +924,19 @@ function trackSignet(t: api.TourListItem): string {
 function buildMap(t: api.TourListItem): HTMLElement {
   const el = document.createElement('article')
   const busy = t.status !== 'ready' && t.status !== 'failed'
-  el.className = `karte${busy ? ' arbeitet' : ''}${t.status === 'failed' ? ' defekt' : ''}`
+  el.className = `card${busy ? ' working' : ''}${t.status === 'failed' ? ' broken' : ''}`
   el.dataset['tour'] = t.id
   // Kachel-Fassung, wo es sie gibt: die Bibliothek zog bisher je Kachel das
   // volle Titelfoto (mehrere MB) für ein Bild von wenigen hundert Pixeln.
   const cover = t.coverThumb ?? t.cover
   const image = cover
-    ? `<div class="bild"><img src="${escape(cover)}" alt="" loading="lazy" />${trackSignet(t)}</div>`
-    : `<div class="bild without">${icon('route')}${trackSignet(t)}</div>`
+    ? `<div class="image"><img src="${escape(cover)}" alt="" loading="lazy" />${trackSignet(t)}</div>`
+    : `<div class="image without">${icon('route')}${trackSignet(t)}</div>`
 
   // Auf der Übersicht nur das Zeichen; was schiefging, steht in der geöffneten Tour.
   const grips = busy
     ? ''
-    : `<div class="griffe">
+    : `<div class="grips">
         ${
           t.status === 'failed'
             ? '<span class="error-dot" title="Etwas ist schiefgelaufen, zum Öffnen klicken" aria-label="Fehler">!</span>'
@@ -951,7 +951,7 @@ function buildMap(t: api.TourListItem): HTMLElement {
       <div class="t">${escape(t.title ?? '(ohne Titel)')}</div>
       <div class="m">${busy ? 'entsteht gerade …' : escape(metaRow(t))}</div>
     </div>
-    ${busy ? '<div class="run"><span></span></div>' : '<div class="schleier"></div>'}
+    ${busy ? '<div class="run"><span></span></div>' : '<div class="scrim"></div>'}
     ${busy || t.status === 'failed' ? '' : `<button class="play" aria-label="Abspielen">${icon('play')}</button>`}`
 
   if (!busy) {
@@ -986,7 +986,7 @@ function buildMap(t: api.TourListItem): HTMLElement {
 
 function buildRow(t: api.TourListItem): HTMLElement {
   const el = document.createElement('div')
-  el.className = 'zeile'
+  el.className = 'row'
   const busy = t.status !== 'ready' && t.status !== 'failed'
   el.innerHTML = `
     <div class="mini">${(t.coverThumb ?? t.cover) ? `<img src="${escape((t.coverThumb ?? t.cover) as string)}" alt="" loading="lazy" />` : icon('route')}</div>
@@ -1001,7 +1001,7 @@ function buildRow(t: api.TourListItem): HTMLElement {
           : `<span class="visibility-pill${t.visibility === 'public' ? ' public' : ''}">${VISIBILITY_NAMES[t.visibility] ?? t.visibility}</span>
              ${t.status === 'ready' ? `<button class="action" data-play>${icon('play')}Abspielen</button><button class="action" data-film aria-label="Als Video">${icon('film')}Video</button>` : ''}
              <button class="action" data-edit aria-label="Bearbeiten">${icon('pencil')}</button>
-             <button class="action gefahr" data-delete aria-label="Tour löschen" title="Tour löschen">${icon('trash')}</button>`
+             <button class="action danger" data-delete aria-label="Tour löschen" title="Tour löschen">${icon('trash')}</button>`
       }
     </div>`
   el.querySelector('[data-play]')?.addEventListener('click', () => playTour(t.id))
@@ -1036,7 +1036,7 @@ async function deleteTwoStep(button: HTMLButtonElement, id: string): Promise<voi
  * dorthin zurück, wo man herkam (Referrer + history.back(), src/main.js).
  */
 function playTour(id: string): void {
-  location.href = tourPfad(`srv:${id}`)
+  location.href = tourPath(`srv:${id}`)
 }
 
 async function openFilmFor(t: api.TourListItem): Promise<void> {
@@ -1113,14 +1113,14 @@ let openVisibilityMenuEl: HTMLElement | null = null
 function closeVisibilityMenu(): void {
   openVisibilityMenuEl?.remove()
   openVisibilityMenuEl = null
-  document.querySelectorAll('.karte.menue-offen').forEach((k) => k.classList.remove('menue-offen'))
+  document.querySelectorAll('.card.menu-open').forEach((k) => k.classList.remove('menu-open'))
   document
     .querySelectorAll('[data-visibility][aria-expanded="true"]')
     .forEach((k) => k.setAttribute('aria-expanded', 'false'))
 }
 
 function openVisibilityMenu(map: HTMLElement, t: api.TourListItem): void {
-  const alreadyOpen = map.classList.contains('menue-offen')
+  const alreadyOpen = map.classList.contains('menu-open')
   closeVisibilityMenu()
   if (alreadyOpen) return
   const menu = document.createElement('div')
@@ -1149,11 +1149,11 @@ function openVisibilityMenu(map: HTMLElement, t: api.TourListItem): void {
   menu.querySelector('[data-link]')?.addEventListener('click', async (e) => {
     e.stopPropagation()
     closeVisibilityMenu()
-    await navigator.clipboard?.writeText(`${location.origin}${tourPfad(`srv:${t.id}`)}`)
+    await navigator.clipboard?.writeText(`${location.origin}${tourPath(`srv:${t.id}`)}`)
   })
   menu.addEventListener('click', (e) => e.stopPropagation())
   map.appendChild(menu)
-  map.classList.add('menue-offen')
+  map.classList.add('menu-open')
   map.querySelector('[data-visibility]')?.setAttribute('aria-expanded', 'true')
   openVisibilityMenuEl = menu
 }
@@ -1323,10 +1323,10 @@ function showReading(read: number, total: number): void {
         <div class="ring">
           <svg viewBox="0 0 78 78" aria-hidden="true">
             <circle class="ring-track" cx="39" cy="39" r="34" />
-            <circle class="voll" cx="39" cy="39" r="34"
+            <circle class="full" cx="39" cy="39" r="34"
               stroke-dasharray="${U.toFixed(1)}" stroke-dashoffset="${U.toFixed(1)}" />
           </svg>
-          <span class="zahl"></span>
+          <span class="number"></span>
         </div>
         <h3>Liest die Aufnahmen</h3>
         <p>Aufnahmezeit und Ort stehen in den Dateien selbst, Maptale liest sie und ordnet alles ein.</p>
@@ -1335,11 +1335,11 @@ function showReading(read: number, total: number): void {
   }
   if (!el) return
   const fraction = total ? read / total : 0
-  el.querySelector<SVGCircleElement>('.voll')?.setAttribute(
+  el.querySelector<SVGCircleElement>('.full')?.setAttribute(
     'stroke-dashoffset',
     (U * (1 - fraction)).toFixed(1),
   )
-  const number = el.querySelector<HTMLElement>('.zahl')
+  const number = el.querySelector<HTMLElement>('.number')
   if (number) number.textContent = `${read}/${total}`
 }
 
@@ -1353,7 +1353,7 @@ function showEmptyHint(): void {
   const text = els.newStatus.textContent ?? ''
   el.textContent = text
   el.hidden = !text
-  el.classList.toggle('fehler', els.newStatus.classList.contains('fehler'))
+  el.classList.toggle('error', els.newStatus.classList.contains('error'))
 }
 
 function removeMedia(files: readonly string[]): void {
@@ -1405,9 +1405,9 @@ function renderNew(): void {
       <div class="ghost-timeline"><i></i><i></i><i></i><i></i><div class="axis"></div></div>
       <h3>Hier beginnt deine <em>nächste Tour</em></h3>
       <p>Aufzeichnung und Fotos hierher ziehen, Maptale liest die Zeitstempel und ordnet alles selbst ein.</p>
-      <button class="knopf-primaer" id="new-choose">${icon('upload')}Dateien wählen</button>
+      <button class="button-primary" id="new-choose">${icon('upload')}Dateien wählen</button>
       <p class="postscript">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>
-      <p class="hinweis" id="new-empty-hint" hidden></p>`
+      <p class="hint" id="new-empty-hint" hidden></p>`
     els.newBody.appendChild(empty)
     // Die ganze Fläche ist der Griff — „Dateien wählen" ist die Ansage dafür,
     // nicht das einzige Ziel. Der Knopf trägt die Semantik (Tastatur, Vorlese-
@@ -1463,7 +1463,7 @@ function buildPreview(b: ImportReport): HTMLElement {
       const p = proj.image[index]
       if (!p) return ''
       const withoutLocation = !a.location && !b.track
-      return `<circle class="marke${withoutLocation ? ' no-location' : ''}" cx="${p[0]}" cy="${p[1]}" r="2.1"><title>Aufnahme ${i + 1}</title></circle>`
+      return `<circle class="marker${withoutLocation ? ' no-location' : ''}" cx="${p[0]}" cy="${p[1]}" r="2.1"><title>Aufnahme ${i + 1}</title></circle>`
     })
     .join('')
   const start = proj.image[0] as [number, number]
@@ -1502,11 +1502,11 @@ function buildData(b: ImportReport): HTMLElement {
   messages.className = 'messages'
   for (const m of b.messages) {
     const row = document.createElement('div')
-    row.className = `meldung ${m.tone}`
-    row.innerHTML = `<span class="mark">${m.tone === 'warnung' ? '!' : '?'}</span><span>${escape(m.text)}</span>`
+    row.className = `message ${m.tone}`
+    row.innerHTML = `<span class="mark">${m.tone === 'warning' ? '!' : '?'}</span><span>${escape(m.text)}</span>`
     // Nur wo es etwas zu entscheiden gibt, steht ein Knopf — und er benennt,
     // was er tut, statt „OK" zu sagen.
-    if (m.tone === 'warnung' && m.files.length) {
+    if (m.tone === 'warning' && m.files.length) {
       const button = document.createElement('button')
       button.type = 'button'
       button.textContent = m.files.length === 1 ? 'Weglassen' : 'Alle weglassen'
@@ -1526,7 +1526,7 @@ function buildTimeBand(b: ImportReport): HTMLElement {
   const span = Math.max(1, b.toMs - b.fromMs)
   const fraction = (ms: number): number => ((ms - b.fromMs) / span) * 100
   const header = document.createElement('div')
-  header.className = 'kopf'
+  header.className = 'header'
   header.textContent = `${b.media.length} Aufnahme${b.media.length > 1 ? 'n' : ''} an ihrer Uhrzeit`
   el.appendChild(header)
 
@@ -1552,7 +1552,7 @@ function buildTimeBand(b: ImportReport): HTMLElement {
     stem.style.left = `${g.fraction.toFixed(2)}%`
     marks.appendChild(stem)
     const image = document.createElement('div')
-    image.className = 'bild'
+    image.className = 'image'
     image.style.left = `${g.fraction.toFixed(2)}%`
     image.style.bottom = '18px'
     if (!first.location) image.classList.add('no-location')
@@ -1567,7 +1567,7 @@ function buildTimeBand(b: ImportReport): HTMLElement {
     else image.innerHTML = `<span class="film">${icon('film')}</span>`
     if (g.items.length > 1) {
       const number = document.createElement('span')
-      number.className = 'zahl'
+      number.className = 'number'
       number.textContent = String(g.items.length)
       image.appendChild(number)
     }
@@ -1667,7 +1667,7 @@ async function waitForReady(id: string): Promise<'ready' | 'failed' | 'processin
 els.newBuild.addEventListener('click', async () => {
   if (!report?.ready || runningUpload) return
   if (uploadLocked) {
-    setNewStatus('Bitte zuerst die E-Mail-Adresse bestätigen.', 'fehler')
+    setNewStatus('Bitte zuerst die E-Mail-Adresse bestätigen.', 'error')
     return
   }
   runningUpload = true
@@ -1701,7 +1701,7 @@ els.newBuild.addEventListener('click', async () => {
     if (reused) {
       const existing = await api.tour(id)
       if (existing.schema === 'maptale/tour@2' || existing.status === 'ready') {
-        setNewStatus('Diese Tour gibt es bereits.', 'fehler')
+        setNewStatus('Diese Tour gibt es bereits.', 'error')
         return
       }
     }
@@ -1736,7 +1736,7 @@ els.newBuild.addEventListener('click', async () => {
     await loadList()
     showSession(await api.me()) // Quota nachziehen
   } catch (error) {
-    setNewStatus((error as Error).message, 'fehler')
+    setNewStatus((error as Error).message, 'error')
   } finally {
     runningUpload = false
     els.newProgress.hidden = true

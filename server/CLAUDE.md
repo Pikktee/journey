@@ -337,7 +337,7 @@ Anzeigename jederzeit überschreibbar. Das Feld `name` bleibt in der Route optio
 mitschickt, behält ihn. Der bestätigte Code steht im Formular als grüner Chip mit „Ändern",
 sonst wüsste niemand, ob die Einladung angekommen ist. Ohne Einladungspflicht entfällt
 Schritt 1 ersatzlos.
-`formatiereEinladungscode` ([src/einladungscode.ts](../src/einladungscode.ts)) räumt beim TIPPEN
+`formatInvitationCode` ([src/invitation-code.ts](../src/invitation-code.ts)) räumt beim TIPPEN
 auf (Versalien, Bindestrich von selbst), statt hinterher zu meckern. Zwei Kanten: Der Einstieg
 `#registrieren` von der Landing fällt VOR der `/auth/me`-Antwort an und kennt die Pflicht noch
 nicht — `showRegisterMode` stellt ihn nachträglich gerade. Und ein zwischen Schritt 1

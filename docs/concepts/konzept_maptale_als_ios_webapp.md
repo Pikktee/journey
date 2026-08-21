@@ -6,7 +6,7 @@ betrifft:
   - studio.html
   - index.html
   - galerie.html
-  - src/routen.ts
+  - src/routes.ts
   - public/
 icon: paket
 ---

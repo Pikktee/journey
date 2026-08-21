@@ -262,7 +262,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       // Zeitpunkt, Quelle und Textfassung in einem Zug.
       if (request.body.newsletter === true) app.newsletter.setze(benutzer.id, true, 'signup')
       const token = app.auth.erzeugeMailToken(benutzer.id, 'verify')
-      const link = `${konfig.basisUrl}${WEB_PATHS.anmelden}#verify=${token}`
+      const link = `${konfig.basisUrl}${WEB_PATHS.login}#verify=${token}`
       // Die Bestätigungsmail bleibt WERBEFREI: kein Satz über den Newsletter,
       // keine List-Unsubscribe-Kopfzeile. Ein „Übrigens, unser Newsletter …"
       // machte aus der transaktionalen Mail selbst eine Werbemail — und
@@ -369,7 +369,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       const userId = app.auth.benutzerIdFuerEmail(email)
       if (userId) {
         const token = app.auth.erzeugeMailToken(userId, 'reset')
-        const link = `${konfig.basisUrl}${WEB_PATHS.anmelden}#reset=${token}`
+        const link = `${konfig.basisUrl}${WEB_PATHS.login}#reset=${token}`
         // Der Name des KONTOS, nicht der Adress-Anfang: Die Mail geht ohnehin
         // nur an die eigene Adresse, und „Hallo mira.wolf," liest sich wie ein
         // Datenbankfeld.
@@ -527,7 +527,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       }
       if (!app.auth.emailVergeben(email)) {
         const token = app.auth.erzeugeMailToken(benutzer.id, 'email', email)
-        const link = `${konfig.basisUrl}${WEB_PATHS.konto}#email=${token}`
+        const link = `${konfig.basisUrl}${WEB_PATHS.account}#email=${token}`
         const { betreff, text, html } = app.mailvorlagen.rendere(
           'email-change',
           { name: benutzer.name },
@@ -724,7 +724,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
   // — Ich-Abfrage OHNE 401 (Studio pollt bei jedem Laden). Angemeldet: um
   // Verifikations-Stand, Quota und Profil angereichert. Zusätzlich den
-  // UX-Hinweis-Cookie auffrischen — ältere Sitzungen ohne maptale_dabei
+  // UX-Hinweis-Cookie auffrischen — ältere Sitzungen ohne maptale_returning
   // bekommen ihn so beim nächsten /me (z. B. Entdecken), bevor Studio lädt.
   app.get('/api/auth/me', async (request, reply) => {
     // Auch ohne Anmeldung: Das Registrierungsformular muss wissen, ob es nach
@@ -816,7 +816,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         const fehler = app.auth.setzeHandle(benutzer.id, handle)
         if (fehler)
           return reply
-            .code(fehler === 'vergeben' ? 409 : 400)
+            .code(fehler === 'taken' ? 409 : 400)
             .send({ error: HANDLE_ERROR_TEXTS[fehler] })
       }
       if (titelbild !== undefined) {

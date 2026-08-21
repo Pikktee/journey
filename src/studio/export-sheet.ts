@@ -35,7 +35,7 @@ import {
   type ExportOrientation,
   type ExportMessage,
 } from '../film-export-channel.js'
-import { tourPfad } from '../routen.js'
+import { tourPath } from '../routes.js'
 
 export interface ExportSheetTour {
   id: string
@@ -124,11 +124,11 @@ function buildSheet(): HTMLElement {
         </div>
       </div>
       <div class="new-footer">
-        <button class="knopf" type="button" data-cancel>Abbrechen</button>
-        <button class="knopf-primaer" type="button" data-save hidden>
+        <button class="button" type="button" data-cancel>Abbrechen</button>
+        <button class="button-primary" type="button" data-save hidden>
           <svg aria-hidden="true"><use href="#i-download"/></svg>Speichern
         </button>
-        <button class="knopf-primaer" type="button" data-start>
+        <button class="button-primary" type="button" data-start>
           <svg aria-hidden="true"><use href="#i-film"/></svg>Video erzeugen
         </button>
       </div>
@@ -142,8 +142,8 @@ function buildSheet(): HTMLElement {
         <div class="film-export-prompt-card" role="alertdialog" aria-labelledby="export-frage-text">
           <p id="film-export-prompt-text">Der Film ist noch nicht fertig. Brichst du jetzt ab, fängt er beim nächsten Mal von vorn an.</p>
           <div class="film-export-prompt-buttons">
-            <button class="knopf" type="button" data-cancel-yes>Ja, abbrechen</button>
-            <button class="knopf-primaer" type="button" data-continue>Weiter rendern</button>
+            <button class="button" type="button" data-cancel-yes>Ja, abbrechen</button>
+            <button class="button-primary" type="button" data-continue>Weiter rendern</button>
           </div>
         </div>
       </div>
@@ -184,13 +184,13 @@ function setFormat(n: ExportFormat): void {
   format = n
   if (!backdrop) return
   backdrop.querySelectorAll<HTMLButtonElement>('[data-orientation]').forEach((b) => {
-    b.classList.toggle('aktiv', b.dataset.orientation === format.orientation)
+    b.classList.toggle('active', b.dataset.orientation === format.orientation)
   })
   backdrop.querySelectorAll<HTMLButtonElement>('[data-size]').forEach((b) => {
-    b.classList.toggle('aktiv', b.dataset.size === String(format.size))
+    b.classList.toggle('active', b.dataset.size === String(format.size))
   })
   backdrop.querySelectorAll<HTMLButtonElement>('[data-fps]').forEach((b) => {
-    b.classList.toggle('aktiv', b.dataset.fps === String(format.fps))
+    b.classList.toggle('active', b.dataset.fps === String(format.fps))
   })
   const vp = exportViewport(format)
   const preview = $('#film-export-preview', backdrop)
@@ -376,7 +376,7 @@ function start(): void {
   const el = document.createElement('iframe')
   el.className = 'film-export-frame'
   el.setAttribute('title', 'Vorschau des Films, während er entsteht')
-  el.src = tourPfad(`srv:${current.id}`) + exportQuery(format, true)
+  el.src = tourPath(`srv:${current.id}`) + exportQuery(format, true)
   stage.appendChild(el)
   frame = el
   lastWidth = 0

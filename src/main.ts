@@ -3,7 +3,7 @@ import './style.css'
 import type { Map as MapLibreMap, Marker } from 'maplibre-gl'
 import { TOURS, type AnchorPoint, type TourAudio, type TourTime, type Waypoint } from './tours.js'
 import { loadRemoteTour, loadServerTours, createTimeAt, type RemoteTourCfg } from './remote.js'
-import { profilPfad, tourAusPfad, tourPfad } from './routen.js'
+import { profilePath, tourFromPath, tourPath } from './routes.js'
 import { buildRoute, dist, groupStops, nearestS, pointAt, type Route } from './geo.js'
 import { clipDurationS, holdS } from './card-timing.js'
 import {
@@ -196,7 +196,7 @@ window.__maptale = {}
 // der Android-App bauen sie noch). Umgeschrieben wird sie weiter unten, sobald
 // feststeht, welche Tour tatsächlich läuft.
 const params = new URLSearchParams(location.search)
-const fromPath = tourAusPfad(location.pathname)
+const fromPath = tourFromPath(location.pathname)
 const tourParam = fromPath ?? params.get('tour') ?? 'kohphangan'
 
 // — App-Modus (?app=1): der Player läuft in der WebView der Android-App —
@@ -282,7 +282,7 @@ if (!fromPath && params.has('tour')) {
   const rest = new URLSearchParams(location.search)
   rest.delete('tour')
   const query = rest.toString()
-  history.replaceState(null, '', tourPfad(tourId) + (query ? `?${query}` : '') + location.hash)
+  history.replaceState(null, '', tourPath(tourId) + (query ? `?${query}` : '') + location.hash)
 }
 
 // Eine Tour beginnt am Anfang — immer. Es gab hier einmal eine Wiederaufnahme
@@ -620,7 +620,7 @@ if (author?.displayName) {
   // einen Rückweg hat: In der App-WebView führt die Tourliste zurück, ein
   // Profil im selben Fenster hätte nur ein Schließkreuz.
   const target = author.handle
-    ? profilPfad(author.handle)
+    ? profilePath(author.handle)
     : author.id
       ? `/profil?id=${author.id}`
       : null

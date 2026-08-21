@@ -3,7 +3,7 @@ stand: 2026-08-20
 status: Befund vom 2026-08-20, nichts gebaut
 betrifft:
   - server/src/routes/auth.ts
-  - src/konto/kontodialoge.ts
+  - src/account/account-dialogs.ts
   - datenschutz.html
 systemteile: [Backend, Konto]
 icon: schluessel
@@ -16,7 +16,7 @@ teuerste Art: durch Auslösen. `DELETE /api/auth/me` verlangt **kein Passwort**.
 Eine gültige Sitzung genügt, und der Aufruf löscht Konto, alle Touren, alle
 Medien, Avatar, Banner und ein fertiges Export-Archiv. Es gibt keinen
 Papierkorb und keine Frist; die einzige Rückfrage steht in der Oberfläche
-([kontodialoge.ts](../../src/konto/kontodialoge.ts) sendet einen LEEREN Body).
+([kontodialoge.ts](../../src/account/account-dialogs.ts) sendet einen LEEREN Body).
 
 ## Warum das ein Widerspruch ist, kein Versehen
 

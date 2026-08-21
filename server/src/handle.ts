@@ -4,19 +4,19 @@
  * Der Server kann die Web-Datei nicht importieren (eigener `rootDir`, dieselbe
  * Lage wie bei [webpfade.ts](./webpfade.ts)) und führt Regeln und
  * Reservierungen deshalb ein zweites Mal. Ein Drift-Wächter in
- * [test/routen.test.ts](../../test/routen.test.ts) vergleicht beide Listen —
+ * [test/routes.test.ts](../../test/routes.test.ts) vergleicht beide Listen —
  * ohne ihn fiele ein Unterschied erst auf, wenn ein Handle im Browser grün ist
  * und der Server ihn ablehnt.
  *
  * Die AUSSAGE steht drüben: warum der Handle im Pfad steht, warum er nicht der
  * Anzeigename ist und warum die reservierten Wörter neben und nicht in
- * `routen.ts` liegen.
+ * `routes.ts` liegen.
  */
 
 export const HANDLE_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28})[a-z0-9]$/
 
 export const RESERVED_HANDLES: ReadonlySet<string> = new Set([
-  // Die Seiten, die es gibt (s. routen.ts)
+  // Die Seiten, die es gibt (s. routes.ts)
   'app',
   'anmelden',
   'registrieren',
@@ -35,7 +35,7 @@ export const RESERVED_HANDLES: ReadonlySet<string> = new Set([
   'favicon',
   'robots',
   'sitemap',
-  // Der Namensraum der Touren (`/tour/<kennung>`, s. routen.ts)
+  // Der Namensraum der Touren (`/tour/<kennung>`, s. routes.ts)
   'tour',
   'touren',
   'null',
@@ -61,30 +61,30 @@ export const RESERVED_HANDLES: ReadonlySet<string> = new Set([
   'wir',
 ])
 
-export type HandleError = 'leer' | 'kurz' | 'form' | 'reserviert' | 'vergeben'
+export type HandleError = 'empty' | 'tooShort' | 'format' | 'reserved' | 'taken'
 
 export const HANDLE_ERROR_TEXTS: Readonly<Record<HandleError, string>> = {
-  leer: 'Ohne Adresse ist dein Profil nicht verlinkbar.',
-  kurz: 'Mindestens 3 Zeichen.',
-  form: 'Erlaubt sind a–z, 0–9, Punkt, Bindestrich und Unterstrich; nicht am Anfang oder Ende.',
-  reserviert: 'Diese Adresse ist für Maptale selbst reserviert.',
-  vergeben: 'Diese Adresse ist schon vergeben.',
+  empty: 'Ohne Adresse ist dein Profil nicht verlinkbar.',
+  tooShort: 'Mindestens 3 Zeichen.',
+  format: 'Erlaubt sind a–z, 0–9, Punkt, Bindestrich und Unterstrich; nicht am Anfang oder Ende.',
+  reserved: 'Diese Adresse ist für Maptale selbst reserviert.',
+  taken: 'Diese Adresse ist schon vergeben.',
 }
 
-export function validateHandleForm(wert: string): HandleError | null {
-  const w = wert.trim().toLowerCase()
-  if (!w) return 'leer'
-  if (w.length < 3) return 'kurz'
-  if (!HANDLE_PATTERN.test(w)) return 'form'
+export function validateHandleForm(value: string): HandleError | null {
+  const w = value.trim().toLowerCase()
+  if (!w) return 'empty'
+  if (w.length < 3) return 'tooShort'
+  if (!HANDLE_PATTERN.test(w)) return 'format'
   // Benutzer-IDs beginnen mit `u_` (ids.ts) — der Präfix bleibt frei, damit
   // `/api/users/:wen/profile` ID und Handle auseinanderhalten kann.
-  if (w.startsWith('u_')) return 'reserviert'
-  if (RESERVED_HANDLES.has(w)) return 'reserviert'
+  if (w.startsWith('u_')) return 'reserved'
+  if (RESERVED_HANDLES.has(w)) return 'reserved'
   return null
 }
 
-export function toHandle(roh: string): string {
-  return roh
+export function toHandle(raw: string): string {
+  return raw
     .toLowerCase()
     .replace(/ä/g, 'ae')
     .replace(/ö/g, 'oe')

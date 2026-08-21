@@ -58,7 +58,7 @@ sondern eine topologische Sortierung des Importgraphen.
 
 Die Gegenrichtung ist dagegen harmlos: Vite bundelt `.js` und `.ts` gemischt, und
 die übliche Import-Endung im Repo ist `.js` auch beim Import einer `.ts`-Quelle
-(`from './routen.js'` → Datei `routen.ts`). Das ist in Welle 0 gemessen, in beiden
+(`from './routen.js'` → Datei `routes.ts`). Das ist in Welle 0 gemessen, in beiden
 Modi.
 
 ---
@@ -131,7 +131,7 @@ daraus wurde Leitregel 0 und die neue Reihenfolge.
 Zwei Nebenbefunde: Die extensionslosen Importe im Bestand (`main.js:4`
 `from './remote'`, `map.js:6` `'./karteninfo'`, `photopins.js:38` `'./pinmodell'`)
 sind Altlast, keine Notwendigkeit — beim Anfassen auf `.js` vereinheitlichen. Und
-`vite.config.js` importiert `./src/routen.ts` **mit `.ts`-Endung**; das ist eine
+`vite.config.js` importiert `./src/routes.ts` **mit `.ts`-Endung**; das ist eine
 dritte Konvention, läuft aber über Vites eigenen Config-Loader und bleibt so.
 
 **Zusätzlich festlegen:**
@@ -439,7 +439,7 @@ Drei Abweichungen im Bestand, die beim Anfassen mitgehen:
 | `map.js:6` | `'./karteninfo'` | `'./karteninfo.js'` |
 | `photopins.js:38` | `'./pinmodell'` | `'./pinmodell.js'` |
 
-`vite.config.js` importiert `./src/routen.ts` dagegen **mit `.ts`** — das läuft
+`vite.config.js` importiert `./src/routes.ts` dagegen **mit `.ts`** — das läuft
 über Vites eigenen Config-Loader und bleibt, wie es ist.
 
 ---

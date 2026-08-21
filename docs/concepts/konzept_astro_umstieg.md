@@ -14,7 +14,7 @@ betrifft:
   - datenschutz.html
   - feedback.html
   - src/app-nav.ts
-  - src/routen.ts
+  - src/routes.ts
   - server/src/page-meta.ts
   - scripts/docs-viewer/
 icon: module
@@ -230,12 +230,12 @@ Anwendung.
    und ein Blick auf den Pflegestand des Node-Adapters (s. oben). Danach ist
    gemessen, was die eigene Lösung wirklich kostet, statt geschätzt. Etwa ein
    Tag Arbeit, und er ersetzt die Diskussion.
-1. **Gerüst**: Astro neben dem bestehenden Build, `basis.css` und
-   `grundelemente.css` als Import im Layout, Header und Footer als Komponenten
+1. **Gerüst**: Astro neben dem bestehenden Build, `base.css` und
+   `page-elements.css` als Import im Layout, Header und Footer als Komponenten
    aus `app-nav.ts` überführt.
 2. **Inhaltsseiten** nach dem Schnitt oben, Schritt 1 bis 3.
-3. **`routen.ts` auflösen.** Der URL-Raum kommt dann aus dem Dateibaum; was von
-   der Tabelle übrig bleibt, sind die sprachneutralen Namen für `pfad()`. Der
+3. **`routes.ts` auflösen.** Der URL-Raum kommt dann aus dem Dateibaum; was von
+   der Tabelle übrig bleibt, sind die sprachneutralen Namen für `path()`. Der
    Vhost verliert seine `location`-Blöcke für Seitenpfade, der Drift-Wächter
    schrumpft. Hier fällt auch `/erlebnis` weg, das heute nur existiert, damit
    `erlebnis.html` im Build bleibt.

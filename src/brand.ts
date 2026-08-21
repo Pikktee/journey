@@ -23,7 +23,7 @@ export const BRAND_COLORS = {
 } as const
 
 export const BRAND_FONTS = {
-  /** Titel, Wortmarke, Display, UI — eine Schrift (Fallback: s. basis.css) */
+  /** Titel, Wortmarke, Display, UI — eine Schrift (Fallback: s. base.css) */
   display: "'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif",
   /** Alias von display (historisch getrennt) */
   sans: "'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif",

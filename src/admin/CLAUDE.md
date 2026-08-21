@@ -7,12 +7,12 @@ Einladungen, Warteliste, System-Mails) steht in [server/CLAUDE.md](../../server/
 Eigene Seite ([admin.html](../../admin.html) + [src/admin/](./)), nicht Teil des Studios:
 Das Studio ist der Schneideraum für Touren, das hier ist Hausverwaltung. Erreichbar über das
 Konto-Menü im Studio — der Eintrag erscheint nur für Admins. Rechnende Teile liegen DOM-frei in
-[adminmodell.ts](adminmodell.ts), Server-Seite in
+[admin-model.ts](admin-model.ts), Server-Seite in
 [server/src/routes/admin.ts](../../server/src/routes/admin.ts) hinter `requireAdmin`.
 
 **Sechs Reiter, und die Regel steht bei dem, was sie regelt.** Konten · Einladungen ·
 Warteliste · Statistiken · Protokoll · System-Mails; alle sechs Panels liegen im DOM, sichtbar ist eins
-(dasselbe `hidden`-Muster wie im Studio). Die Liste `TABS` in [adminmodell.ts](adminmodell.ts)
+(dasselbe `hidden`-Muster wie im Studio). Die Liste `TABS` in [admin-model.ts](admin-model.ts)
 ist die einzige Quelle für Leiste, Zähler und URL-Anhang (`/admin#einladungen`, per
 `replaceState` — mit `pushState` führte der Zurück-Knopf durch die zuletzt besuchten Reiter,
 statt die Seite zu verlassen); ein Drift-Wächter prüft, dass zu jedem Reiter ein

@@ -6,131 +6,131 @@
  * Sonst driftet Nav, CTA und die Rechtstext-Links auseinander.
  */
 
-import { pfad, profilPfad } from './routen.js'
+import { path, profilePath } from './routes.js'
 import {
-  leseProfilCache,
-  merkeAngemeldet,
-  merkeProfilCache,
-  vergesseAngemeldet,
-} from './session-hinweis.js'
+  readProfileCache,
+  rememberSignedIn,
+  rememberProfileCache,
+  forgetSignedIn,
+} from './session-notice.js'
 import { version as APP_VERSION } from '../package.json'
-import { montiereStandChip, standChipHtml } from './entwicklungsstand.js'
-import { feedbackKnopfHtml, montiereFeedbackKnopf } from './feedbackknopf.js'
+import { mountStageChip, stageChipHtml } from './release-stage.js'
+import { feedbackButtonHtml, mountFeedbackButton } from './feedback-button.js'
 
 export { APP_VERSION }
 
 /**
- * Auf welcher Seite die Nav steht. 'profil', 'konto' und 'admin' tauchen selbst
+ * Auf welcher Seite die Nav steht. 'profile', 'account' und 'admin' tauchen selbst
  * NICHT in der Nav auf — sie markieren nur, dass keiner der beiden Einträge
  * aktiv ist.
  */
-export type AppNavSeite = 'studio' | 'galerie' | 'profil' | 'konto' | 'admin'
+export type AppNavPage = 'studio' | 'gallery' | 'profile' | 'account' | 'admin'
 
 /** Wegpunkt-Route: aktive „Meine Touren"-Marke in der App-Nav. */
-export const ICON_TOUREN =
+export const ICON_TOURS =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>'
 
 /** Globus: „Entdecken". */
-export const ICON_ENTDECKEN =
+export const ICON_DISCOVER =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>'
 
-const ICON_ABMELDEN =
+const ICON_LOGOUT =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
 
 /** Mittelteil der Topbar — dieselben zwei Links auf jeder App-Seite. */
-export function topNavHtml(aktiv: AppNavSeite): string {
-  const touren = aktiv === 'studio' ? ' class="aktiv"' : ''
-  const entdecken = aktiv === 'galerie' ? ' class="aktiv"' : ''
+export function topNavHtml(active: AppNavPage): string {
+  const toursClass = active === 'studio' ? ' class="active"' : ''
+  const discoverClass = active === 'gallery' ? ' class="active"' : ''
   return (
-    `<a href="${pfad('app')}"${touren}>${ICON_TOUREN}Meine Touren</a>` +
-    `<a href="${pfad('galerie')}"${entdecken}>${ICON_ENTDECKEN}Entdecken</a>`
+    `<a href="${path('app')}"${toursClass}>${ICON_TOURS}Meine Touren</a>` +
+    `<a href="${path('gallery')}"${discoverClass}>${ICON_DISCOVER}Entdecken</a>`
   )
 }
 
-export function fuelleTopNav(el: Element | null, aktiv: AppNavSeite): void {
+export function fillTopNav(el: Element | null, active: AppNavPage): void {
   if (!el) return
-  el.innerHTML = topNavHtml(aktiv)
+  el.innerHTML = topNavHtml(active)
 }
 
-const ICON_PROFIL =
+const ICON_PROFILE =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>'
 
-const ICON_KONTO =
+const ICON_ACCOUNT =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/></svg>'
 
 const ICON_ADMIN =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1 0 7.75"/></svg>'
 
 /** Welche rechte Seite die Kopfleiste trägt. */
-export type AppHeaderVariante = 'oeffentlich' | 'studio' | 'admin'
+export type AppHeaderVariant = 'public' | 'studio' | 'admin'
 
 /**
  * Die ganze Produkt-Kopfleiste — eine HTML-Quelle für Studio, Entdecken,
  * Profil, Konto und Verwaltung. Die Seiten tragen dasselbe Markup schon im
- * HTML (erster Paint / View Transition); `schreibeAppHeader` hält es deckungsgleich.
+ * HTML (erster Paint / View Transition); `writeAppHeader` hält es deckungsgleich.
  */
-export function appHeaderHtml(opts: { aktiv: AppNavSeite; variante?: AppHeaderVariante }): string {
-  const variante = opts.variante ?? 'oeffentlich'
+export function appHeaderHtml(opts: { active: AppNavPage; variant?: AppHeaderVariant }): string {
+  const variant = opts.variant ?? 'public'
   // Wortmarke und Stand-Chip stehen in einer eigenen Gruppe: Der Chip gehört
-  // an die Marke, nicht in den Nav-Abstand dahinter (`--nav-marken-gap`).
+  // an die Marke, nicht in den Nav-Abstand dahinter (`--nav-brand-gap`).
   const brand =
-    `<span class="marken-gruppe">` +
+    `<span class="brand-group">` +
     `<a href="/" class="brand" title="Zur Startseite">` +
     `<img src="/logo-mark.svg" alt="" height="28" />` +
     `<span>Maptale</span></a>` +
-    standChipHtml() +
+    stageChipHtml() +
     `</span>`
-  const mitte = `<nav class="top-nav" aria-label="Hauptnavigation">${topNavHtml(opts.aktiv)}</nav>`
+  const center = `<nav class="top-nav" aria-label="Hauptnavigation">${topNavHtml(opts.active)}</nav>`
 
-  let rechts: string
-  if (variante === 'studio') {
-    rechts =
+  let right: string
+  if (variant === 'studio') {
+    right =
       `<div class="nav-right">` +
-      `<button class="knopf-primaer" id="neu-oben" hidden><svg><use href="#i-plus"/></svg>Neue Tour</button>` +
-      `<div class="konto-wrap">` +
-      `<button class="benutzer-chip" id="benutzer-chip" hidden aria-haspopup="true" aria-expanded="false">` +
-      `<span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span>` +
+      `<button class="button-primary" id="new-top" hidden><svg><use href="#i-plus"/></svg>Neue Tour</button>` +
+      `<div class="account-wrap">` +
+      `<button class="user-chip" id="user-chip" hidden aria-haspopup="true" aria-expanded="false">` +
+      `<span class="dot" id="user-initial"></span><span id="user-name"></span>` +
       `</button>` +
-      `<div class="konto-menue" id="konto-menue" hidden>` +
-      `<div class="km-mail" id="km-mail"></div>` +
-      `<div class="km-quota">` +
-      `<div class="km-quota-kopf"><span>Speicher</span><span id="km-quota-text"></span></div>` +
-      `<div class="km-balken"><span id="km-balken-fuell"></span></div>` +
+      `<div class="account-menu" id="account-menu" hidden>` +
+      `<div class="am-mail" id="am-mail"></div>` +
+      `<div class="am-quota">` +
+      `<div class="am-quota-header"><span>Speicher</span><span id="am-quota-text"></span></div>` +
+      `<div class="am-bar"><span id="am-bar-fill"></span></div>` +
       `</div>` +
-      `<div class="km-trenner" role="separator"></div>` +
-      `<a class="km-eintrag knopf" id="km-profil" href="/profil" hidden>${ICON_PROFIL}Mein Profil</a>` +
-      `<a class="km-eintrag knopf" id="km-konto" href="${pfad('konto')}">${ICON_KONTO}Kontoeinstellungen</a>` +
-      `<a class="km-eintrag knopf" id="km-verwaltung" href="${pfad('verwaltung')}" hidden>${ICON_ADMIN}Administration</a>` +
-      `<button type="button" class="km-eintrag" id="abmelden">` +
+      `<div class="am-divider" role="separator"></div>` +
+      `<a class="am-item button" id="am-profile" href="/profil" hidden>${ICON_PROFILE}Mein Profil</a>` +
+      `<a class="am-item button" id="am-account" href="${path('account')}">${ICON_ACCOUNT}Kontoeinstellungen</a>` +
+      `<a class="am-item button" id="am-admin" href="${path('admin')}" hidden>${ICON_ADMIN}Administration</a>` +
+      `<button type="button" class="am-item" id="logout">` +
       `<svg aria-hidden="true"><use href="#i-logout"/></svg>Abmelden</button>` +
       `</div></div></div>`
-  } else if (variante === 'admin') {
-    rechts = `<div class="nav-right" id="nav-rechts"></div>`
+  } else if (variant === 'admin') {
+    right = `<div class="nav-right" id="nav-right"></div>`
   } else {
-    rechts =
+    right =
       `<div class="nav-right" id="nav-right">` +
-      `<a href="${pfad('app')}" class="nav-cta" data-gast>Anmelden</a>` +
-      `<div class="konto-wrap" data-dabei>` +
-      `<button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">` +
-      `<span class="punkt"></span><span class="nav-profil-name"></span>` +
+      `<a href="${path('app')}" class="nav-cta" data-guest>Anmelden</a>` +
+      `<div class="account-wrap" data-signed-in>` +
+      `<button type="button" class="user-chip" disabled aria-busy="true" aria-label="Profil wird geladen">` +
+      `<span class="dot"></span><span class="nav-profile-name"></span>` +
       `</button></div></div>`
   }
 
-  // Der Feedback-Knopf steht NEBEN `.nav-right`, nicht darin: `montiereNavRechts`
+  // Der Feedback-Knopf steht NEBEN `.nav-right`, nicht darin: `mountNavRight`
   // schreibt diesen Container per `innerHTML` neu, sobald `/auth/me` antwortet —
   // ein Knopf darin wäre nach dem ersten Konto-Abgleich spurlos verschwunden.
-  return `${brand}${mitte}${feedbackKnopfHtml()}${rechts}`
+  return `${brand}${center}${feedbackButtonHtml()}${right}`
 }
 
 /** Schreibt die Kopfleiste in einen vorhandenen `.nav`-Mount (synchron). */
-export function schreibeAppHeader(
+export function writeAppHeader(
   nav: Element | null,
-  opts: { aktiv: AppNavSeite; variante?: AppHeaderVariante },
+  opts: { active: AppNavPage; variant?: AppHeaderVariant },
 ): void {
   if (!nav) return
   nav.innerHTML = `<div class="wrap">${appHeaderHtml(opts)}</div>`
-  montiereStandChip()
-  montiereFeedbackKnopf()
+  mountStageChip()
+  mountFeedbackButton()
 }
 
 /**
@@ -142,25 +142,25 @@ export type AppFooterLink = { href: string; label: string }
 
 export function appFooterHtml(opts?: { links?: AppFooterLink[]; ariaLabel?: string }): string {
   const links = opts?.links ?? [
-    { href: pfad('impressum'), label: 'Impressum' },
-    { href: pfad('datenschutz'), label: 'Datenschutz' },
+    { href: path('imprint'), label: 'Impressum' },
+    { href: path('privacy'), label: 'Datenschutz' },
   ]
   const aria = opts?.ariaLabel ?? 'Rechtliches'
   return (
     `<div class="wrap">` +
-    `<span class="fuss-marke">Maptale` +
-    `<span class="fuss-version">v${APP_VERSION}</span></span>` +
-    `<nav class="fuss-links" aria-label="${aria}">` +
+    `<span class="footer-brand">Maptale` +
+    `<span class="footer-version">v${APP_VERSION}</span></span>` +
+    `<nav class="footer-links" aria-label="${aria}">` +
     links
       .map((l) => `<a href="${l.href}">${l.label}</a>`)
-      .join('<span class="fuss-sep" aria-hidden="true">·</span>') +
+      .join('<span class="footer-sep" aria-hidden="true">·</span>') +
     `</nav>` +
     `</div>`
   )
 }
 
 /** Schreibt die Fußzeile in einen vorhandenen `footer`-Mount (synchron). */
-export function schreibeAppFooter(
+export function writeAppFooter(
   footer: Element | null,
   opts?: { links?: AppFooterLink[]; ariaLabel?: string },
 ): void {
@@ -170,7 +170,7 @@ export function schreibeAppFooter(
 
 type Quota = { used: number; limit: number }
 
-type MeAntwort = {
+type MeResponse = {
   user?: { name?: string; email?: string; role?: string }
   profile?: { displayName?: string; avatarUrl?: string; handle?: string | null }
   quota?: Quota
@@ -182,49 +182,49 @@ function mb(b: number): string {
 
 function quotaHtml(quota: Quota | undefined): string {
   if (!quota || !(quota.limit > 0)) return ''
-  const anteil = Math.min(100, (quota.used / quota.limit) * 100)
-  return `<div class="km-quota">
-    <div class="km-quota-kopf"><span>Speicher</span><span>${mb(quota.used)} / ${mb(quota.limit)} MB</span></div>
-    <div class="km-balken"><span style="width:${anteil.toFixed(0)}%"${anteil > 90 ? ' class="voll"' : ''}></span></div>
+  const share = Math.min(100, (quota.used / quota.limit) * 100)
+  return `<div class="am-quota">
+    <div class="am-quota-header"><span>Speicher</span><span>${mb(quota.used)} / ${mb(quota.limit)} MB</span></div>
+    <div class="am-bar"><span style="width:${share.toFixed(0)}%"${share > 90 ? ' class="full"' : ''}></span></div>
   </div>`
 }
 
-function wendeProfilDatenAn(
+function applyProfileData(
   container: HTMLElement,
-  daten: { name: string; initial: string; avatarUrl?: string | null | undefined },
+  data: { name: string; initial: string; avatarUrl?: string | null | undefined },
 ): void {
-  const nameEl = container.querySelector('.nav-profil-name')
-  if (nameEl && nameEl.textContent !== daten.name) {
-    nameEl.textContent = daten.name
+  const nameEl = container.querySelector('.nav-profile-name')
+  if (nameEl && nameEl.textContent !== data.name) {
+    nameEl.textContent = data.name
   }
-  const chip = container.querySelector('.benutzer-chip') as HTMLButtonElement | null
+  const chip = container.querySelector('.user-chip') as HTMLButtonElement | null
   if (chip) {
     chip.removeAttribute('disabled')
     chip.removeAttribute('aria-busy')
     chip.removeAttribute('aria-label')
   }
 
-  const punkt = container.querySelector('.benutzer-chip .punkt')
-  if (punkt) {
-    if (daten.avatarUrl) {
-      if (punkt instanceof HTMLImageElement) {
-        if (punkt.src !== daten.avatarUrl) punkt.src = daten.avatarUrl
+  const dot = container.querySelector('.user-chip .dot')
+  if (dot) {
+    if (data.avatarUrl) {
+      if (dot instanceof HTMLImageElement) {
+        if (dot.src !== data.avatarUrl) dot.src = data.avatarUrl
       } else {
         const img = document.createElement('img')
-        img.className = 'punkt'
-        img.src = daten.avatarUrl
+        img.className = 'dot'
+        img.src = data.avatarUrl
         img.width = 20
         img.height = 20
-        punkt.replaceWith(img)
+        dot.replaceWith(img)
       }
-    } else if (daten.initial) {
-      if (punkt instanceof HTMLImageElement) {
+    } else if (data.initial) {
+      if (dot instanceof HTMLImageElement) {
         const span = document.createElement('span')
-        span.className = 'punkt'
-        span.textContent = daten.initial
-        punkt.replaceWith(span)
+        span.className = 'dot'
+        span.textContent = data.initial
+        dot.replaceWith(span)
       } else {
-        if (punkt.textContent !== daten.initial) punkt.textContent = daten.initial
+        if (dot.textContent !== data.initial) dot.textContent = data.initial
       }
     }
   }
@@ -235,7 +235,7 @@ function wendeProfilDatenAn(
  * „Anmelden", Eingeloggte denselben Konto-Chip wie im Studio — ohne
  * „Neue Tour" (der bleibt Studio-only).
  */
-export async function montiereNavRechts(
+export async function mountNavRight(
   container: HTMLElement | null,
   /**
    * Knopf links neben dem Chip. Die Landing zeigt dort „Meine Touren" — sie hatte
@@ -245,109 +245,109 @@ export async function montiereNavRechts(
    */
   cta?: { text: string; href: string },
 ): Promise<void> {
-  // Auch hier und nicht nur in `schreibeAppHeader`: Die Landing hat ihre eigene
+  // Auch hier und nicht nur in `writeAppHeader`: Die Landing hat ihre eigene
   // Kopfleiste im HTML und montiert nur die rechte Seite nach.
-  montiereStandChip()
-  montiereFeedbackKnopf()
+  mountStageChip()
+  mountFeedbackButton()
   if (!container) return
 
   // Versuche Profil vorab aus dem Cache zu setzen, damit kein Layout-Sprung entsteht
-  const cache = leseProfilCache()
+  const cache = readProfileCache()
   if (cache) {
-    wendeProfilDatenAn(container, cache)
+    applyProfileData(container, cache)
   }
 
   try {
     const r = await fetch('/api/auth/me', { credentials: 'include' })
-    const daten = (r.ok ? await r.json() : null) as MeAntwort | null
-    if (!daten?.user) {
-      vergesseAngemeldet()
+    const data = (r.ok ? await r.json() : null) as MeResponse | null
+    if (!data?.user) {
+      forgetSignedIn()
       return
     }
-    merkeAngemeldet()
+    rememberSignedIn()
 
-    const name = daten.profile?.displayName || daten.user.name || 'Profil'
+    const name = data.profile?.displayName || data.user.name || 'Profil'
     const initial = (name.trim().charAt(0) || '?').toUpperCase()
-    const avatar = daten.profile?.avatarUrl
-    const mail = daten.user.email || ''
+    const avatar = data.profile?.avatarUrl
+    const mail = data.user.email || ''
 
-    merkeProfilCache({ name, initial, avatarUrl: avatar })
-    wendeProfilDatenAn(container, { name, initial, avatarUrl: avatar })
+    rememberProfileCache({ name, initial, avatarUrl: avatar })
+    applyProfileData(container, { name, initial, avatarUrl: avatar })
 
     const adminLink =
-      daten.user.role === 'admin'
-        ? `<a href="${pfad('verwaltung')}" class="km-eintrag">${ICON_ADMIN}Administration</a>`
+      data.user.role === 'admin'
+        ? `<a href="${path('admin')}" class="am-item">${ICON_ADMIN}Administration</a>`
         : ''
 
-    const profilLink = daten.profile?.handle
-      ? `<a href="${profilPfad(daten.profile.handle)}" class="km-eintrag">${ICON_PROFIL}Mein Profil</a>`
+    const profileLink = data.profile?.handle
+      ? `<a href="${profilePath(data.profile.handle)}" class="am-item">${ICON_PROFILE}Mein Profil</a>`
       : ''
 
-    let kontoWrap = container.querySelector('.konto-wrap') as HTMLElement | null
-    if (!kontoWrap) {
+    let accountWrap = container.querySelector('.account-wrap') as HTMLElement | null
+    if (!accountWrap) {
       const avatarHtml = avatar
-        ? `<img class="punkt" src="${avatar}" alt="" width="20" height="20" />`
-        : `<span class="punkt">${initial}</span>`
+        ? `<img class="dot" src="${avatar}" alt="" width="20" height="20" />`
+        : `<span class="dot">${initial}</span>`
       container.innerHTML = `
-        ${cta ? `<a href="${cta.href}" class="nav-cta nav-hide-sm" data-dabei>${cta.text}</a>` : ''}
-        <div class="konto-wrap" data-dabei>
-          <button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">
-            ${avatarHtml}<span class="nav-profil-name">${name}</span>
+        ${cta ? `<a href="${cta.href}" class="nav-cta nav-hide-sm" data-signed-in>${cta.text}</a>` : ''}
+        <div class="account-wrap" data-signed-in>
+          <button type="button" class="user-chip" id="nav-profile" aria-haspopup="true" aria-expanded="false">
+            ${avatarHtml}<span class="nav-profile-name">${name}</span>
           </button>
-          <div class="konto-menue" id="nav-konto-menue" hidden></div>
+          <div class="account-menu" id="nav-account-menu" hidden></div>
         </div>`
-      kontoWrap = container.querySelector('.konto-wrap')
+      accountWrap = container.querySelector('.account-wrap')
     }
 
     // Falls die .konto-wrap aus der HTML-Vorlage stammt, fehlt ihr das
     // Dropdown-Menü — es muss nachträglich eingefügt werden.
-    if (kontoWrap && !kontoWrap.querySelector('.konto-menue')) {
-      const menueDiv = document.createElement('div')
-      menueDiv.className = 'konto-menue'
-      menueDiv.id = 'nav-konto-menue'
-      menueDiv.hidden = true
-      kontoWrap.appendChild(menueDiv)
+    if (accountWrap && !accountWrap.querySelector('.account-menu')) {
+      const menuDiv = document.createElement('div')
+      menuDiv.className = 'account-menu'
+      menuDiv.id = 'nav-account-menu'
+      menuDiv.hidden = true
+      accountWrap.appendChild(menuDiv)
     }
 
-    const menue = container.querySelector('#nav-konto-menue, .konto-menue') as HTMLElement | null
-    if (menue) {
-      menue.id = 'nav-konto-menue'
-      menue.innerHTML = `
-        ${mail ? `<div class="km-mail">${mail}</div>` : ''}
-        ${quotaHtml(daten.quota)}
-        <div class="km-trenner" role="separator"></div>
-        ${profilLink}
-        <a href="${pfad('konto')}" class="km-eintrag">${ICON_KONTO}Kontoeinstellungen</a>
+    const menu = container.querySelector('#nav-account-menu, .account-menu') as HTMLElement | null
+    if (menu) {
+      menu.id = 'nav-account-menu'
+      menu.innerHTML = `
+        ${mail ? `<div class="am-mail">${mail}</div>` : ''}
+        ${quotaHtml(data.quota)}
+        <div class="am-divider" role="separator"></div>
+        ${profileLink}
+        <a href="${path('account')}" class="am-item">${ICON_ACCOUNT}Kontoeinstellungen</a>
         ${adminLink}
-        <button type="button" class="km-eintrag" id="nav-abmelden">
-          ${ICON_ABMELDEN}Abmelden
+        <button type="button" class="am-item" id="nav-logout">
+          ${ICON_LOGOUT}Abmelden
         </button>`
     }
 
-    const chip = container.querySelector('.benutzer-chip') as HTMLButtonElement | null
-    if (chip && menue && !chip.dataset.listener) {
+    const chip = container.querySelector('.user-chip') as HTMLButtonElement | null
+    if (chip && menu && !chip.dataset.listener) {
       chip.dataset.listener = 'true'
       chip.disabled = false
       chip.removeAttribute('aria-busy')
       chip.removeAttribute('aria-label')
-      chip.id = 'nav-profil'
+      chip.id = 'nav-profile'
       chip.setAttribute('aria-haspopup', 'true')
       chip.setAttribute('aria-expanded', 'false')
 
       chip.addEventListener('click', (e) => {
         e.stopPropagation()
-        const auf = menue.hidden
-        menue.hidden = !auf
-        chip.setAttribute('aria-expanded', String(auf))
+        const open = menu.hidden
+        menu.hidden = !open
+        chip.setAttribute('aria-expanded', String(open))
       })
       document.addEventListener('click', (e) => {
-        if (!menue.hidden && !(e.target as Element | null)?.closest?.('.konto-wrap')) {
-          menue.hidden = true
+        if (!menu.hidden && !(e.target as Element | null)?.closest?.('.account-wrap')) {
+          menu.hidden = true
           chip.setAttribute('aria-expanded', 'false')
         }
       })
-      container.querySelector('#nav-abmelden')?.addEventListener('click', () => {
-        vergesseAngemeldet()
+      container.querySelector('#nav-logout')?.addEventListener('click', () => {
+        forgetSignedIn()
         fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() =>
           location.reload(),
         )
@@ -363,25 +363,25 @@ export async function montiereNavRechts(
  * rechts den Konto-Chip (bzw. Gast-CTA) montieren. Studio übergibt
  * `variante: 'studio'` und `rechts: null` (eigener Chip, Quota-Live-Updates).
  */
-export async function montiereAppHeader(
+export async function mountAppHeader(
   nav: Element | null,
   opts: {
-    aktiv: AppNavSeite
-    variante?: AppHeaderVariante
+    active: AppNavPage
+    variant?: AppHeaderVariant
     /** `null` = rechte Seite nicht antasten (Studio nach schreibeAppHeader). */
-    rechts?: HTMLElement | null
+    right?: HTMLElement | null
     cta?: { text: string; href: string }
   },
 ): Promise<void> {
   if (!nav) return
-  schreibeAppHeader(nav, {
-    aktiv: opts.aktiv,
-    ...(opts.variante !== undefined ? { variante: opts.variante } : {}),
+  writeAppHeader(nav, {
+    active: opts.active,
+    ...(opts.variant !== undefined ? { variant: opts.variant } : {}),
   })
-  if (opts.rechts === null || opts.variante === 'studio') return
-  const rechts =
-    opts.rechts ??
+  if (opts.right === null || opts.variant === 'studio') return
+  const right =
+    opts.right ??
     (nav.querySelector('.nav-right') as HTMLElement | null) ??
     (nav.querySelector('#nav-right') as HTMLElement | null)
-  await montiereNavRechts(rechts, opts.cta)
+  await mountNavRight(right, opts.cta)
 }

@@ -2,29 +2,29 @@
 // origin-relativ, Session-Cookie, Fehler als Ausnahme mit der Server-Meldung.
 
 import type {
-  AdminBenutzer,
-  AdminEinladung,
-  AdminRueckmeldung,
-  AdminWartender,
-  MailBausteine,
-  MailVorlage,
-  ProtokollEintrag,
-  Rolle,
-  RueckmeldungStatus,
-} from './adminmodell.js'
+  AdminUser,
+  AdminInvitation,
+  AdminFeedback,
+  AdminWaitlistEntry,
+  MailParts,
+  MailTemplate,
+  AuditLogEntry,
+  Role,
+  FeedbackStatus,
+} from './admin-model.js'
 
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
-    nachricht: string,
+    message: string,
   ) {
-    super(nachricht)
+    super(message)
     this.name = 'ApiError'
   }
 }
 
-async function anfrage<T>(path: string, optionen: RequestInit = {}): Promise<T> {
-  const res = await fetch(`/api${path}`, { credentials: 'same-origin', ...optionen })
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`/api${path}`, { credentials: 'same-origin', ...options })
   const text = await res.text()
   let json: unknown = null
   try {
@@ -40,183 +40,186 @@ async function anfrage<T>(path: string, optionen: RequestInit = {}): Promise<T> 
   return json as T
 }
 
-const jsonKopf = { 'content-type': 'application/json' }
+const JSON_HEADERS = { 'content-type': 'application/json' }
 
-export interface Sitzung {
-  user: { id: string; email: string; name: string; role: Rolle } | null
+export interface Session {
+  user: { id: string; email: string; name: string; role: Role } | null
 }
 
-export async function me(): Promise<Sitzung> {
+export async function me(): Promise<Session> {
   try {
-    return await anfrage<Sitzung>('/auth/me')
+    return await request<Session>('/auth/me')
   } catch {
     return { user: null }
   }
 }
 
-export async function benutzer(): Promise<{ users: AdminBenutzer[]; quotaLimit: number }> {
-  return anfrage('/admin/users')
+export async function loadUsers(): Promise<{ users: AdminUser[]; quotaLimit: number }> {
+  return request('/admin/users')
 }
 
-export interface AdminStatistiken {
+export interface AdminStats {
   realtime: number
   today: { pageviews: number; visitors: number }
   last7Days: { pageviews: number; visitors: number }
   total: number
-  referrer: Array<{ quelle: string; count: number }>
+  referrer: Array<{ source: string; count: number }>
   pages: Array<{ path: string; count: number }>
 }
 
-export async function statistiken(): Promise<AdminStatistiken> {
-  return anfrage('/admin/stats')
+export async function loadStats(): Promise<AdminStats> {
+  return request('/admin/stats')
 }
 
-export interface KontoFelder {
+export interface AccountFields {
   email?: string
   name?: string
-  role?: Rolle
+  role?: Role
   verified?: boolean
   password?: string
 }
 
-export function legeAn(
-  felder: KontoFelder & { email: string; name: string; password: string },
+export function createUser(
+  fields: AccountFields & { email: string; name: string; password: string },
 ): Promise<unknown> {
-  return anfrage('/admin/users', {
+  return request('/admin/users', {
     method: 'POST',
-    headers: jsonKopf,
-    body: JSON.stringify(felder),
+    headers: JSON_HEADERS,
+    body: JSON.stringify(fields),
   })
 }
 
-export function aendere(id: string, felder: KontoFelder): Promise<unknown> {
-  return anfrage(`/admin/users/${id}`, {
+export function updateUser(id: string, fields: AccountFields): Promise<unknown> {
+  return request(`/admin/users/${id}`, {
     method: 'PATCH',
-    headers: jsonKopf,
-    body: JSON.stringify(felder),
+    headers: JSON_HEADERS,
+    body: JSON.stringify(fields),
   })
 }
 
-export function loesche(id: string): Promise<unknown> {
-  return anfrage(`/admin/users/${id}`, { method: 'DELETE' })
+export function deleteUser(id: string): Promise<unknown> {
+  return request(`/admin/users/${id}`, { method: 'DELETE' })
 }
 
-export interface EinladungsStand {
-  invitations: AdminEinladung[]
+export interface InvitationsResponse {
+  invitations: AdminInvitation[]
   invitationRequired: boolean
   /** Harter Riegel aus der Umgebung — steht er auf zu, hilft auch kein Code. */
   registrationOpen: boolean
   baseUrl: string
 }
 
-export function einladungen(): Promise<EinladungsStand> {
-  return anfrage('/admin/invitations')
+export function loadInvitations(): Promise<InvitationsResponse> {
+  return request('/admin/invitations')
 }
 
-export function ladeEin(note: string, validDays: number): Promise<{ einladung: AdminEinladung }> {
-  return anfrage('/admin/invitations', {
+export function createInvitation(
+  note: string,
+  validDays: number,
+): Promise<{ invitation: AdminInvitation }> {
+  return request('/admin/invitations', {
     method: 'POST',
-    headers: jsonKopf,
+    headers: JSON_HEADERS,
     body: JSON.stringify({ note, validDays }),
   })
 }
 
-export function widerrufe(code: string): Promise<unknown> {
-  return anfrage(`/admin/invitations/${encodeURIComponent(code)}`, { method: 'DELETE' })
+export function revokeInvitation(code: string): Promise<unknown> {
+  return request(`/admin/invitations/${encodeURIComponent(code)}`, { method: 'DELETE' })
 }
 
-export interface Einstellungen {
+export interface Settings {
   invitationRequired: boolean
   waitlistOpen: boolean
 }
 
-export function setzeEinstellungen(felder: Partial<Einstellungen>): Promise<Einstellungen> {
-  return anfrage('/admin/settings', {
+export function setSettings(fields: Partial<Settings>): Promise<Settings> {
+  return request('/admin/settings', {
     method: 'PATCH',
-    headers: jsonKopf,
-    body: JSON.stringify(felder),
+    headers: JSON_HEADERS,
+    body: JSON.stringify(fields),
   })
 }
 
-export interface WartelistenStand {
-  entries: AdminWartender[]
+export interface WaitlistResponse {
+  entries: AdminWaitlistEntry[]
   waitlistOpen: boolean
   /** Steht das Formular gerade wirklich vor der Tür? Der Schalter allein sagt das nicht. */
   offered: boolean
 }
 
-export function warteliste(): Promise<WartelistenStand> {
-  return anfrage('/admin/waitlist')
+export function loadWaitlist(): Promise<WaitlistResponse> {
+  return request('/admin/waitlist')
 }
 
 /** Erzeugt einen Code und schickt ihn — schlägt der Versand fehl, wirft der Aufruf. */
-export function ladeWartendenEin(
+export function inviteWaitlistEntry(
   id: string,
-): Promise<{ eintrag: AdminWartender; einladung: AdminEinladung }> {
-  return anfrage(`/admin/waitlist/${encodeURIComponent(id)}/invite`, {
+): Promise<{ entry: AdminWaitlistEntry; invitation: AdminInvitation }> {
+  return request(`/admin/waitlist/${encodeURIComponent(id)}/invite`, {
     method: 'POST',
-    headers: jsonKopf,
+    headers: JSON_HEADERS,
     body: '{}',
   })
 }
 
-export function loescheWartenden(id: string): Promise<unknown> {
-  return anfrage(`/admin/waitlist/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export function deleteWaitlistEntry(id: string): Promise<unknown> {
+  return request(`/admin/waitlist/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 // — Rückmeldungen —
 
-export interface RueckmeldungsStand {
-  feedback: AdminRueckmeldung[]
-  counts: Record<RueckmeldungStatus | 'gesamt', number>
+export interface FeedbackResponse {
+  feedback: AdminFeedback[]
+  counts: Record<FeedbackStatus | 'gesamt', number>
 }
 
-export function rueckmeldungen(): Promise<RueckmeldungsStand> {
-  return anfrage('/admin/feedback')
+export function loadFeedback(): Promise<FeedbackResponse> {
+  return request('/admin/feedback')
 }
 
-export function aendereRueckmeldung(
+export function updateFeedback(
   id: string,
-  felder: { status?: RueckmeldungStatus; note?: string | null },
-): Promise<{ rueckmeldung: AdminRueckmeldung }> {
-  return anfrage(`/admin/feedback/${encodeURIComponent(id)}`, {
+  fields: { status?: FeedbackStatus; note?: string | null },
+): Promise<{ feedbackItem: AdminFeedback }> {
+  return request(`/admin/feedback/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    headers: jsonKopf,
-    body: JSON.stringify(felder),
+    headers: JSON_HEADERS,
+    body: JSON.stringify(fields),
   })
 }
 
-export function loescheRueckmeldung(id: string): Promise<unknown> {
-  return anfrage(`/admin/feedback/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export function deleteFeedback(id: string): Promise<unknown> {
+  return request(`/admin/feedback/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 // — System-Mails —
 
-export interface VorlagenStand {
-  templates: MailVorlage[]
+export interface TemplatesResponse {
+  templates: MailTemplate[]
   baseUrl: string
 }
 
-export function mailvorlagen(): Promise<VorlagenStand> {
-  return anfrage('/admin/mail-templates')
+export function loadMailTemplates(): Promise<TemplatesResponse> {
+  return request('/admin/mail-templates')
 }
 
-export function speichereVorlage(
+export function saveTemplate(
   key: string,
-  blocks: MailBausteine,
-): Promise<{ templates: MailVorlage[] }> {
-  return anfrage(`/admin/mail-templates/${encodeURIComponent(key)}`, {
+  blocks: MailParts,
+): Promise<{ templates: MailTemplate[] }> {
+  return request(`/admin/mail-templates/${encodeURIComponent(key)}`, {
     method: 'PATCH',
-    headers: jsonKopf,
+    headers: JSON_HEADERS,
     body: JSON.stringify(blocks),
   })
 }
 
-export function setzeVorlageZurueck(key: string): Promise<{ templates: MailVorlage[] }> {
-  return anfrage(`/admin/mail-templates/${encodeURIComponent(key)}`, { method: 'DELETE' })
+export function resetTemplate(key: string): Promise<{ templates: MailTemplate[] }> {
+  return request(`/admin/mail-templates/${encodeURIComponent(key)}`, { method: 'DELETE' })
 }
 
-export interface VorschauAntwort {
+export interface PreviewResponse {
   subject: string
   html: string
   text: string
@@ -225,25 +228,25 @@ export interface VorschauAntwort {
 }
 
 /** Rendert die noch nicht gespeicherte Fassung — das Layout kommt vom Server. */
-export function vorschau(key: string, blocks: MailBausteine): Promise<VorschauAntwort> {
-  return anfrage(`/admin/mail-templates/${encodeURIComponent(key)}/preview`, {
+export function loadPreview(key: string, blocks: MailParts): Promise<PreviewResponse> {
+  return request(`/admin/mail-templates/${encodeURIComponent(key)}/preview`, {
     method: 'POST',
-    headers: jsonKopf,
+    headers: JSON_HEADERS,
     body: JSON.stringify(blocks),
   })
 }
 
 /** Testmail an die eigene Adresse; ohne Bausteine geht die gespeicherte Fassung raus. */
-export function testeVorlage(key: string, blocks?: MailBausteine): Promise<{ an: string }> {
-  return anfrage(`/admin/mail-templates/${encodeURIComponent(key)}/test`, {
+export function sendTestMail(key: string, blocks?: MailParts): Promise<{ to: string }> {
+  return request(`/admin/mail-templates/${encodeURIComponent(key)}/test`, {
     method: 'POST',
-    headers: jsonKopf,
+    headers: JSON_HEADERS,
     body: JSON.stringify(blocks ? { blocks } : {}),
   })
 }
 
-export interface ProtokollAntwort {
-  entries: ProtokollEintrag[]
+export interface AuditLogResponse {
+  entries: AuditLogEntry[]
   total: number
   errorCount: number
   /** Start der API — der Puffer reicht nie weiter zurück. */
@@ -255,6 +258,6 @@ export interface ProtokollAntwort {
  * nur das Neue — die offene Ansicht fragt regelmäßig nach und soll dabei nicht
  * jedes Mal den ganzen Puffer über die Leitung ziehen.
  */
-export function protokoll(seit?: number): Promise<ProtokollAntwort> {
-  return anfrage(`/admin/audit-log${seit ? `?since=${seit}` : ''}`)
+export function loadAuditLog(since?: number): Promise<AuditLogResponse> {
+  return request(`/admin/audit-log${since ? `?since=${since}` : ''}`)
 }

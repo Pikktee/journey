@@ -83,7 +83,7 @@ beantwortet die Frage nicht, wegen der man es baut.
 - **[`DESIGN.md`](../../../DESIGN.md) gilt**, wie im Produkt: Outfit, die
   Farbrollen, Radien, `font-variant-numeric: tabular-nums` bei Zahlen, kein
   Mono und kein Versalien-Sperrsatz.
-- **Tokens kopieren, nicht verlinken.** Ein `<link>` auf `src/basis.css` ließe
+- **Tokens kopieren, nicht verlinken.** Ein `<link>` auf `src/base.css` ließe
   ein archiviertes Mockup still mitwandern und in zwei Jahren die heutige Marke
   zeigen. Ein Mockup ist ein eingefrorener Stand.
 - **Eine Datei, keine Abhängigkeiten, kein Build.** Sie muss sich aus dem

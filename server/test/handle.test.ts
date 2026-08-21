@@ -4,7 +4,7 @@
 // Kollisionen, die 90-Tage-Sperre nach einer Änderung und das Weiterleiten
 // alter Adressen. Form und reservierte Wörter liegen in src/handle.ts und
 // werden im Web-Projekt geprüft (test/handle.test.ts) — der Drift-Wächter in
-// test/routen.test.ts hält beide Kopien zusammen.
+// test/routes.test.ts hält beide Kopien zusammen.
 import { describe, expect, it } from 'vitest'
 import { openDb, assignMissingHandles } from '../src/db.js'
 import { findFreeHandle, handleFromEmail } from '../src/handle.js'
@@ -136,7 +136,7 @@ describe('90-Tage-Sperre', () => {
     const anna = await u.app.auth.legeBenutzerAn('anna@example.com', 'geheim123', 'Anna')
     // Anna kann Henriks alte Adresse nicht übernehmen — sonst erbte sie alle
     // Links, die noch auf ihn zeigen.
-    expect(u.app.auth.setzeHandle(anna.id, 'test')).toBe('vergeben')
+    expect(u.app.auth.setzeHandle(anna.id, 'test')).toBe('taken')
   })
 
   it('lässt den früheren Besitzer zurück', async () => {

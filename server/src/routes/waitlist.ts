@@ -45,9 +45,9 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
     waitlistOffered(app.warteliste.offen(), app.einladungen.pflicht(), konfig.registrierungOffen)
 
   const bestaetigungsLink = (token: string): string =>
-    `${konfig.basisUrl}${WEB_PATHS.registrieren}#warteliste=${token}`
+    `${konfig.basisUrl}${WEB_PATHS.register}#warteliste=${token}`
   const austragenLink = (token: string): string =>
-    `${konfig.basisUrl}${WEB_PATHS.registrieren}#warteliste-austragen=${token}`
+    `${konfig.basisUrl}${WEB_PATHS.register}#warteliste-austragen=${token}`
 
   // — Eintragen —
   //
@@ -219,7 +219,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
         { code: einladung.code, leaveLink: austragenLink(austragToken) },
         {
           basisUrl: konfig.basisUrl,
-          link: `${konfig.basisUrl}${WEB_PATHS.registrieren}#einladung=${encodeURIComponent(einladung.code)}`,
+          link: `${konfig.basisUrl}${WEB_PATHS.register}#einladung=${encodeURIComponent(einladung.code)}`,
         },
       )
       try {

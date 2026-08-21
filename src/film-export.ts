@@ -364,8 +364,8 @@ async function bakeTab(marker: ExportTab, page: number): Promise<HTMLCanvasEleme
   // Derselbe Marken-Verlauf wie der Puck auf der Bühne (.rider-pulse in
   // style.css) — vorher standen hier zwei Amber-Zwillinge, die es sonst
   // nirgends gab.
-  g.addColorStop(0, tokenColor('--akzent', '#f59e0b'))
-  g.addColorStop(1, tokenColor('--akzent-2', '#ff6f52'))
+  g.addColorStop(0, tokenColor('--primary', '#f59e0b'))
+  g.addColorStop(1, tokenColor('--secondary', '#ff6f52'))
   x.beginPath()
   x.arc(cx, cy, r, 0, Math.PI * 2)
   x.fillStyle = g
@@ -377,7 +377,7 @@ async function bakeTab(marker: ExportTab, page: number): Promise<HTMLCanvasEleme
   if (svgEl) {
     const clone = svgEl.cloneNode(true) as SVGElement
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-    clone.setAttribute('stroke', tokenColor('--auf-akzent', '#1a1206'))
+    clone.setAttribute('stroke', tokenColor('--on-cta', '#1a1206'))
     clone.setAttribute('fill', 'none')
     const url =
       'data:image/svg+xml;charset=utf-8,' +
@@ -552,7 +552,7 @@ export function drawIntroPanel(
   let y = h / 2 - block / 2 + 8 * e
 
   ctx.font = `500 ${13.5 * e}px Outfit, system-ui, sans-serif`
-  ctx.fillStyle = tokenColor('--akzent', '#f5a524')
+  ctx.fillStyle = tokenColor('--primary', '#f5a524')
   if (kicker) drawCentered(ctx, kicker, b, y)
   y += 24 * e + lineH / 2
 
@@ -569,7 +569,7 @@ export function drawIntroPanel(
   ctx.shadowOffsetY = 0
   y += lineH * -0.5 + 34 * e
 
-  ctx.fillStyle = tokenColor('--akzent', '#f5a524')
+  ctx.fillStyle = tokenColor('--primary', '#f5a524')
   ctx.globalAlpha = opacity * 0.85
   ctx.fillRect(b / 2 - 38 * e, y, 76 * e, Math.max(1, e))
   ctx.globalAlpha = opacity
@@ -577,21 +577,21 @@ export function drawIntroPanel(
 
   if (author) {
     ctx.font = `500 ${14 * e}px Outfit, system-ui, sans-serif`
-    ctx.fillStyle = tokenColor('--text-gedaempft', 'rgba(242,237,227,0.62)')
+    ctx.fillStyle = tokenColor('--muted', 'rgba(242,237,227,0.62)')
     drawCentered(ctx, author, b, y)
     y += 26 * e
   }
 
   if (route) {
     ctx.font = `500 ${13.5 * e}px Outfit, system-ui, sans-serif`
-    ctx.fillStyle = tokenColor('--text-gedaempft', 'rgba(242,237,227,0.62)')
+    ctx.fillStyle = tokenColor('--muted', 'rgba(242,237,227,0.62)')
     drawCentered(ctx, route, b, y)
     y += 30 * e
   }
 
   if (descriptionLines.length) {
     ctx.font = `300 ${descriptionPx}px Outfit, system-ui, sans-serif`
-    ctx.fillStyle = tokenColor('--text-gedaempft', 'rgba(242,237,227,0.62)')
+    ctx.fillStyle = tokenColor('--muted', 'rgba(242,237,227,0.62)')
     for (const line of descriptionLines) {
       drawCentered(ctx, line, b, y)
       y += descriptionLineH
@@ -636,8 +636,8 @@ export function drawFinalePanel(
   const x = b / 2 - cardW / 2
   const y = h / 2 - cardH / 2
 
-  ctx.fillStyle = tokenColor('--glas', 'rgba(18, 22, 28, 0.72)')
-  ctx.strokeStyle = tokenColor('--glas-rand', 'rgba(255,255,255,0.14)')
+  ctx.fillStyle = tokenColor('--glass', 'rgba(18, 22, 28, 0.72)')
+  ctx.strokeStyle = tokenColor('--glass-border', 'rgba(255,255,255,0.14)')
   ctx.lineWidth = Math.max(1, e)
   ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'
   ctx.shadowBlur = 60 * e
@@ -649,7 +649,7 @@ export function drawFinalePanel(
 
   let cy = y + 42 * e
   ctx.font = `500 ${13 * e}px Outfit, system-ui, sans-serif`
-  ctx.fillStyle = tokenColor('--akzent', '#f5a524')
+  ctx.fillStyle = tokenColor('--primary', '#f5a524')
   drawCentered(ctx, kicker, b, cy)
   cy += 16 * e + 27 * e
   ctx.font = `600 ${48 * e}px Outfit, system-ui, sans-serif`
@@ -661,7 +661,7 @@ export function drawFinalePanel(
   values.forEach(([label, value], i) => {
     const cx = left + i * column
     ctx.font = `500 ${12 * e}px Outfit, system-ui, sans-serif`
-    ctx.fillStyle = tokenColor('--text-gedaempft', 'rgba(242,237,227,0.62)')
+    ctx.fillStyle = tokenColor('--muted', 'rgba(242,237,227,0.62)')
     ctx.fillText(label, cx, cy)
     ctx.font = `600 ${24 * e}px Outfit, system-ui, sans-serif`
     ctx.fillStyle = tokenColor('--text', '#f2ede3')

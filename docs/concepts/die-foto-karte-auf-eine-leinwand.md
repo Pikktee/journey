@@ -509,7 +509,7 @@ diese Tabelle: Ken-Burns-Richtung und -Ende, Entwickeln-Ende, Flug- und
 Abgangs-Geometrie, Ruhewinkel, Dauern.
 
 Das Muster gibt es im Repo schon zweimal: der Drift-Wächter zwischen DESIGN.md
-und `basis.css` ([test/basis-css.test.ts](../../test/basis-css.test.ts)) und
+und `base.css` ([test/base-css.test.ts](../../test/base-css.test.ts)) und
 [test/card-painter-css.test.ts](../../test/card-painter-css.test.ts). Der zweite
 ist der Vorfahre dieses Tests — er prüft heute nur einen Teil (die ZEITEN, und
 das ausdrücklich) und hat die acht Abweichungen aus §2.2 durchgelassen.

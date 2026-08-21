@@ -46,8 +46,8 @@ das Konzept und die [Abbildungstabelle](abbildungstabelle.tsv).
 - **Server-Code**: SQL, Zeilen-Typen, API-Pfade und API-Felder nach §6.7/§6.8.
 - **Die vier Verträge stehen auf `@2`**: `maptale/upload@2`, `maptale/edits@2`,
   `maptale/enrichment@2` (früher `anreicherung@1`) und `maptale/tour@2`.
-- **Alle Leser**: Web (`src/studio/api.ts`, `src/remote.ts`, `src/konto/*`,
-  `src/profil/*`, `src/admin/*`, `src/galerie/*`) und Android (`ApiClient.kt`,
+- **Alle Leser**: Web (`src/studio/api.ts`, `src/remote.ts`, `src/account/*`,
+  `src/profile/*`, `src/admin/*`, `src/gallery/*`) und Android (`ApiClient.kt`,
   `Manifest.kt`, `EditsFortschreibung.kt`, `TourenScreen.kt`,
   `ImportViewModel.kt`, `MaptalePushDienst.kt`, Room-Entities, Enum-Speicherwerte,
   Room v4 mit `fallbackToDestructiveMigration`).
@@ -143,7 +143,7 @@ Rückweg: `~/Dev/.maptale-deploy-20260820-2016/daten` (404 MB).
 
 **Ein Fehler ist dabei durchgerutscht und wurde als v0.67.1 nachgereicht:** Die
 Galerie und die Profilseite zeigten „Namenlose Reise" statt der Titel.
-`galeriemodell.ts` las `tour.titel`, der Server schickt `title` — und der
+`gallery-model.ts` las `tour.titel`, der Server schickt `title` — und der
 handgetippte Typ `GalerieTour` deklarierte selbst das deutsche Feld, das
 Fixture im Test benutzte es ebenfalls. **Ein Typ und sein Test können gemeinsam
 falsch sein**; das ist genau die fünfte Sorte, gegen die es keinen mechanischen
@@ -263,7 +263,7 @@ und steht bewusst nicht in diesem Konzept.
 | Server-Spiegel ohne Import | unberührt geblieben, Drift-Wächter grün. `STUDIO_PEGEL` heißt `STUDIO_GAIN`, der Wächter zieht mit |
 | Text-Wächter | einer war rot, und zwar zu Recht: `test/newsletter-einwilligung.test.ts` baute die Label-Präfixe (`registrierung-…`) aus dem Quellen-Schlüssel. Der Wortlaut-Nachweis nach Art. 7 bleibt deutsch, also steht die Zuordnung jetzt ausdrücklich im Wächter |
 | Messskripte | unberührt (Welle 5) |
-| `vite.config.js` → `src/routen.ts` | unberührt (Welle 6) |
+| `vite.config.js` → `src/routes.ts` | unberührt (Welle 6) |
 | `camera[].preset` → `PRESETS` | gezogen, beide Stellen im selben Commit: die Schlüssel von `PRESETS` in `src/tour.ts` (`near`/`mid`/`far`), die `data-preset` in `erlebnis.html` und der Vergleich `k.preset === 'default'` in `src/main.ts` |
 | `verarbeite` in `routes/tours.ts` | exportiert als `processTour`, vor der Start-Migration |
 | Push-Nutzlast Server → App | gezogen. `{ type: 'import-finished' }` auf beiden Seiten; nachgeprüft an `push.ts` gegen `MaptalePushDienst.kt` |

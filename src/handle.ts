@@ -18,7 +18,7 @@
  * Bequemlichkeit beim Tippen und im Server als Entscheidung. Der Server kann
  * sie nicht importieren (eigener `rootDir`) und führt sie deshalb ein zweites
  * Mal in [server/src/handle.ts](../server/src/handle.ts) — ein Drift-Wächter in
- * [test/routen.test.ts](../test/routen.test.ts) hält beide zusammen.
+ * [test/routes.test.ts](../test/routes.test.ts) hält beide zusammen.
  */
 
 /**
@@ -28,20 +28,20 @@
  * wie ein Aufzählungszeichen aus, `henrik.` verliert seinen Punkt, sobald ihn
  * jemand ans Satzende schreibt.
  */
-export const HANDLE_REGELN = /^[a-z0-9](?:[a-z0-9._-]{1,28})[a-z0-9]$/
+export const HANDLE_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28})[a-z0-9]$/
 
 /**
  * Was sich niemand greifen soll.
  *
- * Die Liste steht NEBEN [routen.ts](./routen.ts), nicht darin: Sie enthält
+ * Die Liste steht NEBEN [routes.ts](./routes.ts), nicht darin: Sie enthält
  * jeden vorhandenen Pfad (sonst überschriebe ein Handle eine Seite) UND das
  * Übliche, das später einmal einer werden könnte. Genau das ist der Punkt —
- * wäre sie aus `ROUTEN` abgeleitet, entwertete jeder neue Pfad still einen
- * längst vergebenen Handle. Der Wächter in `test/routen.test.ts` prüft nur die
+ * wäre sie aus `ROUTES` abgeleitet, entwertete jeder neue Pfad still einen
+ * längst vergebenen Handle. Der Wächter in `test/routes.test.ts` prüft nur die
  * eine Richtung: Jeder Pfad muss hier drinstehen.
  */
-export const RESERVIERTE_HANDLES: ReadonlySet<string> = new Set([
-  // Die Seiten, die es gibt (s. routen.ts)
+export const RESERVED_HANDLES: ReadonlySet<string> = new Set([
+  // Die Seiten, die es gibt (s. routes.ts)
   'app',
   'anmelden',
   'registrieren',
@@ -60,7 +60,7 @@ export const RESERVIERTE_HANDLES: ReadonlySet<string> = new Set([
   'favicon',
   'robots',
   'sitemap',
-  // Der Namensraum der Touren (`/tour/<kennung>`, s. routen.ts)
+  // Der Namensraum der Touren (`/tour/<kennung>`, s. routes.ts)
   'tour',
   'touren',
   'null',
@@ -86,32 +86,32 @@ export const RESERVIERTE_HANDLES: ReadonlySet<string> = new Set([
   'wir',
 ])
 
-/** Warum ein Handle nicht geht — der Text dazu steht in `HANDLE_TEXTE`. */
-export type HandleFehler = 'leer' | 'kurz' | 'form' | 'reserviert' | 'vergeben'
+/** Warum ein Handle nicht geht — der Text dazu steht in `HANDLE_ERROR_TEXTS`. */
+export type HandleError = 'empty' | 'tooShort' | 'format' | 'reserved' | 'taken'
 
-export const HANDLE_TEXTE: Readonly<Record<HandleFehler, string>> = {
-  leer: 'Ohne Adresse ist dein Profil nicht verlinkbar.',
-  kurz: 'Mindestens 3 Zeichen.',
-  form: 'Erlaubt sind a–z, 0–9, Punkt, Bindestrich und Unterstrich; nicht am Anfang oder Ende.',
-  reserviert: 'Diese Adresse ist für Maptale selbst reserviert.',
-  vergeben: 'Diese Adresse ist schon vergeben.',
+export const HANDLE_ERROR_TEXTS: Readonly<Record<HandleError, string>> = {
+  empty: 'Ohne Adresse ist dein Profil nicht verlinkbar.',
+  tooShort: 'Mindestens 3 Zeichen.',
+  format: 'Erlaubt sind a–z, 0–9, Punkt, Bindestrich und Unterstrich; nicht am Anfang oder Ende.',
+  reserved: 'Diese Adresse ist für Maptale selbst reserviert.',
+  taken: 'Diese Adresse ist schon vergeben.',
 }
 
 /**
  * Form und Reservierung prüfen — alles, was ohne Datenbank zu entscheiden ist.
  * `null` heißt „so weit in Ordnung"; ob der Handle noch FREI ist, weiß nur der
- * Server (`vergeben`).
+ * Server (`taken`).
  */
-export function pruefeHandleForm(wert: string): HandleFehler | null {
-  const w = wert.trim().toLowerCase()
-  if (!w) return 'leer'
-  if (w.length < 3) return 'kurz'
-  if (!HANDLE_REGELN.test(w)) return 'form'
+export function validateHandleForm(value: string): HandleError | null {
+  const w = value.trim().toLowerCase()
+  if (!w) return 'empty'
+  if (w.length < 3) return 'tooShort'
+  if (!HANDLE_PATTERN.test(w)) return 'format'
   // Benutzer-IDs beginnen mit `u_` (server/src/ids.ts). Der Präfix bleibt frei,
   // damit `/api/users/:id/profile` eine ID von einem Handle unterscheiden
   // kann, ohne zu raten — sonst führte ein Handle „u_abc" auf ein fremdes Profil.
-  if (w.startsWith('u_')) return 'reserviert'
-  if (RESERVIERTE_HANDLES.has(w)) return 'reserviert'
+  if (w.startsWith('u_')) return 'reserved'
+  if (RESERVED_HANDLES.has(w)) return 'reserved'
   return null
 }
 
@@ -123,8 +123,8 @@ export function pruefeHandleForm(wert: string): HandleFehler | null {
  * Bindestrich, weil das die übliche Lesart ist. Das Ergebnis kann trotzdem
  * ungültig sein (zu kurz, reserviert) — geprüft wird getrennt.
  */
-export function zuHandle(roh: string): string {
-  return roh
+export function toHandle(raw: string): string {
+  return raw
     .toLowerCase()
     .replace(/ä/g, 'ae')
     .replace(/ö/g, 'oe')

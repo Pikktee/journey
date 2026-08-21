@@ -132,9 +132,9 @@ ${
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" />`
 }
-<!-- Die Tokens der Marke, beim Bauen aus src/basis.css kopiert. Sie stehen VOR
+<!-- Die Tokens der Marke, beim Bauen aus src/base.css kopiert. Sie stehen VOR
      dem Blatt des Viewers, damit dessen Regeln bei gleicher Spezifität gewinnen. -->
-<link rel="stylesheet" href="${auf}assets/basis.css" />
+<link rel="stylesheet" href="${auf}assets/base.css" />
 <link rel="stylesheet" href="${auf}assets/stil.css" />
 </head>
 <body class="${klasse}" data-auf="${auf}">

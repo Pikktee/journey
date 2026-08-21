@@ -21,8 +21,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <!-- Gemeinsames Blatt mit dem Impressum: src/rechtstext.css -->
-    <link rel="stylesheet" href="/src/rechtstext.css" />
+    <!-- Gemeinsames Blatt mit dem Impressum: src/legal-text.css -->
+    <link rel="stylesheet" href="/src/legal-text.css" />
   </head>
   <body>
     <nav class="nav">
@@ -34,16 +34,16 @@
       </div>
     </nav>
 
-    <header class="kopf">
+    <header class="header">
       <div class="wrap">
-        <div class="spalte">
-          <a class="zurueck" href="/" data-zurueck><span aria-hidden="true">‹</span> Zurück</a>
+        <div class="column">
+          <a class="exit-pill" href="/" data-zurueck><span aria-hidden="true">‹</span> Zurück</a>
           <h1>Datenschutzerklärung</h1>
           <p class="lead">
             Eine Tour besteht aus Orten, Zeiten und Bildern, also aus Daten, die etwas über dich
             erzählen. Hier steht, was davon wohin geht, warum, und wie lange es bleibt.
           </p>
-          <p class="stand">Stand: 5. August 2026</p>
+          <p class="as-of">Stand: 5. August 2026</p>
         </div>
       </div>
     </header>
@@ -55,30 +55,30 @@
            beim Scrollen stehen, mit Marke am gerade gelesenen Abschnitt; auf
            schmalen bleibt es bei der Reihe oben im Fluss (eine klebende Leiste
            mit elf Punkten fräße dort die halbe Lesefläche). -->
-      <nav class="gliederung" id="gliederung" aria-label="Abschnitte dieser Erklärung">
+      <nav class="outline" id="outline" aria-label="Abschnitte dieser Erklärung">
         <b>Inhalt</b>
-        <ul class="inhalt">
-          <li><a href="#verantwortlich"><span class="nr">1</span>Verantwortlicher</a></li>
-          <li><a href="#daten"><span class="nr">2</span>Welche Daten</a></li>
-          <li><a href="#zwecke"><span class="nr">3</span>Zwecke</a></li>
-          <li><a href="#anreicherung"><span class="nr">4</span>Anreicherung</a></li>
-          <li><a href="#sichtbarkeit"><span class="nr">5</span>Sichtbarkeit</a></li>
-          <li><a href="#karten"><span class="nr">6</span>Karten &amp; Schriften</a></li>
-          <li><a href="#app"><span class="nr">7</span>Android-App</a></li>
-          <li><a href="#cookies"><span class="nr">8</span>Cookies</a></li>
-          <li><a href="#empfaenger"><span class="nr">9</span>Empfänger</a></li>
-          <li><a href="#dauer"><span class="nr">10</span>Speicherdauer</a></li>
-          <li><a href="#rechte"><span class="nr">11</span>Deine Rechte</a></li>
-          <li><a href="#aenderungen"><span class="nr">12</span>Änderungen</a></li>
+        <ul class="content">
+          <li><a href="#controller"><span class="number">1</span>Verantwortlicher</a></li>
+          <li><a href="#data"><span class="number">2</span>Welche Daten</a></li>
+          <li><a href="#purposes"><span class="number">3</span>Zwecke</a></li>
+          <li><a href="#enrichment"><span class="number">4</span>Anreicherung</a></li>
+          <li><a href="#visibility"><span class="number">5</span>Sichtbarkeit</a></li>
+          <li><a href="#maps"><span class="number">6</span>Karten &amp; Schriften</a></li>
+          <li><a href="#app"><span class="number">7</span>Android-App</a></li>
+          <li><a href="#cookies"><span class="number">8</span>Cookies</a></li>
+          <li><a href="#recipients"><span class="number">9</span>Empfänger</a></li>
+          <li><a href="#retention"><span class="number">10</span>Speicherdauer</a></li>
+          <li><a href="#rights"><span class="number">11</span>Deine Rechte</a></li>
+          <li><a href="#changes"><span class="number">12</span>Änderungen</a></li>
         </ul>
       </nav>
-      <div class="spalte prosa">
-        <h2 id="verantwortlich">1. Verantwortlicher</h2>
+      <div class="column prose">
+        <h2 id="controller">1. Verantwortlicher</h2>
         <p>
           Verantwortlich im Sinne der DSGVO ist der im <a href="/impressum">Impressum</a> genannte
           Anbieter:
         </p>
-        <p class="anschrift">
+        <p class="address">
           Henrik Heil<br />
           Westendstraße 100, 60325 Frankfurt am Main, Deutschland<br />
           <a href="mailto:contact@henrikheil.net">contact@henrikheil.net</a>
@@ -88,7 +88,7 @@
           Anfragen beantwortet die oben genannte Adresse.
         </p>
 
-        <h2 id="daten">2. Welche Daten wir verarbeiten</h2>
+        <h2 id="data">2. Welche Daten wir verarbeiten</h2>
         <h3>Konto</h3>
         <ul>
           <li>
@@ -210,11 +210,11 @@
         <p>
           Rechtsgrundlage ist unser berechtigtes Interesse an einer bedarfsgerechten Gestaltung
           der Website, Art. 6 Abs. 1 lit. f DSGVO. Du kannst der Messung jederzeit widersprechen
-          (siehe <a href="#rechte">Deine Rechte</a>); technisch genügt dafür jede gängige
+          (siehe <a href="#rights">Deine Rechte</a>); technisch genügt dafür jede gängige
           Blockier-Erweiterung.
         </p>
 
-        <p class="merk">
+        <p class="callout">
           <strong>Verbundene Dienste (Sport-Tracker).</strong> Du kannst dein Maptale-Konto in den
           Kontoeinstellungen mit einem Sport-Tracker verbinden — derzeit Polar. Dann holen wir
           neue Aufzeichnungen von dort automatisch als Tour: <strong>die GPS-Strecke, Startzeit,
@@ -228,7 +228,7 @@
           Touren bleiben dir erhalten</strong>, sie gehören dir und nicht der Verbindung.
         </p>
 
-        <p class="merk">
+        <p class="callout">
           <strong>Rückmeldungen.</strong> Über den Feedback-Knopf oder die Seite
           <a href="/feedback">Rückmeldung geben</a> kannst du uns schreiben, was dir auffällt.
           Gespeichert wird dein <strong>Text</strong>, dazu — sofern du sie einträgst — eine
@@ -245,7 +245,7 @@
           berechtigtes Interesse an der Verbesserung und Fehlersuche, Art. 6 Abs. 1 lit. f DSGVO.
         </p>
 
-        <h2 id="zwecke">3. Zwecke und Rechtsgrundlagen</h2>
+        <h2 id="purposes">3. Zwecke und Rechtsgrundlagen</h2>
         <ul>
           <li>
             <strong>Konto und Tourverarbeitung</strong>, Erfüllung des Nutzungsvertrags,
@@ -302,7 +302,7 @@
           nach Art. 9 Abs. 2 lit. a DSGVO.
         </p>
 
-        <h2 id="anreicherung">4. Was beim Verarbeiten einer Tour passiert</h2>
+        <h2 id="enrichment">4. Was beim Verarbeiten einer Tour passiert</h2>
         <p>
           Nach dem Hochladen reichert der Server die Tour an. Dabei fragt er einige externe Dienste
           ab. Übermittelt werden dafür Koordinaten und Zeitpunkte deiner Strecke, nie deine
@@ -322,7 +322,7 @@
             OpenStreetMap-Overpass-API den Schienenverlauf im Umkreis deiner Strecke ab.
           </li>
         </ul>
-        <p class="merk">
+        <p class="callout">
           <strong>Bildanalyse.</strong> Um das rekonstruierte Wetter zu korrigieren, kann eine
           verkleinerte Fassung einzelner Fotos deiner Tour an OpenRouter (OpenRouter, Inc., USA)
           übermittelt und dort von einem Bildmodell ausgewertet werden. Gefragt wird ausschließlich
@@ -332,13 +332,13 @@
           (Art. 6 Abs. 1 lit. b DSGVO); willst du sie nicht, lade keine Fotos hoch.
         </p>
 
-        <h2 id="sichtbarkeit">5. Wer deine Touren sieht</h2>
+        <h2 id="visibility">5. Wer deine Touren sieht</h2>
         <p>
           Jede Tour ist zunächst <strong>privat</strong> und nur für dich sichtbar. Stellst du sie
           im Studio auf <strong>öffentlich</strong>, erscheint sie unter
           <a href="/galerie">Entdecken</a> und auf deiner Profilseite: für alle, auch ohne Konto.
         </p>
-        <p class="merk">
+        <p class="callout">
           <strong>In Suchmaschinen</strong> erscheint nur, was du auf <strong>öffentlich</strong>
           gestellt hast, und beim Profil zusätzlich nur, wenn du es ausdrücklich erlaubst:
         </p>
@@ -361,7 +361,7 @@
           Vorschaukarte mit Titel und Bild, auch bei ungelisteten Touren. Das erzeugt der
           jeweilige Dienst beim Versenden und hat mit Suchmaschinen nichts zu tun.
         </p>
-        <p class="merk">
+        <p class="callout">
           Öffentlich sind dann: Strecke, Fotos und Videos, Titel, Beschreibungen, Zeiten sowie dein
           Anzeigename und dein Profilbild. Eine Strecke beginnt oft an der eigenen Haustür; prüfe
           vor dem Veröffentlichen, ob das so gewollt ist. Zurückstellen auf privat wirkt sofort für
@@ -369,7 +369,7 @@
           wir nicht zurückholen.
         </p>
 
-        <h2 id="karten">6. Karten, Gelände und Schriften</h2>
+        <h2 id="maps">6. Karten, Gelände und Schriften</h2>
         <p>
           Die Kamerafahrt entsteht im Browser. Dein Gerät lädt die Karten- und Geländedaten daher
           direkt bei den jeweiligen Anbietern; diese erhalten dabei deine IP-Adresse und die
@@ -469,7 +469,7 @@
             30 Tage.
           </li>
           <li>
-            <code>maptale_dabei</code>, merkt nur, <em>dass</em> eine Sitzung besteht, damit die
+            <code>maptale_returning</code>, merkt nur, <em>dass</em> eine Sitzung besteht, damit die
             Kopfleiste nicht kurz „Anmelden" zeigt, obwohl du angemeldet bist. Er enthält keine
             Kennung.
           </li>
@@ -487,7 +487,7 @@
           greift § 25 Abs. 1 TDDDG deshalb nicht.
         </p>
 
-        <h2 id="empfaenger">9. Empfänger und Auftragsverarbeiter</h2>
+        <h2 id="recipients">9. Empfänger und Auftragsverarbeiter</h2>
         <ul>
           <li>
             <strong>Hosting:</strong> Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen,
@@ -532,7 +532,7 @@
           US-amerikanischer Behörden nicht vollständig ausschließen.
         </p>
 
-        <h2 id="dauer">10. Speicherdauer</h2>
+        <h2 id="retention">10. Speicherdauer</h2>
         <ul>
           <li>
             <strong>Konto und Touren:</strong> bis du sie löschst. Die Konto-Löschung im Studio
@@ -588,7 +588,7 @@
           </li>
         </ul>
 
-        <h2 id="rechte">11. Deine Rechte</h2>
+        <h2 id="rights">11. Deine Rechte</h2>
         <p>
           Du hast das Recht auf <strong>Auskunft</strong> (Art. 15), <strong>Berichtigung</strong>
           (Art. 16), <strong>Löschung</strong> (Art. 17), <strong>Einschränkung</strong> (Art. 18),
@@ -596,7 +596,7 @@
           (Art. 21 DSGVO). Erteilte Einwilligungen, etwa die Veröffentlichung einer Tour, kannst
           du jederzeit mit Wirkung für die Zukunft widerrufen.
         </p>
-        <p class="merk">
+        <p class="callout">
           <strong>Auskunft und Übertragbarkeit gehen ohne Umweg:</strong> In den
           <a href="/konto">Kontoeinstellungen</a> forderst du unter „Alle Daten exportieren“ ein
           ZIP mit allen Touren, Fotos, Videos, Klängen und Konto-Angaben an, in maschinenlesbarer
@@ -615,7 +615,7 @@
           >.
         </p>
 
-        <h2 id="aenderungen">12. Änderungen dieser Erklärung</h2>
+        <h2 id="changes">12. Änderungen dieser Erklärung</h2>
         <p>
           Entwickelt sich Maptale weiter, passen wir diese Erklärung an. Es gilt jeweils die hier
           veröffentlichte Fassung; das Datum oben nennt ihren Stand.
@@ -639,15 +639,15 @@
       })
     </script>
     <script type="module">
-      import { montiereGliederung } from '/src/rechtstextgliederung.ts'
-      import { schreibeAppFooter } from '/src/app-nav.ts'
-      montiereGliederung(document.getElementById('gliederung'))
-      import { pfad } from '/src/routen.ts'
-      schreibeAppFooter(document.getElementById('app-footer'), {
+      import { mountOutline } from '/src/legal-text-outline.ts'
+      import { writeAppFooter } from '/src/app-nav.ts'
+      mountOutline(document.getElementById('outline'))
+      import { path } from '/src/routes.ts'
+      writeAppFooter(document.getElementById('app-footer'), {
         links: [
           { href: '/', label: 'Startseite' },
-          { href: pfad('impressum'), label: 'Impressum' },
-          { href: pfad('datenschutz'), label: 'Datenschutz' },
+          { href: path('imprint'), label: 'Impressum' },
+          { href: path('privacy'), label: 'Datenschutz' },
         ],
       })
     </script>

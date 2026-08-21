@@ -4,7 +4,7 @@ status: Konzept, nichts gebaut
 betrifft:
   - server/src/auth/
   - src/studio/ (Anmeldebühne)
-  - src/konto/
+  - src/account/
   - android/
   - später ios/
   - datenschutz.html

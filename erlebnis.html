@@ -62,11 +62,11 @@
   <!-- Kritisches Inline-CSS: setzt sofort den dunklen Grund und zeigt den Boot-Screen,
        bevor das per JS importierte style.css geladen ist (verhindert FOUC). -->
 
-  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/base.css, abgeleitet aus
        DESIGN.md. Steht vor dem Stilblock dieser Seite, damit die Seite die
        Basis überschreiben kann und nicht umgekehrt; im Build hält das der
        basisZuerst()-Schritt in vite.config.js nach. -->
-  <link rel="stylesheet" href="/src/basis.css" />
+  <link rel="stylesheet" href="/src/base.css" />
 
   <style>
     html, body { margin: 0; height: 100%; background: #0a0d12; overflow: hidden; }
@@ -77,7 +77,7 @@
       z-index: 9999;
       display: grid;
       place-items: center;
-      background: radial-gradient(120% 90% at 50% 42%, var(--fl-1) 0%, var(--bg-tief) 100%);
+      background: radial-gradient(120% 90% at 50% 42%, var(--surface-1) 0%, var(--bg-deep) 100%);
       color: var(--text);
       transition: opacity 0.7s ease;
     }
@@ -107,7 +107,7 @@
       height: 100%;
       width: 40%;
       border-radius: 2px;
-      background: linear-gradient(90deg, var(--akzent), var(--akzent-2));
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
       animation: boot-slide 1.1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
     }
     @keyframes boot-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(330%); } }

@@ -116,7 +116,7 @@ export function checkUnsubscribeToken(token: string, geheimnis: string): string 
 
 /** Die Adresse, unter der ein Abmeldelink liegt — eine Stelle für Mail und Kopfzeile. */
 export const unsubscribeUrl = (basisUrl: string, token: string): string =>
-  `${basisUrl.replace(/\/+$/, '')}${WEB_PATHS.konto}#newsletter-aus=${token}`
+  `${basisUrl.replace(/\/+$/, '')}${WEB_PATHS.account}#newsletter-aus=${token}`
 
 /** Die Adresse, die der Ein-Klick-Widerruf der Mail-Programme anspricht. */
 export const oneClickUrl = (basisUrl: string, token: string): string =>

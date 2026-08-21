@@ -5,12 +5,12 @@
 
 import { cleanElevations, TILE } from './dem-clean-math.js'
 
-interface Auftrag {
+interface WorkerJob {
   id: number
   buf: ArrayBuffer
 }
 
-self.addEventListener('message', async (ev: MessageEvent<Auftrag>) => {
+self.addEventListener('message', async (ev: MessageEvent<WorkerJob>) => {
   const { id, buf } = ev.data
   try {
     const bmp = await createImageBitmap(new Blob([buf], { type: 'image/png' }))

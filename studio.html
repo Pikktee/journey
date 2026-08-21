@@ -25,15 +25,15 @@
     href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
-  <!-- Sitzungs-Hinweis (maptale_dabei): App-Shell sofort, Boot nur für Gäste.
+  <!-- Sitzungs-Hinweis (maptale_returning): App-Shell sofort, Boot nur für Gäste.
        Ausnahme ?edit=: Editor-Deep-Link behält den Boot — sonst blitzt die
        Bibliothek („Meine Touren") auf, bevor der Editor nach Auth + Lazy-Import
-       kommt. Cookie-Name = SESSION_HINWEIS_COOKIE in src/session-hinweis.ts. -->
+       kommt. Cookie-Name = SESSION_HINWEIS_COOKIE in src/session-notice.ts. -->
   <script>
     (function () {
       try {
-        var dabei = document.cookie.split(';').some(function (c) {
-          return c.trim().indexOf('maptale_dabei=') === 0;
+        var signedIn = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_returning=') === 0;
         });
         var edit = new URLSearchParams(location.search).get('edit');
         if (dabei && !(edit && edit.length > 0)) {
@@ -43,13 +43,13 @@
     })();
   </script>
 
-  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/base.css, abgeleitet aus
        DESIGN.md. Steht vor dem Stilblock dieser Seite, damit die Seite die
        Basis überschreiben kann und nicht umgekehrt; im Build hält das der
        basisZuerst()-Schritt in vite.config.js nach. -->
-  <link rel="stylesheet" href="/src/basis.css" />
-  <link rel="stylesheet" href="/src/werkzeug.css" />
-  <link rel="stylesheet" href="/src/grundelemente.css" />
+  <link rel="stylesheet" href="/src/base.css" />
+  <link rel="stylesheet" href="/src/toolkit.css" />
+  <link rel="stylesheet" href="/src/page-elements.css" />
 
   <style>
     /* ————————————————————————————————————————————————————————————
@@ -57,7 +57,7 @@
        Amber auf warmem Dunkel), aber als Werkzeug gedacht:
        voller Viewport, Panels mit eigenem Scroll, Karte als Bühne.
        ———————————————————————————————————————————————————————————— */
-    /* Farben, Radien, Schrift und Maße stehen in src/basis.css (s. <link> oben). Hier stehen nur die Maße der Zeitleiste — sie sind
+    /* Farben, Radien, Schrift und Maße stehen in src/base.css (s. <link> oben). Hier stehen nur die Maße der Zeitleiste — sie sind
        Studio-eigen und gehören in keine Marken-Datei.
 
        Kein --font-mono: DESIGN.md kennt EINE UI-Schrift, Zahlen richtet
@@ -88,16 +88,16 @@
       -webkit-font-smoothing: antialiased;
     }
     /* Die Bibliothek ist dagegen eine gewöhnliche Seite: Sie scrollt mit dem
-       DOKUMENT, wie Entdecken und Profil. Vorher scrollte `.rumpf` in der
+       DOKUMENT, wie Entdecken und Profil. Vorher scrollte `.body` in der
        fixen Schale — der Balken begann erst unter der Kopfleiste, und weil
-       `scrollbar-gutter: stable` (basis.css) auf `html` sitzt und `html` gar
+       `scrollbar-gutter: stable` (base.css) auf `html` sitzt und `html` gar
        nicht scrollte, sprang beim Laden die ganze Seite um seine Breite, sobald
        die Kacheln den Container überliefen.
        Nur der `body` wird gelöst — `html` behält `overflow-y: auto` und die
-       Gutter aus basis.css und IST damit der Scroller. */
+       Gutter aus base.css und IST damit der Scroller. */
     body:has(#app-view:not([hidden])) { height: auto; overflow: visible; }
     ::selection { background: rgba(245, 165, 36, 0.3); }
-    a { color: var(--akzent); text-decoration: none; }
+    a { color: var(--primary); text-decoration: none; }
     h1, h2, h3 { font-family: var(--font-display); font-weight: 550; margin: 0; }
 
     /* Feiner Filmkorn-Schleier gegen digitale Flachheit */
@@ -112,7 +112,7 @@
     }
 
     /* — Grundbausteine —
-       Knöpfe, Felder und Etiketten stehen in src/werkzeug.css (geteilt mit der
+       Knöpfe, Felder und Etiketten stehen in src/toolkit.css (geteilt mit der
        Verwaltung); hier nur, was das Studio zusätzlich hat. */
     button.icon {
       padding: 8px;
@@ -124,14 +124,14 @@
     textarea { min-height: 76px; }
     .badge { letter-spacing: 0.04em; }
 
-    .badge.ready { background: rgba(62, 207, 142, 0.13); color: var(--gruen); }
-    .badge.processing { background: rgba(245, 165, 36, 0.13); color: var(--akzent); }
-    .badge.fehler { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
+    .badge.ready { background: rgba(62, 207, 142, 0.13); color: var(--success); }
+    .badge.processing { background: rgba(245, 165, 36, 0.13); color: var(--primary); }
+    .badge.error { background: rgba(229, 72, 77, 0.13); color: var(--danger); }
     .badge.created { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
-    .badge.gps { background: rgba(91, 157, 255, 0.13); color: var(--blau); }
-    .badge.zeit { background: rgba(245, 165, 36, 0.13); color: var(--akzent); }
-    .badge.manual { background: rgba(62, 207, 142, 0.13); color: var(--gruen); }
-    .badge.unplaced, .badge.removed { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
+    .badge.gps { background: rgba(91, 157, 255, 0.13); color: var(--info); }
+    .badge.time { background: rgba(245, 165, 36, 0.13); color: var(--primary); }
+    .badge.manual { background: rgba(62, 207, 142, 0.13); color: var(--success); }
+    .badge.unplaced, .badge.removed { background: rgba(229, 72, 77, 0.13); color: var(--danger); }
 
     /* Sanftes Einblenden beim Ansichtswechsel */
     @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -148,7 +148,7 @@
       z-index: 100;
       display: grid;
       place-items: center;
-      background: radial-gradient(120% 90% at 50% 42%, var(--fl-1) 0%, var(--bg-tief) 100%);
+      background: radial-gradient(120% 90% at 50% 42%, var(--surface-1) 0%, var(--bg-deep) 100%);
       color: var(--text);
       transition: opacity 0.45s ease;
     }
@@ -177,7 +177,7 @@
       line-height: 1;
       translate: 0 1px;
     }
-    .studio-boot-word b { color: var(--akzent); font-weight: 600; }
+    .studio-boot-word b { color: var(--primary); font-weight: 600; }
     .studio-boot-bar {
       width: 132px;
       height: 2px;
@@ -192,7 +192,7 @@
       height: 100%;
       width: 40%;
       border-radius: 2px;
-      background: linear-gradient(90deg, var(--akzent), var(--akzent-2));
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
       animation: boot-slide 1.1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
     }
     @keyframes boot-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(330%); } }
@@ -221,8 +221,8 @@
       background:
         radial-gradient(120% 90% at 15% 10%, rgba(245, 165, 36, 0.08), transparent 55%),
         radial-gradient(100% 100% at 85% 95%, rgba(255, 111, 82, 0.06), transparent 60%),
-        linear-gradient(160deg, #0b0f16, var(--bg-tief));
-      border-right: 1px solid var(--rand);
+        linear-gradient(160deg, #0b0f16, var(--bg-deep));
+      border-right: 1px solid var(--border);
       display: grid;
       place-items: center;
       padding: 64px 48px;
@@ -255,7 +255,7 @@
       text-wrap: balance;
       margin: 0;
     }
-    .login-title h1 em { font-style: italic; color: var(--akzent); }
+    .login-title h1 em { font-style: italic; color: var(--primary); }
     .login-title p { color: var(--text-2); max-width: 40ch; margin: 0; font-size: 15px; text-wrap: balance; }
     /* Einmal beim Öffnen aufziehen — nicht in Schleife */
     .login-title > * { animation: stageTitleIn 900ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
@@ -291,7 +291,7 @@
     .scene-pin { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: stagePinDrop 780ms cubic-bezier(0.2, 1.5, 0.35, 1) forwards; }
     @keyframes stagePinDrop { from { opacity: 0; transform: scale(0.4) translateY(9px); } to { opacity: 1; transform: none; } }
     .scene-pin .mast { stroke: rgba(245, 158, 11, 0.65); stroke-width: 1.6; }
-    .scene-pin .scheibe { fill: #0b0f16; stroke: var(--akzent); stroke-width: 2; }
+    .scene-pin .disc { fill: #0b0f16; stroke: var(--primary); stroke-width: 2; }
     .scene-pin text { fill: var(--text); font-family: var(--font-ui); font-size: 13px; font-weight: 600; text-anchor: middle; font-variant-numeric: tabular-nums; }
     /* Der Puls quittiert den HALT des Läufers — sein Takt ist dessen Takt,
        die Verzögerung seine Ankunftszeit an diesem Stopp. */
@@ -317,25 +317,25 @@
     /* text-wrap: balance — die Unterzeilen sind zwei kurze Sätze; ohne Ausgleich
        rutscht das erste Wort des zweiten ans Ende der ersten Zeile und steht
        dort allein. */
-    .login-box .unterzeile { color: var(--text-3); font-size: 13px; text-wrap: balance; }
+    .login-box .subline { color: var(--text-3); font-size: 13px; text-wrap: balance; }
     /* Wo zwei Sätze stehen, bricht es zwischen ihnen um — nicht mittendrin.
        `balance` allein macht daraus zwei gleich LANGE Zeilen und zerteilt
        dabei den ersten Satz („… von Einladung zu / Einladung."); Breite hilft
        dagegen nicht, weil der Ausgleich mitwächst. Als Blöcke behält jeder
        Satz seine Zeile, und `balance` wirkt nur noch innerhalb eines Satzes —
        dort, wo es hingehört. */
-    .login-box .unterzeile .satz { display: block; }
+    .login-box .subline .sentence { display: block; }
     /* Hervorgehoben wird „nur mit Einladung" und nicht bloß das Substantiv:
        Das einschränkende Wort ist „nur". Kein echtes Bold (700), sondern die
        hellere Textfarbe bei 550 — in derselben Zeile steht mit dem
        Alpha-Link schon eine Auszeichnung in Akzentfarbe, und zwei harte
        Hervorhebungen ließen den Blick zwischen ihnen springen. */
-    .login-box .unterzeile b { color: var(--text); font-weight: 550; }
+    .login-box .subline b { color: var(--text); font-weight: 550; }
     /* Eine Rhythmik für ALLE Auth-Formulare statt Rand an Rand gestapelter
        Einzelmaße: Das Formular ist ein Grid mit festem Abstand, Ausnahmen
        stehen als bewusste Abweichung darunter. Der Anlass war die Anmeldung —
        dort klebte das erste Feld mit 0 px an der Überschrift, weil der Abstand
-       aus der `.unterzeile` kam, die es dort gar nicht gibt. */
+       aus der `.subline` kam, die es dort gar nicht gibt. */
     .auth-form {
       display: grid;
       gap: 18px;
@@ -344,11 +344,11 @@
     .auth-form > h2 { margin: 0; }
     /* Die Unterzeile gehört zur Überschrift, nicht zum nächsten Block: Sie
        rückt näher heran, als der Grundabstand es täte. */
-    .auth-form > .unterzeile { margin: -11px 0 0; }
-    .login-box .feld { margin-bottom: 0; }
+    .auth-form > .subline { margin: -11px 0 0; }
+    .login-box .field { margin-bottom: 0; }
     /* Ein leerer Fehlerkasten darf keine Lücke reißen — er steht immer im
        Markup, sichtbar wird er erst mit Text. */
-    .auth-form > .hinweis:empty { display: none; }
+    .auth-form > .hint:empty { display: none; }
     /* Der Absende-Knopf bekommt etwas mehr Luft: Er beendet den Abschnitt. */
     .auth-form > button[type='submit'] { margin-top: 4px; }
     .login-box button[type='submit'] { width: 100%; justify-content: center; font-size: 14.5px; }
@@ -368,24 +368,24 @@
          Zeile. Über die volle Breite trägt die Route zugleich mehr Bild. */
       display: block;
       padding: 14px 18px 16px;
-      border-radius: var(--radius-karte);
-      border: 1px solid var(--rand);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border);
       background:
         radial-gradient(120% 140% at 88% 8%, rgba(245, 158, 11, 0.10), transparent 62%),
         rgba(255, 255, 255, 0.028);
     }
     .waitlist-image { display: block; width: 100%; height: auto; margin-bottom: 10px; }
     .waitlist-text b { display: block; font-size: 14.5px; font-weight: 650; color: var(--text); }
-    .waitlist-text p { margin: 5px 0 11px; font-size: 12.5px; line-height: 1.5; color: var(--text-gedaempft); }
+    .waitlist-text p { margin: 5px 0 11px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
     .waitlist-text .button-waitlist {
       display: inline-flex; align-items: center; gap: 7px;
       font-family: var(--font-ui); font-size: 13px; font-weight: 600;
-      color: var(--auf-akzent);
-      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+      color: var(--on-cta);
+      background: linear-gradient(120deg, var(--primary), var(--secondary));
       border: none; border-radius: var(--radius-full);
       padding: 8px 15px; cursor: pointer;
     }
-    .waitlist-text .button-waitlist:hover { filter: brightness(1.06); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
+    .waitlist-text .button-waitlist:hover { filter: brightness(1.06); background: linear-gradient(120deg, var(--primary), var(--secondary)); }
     .waitlist-text .waitlist-arrow { width: 14px; height: 14px; transition: translate 0.18s ease; }
     .waitlist-text .button-waitlist:hover .waitlist-arrow { translate: 2px 0; }
     /* Zwei Wege, ein Trenner: Ohne ihn läse sich das Code-Feld wie ein Teil
@@ -393,10 +393,10 @@
     .waitlist-or {
       display: flex; align-items: center; gap: 12px;
       margin: 0;
-      color: var(--text-zart); font-size: 12px;
+      color: var(--faint); font-size: 12px;
     }
     .waitlist-or::before, .waitlist-or::after {
-      content: ''; flex: 1; height: 1px; background: var(--linie);
+      content: ''; flex: 1; height: 1px; background: var(--line);
     }
     @media (max-width: 420px) {
       /* Karte und „oder" liegen in einem Container, damit sie gemeinsam
@@ -409,7 +409,7 @@
 
     .auth-switch { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .auth-switch .link, .link {
-      background: none; border: none; padding: 0; color: var(--akzent);
+      background: none; border: none; padding: 0; color: var(--primary);
       font: inherit; font-size: 13px; cursor: pointer; text-decoration: none;
     }
     .link:hover { text-decoration: underline; }
@@ -435,19 +435,19 @@
       border: 1px solid rgba(62, 207, 142, 0.28);
       font-size: 13px; color: var(--text-2);
     }
-    .code-chip svg { width: 15px; height: 15px; flex: none; color: var(--gruen); }
+    .code-chip svg { width: 15px; height: 15px; flex: none; color: var(--success); }
     .code-chip span { flex: 1; min-width: 0; }
     .code-chip b { color: var(--text); font-weight: 600; letter-spacing: 0.05em; font-variant-numeric: tabular-nums; }
     /* Pflicht oder nicht: Das Wort steht im Label, dezent abgesetzt. Beide
        Sorten sind markiert, nicht nur eine — sonst muss man aus dem Fehlen
        schließen, und genau dieses Schließen kostet den Moment Unsicherheit,
        der Formulare zäh macht. */
-    .login-box .feld-art { color: var(--text-3); font-weight: 400; font-size: 0.92em; letter-spacing: 0; }
+    .login-box .field-type { color: var(--text-3); font-weight: 400; font-size: 0.92em; letter-spacing: 0; }
     /* 11,5 px waren für das einzige erklärende Element über einem Eingabefeld
        zu klein, und var(--text-3) auf dem dunklen Grund liegt unter 4,5:1. Beides
        eine Stufe heller und größer: Labels liest man beim Ausfüllen, nicht beim
        Studieren. */
-    .login-box .feld > label {
+    .login-box .field > label {
       display: flex; align-items: baseline; gap: 6px;
       font-size: 12.5px; color: var(--text-2);
     }
@@ -466,7 +466,7 @@
        Absende-Knopf, und das für eine freiwillige Angabe. Mit ihr sieht es aus
        wie die Eingabefelder darüber und trägt im Haken den Akzent. */
     .consent input {
-      color-scheme: dark; accent-color: var(--akzent);
+      color-scheme: dark; accent-color: var(--primary);
       width: 16px; height: 16px; margin: 1px 0 0; flex: none; cursor: pointer;
     }
     .waitlist-legal { font-size: 12px; line-height: 1.6; color: var(--text-3); margin: 0; }
@@ -483,7 +483,7 @@
       color: var(--text-3);
     }
     .auth-legal a { color: var(--text-3); }
-    .auth-legal .fuss-sep { color: var(--text-zart); opacity: 0.55; user-select: none; }
+    .auth-legal .footer-sep { color: var(--faint); opacity: 0.55; user-select: none; }
     /* Zurück zur Landing — fix oben links. Nur Chevron + Ziel: die Marke
        gehört nicht in die Navigationspille (Wortmarke steht in der Bühne). */
     .login-back {
@@ -495,7 +495,7 @@
       align-items: center;
       gap: 7px;
       padding: 9px 16px 9px 12px;
-      border: 1px solid var(--rand);
+      border: 1px solid var(--border);
       border-radius: var(--radius-full);
       background: rgba(9, 13, 20, 0.55);
       -webkit-backdrop-filter: blur(8px) saturate(1.1);
@@ -531,7 +531,7 @@
       margin-inline: auto;
     }
     /* Kopfleiste teilt Markup und Optik mit Entdecken/Profil/Konto
-       (src/grundelemente.css) — inklusive `position: sticky`, denn die
+       (src/page-elements.css) — inklusive `position: sticky`, denn die
        Bibliothek scrollt mit dem Dokument. Hier nur: nicht schrumpfen. */
     #app-view > .nav {
       flex: none;
@@ -540,7 +540,7 @@
       flex: none; display: flex; align-items: center; gap: 10px;
       padding: 9px 18px; font-size: 12.5px;
       background: color-mix(in srgb, var(--warn, var(--warn)) 16%, transparent);
-      color: var(--warn, var(--warn)); border-bottom: 1px solid var(--rand);
+      color: var(--warn, var(--warn)); border-bottom: 1px solid var(--border);
     }
     .verify-banner svg { width: 15px; height: 15px; flex: none; }
 
@@ -552,7 +552,7 @@
     /* — Bibliothek: die Touren SIND die Seite —
        Der Upload war einmal ein festes Panel links. Er ist jetzt eine Kachel im
        Raster und ein Fenster: Wer hier ankommt, sieht zuerst seine Reisen. */
-    .rumpf {
+    .body {
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -566,127 +566,127 @@
     /* Impressum/Datenschutz: Mount `#app-footer`, Inhalt aus app-nav.ts.
        `.body-inner` wächst (`flex: 1`); fester Abstand hält die Linie vom
        Inhalt weg — nicht `margin-top: auto` am Fuß (sonst klebt die Linie). */
-    #app-view > .rumpf > footer {
+    #app-view > .body > footer {
       flex: none;
       margin-top: 48px;
     }
     .library-header {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-      padding-bottom: 18px; margin-bottom: 24px; border-bottom: 1px solid var(--rand);
+      padding-bottom: 18px; margin-bottom: 24px; border-bottom: 1px solid var(--border);
     }
     .library-header h1 { font-family: var(--font-display); font-size: clamp(27px, 3.1vw, 36px); font-weight: 480; letter-spacing: -0.02em; margin: 0; }
-    .library-header h1 em { font-style: italic; color: var(--akzent); }
+    .library-header h1 em { font-style: italic; color: var(--primary); }
     .library-header .sp { flex: 1; }
     /* Die globale Formularregel setzt `width: 100%` — im Kopf stehen die
        Bedienelemente nebeneinander, nicht untereinander. */
-    .sort { width: auto; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 6px 10px; font-size: 12.5px; color: var(--text-2); }
-    .view-toggle { display: inline-flex; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 3px; gap: 3px; }
+    .sort { width: auto; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 6px 10px; font-size: 12.5px; color: var(--text-2); }
+    .view-toggle { display: inline-flex; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 3px; gap: 3px; }
     .view-toggle button { border: none; background: transparent; border-radius: 6px; padding: 5px 8px; color: var(--text-3); display: grid; place-items: center; }
     .view-toggle button svg { width: 16px; height: 16px; }
-    .view-toggle button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); }
+    .view-toggle button[aria-pressed='true'] { background: var(--surface-3); color: var(--text); }
 
     .search { position: relative; width: min(320px, 32vw); }
-    .search input { width: 100%; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 8px 14px 8px 36px; font-size: 13.5px; }
+    .search input { width: 100%; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-full); padding: 8px 14px 8px 36px; font-size: 13.5px; }
     .search input::placeholder { color: var(--text-3); }
-    .search input:focus { outline: none; border-color: var(--akzent); box-shadow: var(--fokus-ring); }
+    .search input:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus-ring); }
     .search svg { position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 15px; height: 15px; color: var(--text-3); }
-    .search kbd { position: absolute; right: 10px; top: 50%; translate: 0 -50%; font-family: var(--font-ui); font-size: 11px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; }
+    .search kbd { position: absolute; right: 10px; top: 50%; translate: 0 -50%; font-family: var(--font-ui); font-size: 11px; color: var(--text-3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; }
 
-    .knopf-primaer {
-      --surface-primary: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+    .button-primary {
+      --surface-primary: linear-gradient(120deg, var(--primary), var(--secondary));
       display: inline-flex; align-items: center; gap: 8px;
       background: var(--surface-primary);
       color: #241402; border: none; border-radius: var(--radius-full); padding: 8px 16px;
       font-size: 13.5px; font-weight: 600; box-shadow: 0 6px 18px rgba(245, 165, 36, 0.22);
       transition: filter 160ms ease, box-shadow 160ms ease, transform 120ms ease;
     }
-    /* Hover wie bei `button.primaer`: der Verlauf bleibt und wird eine Spur
+    /* Hover wie bei `button.primary`: der Verlauf bleibt und wird eine Spur
        heller — kein Anheben, kein wachsender Schatten. Der Verlauf MUSS hier
        wiederholt werden, sonst überschreibt ihn `button:hover` mit dem grauen
        Sekundärton; der orange Knopf wurde beim Zeigen ausgerechnet dunkler. */
-    .knopf-primaer:hover { background: var(--surface-primary); filter: brightness(1.06); }
-    .knopf-primaer:disabled, .knopf-primaer:disabled:hover {
+    .button-primary:hover { background: var(--surface-primary); filter: brightness(1.06); }
+    .button-primary:disabled, .button-primary:disabled:hover {
       background: var(--surface-primary); filter: none;
       opacity: 0.45; transform: none; box-shadow: none; cursor: not-allowed;
     }
-    .knopf-primaer svg { width: 16px; height: 16px; }
+    .button-primary svg { width: 16px; height: 16px; }
 
     /* overflow SICHTBAR: das Sichtbarkeits-Menü klappt über den Kartenrand
        hinaus. Gerundet wird am Bild, das die Kachel füllt. */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; align-items: start; }
-    .karte {
-      position: relative; border-radius: var(--radius-karte); cursor: pointer;
-      background: var(--fl-1); border: 1px solid var(--rand);
+    .card {
+      position: relative; border-radius: var(--radius-card); cursor: pointer;
+      background: var(--surface-1); border: 1px solid var(--border);
       transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease;
       animation: viewIn 420ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
     }
-    .karte.menue-offen { z-index: 10; }
-    .karte:nth-child(2) { animation-delay: 45ms; }
-    .karte:nth-child(3) { animation-delay: 90ms; }
-    .karte:nth-child(4) { animation-delay: 135ms; }
-    .karte:nth-child(5) { animation-delay: 180ms; }
-    .karte:nth-child(n + 6) { animation-delay: 225ms; }
-    .karte:hover { transform: translateY(-2px); border-color: var(--rand-hell); box-shadow: var(--schatten); }
-    .karte .bild { position: relative; aspect-ratio: 16/10; background: var(--fl-2); overflow: hidden; border-radius: var(--radius-karte); }
+    .card.menu-open { z-index: 10; }
+    .card:nth-child(2) { animation-delay: 45ms; }
+    .card:nth-child(3) { animation-delay: 90ms; }
+    .card:nth-child(4) { animation-delay: 135ms; }
+    .card:nth-child(5) { animation-delay: 180ms; }
+    .card:nth-child(n + 6) { animation-delay: 225ms; }
+    .card:hover { transform: translateY(-2px); border-color: var(--border-strong); box-shadow: var(--shadow); }
+    .card .image { position: relative; aspect-ratio: 16/10; background: var(--surface-2); overflow: hidden; border-radius: var(--radius-card); }
     /* Kein Bild-Zoom beim Überfahren: die Kachel IST das Foto. Bewegt es sich
        unter dem Zeiger, wirkt jede Kachel wie ein Werbebanner. */
-    .karte .bild img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 300ms ease; }
-    .karte .bild::after {
+    .card .image img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 300ms ease; }
+    .card .image::after {
       content: ''; position: absolute; inset: 0;
       background: linear-gradient(180deg, rgba(6, 8, 12, 0.05) 0%, rgba(6, 8, 12, 0.5) 72%, rgba(6, 8, 12, 0.86) 100%);
     }
-    .karte .bild.without { display: grid; place-items: center; color: var(--text-3); }
-    .karte .bild.without svg { width: 26px; height: 26px; }
+    .card .image.without { display: grid; place-items: center; color: var(--text-3); }
+    .card .image.without svg { width: 26px; height: 26px; }
 
     /* Routen-Signet: die Form DIESER Tour aus den echten Wegpunkten. Eigene
        Glasfläche, sonst verschwindet die Linie über hellem Fels oder Schnee. */
-    .karte .track {
+    .card .track {
       position: absolute; top: 9px; left: 11px; z-index: 2;
       width: 64px; height: 50px; padding: 5px; pointer-events: none;
       background: rgba(6, 8, 12, 0.45); backdrop-filter: blur(6px);
       border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 11px;
       transition: width 250ms cubic-bezier(0.2, 0.7, 0.2, 1), height 250ms cubic-bezier(0.2, 0.7, 0.2, 1), background 250ms ease;
     }
-    .karte:hover .track { width: 80px; height: 62px; background: rgba(6, 8, 12, 0.6); }
-    .karte .track .line {
+    .card:hover .track { width: 80px; height: 62px; background: rgba(6, 8, 12, 0.6); }
+    .card .track .line {
       fill: none; stroke: rgba(255, 255, 255, 0.92); stroke-width: 2.6;
       stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
       stroke-dasharray: 400; stroke-dashoffset: 0;
     }
-    .karte .track .start { fill: var(--akzent); }
-    .karte .track .end { fill: none; stroke: var(--akzent); stroke-width: 2; vector-effect: non-scaling-stroke; }
-    .karte:hover .track .line { animation: trackDraw 1.1s cubic-bezier(0.3, 0.6, 0.2, 1); }
+    .card .track .start { fill: var(--primary); }
+    .card .track .end { fill: none; stroke: var(--primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .card:hover .track .line { animation: trackDraw 1.1s cubic-bezier(0.3, 0.6, 0.2, 1); }
     @keyframes trackDraw { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
 
-    .karte .griffe { position: absolute; top: 9px; right: 11px; z-index: 4; display: flex; flex-direction: row-reverse; align-items: center; gap: 6px; }
+    .card .grips { position: absolute; top: 9px; right: 11px; z-index: 4; display: flex; flex-direction: row-reverse; align-items: center; gap: 6px; }
     /* Sichtbarkeit: im Ruhezustand nur das Zeichen; das Wort klappt auf, wenn der
        Zeiger AUF DEM ZEICHEN steht — nicht schon beim Überfahren der Kachel,
        sonst bewegt sich dort alles gleichzeitig. Zugleich der Umschalter: wer
        den Zustand sieht, will ihn dort auch ändern. */
-    .karte .visibility, .pencil-button {
+    .card .visibility, .pencil-button {
       display: inline-flex; align-items: center; gap: 0;
       font-size: 11px; padding: 5px; border-radius: var(--radius-full);
       background: rgba(6, 8, 12, 0.55); backdrop-filter: blur(7px);
       border: 1px solid rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.82);
       transition: opacity 180ms ease, gap 220ms cubic-bezier(0.2, 0.7, 0.2, 1), padding 220ms cubic-bezier(0.2, 0.7, 0.2, 1), background 220ms ease;
     }
-    .karte .visibility svg, .pencil-button svg { width: 12px; height: 12px; flex: none; }
-    .karte .visibility span, .pencil-button span { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width 220ms cubic-bezier(0.2, 0.7, 0.2, 1); }
-    .karte .visibility:hover, .karte .visibility[aria-expanded='true'], .pencil-button:hover { gap: 5px; padding: 5px 10px 5px 8px; background: rgba(6, 8, 12, 0.9); }
-    .karte .visibility:hover span, .karte .visibility[aria-expanded='true'] span, .pencil-button:hover span { max-width: 96px; }
-    .karte .visibility[aria-expanded='true'] { border-color: var(--akzent); color: var(--akzent); }
-    .karte .visibility.public { color: #9ff0c6; border-color: rgba(62, 207, 142, 0.4); }
+    .card .visibility svg, .pencil-button svg { width: 12px; height: 12px; flex: none; }
+    .card .visibility span, .pencil-button span { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width 220ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+    .card .visibility:hover, .card .visibility[aria-expanded='true'], .pencil-button:hover { gap: 5px; padding: 5px 10px 5px 8px; background: rgba(6, 8, 12, 0.9); }
+    .card .visibility:hover span, .card .visibility[aria-expanded='true'] span, .pencil-button:hover span { max-width: 96px; }
+    .card .visibility[aria-expanded='true'] { border-color: var(--primary); color: var(--primary); }
+    .card .visibility.public { color: #9ff0c6; border-color: rgba(62, 207, 142, 0.4); }
     .pencil-button { opacity: 0; }
-    .karte:hover .pencil-button, .karte:focus-within .pencil-button { opacity: 1; }
+    .card:hover .pencil-button, .card:focus-within .pencil-button { opacity: 1; }
     .pencil-button:hover { color: #fff; }
 
-    .karte .footer { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 14px 15px 13px; pointer-events: none; }
-    .karte .footer .t { font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .karte .footer .m { font-family: var(--font-ui); font-size: 12.5px; font-weight: 500; color: rgba(242, 237, 227, 0.62); margin-top: 4px; }
+    .card .footer { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 14px 15px 13px; pointer-events: none; }
+    .card .footer .t { font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card .footer .m { font-family: var(--font-ui); font-size: 12.5px; font-weight: 500; color: rgba(242, 237, 227, 0.62); margin-top: 4px; }
 
     /* DIE GANZE KACHEL SPIELT AB. Die Taste in der Mitte ist die Ansage dafür,
        nicht das einzige Ziel — deshalb Handzeiger auf der ganzen Fläche. */
-    .karte .play {
+    .card .play {
       position: absolute; top: 50%; left: 50%; z-index: 3;
       width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
       background: rgba(10, 14, 20, 0.55); backdrop-filter: blur(6px);
@@ -694,30 +694,30 @@
       transform: translate(-50%, -50%) scale(0.82); opacity: 0;
       transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), background 180ms ease;
     }
-    .karte .play svg { width: 19px; height: 19px; margin-left: 2px; }
-    .karte:hover .play, .karte:focus-within .play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .card .play svg { width: 19px; height: 19px; margin-left: 2px; }
+    .card:hover .play, .card:focus-within .play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     /* Kein Amber unter dem Zeiger: die Taste liegt auf einem Foto und soll es
        nicht überstrahlen — sie wird kontrastreicher, nicht bunt. */
-    .karte .play:hover { background: rgba(10, 14, 20, 0.8); border-color: rgba(255, 255, 255, 0.85); }
-    .karte .schleier {
+    .card .play:hover { background: rgba(10, 14, 20, 0.8); border-color: rgba(255, 255, 255, 0.85); }
+    .card .scrim {
       position: absolute; inset: 0; z-index: 2; pointer-events: none;
       background: radial-gradient(42% 42% at 50% 50%, rgba(6, 8, 12, 0.42), transparent 72%);
       opacity: 0; transition: opacity 200ms ease;
     }
-    .karte:hover .schleier, .karte:focus-within .schleier { opacity: 1; }
+    .card:hover .scrim, .card:focus-within .scrim { opacity: 1; }
 
     /* Die entstehende Tour braucht keine Vokabel — sie schimmert und trägt einen
        laufenden Balken; das liest sich schneller als jedes Wort. */
-    .karte.working { cursor: default; }
-    .karte.working .bild img { filter: grayscale(0.5) brightness(0.55); }
-    .karte.working::after {
-      content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: var(--radius-karte);
+    .card.working { cursor: default; }
+    .card.working .image img { filter: grayscale(0.5) brightness(0.55); }
+    .card.working::after {
+      content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: var(--radius-card);
       background: linear-gradient(105deg, transparent 32%, rgba(245, 165, 36, 0.13) 46%, rgba(255, 240, 220, 0.16) 50%, rgba(245, 165, 36, 0.13) 54%, transparent 68%);
       background-size: 260% 100%; animation: shimmerRun 1.9s linear infinite;
     }
     @keyframes shimmerRun { from { background-position: 180% 0; } to { background-position: -80% 0; } }
-    .karte .run { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0, 0, 0, 0.4); z-index: 4; border-radius: 0 0 14px 14px; overflow: hidden; }
-    .karte .run span { position: absolute; top: 0; height: 100%; width: 40%; border-radius: var(--radius-full); background: linear-gradient(90deg, transparent, var(--akzent), var(--akzent-2)); animation: travel 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+    .card .run { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0, 0, 0, 0.4); z-index: 4; border-radius: 0 0 14px 14px; overflow: hidden; }
+    .card .run span { position: absolute; top: 0; height: 100%; width: 40%; border-radius: var(--radius-full); background: linear-gradient(90deg, transparent, var(--primary), var(--secondary)); animation: travel 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
     @keyframes travel { from { left: -40%; } to { left: 100%; } }
     /* Fehler auf der Übersicht: nur das Zeichen. Was schiefging, gehört dorthin,
        wo man es beheben kann — in die geöffnete Tour. */
@@ -726,7 +726,7 @@
       font-weight: 700; font-size: 13px; line-height: 1; background: rgba(229, 72, 77, 0.9); color: #fff;
       border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 2px 10px rgba(229, 72, 77, 0.35);
     }
-    .karte.broken .bild img { filter: grayscale(0.8) brightness(0.5); }
+    .card.broken .image img { filter: grayscale(0.8) brightness(0.5); }
 
     /* Drei Stufen als Liste statt eines Rundlaufs: bei einer Einstellung, die
        entscheidet, wer die Reise sehen darf, muss man vorher wissen, wohin man
@@ -734,7 +734,7 @@
     .visibility-menu {
       position: absolute; top: 42px; right: 11px; z-index: 20; min-width: 232px;
       background: rgba(14, 19, 26, 0.98); backdrop-filter: blur(14px);
-      border: 1px solid var(--rand-hell); border-radius: var(--radius-karte); padding: 5px;
+      border: 1px solid var(--border-strong); border-radius: var(--radius-card); padding: 5px;
       box-shadow: 0 22px 50px rgba(2, 5, 10, 0.7); animation: menuIn 140ms ease backwards;
     }
     @keyframes menuIn { from { opacity: 0; transform: translateY(-4px); } }
@@ -743,61 +743,61 @@
       background: none; border: none; color: var(--text-2); text-align: left;
       padding: 8px 10px; border-radius: var(--radius-md); font-size: 13px; line-height: 1.35;
     }
-    .visibility-menu button:hover { background: var(--fl-3); color: var(--text); }
+    .visibility-menu button:hover { background: var(--surface-3); color: var(--text); }
     .visibility-menu button svg { width: 14px; height: 14px; opacity: 0.8; flex: none; margin-top: 2px; }
     .visibility-menu button > span { flex: 1; min-width: 0; }
     .visibility-menu button em { display: block; font-style: normal; font-size: 11.5px; color: var(--text-3); }
     .visibility-menu button[aria-checked='true'] { color: var(--text); }
-    .visibility-menu .check { display: none; width: 13px; height: 13px; color: var(--akzent); margin-left: auto; }
+    .visibility-menu .check { display: none; width: 13px; height: 13px; color: var(--primary); margin-left: auto; }
     .visibility-menu button[aria-checked='true'] .check { display: block; }
-    .visibility-menu hr { border: none; border-top: 1px solid var(--rand); margin: 4px 6px; }
+    .visibility-menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 6px; }
     .visibility-menu .header-row { font-family: var(--font-ui); font-size: 12px; font-weight: 500; color: var(--text-3); padding: 7px 10px 5px; }
 
     /* — Neue-Tour-Kachel: dieselbe Höhe wie die Karten (16/10) — */
     .new-thumbnail {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 7px; aspect-ratio: 16/10; overflow: hidden;
-      border: 1.5px dashed var(--rand-hell); border-radius: var(--radius-karte); text-align: center;
-      background: radial-gradient(90% 70% at 50% 0%, rgba(245, 165, 36, 0.06), transparent 70%), var(--fl-1);
+      border: 1.5px dashed var(--border-strong); border-radius: var(--radius-card); text-align: center;
+      background: radial-gradient(90% 70% at 50% 0%, rgba(245, 165, 36, 0.06), transparent 70%), var(--surface-1);
       color: var(--text-2); padding: 14px 18px;
       transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
     }
-    .new-thumbnail:hover { border-color: var(--akzent); background: radial-gradient(90% 70% at 50% 0%, rgba(245, 165, 36, 0.12), transparent 70%), var(--fl-1); transform: translateY(-2px); }
-    .new-thumbnail svg { width: 23px; height: 23px; color: var(--akzent); }
+    .new-thumbnail:hover { border-color: var(--primary); background: radial-gradient(90% 70% at 50% 0%, rgba(245, 165, 36, 0.12), transparent 70%), var(--surface-1); transform: translateY(-2px); }
+    .new-thumbnail svg { width: 23px; height: 23px; color: var(--primary); }
     .new-thumbnail .h { font-family: var(--font-display); font-size: 16px; color: var(--text); }
     /* Die globale Knopf-Regel setzt `nowrap` — hier soll der Satz umbrechen. */
     .new-thumbnail .n { font-size: 12px; color: var(--text-3); max-width: 30ch; line-height: 1.4; white-space: normal; text-wrap: balance; }
 
     /* — Listenansicht: dieselben Daten, dichter — */
-    .liste { display: flex; flex-direction: column; gap: 8px; }
-    .zeile {
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .row {
       display: flex; align-items: center; gap: 15px; padding: 9px 14px 9px 9px;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
+      background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-card);
       transition: background 160ms ease, border-color 160ms ease;
     }
-    .zeile:hover { background: var(--fl-2); border-color: var(--rand-hell); }
-    .zeile .mini { width: 74px; height: 48px; border-radius: var(--radius-md); overflow: hidden; flex: none; background: var(--fl-2); display: grid; place-items: center; color: var(--text-3); }
-    .zeile .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .zeile .mini svg { width: 18px; height: 18px; }
-    .zeile .txt { flex: 1; min-width: 0; }
-    .zeile .txt .t { font-family: var(--font-display); font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .zeile .txt .m { font-family: var(--font-ui); font-size: 12.5px; font-weight: 500; color: var(--text-3); margin-top: 2px; }
-    .zeile .right { display: flex; align-items: center; gap: 8px; }
-    .zeile .visibility-pill { font-size: 11.5px; color: var(--text-3); border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 3px 10px; }
-    .zeile .visibility-pill.public { color: #9ff0c6; border-color: rgba(62, 207, 142, 0.35); }
+    .row:hover { background: var(--surface-2); border-color: var(--border-strong); }
+    .row .mini { width: 74px; height: 48px; border-radius: var(--radius-md); overflow: hidden; flex: none; background: var(--surface-2); display: grid; place-items: center; color: var(--text-3); }
+    .row .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .row .mini svg { width: 18px; height: 18px; }
+    .row .txt { flex: 1; min-width: 0; }
+    .row .txt .t { font-family: var(--font-display); font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row .txt .m { font-family: var(--font-ui); font-size: 12.5px; font-weight: 500; color: var(--text-3); margin-top: 2px; }
+    .row .right { display: flex; align-items: center; gap: 8px; }
+    .row .visibility-pill { font-size: 11.5px; color: var(--text-3); border: 1px solid var(--border); border-radius: var(--radius-full); padding: 3px 10px; }
+    .row .visibility-pill.public { color: #9ff0c6; border-color: rgba(62, 207, 142, 0.35); }
     .action {
       display: inline-flex; align-items: center; gap: 7px;
-      border: 1px solid var(--rand); background: var(--fl-2);
+      border: 1px solid var(--border); background: var(--surface-2);
       border-radius: var(--radius-full); padding: 7px 12px; font-size: 12.5px; color: var(--text-2);
       transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
     }
     .action:hover { border-color: rgba(245, 165, 36, 0.6); color: var(--text); }
     .action svg { width: 15px; height: 15px; }
-    .action.gefahr:hover { border-color: rgba(229, 72, 77, 0.6); color: var(--rot); }
+    .action.danger:hover { border-color: rgba(229, 72, 77, 0.6); color: var(--danger); }
 
     /* — Erstnutzung — */
     .empty-stage {
-      border: 1.5px dashed var(--rand); border-radius: 20px; padding: 74px 28px;
+      border: 1.5px dashed var(--border); border-radius: 20px; padding: 74px 28px;
       text-align: center; position: relative; overflow: hidden;
       background: radial-gradient(80% 60% at 50% 0%, rgba(245, 165, 36, 0.05), transparent 70%);
     }
@@ -806,10 +806,10 @@
     @keyframes flow { to { stroke-dashoffset: -1600; } }
     .empty-stage h2 { font-family: var(--font-display); font-size: 25px; font-weight: 480; letter-spacing: -0.01em; position: relative; margin: 0; }
     .empty-stage p { color: var(--text-3); font-size: 13.5px; max-width: 44ch; margin: 10px auto 22px; position: relative; }
-    .empty-stage .knopf-primaer { position: relative; }
+    .empty-stage .button-primary { position: relative; }
 
-    .skelett { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; }
-    .skelett div { aspect-ratio: 16/10; border-radius: var(--radius-karte); background: linear-gradient(100deg, var(--fl-1) 40%, var(--fl-2) 50%, var(--fl-1) 60%) 0 0 / 200% 100%; animation: shimmer 1.3s linear infinite; }
+    .skeleton { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; }
+    .skeleton div { aspect-ratio: 16/10; border-radius: var(--radius-card); background: linear-gradient(100deg, var(--surface-1) 40%, var(--surface-2) 50%, var(--surface-1) 60%) 0 0 / 200% 100%; animation: shimmer 1.3s linear infinite; }
 
     /* — Dateien über dem Fenster: die ganze Seite ist die Ablage — */
     .drop-overlay {
@@ -817,8 +817,8 @@
       background: rgba(6, 8, 12, 0.82); backdrop-filter: blur(6px);
       animation: viewIn 200ms ease backwards;
     }
-    .drop-overlay .box { border: 2px dashed var(--akzent); border-radius: 22px; padding: 60px 74px; text-align: center; background: rgba(245, 165, 36, 0.06); }
-    .drop-overlay svg { width: 38px; height: 38px; color: var(--akzent); }
+    .drop-overlay .box { border: 2px dashed var(--primary); border-radius: 22px; padding: 60px 74px; text-align: center; background: rgba(245, 165, 36, 0.06); }
+    .drop-overlay svg { width: 38px; height: 38px; color: var(--primary); }
     .drop-overlay .h { font-family: var(--font-display); font-size: 26px; margin-top: 14px; }
     .drop-overlay p { color: var(--text-2); font-size: 13.5px; margin: 8px 0 0; }
 
@@ -835,7 +835,7 @@
     .new-window {
       width: min(1080px, 100%); height: min(92vh, 780px);
       display: flex; flex-direction: column;
-      background: var(--fl-1); border: 1px solid var(--rand-hell); border-radius: 20px;
+      background: var(--surface-1); border: 1px solid var(--border-strong); border-radius: 20px;
       box-shadow: 0 30px 80px rgba(2, 5, 10, 0.72); overflow: hidden;
       animation: windowIn 260ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
       /* Der Sprung vom Dialog zur Arbeitsfläche ist EINE Bewegung: Breite und
@@ -853,15 +853,15 @@
     .new-window.small .new-header { border-bottom-color: transparent; }
     .new-window.small .new-footer { display: none; }
     .new-window.small .new-body { padding: 0 24px; } /* symmetrisch: die Einladung sitzt in der Mitte */
-    .new-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--rand); }
+    .new-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
     .new-header .title-block { flex: 1; min-width: 0; }
     .new-header h2 { font-family: var(--font-display); font-size: 19px; font-weight: 520; margin: 0; }
     .new-header .subtitle { font-size: 12px; color: var(--text-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
     .new-header .close { background: transparent; border: none; color: var(--text-3); font-size: 20px; line-height: 1; padding: 4px 8px; }
     .new-header .close:hover { color: var(--text); }
     .new-progress { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
-    .new-progress b { color: var(--akzent); font-weight: 600; }
-    .new-progress .spinner { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--fl-3); border-top-color: var(--akzent); animation: spin 700ms linear infinite; }
+    .new-progress b { color: var(--primary); font-weight: 600; }
+    .new-progress .spinner { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface-3); border-top-color: var(--primary); animation: spin 700ms linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .new-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; }
@@ -874,11 +874,11 @@
       justify-content: center; text-align: center; cursor: pointer;
     }
     .new-empty h3 { font-family: var(--font-display); font-size: 28px; font-weight: 480; margin: 0 0 9px; letter-spacing: -0.015em; }
-    .new-empty h3 em { font-style: italic; color: var(--akzent); }
+    .new-empty h3 em { font-style: italic; color: var(--primary); }
     .new-empty p { color: var(--text-2); font-size: 13.5px; margin: 0 auto 22px; max-width: 40ch; text-wrap: balance; line-height: 1.5; }
     .new-empty .postscript { color: var(--text-3); font-size: 12px; margin: 20px auto 0; max-width: 38ch; }
-    .new-empty .hinweis { color: var(--akzent); font-size: 12.5px; margin: 16px auto 0; }
-    .new-empty .hinweis.fehler { color: var(--rot); }
+    .new-empty .hint { color: var(--primary); font-size: 12.5px; margin: 16px auto 0; }
+    .new-empty .hint.error { color: var(--danger); }
     /* Der Knopf hat den Fokus, nicht die Fläche — aber die Skizze reagiert mit */
     .new-empty:focus-within .ghost-timeline i { border-color: rgba(245, 165, 36, 0.55); }
 
@@ -889,13 +889,13 @@
     .new-empty .ghost-timeline { position: relative; width: 300px; height: 76px; margin-bottom: 24px; }
     .new-empty .ghost-timeline i {
       position: absolute; top: 0; width: 30px; height: 30px; border-radius: var(--radius-sm);
-      border: 1.5px dashed var(--rand-hell);
+      border: 1.5px dashed var(--border-strong);
       animation: placeholderBreathe 3.4s ease-in-out infinite;
       transition: border-color 220ms ease;
     }
     .new-empty .ghost-timeline i::after {
       content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 26px;
-      background: linear-gradient(180deg, var(--rand-hell), transparent);
+      background: linear-gradient(180deg, var(--border-strong), transparent);
     }
     .new-empty .ghost-timeline i:nth-child(1) { left: 26px; }
     .new-empty .ghost-timeline i:nth-child(2) { left: 98px; border-color: rgba(245, 165, 36, 0.75); animation-delay: 0.45s; }
@@ -904,11 +904,11 @@
     @keyframes placeholderBreathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
     .new-empty .axis {
       position: absolute; left: 8px; right: 8px; bottom: 0; height: 7px; border-radius: var(--radius-full);
-      background: linear-gradient(90deg, #24405e, #6b8fb8, #f5a524, var(--akzent-2), #3a2a4a, #1d2740);
+      background: linear-gradient(90deg, #24405e, #6b8fb8, #f5a524, var(--secondary), #3a2a4a, #1d2740);
       opacity: 0.62; transition: opacity 220ms ease;
     }
     .new-empty:hover .ghost-timeline i { border-color: rgba(245, 165, 36, 0.55); }
-    .new-empty:hover .ghost-timeline i:nth-child(2) { border-color: var(--akzent); }
+    .new-empty:hover .ghost-timeline i:nth-child(2) { border-color: var(--primary); }
     .new-empty:hover .axis { opacity: 1; }
 
     /* ————— Zwischenzustand „liest" —————
@@ -920,8 +920,8 @@
     .new-reading .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
     .new-reading .ring circle { fill: none; stroke-width: 2.6; }
     .new-reading .ring .ring-track { stroke: rgba(255, 255, 255, 0.09); }
-    .new-reading .ring .voll { stroke: var(--akzent); stroke-linecap: round; transition: stroke-dashoffset 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-    .new-reading .ring .zahl {
+    .new-reading .ring .full { stroke: var(--primary); stroke-linecap: round; transition: stroke-dashoffset 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .new-reading .ring .number {
       position: absolute; inset: 0; display: grid; place-items: center;
       font-size: 13.5px; color: var(--text); font-variant-numeric: tabular-nums;
     }
@@ -938,14 +938,14 @@
       .new-window { transition: none; }
       .new-empty .ghost-timeline i { animation: none; opacity: 0.85; }
       .new-body.growing > * { animation: none; }
-      .new-reading .ring .voll { transition: none; }
+      .new-reading .ring .full { transition: none; }
     }
 
     .new-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
     .preview {
-      position: relative; aspect-ratio: 4/3; border-radius: var(--radius-karte); overflow: hidden;
+      position: relative; aspect-ratio: 4/3; border-radius: var(--radius-card); overflow: hidden;
       background: radial-gradient(120% 90% at 30% 0%, #101a26, #080b11 70%);
-      border: 1px solid var(--rand);
+      border: 1px solid var(--border);
     }
     /* Punktraster: eine Karte, ohne eine Karte zu behaupten — Kartendaten holt
        erst der Player. Hier zählt die Form, nicht der Ort. */
@@ -959,56 +959,56 @@
     /* Gestrichelt heißt: geraten. Eine durchgezogene Linie ist die aufgezeichnete
        Spur — dieser Unterschied soll etwas bedeuten. */
     .preview .line.guessed { stroke-dasharray: 3 4; stroke: rgba(242, 237, 227, 0.55); }
-    .preview .start { fill: var(--akzent); }
-    .preview .ending { fill: none; stroke: var(--akzent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
-    .preview .marke { fill: rgba(242, 237, 227, 0.92); }
-    .preview .marke.no-location { fill: none; stroke: rgba(242, 237, 227, 0.6); stroke-width: 1.4; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+    .preview .start { fill: var(--primary); }
+    .preview .ending { fill: none; stroke: var(--primary); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+    .preview .marker { fill: rgba(242, 237, 227, 0.92); }
+    .preview .marker.no-location { fill: none; stroke: rgba(242, 237, 227, 0.6); stroke-width: 1.4; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
     .preview .source { position: absolute; left: 12px; bottom: 10px; font-size: 11.5px; color: var(--text-3); }
 
     .new-details h3 { font-family: var(--font-display); font-size: clamp(21px, 2.4vw, 27px); font-weight: 480; letter-spacing: -0.01em; margin: 0 0 14px; }
     .new-details h3.estimated { color: var(--text-2); }
-    .numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 13px 18px; padding: 14px 0 16px; border-top: 1px solid var(--rand); border-bottom: 1px solid var(--rand); }
+    .numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 13px 18px; padding: 14px 0 16px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
     .numbers .z { min-width: 0; }
     .numbers .k { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-3); }
     .numbers .k svg { width: 13px; height: 13px; }
     .numbers .w { font-size: 15px; font-weight: 500; margin-top: 3px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .messages { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-    .meldung {
+    .message {
       display: flex; align-items: flex-start; gap: 10px;
       font-size: 12.5px; line-height: 1.45; border-radius: 11px; padding: 10px 12px;
-      background: var(--fl-2); border: 1px solid var(--rand); color: var(--text-2);
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
     }
-    .meldung .mark { width: 18px; height: 18px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--fl-3); color: var(--text-3); }
-    .meldung.warnung { background: rgba(245, 165, 36, 0.07); border-color: rgba(245, 165, 36, 0.24); }
-    .meldung.warnung .mark { background: var(--akzent); color: #241402; }
-    .meldung > span { flex: 1; min-width: 0; }
-    .meldung button { background: none; border: none; color: var(--akzent); font-size: 12.5px; padding: 0 2px; text-decoration: underline; text-underline-offset: 3px; }
+    .message .mark { width: 18px; height: 18px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--surface-3); color: var(--text-3); }
+    .message.warning { background: rgba(245, 165, 36, 0.07); border-color: rgba(245, 165, 36, 0.24); }
+    .message.warning .mark { background: var(--primary); color: #241402; }
+    .message > span { flex: 1; min-width: 0; }
+    .message button { background: none; border: none; color: var(--primary); font-size: 12.5px; padding: 0 2px; text-decoration: underline; text-underline-offset: 3px; }
 
     /* — Zeitband: jede Aufnahme an ihrer Uhrzeit —
        Bewusst ein eigener Name: er hat schon einmal mit einer Regel des Editors
        kollidiert (gleiche Spezifität, der spätere Block gewann — die Bahn hatte
        danach Breite 0). */
     .time-band { margin-top: 20px; }
-    .time-band .kopf { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
+    .time-band .header { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
     /* Rand innen: die Aufnahme bei 0 % und die bei 100 % sind je zur Hälfte
        breiter als ihr Punkt — ohne Luft ragte die letzte aus dem Fenster. */
     .time-band .inner { margin: 0 26px; }
     .time-band .marks { position: relative; height: 92px; }
-    .time-band .bild {
+    .time-band .image {
       position: absolute; bottom: 0; width: 46px; height: 46px; margin-left: -23px;
-      border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--rand-hell);
-      background: var(--fl-2) center/cover no-repeat; cursor: pointer;
+      border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border-strong);
+      background: var(--surface-2) center/cover no-repeat; cursor: pointer;
     }
-    .time-band .bild.no-location { border-style: dashed; }
-    .time-band .bild.outside { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.22); }
-    .time-band .bild .zahl { position: absolute; top: -6px; right: -6px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: var(--radius-full); background: var(--fl-3); border: 1px solid var(--rand-hell); font-size: 9.5px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 13px; text-align: center; }
-    .time-band .bild .film { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2); background: linear-gradient(160deg, var(--fl-2), var(--fl-3)); }
-    .time-band .bild .film svg { width: 16px; height: 16px; }
-    .time-band .stem { position: absolute; bottom: 0; width: 1px; height: 14px; background: var(--rand-hell); }
+    .time-band .image.no-location { border-style: dashed; }
+    .time-band .image.outside { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.22); }
+    .time-band .image .number { position: absolute; top: -6px; right: -6px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: var(--radius-full); background: var(--surface-3); border: 1px solid var(--border-strong); font-size: 9.5px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 13px; text-align: center; }
+    .time-band .image .film { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2); background: linear-gradient(160deg, var(--surface-2), var(--surface-3)); }
+    .time-band .image .film svg { width: 16px; height: 16px; }
+    .time-band .stem { position: absolute; bottom: 0; width: 1px; height: 14px; background: var(--border-strong); }
     /* Tag-Nacht-Verlauf: die Achse sagt nebenbei, wann die Reise stattfand */
-    .time-band .axis { position: relative; height: 7px; border-radius: var(--radius-full); margin-top: 8px; overflow: hidden; background: var(--fl-2); }
-    .time-band .axis .span { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #24405e, #6b8fb8, #f5a524, var(--akzent-2), #3a2a4a, #1d2740); }
+    .time-band .axis { position: relative; height: 7px; border-radius: var(--radius-full); margin-top: 8px; overflow: hidden; background: var(--surface-2); }
+    .time-band .axis .span { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #24405e, #6b8fb8, #f5a524, var(--secondary), #3a2a4a, #1d2740); }
     /* Zeit ohne Aufzeichnung — gestreift, damit man sieht: hier lief nichts mit */
     .time-band .axis .gap { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.32) 0 4px, transparent 4px 8px); }
     .time-band .hours { position: relative; height: 14px; margin-top: 4px; }
@@ -1016,13 +1016,13 @@
     .time-band .hours span:last-child { transform: translateX(-100%); }
     .time-band .hours span { position: absolute; font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums; transform: translateX(-50%); }
 
-    .new-footer { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--rand); background: var(--bg-tief); }
+    .new-footer { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--bg-deep); }
     .new-footer .sp { flex: 1; }
     .new-footer .status { font-size: 12.5px; color: var(--text-2); }
-    .new-footer .status.fehler { color: var(--rot); }
+    .new-footer .status.error { color: var(--danger); }
     .new-travel-mode { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--text-3); }
     .new-travel-mode .lock { width: 14px; height: 14px; }
-    .new-travel-mode select, .new-visibility { width: auto; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 6px 26px 6px 10px; font-size: 12.5px; color: var(--text-2); }
+    .new-travel-mode select, .new-visibility { width: auto; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 6px 26px 6px 10px; font-size: 12.5px; color: var(--text-2); }
 
     /* ————— Video-Export: das Blatt über Bibliothek und Editor —————
        Ein Blatt, kein Werkzeugfenster: Der Fuß trägt deshalb NICHT die tiefe
@@ -1048,7 +1048,7 @@
        großen Upload-Arbeitsfläche und las sich hier als schwarzer Balken. */
     .film-export-window .new-footer {
       background: transparent;
-      border-top: 1px solid var(--rand);
+      border-top: 1px solid var(--border);
       padding: 18px 20px 18px;
       gap: 10px;
       /* Während des Laufs steht dort nur „Abbrechen": ohne das rutschte der
@@ -1059,8 +1059,8 @@
        breiter. Das × oben rechts ist dafür entfallen — es meinte vor dem Start
        dasselbe wie „Abbrechen", und zwei Wege für eine Sache sind einer zu
        viel. Escape schließt weiterhin. */
-    .film-export-window .new-footer .knopf-primaer { flex: 1; justify-content: center; }
-    .film-export-window .new-footer .knopf { flex: none; }
+    .film-export-window .new-footer .button-primary { flex: 1; justify-content: center; }
+    .film-export-window .new-footer .button { flex: none; }
     .film-export-body {
       display: flex;
       flex-direction: column;
@@ -1092,7 +1092,7 @@
       background: transparent;
       color: var(--text-3);
     }
-    .export-info:hover, .export-info:focus { background: transparent; color: var(--akzent); }
+    .export-info:hover, .export-info:focus { background: transparent; color: var(--primary); }
     .export-info svg { width: 15px; height: 15px; }
     .export-tip {
       position: absolute;
@@ -1102,8 +1102,8 @@
       z-index: 5;
       padding: 9px 11px;
       border-radius: var(--radius-md);
-      border: 1px solid var(--rand-hell);
-      background: var(--fl-3);
+      border: 1px solid var(--border-strong);
+      background: var(--surface-3);
       box-shadow: 0 12px 30px rgba(2, 5, 10, 0.55);
       color: var(--text-2);
       font-family: var(--font-ui);
@@ -1151,8 +1151,8 @@
       aspect-ratio: 16 / 9;
       border-radius: var(--radius-md);
       overflow: hidden;
-      background: var(--fl-3);
-      border: 1px solid var(--rand);
+      background: var(--surface-3);
+      border: 1px solid var(--border);
       transition: aspect-ratio 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
     }
     .film-export-preview.portrait { aspect-ratio: 9 / 16; }
@@ -1187,8 +1187,8 @@
       stroke-linejoin: round;
       vector-effect: non-scaling-stroke;
     }
-    .film-export-track .start { fill: var(--akzent); }
-    .film-export-track .end { fill: none; stroke: var(--akzent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .film-export-track .start { fill: var(--primary); }
+    .film-export-track .end { fill: none; stroke: var(--primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
     /* Die Länge steht dort, wo man sie an jedem Video sucht: unten rechts im
        Bild. Als graue Zeile unter dem Titel wurde sie schlicht übersehen. */
     .film-export-duration {
@@ -1241,9 +1241,9 @@
     .film-export-prompt-card {
       width: 100%;
       padding: 18px 18px 16px;
-      border-radius: var(--radius-karte);
-      border: 1px solid var(--rand-hell);
-      background: var(--fl-2);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border-strong);
+      background: var(--surface-2);
       box-shadow: 0 22px 60px rgba(2, 5, 10, 0.6);
     }
     .film-export-prompt-card p {
@@ -1253,19 +1253,19 @@
       color: var(--text);
     }
     .film-export-prompt-buttons { display: flex; gap: 10px; }
-    .film-export-prompt-buttons .knopf-primaer { flex: 1; justify-content: center; }
+    .film-export-prompt-buttons .button-primary { flex: 1; justify-content: center; }
     .film-export-run { display: flex; flex-direction: column; gap: 8px; }
     .film-export-bar {
       height: 6px;
       border-radius: var(--radius-full);
-      background: var(--fl-3);
+      background: var(--surface-3);
       overflow: hidden;
     }
     .film-export-bar-fill {
       height: 100%;
       width: 0;
       border-radius: inherit;
-      background: var(--akzent);
+      background: var(--primary);
       transition: width 240ms linear;
     }
     .film-export-line {
@@ -1302,7 +1302,7 @@
       align-items: center;
       gap: 10px;
       padding: 0 14px;
-      border-bottom: 1px solid var(--rand);
+      border-bottom: 1px solid var(--border);
       background: rgba(13, 17, 24, 0.82);
       backdrop-filter: blur(14px);
       z-index: 5;
@@ -1326,7 +1326,7 @@
       display: block;
       text-align: left;
     }
-    .editor-title:hover { border-color: var(--rand); background: var(--bg-tief); }
+    .editor-title:hover { border-color: var(--border); background: var(--bg-deep); }
     .editor-title:empty::before { content: 'Ohne Titel'; color: var(--text-3); }
     .header-spacer { flex: 1; }
     /* — Flash-Meldung: Rückmeldungen schweben als dunkle Kapsel mittig unter
@@ -1339,21 +1339,21 @@
       padding: 10px 16px 11px; border-radius: var(--radius-lg);
       font-size: 13px; line-height: 1.45; color: var(--text);
       background: linear-gradient(165deg, rgba(26, 34, 45, 0.95), rgba(9, 12, 17, 0.96));
-      border: 1px solid var(--rand-hell);
+      border: 1px solid var(--border-strong);
       box-shadow: 0 16px 38px rgba(2, 5, 10, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
       backdrop-filter: blur(10px) saturate(1.15);
       opacity: 0; pointer-events: none; z-index: 40;
       transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
     }
-    .editor-flash.zeigt { opacity: 1; transform: translate(-50%, 0); }
+    .editor-flash.showing { opacity: 1; transform: translate(-50%, 0); }
     .editor-flash svg { width: 15px; height: 15px; flex: none; }
-    .editor-flash.ok svg { color: var(--gruen); }
-    .editor-flash.fehler svg { color: var(--rot); }
-    .editor-flash.warnung svg { color: var(--warn); }
+    .editor-flash.ok svg { color: var(--success); }
+    .editor-flash.error svg { color: var(--danger); }
+    .editor-flash.warning svg { color: var(--warn); }
     /* Laufende Meldung („wird gespeichert …"): Amber-Kreisel statt Symbol. */
     .editor-flash .spinner {
       width: 13px; height: 13px; flex: none; border-radius: 50%;
-      border: 2px solid var(--rand-hell); border-top-color: var(--akzent);
+      border: 2px solid var(--border-strong); border-top-color: var(--primary);
       animation: flashSpinner 800ms linear infinite;
     }
     @keyframes flashSpinner { to { transform: rotate(360deg); } }
@@ -1380,16 +1380,16 @@
        einer Linie. */
     .tour-group {
       display: flex; flex-direction: column; gap: 12px;
-      padding-top: 16px; border-top: 1px solid var(--rand);
+      padding-top: 16px; border-top: 1px solid var(--border);
     }
     /* Das Zielfeld gehört zum Häkchen darüber — die Einrückung sagt das, ohne
        eine zweite Überschrift zu brauchen. */
-    .feld.indented { margin-left: 23px; }
+    .field.indented { margin-left: 23px; }
     .kb {
       display: flex; align-items: center; gap: 8px;
       font-size: 13px; color: var(--text-2); cursor: pointer; user-select: none;
     }
-    .kb input { accent-color: var(--akzent); width: 15px; height: 15px; flex: none; }
+    .kb input { accent-color: var(--primary); width: 15px; height: 15px; flex: none; }
     #editor-finale-target-field[hidden] { display: none !important; }
 
     /* Karte oben, Zeitleiste als EIGENE Zone darunter, Inspector über die volle
@@ -1412,14 +1412,14 @@
       content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 1px;
       background: transparent; transition: background 0.15s ease;
     }
-    .inspector-grip:hover::before, .inspector-grip.dragging::before { background: var(--akzent); }
+    .inspector-grip:hover::before, .inspector-grip.dragging::before { background: var(--primary); }
     .editor-body.dragging-width { user-select: none; }
     /* Weder `perspective` noch `container-type` mehr: Beide trugen die
        DOM-Foto-Karte — das Kippen des Auftritts und die Größen-Container-Query
        des Bildrahmens. Die Karte liegt seit „Eine Bühne, ein Maler" auf einer
        Leinwand, und der Maler rechnet seine Geometrie selbst. */
     .card-stage {
-      position: relative; flex: 1; min-height: 0; min-width: 0; background: var(--bg-tief);
+      position: relative; flex: 1; min-height: 0; min-width: 0; background: var(--bg-deep);
     }
     #editor-map { position: absolute; inset: 0; }
     /* Das Wetter-Overlay (src/weather.ts) hängt seinen Canvas als #weather in
@@ -1475,12 +1475,12 @@
       transform: translateX(-50%);
       z-index: 4;
       background: rgba(13, 17, 24, 0.92);
-      border: 1px solid var(--akzent);
+      border: 1px solid var(--primary);
       color: var(--text);
       font-size: 12.5px;
       padding: 8px 14px;
       border-radius: var(--radius-full);
-      box-shadow: var(--schatten);
+      box-shadow: var(--shadow);
       max-width: min(520px, 86%);
       text-align: center;
       backdrop-filter: blur(10px);
@@ -1517,7 +1517,7 @@
     }
     .photo-sources img, .photo-sources video { width: 1px; height: 1px; }
     /* Karte unscharf + abgedunkelt, solange ein Foto zu sehen ist — derselbe
-       Schleier wie im Player (KARTE.schleier*). Er stand hier auf 0.34 Schwarz
+       Schleier wie im Player (KARTE.scrim*). Er stand hier auf 0.34 Schwarz
        mit blur(10px) und ohne Entsättigung, also dunkler und weniger unscharf:
        genau die Richtung, die im Player einmal ausdrücklich zurückgenommen
        wurde, weil dunkle Szenen darunter zulaufen. */
@@ -1546,7 +1546,7 @@
        keinen Zugriff mehr. */
 
     .editor-page {
-      border-left: 1px solid var(--rand);
+      border-left: 1px solid var(--border);
       overflow-y: auto;
       padding: 18px 18px 30px;
       background: var(--bg);
@@ -1561,7 +1561,7 @@
     .media-dot:active { cursor: grabbing; }
     .media-dot .core {
       position: relative; width: 30px; height: 30px; border-radius: 50%; overflow: hidden;
-      background: var(--fl-3); border: 2px solid rgba(255, 255, 255, 0.9);
+      background: var(--surface-3); border: 2px solid rgba(255, 255, 255, 0.9);
       box-shadow: 0 2px 7px rgba(2, 5, 10, 0.6);
       display: grid; place-items: center; color: var(--text-2);
       transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 160ms ease, box-shadow 160ms ease;
@@ -1575,20 +1575,20 @@
     .media-dot:hover .core { transform: scale(1.07); border-color: #fff; }
     .media-dot:hover .halo { opacity: 0.55; }
     .media-dot.on .halo { opacity: 1; }
-    .media-dot.on .core { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45), 0 3px 12px rgba(2, 5, 10, 0.65); }
+    .media-dot.on .core { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45), 0 3px 12px rgba(2, 5, 10, 0.65); }
     /* Halt mit mehreren Aufnahmen: angedeutete Karten dahinter + Anzahl */
     .media-dot .stack {
       position: absolute; width: 30px; height: 30px; border-radius: 50%;
-      background: var(--fl-3); border: 2px solid rgba(255, 255, 255, 0.55);
+      background: var(--surface-3); border: 2px solid rgba(255, 255, 255, 0.55);
     }
     .media-dot .stack.s1 { transform: translate(6px, -4px) scale(0.94); }
     .media-dot .stack.s2 { transform: translate(11px, -7px) scale(0.88); opacity: 0.7; }
-    .media-dot .anzahl {
+    .media-dot .count {
       position: absolute; right: 0; bottom: 0; z-index: 3;
       min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--radius-md);
       display: grid; place-items: center;
       font-size: 10.5px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums;
-      color: var(--auf-akzent); background: var(--akzent); border: 1.5px solid rgba(9, 12, 17, 0.8);
+      color: var(--on-cta); background: var(--primary); border: 1.5px solid rgba(9, 12, 17, 0.8);
     }
     @keyframes markerPulse { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
     .media-dot.pulse .core { animation: markerPulse 700ms ease-out 2; }
@@ -1600,13 +1600,13 @@
     }
     .map-zoom {
       display: flex; flex-direction: column; border-radius: var(--radius-md); overflow: hidden;
-      border: 1px solid var(--rand); box-shadow: 0 2px 8px rgba(2, 5, 10, 0.45);
+      border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(2, 5, 10, 0.45);
     }
     .map-zoom button {
       width: 32px; height: 32px; display: grid; place-items: center; padding: 0;
       background: rgba(14, 19, 26, 0.92); border: none; color: var(--text-2); border-radius: 0;
     }
-    .map-zoom button + button { border-top: 1px solid var(--rand); }
+    .map-zoom button + button { border-top: 1px solid var(--border); }
     .map-zoom button:hover { background: rgba(28, 37, 48, 0.96); color: var(--text); }
     .map-zoom svg { width: 17px; height: 17px; }
     /* Eingeschaltete Darstellung: heller, NICHT amber. Amber heißt an der
@@ -1620,13 +1620,13 @@
     .mood-panel {
       position: absolute; top: 14px; right: 60px; z-index: 9; width: 286px;
       padding: 11px 12px 9px; border-radius: var(--radius-md);
-      background: rgba(14, 19, 26, 0.96); border: 1px solid var(--rand);
+      background: rgba(14, 19, 26, 0.96); border: 1px solid var(--border);
       box-shadow: 0 10px 30px rgba(2, 5, 10, 0.6);
     }
     .mood-panel[hidden] { display: none; }
     /* Präfix `ks-` (Kartenstimmung) und NICHT `sp-`: Das gehört der geteilten
-       Dialogschicht (src/grundelemente.css, von dieser Seite geladen). Mit
-       `sp-kopf`/`sp-fuss` erbte das Panel deren Dialog-Regeln — der Fußsatz
+       Dialogschicht (src/page-elements.css, von dieser Seite geladen). Mit
+       `modal-header`/`modal-footer` erbte das Panel deren Dialog-Regeln — der Fußsatz
        wurde ein `display: flex` mit `justify-content: flex-end` und stand
        rechtsbündig 84px eingerückt, dazu 34px Fremd-Polsterung. Eine Klasse,
        die einem geteilten Blatt gehört, ist hier kein freier Name. */
@@ -1638,7 +1638,7 @@
       display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px;
       padding: 7px 6px; border-radius: var(--radius-sm); cursor: pointer;
     }
-    .mood-row:hover { background: var(--fl-3); }
+    .mood-row:hover { background: var(--surface-3); }
     .mood-symbol { width: 18px; height: 18px; color: var(--text-3); }
     .mood-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .mood-text b { font-weight: 500; font-size: 13.5px; color: var(--text); }
@@ -1646,7 +1646,7 @@
     /* Wie überall im Studio (`.kb`): Ohne `accent-color` ist das Kästchen das
        graue Browser-Standardelement und auf dunklem Grund kaum zu sehen —
        „an" und „aus" wären nur am Häkchen zu unterscheiden. */
-    .mood-row input { margin: 0; accent-color: var(--akzent); width: 15px; height: 15px; flex: none; }
+    .mood-row input { margin: 0; accent-color: var(--primary); width: 15px; height: 15px; flex: none; }
     .mood-footer {
       margin: 8px 6px 0; font-size: 11.5px; color: var(--text-3); line-height: 1.4;
     }
@@ -1658,18 +1658,18 @@
     .map-attribution .attribution-button {
       width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
       border-radius: 50%; cursor: help;
-      background: rgba(14, 19, 26, 0.86); border: 1px solid var(--rand); color: var(--text-3);
+      background: rgba(14, 19, 26, 0.86); border: 1px solid var(--border); color: var(--text-3);
       box-shadow: 0 2px 8px rgba(2, 5, 10, 0.45);
     }
-    .map-attribution .attribution-button:hover, .map-attribution .attribution-button:focus-visible { background: rgba(28, 37, 48, 0.96); color: var(--akzent); border-color: rgba(245, 165, 36, 0.5); }
+    .map-attribution .attribution-button:hover, .map-attribution .attribution-button:focus-visible { background: rgba(28, 37, 48, 0.96); color: var(--primary); border-color: rgba(245, 165, 36, 0.5); }
     .map-attribution .attribution-button svg { width: 15px; height: 15px; }
     .map-attribution .attribution-bubble {
       position: absolute; right: -3px; bottom: calc(100% + 11px);
-      width: max-content; max-width: 330px; padding: 12px 15px 13px; border-radius: var(--radius-karte);
+      width: max-content; max-width: 330px; padding: 12px 15px 13px; border-radius: var(--radius-card);
       background:
         radial-gradient(120% 150% at 100% 100%, rgba(245, 165, 36, 0.14), transparent 60%),
         linear-gradient(165deg, rgba(26, 34, 45, 0.94), rgba(9, 12, 17, 0.96));
-      border: 1px solid var(--rand-hell);
+      border: 1px solid var(--border-strong);
       box-shadow: 0 20px 44px rgba(2, 5, 10, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.07);
       backdrop-filter: blur(14px) saturate(1.25);
       opacity: 0; transform: translateY(6px) scale(0.95); transform-origin: 90% 100%;
@@ -1678,13 +1678,13 @@
     .map-attribution .attribution-bubble::after {
       content: ''; position: absolute; right: 15px; bottom: -5px; width: 9px; height: 9px;
       background: rgb(38, 35, 31); transform: rotate(45deg); border-bottom-right-radius: 2px;
-      border-right: 1px solid var(--rand-hell); border-bottom: 1px solid var(--rand-hell);
+      border-right: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong);
     }
     .map-attribution:hover .attribution-bubble, .map-attribution .attribution-button:focus-visible + .attribution-bubble { opacity: 1; transform: none; }
     .attribution-kicker {
       display: block; margin-bottom: 9px;
       font-size: 11.5px; font-weight: 500;
-      color: var(--akzent); opacity: 0.9;
+      color: var(--primary); opacity: 0.9;
     }
     .attribution-row { display: flex; align-items: flex-start; gap: 10px; }
     .attribution-row .attribution-symbol { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--text-3); }
@@ -1704,8 +1704,8 @@
        Overlay über allen Bahnen. */
     #timeline-zone {
       flex: none;
-      border-top: 1px solid var(--rand);
-      background: var(--bg-tief);
+      border-top: 1px solid var(--border);
+      background: var(--bg-deep);
       padding: 0 0 10px;
       user-select: none;
     }
@@ -1732,12 +1732,12 @@
        keiner Zahl verwechselt werden. */
     .console {
       display: flex; align-items: stretch; height: var(--header-group-h); padding: 0 3px;
-      border-radius: var(--radius-md); background: var(--fl-1); border: 1px solid var(--rand);
+      border-radius: var(--radius-md); background: var(--surface-1); border: 1px solid var(--border);
     }
     /* Gleiche Luft an jeder Fuge. Das erste Fach trägt Knöpfe, die ihre eigene
        Fläche mitbringen — dort genügt links weniger. */
     .console-slot { display: flex; align-items: center; gap: 3px; padding: 0 9px; }
-    .console-slot + .console-slot { border-left: 1px solid var(--rand); }
+    .console-slot + .console-slot { border-left: 1px solid var(--border); }
     .console-slot:first-child { padding-left: 3px; padding-right: 6px; }
 
     /* AMBER HEISST IM PULT AUSSCHLIESSLICH „LÄUFT GERADE".
@@ -1751,20 +1751,20 @@
     .console-play {
       position: relative; /* Anker für die Tempo-Plakette */
       width: 34px; height: 28px; display: grid; place-items: center; padding: 0;
-      border-radius: var(--radius-sm); border: 1px solid var(--rand-hell);
-      color: var(--text); background: var(--fl-3);
+      border-radius: var(--radius-sm); border: 1px solid var(--border-strong);
+      color: var(--text); background: var(--surface-3);
     }
     .console-play svg { width: 16px; height: 16px; }
     /* Hintergrund in :hover wiederholen — sonst gewinnt `button:hover` und
-       der Knopf wird grau/schwarz (wie bei `.knopf-primaer`). */
+       der Knopf wird grau/schwarz (wie bei `.button-primary`). */
     .console-play:hover { color: var(--text); background: #26334a; border-color: var(--text-3); }
     .console-play.playing {
-      color: var(--auf-akzent); border-color: transparent;
-      background: linear-gradient(135deg, var(--akzent), #f7b750);
+      color: var(--on-cta); border-color: transparent;
+      background: linear-gradient(135deg, var(--primary), #f7b750);
     }
     .console-play.playing:hover {
-      color: var(--auf-akzent); border-color: transparent;
-      background: linear-gradient(135deg, var(--akzent), #f7b750);
+      color: var(--on-cta); border-color: transparent;
+      background: linear-gradient(135deg, var(--primary), #f7b750);
       filter: brightness(1.06);
     }
     /* Die Nachbarn treten zurück: kleiner, ohne Fläche, gedämpft. */
@@ -1773,7 +1773,7 @@
       border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
     }
     .console-skip svg { width: 14px; height: 14px; }
-    .console-skip:hover { color: var(--text); background: var(--fl-3); }
+    .console-skip:hover { color: var(--text); background: var(--surface-3); }
     /* Karte folgt dem Läufer — ein AN/AUS-Schalter, und die trägt das Studio
        voll-amber (`.tool.on`, und so stand es hier auch vor dem Pult-Umbau).
        Zwischenzeitlich war er nur amber EINGEFÄRBT, damit Play im Pult das
@@ -1792,9 +1792,9 @@
       border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
     }
     .console-follow svg { width: 15px; height: 15px; }
-    .console-follow:hover { color: var(--text); background: var(--fl-3); }
-    .console-follow.on { color: var(--auf-akzent); background: var(--akzent); }
-    .console-follow.on:hover { color: var(--auf-akzent); background: var(--akzent); filter: brightness(1.06); }
+    .console-follow:hover { color: var(--text); background: var(--surface-3); }
+    .console-follow.on { color: var(--on-cta); background: var(--primary); }
+    .console-follow.on:hover { color: var(--on-cta); background: var(--primary); filter: brightness(1.06); }
     /* Tempo-Plakette am Play-Knopf: `position: absolute`, also OHNE Platz im
        Fluss — leer ist sie unsichtbar und kostet keine Breite. Sie erscheint
        nur im Schnelllauf (J/L), und dann läuft der Knopf amber, weshalb sie
@@ -1803,7 +1803,7 @@
       position: absolute; top: -6px; right: -9px;
       font-size: 10px; font-weight: 600; line-height: 1;
       padding: 2px 4px; border-radius: var(--radius-full);
-      color: var(--akzent); background: var(--bg-tief); border: 1px solid var(--akzent);
+      color: var(--primary); background: var(--bg-deep); border: 1px solid var(--primary);
       font-variant-numeric: tabular-nums; pointer-events: none;
     }
     .tempo-chip:empty { display: none; }
@@ -1813,14 +1813,14 @@
        standen 30 px Werkzeuge neben 34 px Pult und Zoom, und der Zoom las sich
        dadurch als der klobige rechte Rand. Eine Reihe braucht eine Oberkante. */
     .timeline-header { --header-group-h: 32px; }
-    .werkzeuge {
+    .tools {
       display: flex; align-items: center; gap: 3px; height: var(--header-group-h);
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 0 3px;
+      background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0 3px;
     }
     .tool { width: 27px; height: 24px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm); }
     .tool svg { width: 15px; height: 15px; }
-    .tool:hover { color: var(--text-2); background: var(--fl-3); }
-    .tool.on { background: var(--akzent); color: var(--auf-akzent); }
+    .tool:hover { color: var(--text-2); background: var(--surface-3); }
+    .tool.on { background: var(--primary); color: var(--on-cta); }
     /* Der Cursor des Werkzeugs MUSS auch über den Kindern gelten (Bänder, Klips,
        Kanten): deren eigene Cursor gewännen sonst, obwohl Pan/Zoom wirkt.
        Ausnahme ist der Abspielkopf — er bleibt in jedem Werkzeug ziehbar. */
@@ -1828,7 +1828,7 @@
     .lanes-viewport[data-tool='hand'].grabbing, .lanes-viewport[data-tool='hand'].grabbing *:not(.header-grip) { cursor: grabbing; }
     .lanes-viewport[data-tool='zoom'], .lanes-viewport[data-tool='zoom'] *:not(.header-grip) { cursor: zoom-in; }
     .lanes-viewport[data-tool='zoom'].old, .lanes-viewport[data-tool='zoom'].old *:not(.header-grip) { cursor: zoom-out; }
-    .zoom-box { position: fixed; z-index: 55; display: none; background: rgba(245, 165, 36, 0.14); border: 1px solid var(--akzent); border-radius: 4px; pointer-events: none; }
+    .zoom-box { position: fixed; z-index: 55; display: none; background: rgba(245, 165, 36, 0.14); border: 1px solid var(--primary); border-radius: 4px; pointer-events: none; }
 
     /* Abspielkopf-Anzeige. Die Rahmen und Trenner liegen jetzt am Pult
        (`.console-slot`) — hier steht nur noch, wie ein Wert aussieht. */
@@ -1871,7 +1871,7 @@
     .readout-km-current { display: inline-block; min-width: 3.5ch; text-align: right; color: var(--text); }
     /* Der Schrägstrich trennt zwei Werte und ist selbst keiner: zurückgenommen
        und mit gleicher Luft auf beiden Seiten. */
-    .readout-part i { font-style: normal; color: var(--rand-hell); margin: 0 3px; }
+    .readout-part i { font-style: normal; color: var(--border-strong); margin: 0 3px; }
     /* Nachts wechselt das Symbol auf den Mond — dann darf es auch kühler
        leuchten als am Tag; es ist die einzige Farbe in dieser Leiste. */
     #header-clock-icon { color: var(--text-3); transition: color 200ms ease; }
@@ -1890,35 +1890,35 @@
        dadurch frei am rechten Rand. */
     .zoom {
       display: flex; align-items: center; gap: 6px; height: var(--header-group-h); padding: 0 5px;
-      border-radius: var(--radius-md); background: var(--fl-1); border: 1px solid var(--rand);
+      border-radius: var(--radius-md); background: var(--surface-1); border: 1px solid var(--border);
     }
     .zoom-b {
       width: 24px; height: 24px; display: grid; place-items: center; padding: 0;
       border-radius: var(--radius-sm); border: none; background: transparent; color: var(--text-3);
     }
     .zoom-b svg { width: 14px; height: 14px; }
-    .zoom-b:hover { color: var(--text); background: var(--fl-3); }
+    .zoom-b:hover { color: var(--text); background: var(--surface-3); }
     .zoom-b:disabled { opacity: 0.35; cursor: default; }
     .zoom-b:disabled:hover { color: var(--text-3); background: transparent; }
     /* Eigene Bahn statt `accent-color`. Der Grund der Gruppe ist derselbe wie
-       links (--fl-1, gemessen identisch) — hell wirkte der Zoom durch den
+       links (--surface-1, gemessen identisch) — hell wirkte der Zoom durch den
        Regler: Die UA-Bahn ist ein helles Grau und füllt die halbe Gruppe, also
        las sich der ganze Kasten heller als die Werkzeuge daneben. Jetzt liegt
-       sie auf --rand-hell wie jede andere Linie der Leiste, und Amber bleibt
+       sie auf --border-strong wie jede andere Linie der Leiste, und Amber bleibt
        dem Griff — der einzigen Stelle, die etwas aussagt. */
     .zoom input[type='range'] {
       -webkit-appearance: none; appearance: none;
       width: 84px; height: 4px; border-radius: var(--radius-full);
-      background: var(--rand-hell); cursor: pointer;
+      background: var(--border-strong); cursor: pointer;
     }
     .zoom input[type='range']::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 12px; height: 12px; border-radius: 50%; border: none;
-      background: var(--akzent); cursor: pointer;
+      background: var(--primary); cursor: pointer;
     }
     .zoom input[type='range']::-moz-range-thumb {
       width: 12px; height: 12px; border-radius: 50%; border: none;
-      background: var(--akzent); cursor: pointer;
+      background: var(--primary); cursor: pointer;
     }
     /* DIE BREITE IST GEMESSEN, NICHT GESCHÄTZT. Der Faktor läuft 1,0…40,0
        (ZOOM_MAX), also vier ODER fünf Zeichen; in Outfit 12px mit tabular-nums
@@ -1934,7 +1934,7 @@
       font-family: var(--font-ui); font-size: 12px; color: var(--text-3);
       font-variant-numeric: tabular-nums; min-width: 7.5ch; text-align: center;
       height: 24px; padding: 0 8px; margin-left: 2px;
-      border: none; border-left: 1px solid var(--rand); border-radius: 0; background: transparent;
+      border: none; border-left: 1px solid var(--border); border-radius: 0; background: transparent;
     }
     .zoom-value:enabled:hover { color: var(--text); }
     .zoom-value:disabled { cursor: default; opacity: 0.75; }
@@ -1947,7 +1947,7 @@
     .lanes-viewport { overflow-x: scroll; overflow-y: hidden; padding-top: 8px; touch-action: pan-x; }
     .lanes-viewport::-webkit-scrollbar { height: 10px; }
     .lanes-viewport::-webkit-scrollbar-track { background: transparent; }
-    .lanes-viewport::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 2px solid var(--bg-tief); }
+    .lanes-viewport::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; border: 2px solid var(--bg-deep); }
     /* 26 px Auslauf rechts: die letzte Miniatur (40 px, mittig auf Anteil 1)
        ragt ~20 px über das Zeitfeld hinaus — knapper und es entsteht Overflow. */
     .lanes { position: relative; width: calc(var(--lane-x) + var(--timeline-width) + 26px); padding: 6px 0 4px; }
@@ -1963,7 +1963,7 @@
       font-size: 12px; color: var(--text-3); padding: 0 12px 0 16px;
       display: flex; align-items: center; gap: 6px; white-space: nowrap;
       /* über den Pins (z8/9), sonst gleiten sie beim Scrollen über die Schrift */
-      position: sticky; left: 0; z-index: 11; background: var(--bg-tief);
+      position: sticky; left: 0; z-index: 11; background: var(--bg-deep);
       overflow: hidden;
     }
     /* Der NAME ist das Einzige in der Zeile, das nachgeben darf — Symbol,
@@ -1982,33 +1982,33 @@
        leere Bahn). Er tritt beim Hover hervor, verschwindet aber nie. */
     .lane-plus {
       width: 19px; height: 19px; flex: none; margin-left: auto; display: grid; place-items: center; padding: 0;
-      border-radius: 50%; border: 1px dashed var(--rand-hell); background: transparent; color: var(--text-3);
+      border-radius: 50%; border: 1px dashed var(--border-strong); background: transparent; color: var(--text-3);
       opacity: 0.45; transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease;
     }
     .lane:hover .lane-plus, .lane-plus[aria-expanded='true'], .lane-plus:focus-visible { opacity: 1; }
-    .lane-plus:hover, .lane-plus[aria-expanded='true'] { border-style: solid; border-color: var(--akzent); color: var(--akzent); }
+    .lane-plus:hover, .lane-plus[aria-expanded='true'] { border-style: solid; border-color: var(--primary); color: var(--primary); }
     .lane-plus svg { width: 11px; height: 11px; }
     /* Menü + Ablage liegen als fixed-Overlay am Body — das overflow des
        Leisten-Fensters würde sie sonst abschneiden. */
     .floating-menu {
       position: fixed; z-index: 60; min-width: 210px; padding: 5px;
-      background: var(--fl-1); border: 1px solid var(--rand-hell); border-radius: 11px;
-      box-shadow: var(--schatten);
+      background: var(--surface-1); border: 1px solid var(--border-strong); border-radius: 11px;
+      box-shadow: var(--shadow);
     }
     .floating-menu .header-row {
       padding: 7px 9px 8px; font-size: 12px; font-weight: 500;
-      color: var(--text-3); border-bottom: 1px solid var(--rand); margin-bottom: 4px;
+      color: var(--text-3); border-bottom: 1px solid var(--border); margin-bottom: 4px;
     }
     .floating-menu button {
       width: 100%; display: flex; align-items: center; gap: 9px; padding: 7px 9px;
       border: none; background: transparent; color: var(--text-2); border-radius: var(--radius-sm);
       font-size: 13px; text-align: left;
     }
-    .floating-menu button:hover { background: var(--fl-3); color: var(--text); }
+    .floating-menu button:hover { background: var(--surface-3); color: var(--text); }
     .floating-menu button i { width: 11px; height: 11px; border-radius: 3px; flex: none; display: block; }
     .floating-menu button svg { width: 14px; height: 14px; flex: none; color: var(--text-3); }
     .floating-menu .remove { margin-left: auto; width: auto; padding: 2px 6px; font-size: 11px; color: var(--text-3); }
-    .floating-menu .divider { height: 1px; background: var(--rand); margin: 4px 0; }
+    .floating-menu .divider { height: 1px; background: var(--border); margin: 4px 0; }
 
     /* Ablage: Medien, die (noch) nicht auf der Strecke liegen.
        Sie sitzt als Plakette in der Namensspalte der SZENEN-Bahn — dort, wo
@@ -2024,16 +2024,16 @@
       height: 18px; padding: 0 7px; margin-left: 2px;
       border-radius: var(--radius-full); font-size: 10.5px; font-weight: 600;
       font-variant-numeric: tabular-nums;
-      color: var(--text-3); background: var(--fl-2); border: 1px solid var(--rand);
+      color: var(--text-3); background: var(--surface-2); border: 1px solid var(--border);
     }
-    .tray-button:hover { color: var(--text); border-color: var(--rand-hell); }
+    .tray-button:hover { color: var(--text); border-color: var(--border-strong); }
     /* Aufnahmen ohne Ort fehlen im Film, ohne dass jemand das entschieden hat —
        das ist ein Fund und sieht auch so aus. Beim Öffnen meldet er sich einmal.
        ROT und nicht Amber, und das ist seit dem Pult-Umbau keine Kleinigkeit:
        Amber heißt an der Zeitleiste jetzt „läuft gerade". Ein Fund läuft nicht,
        er wartet. */
-    .tray-button.warns { color: var(--rot); border-color: rgba(229, 72, 77, 0.45); background: rgba(229, 72, 77, 0.14); }
-    .tray-button.warns:hover { color: var(--rot); border-color: var(--rot); }
+    .tray-button.warns { color: var(--danger); border-color: rgba(229, 72, 77, 0.45); background: rgba(229, 72, 77, 0.14); }
+    .tray-button.warns:hover { color: var(--danger); border-color: var(--danger); }
     /* Der Puls beim Öffnen der Tour wird an der kleineren Plakette WICHTIGER
        als am früheren Knopf mit Satz — nicht entbehrlich. */
     .tray-button.alerting { animation: trayAlerts 1.4s ease-out 3; }
@@ -2042,15 +2042,15 @@
       35% { box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.26); }
     }
     .tray-grid { display: grid; grid-template-columns: repeat(4, 54px); gap: 6px; padding: 6px; max-height: 220px; overflow-y: auto; }
-    .tray-grid button { width: 54px; height: 54px; padding: 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--rand); background: var(--fl-2); cursor: grab; touch-action: none; }
+    .tray-grid button { width: 54px; height: 54px; padding: 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); background: var(--surface-2); cursor: grab; touch-action: none; }
     .tray-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .tray-grid button.removed img { opacity: 0.35; }
-    .tray-grid button:hover { border-color: var(--akzent); }
+    .tray-grid button:hover { border-color: var(--primary); }
     /* Was aus der Ablage gezogen wird, hängt am Zeiger; die Marke zeigt, wo es landet. */
     .drag-ghost {
       position: fixed; z-index: 95; width: 52px; height: 52px; pointer-events: none;
       border-radius: var(--radius-md); overflow: hidden; transform: translate(-50%, -50%) rotate(-4deg);
-      border: 2px solid var(--akzent); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.62);
+      border: 2px solid var(--primary); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.62);
     }
     .drag-ghost img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .drop-marker {
@@ -2072,8 +2072,8 @@
     }
 
     /* — Maßband: Zahl oben, Teilstrich darunter (zeigt zu den Spuren) — */
-    .scale { display: grid; grid-template-columns: var(--lane-x) var(--timeline-width); height: 23px; border-bottom: 1px solid var(--rand); }
-    .scale > .scale-name { position: sticky; left: 0; z-index: 11; background: var(--bg-tief); }
+    .scale { display: grid; grid-template-columns: var(--lane-x) var(--timeline-width); height: 23px; border-bottom: 1px solid var(--border); }
+    .scale > .scale-name { position: sticky; left: 0; z-index: 11; background: var(--bg-deep); }
     #scale-field { position: relative; }
     .scale-mark {
       position: absolute; top: 1px; transform: translateX(-50%);
@@ -2082,9 +2082,9 @@
       white-space: nowrap; pointer-events: none;
     }
     .scale-mark i { display: block; width: 1px; margin-top: 2px; background: rgba(255, 255, 255, 0.22); }
-    .scale-mark.voll i { height: 6px; }
-    .scale-mark:not(.voll) { opacity: 0.68; }
-    .scale-mark:not(.voll) i { height: 3px; background: rgba(255, 255, 255, 0.13); }
+    .scale-mark.full i { height: 6px; }
+    .scale-mark:not(.full) { opacity: 0.68; }
+    .scale-mark:not(.full) i { height: 3px; background: rgba(255, 255, 255, 0.13); }
     /* Am Rand mitten-bündig ausgerichtet würde die Beschriftung angeschnitten
        (links von der klebenden Namensspalte verdeckt) — dort links- bzw.
        rechtsbündig, der Teilstrich bleibt exakt auf der Zeit. */
@@ -2125,12 +2125,12 @@
        warmweiße Ring kontrastiert auf JEDER Bandfarbe (auch Moped = amber). */
     .band.selected { z-index: 4; transform: translateY(-1px); box-shadow: inset 0 0 0 2px #fff5e4, 0 0 14px 1px rgba(245, 165, 36, 0.38), 0 4px 10px rgba(0, 0, 0, 0.5); }
     /* Grundband = noch keine Grenze gesetzt: sichtbar, aber offensichtlich „leer" */
-    .band.leise {
-      color: var(--text-3); border-color: var(--rand);
+    .band.quiet {
+      color: var(--text-3); border-color: var(--border);
       background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.13) 0 6px, transparent 6px 12px);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.22);
     }
-    .band.leise::after { display: none; }
+    .band.quiet::after { display: none; }
     /* Grundband der Kamera („Standard"): eine ruhige, gefüllte Fläche. Es ist
        KEIN Leerzustand — es sagt „hier entscheidet der Zuschauer" —, und eine
        Riffelung las sich wie „hier fehlt noch etwas". Bewusst nicht in der
@@ -2182,7 +2182,7 @@
     /* Der Fokus hebt sich hier NICHT an: auf 19 px ohne Rundung läse sich ein
        verschobenes Band als Bildfehler. Der Ring allein genügt. */
     .lane.narrow .band.selected { transform: none; box-shadow: inset 0 0 0 2px #fff5e4, 0 0 12px rgba(245, 165, 36, 0.3); }
-    .lane.narrow .band.leise { background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.13) 0 6px, transparent 6px 12px); }
+    .lane.narrow .band.quiet { background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.13) 0 6px, transparent 6px 12px); }
     .lane.narrow .lane-name { font-size: 11px; }
     .lane.narrow .lane-plus { width: 15px; height: 15px; }
     .lane.narrow .lane-plus svg { width: 9px; height: 9px; }
@@ -2207,7 +2207,7 @@
       background: rgba(255, 255, 255, 0.62); box-shadow: 0 0 0 1px rgba(6, 9, 14, 0.5);
       transition: background-color 120ms ease, width 120ms ease;
     }
-    .edge:hover::before, .edge.dragging::before { background: var(--akzent); width: 5px; }
+    .edge:hover::before, .edge.dragging::before { background: var(--primary); width: 5px; }
     /* 9 px sind ein Maus-Maß — auf Touch braucht der Riegel eine größere
        Trefferzone, die Optik bleibt schmal. */
     @media (pointer: coarse) { .edge { width: 24px; } }
@@ -2234,17 +2234,17 @@
       position: absolute; top: 23px; bottom: 4px; width: 1px; margin-left: -0.5px;
       z-index: 16; pointer-events: none; background: rgba(255, 255, 255, 0.3);
     }
-    .target-line.snapping { width: 2px; margin-left: -1px; background: var(--lila); box-shadow: 0 0 0 3px rgba(197, 139, 255, 0.18); }
+    .target-line.snapping { width: 2px; margin-left: -1px; background: var(--accent-violet); box-shadow: 0 0 0 3px rgba(197, 139, 255, 0.18); }
     .target-line b {
       position: absolute; top: -19px; left: 50%; transform: translateX(-50%);
       font-size: 10.5px; font-weight: 500; white-space: nowrap; padding: 1px 6px;
-      border-radius: 5px; background: rgba(9, 12, 17, 0.95); border: 1px solid var(--rand-hell);
+      border-radius: 5px; background: rgba(9, 12, 17, 0.95); border: 1px solid var(--border-strong);
       color: var(--text-2); font-variant-numeric: tabular-nums;
     }
-    .target-line.snapping b { border-color: var(--lila); color: #e2d0ff; }
+    .target-line.snapping b { border-color: var(--accent-violet); color: #e2d0ff; }
     /* Der Halt, an dem die Kante rastet, zeigt kurz seine Flanken — die
        Erklärung passiert in der Bewegung, nicht in einer Legende. */
-    .stop-clip.snapping { border-color: var(--lila); box-shadow: 0 0 0 2px rgba(197, 139, 255, 0.45); }
+    .stop-clip.snapping { border-color: var(--accent-violet); box-shadow: 0 0 0 2px rgba(197, 139, 255, 0.45); }
 
     /* — Kamera-Momente: Klips der Szenen-Bahn, nur ohne Bild —
        Ein Moment hält den Film an wie ein Foto; eine eigene Spur unterschiede
@@ -2253,10 +2253,10 @@
        Fläche leer zu lassen. */
     .stop-clip.moment { border-color: rgba(255, 138, 101, 0.55); }
     .stop-clip.moment:hover { border-color: rgba(255, 138, 101, 0.9); }
-    .stop-clip.moment .inhalt {
+    .stop-clip.moment .content {
       background:
         repeating-linear-gradient(-45deg, rgba(255, 138, 101, 0.22) 0 5px, transparent 5px 10px),
-        var(--fl-2);
+        var(--surface-2);
     }
     /* Wie die Kopfminiatur eines Fotos: Solange kein Name danebensteht, füllt
        das Zeichen den Klip und steht mittig — links geklebt sähe es aus, als
@@ -2331,7 +2331,7 @@
        schon, wie lang die Datei ist. */
     .timeline-sfx { position: absolute; top: 8px; width: 11px; height: 11px; margin-left: -5.5px; cursor: default; touch-action: none; z-index: 8; }
     .timeline-sfx:active { cursor: grabbing; }
-    .timeline-sfx i { display: block; width: 100%; height: 100%; transform: rotate(45deg); background: var(--lila); border: 1.5px solid rgba(6, 8, 12, 0.8); border-radius: 2px; }
+    .timeline-sfx i { display: block; width: 100%; height: 100%; transform: rotate(45deg); background: var(--accent-violet); border: 1.5px solid rgba(6, 8, 12, 0.8); border-radius: 2px; }
     .timeline-sfx.selected i { box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(197, 139, 255, 0.6); }
 
     /* — Szenen-Bahn: je Aufnahme ein Klip, ein Halt ist ihre Kette —
@@ -2341,33 +2341,33 @@
     .photo-lane { position: relative; height: 100%; }
     /* `overflow: visible` — sonst schnitte der Klip seinen eigenen Standzeit-
        Griff ab, der bewusst über den Rand in den Nachbarn ragt. Beschnitten
-       wird stattdessen `.inhalt`. Der Rahmen darf deshalb ein echter `border`
+       wird stattdessen `.content`. Der Rahmen darf deshalb ein echter `border`
        bleiben (die Falle „border + overflow:hidden frisst das Randpixel"
        greift nur, wo geclippt wird). */
     .stop-clip {
       position: absolute; top: 7px; bottom: 2px; min-width: 4px; padding: 0;
       border-radius: var(--radius-sm); overflow: visible; container-type: inline-size;
-      border: 1px solid var(--rand-hell); background: var(--fl-2);
+      border: 1px solid var(--border-strong); background: var(--surface-2);
       cursor: default; touch-action: none; transition: border-color 140ms ease;
     }
     /* Die globalen Knopf-Regeln schlagen jede Klasse: `button:hover` setzt eine
        eigene Fläche (der Klip würde grau), und `button:active { transform }`
        ERSETZT unser translateX beim Ziehen — beides hier zurücknehmen. */
-    .stop-clip:hover { background: var(--fl-2); border-color: rgba(197, 139, 255, 0.7); }
+    .stop-clip:hover { background: var(--surface-2); border-color: rgba(197, 139, 255, 0.7); }
     .stop-clip:active { transform: none; }
     .stop-clip.selected { border-color: #fff5e4; box-shadow: 0 0 0 2px rgba(255, 245, 228, 0.55), 0 0 12px rgba(245, 165, 36, 0.35); }
     .stop-clip.video { border-color: rgba(91, 157, 255, 0.5); }
-    .stop-clip.dragging { z-index: 8; border-color: var(--akzent); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6); }
-    .stop-clip .inhalt {
+    .stop-clip.dragging { z-index: 8; border-color: var(--primary); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6); }
+    .stop-clip .content {
       position: absolute; inset: 0; display: flex; align-items: stretch;
-      overflow: hidden; border-radius: 6px; background: var(--fl-2);
+      overflow: hidden; border-radius: 6px; background: var(--surface-2);
     }
     /* Das Bild steht EINMAL am Anfang und — wenn Platz ist — einmal am Ende
        (Premieres Konvention). Als Filmstreifen über die ganze Breite wiederholte
        sich beim Aufziehen dasselbe Foto: ein Foto hat aber nur ein Einzelbild,
        es zu kacheln behauptet einen Verlauf, den es nicht gibt. */
-    .stop-clip .bild { flex: none; aspect-ratio: 3 / 2; overflow: hidden; background: var(--fl-3); }
-    .stop-clip .bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .stop-clip .image { flex: none; aspect-ratio: 3 / 2; overflow: hidden; background: var(--surface-3); }
+    .stop-clip .image img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .stop-clip .info {
       flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;
       gap: 1px; padding: 0 8px; text-align: left; overflow: hidden;
@@ -2381,14 +2381,14 @@
        Dieser Block steht mit ABSICHT nach den Basisregeln: bei gleicher
        Spezifität gewinnt die spätere, davor gestellt hübe die Basisregel das
        `display: none` sofort wieder auf. */
-    .stop-clip .bild.end { display: none; }
+    .stop-clip .image.end { display: none; }
     .stop-clip .info { display: none; }
-    .stop-clip .bild.start { flex: 1; aspect-ratio: auto; min-width: 0; }
+    .stop-clip .image.start { flex: 1; aspect-ratio: auto; min-width: 0; }
     @container (min-width: 150px) {
       .stop-clip .info { display: flex; }
-      .stop-clip .bild.start { flex: none; aspect-ratio: 3 / 2; }
+      .stop-clip .image.start { flex: none; aspect-ratio: 3 / 2; }
     }
-    @container (min-width: 232px) { .stop-clip .bild.end { display: block; } }
+    @container (min-width: 232px) { .stop-clip .image.end { display: block; } }
     .stop-clip .v-play {
       position: absolute; left: 5px; top: 50%; width: 15px; height: 15px; margin-top: -7.5px;
       z-index: 2; border-radius: 50%; background: rgba(6, 8, 12, 0.72);
@@ -2409,7 +2409,7 @@
       content: ''; width: 2px; height: 52%; border-radius: 2px;
       background: rgba(255, 255, 255, 0.22); transition: background 120ms ease;
     }
-    .stop-clip .v-trim:hover::before, .stop-clip.dragging-duration .v-trim::before { background: var(--akzent); }
+    .stop-clip .v-trim:hover::before, .stop-clip.dragging-duration .v-trim::before { background: var(--primary); }
     @media (pointer: coarse) { .stop-clip .v-trim { width: min(22px, 35%); } }
     /* Die Standzeit-Kante sitzt RECHTS — und weil das ENDE einer Aufnahme der
        ANFANG der nächsten ist, ragt sie in den Nachbarn hinein: eine Kette wird
@@ -2424,14 +2424,14 @@
       content: ''; width: 2px; height: 60%; border-radius: 2px;
       background: rgba(255, 255, 255, 0.22); transition: background 120ms ease;
     }
-    .stop-clip .grip:hover::before, .stop-clip.dragging-duration .grip::before { background: var(--akzent); }
+    .stop-clip .grip:hover::before, .stop-clip.dragging-duration .grip::before { background: var(--primary); }
     /* 13 px sind ein MAUS-Maß; auf Touch muss die Trefferzone größer sein
        (die Optik bleibt schmal). */
     @media (pointer: coarse) { .stop-clip .grip { width: min(26px, 45%); right: -13px; } }
     /* Beim Ziehen die Sekundenzahl direkt am Griff — sonst muss man raten. */
     .stop-clip .duration-bubble {
       position: absolute; right: 0; top: -19px; transform: translateX(50%); z-index: 9;
-      background: var(--akzent); color: var(--auf-akzent); font-size: 11px; font-weight: 600;
+      background: var(--primary); color: var(--on-cta); font-size: 11px; font-weight: 600;
       font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 6px;
       opacity: 0; pointer-events: none; transition: opacity 120ms ease; white-space: nowrap;
     }
@@ -2442,8 +2442,8 @@
     /* Beim Abspielen leuchtet der Klip der Aufnahme, die gerade auf der Karte steht. */
     .stop-clip.pulse { animation: clipPulse 700ms ease; }
     @keyframes clipPulse {
-      0%, 100% { border-color: var(--rand-hell); }
-      30% { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45); }
+      0%, 100% { border-color: var(--border-strong); }
+      30% { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45); }
     }
 
     /* Die Halt-Zone führt durch ALLE Bahnen — aber nur für den AUSGEWÄHLTEN
@@ -2458,23 +2458,23 @@
     /* Wohin fällt der gezogene Klip in seiner Kette? */
     .timeline-insert {
       position: absolute; top: 23px; height: 62px; width: 2px; margin-left: -1px;
-      border-radius: 2px; background: var(--akzent); z-index: 22; pointer-events: none;
+      border-radius: 2px; background: var(--primary); z-index: 22; pointer-events: none;
     }
     /* Was bedeutet dieser Zug gerade? Die Farbe unterscheidet die harmlose
        Anordnung von dem Eingriff, der eine Aufnahme über die Strecke verschiebt. */
     .drag-label {
       position: fixed; z-index: 90; transform: translate(-50%, -230%); pointer-events: none;
       padding: 4px 10px; border-radius: var(--radius-full); font-size: 11.5px; font-weight: 500;
-      white-space: nowrap; box-shadow: var(--schatten);
+      white-space: nowrap; box-shadow: var(--shadow);
     }
-    .drag-label[data-kind='reihe'] { background: var(--fl-3); color: var(--text-2); border: 1px solid var(--rand-hell); }
-    .drag-label[data-kind='ort'] { background: var(--akzent); color: var(--auf-akzent); }
+    .drag-label[data-kind='reihe'] { background: var(--surface-3); color: var(--text-2); border: 1px solid var(--border-strong); }
+    .drag-label[data-kind='ort'] { background: var(--primary); color: var(--on-cta); }
 
     /* Ein Effekt, der gerade ausgelöst hat. */
     .timeline-sfx.ping i { animation: sfxPing 500ms ease; }
     @keyframes sfxPing {
       0%, 100% { transform: rotate(45deg) scale(1); }
-      40% { transform: rotate(45deg) scale(1.5); background: var(--akzent); }
+      40% { transform: rotate(45deg) scale(1.5); background: var(--primary); }
     }
 
     /* — Overlay über allen Bahnen: der Abspielkopf —
@@ -2487,7 +2487,7 @@
     /* z-index 12 = ÜBER der klebenden Namensspalte (11): an Position 0 steckte
        die linke Hälfte des Kopfes sonst darunter. Ist er hinter die Spalte
        gescrollt, blendet ihn `.covered` aus (sonst klebte er auf den Namen). */
-    .header-rule { position: absolute; top: 23px; bottom: 0; width: 1px; background: var(--akzent); z-index: 12; pointer-events: none; }
+    .header-rule { position: absolute; top: 23px; bottom: 0; width: 1px; background: var(--primary); z-index: 12; pointer-events: none; }
     .header-rule.covered { visibility: hidden; }
     /* Der Kopf sitzt MITTIG auf der Linie — immer, auch an den Achsenenden.
        Ein Versatz nach innen machte ihn dort zwar ganz sichtbar, aber er stand
@@ -2495,7 +2495,7 @@
     .header-grip {
       position: absolute; left: 50%; top: -13px;
       transform: translateX(-50%);
-      width: 13px; height: 14px; padding: 0; border: none; background: var(--akzent);
+      width: 13px; height: 14px; padding: 0; border: none; background: var(--primary);
       clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%);
       cursor: var(--scrub); pointer-events: auto; touch-action: none; z-index: 10;
     }
@@ -2504,7 +2504,7 @@
        man ist, und darf beim Vorbeifahren nicht die Farbe wechseln. Die Regel
        muss trotzdem dastehen: `button:hover` wiegt durch die Pseudoklasse mehr
        als die Klasse `.header-grip` und färbte den orangen Pfeil sonst grau. */
-    .header-grip:hover { background: var(--akzent); }
+    .header-grip:hover { background: var(--primary); }
     /* Die globale `button:active`-Regel ERSETZT sonst die Zentrierung durch ein
        scale() — der Kopf sprang beim Anfassen um seine halbe Breite nach rechts. */
     .header-grip:active { transform: translateX(-50%) scale(0.94); }
@@ -2547,23 +2547,23 @@
     .empty-text { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-3); max-width: 26ch; }
     .inspector-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
     .inspector-content::-webkit-scrollbar { width: 10px; }
-    .inspector-content::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 3px solid var(--bg); }
+    .inspector-content::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; border: 3px solid var(--bg); }
     /* Der Fuß liegt AUSSERHALB des scrollenden Inhalts: `margin-top:auto` würde
        in einem überlaufenden Flex-Container auf 0 kollabieren und den Knopf
        unter die Falz schieben. */
-    .inspector-footer { flex: none; padding: 12px 18px; border-top: 1px solid var(--rand); }
+    .inspector-footer { flex: none; padding: 12px 18px; border-top: 1px solid var(--border); }
     /* Die Objektart ist die ÜBERSCHRIFT des Panels — eine kleine Outfit-Headline
        statt der alten Versal-Mono-Dachzeile (die ist aus der Marke verschwunden).
        Kein Farbchip: die Spur-Farbe trägt schon das fokussierte Band selbst. */
     .inspector-type {
       font-family: var(--font-display); font-size: 16px; font-weight: 600;
       letter-spacing: -0.015em; color: var(--text);
-      padding-bottom: 12px; border-bottom: 1px solid var(--rand);
+      padding-bottom: 12px; border-bottom: 1px solid var(--border);
     }
     /* Nur noch für Tour-Einstellungen — bei Zeitleisten-Objekten reicht der Kicker. */
     .inspector-title {
       font-family: var(--font-display); font-size: 19px; line-height: 1.25;
-      margin: -6px 0 0; padding-bottom: 14px; border-bottom: 1px solid var(--rand);
+      margin: -6px 0 0; padding-bottom: 14px; border-bottom: 1px solid var(--border);
     }
     /* Erklärung unter einem Feld — soll gelesen werden können, ohne zu drängen.
        In den Tour-Einstellungen abgelöst durch den Tipp-Griff; anderswo (Medien,
@@ -2575,25 +2575,25 @@
     .field-header > label { margin: 0; }
     .field-header .field-counter { margin-left: auto; }
     .field-counter { flex: none; font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-    .field-counter.knapp { color: var(--warn); }
+    .field-counter.low { color: var(--warn); }
     /* Der Griff: so groß wie die Schrift daneben, damit er die Zeile nicht
        aufreißt, aber mit einer Klickfläche, die man trifft. */
     .tooltip {
       width: 15px; height: 15px; flex: none; padding: 0;
       display: inline-grid; place-items: center;
-      border: 1px solid var(--rand-hell); border-radius: 999px;
+      border: 1px solid var(--border-strong); border-radius: 999px;
       background: transparent; color: var(--text-3);
       font-family: var(--font-ui); font-size: 10px; font-weight: 600; line-height: 1;
       cursor: help;
     }
-    .tooltip:hover, .tooltip:focus-visible { color: var(--auf-akzent); background: var(--akzent); border-color: transparent; }
+    .tooltip:hover, .tooltip:focus-visible { color: var(--on-cta); background: var(--primary); border-color: transparent; }
     /* Die Blase hängt am BODY, nicht im Panel: Der Inspector scrollt, ein Kind
        darin würde an seiner Kante abgeschnitten (z-index hilft dagegen nicht). */
     .tooltip-bubble {
       position: fixed; z-index: 60; max-width: 260px;
       padding: 8px 11px; border-radius: var(--radius-md);
-      background: var(--fl-3); border: 1px solid var(--rand-hell);
-      box-shadow: var(--schatten);
+      background: var(--surface-3); border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow);
       font-size: 12px; line-height: 1.45; color: var(--text);
       pointer-events: none;
     }
@@ -2603,12 +2603,12 @@
     .layer-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
     .layer-picker button {
       font-size: 11.5px; padding: 4px 10px; border-radius: var(--radius-full);
-      border: 1px solid var(--rand-hell); background: transparent; color: var(--text-2);
+      border: 1px solid var(--border-strong); background: transparent; color: var(--text-2);
       cursor: pointer; line-height: 1.3;
     }
-    .layer-picker button:hover { color: var(--text); border-color: var(--akzent); }
+    .layer-picker button:hover { color: var(--text); border-color: var(--primary); }
     .layer-picker button[aria-pressed='true'] {
-      background: var(--akzent); border-color: transparent; color: var(--auf-akzent); font-weight: 500;
+      background: var(--primary); border-color: transparent; color: var(--on-cta); font-weight: 500;
     }
 
     /* — Aufnahme-Details: ausklappbarer Block über <details>. Geschlossen ist er
@@ -2617,7 +2617,7 @@
        Item mit viel Inhalt wird darin gestaucht statt den Container scrollen zu
        lassen — der aufgeklappte Block war so 2 px hoch (Zeilen im DOM, nichts zu
        sehen). Gleiche Sorte Falle wie „margin-top: auto kollabiert im Overflow". */
-    .insp-info { flex: none; border: 1px solid var(--rand); border-radius: var(--radius-md); background: var(--fl-2); overflow: hidden; }
+    .insp-info { flex: none; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-2); overflow: hidden; }
     .insp-info summary {
       display: flex; align-items: center; gap: 8px;
       padding: 10px 12px; cursor: pointer; list-style: none;
@@ -2625,13 +2625,13 @@
       transition: color 130ms ease, background 130ms ease;
     }
     .insp-info summary::-webkit-details-marker { display: none; }
-    .insp-info summary:hover { color: var(--text); background: var(--fl-3); }
+    .insp-info summary:hover { color: var(--text); background: var(--surface-3); }
     .insp-info summary svg { width: 14px; height: 14px; flex: none; color: var(--text-3); }
     /* Erstes Icon = ⓘ, letztes = der Pfeil ganz rechts (dreht beim Öffnen). */
     .insp-info summary svg:last-child { margin-left: auto; transition: transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.15); }
-    .insp-info[open] summary { color: var(--text); border-bottom: 1px solid var(--rand); }
+    .insp-info[open] summary { color: var(--text); border-bottom: 1px solid var(--border); }
     .insp-info[open] summary svg:last-child { transform: rotate(90deg); }
-    .insp-info summary:focus-visible { outline: 2px solid var(--akzent); outline-offset: -2px; box-shadow: none; }
+    .insp-info summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; box-shadow: none; }
     .inspector-info-grid { margin: 0; padding: 4px 12px 10px; }
     /* Beschriftung links, Wert rechts — Zahlen mit tabular-nums, damit
        Auflösungen und Zeiten untereinander stehen (DESIGN.md). */
@@ -2646,8 +2646,8 @@
       font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
     }
     .inspector-info-footer { margin: 8px 0 0; font-size: 11px; line-height: 1.45; color: var(--text-3); }
-    .feld { display: flex; flex-direction: column; gap: 5px; }
-    .feld > label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-3); }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field > label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-3); }
     /* Erklärung zu einem Feld hinter einem ⓘ statt als Nachsatz in der
        Beschriftung (gleiches Muster wie .sfx-usage in der Bibliothek). */
     .field-usage {
@@ -2657,13 +2657,13 @@
     }
     .field-usage svg { width: 12.5px; height: 12.5px; }
     .field-usage:hover, .field-usage:focus { color: var(--text-2); }
-    .field-usage:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; box-shadow: none; }
+    .field-usage:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; box-shadow: none; }
     .field-usage-bubble {
       position: absolute; left: -8px; top: calc(100% + 8px);
       width: max-content; max-width: 250px; padding: 8px 11px 9px; border-radius: var(--radius-md);
       font-size: 11.5px; line-height: 1.45; color: var(--text-2); white-space: normal;
       background: linear-gradient(165deg, rgba(26, 34, 45, 0.96), rgba(9, 12, 17, 0.97));
-      border: 1px solid var(--rand-hell);
+      border: 1px solid var(--border-strong);
       box-shadow: 0 14px 30px rgba(2, 5, 10, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
       opacity: 0; transform: translateY(4px);
       pointer-events: none; transition: opacity 150ms ease, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
@@ -2672,15 +2672,15 @@
     .field-usage-bubble::after {
       content: ''; position: absolute; left: 11px; top: -5px; width: 9px; height: 9px;
       background: rgb(24, 31, 41); transform: rotate(45deg); border-top-left-radius: 2px;
-      border-left: 1px solid var(--rand-hell); border-top: 1px solid var(--rand-hell);
+      border-left: 1px solid var(--border-strong); border-top: 1px solid var(--border-strong);
     }
     /* :focus statt :focus-visible — Touch hat kein Hover (s. .sfx-usage). */
     .field-usage:hover .field-usage-bubble, .field-usage:focus .field-usage-bubble { opacity: 1; transform: none; }
-    .feld select, .feld input[type='text'], .feld input[type='number'] { width: 100%; font-size: 13px; }
-    .feld input[type='range'] { width: 100%; accent-color: var(--akzent); }
-    .feld .with-value { display: flex; align-items: center; gap: 9px; }
-    .feld .with-value input[type='range'] { flex: 1; }
-    .feld .value { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; width: 42px; text-align: right; }
+    .field select, .field input[type='text'], .field input[type='number'] { width: 100%; font-size: 13px; }
+    .field input[type='range'] { width: 100%; accent-color: var(--primary); }
+    .field .with-value { display: flex; align-items: center; gap: 9px; }
+    .field .with-value input[type='range'] { flex: 1; }
+    .field .value { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; width: 42px; text-align: right; }
 
     /* Zeitfeld: tippen, mit ▲▼ steppen ODER darüberziehen (5 px ≈ 1 Minute,
        wie in Final Cut). Ein festes Band-Ende gibt es nicht — Ende des einen
@@ -2694,15 +2694,15 @@
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 10px;
     }
-    .time-pair > .feld { min-width: 0; }
+    .time-pair > .field { min-width: 0; }
     .time-field {
       display: flex; align-items: stretch; min-width: 0; overflow: hidden;
-      border: 1px solid var(--rand); border-radius: var(--radius-md); background: var(--fl-1);
+      border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-1);
       cursor: var(--scrub);
     }
-    .time-field:hover { border-color: var(--rand-hell); }
-    .time-field:focus-within { border-color: var(--akzent); box-shadow: var(--fokus-ring); }
-    .time-field.scrub { border-color: var(--akzent); }
+    .time-field:hover { border-color: var(--border-strong); }
+    .time-field:focus-within { border-color: var(--primary); box-shadow: var(--focus-ring); }
+    .time-field.scrub { border-color: var(--primary); }
     .time-field.scrub, .time-field.scrub *,
     .time-field.dragging, .time-field.dragging * { user-select: none; }
     input.time-field-input[type='text'] {
@@ -2717,7 +2717,7 @@
     }
     .time-field-step {
       display: flex; flex-direction: column; flex: none; width: 36px;
-      border-left: 1px solid var(--rand); user-select: none;
+      border-left: 1px solid var(--border); user-select: none;
     }
     .time-field-step button {
       flex: 1; display: grid; place-items: center; padding: 0;
@@ -2732,10 +2732,10 @@
       border-left: 4px solid transparent;
       border-right: 4px solid transparent;
     }
-    .time-field-step button:first-child { border-bottom: 1px solid var(--rand); }
+    .time-field-step button:first-child { border-bottom: 1px solid var(--border); }
     .time-field-step button:first-child::before { border-bottom: 5px solid currentColor; }
     .time-field-step button:last-child::before { border-top: 5px solid currentColor; }
-    .time-field-step button:hover { color: var(--akzent); background: var(--fl-3); }
+    .time-field-step button:hover { color: var(--primary); background: var(--surface-3); }
     .time-field-step button:active { transform: none; }
     /* Feste Grenze (Tourbeginn/-ende): kein Feld, sondern eine Aussage. */
     .time-field.ro {
@@ -2747,7 +2747,7 @@
       margin: 0; padding: 8px 10px; border-radius: var(--radius-md); font-size: 11.5px; line-height: 1.4;
       background: color-mix(in srgb, var(--warn, var(--warn)) 14%, transparent); color: var(--warn, var(--warn));
     }
-    .inspector-image { width: 100%; border-radius: var(--radius-md); border: 1px solid var(--rand); display: block; background: var(--fl-2); cursor: zoom-in; }
+    .inspector-image { width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border); display: block; background: var(--surface-2); cursor: zoom-in; }
     .inspector-image-wrap { position: relative; }
     .inspector-image-wrap .inspector-image { display: block; }
     .inspector-image-badge {
@@ -2771,7 +2771,7 @@
     .lightbox video { background: #000; }
     .lightbox .lightbox-title-video {
       font-size: 11.5px; font-weight: 500;
-      color: var(--akzent); border: 1px solid rgba(245, 165, 36, 0.5); border-radius: var(--radius-full);
+      color: var(--primary); border: 1px solid rgba(245, 165, 36, 0.5); border-radius: var(--radius-full);
       padding: 2px 9px; vertical-align: middle; margin-left: 10px;
     }
     .lightbox figcaption { text-align: center; }
@@ -2784,39 +2784,39 @@
     }
     .lightbox .lightbox-close, .lightbox .browse {
       position: absolute; display: grid; place-items: center; padding: 0;
-      background: rgba(255, 255, 255, 0.06); border: 1px solid var(--rand-hell); color: var(--text-2);
+      background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-strong); color: var(--text-2);
       border-radius: 50%; width: 42px; height: 42px;
     }
     .lightbox .lightbox-close { top: 20px; right: 24px; width: 38px; height: 38px; }
     .lightbox .lightbox-close:hover, .lightbox .browse:hover { background: rgba(255, 255, 255, 0.13); color: var(--text); border-color: var(--text-3); }
-    .lightbox .browse.links { left: 20px; top: 50%; transform: translateY(-50%); }
+    .lightbox .browse.left { left: 20px; top: 50%; transform: translateY(-50%); }
     .lightbox .browse.right { right: 20px; top: 50%; transform: translateY(-50%); }
     .lightbox .browse:disabled { opacity: 0.35; cursor: default; }
-    .lightbox .browse:disabled:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-2); border-color: var(--rand-hell); }
+    .lightbox .browse:disabled:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-2); border-color: var(--border-strong); }
     .lightbox .lightbox-close svg, .lightbox .browse svg { width: 17px; height: 17px; }
     @media (max-width: 720px) {
       .lightbox { padding: 56px 18px 24px; }
-      .lightbox .browse.links { left: 8px; }
+      .lightbox .browse.left { left: 8px; }
       .lightbox .browse.right { right: 8px; }
     }
     .inspector-buttons { display: flex; gap: 7px; flex-wrap: wrap; }
     .inspector-buttons button { font-size: 12px; padding: 7px 10px; }
-    .inspector-buttons button.aktiv { border-color: var(--akzent); color: var(--akzent); background: rgba(245, 165, 36, 0.08); }
+    .inspector-buttons button.active { border-color: var(--primary); color: var(--primary); background: rgba(245, 165, 36, 0.08); }
 
     /* Stück-Karte eines Audio-Eintrags: was läuft, woher es kommt — und der
        Griff zum Tausch („Ändern …" öffnet die Bibliothek im Ersetzen-Modus). */
     .inspector-piece {
       display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px;
       padding: 10px 12px;
-      background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-md);
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md);
     }
     .inspector-piece-preview {
       flex: none; width: 32px; height: 32px; border-radius: 50%; padding: 0;
       display: grid; place-items: center;
-      border: 1px solid var(--rand-hell); background: var(--fl-1); color: var(--text-2);
+      border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--text-2);
       transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
     }
-    .inspector-piece-preview:hover { color: var(--akzent); background: var(--fl-1); border-color: color-mix(in srgb, var(--akzent) 55%, var(--rand-hell)); }
+    .inspector-piece-preview:hover { color: var(--primary); background: var(--surface-1); border-color: color-mix(in srgb, var(--primary) 55%, var(--border-strong)); }
     .inspector-piece-preview svg { width: 13px; height: 13px; margin-left: 2px; }
     .inspector-piece-preview .stop { width: 9px; height: 9px; border-radius: 1.5px; background: currentColor; }
     .inspector-piece-text { min-width: 0; }
@@ -2827,7 +2827,7 @@
       width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px;
       font-size: 12.5px; padding: 9px; color: var(--text-2);
     }
-    .inspector-delete:hover:not(:disabled) { border-color: var(--rot); background: rgba(229, 72, 77, 0.12); color: #ff9ea1; }
+    .inspector-delete:hover:not(:disabled) { border-color: var(--danger); background: rgba(229, 72, 77, 0.12); color: #ff9ea1; }
     .inspector-delete svg { width: 14px; height: 14px; }
     .inspector-delete:disabled { opacity: 0.4; cursor: default; }
 
@@ -2835,7 +2835,7 @@
     .stop-total {
       display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
       font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums;
-      border-top: 1px dashed var(--rand); padding-top: 9px;
+      border-top: 1px dashed var(--border); padding-top: 9px;
     }
     .stop-total b { font-weight: 500; color: var(--text-2); }
 
@@ -2849,11 +2849,11 @@
       width: min(680px, calc(100vw - 32px));
       height: min(680px, calc(100dvh - 48px));
       padding: 0;
-      border: 1px solid var(--rand-hell);
+      border: 1px solid var(--border-strong);
       border-radius: var(--radius-xl);
-      background: var(--fl-1);
+      background: var(--surface-1);
       color: var(--text);
-      box-shadow: var(--schatten);
+      box-shadow: var(--shadow);
       overflow: hidden;
     }
     /* NUR im offenen Zustand: ein blankes `display: flex` schlägt die
@@ -2873,29 +2873,29 @@
       width: 15px; height: 15px; color: var(--text-3); pointer-events: none;
       transition: color 140ms ease;
     }
-    .sfx-search-field:focus-within svg { color: var(--akzent); }
-    /* `input.sfx-search` und nicht `.sfx-search`: In werkzeug.css steht das
+    .sfx-search-field:focus-within svg { color: var(--primary); }
+    /* `input.sfx-search` und nicht `.sfx-search`: In toolkit.css steht das
        Feld-Grundmaß unter `input[type='search']` — Attribut plus Typ schlägt
        eine blanke Klasse, egal in welcher Reihenfolge die Blätter hängen. Die
        Regel hier verlor deshalb still ihr `padding-left`, das Feld bekam die
        12 px des Grundmaßes und die absolut gesetzte Lupe lag auf dem ersten
        Buchstaben des Platzhalters. Die Nachbarn (`.search input` oben,
-       `.suchfeld input` in der Verwaltung) tragen ihren Typ schon im
+       `.search-field input` in der Verwaltung) tragen ihren Typ schon im
        Selektor und waren nie betroffen. */
     input.sfx-search {
       width: 100%; padding: 9px 14px 9px 38px; font-size: 13.5px;
       font-family: var(--font-ui); color: var(--text);
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
+      background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-md);
       transition: border-color 140ms ease, background 140ms ease;
     }
     .sfx-search::placeholder { color: var(--text-3); }
-    .sfx-search:hover { border-color: var(--rand-hell); }
-    .sfx-search:focus { outline: none; border-color: var(--akzent); box-shadow: var(--fokus-ring); }
+    .sfx-search:hover { border-color: var(--border-strong); }
+    .sfx-search:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus-ring); }
     .sfx-search::-webkit-search-cancel-button { -webkit-appearance: none; }
 
     /* Art-Reiter: Textreiter mit Zähler (kein Pill-Segment). Bei laufender
        Suche treten alle zurück — die Treffer kommen aus allen Kategorien. */
-    .sfx-tabs { display: flex; align-items: flex-end; gap: 18px; padding: 8px 20px 0; border-bottom: 1px solid var(--rand); }
+    .sfx-tabs { display: flex; align-items: flex-end; gap: 18px; padding: 8px 20px 0; border-bottom: 1px solid var(--border); }
     .sfx-tab {
       position: relative; display: inline-flex; align-items: baseline; gap: 6px;
       padding: 7px 2px 10px; font-size: 13px; font-family: var(--font-ui);
@@ -2907,7 +2907,7 @@
     /* Der Reiterstrich sitzt AUF der Trennlinie der Leiste (-1px). */
     .sfx-tab[aria-selected="true"]::after {
       content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
-      background: var(--akzent); border-radius: 2px 2px 0 0;
+      background: var(--primary); border-radius: 2px 2px 0 0;
     }
     .sfx-tab .z { font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
     .sfx-tabs.searching .sfx-tab { opacity: 0.55; }
@@ -2916,7 +2916,7 @@
        statt sie scrollen zu lassen (die Inhalte werden dann abgeschnitten). */
     .sfx-content { flex: 1; min-height: 0; overflow-y: auto; padding: 0 0 8px; }
     .sfx-content::-webkit-scrollbar { width: 10px; }
-    .sfx-content::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 10px; border: 3px solid var(--fl-1); }
+    .sfx-content::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; border: 3px solid var(--surface-1); }
     .sfx-empty { text-align: center; padding: 40px 40px; color: var(--text-3); font-size: 13px; line-height: 1.5; }
 
     /* Gruppenkopf: bleibt beim Scrollen oben stehen. WIE die Art im Film wirkt
@@ -2925,7 +2925,7 @@
       position: sticky; top: 0; z-index: 2;
       display: flex; align-items: center; gap: 7px;
       padding: 15px 20px 7px;
-      background: linear-gradient(var(--fl-1) 76%, transparent);
+      background: linear-gradient(var(--surface-1) 76%, transparent);
       font-family: var(--font-display); font-size: 13.5px; font-weight: 550;
     }
     /* Kleines ⓘ mit Blase — Hover UND Tastaturfokus (Muster wie .map-attribution).
@@ -2938,14 +2938,14 @@
     }
     .sfx-usage svg { width: 13.5px; height: 13.5px; }
     .sfx-usage:hover, .sfx-usage:focus { color: var(--text-2); }
-    .sfx-usage:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; box-shadow: none; }
+    .sfx-usage:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; box-shadow: none; }
     .sfx-usage-bubble {
       position: absolute; left: -8px; top: calc(100% + 9px);
       width: max-content; max-width: 280px; padding: 8px 12px 9px; border-radius: var(--radius-md);
       font-family: var(--font-ui); font-size: 11.5px; font-weight: 400;
       line-height: 1.45; color: var(--text-2); text-align: left; white-space: normal;
       background: linear-gradient(165deg, rgba(26, 34, 45, 0.96), rgba(9, 12, 17, 0.97));
-      border: 1px solid var(--rand-hell);
+      border: 1px solid var(--border-strong);
       box-shadow: 0 14px 30px rgba(2, 5, 10, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
       opacity: 0; transform: translateY(4px); transform-origin: 12px 0;
       pointer-events: none; transition: opacity 150ms ease, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
@@ -2954,7 +2954,7 @@
     .sfx-usage-bubble::after {
       content: ''; position: absolute; left: 12px; top: -5px; width: 9px; height: 9px;
       background: rgb(24, 31, 41); transform: rotate(45deg); border-top-left-radius: 2px;
-      border-left: 1px solid var(--rand-hell); border-top: 1px solid var(--rand-hell);
+      border-left: 1px solid var(--border-strong); border-top: 1px solid var(--border-strong);
     }
     /* :focus statt :focus-visible — Touch hat kein Hover: ein Tipp aufs ⓘ
        fokussiert es und zeigt die Blase; der RING bleibt Tastatur-exklusiv. */
@@ -2966,23 +2966,23 @@
       padding: 9px 20px; border-top: 1px solid transparent;
       transition: background 130ms ease;
     }
-    .sfx-row + .sfx-row { border-top-color: var(--rand); }
-    .sfx-row:hover { background: var(--fl-2); }
-    .sfx-row.playing { background: var(--fl-2); }
+    .sfx-row + .sfx-row { border-top-color: var(--border); }
+    .sfx-row:hover { background: var(--surface-2); }
+    .sfx-row.playing { background: var(--surface-2); }
     /* Mitlaufender Abspielfortschritt (0..1 aus currentTime/duration) */
     .sfx-row.playing::after {
       content: ''; position: absolute; left: 0; bottom: 0; height: 2px;
       width: calc(var(--progress, 0) * 100%);
-      background: var(--akzent); border-radius: 0 2px 2px 0;
+      background: var(--primary); border-radius: 0 2px 2px 0;
     }
     .sfx-preview {
       flex: none; width: 32px; height: 32px; border-radius: 50%; padding: 0;
       display: grid; place-items: center; cursor: pointer;
-      border: 1px solid var(--rand-hell); background: var(--fl-1); color: var(--text-2);
+      border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--text-2);
       transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
     }
     .sfx-row:hover .sfx-preview { color: var(--text); border-color: #3d4a5c; }
-    .sfx-row.playing .sfx-preview { color: var(--akzent); border-color: color-mix(in srgb, var(--akzent) 55%, var(--rand-hell)); background: rgba(245, 165, 36, 0.1); }
+    .sfx-row.playing .sfx-preview { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 55%, var(--border-strong)); background: rgba(245, 165, 36, 0.1); }
     .sfx-preview svg { width: 13px; height: 13px; margin-left: 2px; }
     .sfx-preview .stop { width: 9px; height: 9px; border-radius: 1.5px; background: currentColor; }
     .sfx-text { min-width: 0; }
@@ -2992,7 +2992,7 @@
     .sfx-badge {
       flex: none; padding: 2px 7px; border-radius: 99px;
       font-size: 11px; font-weight: 500;
-      color: var(--akzent); border: 1px solid color-mix(in srgb, var(--akzent) 45%, transparent);
+      color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
       background: rgba(245, 158, 11, 0.09);
     }
     .sfx-right { display: flex; align-items: center; gap: 12px; }
@@ -3006,9 +3006,9 @@
       transition: color 130ms ease, background 130ms ease, border-color 130ms ease;
     }
     .sfx-row:hover .sfx-insert, .sfx-row.playing .sfx-insert, .sfx-insert:focus-visible {
-      color: var(--text); background: var(--fl-3); border-color: var(--rand-hell);
+      color: var(--text); background: var(--surface-3); border-color: var(--border-strong);
     }
-    .sfx-row .sfx-insert:hover { color: #0f1319; background: var(--akzent); border-color: var(--akzent); }
+    .sfx-row .sfx-insert:hover { color: #0f1319; background: var(--primary); border-color: var(--primary); }
     /* Löschen eigener Dateien: unsichtbar bis zum Hover der Zeile; der erste
        Klick fragt („Löschen?"), erst der zweite löscht wirklich. */
     .sfx-delete {
@@ -3018,28 +3018,28 @@
     }
     .sfx-row:hover .sfx-delete, .sfx-delete:focus-visible, .sfx-delete.armed { opacity: 1; }
     .sfx-delete svg { width: 14px; height: 14px; }
-    .sfx-delete:hover { color: var(--rot); background: rgba(229, 72, 77, 0.1); border-color: transparent; }
+    .sfx-delete:hover { color: var(--danger); background: rgba(229, 72, 77, 0.1); border-color: transparent; }
     .sfx-delete:disabled { opacity: 0; }
     .sfx-row:hover .sfx-delete:disabled { opacity: 0.35; }
     .sfx-delete:disabled:hover { color: var(--text-3); background: none; border-color: transparent; }
-    .sfx-delete.armed, .sfx-delete.armed:hover { color: #fff; background: var(--rot); border-color: var(--rot); }
+    .sfx-delete.armed, .sfx-delete.armed:hover { color: #fff; background: var(--danger); border-color: var(--danger); }
     /* Upload als erste Zeile von „Eigene": gestrichelt, volle Breite. */
     .sfx-upload {
       display: flex; align-items: center; gap: 9px;
       width: calc(100% - 40px); margin: 2px 20px 8px; padding: 11px 14px;
       font-size: 12.5px; color: var(--text-2);
-      background: none; border: 1px dashed var(--rand-hell); border-radius: var(--radius-md);
+      background: none; border: 1px dashed var(--border-strong); border-radius: var(--radius-md);
       transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
     }
-    .sfx-upload:hover { color: var(--text); border-color: var(--akzent); background: rgba(245, 158, 11, 0.05); border-style: dashed; }
-    .sfx-upload svg { width: 15px; height: 15px; color: var(--akzent); }
+    .sfx-upload:hover { color: var(--text); border-color: var(--primary); background: rgba(245, 158, 11, 0.05); border-style: dashed; }
+    .sfx-upload svg { width: 15px; height: 15px; color: var(--primary); }
     .sfx-upload .formats { margin-left: auto; font-size: 11.5px; color: var(--text-3); }
     /* Meldungen zum Dialog-Geschehen (Upload/Löschen) — die Editor-Statuszeile
        läge unsichtbar hinter dem Backdrop. Leer = keine Höhe. */
     .sfx-status { flex: none; padding: 0 20px; font-size: 12px; color: var(--text-2); }
-    .sfx-status:not(:empty) { padding: 9px 20px; border-top: 1px solid var(--rand); }
-    .sfx-status.ok { color: var(--gruen); }
-    .sfx-status.fehler { color: var(--rot); }
+    .sfx-status:not(:empty) { padding: 9px 20px; border-top: 1px solid var(--border); }
+    .sfx-status.ok { color: var(--success); }
+    .sfx-status.error { color: var(--danger); }
 
     /* ———————————— Aufnahmen nachreichen ————————————
        Gleiche Dialogschale wie die Bibliothek (auch hier gilt: `display: flex`
@@ -3048,11 +3048,11 @@
       width: min(720px, calc(100vw - 32px));
       max-height: min(760px, calc(100dvh - 48px));
       padding: 0;
-      border: 1px solid var(--rand-hell);
+      border: 1px solid var(--border-strong);
       border-radius: var(--radius-xl);
-      background: var(--fl-1);
+      background: var(--surface-1);
       color: var(--text);
-      box-shadow: var(--schatten);
+      box-shadow: var(--shadow);
       overflow: hidden;
     }
     .add-dialog[open] { display: flex; flex-direction: column; }
@@ -3069,7 +3069,7 @@
     .add-key { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
     .add-key i { width: 8px; height: 8px; border-radius: 50%; }
     .add-key i.old { background: var(--text-3); }
-    .add-key i.new { background: var(--akzent); }
+    .add-key i.new { background: var(--primary); }
     /* Der Streifen zeigt AUFNAHMEZEIT, nicht Filmzeit: Hier geht es um „wann
        war das", und das beantwortet die Uhr, nicht der Schnitt.
        `--strip-margin` ist der Einzug, in dem die Punkte sitzen — er steht
@@ -3078,11 +3078,11 @@
     .add-strip {
       --strip-margin: 28px;
       position: relative; height: 80px;
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
+      background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-md);
     }
     .add-strip .axis {
       position: absolute; left: var(--strip-margin); right: var(--strip-margin);
-      top: 54px; height: 1px; background: var(--rand-hell);
+      top: 54px; height: 1px; background: var(--border-strong);
     }
     .add-strip .span { position: absolute; top: 51px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text-3) 26%, transparent); }
     .add-dot { position: absolute; transform: translateX(-50%); }
@@ -3094,9 +3094,9 @@
     /* Das Neue steht über der Achse, Uhrzeit ÜBER dem Punkt: darunter läge sie
        auf der Linie. */
     .add-dot.new { top: 14px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .add-dot.new i { background: var(--akzent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--akzent) 18%, transparent); }
+    .add-dot.new i { background: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent); }
     /* Die Aufnahme ohne Platz ist ein RING, kein zweiter Farbton: `--warn` und
-       `--akzent` sind beide Bernstein und nebeneinander nicht zu unterscheiden.
+       `--primary` sind beide Bernstein und nebeneinander nicht zu unterscheiden.
        Gefüllt = sitzt auf der Strecke, offen = hat noch keinen Ort. */
     .add-dot.new.tray i {
       width: 9px; height: 9px; background: transparent;
@@ -3107,19 +3107,19 @@
     .add-sentences { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 5px; font-size: 13px; color: var(--text-2); line-height: 1.5; }
     .add-sentences li { padding-left: 14px; position: relative; }
     .add-sentences li::before { content: '·'; position: absolute; left: 4px; color: var(--text-3); }
-    .add-rows { display: grid; gap: 1px; background: var(--rand); border: 1px solid var(--rand); border-radius: var(--radius-md); overflow: hidden; }
-    .add-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--fl-1); font-size: 12.5px; }
+    .add-rows { display: grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+    .add-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--surface-1); font-size: 12.5px; }
     .add-row.remove { opacity: 0.45; }
-    .add-row .zeit { font-variant-numeric: tabular-nums; color: var(--text); min-width: 46px; }
+    .add-row .time { font-variant-numeric: tabular-nums; color: var(--text); min-width: 46px; }
     .add-row .name { color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
     .add-row .placement { color: var(--text-2); }
     .add-row.tray .placement { color: var(--warn); }
     /* „Weglassen" gibt es NUR, wo es etwas zu entscheiden gibt — die guten
        Zeilen tragen keinen Knopf (dieselbe Regel wie im Prüf-Screen). */
     .add-row .omit { padding: 3px 9px; font-size: 11.5px; border-radius: var(--radius-sm); }
-    .add-footer { flex: none; display: flex; align-items: center; gap: 16px; padding: 12px 20px 16px; border-top: 1px solid var(--rand); }
+    .add-footer { flex: none; display: flex; align-items: center; gap: 16px; padding: 12px 20px 16px; border-top: 1px solid var(--border); }
     .add-hint { margin: 0; flex: 1; font-size: 12px; color: var(--text-3); line-height: 1.45; }
-    .add-hint.fehler { color: var(--rot); }
+    .add-hint.error { color: var(--danger); }
     .add-buttons { display: flex; gap: 8px; flex: none; }
 
     /* ————————————————— Schmale Viewports ————————————————— */
@@ -3127,20 +3127,20 @@
       /* Dokument-Scroll und statische Schale gelten inzwischen überall
          (s. `body:has(#app-view…)` oben) — hier bleibt nur der engere Gutter. */
       .body-inner { width: min(var(--wrap), 100% - 32px); padding: 24px 0 32px; }
-      .grid, .skelett { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+      .grid, .skeleton { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
       .search { display: none; }
-      .zeile { flex-wrap: wrap; row-gap: 10px; }
-      .zeile .right { width: 100%; justify-content: flex-end; }
+      .row { flex-wrap: wrap; row-gap: 10px; }
+      .row .right { width: 100%; justify-content: flex-end; }
       /* Karte / Zeitleiste / Inspector untereinander. Die Zeitleiste behält ihre
          eigene Zone (sie scrollt waagerecht selbst), der Inspector nimmt den Rest. */
       .editor-body { grid-template-columns: 1fr; grid-template-rows: 40vh auto 1fr; }
       .editor-left { display: contents; }
       .inspector-grip { display: none; }
-      .editor-page { border-left: none; border-top: 1px solid var(--rand); }
+      .editor-page { border-left: none; border-top: 1px solid var(--border); }
       /* Die Flash-Meldung schwebt auch hier unter dem Kopf — nur schmaler. */
       .editor-flash { max-width: calc(100vw - 24px); top: 62px; }
       /* Kopf-Aktionen icon-only, damit Speichern nie aus dem Bild läuft */
-      .editor-header :is(button:not(.icon), .knopf) { font-size: 0; gap: 0; padding: 10px; }
+      .editor-header :is(button:not(.icon), .button) { font-size: 0; gap: 0; padding: 10px; }
       /* Schmalere Namenspalte der Zeitleiste; der Kopf darf umbrechen.
          138 statt 116 px, seit die Ablage-Plakette in der Szenen-Zeile sitzt:
          Sie ist 22 px breit, und ohne den Zuschlag blieb von „Szenen" ein
@@ -3415,19 +3415,19 @@
           <g class="scene-pin" style="animation-delay: 0.3s">
             <line class="mast" x1="275.9" y1="709.2" x2="275.9" y2="663.2"/>
             <circle class="pulse" cx="275.9" cy="655.2" r="13" style="animation-delay: 7.01s"/>
-            <circle class="scheibe" cx="275.9" cy="655.2" r="13"/>
+            <circle class="disc" cx="275.9" cy="655.2" r="13"/>
             <text x="275.9" y="660.2">1</text>
           </g>
           <g class="scene-pin" style="animation-delay: 0.45s">
             <line class="mast" x1="645.7" y1="657.3" x2="645.7" y2="611.3"/>
             <circle class="pulse" cx="645.7" cy="603.3" r="13" style="animation-delay: 10.09s"/>
-            <circle class="scheibe" cx="645.7" cy="603.3" r="13"/>
+            <circle class="disc" cx="645.7" cy="603.3" r="13"/>
             <text x="645.7" y="608.3">2</text>
           </g>
           <g class="scene-pin" style="animation-delay: 0.6s">
             <line class="mast" x1="709.4" y1="248.2" x2="709.4" y2="202.2"/>
             <circle class="pulse" cx="709.4" cy="194.2" r="13" style="animation-delay: 13.33s"/>
-            <circle class="scheibe" cx="709.4" cy="194.2" r="13"/>
+            <circle class="disc" cx="709.4" cy="194.2" r="13"/>
             <text x="709.4" y="199.2">3</text>
           </g>
 
@@ -3458,7 +3458,7 @@
       <div class="login-title">
         <div class="login-brand">
           <svg viewBox="2.4 2.4 35.2 35.2" aria-hidden="true">
-            <defs><linearGradient id="markeRoute" gradientUnits="userSpaceOnUse" x1="4.4" y1="23.4" x2="35.6" y2="15.8">
+            <defs><linearGradient id="brand-route" gradientUnits="userSpaceOnUse" x1="4.4" y1="23.4" x2="35.6" y2="15.8">
               <stop offset="0" stop-color="#F0940A"/><stop offset="1" stop-color="#FF8A5C"/>
             </linearGradient></defs>
             <g fill="none" stroke="#F59E0B" stroke-width="1.25" opacity="0.78" stroke-linecap="round">
@@ -3468,7 +3468,7 @@
               <line x1="4.8" y1="20" x2="35.2" y2="20"/><line x1="7.11" y1="11.95" x2="32.89" y2="11.95"/>
               <line x1="7.11" y1="28.05" x2="32.89" y2="28.05"/><ellipse cx="20" cy="20" rx="8.5" ry="15.2"/>
             </g>
-            <path d="M 4.4 23.4 C 12.4 13.4, 27.2 26.6, 35.6 15.8" fill="none" stroke="url(#markeRoute)" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M 4.4 23.4 C 12.4 13.4, 27.2 26.6, 35.6 15.8" fill="none" stroke="url(#brand-route)" stroke-width="2.5" stroke-linecap="round"/>
             <circle cx="4.4" cy="23.4" r="1.6" fill="#F59E0B"/><circle cx="35.6" cy="15.8" r="1.9" fill="#F2EDE3"/>
           </svg>
           Maptale
@@ -3491,16 +3491,16 @@
         <!-- Anmelden -->
         <form id="login-form" class="auth-form">
           <h2>Anmelden</h2>
-          <div class="feld">
+          <div class="field">
             <label for="email">E-Mail</label>
             <input id="email" type="email" autocomplete="username" required />
           </div>
-          <div class="feld">
+          <div class="field">
             <label for="password">Passwort</label>
             <input id="password" type="password" autocomplete="current-password" required />
           </div>
-          <div class="hinweis fehler" id="login-error" role="alert"></div>
-          <button type="submit" class="primaer">Anmelden</button>
+          <div class="hint error" id="login-error" role="alert"></div>
+          <button type="submit" class="primary">Anmelden</button>
           <div class="auth-switch">
             <button type="button" class="link" data-auth-mode="reset-request">Passwort vergessen?</button>
             <button type="button" class="link" data-auth-mode="register">Konto erstellen</button>
@@ -3513,15 +3513,15 @@
              erfahren, bevor er Adresse und Passwort eintippt. -->
         <form id="code-form" class="auth-form" hidden>
           <h2>Konto anlegen</h2>
-          <!-- Zwei `.satz`-Spans statt eines Fließtexts: `text-wrap: balance`
+          <!-- Zwei `.sentence`-Spans statt eines Fließtexts: `text-wrap: balance`
                (s. .login-box .unterzeile) macht sonst zwei gleich LANGE Zeilen
                und bricht mitten im ersten Satz um. Und „Alpha" ist derselbe
                Griff wie hinter der Wortmarke — wer hier zum ersten Mal liest,
                dass Maptale in der Alpha ist, hat genau hier die Frage, was das
                bedeutet. -->
-          <p class="unterzeile">
-            <span class="satz">Maptale ist in der <button type="button" class="stand-hinweis stand-inline" aria-haspopup="dialog" aria-expanded="false">Alpha</button>.</span>
-            <span class="satz">Neue Konten gibt es zurzeit <b>nur mit Einladung</b>.</span>
+          <p class="subline">
+            <span class="sentence">Maptale ist in der <button type="button" class="stage-hint stage-inline" aria-haspopup="dialog" aria-expanded="false">Alpha</button>.</span>
+            <span class="sentence">Neue Konten gibt es zurzeit <b>nur mit Einladung</b>.</span>
           </p>
 
           <!-- Die Warteliste steht VOR dem Code-Feld, und das ist Absicht: In
@@ -3563,15 +3563,15 @@
             <div class="waitlist-or"><span>oder</span></div>
           </div>
 
-          <div class="feld">
+          <div class="field">
             <!-- Kein „Pflicht" mehr: Bei einem einzigen Feld gibt es nichts zu
                  unterscheiden (NN/g), und `required` steht am Input. -->
             <label for="reg-code">Du hast einen Code?</label>
             <input id="reg-code" class="code-input" type="text" maxlength="9" autocomplete="off"
                    spellcheck="false" autocapitalize="characters" placeholder="ABCD-2345" required />
           </div>
-          <div class="hinweis fehler" id="code-error" role="alert"></div>
-          <button type="submit" class="primaer" id="code-continue">Weiter</button>
+          <div class="hint error" id="code-error" role="alert"></div>
+          <button type="submit" class="primary" id="code-continue">Weiter</button>
           <div class="auth-switch">
             <button type="button" class="link" data-auth-mode="login">Ich habe ein Konto</button>
           </div>
@@ -3586,16 +3586,16 @@
              Anmeldung, ein zweiter Rückweg hier wäre eine Kreuzung zu viel. -->
         <form id="waitlist-form" class="auth-form" hidden>
           <h2>Auf die Warteliste</h2>
-          <p class="unterzeile">
-            <span class="satz">Wir laden nach und nach ein.</span>
-            <span class="satz">Deinen Code bekommst du per E-Mail.</span>
+          <p class="subline">
+            <span class="sentence">Wir laden nach und nach ein.</span>
+            <span class="sentence">Deinen Code bekommst du per E-Mail.</span>
           </p>
-          <div class="feld">
-            <label for="waitlist-email">E-Mail <span class="feld-art">Pflicht</span></label>
+          <div class="field">
+            <label for="waitlist-email">E-Mail <span class="field-type">Pflicht</span></label>
             <input id="waitlist-email" type="email" autocomplete="email" required />
           </div>
-          <div class="feld">
-            <label for="waitlist-note">Was du aufnehmen willst <span class="feld-art">optional</span></label>
+          <div class="field">
+            <label for="waitlist-note">Was du aufnehmen willst <span class="field-type">optional</span></label>
             <textarea id="waitlist-note" rows="3" maxlength="300" placeholder="z. B. Radtouren in den Alpen"></textarea>
           </div>
           <p class="waitlist-legal">
@@ -3604,8 +3604,8 @@
             Austragen kannst du dich jederzeit über den Link in jeder E-Mail.
             <a href="/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
           </p>
-          <div class="hinweis fehler" id="waitlist-error" role="alert"></div>
-          <button type="submit" class="primaer" id="waitlist-submit">Eintragen</button>
+          <div class="hint error" id="waitlist-error" role="alert"></div>
+          <button type="submit" class="primary" id="waitlist-submit">Eintragen</button>
           <div class="auth-switch">
             <button type="button" class="link" data-auth-mode="code">Ich habe einen Code</button>
           </div>
@@ -3616,8 +3616,8 @@
              ist jedes Mal dasselbe: ein Satz und höchstens ein Griff. -->
         <div id="waitlist-info" class="auth-form" hidden>
           <h2 id="waitlist-info-title"></h2>
-          <p class="unterzeile" id="waitlist-info-text"></p>
-          <div class="hinweis fehler" id="waitlist-info-error" role="alert"></div>
+          <p class="subline" id="waitlist-info-text"></p>
+          <div class="hint error" id="waitlist-info-error" role="alert"></div>
           <button type="button" class="waitlist-action" id="waitlist-info-action" hidden></button>
           <div class="auth-switch">
             <button type="button" class="link" data-auth-mode="login">Zur Anmeldung</button>
@@ -3627,7 +3627,7 @@
         <!-- Registrieren, Schritt 2: die eigenen Daten -->
         <form id="register-form" class="auth-form" hidden>
           <h2>Konto erstellen</h2>
-          <p class="unterzeile" id="reg-subline">Kostenlos. Du bekommst gleich eine Bestätigungsmail.</p>
+          <p class="subline" id="reg-subline">Kostenlos. Du bekommst gleich eine Bestätigungsmail.</p>
           <!-- Nur nach Schritt 1: der bestätigte Code, samt Weg zurück. Er
                steht hier, damit niemand rätselt, ob die Einladung angekommen ist. -->
           <div class="code-chip" id="reg-code-chip" hidden>
@@ -3639,12 +3639,12 @@
                führen: Der Server leitet einen aus der Adresse ab, und im Profil
                steht ohnehin ein eigener Anzeigename. Jedes Pflichtfeld kostet
                Anmeldungen. -->
-          <div class="feld">
+          <div class="field">
             <label for="reg-email">E-Mail</label>
             <input id="reg-email" type="email" autocomplete="username" required />
           </div>
-          <div class="feld">
-            <label for="reg-password">Passwort <span class="feld-art">mindestens 8 Zeichen</span></label>
+          <div class="field">
+            <label for="reg-password">Passwort <span class="field-type">mindestens 8 Zeichen</span></label>
             <input id="reg-password" type="password" autocomplete="new-password" minlength="8" required />
           </div>
           <!-- Nicht vorangekreuzt, nicht gekoppelt: Ohne Haken entsteht das
@@ -3664,8 +3664,8 @@
             <input id="reg-newsletter" type="checkbox" />
             <span>Schick mir Neuigkeiten zu Maptale. Abbestellen jederzeit.</span>
           </label>
-          <div class="hinweis fehler" id="register-error" role="alert"></div>
-          <button type="submit" class="primaer" id="reg-submit">Konto erstellen</button>
+          <div class="hint error" id="register-error" role="alert"></div>
+          <button type="submit" class="primary" id="reg-submit">Konto erstellen</button>
           <div class="auth-switch">
             <button type="button" class="link" data-auth-mode="login">Ich habe ein Konto</button>
           </div>
@@ -3674,13 +3674,13 @@
         <!-- Passwort-Reset anfordern -->
         <form id="reset-request-form" class="auth-form" hidden>
           <h2>Passwort zurücksetzen</h2>
-          <p class="unterzeile">Wir schicken dir einen Link an deine E-Mail-Adresse.</p>
-          <div class="feld">
+          <p class="subline">Wir schicken dir einen Link an deine E-Mail-Adresse.</p>
+          <div class="field">
             <label for="reset-email">E-Mail</label>
             <input id="reset-email" type="email" autocomplete="username" required />
           </div>
-          <div class="hinweis" id="reset-request-status" role="status"></div>
-          <button type="submit" class="primaer">Link schicken</button>
+          <div class="hint" id="reset-request-status" role="status"></div>
+          <button type="submit" class="primary">Link schicken</button>
           <div class="auth-switch">
             <button type="button" class="link" data-auth-mode="login">Zurück zur Anmeldung</button>
           </div>
@@ -3689,12 +3689,12 @@
         <!-- Neues Passwort setzen (aus dem Mail-Link, #reset=…) -->
         <form id="reset-set-form" class="auth-form" hidden>
           <h2>Neues Passwort</h2>
-          <div class="feld">
-            <label for="reset-password">Neues Passwort <span class="feld-art">mindestens 8 Zeichen</span></label>
+          <div class="field">
+            <label for="reset-password">Neues Passwort <span class="field-type">mindestens 8 Zeichen</span></label>
             <input id="reset-password" type="password" autocomplete="new-password" minlength="8" required />
           </div>
-          <div class="hinweis fehler" id="reset-set-error" role="alert"></div>
-          <button type="submit" class="primaer" id="reset-submit">Passwort speichern</button>
+          <div class="hint error" id="reset-set-error" role="alert"></div>
+          <button type="submit" class="primary" id="reset-submit">Passwort speichern</button>
         </form>
 
         <!-- Derselbe Satz Rechtstext-Links wie in der Fußzeile der Produkt-
@@ -3704,7 +3704,7 @@
              kräftig war wie sie selbst. -->
         <p class="auth-legal">
           <a href="/impressum" target="_blank" rel="noopener">Impressum</a>
-          <span class="fuss-sep" aria-hidden="true">·</span>
+          <span class="footer-sep" aria-hidden="true">·</span>
           <a href="/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
         </p>
       </div>
@@ -3713,16 +3713,16 @@
 
   <!-- App: Upload + Bibliothek -->
   <main id="app-view" hidden>
-    <!-- Header: Markup = appHeaderHtml Variante studio; schreibeAppHeader/montiere verfeinern. -->
+    <!-- Header: Markup = appHeaderHtml Variante studio; writeAppHeader/montiere verfeinern. -->
     <nav class="nav" id="app-header">
-      <div class="wrap"><span class="marken-gruppe"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stand-hinweis" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app" class="aktiv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-knopf" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right"><button class="knopf-primaer" id="neu-oben" hidden><svg><use href="#i-plus"/></svg>Neue Tour</button><div class="konto-wrap"><button class="benutzer-chip" id="benutzer-chip" hidden aria-haspopup="true" aria-expanded="false"><span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span></button><div class="konto-menue" id="konto-menue" hidden><div class="km-mail" id="km-mail"></div><div class="km-quota"><div class="km-quota-kopf"><span>Speicher</span><span id="km-quota-text"></span></div><div class="km-balken"><span id="km-balken-fuell"></span></div></div><div class="km-trenner" role="separator"></div><a class="km-eintrag knopf" id="km-profil" href="/profil" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Mein Profil</a><a class="km-eintrag knopf" id="km-konto" href="/konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/></svg>Kontoeinstellungen</a><a class="km-eintrag knopf" id="km-verwaltung" href="/admin" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1 0 7.75"/></svg>Administration</a><button type="button" class="km-eintrag" id="abmelden"><svg aria-hidden="true"><use href="#i-logout"/></svg>Abmelden</button></div></div></div></div>
+      <div class="wrap"><span class="brand-group"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stage-hint" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-button" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right"><button class="button-primary" id="new-top" hidden><svg><use href="#i-plus"/></svg>Neue Tour</button><div class="account-wrap"><button class="user-chip" id="user-chip" hidden aria-haspopup="true" aria-expanded="false"><span class="dot" id="user-initial"></span><span id="user-name"></span></button><div class="account-menu" id="account-menu" hidden><div class="am-mail" id="am-mail"></div><div class="am-quota"><div class="am-quota-header"><span>Speicher</span><span id="am-quota-text"></span></div><div class="am-bar"><span id="am-bar-fill"></span></div></div><div class="am-divider" role="separator"></div><a class="am-item button" id="am-profile" href="/profil" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Mein Profil</a><a class="am-item button" id="am-account" href="/konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/></svg>Kontoeinstellungen</a><a class="am-item button" id="am-admin" href="/admin" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1 0 7.75"/></svg>Administration</a><button type="button" class="am-item" id="logout"><svg aria-hidden="true"><use href="#i-logout"/></svg>Abmelden</button></div></div></div></div>
     </nav>
-  <!-- Profil-Chip-Cache füllt studio.ts nach schreibeAppHeader. -->
+  <!-- Profil-Chip-Cache füllt studio.ts nach writeAppHeader. -->
     <div class="verify-banner" id="verify-banner" hidden>
       <svg><use href="#i-bolt"/></svg>
       <span>Bitte bestätige deine E-Mail-Adresse, der Link liegt in deinem Postfach. Hochladen ist erst danach möglich.</span>
     </div>
-    <div class="rumpf">
+    <div class="body">
       <div class="body-inner">
         <div class="library-header" id="library-header">
           <h1>Meine <em>Touren</em></h1>
@@ -3746,7 +3746,7 @@
         <div id="library">
           <!-- Sofort sichtbar bei html.studio-signed-in; sonst hinter Boot/Login.
                loadList() ersetzt den Inhalt, sobald /api/tours antwortet. -->
-          <div class="skelett" aria-busy="true"><div></div><div></div><div></div><div></div></div>
+          <div class="skeleton" aria-busy="true"><div></div><div></div><div></div><div></div></div>
         </div>
       </div>
       <footer id="app-footer"></footer>
@@ -3801,7 +3801,7 @@
           <!-- Erscheint erst, wenn schon etwas da ist (renderNeu): im Leerzustand
                sagt „Dateien wählen" mitten im Fenster dasselbe. -->
           <button class="action" id="new-more" hidden><svg><use href="#i-plus"/></svg>Aufnahmen hinzufügen</button>
-          <button class="knopf-primaer" id="new-build" disabled><svg><use href="#i-bolt"/></svg>Tour bauen</button>
+          <button class="button-primary" id="new-build" disabled><svg><use href="#i-bolt"/></svg>Tour bauen</button>
         </div>
       </div>
     </div>
@@ -3824,9 +3824,9 @@
       <button class="icon" id="editor-reprocess" title="Neu verarbeiten (Benennung, Wetter, Medien)" aria-label="Neu verarbeiten"><svg><use href="#i-new"/></svg></button>
       <button class="icon" id="editor-undo" disabled title="Rückgängig (⌘Z)" aria-label="Rückgängig"><svg><use href="#i-undo"/></svg></button>
       <button class="icon" id="editor-redo" disabled title="Wiederherstellen (⇧⌘Z)" aria-label="Wiederherstellen"><svg><use href="#i-redo"/></svg></button>
-      <a id="editor-preview" class="knopf" href="#" target="_blank" rel="noopener"><svg><use href="#i-play"/></svg>Vorschau</a>
-      <button id="editor-film" class="knopf" type="button" hidden><svg><use href="#i-film"/></svg>Exportieren</button>
-      <button id="editor-save" class="primaer"><svg><use href="#i-check"/></svg>Speichern</button>
+      <a id="editor-preview" class="button" href="#" target="_blank" rel="noopener"><svg><use href="#i-play"/></svg>Vorschau</a>
+      <button id="editor-film" class="button" type="button" hidden><svg><use href="#i-film"/></svg>Exportieren</button>
+      <button id="editor-save" class="primary"><svg><use href="#i-check"/></svg>Speichern</button>
     </header>
     <!-- Flash-Meldung: Erfolg/Fehler/laufender Vorgang, schwebt unter dem
          Kopf ein (status() in editor.ts; Gestaltung s. DESIGN.md). -->
@@ -3891,7 +3891,7 @@
         <section id="timeline-zone" hidden>
           <div class="timeline-header">
             <div class="timeline-header-left">
-              <div class="werkzeuge" role="group" aria-label="Werkzeug">
+              <div class="tools" role="group" aria-label="Werkzeug">
                 <button class="tool on" data-tool="select" title="Auswahl (A)" aria-label="Auswahl"><svg><use href="#i-cursor"/></svg></button>
                 <button class="tool" data-tool="hand" title="Verschieben (H)" aria-label="Verschieben"><svg><use href="#i-hand"/></svg></button>
                 <button class="tool" data-tool="zoom" title="Zoom (Z)" aria-label="Zoom"><svg><use href="#i-magnifier"/></svg></button>
@@ -4027,7 +4027,7 @@
                  Panel-Überschrift ist, wären das zwei Überschriften. -->
             <h2 class="inspector-title">Tour-Einstellungen</h2>
             <div class="tour-fields">
-              <div class="feld">
+              <div class="field">
                 <!-- Die kleine Zeile ÜBER dem Titel. Vorher stand dort erzeugt
                      „Aufgezeichnet am 14. Mai 2026"; das Datum steht jetzt neben
                      dem Namen des Aufnehmers. Was hier hingehört — Ort, Gegend,
@@ -4040,7 +4040,7 @@
                 <input id="editor-kicker" type="text" maxlength="80" placeholder="z. B. Völklingen" />
                 <div class="layer-picker" id="editor-kicker-layers" hidden></div>
               </div>
-              <div class="feld">
+              <div class="field">
                 <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich
                      per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
                 <div class="field-header">
@@ -4048,7 +4048,7 @@
                 </div>
                 <input id="editor-title" type="text" placeholder="Titel der Tour" />
               </div>
-              <div class="feld">
+              <div class="field">
                 <!-- 150 Zeichen: Der Text steht im Startscreen des Players UND in
                      der Vorschau geteilter Links. Die kürzt bei 200 an der
                      Wortgrenze (server/src/page-meta.ts) — unter 150 bleibt er
@@ -4074,7 +4074,7 @@
                 <input id="editor-finale" type="checkbox" />
                 Endscreen „Ziel erreicht“ zeigen
               </label>
-              <div class="feld indented" id="editor-finale-target-field" hidden>
+              <div class="field indented" id="editor-finale-target-field" hidden>
                 <div class="field-header">
                   <label for="editor-finale-target">Ziel</label>
                   <button type="button" class="tooltip" data-tooltip="Leer = Ortsname am Streckenende." aria-label="Was steht im Ziel?">?</button>
@@ -4134,7 +4134,7 @@
         <p class="add-hint" id="add-hint" role="status">Die Tour wird danach neu gebaut — der Film wird länger. Deine Schnitte bleiben.</p>
         <div class="add-buttons">
           <button id="add-cancel">Abbrechen</button>
-          <button class="knopf-primaer" id="add-go">Hinzufügen</button>
+          <button class="button-primary" id="add-go">Hinzufügen</button>
         </div>
       </div>
     </dialog>

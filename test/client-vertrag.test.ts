@@ -14,7 +14,7 @@
 // Alle drei sind mechanisch prüfbar, und genau das tut diese Datei. Sie liest
 // den Server als TEXT (`server/` ist eine eigene tsconfig-Welt, ein Import
 // scheiterte an TS7016) — dieselbe Bauart wie der Vhost-Abgleich in
-// test/routen.test.ts.
+// test/routes.test.ts.
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -201,7 +201,7 @@ describe('DOM-Kennungen gegen das Markup', () => {
  * der Wächter die neue Welle nicht, und das ist die einzige Stelle, an der er
  * still zu wenig tut.
  */
-const GEBAUTE_WELLEN = new Set(['1', '2', '3', '4', '5'])
+const GEBAUTE_WELLEN = new Set(['1', '2', '3', '4', '5', '6'])
 
 /**
  * Ist-Werte aus gebauten Wellen: Wörter, die im Markup nichts mehr zu suchen
@@ -312,9 +312,30 @@ const KEINE_DOM_NAMEN = new Set([
   'bereit', // KartenSchichtStand aus card-layer.ts (Welle 5)
   'ohne-ort', // MessageType des Upload-Befunds
   'ausserhalb', // derselbe
+  // Welle 6 hat die Klassen der Produkt-Seiten umbenannt. Diese sechs Wörter
+  // sind dort eine Klasse und anderswo ein Domänenwert — jedes einzeln geprüft.
+  'fehler', // Statuswert des Export-Kanals (ExportProgress, film-export-channel.ts)
+  'dauer', // Kennzahl-Art des Startscreens (tour-texts.ts) neben dem Anker #dauer
+  'breit', // Lage der Foto-Karte und Schlüssel von CARD_METRICS (card-painter.ts)
+  'anteil', // Parametername der Rampen-Mischung (film-axis.ts)
+  'voll', // dataset-Schlüssel des Studio-Tooltips (editor.ts)
+  'aktiv', // Feature-Eigenschaft einer MapLibre-Quelle (editor.ts)
+  'belegt', // Wort neben einer Kennzahl in der Verwaltung („120 MB belegt")
+  'offen', // Wort am Reiter: was seine Zahl zählt (admin-model.ts TABS)
+  'abgelaufen', // Wert des eingefrorenen Fragments `#tracker=` (§3.4)
+  'touren', // reserviertes Wort im Handle-Namensraum (handle.ts)
+  'abmelden', // dasselbe
+  'passwort', // dasselbe; zusätzlich ein Eintrag der Rateliste (password-strength.ts)
 ])
 
-/** Die Module der Welle 5 — die Player-Engine samt ihrer Verdrahtung. */
+/**
+ * Die Module der Welle 5 — die Player-Engine samt ihrer Verdrahtung.
+ *
+ * Seit Welle 6 ist die Liste nicht mehr die Grenze: Der Wächter läuft über ganz
+ * `src/`, weil auch die Produkt-Seiten (Konto, Profil, Galerie, Verwaltung)
+ * englische DOM-Namen tragen. Sie steht noch hier, weil sie erklärt, wann er
+ * gewachsen ist.
+ */
 const PLAYER_MODULE = [
   'main.ts',
   'ui.ts',
@@ -345,10 +366,9 @@ describe('DOM-Namen im Client-Code', () => {
   // als Argument eines Helfers oder als Stück einer Klassenliste im Code
   // (`$('photo-image')`, `span.className = 'stop-span'`) und werden von keinem
   // Selektor-Test gesehen.
-  // Nur die Module GEBAUTER Wellen: Welle 4 (`src/studio/`) und Welle 5 (die
-  // Player-Engine). Über ganz `src/` gelegt meldete er die Produktseiten, deren
-  // DOM-Namen noch deutsch sind und es bis Welle 6 auch bleiben.
-  const studioDateien = [...dateien('src/studio', ['.ts']), ...PLAYER_MODULE.map((n) => `src/${n}`)]
+  // Seit Welle 6 über ganz `src/`: Bis dahin hätte er die Produktseiten
+  // gemeldet, deren DOM-Namen noch deutsch waren.
+  const studioDateien = dateien('src', ['.ts'])
 
   it('kein Modul nennt eine id oder Klasse, die es nicht mehr gibt', () => {
     const alt = veralteteDomNamen()

@@ -12,7 +12,7 @@
        weiß nicht, wessen Profil sie zeigt, und darf niemanden in den Index
        bringen, der das nicht wollte.
        Die Marker sind Vertrag, kein Kommentar. Ein Wächter in
-       test/routen.test.ts prüft, dass sie hier stehen. -->
+       test/routes.test.ts prüft, dass sie hier stehen. -->
   <!-- maptale:meta -->
   <title>Profil · Maptale</title>
   <meta name="robots" content="noindex" />
@@ -37,30 +37,30 @@
   <script>
     (function () {
       try {
-        var dabei = document.cookie.split(';').some(function (c) {
-          return c.trim().indexOf('maptale_dabei=') === 0
+        var signedIn = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_returning=') === 0
         })
-        if (dabei) document.documentElement.classList.add('nav-dabei')
+        if (signedIn) document.documentElement.classList.add('nav-returning')
       } catch (e) {}
     })()
   </script>
 
-  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/base.css, abgeleitet aus
        DESIGN.md. Steht vor dem Stilblock dieser Seite, damit die Seite die
        Basis überschreiben kann und nicht umgekehrt; im Build hält das der
        basisZuerst()-Schritt in vite.config.js nach. -->
-  <link rel="stylesheet" href="/src/basis.css" />
-  <link rel="stylesheet" href="/src/grundelemente.css" />
+  <link rel="stylesheet" href="/src/base.css" />
+  <link rel="stylesheet" href="/src/page-elements.css" />
 
   <style>
-    /* Farben, Radien, Schrift und Maße stehen in src/basis.css (s. <link> oben). */
+    /* Farben, Radien, Schrift und Maße stehen in src/base.css (s. <link> oben). */
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--bg-tief);
+      background: var(--bg-deep);
       color: var(--text);
       font-family: var(--font-ui);
       -webkit-font-smoothing: antialiased;
@@ -78,139 +78,139 @@
       border-radius: var(--radius-xl); overflow: hidden;
       background-size: cover; background-position: center;
     }
-    .banner.leer { background: linear-gradient(150deg, #121a25, #0b1119 62%, #0c1520); }
-    .banner .schleier { position: absolute; inset: auto 0 0 0; height: 76%; background: linear-gradient(transparent, rgba(6, 9, 14, 0.75) 55%, var(--bg-tief)); }
-    .banner .schleier-oben { position: absolute; inset: 0 0 auto 0; height: 38%; background: linear-gradient(rgba(4, 7, 11, 0.45), transparent); }
+    .banner.empty { background: linear-gradient(150deg, #121a25, #0b1119 62%, #0c1520); }
+    .banner .scrim { position: absolute; inset: auto 0 0 0; height: 76%; background: linear-gradient(transparent, rgba(6, 9, 14, 0.75) 55%, var(--bg-deep)); }
+    .banner .scrim-top { position: absolute; inset: 0 0 auto 0; height: 38%; background: linear-gradient(rgba(4, 7, 11, 0.45), transparent); }
 
     /* ————— Kopf ————— */
-    .profilkopf { display: flex; gap: 22px; align-items: flex-end; margin-top: -54px; padding: 0 8px; position: relative; z-index: 2; }
+    .profile-header { display: flex; gap: 22px; align-items: flex-end; margin-top: -54px; padding: 0 8px; position: relative; z-index: 2; }
     .avatar {
-      width: clamp(84px, 13vw, 112px); aspect-ratio: 1; border-radius: 50%; border: 4px solid var(--bg-tief);
-      background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: #221302;
+      width: clamp(84px, 13vw, 112px); aspect-ratio: 1; border-radius: 50%; border: 4px solid var(--bg-deep);
+      background: linear-gradient(120deg, var(--primary), var(--secondary)); color: #221302;
       display: grid; place-items: center; font-size: clamp(32px, 5vw, 42px); font-weight: 700;
       overflow: hidden; flex: none;
     }
     .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .kopftext { flex: 1; min-width: 0; padding-bottom: 6px; }
-    .kopftext h1 { font-family: var(--font-display); font-size: clamp(24px, 3.6vw, 32px); font-weight: 600; letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
-    .beiwerk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; color: var(--text-zart); font-size: 13.5px; margin-top: 5px; }
-    .beiwerk > span { display: inline-flex; align-items: center; gap: 6px; }
-    .beiwerk .handle { color: var(--text-gedaempft); font-weight: 500; }
-    .beiwerk svg { width: 14px; height: 14px; flex: none; }
-    .kopf-aktionen { display: flex; gap: 9px; align-items: center; padding-bottom: 8px; flex-wrap: wrap; }
+    .header-text { flex: 1; min-width: 0; padding-bottom: 6px; }
+    .header-text h1 { font-family: var(--font-display); font-size: clamp(24px, 3.6vw, 32px); font-weight: 600; letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
+    .extras { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; color: var(--faint); font-size: 13.5px; margin-top: 5px; }
+    .extras > span { display: inline-flex; align-items: center; gap: 6px; }
+    .extras .handle { color: var(--muted); font-weight: 500; }
+    .extras svg { width: 14px; height: 14px; flex: none; }
+    .header-actions { display: flex; gap: 9px; align-items: center; padding-bottom: 8px; flex-wrap: wrap; }
 
     /* ————— Knöpfe ————— */
-    button.knopf, .banner-knopf {
+    button.button, .banner-button {
       display: inline-flex; align-items: center; gap: 7px;
-      font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--text-gedaempft);
-      background: rgba(255, 255, 255, 0.045); border: 1px solid var(--linie); border-radius: var(--radius-full);
+      font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--muted);
+      background: rgba(255, 255, 255, 0.045); border: 1px solid var(--line); border-radius: var(--radius-full);
       padding: 8px 15px; cursor: pointer; transition: background 0.16s, color 0.16s, border-color 0.16s;
     }
-    button.knopf:hover, .banner-knopf:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
-    button.knopf svg, .banner-knopf svg { width: 15px; height: 15px; flex: none; }
-    button.knopf.primaer {
-      color: var(--auf-akzent); font-weight: 600; border-color: transparent;
-      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+    button.button:hover, .banner-button:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
+    button.button svg, .banner-button svg { width: 15px; height: 15px; flex: none; }
+    button.button.primary {
+      color: var(--on-cta); font-weight: 600; border-color: transparent;
+      background: linear-gradient(120deg, var(--primary), var(--secondary));
     }
-    button.knopf.primaer:hover { filter: brightness(1.06); }
-    button.knopf[hidden], .banner-knopf[hidden] { display: none !important; }
-    .banner-knopf { position: absolute; right: 14px; top: 14px; z-index: 3; background: rgba(6, 8, 12, 0.55); backdrop-filter: blur(8px); }
+    button.button.primary:hover { filter: brightness(1.06); }
+    button.button[hidden], .banner-button[hidden] { display: none !important; }
+    .banner-button { position: absolute; right: 14px; top: 14px; z-index: 3; background: rgba(6, 8, 12, 0.55); backdrop-filter: blur(8px); }
     /* Kein Knopf, sondern eine Auskunft: Bei privatem Profil gibt es nichts zu
        teilen — statt eines toten Knopfes steht hier, warum. */
-    #privat-chip { cursor: default; }
-    #privat-chip:hover { background: rgba(255, 255, 255, 0.045); color: var(--text-gedaempft); }
+    #private-chip { cursor: default; }
+    #private-chip:hover { background: rgba(255, 255, 255, 0.045); color: var(--muted); }
 
-    .bio { margin: 16px 8px 0; max-width: 68ch; color: var(--text-gedaempft); font-size: 15.5px; line-height: 1.6; }
+    .bio { margin: 16px 8px 0; max-width: 68ch; color: var(--muted); font-size: 15.5px; line-height: 1.6; }
     .bio[hidden] { display: none; }
 
-    .links { display: flex; flex-wrap: wrap; gap: 18px; margin: 14px 8px 0; }
-    .link-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--text-zart); font-size: 13.5px; text-decoration: none; transition: color 0.16s; }
-    .link-chip:hover { color: var(--akzent); text-decoration: underline; text-underline-offset: 3px; }
+    .left { display: flex; flex-wrap: wrap; gap: 18px; margin: 14px 8px 0; }
+    .link-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: 13.5px; text-decoration: none; transition: color 0.16s; }
+    .link-chip:hover { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
     .link-chip svg { width: 15px; height: 15px; flex: none; opacity: 0.85; }
 
     /* Kennzahlen als Chips — der Mittelweg aus drei Anläufen (Kacheln waren ein
        Dashboard, Sparklines Dekor mit Datenanspruch). Zahlen mit tabular-nums,
        wie DESIGN.md es für Kennzahlen vorsieht. */
-    .kennzahlen { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 8px 0; }
-    .kz {
+    .stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 8px 0; }
+    .stat {
       display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
-      border-radius: var(--radius-full); background: var(--tafel); border: 1px solid var(--linie);
-      font-size: 13.5px; color: var(--text-zart);
+      border-radius: var(--radius-full); background: var(--card); border: 1px solid var(--line);
+      font-size: 13.5px; color: var(--faint);
     }
-    .kz svg { width: 15px; height: 15px; flex: none; color: var(--akzent); }
-    .kz b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .stat svg { width: 15px; height: 15px; flex: none; color: var(--primary); }
+    .stat b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-    .touren-kopf { margin: 32px 8px 14px; }
-    .touren-kopf h2 { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin: 0; }
+    .tours-header { margin: 32px 8px 14px; }
+    .tours-header h2 { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin: 0; }
 
-    .touren { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 0 8px 70px; }
+    .tours { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 0 8px 70px; }
     .tour {
-      border-radius: var(--radius-karte); overflow: hidden; background: var(--tafel); border: 1px solid var(--linie);
+      border-radius: var(--radius-card); overflow: hidden; background: var(--card); border: 1px solid var(--line);
       text-decoration: none; color: inherit; display: block;
       transition: transform 0.16s ease, border-color 0.16s ease;
     }
     .tour:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.2); }
-    .tour:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
-    .tour .bild { height: 118px; position: relative; background-size: cover; background-position: center; background-color: rgba(255, 255, 255, 0.05); }
-    .tour .bild::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(6, 8, 12, 0.75)); }
+    .tour:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .tour .image { height: 118px; position: relative; background-size: cover; background-position: center; background-color: rgba(255, 255, 255, 0.05); }
+    .tour .image::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(6, 8, 12, 0.75)); }
     .tour .txt { padding: 12px 14px 14px; }
-    .tour .titel { font-weight: 550; }
-    .tour .meta { font-size: 12.5px; color: var(--text-zart); margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .tour .title { font-weight: 550; }
+    .tour .meta { font-size: 12.5px; color: var(--faint); margin-top: 4px; font-variant-numeric: tabular-nums; }
 
-    .hinweis { color: var(--text-gedaempft); font-size: 16px; padding: 40px 0 60px; text-align: center; }
+    .hint { color: var(--muted); font-size: 16px; padding: 40px 0 60px; text-align: center; }
 
-    /* ————— Dialoge (nur für den Besitzer, s. src/profil/profilbearbeiten.ts) —————
-       Schicht, Kopf, Körper, Fuß und Felder stehen in src/grundelemente.css;
+    /* ————— Dialoge (nur für den Besitzer, s. src/profile/edit-profile.ts) —————
+       Schicht, Kopf, Körper, Fuß und Felder stehen in src/page-elements.css;
        hier nur, was das Profil-Formular dazu braucht. */
     /* Breiter als die Kontodialoge: Hier stehen Felder nebeneinander — und
        zwar knapp. Mit 560 px blieben neben dem Avatar 408 px für zwei Felder,
        die zusammen 413 px verlangen, und die Reihe brach still um. */
     .dialog { width: min(600px, 100%); }
-    .sp-reihe { display: flex; gap: 13px; flex-wrap: wrap; }
-    .sp-reihe > * { flex: 1 1 200px; min-width: 0; }
-    .sp-nebenzeile { display: flex; gap: 9px; flex-wrap: wrap; }
+    .modal-row { display: flex; gap: 13px; flex-wrap: wrap; }
+    .modal-row > * { flex: 1 1 200px; min-width: 0; }
+    .modal-subline { display: flex; gap: 9px; flex-wrap: wrap; }
     /* Der Zähler steht RECHTS am Label, nicht hinter dem Wort: Er gehört zum
        Feld darunter, nicht zur Beschriftung — `margin-left: auto` schiebt ihn
        an die Feldkante, dafür muss das Label ein Flex-Kasten sein. */
-    .sp-feld label { display: flex; align-items: baseline; gap: 8px; }
-    .sp-feld .zaehler { margin-left: auto; color: var(--text-zart); font-weight: 400; font-variant-numeric: tabular-nums; }
-    .sp-feld .zaehler.knapp { color: var(--akzent); }
-    .sp-feld textarea { resize: vertical; min-height: 76px; line-height: 1.5; }
+    .modal-field label { display: flex; align-items: baseline; gap: 8px; }
+    .modal-field .counter { margin-left: auto; color: var(--faint); font-weight: 400; font-variant-numeric: tabular-nums; }
+    .modal-field .counter.low { color: var(--primary); }
+    .modal-field textarea { resize: vertical; min-height: 76px; line-height: 1.5; }
     /* Feld mit feststehendem Vorsatz („maptale.io/@"). Der Rahmen sitzt auf der
        Hülle, das Eingabefeld darin ist nackt — zwei Rahmen nebeneinander sähen
        aus wie zwei Felder. */
-    .vorsatz-feld {
+    .prefix-field {
       font-family: var(--font-ui); font-size: 14.5px; color: var(--text);
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
+      background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-md);
       width: 100%; box-sizing: border-box;
       display: flex; align-items: center; gap: 0; padding: 0 0 0 12px;
     }
-    .vorsatz-feld:focus-within { border-color: var(--akzent); box-shadow: var(--fokus-ring); }
-    .vorsatz-feld .fest { color: var(--text-zart); white-space: nowrap; flex: none; font-size: 14.5px; }
-    .vorsatz-feld input { border: none; background: transparent; padding-left: 1px; }
-    .vorsatz-feld input:focus-visible { box-shadow: none; border-color: transparent; }
+    .prefix-field:focus-within { border-color: var(--primary); box-shadow: var(--focus-ring); }
+    .prefix-field .fixed { color: var(--faint); white-space: nowrap; flex: none; font-size: 14.5px; }
+    .prefix-field input { border: none; background: transparent; padding-left: 1px; }
+    .prefix-field input:focus-visible { box-shadow: none; border-color: transparent; }
 
-    .handle-stand { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-zart); min-height: 17px; }
-    .handle-stand svg { width: 14px; height: 14px; flex: none; }
-    .handle-stand.frei { color: #7ddba2; }
-    .handle-stand.belegt { color: #ff9ea0; }
+    .handle-status { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--faint); min-height: 17px; }
+    .handle-status svg { width: 14px; height: 14px; flex: none; }
+    .handle-status.available { color: #7ddba2; }
+    .handle-status.taken { color: #ff9ea0; }
 
     /* Kein Kasten, sondern eine Linie darüber: Der Schalter ist kein eigenes
        Element neben dem Formular, sondern dessen letzte Zeile. */
-    .sp-schalterzeile { display: flex; align-items: center; gap: 16px; margin-top: 3px; padding-top: 16px; border-top: 1px solid var(--rand); }
-    .sp-schalterzeile .z { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
-    .sp-schalterzeile .t { font-size: 14px; font-weight: 500; color: var(--text); }
-    .sp-schalterzeile .b { font-size: 12.5px; color: var(--text-zart); line-height: 1.45; }
-    .schalter { appearance: none; width: 44px; height: 26px; border-radius: var(--radius-full); background: var(--rand); border: 1px solid var(--rand-hell); position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
-    .schalter::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-zart); transition: translate 0.18s, background 0.18s; }
-    .schalter:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
-    .schalter:checked::after { translate: 18px 0; background: var(--akzent); }
+    .modal-switch-row { display: flex; align-items: center; gap: 16px; margin-top: 3px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .modal-switch-row .z { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+    .modal-switch-row .t { font-size: 14px; font-weight: 500; color: var(--text); }
+    .modal-switch-row .b { font-size: 12.5px; color: var(--faint); line-height: 1.45; }
+    .switch { appearance: none; width: 44px; height: 26px; border-radius: var(--radius-full); background: var(--border); border: 1px solid var(--border-strong); position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
+    .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--faint); transition: translate 0.18s, background 0.18s; }
+    .switch:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
+    .switch:checked::after { translate: 18px 0; background: var(--primary); }
 
     /* ————— Titelbild-Wahl —————
        „Eigenes Foto" steht OBEN und über die volle Breite: Als Knopf in der
        Fußzeile ging es zwischen den Vorschauen unter, dabei ist es für die
        meisten der eigentliche Weg. */
-    .stil-eigenes {
+    .style-custom {
       position: relative; width: 100%; overflow: hidden;
       display: flex; align-items: center; gap: 14px; padding: 15px 17px;
       text-align: left; cursor: pointer; color: var(--text);
@@ -218,39 +218,39 @@
       background:
         radial-gradient(120% 180% at 12% 0%, rgba(245, 158, 11, 0.13), transparent 62%),
         radial-gradient(90% 160% at 96% 120%, rgba(255, 111, 82, 0.11), transparent 60%),
-        var(--fl-2);
+        var(--surface-2);
       transition: border-color 0.18s, transform 0.14s, box-shadow 0.18s;
     }
-    .stil-eigenes:hover { border-color: var(--akzent); border-style: solid; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(245, 133, 40, 0.16); }
-    .stil-eigenes:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .stil-eigenes .kreis {
+    .style-custom:hover { border-color: var(--primary); border-style: solid; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(245, 133, 40, 0.16); }
+    .style-custom:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .style-custom .circle {
       width: 42px; height: 42px; border-radius: var(--radius-lg); flex: none; display: grid; place-items: center;
-      background: linear-gradient(130deg, var(--akzent), var(--akzent-2)); color: var(--auf-akzent);
+      background: linear-gradient(130deg, var(--primary), var(--secondary)); color: var(--on-cta);
       box-shadow: 0 6px 16px rgba(245, 133, 40, 0.28);
     }
-    .stil-eigenes .kreis svg { width: 21px; height: 21px; }
-    .stil-eigenes .z { flex: 1; min-width: 0; }
-    .stil-eigenes .t { display: block; font-weight: 600; font-size: 14.5px; }
-    .stil-eigenes .b { display: block; font-size: 12.5px; color: var(--text-zart); margin-top: 1px; }
-    .stil-eigenes .pfeil { color: var(--text-zart); flex: none; transition: transform 0.18s, color 0.18s; }
-    .stil-eigenes:hover .pfeil { color: var(--akzent); transform: translateX(3px); }
-    .stil-eigenes .pfeil svg { width: 18px; height: 18px; display: block; }
+    .style-custom .circle svg { width: 21px; height: 21px; }
+    .style-custom .z { flex: 1; min-width: 0; }
+    .style-custom .t { display: block; font-weight: 600; font-size: 14.5px; }
+    .style-custom .b { display: block; font-size: 12.5px; color: var(--faint); margin-top: 1px; }
+    .style-custom .arrow { color: var(--faint); flex: none; transition: transform 0.18s, color 0.18s; }
+    .style-custom:hover .arrow { color: var(--primary); transform: translateX(3px); }
+    .style-custom .arrow svg { width: 18px; height: 18px; display: block; }
 
-    .stile-titel { margin: 5px 0 0; font-size: 12.5px; color: var(--text-zart); }
-    .stile { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .styles-title { margin: 5px 0 0; font-size: 12.5px; color: var(--faint); }
+    .styles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
     /* Mit Bildunterschrift: Vier Fotos ohne Namen sind vier Fotos — mit Namen
        sind es Angebote, über die man reden kann. `display: block` an der Probe
        ist nicht kosmetisch: als Inline-Element schluckt der span die Höhe und
        die Vorschau bliebe leer. */
-    .stil {
+    .style {
       padding: 0; overflow: hidden; cursor: pointer; text-align: left; color: var(--text);
-      border: 1px solid var(--linie); border-radius: var(--radius-lg); background: var(--fl-2);
+      border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-2);
     }
-    .stil .probe { display: block; height: 74px; background-size: cover; background-position: center; }
-    .stil .name { display: block; padding: 8px 11px; font-size: 12.5px; }
-    .stil:hover { border-color: rgba(255, 255, 255, 0.28); }
-    .stil[aria-pressed='true'] { border-color: var(--akzent); box-shadow: 0 0 0 1px var(--akzent); }
-    .stil[aria-pressed='true'] .name { color: var(--akzent); }
+    .style .swatch { display: block; height: 74px; background-size: cover; background-position: center; }
+    .style .name { display: block; padding: 8px 11px; font-size: 12.5px; }
+    .style:hover { border-color: rgba(255, 255, 255, 0.28); }
+    .style[aria-pressed='true'] { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    .style[aria-pressed='true'] .name { color: var(--primary); }
 
     /* ————— Avatar im Bearbeiten-Modal —————
        Er steht NEBEN den ersten beiden Feldern statt als eigener Block darüber:
@@ -259,94 +259,94 @@
     /* Name und Ort stehen mittig zum Avatar-Kreis. Damit die Mitte nicht
        springt, sobald „Bild entfernen" dazukommt, liegt der Link UNTER dem
        Kreis, ohne dessen Höhe zu ändern; Platz dafür macht die Reihe nur, wenn
-       es ihn gibt (.hat-bild). */
-    .sp-kopfreihe { display: flex; align-items: center; gap: 16px; }
-    .sp-avatar-spalte { position: relative; width: 84px; height: 84px; flex: none; }
-    .sp-kopfreihe:has(.hat-bild) { margin-bottom: 16px; }
-    .sp-kopfreihe .sp-reihe { flex: 1; }
-    .sp-avatar-box {
+       es ihn gibt (.has-image). */
+    .modal-header-row { display: flex; align-items: center; gap: 16px; }
+    .modal-avatar-column { position: relative; width: 84px; height: 84px; flex: none; }
+    .modal-header-row:has(.has-image) { margin-bottom: 16px; }
+    .modal-header-row .modal-row { flex: 1; }
+    .modal-avatar-box {
       position: relative; width: 84px; height: 84px; border-radius: 50%; overflow: hidden; flex: none;
-      background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: var(--auf-akzent);
+      background: linear-gradient(120deg, var(--primary), var(--secondary)); color: var(--on-cta);
       display: grid; place-items: center; font-size: 34px; font-weight: 700; cursor: pointer;
       border: none; padding: 0; transition: transform 0.18s;
     }
-    .sp-avatar-box:hover { transform: scale(1.02); }
-    .sp-avatar-box img { width: 100%; height: 100%; object-fit: cover; display: block; grid-area: 1 / 1; }
+    .modal-avatar-box:hover { transform: scale(1.02); }
+    .modal-avatar-box img { width: 100%; height: 100%; object-fit: cover; display: block; grid-area: 1 / 1; }
     /* `display: block` schlüge sonst das `hidden`-Attribut — ohne Bild stand
        ein leerer Kasten quer über dem Initial. */
-    .sp-avatar-box img[hidden] { display: none; }
-    .sp-avatar-box .ueber {
+    .modal-avatar-box img[hidden] { display: none; }
+    .modal-avatar-box .about {
       position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); opacity: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 4px; color: #fff; font-size: 12px; font-weight: 600;
       transition: opacity 0.18s;
     }
-    .sp-avatar-box:hover .ueber, .sp-avatar-box:focus-visible .ueber { opacity: 1; }
-    .sp-avatar-box .ueber svg { width: 22px; height: 22px; }
+    .modal-avatar-box:hover .about, .modal-avatar-box:focus-visible .about { opacity: 1; }
+    .modal-avatar-box .about svg { width: 22px; height: 22px; }
     /* Der Weg zurück zum Initialen-Kreis — leise unter dem Avatar, und nur da,
        wenn es überhaupt ein Bild zu entfernen gibt. */
-    .sp-avatar-weg {
+    .modal-avatar-remove {
       position: absolute; top: 100%; left: 0; width: 84px;
       background: none; border: none; padding: 4px 0 0; cursor: pointer;
-      font-family: var(--font-ui); font-size: 12px; color: var(--text-zart); text-align: center;
+      font-family: var(--font-ui); font-size: 12px; color: var(--faint); text-align: center;
     }
-    .sp-avatar-weg:hover { color: var(--text-gedaempft); text-decoration: underline; }
+    .modal-avatar-remove:hover { color: var(--muted); text-decoration: underline; }
 
     @media (max-width: 620px) {
-      .profilkopf { flex-wrap: wrap; gap: 14px; margin-top: -42px; }
-      .kopf-aktionen { width: 100%; padding-bottom: 0; }
-      .stile { grid-template-columns: 1fr; }
+      .profile-header { flex-wrap: wrap; gap: 14px; margin-top: -42px; }
+      .header-actions { width: 100%; padding-bottom: 0; }
+      .styles { grid-template-columns: 1fr; }
       /* Schmal stapeln Name und Ort ohnehin — der Avatar stünde daneben auf
          halber Höhe zwischen beiden Feldern und sähe verrutscht aus. */
-      .sp-kopfreihe { flex-direction: column; align-items: flex-start; gap: 14px; }
-      .sp-kopfreihe .sp-reihe { width: 100%; }
+      .modal-header-row { flex-direction: column; align-items: flex-start; gap: 14px; }
+      .modal-header-row .modal-row { width: 100%; }
     }
 
 
-    @media (prefers-reduced-motion: reduce) { .karte { transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
   </style>
 </head>
 <body>
-  <!-- Header: Markup = appHeaderHtml (erste Paint schon da); montiereAppHeader verfeinert. -->
+  <!-- Header: Markup = appHeaderHtml (erste Paint schon da); mountAppHeader verfeinert. -->
   <nav class="nav" id="app-header">
-    <div class="wrap"><span class="marken-gruppe"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stand-hinweis" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-knopf" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right" id="nav-right"><a href="/app" class="nav-cta" data-gast>Anmelden</a><div class="konto-wrap" data-dabei><button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen"><span class="punkt"></span><span class="nav-profil-name"></span></button></div></div></div>
+    <div class="wrap"><span class="brand-group"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stage-hint" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-button" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right" id="nav-right"><a href="/app" class="nav-cta" data-guest>Anmelden</a><div class="account-wrap" data-signed-in><button type="button" class="user-chip" disabled aria-busy="true" aria-label="Profil wird geladen"><span class="dot"></span><span class="nav-profile-name"></span></button></div></div></div>
   </nav>
   <script type="module">
-    import { montiereAppHeader, schreibeAppFooter } from '/src/app-nav.ts'
-    void montiereAppHeader(document.getElementById('app-header'), { aktiv: 'profil' })
-    schreibeAppFooter(document.getElementById('app-footer'))
+    import { mountAppHeader, writeAppFooter } from '/src/app-nav.ts'
+    void mountAppHeader(document.getElementById('app-header'), { active: 'profile' })
+    writeAppFooter(document.getElementById('app-footer'))
   </script>
 
   <main class="wrap">
     <!-- Die Bühne bleibt verborgen, bis die Daten da sind: Ein leerer Banner mit
          einem leeren Namenskreis, der sich erst danach füllt, sieht nach
          kaputter Seite aus. Fehler landen stattdessen in #meldung. -->
-    <div id="buehne" hidden>
-      <div class="banner leer" id="p-banner">
-        <div class="schleier-oben"></div>
-        <div class="schleier"></div>
-        <button type="button" class="banner-knopf" id="btn-titelbild" hidden>
+    <div id="stage" hidden>
+      <div class="banner empty" id="p-banner">
+        <div class="scrim-top"></div>
+        <div class="scrim"></div>
+        <button type="button" class="banner-button" id="btn-banner" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M4 18l5-6 4 4.5 3-3.5 4 5z"/><circle cx="15.5" cy="8" r="1.6"/></svg>
           Titelbild
         </button>
       </div>
 
-      <div class="profilkopf">
+      <div class="profile-header">
         <div class="avatar" id="avatar"></div>
-        <div class="kopftext">
+        <div class="header-text">
           <h1 id="p-name"></h1>
-          <div class="beiwerk" id="p-beiwerk"></div>
+          <div class="extras" id="profile-extras"></div>
         </div>
-        <div class="kopf-aktionen">
-          <button type="button" class="knopf" id="btn-teilen" hidden>
+        <div class="header-actions">
+          <button type="button" class="button" id="btn-share" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.7 13.4l6.6 3.9M15.3 6.7L8.7 10.6"/><circle cx="4" cy="12" r="2.5"/><circle cx="18" cy="5.5" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/></svg>
-            <span id="teilen-text">Link kopieren</span>
+            <span id="share-text">Link kopieren</span>
           </button>
-          <button type="button" class="knopf" id="privat-chip" hidden disabled>
+          <button type="button" class="button" id="private-chip" hidden disabled>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
             Nur für dich sichtbar
           </button>
-          <button type="button" class="knopf primaer" id="btn-bearbeiten" hidden>
+          <button type="button" class="button primary" id="btn-edit" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>
             Profil bearbeiten
           </button>
@@ -354,21 +354,21 @@
       </div>
 
       <p class="bio" id="p-bio" hidden></p>
-      <div class="links" id="p-links"></div>
+      <div class="left" id="profile-links"></div>
       <!-- Zählt nur die öffentlichen Touren — die Summe entsteht im Server. -->
-      <div class="kennzahlen" id="p-kennzahlen"></div>
+      <div class="stats" id="profile-stats"></div>
 
-      <div class="touren-kopf"><h2>Touren</h2></div>
-      <div class="touren" id="touren"></div>
+      <div class="tours-header"><h2>Touren</h2></div>
+      <div class="tours" id="tours"></div>
     </div>
-    <div id="meldung"></div>
+    <div id="message"></div>
   </main>
 
   <footer id="app-footer"></footer>
 
   <script type="module">
-    import { starteProfil } from '/src/profil/profil.ts'
-    void starteProfil()
+    import { startProfile } from '/src/profile/profile.ts'
+    void startProfile()
   </script>
 </body>
 </html>

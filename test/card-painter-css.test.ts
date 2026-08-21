@@ -24,7 +24,7 @@
 // Geometrie sind (`KARTEN_MASSE` gegen `EDITOR_METRICS`) — was verschieden
 // aussehen darf, ist die Karte auf ihrer Fläche, nicht die Bewegung darin.
 //
-// Analog zu test/basis-css.test.ts (DESIGN.md ↔ basis.css).
+// Analog zu test/base-css.test.ts (DESIGN.md ↔ base.css).
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'

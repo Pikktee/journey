@@ -45,10 +45,10 @@ Drei Laufzeiten, ein Produkt:
 | Karten | MapLibre GL JS 5 |
 | 3D | Three.js (3D-Foto-Pins) |
 | Tests | Vitest |
-| Design | [`DESIGN.md`](../../DESIGN.md) → Tokens in `src/basis.css` |
+| Design | [`DESIGN.md`](../../DESIGN.md) → Tokens in `src/base.css` |
 
 **Keine SPA, kein React.** Jede Oberfläche ist eine eigene HTML-Seite mit
-Vite-Einstieg. Der gemeinsame URL-Raum liegt in [`src/routen.ts`](../../src/routen.ts).
+Vite-Einstieg. Der gemeinsame URL-Raum liegt in [`src/routes.ts`](../../src/routes.ts).
 
 | Seite | Datei | Zweck |
 | --- | --- | --- |
@@ -174,7 +174,7 @@ journey/
 │   ├── main.js, tour.js, map.js, …              # Player-Engine
 │   ├── studio/                                  # Editor, Upload, Zeitleiste
 │   ├── galerie/, profil/, konto/, admin/
-│   ├── routen.ts, brand.ts, basis.css
+│   ├── routes.ts, brand.ts, base.css
 │   └── …
 ├── server/                                      # Fastify-Backend
 │   └── src/pipeline/, routes/, auth/, tracker/
@@ -311,7 +311,7 @@ flowchart LR
 
 ## 8. URL-Raum
 
-Alles Feste steht in [`src/routen.ts`](../../src/routen.ts). Zwei parametrisierte
+Alles Feste steht in [`src/routes.ts`](../../src/routes.ts). Zwei parametrisierte
 Namensräume bewusst **nicht** in der Tabelle:
 
 | Muster | Wer antwortet | Warum |

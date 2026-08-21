@@ -36,7 +36,7 @@ Ansehen auf zwei Wegen:
   kommt deshalb ohne `fetch` und ohne ES-Module aus.
 * **Aus der Verwaltung heraus**: Die Kopfleiste von `/admin` trägt einen
   Doku-Link, sichtbar nur auf dem eigenen Rechner (`istLokal` in
-  [`src/admin/adminmodell.ts`](../src/admin/adminmodell.ts)). Ist die Doku noch
+  [`src/admin/admin-model.ts`](../src/admin/admin-model.ts)). Ist die Doku noch
   nicht gebaut, antwortet der Dev-Server mit dem nötigen Befehl statt mit der
   Landing.
 
@@ -68,7 +68,7 @@ in der ersten Woche mit grünem Punkt), das genaue Datum steht im Tooltip.
 `docs/_site/assets/outfit.woff2`; über Google Fonts waren es zwei Roundtrips,
 und beim Eintreffen der Datei sprang die Seite sichtbar um. Ohne Netz beim
 ersten Bau bleibt es beim CDN-Weg, dann greift der metrische Ersatz aus
-`basis.css`.
+`base.css`.
 
 **Neues erscheint von selbst, und zwar ohne dass jemand den Generator anfasst:**
 

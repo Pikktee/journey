@@ -21,7 +21,7 @@ const WEB_ERLAUBT = /^[a-z0-9.-]+\.[a-z]{2,}(?:[/?#].*)?$/i
  * Ein mitgeliefertes Titelbild — nur der Dateiname, kein Pfad.
  *
  * WELCHE vier es gibt, weiß der Server bewusst nicht: Die Auswahl steht im
- * Dialog (`src/profil/titelbilder.ts`), die Bilder liegen als statische Dateien
+ * Dialog (`src/profile/profile-banners.ts`), die Bilder liegen als statische Dateien
  * im Build. Hier wird nur die FORM geprüft — kein Schrägstrich, kein `..` —,
  * denn der Wert landet in einer URL. Ein erfundener Name kostet nichts: Dann
  * lädt das eigene Banner nicht, und sonst passiert nichts.

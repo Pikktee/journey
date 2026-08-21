@@ -21,8 +21,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <!-- Gemeinsames Blatt mit der Datenschutzerklärung: src/rechtstext.css -->
-    <link rel="stylesheet" href="/src/rechtstext.css" />
+    <!-- Gemeinsames Blatt mit der Datenschutzerklärung: src/legal-text.css -->
+    <link rel="stylesheet" href="/src/legal-text.css" />
   </head>
   <body>
     <nav class="nav">
@@ -34,10 +34,10 @@
       </div>
     </nav>
 
-    <header class="kopf">
+    <header class="header">
       <div class="wrap">
-        <div class="spalte">
-          <a class="zurueck" href="/" data-zurueck><span aria-hidden="true">‹</span> Zurück</a>
+        <div class="column">
+          <a class="exit-pill" href="/" data-zurueck><span aria-hidden="true">‹</span> Zurück</a>
           <h1>Impressum</h1>
           <p class="lead">
             Maptale macht aus aufgezeichneten Routen filmische Kamerafahrten über echtes Gelände.
@@ -49,9 +49,9 @@
     </header>
 
     <main class="wrap">
-      <div class="spalte prosa">
+      <div class="column prose">
         <h2>Diensteanbieter</h2>
-        <p class="anschrift">
+        <p class="address">
           Henrik Heil<br />
           Westendstraße 100<br />
           60325 Frankfurt am Main<br />
@@ -90,7 +90,7 @@
           Öffentlich sichtbar ist eine Tour nur, wenn ihr Urheber sie ausdrücklich auf
           „öffentlich" oder „über den Link" stellt; die Voreinstellung ist privat.
         </p>
-        <p class="merk">
+        <p class="callout">
           Verletzt eine öffentlich gestellte Tour Rechte, etwa an einem Bild oder am
           Persönlichkeitsrecht abgebildeter Personen, genügt eine Mail an die oben genannte
           Adresse. Wir entfernen den betreffenden Inhalt umgehend.
@@ -160,13 +160,13 @@
       })
     </script>
     <script type="module">
-      import { schreibeAppFooter } from '/src/app-nav.ts'
-      import { pfad } from '/src/routen.ts'
-      schreibeAppFooter(document.getElementById('app-footer'), {
+      import { writeAppFooter } from '/src/app-nav.ts'
+      import { path } from '/src/routes.ts'
+      writeAppFooter(document.getElementById('app-footer'), {
         links: [
           { href: '/', label: 'Startseite' },
-          { href: pfad('impressum'), label: 'Impressum' },
-          { href: pfad('datenschutz'), label: 'Datenschutz' },
+          { href: path('imprint'), label: 'Impressum' },
+          { href: path('privacy'), label: 'Datenschutz' },
         ],
       })
     </script>

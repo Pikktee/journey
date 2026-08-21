@@ -1,8 +1,8 @@
 /*
  * Das Blatt des Doku-Viewers.
  *
- * Farben, Radien und Schrift kommen aus `assets/basis.css` — der beim Bauen
- * kopierten `src/basis.css`. Hier steht KEINE Farbe roh: Wer eine braucht,
+ * Farben, Radien und Schrift kommen aus `assets/base.css` — der beim Bauen
+ * kopierten `src/base.css`. Hier steht KEINE Farbe roh: Wer eine braucht,
  * nimmt das Token. So sieht die Doku aus wie das Produkt, über das sie redet,
  * und beides bleibt beim nächsten Marken-Feinschliff zusammen.
  */
@@ -14,7 +14,7 @@
  * anderswo falsch: Die Datei liegt lokal, die kurze Sperre dauert also
  * Millisekunden — und ein unsichtbarer Moment ist besser als ein Sprung.
  * Fehlt die Datei (kein Netz beim ersten Bau), holt die Seite die Schrift wie
- * bisher vom CDN; dann greift der metrische Ersatz aus basis.css. */
+ * bisher vom CDN; dann greift der metrische Ersatz aus base.css. */
 @font-face {
   font-family: 'Outfit';
   src: url('outfit.woff2') format('woff2');
@@ -1570,7 +1570,7 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
 }
 .fuss p { margin: 0; }
 .fuss code { padding: 1px 5px; border-radius: 4px; background: var(--fl-2); font-family: var(--font-mono); font-size: 0.9em; }
-/* Dieselbe Form wie im Produkt (`fuss-links` in src/grundelemente.css): Wörter
+/* Dieselbe Form wie im Produkt (`fuss-links` in src/page-elements.css): Wörter
    mit Mittelpunkt dazwischen, gedämpft bis zum Überfahren. */
 .fuss-links { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .fuss-links a { color: var(--text-3); }

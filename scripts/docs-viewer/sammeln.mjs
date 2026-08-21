@@ -459,7 +459,7 @@ function klappentexteAusIndex() {
 /**
  * Wo im Repo Handbuch-Dateien liegen dürfen. Gesucht wird JEDE `CLAUDE.md`
  * unter diesen Wurzeln plus die drei Wurzel-Dateien — eine neue
- * `src/galerie/CLAUDE.md` erscheint dadurch von selbst. Die Tabelle unten gibt
+ * `src/gallery/CLAUDE.md` erscheint dadurch von selbst. Die Tabelle unten gibt
  * nur noch Titel und Klappentext, wo jemand sie geschrieben hat; sie ist
  * Redaktion, keine Bedingung fürs Erscheinen.
  */
@@ -474,7 +474,7 @@ const HANDBUCH = [
   [
     'DESIGN.md',
     'Design System',
-    'Marke, Farben, Typografie und die UI-Regeln. Verbindliche Quelle; basis.css und Theme.kt sind Ableitungen davon.',
+    'Marke, Farben, Typografie und die UI-Regeln. Verbindliche Quelle; base.css und Theme.kt sind Ableitungen davon.',
   ],
   [
     'README.md',
@@ -969,9 +969,9 @@ export const SYSTEMTEILE = [
     id: 'oeffentlich',
     name: 'Öffentliche Seiten',
     regeln: [
-      'src/galerie/',
-      'src/profil/',
-      'src/konto/',
+      'src/gallery/',
+      'src/profile/',
+      'src/account/',
       'galerie.html',
       'profil.html',
       'konto.html',

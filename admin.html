@@ -20,13 +20,13 @@
   />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/base.css, abgeleitet aus
        DESIGN.md. Steht vor dem Stilblock dieser Seite, damit die Seite die
        Basis überschreiben kann und nicht umgekehrt; im Build hält das der
        basisZuerst()-Schritt in vite.config.js nach. -->
-  <link rel="stylesheet" href="/src/basis.css" />
-  <link rel="stylesheet" href="/src/werkzeug.css" />
-  <link rel="stylesheet" href="/src/grundelemente.css" />
+  <link rel="stylesheet" href="/src/base.css" />
+  <link rel="stylesheet" href="/src/toolkit.css" />
+  <link rel="stylesheet" href="/src/page-elements.css" />
 
   <style>
     /* ————————————————————————————————————————————————————————————
@@ -46,58 +46,58 @@
       -webkit-font-smoothing: antialiased;
     }
     ::selection { background: rgba(245, 165, 36, 0.3); }
-    a { color: var(--akzent); text-decoration: none; }
+    a { color: var(--primary); text-decoration: none; }
     h1, h2, h3 { font-family: var(--font-display); font-weight: 550; margin: 0; }
     /* Zahlen stehen untereinander in einer Spalte — tabular-nums statt Mono (DESIGN.md) */
-    .zahl { font-variant-numeric: tabular-nums; }
+    .number { font-variant-numeric: tabular-nums; }
 
-    /* Knöpfe, Felder und Etiketten stehen in src/werkzeug.css (geteilt mit dem
+    /* Knöpfe, Felder und Etiketten stehen in src/toolkit.css (geteilt mit dem
        Studio); hier nur, was die Verwaltung zusätzlich hat. */
-    button.still { background: transparent; border-color: transparent; color: var(--text-2); padding: 7px 10px; }
-    button.still:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; color: var(--text); }
-    button.gefahr:hover { background: rgba(229, 72, 77, 0.08); }
+    button.subtle { background: transparent; border-color: transparent; color: var(--text-2); padding: 7px 10px; }
+    button.subtle:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; color: var(--text); }
+    button.danger:hover { background: rgba(229, 72, 77, 0.08); }
     /* Länger als die Vorgabe: Hier werden Mailtexte bearbeitet. */
     textarea { line-height: 1.6; min-height: 90px; }
     /* Ein gesperrtes Feld muss man SEHEN — sonst wirkt der Hinweis darunter wie
        eine Meinung und nicht wie der Grund, warum hier nichts passiert. */
     :is(input, select):disabled { opacity: 0.5; cursor: default; }
-    :is(input, select):disabled:hover { border-color: var(--rand); }
-    .feld { margin-bottom: 14px; }
+    :is(input, select):disabled:hover { border-color: var(--border); }
+    .field { margin-bottom: 14px; }
     .badge { display: inline-block; }
 
-    .badge.admin { background: rgba(245, 165, 36, 0.14); color: var(--akzent); }
-    .badge.nutzer { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
-    .badge.offen { background: rgba(62, 207, 142, 0.13); color: var(--gruen); }
-    .badge.eingeloest { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
-    .badge.abgelaufen { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
-    .badge.unbestaetigt { background: rgba(232, 161, 60, 0.14); color: var(--warn); }
+    .badge.admin { background: rgba(245, 165, 36, 0.14); color: var(--primary); }
+    .badge.user { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
+    .badge.open { background: rgba(62, 207, 142, 0.13); color: var(--success); }
+    .badge.redeemed { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
+    .badge.expired { background: rgba(229, 72, 77, 0.13); color: var(--danger); }
+    .badge.unconfirmed { background: rgba(232, 161, 60, 0.14); color: var(--warn); }
 
-    /* Kopfleiste: Markup und Optik aus grundelemente.css (.nav).
-       Wrap-Breite wie Galerie (1160 aus basis.css). */
+    /* Kopfleiste: Markup und Optik aus page-elements.css (.nav).
+       Wrap-Breite wie Galerie (1160 aus base.css). */
     .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
 
     /* — Seite — */
-    .rumpf { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 30px 0 40px; }
-    .kopf { margin-bottom: 18px; }
-    .kopf h1 { font-size: clamp(25px, 2.8vw, 31px); font-weight: 480; letter-spacing: -0.02em; }
-    .kopf h1 em { font-style: normal; color: var(--akzent); }
-    .kopf p { margin: 7px 0 0; color: var(--text-2); font-size: 14px; max-width: 62ch; }
+    .body { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 30px 0 40px; }
+    .header { margin-bottom: 18px; }
+    .header h1 { font-size: clamp(25px, 2.8vw, 31px); font-weight: 480; letter-spacing: -0.02em; }
+    .header h1 em { font-style: normal; color: var(--primary); }
+    .header p { margin: 7px 0 0; color: var(--text-2); font-size: 14px; max-width: 62ch; }
 
     /* — Reiter —
        Fünf Karten untereinander waren ein Stapel, durch den man scrollte;
        jetzt ist jeder Bereich ein Reiter. Die Leiste klebt unter der Topbar,
        damit der Wechsel auch am Ende einer langen Liste einen Klick weit ist. */
-    .reiter {
+    .tab {
       position: sticky; top: var(--topbar-h); z-index: 20;
       display: flex; align-items: flex-end; gap: 22px;
       margin-bottom: 22px; padding-top: 2px;
-      border-bottom: 1px solid var(--rand);
+      border-bottom: 1px solid var(--border);
       background: rgba(9, 12, 17, 0.92);
       backdrop-filter: blur(12px);
       overflow-x: auto; scrollbar-width: none;
     }
-    .reiter::-webkit-scrollbar { display: none; }
-    .reiter button {
+    .tab::-webkit-scrollbar { display: none; }
+    .tab button {
       position: relative; flex: none;
       display: inline-flex; align-items: center; gap: 8px;
       padding: 12px 2px 13px;
@@ -107,41 +107,41 @@
     /* Die globale :hover-Regel gäbe dem Reiter eine Fläche — hier trägt nur die
        Schriftfarbe den Zustand, sonst kämpfen Fläche und Strich um dieselbe
        Aussage. Und `transform` beim Drücken ließe den Strich verrutschen. */
-    .reiter button:hover { background: none; border-color: transparent; color: var(--text-2); }
-    .reiter button:active { transform: none; }
-    .reiter button[aria-selected='true'] { color: var(--text); }
+    .tab button:hover { background: none; border-color: transparent; color: var(--text-2); }
+    .tab button:active { transform: none; }
+    .tab button[aria-selected='true'] { color: var(--text); }
     /* Der Reiterstrich sitzt AUF der Trennlinie der Leiste (-1px). */
-    .reiter button[aria-selected='true']::after {
+    .tab button[aria-selected='true']::after {
       content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
-      background: var(--akzent); border-radius: 2px 2px 0 0;
+      background: var(--primary); border-radius: 2px 2px 0 0;
     }
-    .reiter .z {
+    .tab .z {
       font-size: 11.5px; font-weight: 550; padding: 2px 8px; border-radius: var(--radius-full);
-      background: var(--fl-2); color: var(--text-2); font-variant-numeric: tabular-nums;
+      background: var(--surface-2); color: var(--text-2); font-variant-numeric: tabular-nums;
       transition: background 160ms ease, color 160ms ease;
     }
-    .reiter button[aria-selected='true'] .z { background: var(--fl-3); color: var(--text); }
+    .tab button[aria-selected='true'] .z { background: var(--surface-3); color: var(--text); }
     /* Amber heißt: hier wartet Arbeit (bestätigte Adressen ohne Einladung).
        Der Reiter soll das sagen, ohne dass man ihn öffnet. */
-    .reiter .z.wichtig,
-    .reiter button[aria-selected='true'] .z.wichtig {
-      background: rgba(245, 165, 36, 0.16); color: var(--akzent);
+    .tab .z.important,
+    .tab button[aria-selected='true'] .z.important {
+      background: rgba(245, 165, 36, 0.16); color: var(--primary);
     }
 
     .panel[hidden] { display: none; }
     .panel-text { margin: 0 0 14px; color: var(--text-2); font-size: 13.5px; }
 
     /* — Werkzeugleiste über der Liste: suchen, filtern, anlegen — */
-    .werkzeuge { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-    .werkzeuge .sp { flex: 1; }
-    .suchfeld { position: relative; display: block; width: 250px; margin: 0; }
-    .suchfeld svg {
+    .tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tools .sp { flex: 1; }
+    .search-field { position: relative; display: block; width: 250px; margin: 0; }
+    .search-field svg {
       position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
       width: 15px; height: 15px; color: var(--text-3); pointer-events: none;
       transition: color 140ms ease;
     }
-    .suchfeld:focus-within svg { color: var(--akzent); }
-    .suchfeld input { padding-left: 36px; }
+    .search-field:focus-within svg { color: var(--primary); }
+    .search-field input { padding-left: 36px; }
     input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; }
 
     /* Filter als Segment-Leiste. Die Zahlen zählen INNERHALB der laufenden
@@ -149,45 +149,45 @@
        sich verteilen. Eine zweite Zeile „3 von 12" bräuchte es dann nicht. */
     .filter {
       display: inline-flex; gap: 3px; padding: 3px;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-full);
+      background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-full);
     }
     .filter button {
       background: none; border: none; border-radius: var(--radius-full);
       padding: 6px 12px; font-size: 13px; color: var(--text-2);
     }
     .filter button:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; color: var(--text); }
-    .filter button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); }
-    .filter button[aria-pressed='true']:hover { background: var(--fl-3); }
+    .filter button[aria-pressed='true'] { background: var(--surface-3); color: var(--text); }
+    .filter button[aria-pressed='true']:hover { background: var(--surface-3); }
     .filter .z { margin-left: 6px; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-    .filter button[aria-pressed='true'] .z { color: var(--akzent); }
+    .filter button[aria-pressed='true'] .z { color: var(--primary); }
 
     /* — Regel-Zeile: der Schalter steht bei dem, was er regelt —
        Schalter: die Fläche IST der Zustand — links aus, rechts an */
-    .regel {
+    .rule {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
+      background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-card);
       padding: 14px 18px; margin-bottom: 14px;
     }
-    .regel .sp { flex: 1; }
-    .schalter { display: flex; align-items: center; gap: 14px; }
-    .schalter-knopf {
+    .rule .sp { flex: 1; }
+    .switch { display: flex; align-items: center; gap: 14px; }
+    .switch-button {
       position: relative; flex: none;
       width: 46px; height: 26px; padding: 0; border-radius: var(--radius-full);
-      background: var(--fl-3); border: 1px solid var(--rand);
+      background: var(--surface-3); border: 1px solid var(--border);
     }
-    .schalter-knopf:hover { background: var(--fl-3); border-color: var(--rand-hell); }
-    .schalter-knopf::after {
+    .switch-button:hover { background: var(--surface-3); border-color: var(--border-strong); }
+    .switch-button::after {
       content: ''; position: absolute; top: 3px; left: 3px;
       width: 18px; height: 18px; border-radius: 50%;
       background: var(--text-3); transition: transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1), background 180ms ease;
     }
-    .schalter-knopf[aria-pressed='true'] { background: rgba(245, 165, 36, 0.22); border-color: var(--akzent); }
-    .schalter-knopf[aria-pressed='true']:hover { background: rgba(245, 165, 36, 0.28); border-color: var(--akzent); }
-    .schalter-knopf[aria-pressed='true']::after { transform: translateX(20px); background: var(--akzent); }
-    .schalter-text b { font-weight: 550; }
-    .schalter-text p { margin: 2px 0 0; color: var(--text-2); font-size: 13px; max-width: 58ch; }
+    .switch-button[aria-pressed='true'] { background: rgba(245, 165, 36, 0.22); border-color: var(--primary); }
+    .switch-button[aria-pressed='true']:hover { background: rgba(245, 165, 36, 0.28); border-color: var(--primary); }
+    .switch-button[aria-pressed='true']::after { transform: translateX(20px); background: var(--primary); }
+    .switch-text b { font-weight: 550; }
+    .switch-text p { margin: 2px 0 0; color: var(--text-2); font-size: 13px; max-width: 58ch; }
 
-    .warnzeile {
+    .warning-row {
       display: flex; align-items: center; gap: 10px;
       margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-md);
       background: color-mix(in srgb, var(--warn) 14%, transparent);
@@ -198,55 +198,55 @@
        Die Liste ist selbst die Karte: ein Rahmen um alle Zeilen, Trenner
        dazwischen. Vorher lag sie in einer Karte MIT Überschrift — die
        Überschrift steht jetzt im Reiter. */
-    .liste {
+    .list {
       display: flex; flex-direction: column;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
+      background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-card);
       overflow: hidden;
     }
-    .zeile {
+    .row {
       display: grid; align-items: center; gap: 14px;
       padding: 12px 16px;
-      border-top: 1px solid var(--rand);
+      border-top: 1px solid var(--border);
       transition: background 140ms ease;
     }
-    .zeile:first-child { border-top: none; }
-    .zeile:hover { background: var(--fl-2); }
+    .row:first-child { border-top: none; }
+    .row:hover { background: var(--surface-2); }
     /* Feste Spaltenbreiten statt `auto`: Sonst wandern Datum und Kennzahlen von
        Zeile zu Zeile, weil mal zwei und mal ein Knopf rechts steht — und eine
        Liste, deren Spalten nicht fluchten, liest sich als Unordnung. */
-    .zeile-konto { grid-template-columns: minmax(0, 1fr) 76px 92px 186px; }
-    .zeile-einladung { grid-template-columns: minmax(0, 1fr) 96px 210px; }
-    .zeile-warteliste { grid-template-columns: minmax(0, 1fr) 96px 186px; }
+    .row-account { grid-template-columns: minmax(0, 1fr) 76px 92px 186px; }
+    .row-invitation { grid-template-columns: minmax(0, 1fr) 96px 210px; }
+    .row-waitlist { grid-template-columns: minmax(0, 1fr) 96px 186px; }
     /* Was jemand freiwillig geschrieben hat — das Kriterium fürs Freischalten.
        Eigene Zeile, nicht in die Beschreibung gequetscht: Sonst steht die
        einzige inhaltliche Angabe klein hinter zwei Daten. */
-    .haupt .zitat {
+    .main .quote {
       margin-top: 3px; color: var(--text-2); font-size: 12.5px; font-style: italic;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .zeile .griffe { justify-content: flex-end; }
-    .haupt { min-width: 0; display: flex; align-items: center; gap: 12px; }
-    .haupt-text { min-width: 0; }
+    .row .grips { justify-content: flex-end; }
+    .main { min-width: 0; display: flex; align-items: center; gap: 12px; }
+    .main-text { min-width: 0; }
     /* Derselbe Punkt wie im Konto-Chip der Topbar — er macht aus einer Zeile
        eine Person. */
-    .punkt-gross {
+    .dot-large {
       flex: none; width: 34px; height: 34px; border-radius: 50%;
       display: grid; place-items: center;
-      background: linear-gradient(130deg, var(--akzent), var(--akzent-2));
+      background: linear-gradient(130deg, var(--primary), var(--secondary));
       color: #221302; font-size: 14px; font-weight: 700;
     }
-    .haupt .oben { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .haupt .name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .haupt .notiz { color: var(--text-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .haupt .unten { color: var(--text-3); font-size: 12.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
-    .kennzahl { text-align: right; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
-    .kennzahl b { display: block; color: var(--text); font-weight: 550; }
-    .kennzahl span { font-size: 11.5px; color: var(--text-3); }
-    .griffe { display: flex; gap: 4px; align-items: center; }
+    .main .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .main .name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .main .note { color: var(--text-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .main .bottom { color: var(--text-3); font-size: 12.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
+    .stat { text-align: right; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+    .stat b { display: block; color: var(--text); font-weight: 550; }
+    .stat span { font-size: 11.5px; color: var(--text-3); }
+    .grips { display: flex; gap: 4px; align-items: center; }
     /* Das Status-Feld einer Rückmeldung: ein Griff unter Griffen, also so
        breit wie sein längstes Wort — ohne die Breite dehnt ein <select> sich
        im Flex-Kontext über die halbe Zeile. */
-    .status-wahl {
+    .status-picker {
       width: auto;
       min-width: 104px;
       padding: 5px 8px;
@@ -258,25 +258,25 @@
     }
 
     /* Leerzustand: sagt, was hier stünde — und bietet den Weg dorthin an. */
-    .leer { padding: 40px 20px; text-align: center; color: var(--text-3); font-size: 13.5px; }
-    .leer b { display: block; color: var(--text-2); font-weight: 550; font-size: 14.5px; margin-bottom: 5px; }
-    .leer p { margin: 0 auto; max-width: 46ch; line-height: 1.55; }
-    .leer button { margin-top: 14px; }
+    .empty { padding: 40px 20px; text-align: center; color: var(--text-3); font-size: 13.5px; }
+    .empty b { display: block; color: var(--text-2); font-weight: 550; font-size: 14.5px; margin-bottom: 5px; }
+    .empty p { margin: 0 auto; max-width: 46ch; line-height: 1.55; }
+    .empty button { margin-top: 14px; }
 
     /* Skelett, solange die vier Anfragen laufen — eine leere Fläche sähe aus
        wie „nichts da", und genau das ist die eine Aussage, die noch nicht
        feststeht. */
-    .skelett { padding: 14px 16px; border-top: 1px solid var(--rand); }
-    .skelett:first-child { border-top: none; }
-    .skelett span {
+    .skeleton { padding: 14px 16px; border-top: 1px solid var(--border); }
+    .skeleton:first-child { border-top: none; }
+    .skeleton span {
       display: block; height: 11px; border-radius: 6px;
-      background: linear-gradient(90deg, var(--fl-2), var(--fl-3), var(--fl-2));
+      background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2));
       background-size: 220% 100%;
       animation: skelett 1.4s ease-in-out infinite;
     }
-    .skelett span + span { margin-top: 8px; width: 42%; height: 9px; opacity: 0.7; }
+    .skeleton span + span { margin-top: 8px; width: 42%; height: 9px; opacity: 0.7; }
     @keyframes skelett { 0% { background-position: 130% 0; } 100% { background-position: -30% 0; } }
-    @media (prefers-reduced-motion: reduce) { .skelett span { animation: none; } }
+    @media (prefers-reduced-motion: reduce) { .skeleton span { animation: none; } }
 
     /* — Dialog —
        display gehört an dialog[open]: eine Regel am nackten `dialog` schlüge
@@ -288,40 +288,40 @@
     dialog[open] { display: block; }
     dialog::backdrop { background: rgba(4, 6, 10, 0.68); backdrop-filter: blur(3px); }
     .dialog-inner {
-      background: var(--fl-2); border: 1px solid var(--rand-hell); border-radius: var(--radius-xl);
+      background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-xl);
       padding: 22px 24px 20px; box-shadow: 0 24px 60px rgba(2, 5, 10, 0.7); width: 440px; max-width: 100%;
     }
     .dialog-inner h2 { font-size: 18px; margin-bottom: 4px; }
-    .dialog-inner > p.unterzeile { margin: 0 0 18px; color: var(--text-2); font-size: 13px; }
-    .dialog-fuss { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .dialog-inner > p.subline { margin: 0 0 18px; color: var(--text-2); font-size: 13px; }
+    .dialog-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
     /* Der bestätigende Knopf einer Löschung darf nicht der Marken-Amber sein:
        Amber heißt hier überall „weiter", Rot heißt „und zwar endgültig". */
-    button.zerstoerend, button.zerstoerend:hover {
-      background: var(--rot); border-color: var(--rot); color: #fff; font-weight: 600;
+    button.destructive, button.destructive:hover {
+      background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600;
     }
-    button.zerstoerend:hover { filter: brightness(1.1); }
-    .schalter-feld { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-    .schalter-feld label { margin: 0; color: var(--text); font-size: 13.5px; }
-    .schalter-feld input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--akzent); flex: none; }
+    button.destructive:hover { filter: brightness(1.1); }
+    .switch-field { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .switch-field label { margin: 0; color: var(--text); font-size: 13.5px; }
+    .switch-field input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--primary); flex: none; }
 
     /* — Statistiken — */
-    .statistiken-grid {
+    .stats-grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px;
     }
-    .kpi-karte {
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte); padding: 18px 20px;
+    .kpi-card {
+      background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 18px 20px;
     }
     .kpi-label { font-size: 12px; font-weight: 550; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
-    .kpi-wert { display: block; font-size: 32px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
-    .kpi-wert.echtzeit { color: var(--gruen); }
-    .kpi-hinweis { font-size: 12.5px; color: var(--text-2); }
-    .statistiken-spalten { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
-    .karte-block { background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-xl); padding: 20px; }
-    .karte-block h3 { font-size: 15px; font-weight: 550; margin: 0 0 14px; color: var(--text); }
-    .stat-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: var(--radius-md); font-size: 13.5px; }
-    .stat-zeile:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
-    .stat-zeile .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-    .stat-zeile .anzahl { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); flex: none; }
+    .kpi-value { display: block; font-size: 32px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
+    .kpi-value.realtime { color: var(--success); }
+    .kpi-hint { font-size: 12.5px; color: var(--text-2); }
+    .stats-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+    .card-block { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 20px; }
+    .card-block h3 { font-size: 15px; font-weight: 550; margin: 0 0 14px; color: var(--text); }
+    .stat-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: var(--radius-md); font-size: 13.5px; }
+    .stat-row:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+    .stat-row .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+    .stat-row .count { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); flex: none; }
 
     /* — System-Mails —
        Vier Stück, kein Wachstum: als Karten nebeneinander lesbar statt als
@@ -331,100 +331,100 @@
        Der Dialog ist breiter als die anderen, weil er zwei Dinge nebeneinander
        zeigen muss: die Wörter und ihr Ergebnis. Ein Vorschau-Knopf, der zwischen
        beiden hin- und herschaltet, hieße bei jeder Formulierung zweimal klicken. */
-    .mail-karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
-    .mail-karte {
+    .mail-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+    .mail-card {
       display: flex; flex-direction: column; gap: 7px;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
+      background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-card);
       padding: 16px 18px 14px;
       transition: border-color 160ms ease, background 160ms ease;
     }
-    .mail-karte:hover { border-color: var(--rand-hell); background: var(--fl-2); }
-    .mail-karte .oben { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .mail-karte .name { font-weight: 550; font-size: 15px; }
-    .mail-karte .betreff {
+    .mail-card:hover { border-color: var(--border-strong); background: var(--surface-2); }
+    .mail-card .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .mail-card .name { font-weight: 550; font-size: 15px; }
+    .mail-card .subject {
       color: var(--text); font-size: 13px;
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
+      background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-md);
       padding: 7px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .mail-karte .unten { color: var(--text-3); font-size: 12.5px; }
+    .mail-card .bottom { color: var(--text-3); font-size: 12.5px; }
     /* Die Griffe kleben am Fuß der Karte, damit sie in einer Reihe fluchten,
        auch wenn ein Anlass zwei Zeilen braucht. */
-    .mail-karte .griffe { margin-top: auto; padding-top: 8px; }
+    .mail-card .grips { margin-top: auto; padding-top: 8px; }
     .badge.standard { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
-    .badge.angepasst { background: rgba(91, 157, 255, 0.14); color: var(--blau); }
-    .badge.warnung { background: rgba(232, 161, 60, 0.14); color: var(--warn); }
-    .badge.fehler { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
+    .badge.customized { background: rgba(91, 157, 255, 0.14); color: var(--info); }
+    .badge.warning { background: rgba(232, 161, 60, 0.14); color: var(--warn); }
+    .badge.error { background: rgba(229, 72, 77, 0.13); color: var(--danger); }
 
     /* — Protokoll —
        Zeit ganz links in fester Breite: Man liest ein Protokoll an der Kante
        entlang („was war um 14:03?"), und eine Spalte, die je nach Textlänge
        wandert, macht genau das unmöglich. Ziffern in Outfit mit tabular-nums,
        kein Mono (DESIGN.md). */
-    .zeile-protokoll { grid-template-columns: 74px 82px minmax(0, 1fr); align-items: start; }
-    .zeile-protokoll .zeit { color: var(--text-3); font-size: 12.5px; font-variant-numeric: tabular-nums; padding-top: 1px; }
-    .zeile-protokoll .meldung { min-width: 0; }
+    .row-audit-log { grid-template-columns: 74px 82px minmax(0, 1fr); align-items: start; }
+    .row-audit-log .time { color: var(--text-3); font-size: 12.5px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+    .row-audit-log .message { min-width: 0; }
     /* Umbrechen statt kürzen: Die Meldung IST der Inhalt dieser Zeile — ein
        abgeschnittener Fehlertext zwingt zum Aufklappen, das es hier nicht gibt. */
-    .zeile-protokoll .meldung .text { font-size: 13.5px; overflow-wrap: anywhere; }
-    .zeile-protokoll .meldung .detail { color: var(--text-3); font-size: 12.5px; margin-top: 3px; overflow-wrap: anywhere; }
+    .row-audit-log .message .text { font-size: 13.5px; overflow-wrap: anywhere; }
+    .row-audit-log .message .detail { color: var(--text-3); font-size: 12.5px; margin-top: 3px; overflow-wrap: anywhere; }
     /* Der Streifen für Meldungen, die eintrafen, WÄHREND jemand liest. Sie
        rutschen nicht von selbst in die Liste — eine Liste, die unter dem Auge
        springt, ist beim Nachlesen eines Fehlers das Gegenteil von hilfreich. */
-    .protokoll-neu {
+    .audit-log-new {
       display: flex; align-items: center; justify-content: center; gap: 10px;
       padding: 10px 16px; border: none; width: 100%;
-      background: rgba(245, 165, 36, 0.1); color: var(--akzent);
+      background: rgba(245, 165, 36, 0.1); color: var(--primary);
       font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
     }
-    .protokoll-neu:hover { background: rgba(245, 165, 36, 0.16); }
+    .audit-log-new:hover { background: rgba(245, 165, 36, 0.16); }
 
-    dialog.breit { max-width: min(1120px, calc(100vw - 28px)); }
+    dialog.wide { max-width: min(1120px, calc(100vw - 28px)); }
     /* Der Dialog muss selbst scrollen können: Fällt das Raster auf eine Spalte
        (schmales Fenster), steht der Rumpf höher als der Bildschirm — und ohne
        diese Zeile läge „Speichern" außerhalb, unerreichbar. Ein `dialog`
        scrollt von sich aus nicht. */
-    dialog.breit .dialog-inner {
+    dialog.wide .dialog-inner {
       width: 1120px; max-width: 100%; padding: 20px 22px 18px;
       max-height: calc(100vh - 40px); overflow-y: auto;
     }
-    .mail-raster {
+    .mail-grid {
       display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 20px;
       align-items: start;
     }
     /* Die Felderspalte scrollt für sich: Die Vorschau soll stehen bleiben,
        während man unten am Kleingedruckten schreibt. */
-    .mail-felder { max-height: min(60vh, 560px); overflow-y: auto; padding-right: 8px; }
+    .mail-fields { max-height: min(60vh, 560px); overflow-y: auto; padding-right: 8px; }
     /* Wie im Studio: der Griff in Randfarbe, die Bahn unsichtbar. Die
        Browser-Vorgabe wäre hier ein heller Balken mitten im dunklen Dialog. */
-    .mail-felder::-webkit-scrollbar { width: 10px; }
-    .mail-felder::-webkit-scrollbar-track { background: transparent; }
-    .mail-felder::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 3px solid var(--fl-2); }
-    .mail-felder .feld:last-child { margin-bottom: 2px; }
-    .mail-spalte-kopf { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
-    .mail-spalte-kopf b { font-size: 13px; font-weight: 550; }
-    .mail-spalte-kopf span { color: var(--text-3); font-size: 12px; }
+    .mail-fields::-webkit-scrollbar { width: 10px; }
+    .mail-fields::-webkit-scrollbar-track { background: transparent; }
+    .mail-fields::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; border: 3px solid var(--surface-2); }
+    .mail-fields .field:last-child { margin-bottom: 2px; }
+    .mail-column-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+    .mail-column-header b { font-size: 13px; font-weight: 550; }
+    .mail-column-header span { color: var(--text-3); font-size: 12px; }
 
     .ph-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 14px; }
     .ph-chips button {
       font-size: 12px; padding: 4px 9px; border-radius: var(--radius-full);
-      background: rgba(245, 165, 36, 0.1); border-color: rgba(245, 165, 36, 0.28); color: var(--akzent);
+      background: rgba(245, 165, 36, 0.1); border-color: rgba(245, 165, 36, 0.28); color: var(--primary);
     }
-    .ph-chips button:hover { background: rgba(245, 165, 36, 0.18); border-color: var(--akzent); }
+    .ph-chips button:hover { background: rgba(245, 165, 36, 0.18); border-color: var(--primary); }
 
-    .vorschau-betreff {
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
+    .preview-subject {
+      background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-md);
       padding: 9px 12px; margin-bottom: 10px; font-size: 13.5px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .vorschau-betreff span { color: var(--text-3); }
+    .preview-subject span { color: var(--text-3); }
     /* Der Rahmen trägt die Farbe der Mail, damit während des Ladens nicht kurz
        eine weiße Fläche steht. */
-    .vorschau-rahmen {
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-lg); overflow: hidden;
+    .preview-frame {
+      background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden;
       height: min(52vh, 480px);
     }
-    .vorschau-rahmen iframe { display: block; width: 100%; height: 100%; border: 0; }
-    .mail-probleme {
+    .preview-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+    .mail-issues {
       margin-top: 12px; padding: 10px 14px; border-radius: var(--radius-md);
       background: rgba(229, 72, 77, 0.1); color: #ffb4b6; font-size: 12.5px;
     }
@@ -432,26 +432,26 @@
        außerhalb des Bildes liegen. Das negative margin-bottom hebt das
        Innenpolster des Dialogs auf, sonst bliebe darunter ein Streifen, durch
        den der Inhalt durchläuft. */
-    .mail-fuss {
+    .mail-footer {
       display: flex; align-items: center; gap: 8px;
       position: sticky; bottom: -18px; z-index: 2;
       margin: 16px 0 -18px; padding: 12px 0 18px;
-      background: var(--fl-2);
+      background: var(--surface-2);
     }
-    .mail-fuss .sp { flex: 1; }
-    .mail-stand { font-size: 12.5px; color: var(--text-2); }
-    .mail-stand.fehler { color: #ffb4b6; }
+    .mail-footer .sp { flex: 1; }
+    .mail-status { font-size: 12.5px; color: var(--text-2); }
+    .mail-status.error { color: #ffb4b6; }
 
     @media (max-width: 900px) {
-      .mail-raster { grid-template-columns: minmax(0, 1fr); }
-      .mail-felder { max-height: none; overflow: visible; }
-      .vorschau-rahmen { height: 380px; }
+      .mail-grid { grid-template-columns: minmax(0, 1fr); }
+      .mail-fields { max-height: none; overflow: visible; }
+      .preview-frame { height: 380px; }
     }
 
     /* Sperrseite für alle, die hier nicht hingehören */
-    .sperre { text-align: center; padding: 90px 0; }
-    .sperre h1 { font-size: 26px; font-weight: 480; margin-bottom: 10px; }
-    .sperre p { color: var(--text-2); margin: 0 0 22px; }
+    .locked { text-align: center; padding: 90px 0; }
+    .locked h1 { font-size: 26px; font-weight: 480; margin-bottom: 10px; }
+    .locked p { color: var(--text-2); margin: 0 0 22px; }
 
     /* Flash nach DESIGN.md: dunkle Kapsel MITTIG UNTER DER KOPFLEISTE (nicht am
        unteren Rand — dort las man sie erst, nachdem der Blick sie gesucht
@@ -465,187 +465,187 @@
       padding: 10px 16px 11px; border-radius: var(--radius-lg);
       font-size: 13px; line-height: 1.45; color: var(--text);
       background: linear-gradient(165deg, rgba(26, 34, 45, 0.95), rgba(9, 12, 17, 0.96));
-      border: 1px solid var(--rand-hell);
+      border: 1px solid var(--border-strong);
       box-shadow: 0 16px 38px rgba(2, 5, 10, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
       backdrop-filter: blur(10px) saturate(1.15);
       opacity: 0; pointer-events: none;
       transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
     }
-    .flash.zeigt { opacity: 1; transform: translate(-50%, 0); }
+    .flash.showing { opacity: 1; transform: translate(-50%, 0); }
     .flash svg { width: 15px; height: 15px; flex: none; }
-    .flash.ok svg { color: var(--gruen); }
-    .flash.fehler svg { color: var(--rot); }
+    .flash.ok svg { color: var(--success); }
+    .flash.error svg { color: var(--danger); }
 
     @media (max-width: 900px) {
-      .werkzeuge .sp { display: none; }
-      .suchfeld { width: 100%; }
+      .tools .sp { display: none; }
+      .search-field { width: 100%; }
     }
     /* Schmal: Die Zeile bricht in Stockwerke — Person, Kennzahlen, Griffe.
        Ein bloßes Zusammenschieben der Spalten reichte nicht: Der Name floss
        dann neben „0 Touren", und „0 MB belegt" landete allein in der nächsten
-       Zeile links. Deshalb spannt `.haupt` über die volle Breite, die
+       Zeile links. Deshalb spannt `.main` über die volle Breite, die
        Kennzahlen teilen sich die Zeile darunter, die Griffe stehen für sich. */
     @media (max-width: 720px) {
-      .reiter { gap: 16px; }
+      .tab { gap: 16px; }
       /* Vier Segmente passen nicht in 375 px. Umbrechen statt seitwärts
          scrollen: Ein waagerecht schiebbares Pillen-Band versteckt die letzte
          Möglichkeit hinter einer Geste, die niemand vermutet. */
-      .filter { flex-wrap: wrap; border-radius: var(--radius-karte); max-width: 100%; }
-      .zeile { row-gap: 10px; padding: 14px 16px; }
-      .zeile-konto { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .zeile-einladung, .zeile-warteliste { grid-template-columns: minmax(0, 1fr) auto; }
-      .zeile .haupt, .zeile .griffe { grid-column: 1 / -1; }
+      .filter { flex-wrap: wrap; border-radius: var(--radius-card); max-width: 100%; }
+      .row { row-gap: 10px; padding: 14px 16px; }
+      .row-account { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .row-invitation, .row-waitlist { grid-template-columns: minmax(0, 1fr) auto; }
+      .row .main, .row .grips { grid-column: 1 / -1; }
       /* Umbrechende Plaketten schieben den Text nach unten — der Punkt bleibt
          oben, sonst schwebt er neben der zweiten Zeile. */
-      .haupt { align-items: flex-start; }
-      .kennzahl { text-align: left; }
-      .mail-karten { grid-template-columns: minmax(0, 1fr); }
+      .main { align-items: flex-start; }
+      .stat { text-align: left; }
+      .mail-cards { grid-template-columns: minmax(0, 1fr); }
     }
   </style>
 </head>
 <body>
-  <!-- Header: Markup = appHeaderHtml Variante admin; montiereAppHeader verfeinert. -->
+  <!-- Header: Markup = appHeaderHtml Variante admin; mountAppHeader verfeinert. -->
   <nav class="nav" id="app-header">
-    <div class="wrap"><span class="marken-gruppe"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stand-hinweis" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-knopf" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right" id="nav-rechts"></div></div>
+    <div class="wrap"><span class="brand-group"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stage-hint" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-button" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right" id="nav-right"></div></div>
   </nav>
 
   <!-- Alle, die keine Admins sind (oder gar nicht angemeldet) -->
-  <div class="rumpf" id="sperre-view" hidden>
-    <div class="sperre">
-      <h1 id="sperre-titel">Nur für Administratoren</h1>
-      <p id="sperre-text">Dieser Bereich verwaltet Konten der ganzen Instanz.</p>
-      <a class="knopf primaer" href="/app" id="sperre-weg">Zu meinen Touren</a>
+  <div class="body" id="locked-view" hidden>
+    <div class="locked">
+      <h1 id="locked-title">Nur für Administratoren</h1>
+      <p id="locked-text">Dieser Bereich verwaltet Konten der ganzen Instanz.</p>
+      <a class="button primary" href="/app" id="locked-exit">Zu meinen Touren</a>
     </div>
   </div>
 
-  <main class="rumpf" id="admin-view" hidden>
-    <div class="kopf">
+  <main class="body" id="admin-view" hidden>
+    <div class="header">
       <h1>Administration</h1>
     </div>
 
     <!-- Reiterleiste; Einträge und Zähler baut admin.ts aus TABS -->
-    <div class="reiter" role="tablist" id="reiter" aria-label="Bereiche der Verwaltung"></div>
+    <div class="tab" role="tablist" id="tabs" aria-label="Bereiche der Verwaltung"></div>
 
     <!-- Konten -->
-    <section class="panel" id="panel-konten" role="tabpanel" aria-labelledby="reiter-konten" hidden>
-      <div class="werkzeuge">
-        <label class="suchfeld">
+    <section class="panel" id="panel-accounts" role="tabpanel" aria-labelledby="tab-accounts" hidden>
+      <div class="tools">
+        <label class="search-field">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
-          <input type="search" id="konten-suche" placeholder="Name oder E-Mail …" aria-label="Konten durchsuchen" />
+          <input type="search" id="accounts-search" placeholder="Name oder E-Mail …" aria-label="Konten durchsuchen" />
         </label>
-        <div class="filter" id="konten-filter" role="group" aria-label="Konten filtern"></div>
+        <div class="filter" id="accounts-filter" role="group" aria-label="Konten filtern"></div>
         <span class="sp"></span>
-        <button type="button" class="primaer" id="konto-neu">
+        <button type="button" class="primary" id="account-new">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           Konto anlegen
         </button>
       </div>
-      <div class="liste" id="konten-liste"></div>
+      <div class="list" id="accounts-list"></div>
     </section>
 
     <!-- Einladungen — mit der Regel, die über sie entscheidet -->
-    <section class="panel" id="panel-einladungen" role="tabpanel" aria-labelledby="reiter-einladungen" hidden>
-      <div class="regel">
-        <div class="schalter">
-          <button type="button" class="schalter-knopf" id="pflicht-schalter" aria-pressed="true" aria-label="Registrierung nur mit Einladung"></button>
-          <div class="schalter-text">
-            <b id="pflicht-titel">Registrierung nur mit Einladung</b>
-            <p id="pflicht-text"></p>
+    <section class="panel" id="panel-invitations" role="tabpanel" aria-labelledby="tab-invitations" hidden>
+      <div class="rule">
+        <div class="switch">
+          <button type="button" class="switch-button" id="invitation-required-switch" aria-pressed="true" aria-label="Registrierung nur mit Einladung"></button>
+          <div class="switch-text">
+            <b id="invitation-required-title">Registrierung nur mit Einladung</b>
+            <p id="invitation-required-text"></p>
           </div>
         </div>
       </div>
-      <div class="warnzeile" id="zu-warnung" hidden>
-        <span>Die Registrierung ist in der Umgebung ganz abgeschaltet (<span class="zahl">MAPTALE_REGISTRIERUNG_OFFEN=0</span>). Solange das so ist, kommt auch mit gültigem Code niemand herein.</span>
+      <div class="warning-row" id="registration-closed-warning" hidden>
+        <span>Die Registrierung ist in der Umgebung ganz abgeschaltet (<span class="number">MAPTALE_REGISTRIERUNG_OFFEN=0</span>). Solange das so ist, kommt auch mit gültigem Code niemand herein.</span>
       </div>
-      <div class="werkzeuge">
-        <label class="suchfeld">
+      <div class="tools">
+        <label class="search-field">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
-          <input type="search" id="einladungen-suche" placeholder="Code oder Notiz …" aria-label="Einladungen durchsuchen" />
+          <input type="search" id="invitations-search" placeholder="Code oder Notiz …" aria-label="Einladungen durchsuchen" />
         </label>
-        <div class="filter" id="einladungen-filter" role="group" aria-label="Einladungen filtern"></div>
+        <div class="filter" id="invitations-filter" role="group" aria-label="Einladungen filtern"></div>
         <span class="sp"></span>
-        <button type="button" class="primaer" id="einladung-neu">
+        <button type="button" class="primary" id="invitation-new">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           Einladung erstellen
         </button>
       </div>
-      <div class="liste" id="einladungen-liste"></div>
+      <div class="list" id="invitations-list"></div>
     </section>
 
     <!-- Warteliste — die Kehrseite der Einladungspflicht -->
-    <section class="panel" id="panel-warteliste" role="tabpanel" aria-labelledby="reiter-warteliste" hidden>
-      <div class="regel">
-        <div class="schalter">
-          <button type="button" class="schalter-knopf" id="wl-schalter" aria-pressed="true" aria-label="Warteliste anbieten"></button>
-          <div class="schalter-text">
+    <section class="panel" id="panel-waitlist" role="tabpanel" aria-labelledby="tab-waitlist" hidden>
+      <div class="rule">
+        <div class="switch">
+          <button type="button" class="switch-button" id="waitlist-switch" aria-pressed="true" aria-label="Warteliste anbieten"></button>
+          <div class="switch-text">
             <b>Warteliste anbieten</b>
-            <p id="wl-schalter-text"></p>
+            <p id="waitlist-switch-text"></p>
           </div>
         </div>
         <span class="sp"></span>
         <!-- Der Schalter kann eingeschaltet und trotzdem wirkungslos sein. Die
              Ursache liegt im anderen Reiter — also führt hier ein Weg hin. -->
-        <button type="button" id="wl-zur-pflicht" hidden>Zur Einladungspflicht</button>
+        <button type="button" id="waitlist-to-invitation-required" hidden>Zur Einladungspflicht</button>
       </div>
-      <div class="werkzeuge">
-        <label class="suchfeld">
+      <div class="tools">
+        <label class="search-field">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
-          <input type="search" id="warteliste-suche" placeholder="E-Mail oder Notiz …" aria-label="Warteliste durchsuchen" />
+          <input type="search" id="waitlist-search" placeholder="E-Mail oder Notiz …" aria-label="Warteliste durchsuchen" />
         </label>
-        <div class="filter" id="warteliste-filter" role="group" aria-label="Warteliste filtern"></div>
+        <div class="filter" id="waitlist-filter" role="group" aria-label="Warteliste filtern"></div>
       </div>
-      <div class="liste" id="warteliste-liste"></div>
+      <div class="list" id="waitlist-list"></div>
     </section>
 
     <!-- Statistiken (Natives Dashboard + Link zu Umami) -->
-    <section class="panel" id="panel-statistiken" role="tabpanel" aria-labelledby="reiter-statistiken" hidden>
-      <div class="werkzeuge" style="margin-bottom: 20px;">
+    <section class="panel" id="panel-stats" role="tabpanel" aria-labelledby="tab-stats" hidden>
+      <div class="tools" style="margin-bottom: 20px;">
         <span class="sp"></span>
-        <a class="knopf" href="https://analytics.maptale.io" target="_blank" rel="noopener noreferrer">
+        <a class="button" href="https://analytics.maptale.io" target="_blank" rel="noopener noreferrer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Umami Dashboard öffnen
         </a>
       </div>
 
-      <div class="statistiken-grid">
-        <div class="kpi-karte">
+      <div class="stats-grid">
+        <div class="kpi-card">
           <span class="kpi-label">Echtzeit</span>
-          <b class="kpi-wert echtzeit" id="stat-echtzeit">0</b>
-          <span class="kpi-hinweis">Aktive Nutzer (letzte 5 Min)</span>
+          <b class="kpi-value realtime" id="stat-realtime">0</b>
+          <span class="kpi-hint">Aktive Nutzer (letzte 5 Min)</span>
         </div>
-        <div class="kpi-karte">
+        <div class="kpi-card">
           <span class="kpi-label">Heute</span>
-          <b class="kpi-wert" id="stat-heute-aufrufe">0</b>
-          <span class="kpi-hinweis" id="stat-heute-besucher">0 Besucher</span>
+          <b class="kpi-value" id="stat-today-views">0</b>
+          <span class="kpi-hint" id="stat-today-visitors">0 Besucher</span>
         </div>
-        <div class="kpi-karte">
+        <div class="kpi-card">
           <span class="kpi-label">Letzte 7 Tage</span>
-          <b class="kpi-wert" id="stat-7d-aufrufe">0</b>
-          <span class="kpi-hinweis" id="stat-7d-besucher">0 Besucher</span>
+          <b class="kpi-value" id="stat-7d-views">0</b>
+          <span class="kpi-hint" id="stat-7d-visitors">0 Besucher</span>
         </div>
-        <div class="kpi-karte">
+        <div class="kpi-card">
           <span class="kpi-label">Gesamt</span>
-          <b class="kpi-wert" id="stat-gesamt">0</b>
-          <span class="kpi-hinweis">Seitenaufrufe gesamt</span>
+          <b class="kpi-value" id="stat-total">0</b>
+          <span class="kpi-hint">Seitenaufrufe gesamt</span>
         </div>
       </div>
 
-      <div class="statistiken-spalten">
-        <div class="karte-block">
+      <div class="stats-columns">
+        <div class="card-block">
           <h3>Top-Quellen (Referrer)</h3>
-          <div id="stat-referrer-liste"></div>
+          <div id="stat-referrer-list"></div>
         </div>
-        <div class="karte-block">
+        <div class="card-block">
           <h3>Meistgesehene Seiten</h3>
-          <div id="stat-seiten-liste"></div>
+          <div id="stat-pages-list"></div>
         </div>
       </div>
     </section>
 
     <!-- System-Mails -->
-    <section class="panel" id="panel-mails" role="tabpanel" aria-labelledby="reiter-mails" hidden>
-      <p class="panel-text" id="mail-zusammenfassung"></p>
-      <div class="mail-karten" id="mail-liste"></div>
+    <section class="panel" id="panel-mails" role="tabpanel" aria-labelledby="tab-mails" hidden>
+      <p class="panel-text" id="mail-summary"></p>
+      <div class="mail-cards" id="mail-list"></div>
     </section>
 
     <!-- Protokoll: die letzten Warnungen und Fehler der API. Sie liegen dort in
@@ -655,27 +655,27 @@
     <!-- Rückmeldungen: der Eingang der Alpha. Kein eigenes Werkzeug, sondern
          dieselbe Suche-und-Filter-Leiste wie Warteliste und Protokoll — es ist
          dieselbe Handlung (sichten, was hereinkam). -->
-    <section class="panel" id="panel-rueckmeldungen" role="tabpanel" aria-labelledby="reiter-rueckmeldungen" hidden>
-      <div class="werkzeuge">
-        <label class="suchfeld">
+    <section class="panel" id="panel-feedback" role="tabpanel" aria-labelledby="tab-feedback" hidden>
+      <div class="tools">
+        <label class="search-field">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
-          <input type="search" id="rueckmeldungen-suche" placeholder="Text, Notiz oder Absender …" aria-label="Rückmeldungen durchsuchen" />
+          <input type="search" id="feedback-search" placeholder="Text, Notiz oder Absender …" aria-label="Rückmeldungen durchsuchen" />
         </label>
-        <div class="filter" id="rueckmeldungen-filter" role="group" aria-label="Rückmeldungen filtern"></div>
+        <div class="filter" id="feedback-filter" role="group" aria-label="Rückmeldungen filtern"></div>
       </div>
-      <div class="liste" id="rueckmeldungen-liste"></div>
+      <div class="list" id="feedback-list"></div>
     </section>
 
-    <section class="panel" id="panel-protokoll" role="tabpanel" aria-labelledby="reiter-protokoll" hidden>
-      <p class="panel-text" id="protokoll-zusammenfassung"></p>
-      <div class="werkzeuge">
-        <label class="suchfeld">
+    <section class="panel" id="panel-audit-log" role="tabpanel" aria-labelledby="tab-audit-log" hidden>
+      <p class="panel-text" id="audit-log-summary"></p>
+      <div class="tools">
+        <label class="search-field">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
-          <input type="search" id="protokoll-suche" placeholder="Meldung oder Tour-ID …" aria-label="Protokoll durchsuchen" />
+          <input type="search" id="audit-log-search" placeholder="Meldung oder Tour-ID …" aria-label="Protokoll durchsuchen" />
         </label>
-        <div class="filter" id="protokoll-filter" role="group" aria-label="Protokoll filtern"></div>
+        <div class="filter" id="audit-log-filter" role="group" aria-label="Protokoll filtern"></div>
       </div>
-      <div class="liste" id="protokoll-liste"></div>
+      <div class="list" id="audit-log-list"></div>
     </section>
   </main>
 
@@ -684,141 +684,141 @@
        oben die Domain und lässt den gefährlichen Knopf so aussehen wie den
        harmlosen. Hier trägt der Titel die Frage, der Text die Folge, und der
        bestätigende Knopf die Farbe der Folge. -->
-  <dialog id="frage-dialog">
-    <form class="dialog-inner" id="frage-form" method="dialog">
-      <h2 id="fd-titel"></h2>
-      <p class="unterzeile" id="fd-text"></p>
-      <div class="dialog-fuss">
-        <button type="button" id="fd-nein">Abbrechen</button>
-        <button type="submit" class="primaer" id="fd-ja">Bestätigen</button>
+  <dialog id="confirm-dialog">
+    <form class="dialog-inner" id="confirm-form" method="dialog">
+      <h2 id="confirm-title"></h2>
+      <p class="subline" id="confirm-text"></p>
+      <div class="dialog-footer">
+        <button type="button" id="confirm-no">Abbrechen</button>
+        <button type="submit" class="primary" id="confirm-yes">Bestätigen</button>
       </div>
     </form>
   </dialog>
 
   <!-- Konto anlegen / bearbeiten -->
-  <dialog id="konto-dialog">
-    <form class="dialog-inner" id="konto-form" method="dialog">
-      <h2 id="kd-titel">Konto anlegen</h2>
-      <p class="unterzeile" id="kd-unterzeile">Das Konto ist sofort nutzbar, ohne Bestätigungsmail.</p>
-      <div class="feld">
-        <label for="kd-name">Name</label>
-        <input id="kd-name" type="text" maxlength="80" required />
+  <dialog id="account-dialog">
+    <form class="dialog-inner" id="account-form" method="dialog">
+      <h2 id="account-dialog-title">Konto anlegen</h2>
+      <p class="subline" id="account-dialog-subline">Das Konto ist sofort nutzbar, ohne Bestätigungsmail.</p>
+      <div class="field">
+        <label for="account-dialog-name">Name</label>
+        <input id="account-dialog-name" type="text" maxlength="80" required />
       </div>
-      <div class="feld">
-        <label for="kd-email">E-Mail</label>
-        <input id="kd-email" type="email" required />
+      <div class="field">
+        <label for="account-dialog-email">E-Mail</label>
+        <input id="account-dialog-email" type="email" required />
       </div>
-      <div class="feld">
-        <label for="kd-passwort">Passwort <span class="zusatz" id="kd-pw-zusatz">mindestens 8 Zeichen</span></label>
-        <input id="kd-passwort" type="password" autocomplete="new-password" minlength="8" />
+      <div class="field">
+        <label for="account-dialog-password">Passwort <span class="extra" id="account-dialog-pw-extra">mindestens 8 Zeichen</span></label>
+        <input id="account-dialog-password" type="password" autocomplete="new-password" minlength="8" />
       </div>
-      <div class="feld">
-        <label for="kd-rolle">Rolle</label>
-        <select id="kd-rolle">
+      <div class="field">
+        <label for="account-dialog-role">Rolle</label>
+        <select id="account-dialog-role">
           <option value="user">Nutzer · eigene Touren</option>
           <option value="admin">Administrator · verwaltet Konten</option>
         </select>
-        <div class="hinweis" id="kd-rolle-hinweis"></div>
+        <div class="hint" id="account-dialog-role-hint"></div>
       </div>
-      <div class="schalter-feld">
-        <input type="checkbox" id="kd-verifiziert" checked />
-        <label for="kd-verifiziert">E-Mail gilt als bestätigt (darf hochladen)</label>
+      <div class="switch-field">
+        <input type="checkbox" id="account-dialog-verified" checked />
+        <label for="account-dialog-verified">E-Mail gilt als bestätigt (darf hochladen)</label>
       </div>
-      <div class="hinweis fehler" id="kd-fehler" role="alert"></div>
-      <div class="dialog-fuss">
-        <button type="button" id="kd-abbrechen">Abbrechen</button>
-        <button type="submit" class="primaer" id="kd-speichern">Anlegen</button>
+      <div class="hint error" id="account-dialog-error" role="alert"></div>
+      <div class="dialog-footer">
+        <button type="button" id="account-dialog-cancel">Abbrechen</button>
+        <button type="submit" class="primary" id="account-dialog-save">Anlegen</button>
       </div>
     </form>
   </dialog>
 
   <!-- Einladung erstellen -->
-  <dialog id="einladung-dialog">
-    <form class="dialog-inner" id="einladung-form" method="dialog">
+  <dialog id="invitation-dialog">
+    <form class="dialog-inner" id="invitation-form" method="dialog">
       <h2>Einladung erstellen</h2>
-      <p class="unterzeile">Ein Code, einmal einlösbar. Für mehrere Personen mehrere Einladungen.</p>
-      <div class="feld">
-        <label for="ed-notiz">Notiz <span class="zusatz">für wen ist die Einladung?</span></label>
-        <input id="ed-notiz" type="text" maxlength="120" placeholder="z. B. Anna vom Radclub" />
+      <p class="subline">Ein Code, einmal einlösbar. Für mehrere Personen mehrere Einladungen.</p>
+      <div class="field">
+        <label for="invitation-note">Notiz <span class="extra">für wen ist die Einladung?</span></label>
+        <input id="invitation-note" type="text" maxlength="120" placeholder="z. B. Anna vom Radclub" />
       </div>
-      <div class="feld">
-        <label for="ed-gueltig">Gültig</label>
-        <select id="ed-gueltig">
+      <div class="field">
+        <label for="invitation-validity">Gültig</label>
+        <select id="invitation-validity">
           <option value="7">7 Tage</option>
           <option value="30" selected>30 Tage</option>
           <option value="90">90 Tage</option>
           <option value="0">Ohne Ablaufdatum</option>
         </select>
       </div>
-      <div class="hinweis fehler" id="ed-fehler" role="alert"></div>
-      <div class="dialog-fuss">
-        <button type="button" id="ed-abbrechen">Abbrechen</button>
-        <button type="submit" class="primaer">Erstellen</button>
+      <div class="hint error" id="invitation-error" role="alert"></div>
+      <div class="dialog-footer">
+        <button type="button" id="invitation-cancel">Abbrechen</button>
+        <button type="submit" class="primary">Erstellen</button>
       </div>
     </form>
   </dialog>
 
   <!-- Mail-Vorlage bearbeiten -->
-  <dialog id="mail-dialog" class="breit">
+  <dialog id="mail-dialog" class="wide">
     <form class="dialog-inner" id="mail-form" method="dialog">
-      <h2 id="md-titel">Mail bearbeiten</h2>
-      <p class="unterzeile" id="md-anlass"></p>
+      <h2 id="md-title">Mail bearbeiten</h2>
+      <p class="subline" id="md-occasion"></p>
 
-      <div class="mail-raster">
+      <div class="mail-grid">
         <div>
-          <div class="mail-spalte-kopf">
+          <div class="mail-column-header">
             <b>Text</b>
             <span>Layout und Logo stehen fest</span>
           </div>
-          <div class="ph-chips" id="md-platzhalter"></div>
-          <div class="mail-felder">
-            <div class="feld">
-              <label for="md-betreff">Betreff</label>
-              <input id="md-betreff" type="text" maxlength="200" required />
+          <div class="ph-chips" id="md-placeholders"></div>
+          <div class="mail-fields">
+            <div class="field">
+              <label for="md-subject">Betreff</label>
+              <input id="md-subject" type="text" maxlength="200" required />
             </div>
-            <div class="feld">
-              <label for="md-mtitel">Überschrift <span class="zusatz">die erste Zeile in der Mail</span></label>
-              <input id="md-mtitel" type="text" maxlength="200" required />
+            <div class="field">
+              <label for="md-mail-title">Überschrift <span class="extra">die erste Zeile in der Mail</span></label>
+              <input id="md-mail-title" type="text" maxlength="200" required />
             </div>
-            <div class="feld">
-              <label for="md-text">Text <span class="zusatz">Leerzeile trennt Absätze</span></label>
-              <textarea id="md-text" maxlength="4000" rows="7"></textarea>
+            <div class="field">
+              <label for="md-body">Text <span class="extra">Leerzeile trennt Absätze</span></label>
+              <textarea id="md-body" maxlength="4000" rows="7"></textarea>
             </div>
-            <div class="feld">
-              <label for="md-knopf">Knopf <span class="zusatz">leer lassen, dann muss der Link im Text stehen</span></label>
-              <input id="md-knopf" type="text" maxlength="60" />
+            <div class="field">
+              <label for="md-button">Knopf <span class="extra">leer lassen, dann muss der Link im Text stehen</span></label>
+              <input id="md-button" type="text" maxlength="60" />
             </div>
-            <div class="feld">
-              <label for="md-fuss">Kleingedrucktes <span class="zusatz">Gültigkeit, Widerspruch, „war ich das nicht?"</span></label>
-              <textarea id="md-fuss" maxlength="2000" rows="5"></textarea>
+            <div class="field">
+              <label for="md-footer">Kleingedrucktes <span class="extra">Gültigkeit, Widerspruch, „war ich das nicht?"</span></label>
+              <textarea id="md-footer" maxlength="2000" rows="5"></textarea>
             </div>
           </div>
         </div>
 
         <div>
-          <div class="mail-spalte-kopf">
+          <div class="mail-column-header">
             <b>Vorschau</b>
             <span>mit Beispielwerten</span>
           </div>
-          <div class="vorschau-betreff"><span>Betreff:</span> <b id="md-vbetreff">…</b></div>
-          <div class="vorschau-rahmen">
-            <iframe id="md-vorschau" title="Vorschau der Mail" sandbox=""></iframe>
+          <div class="preview-subject"><span>Betreff:</span> <b id="md-preview-subject">…</b></div>
+          <div class="preview-frame">
+            <iframe id="md-preview" title="Vorschau der Mail" sandbox=""></iframe>
           </div>
         </div>
       </div>
 
-      <div class="mail-probleme" id="md-probleme" role="alert" hidden></div>
-      <div class="hinweis fehler" id="md-fehler" role="alert"></div>
+      <div class="mail-issues" id="md-issues" role="alert" hidden></div>
+      <div class="hint error" id="md-error" role="alert"></div>
 
-      <div class="mail-fuss">
+      <div class="mail-footer">
         <button type="button" id="md-test">Testmail an mich</button>
-        <button type="button" class="still" id="md-zuruecksetzen" hidden>Auf Standard zurücksetzen</button>
+        <button type="button" class="subtle" id="md-reset" hidden>Auf Standard zurücksetzen</button>
         <!-- Was die Testmail gemeldet hat, gehört IN den Dialog: Ein Toast
              dahinter läge unter dem Backdrop des Top-Layers. -->
-        <span class="mail-stand" id="md-stand" role="status"></span>
+        <span class="mail-status" id="md-status" role="status"></span>
         <span class="sp"></span>
-        <button type="button" id="md-abbrechen">Abbrechen</button>
-        <button type="submit" class="primaer" id="md-speichern">Speichern</button>
+        <button type="button" id="md-cancel">Abbrechen</button>
+        <button type="submit" class="primary" id="md-save">Speichern</button>
       </div>
     </form>
   </dialog>

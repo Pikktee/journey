@@ -142,7 +142,7 @@ sagen es.)
 | `EinladungsZustand` | `InvitationState` | `InvitationStatus` | `…Status`: der Wert heißt in der API `status` |
 | `WartelistenZustand` | `WaitlistState` | `WaitlistStatus` | dito |
 | `VorlagenStand` | `TemplateStatus` | `MailTemplatesState` | `MailTemplateStatus`: `Template` allein ist im Repo mehrdeutig, `Status` folgt der API |
-| `ExportStand` (Datenexport) | `DataExportStatus` | `DataExportState` (`kontomodell.ts`) | `DataExportStatus`: der Wert heißt in der API `status`; der Video-Export-Zwilling in `exportformat.ts` ist ein ANDERES Ding und bleibt `ExportProgress` |
+| `ExportStand` (Datenexport) | `DataExportStatus` | `DataExportState` (`account-model.ts`) | `DataExportStatus`: der Wert heißt in der API `status`; der Video-Export-Zwilling in `exportformat.ts` ist ein ANDERES Ding und bleibt `ExportProgress` |
 
 Die beiden `handle.ts`-Zwillinge und die `filmachse`-Paare sind namentlich in §3.3 als
 blinde Nähte geführt. Wer hier nichts entscheidet, bekommt zwei Wellen später zwei Namen

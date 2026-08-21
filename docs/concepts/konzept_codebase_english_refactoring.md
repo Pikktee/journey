@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-21
-status: Wellen 0 bis 5 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 5 warten auf den nächsten Release. Wellen 6 bis 8 offen, Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
+status: Wellen 0 bis 6 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 6 warten auf den nächsten Release. Das Web ist damit bis auf eine Lücke durch (photopins.ts, s. Welle 6). Offen: Welle 7 (Android), Welle 8 (Doku) und Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -18,6 +18,14 @@ betrifft:
   - src/studio/import-validation.ts
   - src/film-axis.ts
   - src/card-painter.ts
+  - src/routes.ts
+  - src/app-nav.ts
+  - src/base.css
+  - src/account/account.ts
+  - src/profile/profile.ts
+  - src/admin/admin.ts
+  - DESIGN.md
+  - vite.config.js
   - android/app/src/main/java/app/maptale/daten/Entities.kt
   - android/app/src/main/java/app/maptale/daten/LuhamboDb.kt
   - android/app/src/main/java/app/maptale/upload/ApiClient.kt
@@ -103,7 +111,7 @@ JSON-Blob, sondern ein roher String (§4.2); die Platzhalter `{{frist}}`,
 den Status je Tour und nicht für alle zugleich, weil Galerie und Profile hart
 auf `bereit` filtern (§4.3); es gibt kein zod im Projekt (§4.3); `verarbeite`
 ist heute nicht exportiert (§3.3); die Push-Nutzlast `typ: 'import-fertig'` und
-der Import von `src/routen.ts` in `vite.config.js` sind Nähte (§3.3); die
+der Import von `src/routes.ts` in `vite.config.js` sind Nähte (§3.3); die
 kuratierten Klangdateien unter `public/audio/sfx/` sind persistierte DATEN und
 wandern nicht (§3.4); `placement` trägt deutsche Werte und `stats.fotos` zählt
 Medien, nicht Fotos (§6.9); dazu CSS, DOM und Custom Properties als eigene Sorte
@@ -254,20 +262,20 @@ zugehörigen Test laufen:
 
 | Naht | Warum blind | Halt |
 |---|---|---|
-| API-Felder Server → Web | handgetippte Typen in `src/studio/api.ts`, `src/remote.ts`, `src/konto/*`, `src/profil/*`, `src/admin/*`, `src/galerie/*` | Welle 1 ändert beide Seiten in einem Commit; Smoke über alle Seiten (§8) |
+| API-Felder Server → Web | handgetippte Typen in `src/studio/api.ts`, `src/remote.ts`, `src/account/*`, `src/profile/*`, `src/admin/*`, `src/gallery/*` | Welle 1 ändert beide Seiten in einem Commit; Smoke über alle Seiten (§8) |
 | API-Felder Server → Android | `ApiClient.kt` Data Classes, String-Vergleiche auf `"bereit"`/`"fehler"` (`TourenScreen.kt:258`, `ImportViewModel.kt:119`) | Welle 1; App-Release im selben Tag wie der Server |
 | `edits.json` ← Android | `EditsFortschreibung.kt` mit rohen Schlüsseln `"medien"`, `"titelbild"`, `"caption"` | Welle 1; Android-Unit-Test auf die neuen Schlüssel |
 | `test/fixtures/film-axis.json` | EIN Fixture, zwei Testwelten (`test/film-axis.test.ts`, `server/test/filmtempo.test.ts`) | Welle 5 ändert Fixture und Server-Spiegel zusammen |
-| Server-Spiegel ohne Import | `server/src/web-paths.ts`, `server/src/handle.ts`, `server/src/pipeline/film-tempo.ts`, `film-axis.ts`, `STUDIO_PEGEL` in `schema/edits.ts` | bestehende Drift-Wächter in `test/routen.test.ts`, `test/film-axis.test.ts`, `test/audio*.test.ts` |
-| Text-Wächter | Tests, die Quelltext als Zeichenkette lesen (`test/newsletter-einwilligung.test.ts`, `test/session-hinweis.test.ts`, `test/routen.test.ts`, `test/basis-css.test.ts`) | laufen ohnehin; wer rot wird, passt den Wächter an, nicht den Code |
+| Server-Spiegel ohne Import | `server/src/web-paths.ts`, `server/src/handle.ts`, `server/src/pipeline/film-tempo.ts`, `film-axis.ts`, `STUDIO_PEGEL` in `schema/edits.ts` | bestehende Drift-Wächter in `test/routes.test.ts`, `test/film-axis.test.ts`, `test/audio*.test.ts` |
+| Text-Wächter | Tests, die Quelltext als Zeichenkette lesen (`test/newsletter-einwilligung.test.ts`, `test/session-notice.test.ts`, `test/routes.test.ts`, `test/base-css.test.ts`) | laufen ohnehin; wer rot wird, passt den Wächter an, nicht den Code |
 | Messskripte | `scripts/messungen/*.ts|mjs` importieren `src/film-axis`, `src/card-timing`, `src/card-painter`, `src/route-anchors`, `src/geo` und lesen `window.__maptale.filmAxis`, `.filmTime`, `.clock`, `.exportStats`; `scripts/seed-demo-touren.mjs` importiert `src/tours` | Welle 5 zieht `scripts/messungen` mit, Welle 6 den Rest von `scripts/`; Abnahme: jedes Messskript einmal gestartet |
-| `vite.config.js` → `src/routen.ts` | die Config importiert `EINSTIEGE`, `PFAD_ZU_DATEI`, `ROUTEN` und `tourAusPfad`; sie ist kein TypeScript und läuft in Vites eigenem Loader | Welle 6, im selben Commit. Fällt laut auf (die Config lädt nicht), steht aber sonst auf keiner Liste |
+| `vite.config.js` → `src/routes.ts` | die Config importiert `ENTRIES`, `PATH_TO_FILE`, `ROUTES` und `tourFromPath`; sie ist kein TypeScript und läuft in Vites eigenem Loader | ✅ Welle 6, im selben Commit. Fällt laut auf (die Config lädt nicht), steht aber sonst auf keiner Liste |
 | `camera[].preset` → `PRESETS` in `src/tour.ts` | der Player löst den Wert über `PRESETS[name] ?? PRESETS.mittel` auf; der Rückfall ist STILL. Welle 1 benennt die Werte, `tour.ts` ist Welle 5: Dazwischen fiele jede Kamerakante auf „mittel" | Welle 1 zieht BEIDE Stellen im selben Commit mit: die Schlüssel von `PRESETS` UND den Vergleich `k.preset === 'standard'` in `src/main.ts` (`kamFolger`): `standard` steht gar nicht in `PRESETS`, sondern wird dort abgefangen und auf die Einstellung des Zuschauers gelegt; nach `default` liefe er in `distanzFuer`, fiele still auf „mittel" und überschriebe genau die Wahl, die er respektieren soll. `MODE_SCALE` bleibt, Modi wandern nicht |
 | `verarbeite` in `routes/tours.ts` | heute NICHT exportiert; die Start-Migration aus §4.3 muss sie rufen | Welle 1 exportiert oder verschiebt sie, bevor die Migration entsteht |
 | Push-Nutzlast Server → App | [push.ts](../../server/src/push.ts) sendet `{ typ: 'import-fertig', tourId, importId }`, [MaptalePushDienst.kt](../../android/app/src/main/java/app/maptale/push/MaptalePushDienst.kt) vergleicht `data["typ"] != "import-fertig"`. Schlüssel UND Wert deutsch, und die Leser liegen in verschiedenen Wellen (Server 2, App 7) | Welle 1, zusammen mit den übrigen API-Feldern. Sonst kommt jede Import-fertig-Meldung still nie mehr an |
 | Vhost | `deploy/cloudpanel-nginx.conf` proxyt `/api`, `/@`, `/tour/`, `/umami` und die Sitemaps | unberührt, solange `/api/` Präfix bleibt |
 | WebView-Brücke | `maptale:hintergrund`/`vordergrund` + `window.MaptaleApp.verlassen()` verbinden Welle 5 (Player) und Welle 7 (App); versagt LAUTLOS (Optional-Chaining schluckt den toten Exit, ohne das Hintergrund-Event kommt der Ton-Drift zurück) | Welle 5 lässt beide Kanäle unangetastet; Welle 7 ändert beide Seiten in EINEM Commit (derselbe Tag baut Web und APK) |
-| CSS-`<link>`-Namen | `basis.css`, `grundelemente.css`, `werkzeug.css`, `rechtstext.css` hängen als `<link>` in den HTML-Köpfen, dazu `basisZuerst()` in vite.config.js | Welle 6 ändert HTML, CSS-Dateinamen und vite.config zusammen; danach jede Seite im Dev UND gebaut ansehen |
+| CSS-`<link>`-Namen | `base.css`, `page-elements.css`, `toolkit.css`, `legal-text.css` hängen als `<link>` in den HTML-Köpfen, dazu `basisZuerst()` in vite.config.js | ✅ Welle 6: HTML, CSS-Dateinamen und `GETEILTE_BLAETTER`/`--sheet-*` in vite.config.js im selben Commit; jede Seite gebaut angesehen |
 | Extern registrierte URLs | OAuth-Callback und Webhook der Tracker-Anbieter (`/api/tracker/:provider/callback`, `/api/webhooks/tracker/:provider`) | schon englisch, **bleiben wortgleich**; eine Änderung hieße Neuregistrierung beim Anbieter |
 | Mail-Links auf die API | `/api/export/:token` (48 h gültig), `/api/newsletter/ein-klick/:token` (noch kein Versand live) | Welle 1 zu einem Zeitpunkt ohne laufenden Export; Newsletter-Versand ist Teil B und noch nicht gebaut |
 
@@ -331,13 +339,13 @@ zugehörigen Test laufen:
   (Art. 7 Abs. 3 DSGVO). Gebaut vom Server
   ([waitlist.ts](../../server/src/routes/waitlist.ts),
   [newsletter.ts](../../server/src/newsletter.ts), [auth.ts](../../server/src/routes/auth.ts)),
-  geparst im Web ([konto.ts](../../src/konto/konto.ts),
+  geparst im Web ([konto.ts](../../src/account/account.ts),
   [studio.ts](../../src/studio/studio.ts)), ein drittes Mal gebaut in
-  [adminmodell.ts](../../src/admin/adminmodell.ts): kein Compiler verbindet die
+  [admin-model.ts](../../src/admin/admin-model.ts): kein Compiler verbindet die
   Seiten. Eingefroren wie die Seiten-Pfade. `#tracker=` (Werte
   `verbunden/abgebrochen/abgelaufen/fehler`, OAuth-Rücksprung aus
   [tracker.ts](../../server/src/routes/tracker.ts), gelesen in
-  [trackerkarte.ts](../../src/konto/trackerkarte.ts)) steht in keiner Mail und
+  [tracker-card.ts](../../src/account/tracker-card.ts)) steht in keiner Mail und
   ist flüchtig; es friert der Einheitlichkeit wegen mit ein, dieselbe Naht,
   dieselbe Regel.
 - **Die Notification-Kanal-IDs der App** (`aufzeichnung`, `importe`, `upload`,
@@ -614,7 +622,7 @@ mit Leser.
 | **3** ✅ | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `pruefung`; `stopps` geht nach Tabelle mit Welle 5) | niedrig |
 | **4** ✅ | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `playback`, `export-sheet`, `add-media`, `sfx-library`, `tooltip`, `map-mood`) + Dateiumbenennungen + die DOM-IDs und CSS-Klassen des Studios | mittel |
 | **5** ✅ | Player-Engine (`tour`, `film-axis`, `film-clock`, `card-painter`, `card-layer`, `card-timing`, `route-anchors`, `ui`, `main`, `film-export`, `film-export-channel`, `fullscreen`, `map-attribution`, `tour-texts`, `weather-sky`, `pin-model`, `stops`) + `window.__maptale` + `scripts/messungen` + `test/fixtures/film-axis.json` mit Server-Spiegel + die DOM-Namen des Players | mittel |
-| **6** | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
+| **6** ✅ | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
 | **7** | Android: ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; Zusage in `LuhamboDb.kt` zurück | niedrig (nur eigene Geräte) |
 | **8** | Doku nach §7: Topf A übersetzen, Topf C archivieren, Start-Migration ausbauen, wenn der Marker überall 2 ist | niedrig |
 | **9** | Betrieb: die `MAPTALE_*`-Env-Variablen (§3.4) samt `docker-compose.cloudpanel.yml`, `server/Dockerfile`, CI-Secrets und den Runbooks in `docs/ops/`. Handgriff in drei Schritten: neue Namen ZUSÄTZLICH in die Server-`.env`, deployen, alte Zeilen entfernen. Kein Code-Rename in den Wellen davor, ein Ops-Schritt mit eigenem Rollback (`.env` zurück, voriges Image) | niedrig, aber still: kein Compiler, kein Test, kein Diff sieht den Fehler |
@@ -653,7 +661,7 @@ wählt ihn aus dem falschen Grund.
 
 **Verhältnis zu Astro und i18n: beide kommen danach.** Entschieden am
 2026-08-19. Der [Astro-Umstieg](konzept_astro_umstieg.md) fasst dieselben
-Dateien an wie Welle 6 (`app-nav.ts`, `routen.ts`, die HTML-Einstiege), und
+Dateien an wie Welle 6 (`app-nav.ts`, `routes.ts`, die HTML-Einstiege), und
 [Mehrsprachigkeit](konzept_mehrsprachigkeit_i18n.md) wartet auf Astro. Die
 Kette ist Englisch, dann Astro, dann i18n: Wer zuerst umstellt, fasst jede
 Datei einmal an. Die Gegenrichtung kostet nichts, weil Astro dann auf
@@ -667,7 +675,7 @@ englischen Modulnamen aufbaut.
 | Felder und Werte in `schema/edits.ts` und `schema/upload.ts`, Kennungen auf `@2` | Inhalt von `mailvorlagen`, `textfassung` |
 | Felder in `tour.json` und `enrichment.json`; Re-Render aller Touren | Prosa in `docs/` außer den zwei Specs |
 | **API-Pfade unter `/api/` und alle Request-/Response-Felder** (§6.7) | extern registrierte Pfade (Tracker) |
-| Web-Leser: `src/studio/api.ts`, `src/remote.ts`, `src/konto/*`, `src/profil/*`, `src/admin/*`, `src/galerie/*`, `src/app-nav.ts` (nur die API-Typen und Feldzugriffe, nicht die Modulnamen) | Umbenennungen, die weder Compiler noch Nahtliste verlangen |
+| Web-Leser: `src/studio/api.ts`, `src/remote.ts`, `src/account/*`, `src/profile/*`, `src/admin/*`, `src/gallery/*`, `src/app-nav.ts` (nur die API-Typen und Feldzugriffe, nicht die Modulnamen) | Umbenennungen, die weder Compiler noch Nahtliste verlangen |
 | Android-Leser: `ApiClient.kt`, `Manifest.kt`, `EditsFortschreibung.kt`, `TourenScreen.kt`/`ImportViewModel.kt` (Statuswerte), `MaptalePushDienst.kt` (Push-Schlüssel, mit `push.ts`), Room-Entities, Enum-Speicherwerte, Room v4 | Android-Screens, ViewModels, Service-Namen (Welle 7) |
 | Start-Migration in `server/src/migrations/` (entsteht gleich englisch, §4.3) | |
 | `docs/specs/austauschformat.md` und `overlay-und-tourjson.md` | |
@@ -723,7 +731,7 @@ Vier Dinge, die dabei aufgefallen sind:
   und der Helfer.
 
 Rot geworden sind vier Text-Wächter im Web, und das war die gute Nachricht:
-`routen.test.ts` (Server-Kopie `web-paths.ts`, `HANDLE_PATTERN`,
+`routes.test.ts` (Server-Kopie `web-paths.ts`, `HANDLE_PATTERN`,
 `MARKER_OPEN`/`MARKER_CLOSE`), `studio-baukasten.test.ts` (`WEATHER_MODES`,
 `AUTO_MUSIC`), `newsletter-einwilligung.test.ts` (`CONSENT_TEXTS`) und
 `markdown-links.test.ts` mit 60 toten Doku-Links. Angepasst wurde der Wächter,
@@ -798,9 +806,9 @@ schwieg (beides sind `EventTarget`). Der Abzug hat es in zwei Sekunden gezeigt.
 Sieben Dinge, die dabei aufgefallen sind:
 
 - **Eine Umbenennung darf nicht aus ihrer Welle hinauslaufen.** Ein Objektliteral
-  in `studio.ts` ist durch ein Interface aus `passwortfeld.ts` (Welle 6) getypt;
+  in `studio.ts` ist durch ein Interface aus `password-field.ts` (Welle 6) getypt;
   der Language-Service benennt dann dessen Eigenschaft mit um. Der erste Lauf hat
-  so `app-nav.ts`, `passwortfeld.ts`, `kontodialoge.ts`, `kartenmaler.ts` und
+  so `app-nav.ts`, `password-field.ts`, `kontodialoge.ts`, `kartenmaler.ts` und
   `exportformat.ts` angefasst und `app-nav.ts` dabei sogar unübersetzbar gemacht.
   Seither gilt: Ein Symbol, dessen Stellen die Welle verlassen, wird GAR NICHT
   angefasst. 27 blieben so stehen — alle Vertragsfelder der Foto-Karte und des
@@ -852,7 +860,7 @@ Einordnung, `raster` ein MapLibre-Layertyp, `fokus` eine Quellen-id). Beim
 Einschalten hat er sofort vier weitere gemeldet.
 
 Rot geworden sind fünf Text-Wächter, und das war wieder die gute Nachricht:
-`session-hinweis.test.ts` (`studio-dabei`/`studio-gesteuert`),
+`session-notice.test.ts` (`studio-dabei`/`studio-gesteuert`),
 `einblendung-css.test.ts` (`.karten-buehne`), `app-nav.test.ts` (die statische
 Kopfleiste gegen `appHeaderHtml`), `studio-baukasten.test.ts` (`anfang`/`ende`)
 und `client-vertrag.test.ts` — der letzte hat zwei echte Wertdrifts gemeldet
@@ -979,6 +987,99 @@ Rot geworden sind sechs Text-Wächter, und wieder war das die gute Nachricht:
 Schleier-Vergleich), `studio-stops.test.ts` (`nearM`, `orderInStop`),
 `studio-playback.test.ts` (die geteilte Klang-Regel), `markdown-links.test.ts`
 (28 umbenannte Dateien) und `client-vertrag.test.ts` selbst.
+
+### Welle 6: gebaut am 2026-08-21
+
+Die größte Welle (731 Tabellenzeilen) und die letzte im Web: Konto, Profil,
+Verwaltung, Galerie, die flachen Produktmodule, die CSS-Blätter samt ihren
+Custom Properties und die DOM-Namen der Produkt-Seiten.
+
+**Eine Lücke bleibt, und sie liegt ZWISCHEN den Wellen:**
+[photopins.ts](../../src/photopins.ts) trägt noch 68 deutsche Namen im Inneren
+(`kopf`, `fuss`, `mast`, `MASSE`, `zeichneKopf` …). Das Modul steht in keiner
+Wellen-Liste: §5 zählt es weder zu 5 noch zu 6, und die Tabelle kennt nur seine
+zwei Exporte (`PinStop`, `PinControl`, beide in Welle 5 gegangen). Dazu fünf
+einzelne Nachzügler (`drin`/`ziel` in `audiotracks.ts`, `pxRef` in
+`pin-model.ts`, `mitte` in `remote.ts`, `treffer` in `editor.ts`, `Punkt` in
+`weather.ts`) und die inerte id `foto-karte`, die der Editor an die
+Karten-Leinwand hängt. Wer sie schließt, tut es als eigener kleiner Lauf —
+nicht als Anhängsel an eine Welle.
+
+**Drei Entscheidungen, die die Tabelle offen ließ** (alle drei am selben Tag
+getroffen und in ihr nachgetragen):
+
+- **`nav-dabei` wird `nav-returning`, nicht `nav-join`.** Die Tabelle flaggte
+  den Widerspruch in ihrer eigenen Bemerkung: `dabei` heißt hier
+  „angemeldet", nicht „beitreten" (`html.nav-dabei [data-gast] { display: none }`,
+  und Welle 4 hat `studio-dabei` schon zu `studio-signed-in` gezogen). Aus
+  `data-dabei`/`data-gast` wird `data-signed-in`/`data-guest`.
+- **Das Cookie `maptale_dabei` geht mit** (`maptale_returning`, Web UND Server
+  im selben Commit). Wer angemeldet ist, sieht beim ersten Laden danach einmalig
+  die Gast-Navigation aufblitzen.
+- **Die Ordner tragen ihre Einstiegsdatei mit**: `src/konto/konto.ts` wird
+  `src/account/account.ts`, nicht `src/account/konto.ts`. Die Tabelle kannte nur
+  die Ordner (§6.6, „bekannte Lücken"); die drei Dateizeilen sind nachgetragen.
+
+**Fünf Befunde, die kein Test gesehen hatte** — und alle fünf stammen aus
+früheren Wellen, nicht aus dieser:
+
+- **`quelle: 'web' | 'app'` ging als deutscher Schlüssel an
+  `POST /api/feedback`**, das Schema kennt seit Welle 1 nur `source`. Jede
+  Rückmeldung aus der App stand deshalb als `web` im Eingang. Genau die Sorte
+  aus §9.2, für die es keinen Wächter gibt (Request-Body).
+- **Der Tracker-Rücksprung verglich `'expired'`/`'failed'`**, der Server schickt
+  `#tracker=abgelaufen`/`fehler` (eingefroren, §3.4). Zwei von vier Rückmeldungen
+  kamen nie an.
+- **`render(chip.art)` suchte `'touren'`/`'hm'`**, die Icon-Tabelle führt
+  `tours`/`elevationGain`: Die Kennzahl-Chips des Profils hatten seit Welle 1
+  kein Zeichen mehr. Dasselbe bei `render('ort')` gegen `location` und bei
+  `FARBEN['fotos']` gegen den Aufteilungsschlüssel `photos` — der
+  Speicherbalken zeichnete seine Abschnitte ohne Farbe.
+- **Zwei Wörter waren mitten in deutschem TEXT ersetzt worden**: „Der Zugang
+  gilt nicht hasMore" stand so in der Oberfläche, „Vier, nicht hasMore" in einem
+  Kommentar. Ein Lauf über Wortstämme nimmt Prosa mit (§9.1, erste Regel).
+- **`span.id = 'benutzer-initial'`** in `studio.ts` zeigte nach dieser Welle ins
+  Leere. Gefunden hat es der Wächter 4, nachdem er über ganz `src/` gelegt wurde.
+
+**Der Wächter 4 läuft seither über ganz `src/`** und nicht mehr über eine
+benannte Liste ([client-vertrag.test.ts](../../test/client-vertrag.test.ts)):
+Der Grund für die Liste war, dass die Produktseiten noch deutsche DOM-Namen
+trugen. Dafür hat `KEINE_DOM_NAMEN` zwölf Einträge mehr — jedes davon ein Wort,
+das auf einer Seite eine Klasse und anderswo ein Domänenwert ist (`fehler` als
+`ExportProgress`, `dauer` als Kennzahl-Art, `breit` als Lage der Foto-Karte,
+`offen` und `belegt` als Wörter neben einer Zahl, `abgelaufen` als eingefrorener
+Fragment-Wert, drei reservierte Handles).
+
+**Die Tokens sind mitgegangen, und der Drift-Wächter ist übersetzungsfrei**
+(§6.10): `--akzent` → `--primary`, `--tafel` → `--card`, `--rand` → `--border`.
+DESIGN.md hat dafür ein eigenes `border`-Token bekommen (bisher gab es nur
+`topbar-border`), und aus der Abbildungstabelle im Wächter ist eine Regel
+geworden — die Variable heißt wie das Token, übrig sind sieben Aliasse für die
+Fälle, in denen DESIGN.md zwei Namen für dieselbe Farbe führt (`amber` neben
+`primary`). Die vier Blätter heißen `base.css`, `page-elements.css`,
+`toolkit.css` und `legal-text.css`; `basisZuerst()` in `vite.config.js` erkennt
+sie jetzt an `--sheet-base` statt `--blatt-basis`, und `test/basis-css.test.ts`
+heißt mit seinem Blatt `test/base-css.test.ts`.
+
+**Drei Fallen beim Umbenennen der DOM-Namen**, jede einmal bezahlt:
+
+- **`url(#gradient)` ist kein `id="…"`.** Die SVG-Verläufe der Landing und der
+  404-Seite verweisen über `url(#sbRoute1)` auf ihre Definition; ein Lauf, der
+  nur `id="…"` anfasst, lässt jeden Verlauf ins Leere zeigen — sichtbar als
+  farbloses Bild, und zwar erst im Browser.
+- **Die `<style>`-Blöcke der MODULE liegen in Template-Literalen**, nicht in
+  `<style>`-Tags: `password-field.ts`, `feedback-form.ts`, `feedback-button.ts`
+  und `release-stage.ts` bringen ihr CSS selbst mit. Ein Lauf über HTML-`<style>`
+  fasst sie nicht an, und ihre Klassen stünden danach als einzige noch deutsch da.
+- **`el('div', 'sp-feld')` ist eine Klassenliste** und sieht wie ein beliebiges
+  Argument aus. Konto, Profil und Verwaltung bauen ihren DOM über solche Helfer;
+  die Namen darin fängt weder ein `class="…"`-Muster noch `classList.add`.
+
+**Der Bindungs-Abzug war Zeile für Zeile gleich**, über alle 80 392 Stellen —
+mit einer Ausnahme: `test/base-css.test.ts`, wo die Übersetzungstabelle durch
+eine Regel ersetzt wurde. Er muss VOR dem Prettier-Lauf verglichen werden: Der
+formatiert geänderte Zeilen neu um, und danach verschieben sich die
+Deklarations-Zeilen, an denen der Abzug hängt.
 
 ---
 
@@ -1151,7 +1252,7 @@ Dazu neun Regeln, jede eine Zeile:
 | Filmspur | `FilmTrack` | `tour.ts`; die GPS-Spur ist `track`, die Zeitleisten-Bahn `lane` |
 | Karten-Kachel (MapLibre) | `tile` | `KACHEL` in `demclean-rechnung.ts` → `TILE`, `kachelA/kachelB` in `atmosphere.ts` → `tileA/tileB` |
 | Listen-Kachel (Tour in Galerie) | `thumbnail` | nicht `tile`: das ist die Kartenkachel |
-| Foto-Karte als DOM-Artefakt | `photoCard` | `card` allein wird sonst wieder mehrdeutig, s. `trackerkarte.ts` → `tracker-card.ts` und die Bildkarten der Galerie |
+| Foto-Karte als DOM-Artefakt | `photoCard` | `card` allein wird sonst wieder mehrdeutig, s. `tracker-card.ts` → `tracker-card.ts` und die Bildkarten der Galerie |
 
 ### 6.4 Server / Pipeline
 
@@ -1199,7 +1300,7 @@ Ordner, dessen Inhalt die Welle benennt. **Diese Tabelle ist der Anfang der
 Abbildungstabelle, nicht ihr Ende** (§11): Vollständigkeit wird in Welle 0
 maschinell erhoben; was hier steht, sind die Fälle, bei denen die Zielform eine
 Entscheidung war. Zwei bekannte Lücken, damit niemand sie für abgedeckt hält:
-die Ordnernamen `src/konto/`, `src/profil/`, `src/galerie/` (stehen in jedem
+die Ordnernamen `src/account/`, `src/profile/`, `src/gallery/` (stehen in jedem
 Importpfad und sind nirgends entschieden) und die Testdateien
 (`test/fullscreen.test.ts`, `test/card-painter.test.ts`,
 `server/test/anreicherung.test.ts`, …), die mit ihrem Modul in dessen Welle
@@ -1232,24 +1333,24 @@ gehen.
 | `src/film-export-channel.ts` | `film-export-channel.ts` | 5 |
 | `src/pin-model.ts` | `pin-model.ts` | 5 |
 | `src/dem-clean-math.ts` | `dem-clean-math.ts` | 5 |
-| `src/sichtbarkeit.ts` | `visibility.ts` | 6 |
-| `src/profil/profilmodell.ts` | `profile-model.ts` | 6 |
-| `src/profil/profilbearbeiten.ts` | `edit-profile.ts` | 6 |
-| `src/profil/titelbilder.ts` | `profile-banners.ts` | 6 |
-| `src/konto/kontomodell.ts` | `account-model.ts` | 6 |
-| `src/konto/kontodialoge.ts` | `account-dialogs.ts` | 6 |
-| `src/konto/trackerkarte.ts` / `trackermodell.ts` | `tracker-card.ts` / `tracker-model.ts` | 6 |
-| `src/galerie/galeriemodell.ts` | `gallery-model.ts` | 6 |
-| `src/admin/adminmodell.ts` | `admin-model.ts` | 6 |
-| `src/passwortstaerke.ts` | `password-strength.ts` | 6 |
-| `src/passwortfeld.ts` | `password-field.ts` | 6 |
-| `src/dialogschicht.ts` | `dialog-layer.ts` | 6 |
-| `src/entwicklungsstand.ts` | `release-stage.ts` | 6 |
-| `src/routen.ts` | `routes.ts` | 6 |
-| `src/einladungscode.ts` | `invitation-code.ts` | 6 |
-| `src/feedbackknopf.ts` / `feedbackformular.ts` / `feedbackmodell.ts` | `feedback-button.ts` / `feedback-form.ts` / `feedback-model.ts` | 6 |
-| `src/session-hinweis.ts` | `session-notice.ts` | 6 |
-| `src/rechtstextgliederung.ts` | `legal-text-outline.ts` | 6 |
+| `src/visibility.ts` | `visibility.ts` | 6 |
+| `src/profile/profile-model.ts` | `profile-model.ts` | 6 |
+| `src/profile/edit-profile.ts` | `edit-profile.ts` | 6 |
+| `src/profile/profile-banners.ts` | `profile-banners.ts` | 6 |
+| `src/account/account-model.ts` | `account-model.ts` | 6 |
+| `src/account/account-dialogs.ts` | `account-dialogs.ts` | 6 |
+| `src/account/tracker-card.ts` / `tracker-model.ts` | `tracker-card.ts` / `tracker-model.ts` | 6 |
+| `src/gallery/gallery-model.ts` | `gallery-model.ts` | 6 |
+| `src/admin/admin-model.ts` | `admin-model.ts` | 6 |
+| `src/password-strength.ts` | `password-strength.ts` | 6 |
+| `src/password-field.ts` | `password-field.ts` | 6 |
+| `src/dialog-layer.ts` | `dialog-layer.ts` | 6 |
+| `src/release-stage.ts` | `release-stage.ts` | 6 |
+| `src/routes.ts` | `routes.ts` | 6 |
+| `src/invitation-code.ts` | `invitation-code.ts` | 6 |
+| `src/feedback-button.ts` / `feedback-form.ts` / `feedback-model.ts` | `feedback-button.ts` / `feedback-form.ts` / `feedback-model.ts` | 6 |
+| `src/session-notice.ts` | `session-notice.ts` | 6 |
+| `src/legal-text-outline.ts` | `legal-text-outline.ts` | 6 |
 | `server/src/pipeline/anreicherung.ts` | `enrichment.ts` | 2 |
 | `server/src/pipeline/bild.ts` / `bildnachtrag.ts` | `image.ts` / `image-addendum.ts` | 2 |
 | `server/src/pipeline/filmachse.ts` / `filmtempo.ts` | `film-axis.ts` / `film-tempo.ts` | 2 |
@@ -1261,7 +1362,7 @@ gehen.
 | `server/src/routes/galerie.ts` / `bibliothek.ts` / `warteliste.ts` / `rueckmeldungen.ts` | `routes/gallery.ts` / `audio-library.ts` / `waitlist.ts` / `feedback.ts` | 2 |
 | `server/src/auth/einladungen.ts` / `warteliste.ts` / `passwort.ts` | `auth/invitations.ts` / `waitlist.ts` / `password.ts` | 2 |
 | `server/src/tracker/krypto.ts` / `touranleger.ts` / `importlauf.ts` / `normalisierer.ts` / `testprovider.ts` / `vertrag.ts` | `tracker/crypto.ts` / `tour-creator.ts` / `import-run.ts` / `normalizer.ts` / `test-provider.ts` / `contract.ts` | 2 |
-| `src/basis.css` / `grundelemente.css` / `werkzeug.css` / `rechtstext.css` | `base.css` / `page-elements.css` / `toolkit.css` / `legal-text.css` (samt `<link>`-Zeilen in den HTML-Köpfen und `basisZuerst()` in vite.config.js, s. Nahtliste) | 6 |
+| `src/base.css` / `page-elements.css` / `toolkit.css` / `legal-text.css` | `base.css` / `page-elements.css` / `toolkit.css` / `legal-text.css` (samt `<link>`-Zeilen in den HTML-Köpfen und `basisZuerst()` in vite.config.js, s. Nahtliste) | 6 |
 | `server/src/migrations/` (neu in Welle 1) | entsteht **gleich englisch** (§4.3) | 1 |
 | `android/…/daten/LuhamboDb.kt` | `MaptaleDb.kt` | 7 |
 
@@ -1432,7 +1533,7 @@ Code-Bezeichner, den ein Compiler kennt, noch Produkttext. Diese Namen stehen
 gleichzeitig in `.ts`, `.css` und `.html`, und drei davon werden von Werkzeug
 gelesen, nicht von Menschen.
 
-**21 von 40 Custom Properties** in [basis.css](../../src/basis.css) sind
+**21 von 40 Custom Properties** in [base.css](../../src/base.css) sind
 deutsch: `--akzent`, `--akzent-2`, `--auf-akzent`, `--blau`, `--gruen`, `--rot`,
 `--lila`, `--papier`, `--tafel`, `--linie`, `--glas`, `--glas-rand`,
 `--schatten`, `--rand`, `--rand-hell`, `--bg-tief`, `--text-gedaempft`,
@@ -1440,12 +1541,12 @@ deutsch: `--akzent`, `--akzent-2`, `--auf-akzent`, `--blau`, `--gruen`, `--rot`,
 
 **Die übrigen kommen dazu und liegen verstreut**: `--blatt-grundelemente` und
 `--blatt-werkzeug` in ihren Blättern, `--konto-lesebreite` in
-`grundelemente.css` und `konto.html`, `--lesebreite` in `rechtstext.css`,
+`page-elements.css` und `konto.html`, `--lesebreite` in `legal-text.css`,
 `--seitenrand` und `--navh-leiste` in `index.html`, `--strip-margin`,
 `--timeline-width` und `--inspector-width` in `studio.html` und den
 Studio-Modulen (`editor.ts`, `audio-clip.ts`), `--karten-mass` und
 `--schleier-sicht` in `style.css` und `kartenschicht.ts`. Wer die Inventur aus
-`basis.css` allein zieht, findet die Hälfte nicht, und wer nur CSS-Dateien
+`base.css` allein zieht, findet die Hälfte nicht, und wer nur CSS-Dateien
 durchsucht, verfehlt die HTML-Köpfe und die `.ts`, die sie setzen. Dazu Klassen und ids quer
 durch Player und Studio: `.halt-flaeche`, `.karten-leinwand`, `.karten-info`,
 `.karten-info-popup`, `.zurueck`, `.zurueck-wort`, `.kompakt-quer`,
@@ -1461,14 +1562,14 @@ Produktseiten in Welle 6). Drei Fallen:
   umbenennt und die Config vergisst, kippt die CSS-Kaskade, und zwar NUR im
   Build. Der Dev-Server sieht richtig aus.
 - **Mindestens fünf Wächter lesen diese Namen als Text**
-  ([basis-css](../../test/basis-css.test.ts),
+  ([basis-css](../../test/base-css.test.ts),
   [player-schichtung](../../test/player-schichtung.test.ts) mit
   `.karten-leinwand`, `.dock`, `.zurueck`, `.karten-info`,
   [app-nav](../../test/app-nav.test.ts), [einblendung-css](../../test/card-painter-css.test.ts),
-  [entwicklungsstand](../../test/entwicklungsstand.test.ts)). Sie werden rot,
+  [entwicklungsstand](../../test/release-stage.test.ts)). Sie werden rot,
   und das ist die gute Nachricht; angepasst wird der Wächter, nicht der Code.
 - **`DESIGN.md` führt seine Tokens SCHON englisch** (`primary`, `amber`, `text`,
-  `muted`, `bg`, `surface`, `glass`, `paper`), und `basis.css` leitet daraus
+  `muted`, `bg`, `surface`, `glass`, `paper`), und `base.css` leitet daraus
   deutsche Variablennamen ab. Der Drift-Wächter hält beides deckungsgleich und
   überbrückt dabei heute eine Übersetzung. Das ist die einzige Stelle im Repo,
   an der Deutsch und Englisch bereits per Test aneinandergebunden sind: Gehen
@@ -1478,11 +1579,15 @@ Produktseiten in Welle 6). Drei Fallen:
 
 `DESIGN.md` selbst bleibt fast unangetastet: Sein YAML ist der Inhalt, nicht der
 Kopf, und die Tokens dort sind bereits die Zielform. **Entschieden bei der
-Abnahme am 2026-08-20: Die Custom Properties GEHEN MIT**, abgeleitet aus den
-DESIGN.md-Tokens (`--akzent` → `--primary`, `--tafel` → `--card`), und die eine
-Ausnahme wird keine: `--rand` wird `--border`, und DESIGN.md bekommt dafür ein
-allgemeines `border`-Token (heute existiert nur `topbar-border`) — der
-Drift-Wächter ist danach übersetzungsfrei.
+Abnahme am 2026-08-20, gebaut mit Welle 6: Die Custom Properties SIND
+MITGEGANGEN**, abgeleitet aus den DESIGN.md-Tokens (`--akzent` → `--primary`,
+`--tafel` → `--card`), und die eine Ausnahme wurde keine: `--rand` heißt
+`--border`, und DESIGN.md hat dafür ein allgemeines `border`-Token bekommen
+(vorher gab es nur `topbar-border`). Der Drift-Wächter ist seither
+übersetzungsfrei: Aus der Tabelle ist die Regel „die Variable heißt wie das
+Token" geworden, daneben stehen sieben Aliasse für die Fälle, in denen
+DESIGN.md zwei Namen für dieselbe Farbe führt (`amber` neben `primary`,
+`surface` neben `bg`) oder die Variable kürzer heißt (`warning` → `--warn`).
 
 ---
 

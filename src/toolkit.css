@@ -1,0 +1,201 @@
+/*
+ * Knöpfe, Felder und Etiketten der WERKZEUG-Seiten: Studio und Verwaltung.
+ *
+ * Eigene Datei und nicht in page-elements.css, weil das Projekt zwei
+ * Knopf-Register hat — und zwar mit Absicht:
+ *
+ *   - Die öffentlichen Seiten (Galerie, Profil, Konto) tragen PILLEN auf Glas.
+ *     Dort sind Knöpfe seltene, große Handlungen: „Profil bearbeiten",
+ *     „Mehr laden", „Konto löschen".
+ *   - Studio und Verwaltung tragen KÄSTEN mit 9-px-Radius auf Flächenstufe 2.
+ *     Dort steht ein Knopf neben dem anderen, und eine Reihe Pillen läse sich
+ *     wie eine Menüzeile statt wie eine Werkzeugleiste.
+ *
+ * Beides in eine Datei zu legen ginge nicht: `button.button` (Pille) schlägt
+ * `button, .button` (Kasten) durch die höhere Spezifität — die Werkzeugleisten
+ * würden still zu Pillenreihen. Welches Register gewinnt, ist eine
+ * Design-Entscheidung; sie gehört nicht in eine Aufräum-Etappe.
+ *
+ * Eingebunden NACH base.css und VOR page-elements.css: In beiden Seiten
+ * standen die Grundbausteine über der Kopfleiste, und `.am-item` (Konto-
+ * Menü, jetzt in page-elements.css) überschreibt bewusst Teile davon.
+ */
+
+/* Erkennungsmarke für basisZuerst() in vite.config.js — s. src/base.css. */
+:root {
+  --sheet-toolkit: 1;
+}
+
+/* ═══════════════ Knöpfe ═══════════════ */
+
+button,
+.button {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 120ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+  white-space: nowrap;
+}
+button:hover,
+.button:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+button:active,
+.button:active {
+  transform: scale(0.975);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+button:disabled:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+/* Die globale :hover-Regel wiegt durch die Pseudoklasse so viel wie eine
+   Klasse — der Primärknopf muss seine Fläche in der :hover-Regel WIEDERHOLEN,
+   sonst wird er beim Zeigen grau (DESIGN.md, Components). */
+button.primary,
+.button.primary {
+  background: linear-gradient(100deg, var(--primary), var(--secondary));
+  color: var(--on-cta);
+  border: none;
+  font-weight: 600;
+  padding: 10px 16px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--secondary) 22%, transparent);
+}
+button.primary:hover,
+.button.primary:hover {
+  background: linear-gradient(100deg, var(--primary), var(--secondary));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--secondary) 34%, transparent);
+  filter: brightness(1.06);
+}
+
+button.danger:hover {
+  border-color: rgba(229, 72, 77, 0.6);
+  color: var(--danger);
+}
+
+button svg,
+.button svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* Fokus, Fall 1: Elemente OHNE eigenen Rand (DESIGN.md, Shapes).
+   Felder sind hier ausgenommen — sie haben einen Rahmen, der sich färben kann,
+   und bekamen mit beidem einen Doppelring: die Outline zog mit 2px Luft eine
+   zweite Grenze neben die vorhandene. */
+:is(button, .button, [role='button'], a):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+/* ═══════════════ Felder ═══════════════ */
+
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='search'],
+select,
+textarea {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  width: 100%;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+:is(input, select, textarea):hover {
+  border-color: var(--border-strong);
+}
+/* Fokus, Fall 2: Elemente MIT eigenem Rand. Der Rand färbt sich, der Halo
+   verstärkt genau diese Kante — zusammen 4px Amber, mehr als die 2px-Outline,
+   die er ersetzt. Der frühere Flächenwechsel (`background: #0a0e15`) ist weg:
+   Er war das dritte Signal für denselben Zustand und zugleich eine rohe Farbe,
+   die kein Token war. */
+:is(input, select, textarea):focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+::placeholder {
+  color: var(--text-3);
+}
+textarea {
+  resize: vertical;
+}
+
+label {
+  display: block;
+  margin: 0 0 6px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+label .extra {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+/* Eigener Pfeil statt des Systemwidgets — sonst bringt jede Plattform ihre
+   eigene Farbe mit. Die Strichfarbe ist --text-2, in der Data-URL codiert. */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a7b1bf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+/* ═══════════════ Etiketten ═══════════════
+   Die SORTEN (bereit, fehler, admin, offen …) bleiben in der Seite: Sie sind
+   das Vokabular des jeweiligen Bereichs, nicht der Marke. */
+
+.badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* ═══════════════ Hinweiszeile unter einem Feld ═══════════════ */
+
+.hint {
+  font-size: 12.5px;
+  color: var(--text-2);
+  min-height: 1.2em;
+}
+.hint.error {
+  color: var(--danger);
+}
+.hint.ok {
+  color: var(--success);
+}

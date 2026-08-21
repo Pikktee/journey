@@ -2338,7 +2338,7 @@ meldung	message	css-klasse	admin.html,src/admin/admin.ts,studio.html	6	VORSCHLAG
 menue-offen	menu-open	css-klasse	index.html,src/studio/studio.ts,studio.html	6	Menue zu menu, offen zu open (4.2); Fundorte in Studio und Produktseiten, spaeteste Welle 6; Landing/Studio
 merk	callout	css-klasse	datenschutz.html,impressum.html,src/rechtstext.css	6	VORSCHLAG: Merksatz im Rechtstext = callout; Rechtstexte
 mitte	center	css-klasse	public/404.html	6	VORSCHLAG: amerikanisch center (6.0); 404 liegt ausserhalb des Builds, von Hand nachziehen; 404-Seite
-nav-dabei	nav-join	css-klasse	index.html,src/grundelemente.css	6	VORSCHLAG: dabei = Dabei-sein-Knopf = join; Landing/geteilte Grundelemente
+nav-dabei	nav-returning	css-klasse	index.html,src/page-elements.css	6	ENTSCHIEDEN 2026-08-21 beim Bau der Welle 6: dabei = angemeldet, nicht beitreten. Der frueher hier stehende Vorschlag nav-join sagte das Gegenteil; studio-dabei zu studio-signed-in (Welle 4) und die Konstante NAV_RETURNING_CLASS lesen es genauso; Landing/geteilte Grundelemente
 nav-gegen	nav-counterpart	css-klasse	src/rechtstext.css	6	VORSCHLAG: gegen = Gegenstueck (Querverweis Impressum/Datenschutz); Rechtstexte
 nav-nur-xs	nav-xs-only	css-klasse	index.html	6	VORSCHLAG: nur-xs = xs-only; Landing
 nav-panel-etikett	nav-panel-label	css-klasse	index.html	6	VORSCHLAG: Etikett zu label; Landing
@@ -2541,7 +2541,7 @@ zusatz	extra	css-klasse	admin.html,src/werkzeug.css	6	VORSCHLAG: Zusatz-Text im 
 --text-gedaempft	--muted	css-variable	galerie.html,index.html,konto.html,profil.html,src/basis.css,src/exportfilm.ts,src/grundelemente.css,src/rechtstext.css,src/style.css,studio.html	6	Grundstock: --muted (DESIGN: muted); Fundorte in Studio und Player und Produktseiten, spaeteste Welle 6; gedaempfte Textstufe: Design-Token; wächter: basis-css.test.ts
 --text-zart	--faint	css-variable	src/basis.css	6	VORSCHLAG (DESIGN: faint)
 --text-zart	--faint	css-variable	galerie.html,index.html,konto.html,profil.html,src/basis.css,src/grundelemente.css,src/rechtstext.css,studio.html	6	Grundstock: --faint (DESIGN: faint); Fundorte in Studio und Produktseiten, spaeteste Welle 6; zarte Textstufe: Design-Token; wächter: basis-css.test.ts
-dabei	signedIn	dataset-schluessel	index.html,src/grundelemente.css	6	VORSCHLAG: dabei = angemeldet (session-hinweis); KONFLIKT: Teil A deutet nav-dabei als join, Zusammenfuehrung abgleichen; Landing/geteilte Grundelemente; wächter: app-nav.test.ts+session-hinweis.test.ts
+dabei	signedIn	dataset-schluessel	index.html,src/page-elements.css	6	Als Attribut data-signed-in; Gegenstueck data-guest. KONFLIKT mit nav-join aufgeloest (s. dort); Landing/geteilte Grundelemente; wächter: app-nav.test.ts+session-notice.test.ts
 gast	guest	dataset-schluessel	index.html,src/grundelemente.css	6	VORSCHLAG: ; Landing/geteilte Grundelemente; wächter: session-hinweis.test.ts
 schliessen	close	dataset-schluessel	src/entwicklungsstand.ts	6	VORSCHLAG: schliessen = close wie Teil A; geteilte Bausteine
 src/admin/adminmodell.ts	src/admin/admin-model.ts	datei	src/admin/adminmodell.ts	6	§6.6
@@ -2942,9 +2942,9 @@ registrieren	register	objekt-schluessel	src/routen.ts	6	wie /api/auth/register; 
 reserviert	reserved	objekt-schluessel	src/handle.ts	6	VORSCHLAG: §6.8 reserved_handles
 vergeben	taken	objekt-schluessel	src/handle.ts	6	VORSCHLAG: vergeben→taken
 verwaltung	admin	objekt-schluessel	src/routen.ts	6	VORSCHLAG: admin (Seite admin.html, Rolle admin §6.2)
-src/galerie/	src/gallery/	ordner	Importpfade der Galerie-Module	6	VORSCHLAG; bekannte Lücke
-src/konto/	src/account/	ordner	Importpfade aller Konto-Module	6	VORSCHLAG; bekannte Lücke aus §6.6
-src/profil/	src/profile/	ordner	Importpfade aller Profil-Module	6	VORSCHLAG; bekannte Lücke
+src/galerie/	src/gallery/	ordner	Importpfade der Galerie-Module	6	ENTSCHIEDEN 2026-08-21; Einstiegsdatei geht mit (eigene Zeile)
+src/konto/	src/account/	ordner	Importpfade aller Konto-Module	6	ENTSCHIEDEN 2026-08-21 (Lücke aus §6.6 geschlossen); Einstiegsdatei geht mit (eigene Zeile)
+src/profil/	src/profile/	ordner	Importpfade aller Profil-Module	6	ENTSCHIEDEN 2026-08-21; Einstiegsdatei geht mit (eigene Zeile)
 maptale_profil_cache	maptale_profile_cache	storage-schluessel	localStorage; src/session-hinweis.ts (PROFIL_CACHE_KEY)	6	VORSCHLAG
 maptale_profil_cache	maptale_profile_cache	storage-schluessel	src/session-hinweis.ts	6	Grundstock; localStorage: gecachte Profildaten fuer die Kopfleiste
 Bewegungsart	ActivityKind	bezeichner	android	7	§6.5; Werte ON_FOOT/CYCLING/VEHICLE; nicht persistiert
@@ -3615,3 +3615,13 @@ streckeBeiFilm	distanceAtFilmTime	json-schluessel	test/fixtures/film-axis.json	5
 fotoS	photoS	json-schluessel	test/fixtures/film-axis.json	5	dito
 ausblendS	fadeOutS	json-schluessel	test/fixtures/film-axis.json	5	dito
 offen	open	css-klasse	src/map-attribution.ts,src/style.css	5	Zustandsklasse des Kartendaten-Popups; die gleichnamige Klasse der Dialogschicht (dialog-offen) liegt in Welle 6
+src/konto/konto.ts	src/account/account.ts	datei	src/konto/konto.ts	6	Nachgetragen 2026-08-21: folgt dem Ordnernamen; ein konto.ts unter account/ waere der sichtbare Rest
+src/profil/profil.ts	src/profile/profile.ts	datei	src/profil/profil.ts	6	Nachgetragen 2026-08-21: folgt dem Ordnernamen
+src/galerie/galerie.ts	src/gallery/gallery.ts	datei	src/galerie/galerie.ts	6	Nachgetragen 2026-08-21: folgt dem Ordnernamen
+reiter-<tab>	tab-<tab>	dom-id	admin.html,src/admin/admin.ts	6	Nachgetragen 2026-08-21: die sieben Reiter-Knoepfe tragen ihre TabId als Suffix (reiter-konten zu tab-accounts); folgt der Zeile reiter zu tabs
+pw-staerke-stil	pw-strength-style	dom-id	src/password-field.ts	6	Nachgetragen 2026-08-21: id des eingehaengten <style>-Elements
+feedback-stil	feedback-style	dom-id	src/feedback-form.ts	6	Nachgetragen 2026-08-21: id des eingehaengten <style>-Elements
+feedback-schicht-stil	feedback-layer-style	dom-id	src/feedback-button.ts	6	Nachgetragen 2026-08-21: id des eingehaengten <style>-Elements
+stand-karte-stil	stage-card-style	dom-id	src/release-stage.ts	6	Nachgetragen 2026-08-21: id des eingehaengten <style>-Elements
+dialog-titel	dialog-title	dom-id	src/dialog-layer.ts	6	Nachgetragen 2026-08-21: Praefix der laufenden Dialog-Ueberschrift (aria-labelledby)
+test/basis-css.test.ts	test/base-css.test.ts	datei	test/basis-css.test.ts	6	Nachgetragen 2026-08-21: Wächterdatei geht mit ihrem Blatt (§6.6, Testdateien)

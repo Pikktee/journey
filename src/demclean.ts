@@ -31,39 +31,39 @@
 import { cleanElevations, TILE } from './dem-clean-math.js'
 
 /** Antwort des Workers: `data === null` heißt „nichts geändert". */
-interface Antwort {
+interface WorkerReply {
   id: number
   data: ArrayBuffer | null
 }
 
-let naechsteId = 1
-const offen = new Map<number, (data: ArrayBuffer | null) => void>()
-let arbeiter: Worker[] | null = null
-let reihum = 0
+let nextId = 1
+const pending = new Map<number, (data: ArrayBuffer | null) => void>()
+let workers: Worker[] | null = null
+let roundRobin = 0
 
 /**
  * Zwei Worker, nicht einer und nicht acht: MapLibre lädt Kacheln in Schüben,
  * ein einzelner Arbeiter reichte sie durch und das Terrain käme spät; mehr als
  * zwei nähmen dem Renderer Kerne weg, ohne dass jemand darauf wartet.
  */
-function hole(): Worker[] | null {
-  if (arbeiter) return arbeiter
+function getWorkers(): Worker[] | null {
+  if (workers) return workers
   if (typeof Worker === 'undefined') return null
   try {
-    arbeiter = [0, 1].map(() => {
+    workers = [0, 1].map(() => {
       const w = new Worker(new URL('./demclean.worker.js', import.meta.url), { type: 'module' })
-      w.addEventListener('message', (ev: MessageEvent<Antwort>) => {
-        const fertig = offen.get(ev.data.id)
-        if (!fertig) return
-        offen.delete(ev.data.id)
-        fertig(ev.data.data)
+      w.addEventListener('message', (ev: MessageEvent<WorkerReply>) => {
+        const done = pending.get(ev.data.id)
+        if (!done) return
+        pending.delete(ev.data.id)
+        done(ev.data.data)
       })
       return w
     })
   } catch {
-    arbeiter = null // z. B. blockierte Worker-Erzeugung: unten läuft der Rückfall
+    workers = null // z. B. blockierte Worker-Erzeugung: unten läuft der Rückfall
   }
-  return arbeiter
+  return workers
 }
 
 // Registriert das demclean://-Protokoll einmalig. DEM-Quelle nutzt dann
@@ -83,7 +83,7 @@ export function registerDemClean(maplibregl: {
     // Feine Kacheln (native Auflösung) sind sauber → unverändert durchreichen.
     if (z == null || z > 12 || typeof OffscreenCanvas === 'undefined') return { data: buf }
     try {
-      const cleaned = await bereinige(buf)
+      const cleaned = await clean(buf)
       return { data: cleaned ?? buf }
     } catch {
       return { data: buf } // im Zweifel Originaldaten, nie die Kachel verlieren
@@ -101,17 +101,17 @@ function zoomOf(url: string): number | null {
  * Das ruckelt (deshalb der Umbau), liefert aber ein richtiges Gelände — und
  * ein Spike, der aus dem Wasser ragt, ist der sichtbarere Fehler.
  */
-async function bereinige(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
-  const pool = hole()
-  if (!pool) return await imMainThread(buf)
-  const id = naechsteId++
-  const kopie = buf.slice(0) // der Aufrufer behält seine Originalbytes als Rückfall
-  const antwort = new Promise<ArrayBuffer | null>((fertig) => offen.set(id, fertig))
-  pool[reihum++ % pool.length]!.postMessage({ id, buf: kopie }, [kopie])
-  return await antwort
+async function clean(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
+  const pool = getWorkers()
+  if (!pool) return await inMainThread(buf)
+  const id = nextId++
+  const copy = buf.slice(0) // der Aufrufer behält seine Originalbytes als Rückfall
+  const response = new Promise<ArrayBuffer | null>((done) => pending.set(id, done))
+  pool[roundRobin++ % pool.length]!.postMessage({ id, buf: copy }, [copy])
+  return await response
 }
 
-async function imMainThread(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
+async function inMainThread(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
   const bmp = await createImageBitmap(new Blob([buf], { type: 'image/png' }))
   const cv = new OffscreenCanvas(TILE, TILE)
   const ctx = cv.getContext('2d', { willReadFrequently: true })

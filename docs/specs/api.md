@@ -72,64 +72,64 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 
 ### POST /api/auth/me/password (Sitzung, Bremse)
 - Request: `old`, `new`; Response: `ok` (beendet alle anderen Zugänge)
-- Aufrufer: src/konto/kontodialoge.ts
+- Aufrufer: src/account/account-dialogs.ts
 
 ### POST /api/auth/me/email (Sitzung, Bremse)
 - Request: `email`, `password`; Response: immer `ok` (Mail an NEUE Adresse; Wechsel erst beim Klick)
-- Aufrufer: src/konto/kontodialoge.ts
+- Aufrufer: src/account/account-dialogs.ts
 
 ### POST /api/auth/confirm-email (öffentlich; Token ist der Nachweis)
 - Request: `token`; Response: `ok`, `email`
-- Aufrufer: src/konto/konto.ts (`/account#email=…`)
+- Aufrufer: src/account/account.ts (`/account#email=…`)
 
 ### GET /api/auth/me/devices (Sitzung)
 - Response: `devices[]{id ("session:…"/"app:…"), kind ("session"|"app"), label, ipPrefix, signedInAt, lastSeenAt, current}`
-- Aufrufer: src/konto/konto.ts
+- Aufrufer: src/account/account.ts
 
 ### DELETE /api/auth/me/devices/:id (Sitzung)
 - Response: `ok`
-- Aufrufer: src/konto/konto.ts
+- Aufrufer: src/account/account.ts
 
 ### POST /api/auth/me/newsletter (Sitzung)
 - Request: `enabled`; Response: `ok`, `newsletter`, `sendingPaused`
-- Aufrufer: src/konto/konto.ts
+- Aufrufer: src/account/account.ts
 
 ### POST /api/auth/me/search-indexing (Sitzung)
 - Request: `enabled`; Response: `ok`, `searchIndexing`, `effectPaused`
-- Aufrufer: src/konto/konto.ts
+- Aufrufer: src/account/account.ts
 
 ### GET /api/auth/me/storage (Sitzung)
 - Response: `used`, `limit`, `free`, `breakdown{photos,videos,audio,recordings,other}`
-- Aufrufer: src/konto/konto.ts
+- Aufrufer: src/account/account.ts
 
 ### DELETE /api/auth/me (Sitzung)
 - Response: `ok` (Konto samt Storage weg)
-- Aufrufer: src/studio/api.ts, src/konto/kontodialoge.ts, android ApiClient.kt
+- Aufrufer: src/studio/api.ts, src/account/account-dialogs.ts, android ApiClient.kt
 
 ### GET /api/auth/me (öffentlich; angereichert bei Sitzung)
 - Response ohne Anmeldung: `user: null`, `registration{open,invitationRequired,waitlist}`
 - Response angemeldet zusätzlich: `verified`, `quota{used,limit,free}`, `newsletter`,
   `profile{handle,displayName,bio,location,website,instagram,avatarUrl,banner,bannerUrl,visibility,searchIndexing}`,
   `dataExport{id,status,requestedAt,finishedAt,expiresAt,bytes,files}|null`
-- Aufrufer: src/studio/api.ts, src/admin/api.ts, src/app-nav.ts, src/konto/konto.ts, src/profil/profil.ts, android ApiClient.kt
+- Aufrufer: src/studio/api.ts, src/admin/api.ts, src/app-nav.ts, src/account/account.ts, src/profile/profile.ts, android ApiClient.kt
 
 ### PATCH /api/auth/me/profile (Sitzung)
 - Request: `displayName?`, `bio?`, `location?`, `website?`, `instagram?`, `visibility?` (private|public), `handle?`, `banner?` (Vorschlags-Name; '' entfernt)
 - Response: das Profil-Objekt (wie in /auth/me)
-- Aufrufer: src/konto/konto.ts, src/profil/profilbearbeiten.ts, android ApiClient.kt
+- Aufrufer: src/account/account.ts, src/profile/edit-profile.ts, android ApiClient.kt
 
 ### PUT /api/auth/me/avatar (Sitzung; roher Bild-Body, max 2 MB)
 - Response: `avatarUrl`
-- Aufrufer: src/profil/profilbearbeiten.ts, android ApiClient.kt
+- Aufrufer: src/profile/edit-profile.ts, android ApiClient.kt
 
 ### DELETE /api/auth/me/avatar (Sitzung)
-- Response: `ok`; Aufrufer: src/profil/profilbearbeiten.ts, android ApiClient.kt
+- Response: `ok`; Aufrufer: src/profile/edit-profile.ts, android ApiClient.kt
 
 ### PUT /api/auth/me/banner (Sitzung; roher Bild-Body, max 8 MB)
-- Response: `bannerUrl`; Aufrufer: src/profil/profilbearbeiten.ts
+- Response: `bannerUrl`; Aufrufer: src/profile/edit-profile.ts
 
 ### DELETE /api/auth/me/banner (Sitzung)
-- Response: `ok`; Aufrufer: src/profil/profilbearbeiten.ts
+- Response: `ok`; Aufrufer: src/profile/edit-profile.ts
 
 ### GET /api/users/:id/banner (öffentlich)
 - Response: Binär (JPEG, immutable-Cache)
@@ -261,13 +261,13 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 ### GET /api/gallery (öffentlich)
 - Query: `limit` (1–60, Standard 24), `offset`
 - Response: `tours[]{id,title,cover,coverThumb,km,createdAt,author{displayName,avatarUrl,id?,handle?}|null}`, `hasMore`
-- Aufrufer: src/galerie/galerie.ts
+- Aufrufer: src/gallery/gallery.ts
 
 ### GET /api/users/:id/profile (öffentlich; Besitzer sieht sein privates Profil)
 - Params: Handle oder `u_…`-ID
 - Response: `handle`, `displayName`, `bio`, `location`, `website`, `instagram`, `avatarUrl`,
   `bannerUrl`, `memberSince`, `stats{tours,km,elevationGain}`, `ownerOnly`, `tours[]` (Galerie-Karten)
-- Aufrufer: src/profil/profil.ts
+- Aufrufer: src/profile/profile.ts
 
 ---
 
@@ -303,7 +303,7 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 
 ### POST /api/newsletter/unsubscribe (öffentlich, Bremse)
 - Request: `token` (signiert, ohne Frist); Response: `ok`
-- Aufrufer: src/konto/konto.ts (`/account#newsletter-off=…`)
+- Aufrufer: src/account/account.ts (`/account#newsletter-off=…`)
 
 ### POST /api/newsletter/one-click/:token (öffentlich, Bremse; RFC 8058)
 - Request/Response: leer (Antwort geht an ein Mail-Programm)
@@ -316,7 +316,7 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 ### POST /api/feedback (öffentlich, Bremse; angemeldet wird die Konto-ID angehängt)
 - Request: `body`, `email?`, `context?` (nur die Felder `page,version,browser,platform,screen,language,appVersion,device,androidVersion` kommen durch), `source?` (web|app)
 - Response: `ok`
-- Aufrufer: src/feedbackformular.ts (Web + App-WebView `/feedback?app=1`)
+- Aufrufer: src/feedback-form.ts (Web + App-WebView `/feedback?app=1`)
 
 ### GET /api/admin/feedback (Admin)
 - Query: `status` (offen|in_arbeit|erledigt)
@@ -400,7 +400,7 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 
 ### POST /api/auth/me/export (Sitzung, Bremse 5/h)
 - Response: `ok`, `dataExport{id,status,requestedAt,finishedAt,expiresAt,bytes,files}` (Bau läuft danach im Hintergrund)
-- Aufrufer: src/konto/konto.ts
+- Aufrufer: src/account/account.ts
 
 ### GET /api/export/:token (öffentlich; signierter Token ist der Nachweis)
 - Response: ZIP-Download (`private, no-store`)
@@ -412,11 +412,11 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 
 ### GET /api/tracker/providers (Sitzung)
 - Response: `provider[]{id,name,available,connected,status,connectedAt,lastSyncAt,error}`
-- Aufrufer: src/konto/trackerkarte.ts, android ApiClient.kt
+- Aufrufer: src/account/tracker-card.ts, android ApiClient.kt
 
 ### POST /api/tracker/:provider/connect (Sitzung)
 - Request: `target?` (web|app); Response: `authorizationUrl`
-- Aufrufer: src/konto/trackerkarte.ts, android ApiClient.kt
+- Aufrufer: src/account/tracker-card.ts, android ApiClient.kt
 
 ### GET /api/tracker/:provider/callback (öffentlich; OAuth-Rückkehr, serverseitiger state)
 - Query: `code`, `state`, `error`
@@ -425,7 +425,7 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 
 ### DELETE /api/tracker/:provider (Sitzung)
 - Response: `ok`, `toursKept`
-- Aufrufer: src/konto/trackerkarte.ts, android ApiClient.kt
+- Aufrufer: src/account/tracker-card.ts, android ApiClient.kt
 
 ### POST /api/tracker/:provider/sync (Sitzung, Bremse 6/10 min)
 - Response: `found`, `new`, `inBackground`
@@ -433,7 +433,7 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 
 ### GET /api/tracker/imports (Sitzung)
 - Response: `imports[]{id,userId,provider,externalId,status,tourId,reportedAt,finishedAt,seenAt,error,attempts,retryable,tour{title,km,placedMedia,status,visibility}|null}`
-- Aufrufer: src/konto/trackerkarte.ts
+- Aufrufer: src/account/tracker-card.ts
 
 ### GET /api/tracker/imports/pending (Sitzung)
 - Query: `seen` (=1 quittiert alles Offene)
@@ -473,11 +473,11 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 
 ### GET /@:handle
 - Response: gebautes profil.html mit ersetztem Meta-Block (privat/unbekannt: generisch + noindex)
-- Aufrufer: Browser-Navigation (`profilPfad` in src/routen.ts baut die Links)
+- Aufrufer: Browser-Navigation (`profilePath` in src/routes.ts baut die Links)
 
 ### GET /tour/:kennung
 - Response: erlebnis.html mit Tour-Meta (`index` nur public; private Tour für Fremde 404)
-- Aufrufer: Browser-Navigation (`tourPfad`), android PlayerScreen.kt (`?app=1`), TeilenLink.kt
+- Aufrufer: Browser-Navigation (`tourPath`), android PlayerScreen.kt (`?app=1`), TeilenLink.kt
 
 ### GET /sitemap-profile.xml, GET /sitemap-touren.xml
 - Response: XML aus der Datenbank; Aufrufer: Suchmaschinen (robots.txt nennt sie)
@@ -497,7 +497,7 @@ Fehlerantworten tragen überall `{ error }`, Validierungsfehler zusätzlich
 **Registriert, aber von keinem Client-Code gerufen:**
 
 1. **POST /api/tracker/:provider/sync**; der einzige echte Verdachtsfall: weder Web
-   (trackerkarte.ts) noch Android rufen ihn. Der „Jetzt abrufen"-Knopf, für den die Route
+   (tracker-card.ts) noch Android rufen ihn. Der „Jetzt abrufen"-Knopf, für den die Route
    samt Bremse gebaut ist, existiert in keiner Oberfläche.
 2. GET /api/health; nur ops (curl im Runbook). Absicht (Health-Check).
 3. GET /api/export/:token; nur Mail-Link. Absicht.

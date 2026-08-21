@@ -90,7 +90,7 @@ export type MailPurpose = 'verify' | 'reset' | 'email'
  * Woher eine Sitzung kommt — so viel, wie zum Wiedererkennen nötig ist.
  *
  * Der User-Agent bleibt roh: Wie daraus „Chrome auf macOS" wird, ist eine Frage
- * der Anzeige und ändert sich häufiger als das Schema (s. `kontomodell.ts`).
+ * der Anzeige und ändert sich häufiger als das Schema (s. `account-model.ts`).
  * Die IP wird auf ZWEI Oktette gekürzt — die vollständige Adresse wäre ein
  * Bewegungsprofil, „84.119.x.x" beantwortet die einzige Frage, die hier
  * gestellt wird.
@@ -713,7 +713,7 @@ export class AuthService {
     if (formfehler) return formfehler
     const alt = this.handleVon(userId)
     if (alt && alt.toLowerCase() === handle) return null
-    if (!this.handleFrei(handle, userId)) return 'vergeben'
+    if (!this.handleFrei(handle, userId)) return 'taken'
 
     const jetzt = new Date()
     const freiAb = new Date(jetzt.getTime() + HANDLE_SPERRE_MS).toISOString()

@@ -46,7 +46,7 @@ import { TooLargeError } from './storage.js'
 
 export const SESSION_COOKIE = 'maptale_session'
 /** JS-lesbarer UX-Hinweis „Sitzung steht" — kein Geheimnis, parallel zur httpOnly-Session. */
-export const SESSION_NOTICE_COOKIE = 'maptale_dabei'
+export const SESSION_NOTICE_COOKIE = 'maptale_returning'
 
 export interface AppDependencies {
   konfig: Config

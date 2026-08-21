@@ -498,7 +498,7 @@ konkreten Anlass von heute:
 | `tonPegelFuer({ imS, ausschnittS })` | geteilte Kurve, verschiedene Argumente |
 | `reihenfolgeImHalt` | zwei Implementierungen, nur per Textvergleich gekoppelt |
 
-Dazu ein **CSS-Paar-Wächter** analog zu [basis-css.test.ts](../../test/basis-css.test.ts).
+Dazu ein **CSS-Paar-Wächter** analog zu [base-css.test.ts](../../test/base-css.test.ts).
 
 ---
 

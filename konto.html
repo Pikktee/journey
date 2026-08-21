@@ -26,20 +26,20 @@
   <script>
     (function () {
       try {
-        var dabei = document.cookie.split(';').some(function (c) {
-          return c.trim().indexOf('maptale_dabei=') === 0
+        var signedIn = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_returning=') === 0
         })
-        if (dabei) document.documentElement.classList.add('nav-dabei')
+        if (signedIn) document.documentElement.classList.add('nav-returning')
       } catch (e) {}
     })()
   </script>
 
-  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/base.css, abgeleitet aus
        DESIGN.md. Steht vor dem Stilblock dieser Seite, damit die Seite die
        Basis überschreiben kann und nicht umgekehrt; im Build hält das der
        basisZuerst()-Schritt in vite.config.js nach. -->
-  <link rel="stylesheet" href="/src/basis.css" />
-  <link rel="stylesheet" href="/src/grundelemente.css" />
+  <link rel="stylesheet" href="/src/base.css" />
+  <link rel="stylesheet" href="/src/page-elements.css" />
 
   <style>
     /* Farben, Nav und Dialoge folgen profil.html — beide Seiten gehören
@@ -47,8 +47,8 @@
        Produkte aussehen. Was hier dazukommt, sind die Tafeln und Zeilen. */
     :root {
       /* Kein --wrap-Override: Nav/Fuß wie Galerie bei 1160. Der Formularschacht
-         darunter bleibt schmal (--konto-lesebreite), linksbündig unter der Marke. */
-      --konto-lesebreite: 780px;
+         darunter bleibt schmal (--account-reading-width), linksbündig unter der Marke. */
+      --account-reading-width: 780px;
     }
 
     * { box-sizing: border-box; }
@@ -56,7 +56,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--bg-tief);
+      background: var(--bg-deep);
       color: var(--text);
       font-family: var(--font-ui);
       -webkit-font-smoothing: antialiased;
@@ -64,55 +64,55 @@
 
     /* Chrome (Nav/Fuß) auf voller Produktbreite; Inhalt darunter schmal. */
     .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
-    .konto-lesespalte { max-width: min(var(--konto-lesebreite), 100%); }
+    .account-reading-column { max-width: min(var(--account-reading-width), 100%); }
 
     /* ————— Seitenkopf ————— */
-    .seitenkopf { margin: 34px 0 6px; }
-    .seitenkopf h1 { font-family: var(--font-display); font-size: clamp(24px, 4vw, 28px); font-weight: 600; letter-spacing: -0.015em; margin: 0; }
-    .seitenkopf p { margin: 6px 0 0; color: var(--text-zart); font-size: 14px; }
-    .seitenkopf a { color: var(--akzent); text-decoration: none; }
-    .seitenkopf a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .page-header { margin: 34px 0 6px; }
+    .page-header h1 { font-family: var(--font-display); font-size: clamp(24px, 4vw, 28px); font-weight: 600; letter-spacing: -0.015em; margin: 0; }
+    .page-header p { margin: 6px 0 0; color: var(--faint); font-size: 14px; }
+    .page-header a { color: var(--primary); text-decoration: none; }
+    .page-header a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
     /* ————— Blöcke und Tafeln —————
        Satzschrift statt gesperrter Versalien: DESIGN.md kennt EINE UI-Schrift,
        und Etiketten in Großbuchstaben sind die alte Sprache des Players. */
     .block { margin-top: 28px; }
-    .block-kopf { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-    .block-kopf h2 { font-size: 15px; font-weight: 600; color: var(--text-gedaempft); margin: 0; }
-    .tafel { background: var(--tafel); border: 1px solid var(--linie); border-radius: var(--radius-karte); }
-    .zeile { display: flex; align-items: center; gap: 16px; padding: 15px 18px; border-top: 1px solid var(--linie); }
-    .zeile:first-child { border-top: none; }
-    .zeile .z { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-    .zeile label.z { cursor: pointer; }
-    .zeile .t { font-size: 14.5px; font-weight: 500; }
-    .zeile .b { font-size: 12.5px; color: var(--text-zart); line-height: 1.45; word-break: break-word; }
-    .zeile .sym {
+    .block-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .block-header h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card); }
+    .row { display: flex; align-items: center; gap: 16px; padding: 15px 18px; border-top: 1px solid var(--line); }
+    .row:first-child { border-top: none; }
+    .row .z { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .row label.z { cursor: pointer; }
+    .row .t { font-size: 14.5px; font-weight: 500; }
+    .row .b { font-size: 12.5px; color: var(--faint); line-height: 1.45; word-break: break-word; }
+    .row .sym {
       width: 34px; height: 34px; border-radius: var(--radius-md); background: rgba(255,255,255,0.04);
-      border: 1px solid var(--linie); display: grid; place-items: center; color: var(--text-zart); flex: none;
+      border: 1px solid var(--line); display: grid; place-items: center; color: var(--faint); flex: none;
     }
-    .zeile .sym svg { width: 17px; height: 17px; }
+    .row .sym svg { width: 17px; height: 17px; }
     /* Das aktuelle Gerät braucht kein Abzeichen: Es trägt als einziges keinen
        Abmelden-Knopf, sein Symbol steht in Amber, und im Titel steht schlicht,
        dass man selbst gemeint ist. Ein grüner Statuspunkt wäre die Sprache von
        Chat-Anwesenheit — hier geht es nicht um online, sondern um „das hier". */
-    .zeile.hier .sym { color: var(--akzent); border-color: rgba(245,158,11,0.32); background: rgba(245,158,11,0.07); }
-    .zeile .selbst { color: var(--text-zart); font-weight: 400; }
+    .row.current .sym { color: var(--primary); border-color: rgba(245,158,11,0.32); background: rgba(245,158,11,0.07); }
+    .row .self { color: var(--faint); font-weight: 400; }
     /* Statusangaben ohne Pillen-Kostüm: ein Häkchen in Satzschrift sagt
        dasselbe wie ein grünes Kästchen mit Versalien, nur leiser. */
-    .marke { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 12.5px; color: var(--text-zart); white-space: nowrap; }
-    .marke svg { width: 14px; height: 14px; }
-    .marke.gut { color: var(--gruen); }
-    .marke.offen { color: #ffca7a; }
+    .marker { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 12.5px; color: var(--faint); white-space: nowrap; }
+    .marker svg { width: 14px; height: 14px; }
+    .marker.good { color: var(--success); }
+    .marker.open { color: #ffca7a; }
     /* Der Hinweis, dass etwas ruht, gehört zum Schalter — nicht in eine
        Warnbox: Es ist kein Fehler, sondern eine Bedingung, die sich mit einem
        Klick im Postfach erledigt. */
-    .zeile .b.ruht { color: #ffca7a; }
-    .zeile .b.ruht[hidden] { display: none; }
+    .row .b.idle { color: #ffca7a; }
+    .row .b.idle[hidden] { display: none; }
     /* Eine Zeile, die auf etwas anderes wartet: Der Schalter ist gesperrt, und
        die ganze Zeile tritt zurück — sonst sieht man erst beim Klicken, dass
        hier gerade nichts zu entscheiden ist. */
-    .zeile.ruht .t, .zeile.ruht .b { opacity: 0.6; }
-    .zeile.ruht .schalter { opacity: 0.45; cursor: not-allowed; }
+    .row.idle .t, .row.idle .b { opacity: 0.6; }
+    .row.idle .switch { opacity: 0.45; cursor: not-allowed; }
 
     /* ————— Verbundene Dienste —————
        Der Verlauf steht seit 2026-08-10 im Dialog und nicht mehr als eigener
@@ -121,88 +121,88 @@
        es mehr gibt, ohne einen Weg dorthin. Der stille Knopf trägt das Symbol
        und sonst nichts — neben „Trennen" wäre ein zweiter Kasten eine zweite
        Entscheidung, und der Verlauf ist keine. */
-    .knopf.still {
+    .button.subtle {
       background: none; border-color: transparent; padding: 7px;
-      line-height: 0; color: var(--text-gedaempft);
+      line-height: 0; color: var(--muted);
     }
-    .knopf.still svg { width: 18px; height: 18px; display: block; }
-    .knopf.still:hover { background: var(--tafel); color: var(--text); }
-    .verlauf .zeile { padding: 11px 14px; }
+    .button.subtle svg { width: 18px; height: 18px; display: block; }
+    .button.subtle:hover { background: var(--card); color: var(--text); }
+    .history .row { padding: 11px 14px; }
     /* Der Punkt am Zeilenanfang trägt den Ton — ein farbiges Wort daneben
        wäre die zweite Aussage über dieselbe Sache. `uebersprungen` bekommt
        bewusst KEIN Rot: Eine Halleneinheit ohne GPS ist normal, kein Problem. */
-    .verlauf .punkt { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-gedaempft); }
-    .verlauf .punkt.ok { background: var(--gruen); }
-    .verlauf .punkt.warn { background: #ffca7a; }
-    .verlauf .punkt.fehler { background: var(--rot); }
-    .verlauf .wann { font-size: 12px; color: var(--text-gedaempft); font-variant-numeric: tabular-nums; flex: none; }
+    .history .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--muted); }
+    .history .dot.ok { background: var(--success); }
+    .history .dot.warn { background: #ffca7a; }
+    .history .dot.error { background: var(--danger); }
+    .history .when { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
     /* Eine Zeile, die zur Tour führt, sieht auch so aus — und behält die
        Textfarbe: Blau unterstrichen wäre in einer Tafel aus Zeilen ein
        Fremdkörper. */
-    .verlauf a.zeile { text-decoration: none; color: inherit; cursor: pointer; }
-    .verlauf a.zeile:hover { background: var(--tafel); }
+    .history a.row { text-decoration: none; color: inherit; cursor: pointer; }
+    .history a.row:hover { background: var(--card); }
 
     /* ————— Speicher ————— */
-    .speicher { padding: 18px; }
-    .speicher .oben { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13.5px; color: var(--text-zart); }
-    .speicher .oben b { color: var(--text); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .speicher .oben .anteil { font-variant-numeric: tabular-nums; }
-    .speicherbalken { display: flex; height: 9px; border-radius: var(--radius-full); overflow: hidden; background: rgba(255,255,255,0.07); margin: 10px 0 11px; }
-    .speicherbalken i { display: block; height: 100%; }
-    .legende { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 12.5px; color: var(--text-gedaempft); }
-    .legende span { display: inline-flex; align-items: center; gap: 7px; }
-    .legende i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
-    .legende b { color: var(--text-zart); font-weight: 400; font-variant-numeric: tabular-nums; }
-    .speicher-warnung {
+    .storage { padding: 18px; }
+    .storage .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13.5px; color: var(--faint); }
+    .storage .top b { color: var(--text); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .storage .top .share { font-variant-numeric: tabular-nums; }
+    .storage-bar { display: flex; height: 9px; border-radius: var(--radius-full); overflow: hidden; background: rgba(255,255,255,0.07); margin: 10px 0 11px; }
+    .storage-bar i { display: block; height: 100%; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 12.5px; color: var(--muted); }
+    .legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .legend i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+    .legend b { color: var(--faint); font-weight: 400; font-variant-numeric: tabular-nums; }
+    .storage-warning {
       display: flex; align-items: center; gap: 11px; margin-top: 14px; padding: 11px 13px;
       border-radius: var(--radius-lg); background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.28);
       color: #ffdca6; font-size: 13px;
     }
-    .speicher-warnung svg { width: 17px; height: 17px; flex: none; }
-    .speicher-warnung[hidden] { display: none; }
+    .storage-warning svg { width: 17px; height: 17px; flex: none; }
+    .storage-warning[hidden] { display: none; }
 
     /* ————— Löschbereich —————
        Abgesetzt am Ende: doppelter Abstand, eine feine Trennlinie darüber und
        eine Überschrift in gedämpftem Rot. Wer bis hierhin scrollt, weiß, dass
        die Alltagseinstellungen vorbei sind. Die Überschrift heißt trotzdem
        schlicht „Konto löschen" — „Gefahrenzone" ist Entwickler-Folklore. */
-    .gefahrenblock { margin-top: 44px; padding-top: 28px; border-top: 1px solid var(--linie); }
-    .gefahrenblock .block-kopf h2 { color: #e08c8e; }
-    .tafel.gefahr { border-color: rgba(229,72,77,0.28); background: linear-gradient(180deg, rgba(229,72,77,0.045), transparent 70%), var(--tafel); }
-    .tafel.gefahr .t { color: #ffb4b6; }
+    .danger-block { margin-top: 44px; padding-top: 28px; border-top: 1px solid var(--line); }
+    .danger-block .block-header h2 { color: #e08c8e; }
+    .card.danger { border-color: rgba(229,72,77,0.28); background: linear-gradient(180deg, rgba(229,72,77,0.045), transparent 70%), var(--card); }
+    .card.danger .t { color: #ffb4b6; }
 
     /* ————— Knöpfe ————— */
-    button.knopf {
+    button.button {
       display: inline-flex; align-items: center; gap: 7px;
-      font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--text-gedaempft);
-      background: rgba(255, 255, 255, 0.045); border: 1px solid var(--linie); border-radius: var(--radius-full);
+      font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--muted);
+      background: rgba(255, 255, 255, 0.045); border: 1px solid var(--line); border-radius: var(--radius-full);
       padding: 8px 15px; cursor: pointer; white-space: nowrap;
       transition: background 0.16s, color 0.16s, border-color 0.16s;
     }
-    button.knopf:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
-    button.knopf svg { width: 15px; height: 15px; flex: none; }
-    button.knopf.gefahr { color: #ffb4b6; border-color: rgba(229,72,77,0.3); background: rgba(229,72,77,0.07); }
-    button.knopf.gefahr:hover { background: rgba(229,72,77,0.15); border-color: rgba(229,72,77,0.55); color: #ffd0d1; }
-    button.knopf:disabled { opacity: 0.5; cursor: not-allowed; }
-    /* `button.still` und `button.primaer` (die Dialog-Knöpfe) stehen in
-       src/grundelemente.css — sie standen hier und in profil.html wortgleich. */
-    :is(button, input, a):focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
+    button.button:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
+    button.button svg { width: 15px; height: 15px; flex: none; }
+    button.button.danger { color: #ffb4b6; border-color: rgba(229,72,77,0.3); background: rgba(229,72,77,0.07); }
+    button.button.danger:hover { background: rgba(229,72,77,0.15); border-color: rgba(229,72,77,0.55); color: #ffd0d1; }
+    button.button:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* `button.subtle` und `button.primary` (die Dialog-Knöpfe) stehen in
+       src/page-elements.css — sie standen hier und in profil.html wortgleich. */
+    :is(button, input, a):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-    .schalter { appearance: none; width: 44px; height: 26px; border-radius: var(--radius-full); background: var(--rand); border: 1px solid var(--rand-hell); position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
-    .schalter::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-zart); transition: translate 0.18s, background 0.18s; }
-    .schalter:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
-    .schalter:checked::after { translate: 18px 0; background: var(--akzent); }
-    .schalter:disabled { opacity: 0.5; cursor: not-allowed; }
+    .switch { appearance: none; width: 44px; height: 26px; border-radius: var(--radius-full); background: var(--border); border: 1px solid var(--border-strong); position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
+    .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--faint); transition: translate 0.18s, background 0.18s; }
+    .switch:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
+    .switch:checked::after { translate: 18px 0; background: var(--primary); }
+    .switch:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .hinweis { color: var(--text-gedaempft); font-size: 16px; padding: 40px 0 60px; text-align: center; }
+    .hint { color: var(--muted); font-size: 16px; padding: 40px 0 60px; text-align: center; }
 
-    /* ————— Dialoge (Aufbau in src/konto/kontodialoge.ts) —————
-       Schicht, Kopf, Körper, Fuß und Felder stehen in src/grundelemente.css;
+    /* ————— Dialoge (Aufbau in src/account/account-dialogs.ts) —————
+       Schicht, Kopf, Körper, Fuß und Felder stehen in src/page-elements.css;
        hier nur, was die Kontodialoge anders machen. */
-    body.dialog-offen { overflow: hidden; }
+    body.dialog-open { overflow: hidden; }
     /* Schmaler als das Profil-Formular: Hier steht ein Feld unter dem anderen. */
     .dialog { width: min(460px, 100%); }
-    .sp-hinweis { line-height: 1.5; }
+    .modal-hint { line-height: 1.5; }
 
     /* Die Seite endet mit einer Tafel — etwas mehr Abstand zum Fuß als die
        Galerie (Raster) braucht. */ 
@@ -210,49 +210,49 @@
   </style>
 </head>
 <body>
-  <!-- Header: Markup = appHeaderHtml (erste Paint schon da); montiereAppHeader verfeinert. -->
+  <!-- Header: Markup = appHeaderHtml (erste Paint schon da); mountAppHeader verfeinert. -->
   <nav class="nav" id="app-header">
-    <div class="wrap"><span class="marken-gruppe"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stand-hinweis" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-knopf" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right" id="nav-right"><a href="/app" class="nav-cta" data-gast>Anmelden</a><div class="konto-wrap" data-dabei><button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen"><span class="punkt"></span><span class="nav-profil-name"></span></button></div></div></div>
+    <div class="wrap"><span class="brand-group"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stage-hint" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-button" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right" id="nav-right"><a href="/app" class="nav-cta" data-guest>Anmelden</a><div class="account-wrap" data-signed-in><button type="button" class="user-chip" disabled aria-busy="true" aria-label="Profil wird geladen"><span class="dot"></span><span class="nav-profile-name"></span></button></div></div></div>
   </nav>
   <script type="module">
-    import { montiereAppHeader, schreibeAppFooter } from '/src/app-nav.ts'
-    void montiereAppHeader(document.getElementById('app-header'), { aktiv: 'konto' })
-    schreibeAppFooter(document.getElementById('app-footer'))
+    import { mountAppHeader, writeAppFooter } from '/src/app-nav.ts'
+    void mountAppHeader(document.getElementById('app-header'), { active: 'account' })
+    writeAppFooter(document.getElementById('app-footer'))
   </script>
 
   <main class="wrap">
     <!-- Lesespalte 780 px, linksbündig in der 1160-er Wrap — Marke und Titel
          fluchten; Nav/Fuß springen beim Seitenwechsel nicht. -->
-    <div class="konto-lesespalte">
+    <div class="account-reading-column">
     <!-- Die Bühne bleibt verborgen, bis /auth/me geantwortet hat: Eine Tafel
          mit leeren Zeilen, die sich erst danach füllt, sieht nach kaputter
          Seite aus. Wer nicht angemeldet ist, landet in #meldung. -->
-    <div id="buehne" hidden>
-      <div class="seitenkopf">
+    <div id="stage" hidden>
+      <div class="page-header">
         <h1>Kontoeinstellungen</h1>
       </div>
 
       <div class="block">
-        <div class="block-kopf"><h2>Anmeldung &amp; Sicherheit</h2></div>
-        <div class="tafel">
-          <div class="zeile">
-            <span class="z"><span class="t">E-Mail-Adresse</span><span class="b" id="k-email"></span></span>
-            <span class="marke" id="k-mailstand"></span>
-            <button type="button" class="knopf" id="btn-mail">Ändern</button>
+        <div class="block-header"><h2>Anmeldung &amp; Sicherheit</h2></div>
+        <div class="card">
+          <div class="row">
+            <span class="z"><span class="t">E-Mail-Adresse</span><span class="b" id="account-email"></span></span>
+            <span class="marker" id="account-mail-status"></span>
+            <button type="button" class="button" id="btn-mail">Ändern</button>
           </div>
-          <div class="zeile">
+          <div class="row">
             <span class="z">
               <span class="t">Passwort</span>
               <span class="b">Beim Wechsel werden alle anderen Geräte abgemeldet.</span>
             </span>
-            <button type="button" class="knopf" id="btn-passwort">Ändern</button>
+            <button type="button" class="button" id="btn-password">Ändern</button>
           </div>
         </div>
       </div>
 
       <div class="block">
-        <div class="block-kopf"><h2>Benachrichtigungen</h2></div>
-        <div class="tafel">
+        <div class="block-header"><h2>Benachrichtigungen</h2></div>
+        <div class="card">
           <!-- KEIN zweites Double-Opt-in. Das DOI ist kein Selbstzweck, sondern
                das Mittel, um nachzuweisen, dass die Einwilligung vom Inhaber
                der Adresse stammt — genau dieser Fall ist hier ausgeschlossen:
@@ -265,20 +265,20 @@
                Solange die Adresse unbestätigt ist, ruht der VERSAND — nicht der
                Schalter: Eine Einwilligung darf man geben, bevor man sie
                einlösen kann; die Zeile sagt es dann dazu. -->
-          <div class="zeile">
+          <div class="row">
             <label class="z" for="s-news">
               <span class="t">Updates &amp; Neues von Maptale</span>
               <span class="b">Ein paar Mal im Jahr Neues von Maptale. Abbestellen jederzeit.</span>
-              <span class="b ruht" id="s-news-ruht" hidden>Solange deine E-Mail-Adresse unbestätigt ist, geht nichts raus.</span>
+              <span class="b idle" id="switch-news-idle" hidden>Solange deine E-Mail-Adresse unbestätigt ist, geht nichts raus.</span>
             </label>
-            <input type="checkbox" class="schalter" id="s-news" />
+            <input type="checkbox" class="switch" id="s-news" />
           </div>
         </div>
       </div>
 
       <div class="block">
-        <div class="block-kopf"><h2>Angemeldete Geräte</h2></div>
-        <div class="tafel" id="geraete"></div>
+        <div class="block-header"><h2>Angemeldete Geräte</h2></div>
+        <div class="card" id="devices"></div>
       </div>
 
       <!-- Verbundene Dienste: Sport-Tracker, deren Aufzeichnungen von selbst
@@ -288,21 +288,21 @@
            registriert ist: eine leere Überschrift wäre eine Auskunft über
            nichts. -->
       <div class="block" id="tracker-block" hidden>
-        <div class="block-kopf"><h2>Verbundene Dienste</h2></div>
-        <div class="tafel" id="tracker"></div>
+        <div class="block-header"><h2>Verbundene Dienste</h2></div>
+        <div class="card" id="tracker"></div>
       </div>
 
       <div class="block">
-        <div class="block-kopf"><h2>Speicher</h2></div>
-        <div class="tafel">
-          <div class="speicher">
-            <div class="oben">
-              <span><b id="sp-belegt"></b> <span id="sp-von"></span></span>
-              <span class="anteil" id="sp-prozent"></span>
+        <div class="block-header"><h2>Speicher</h2></div>
+        <div class="card">
+          <div class="storage">
+            <div class="top">
+              <span><b id="storage-used"></b> <span id="storage-of"></span></span>
+              <span class="share" id="storage-percent"></span>
             </div>
-            <div class="speicherbalken" id="sp-balken"></div>
-            <div class="legende" id="sp-legende"></div>
-            <div class="speicher-warnung" id="sp-warnung" hidden>
+            <div class="storage-bar" id="storage-bar"></div>
+            <div class="legend" id="storage-legend"></div>
+            <div class="storage-warning" id="storage-warning" hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 16.8v.2"/></svg>
               <span>Dein Speicher ist fast voll. Die nächste Aufnahme passt vielleicht nicht mehr.</span>
             </div>
@@ -311,18 +311,18 @@
       </div>
 
       <div class="block">
-        <div class="block-kopf"><h2>Deine Daten</h2></div>
-        <div class="tafel">
+        <div class="block-header"><h2>Deine Daten</h2></div>
+        <div class="card">
           <!-- Zweite Bedienstelle für DENSELBEN Zustand (die erste steht im
                Bearbeiten-Modal des Profils). Bewusst doppelt: Hier sucht man
                sie beim Aufräumen, dort beim Bearbeiten — auseinanderlaufen
                kann nichts, weil beide dasselbe Feld schreiben. -->
-          <div class="zeile">
-            <label class="z" for="s-profil">
+          <div class="row">
+            <label class="z" for="switch-profile">
               <span class="t">Öffentliches Profil</span>
-              <span class="b" id="s-profil-erklaerung"></span>
+              <span class="b" id="switch-profile-hint"></span>
             </label>
-            <input type="checkbox" class="schalter" id="s-profil" />
+            <input type="checkbox" class="switch" id="switch-profile" />
           </div>
           <!-- Zweiter Schalter und nicht die dritte Stufe des ersten: Ein
                Profil über den Link zu teilen ist etwas anderes, als unter dem
@@ -334,45 +334,45 @@
                gesperrt, und die Zeile darunter sagt, worauf er wartet — der
                Server setzt `index` ohnehin nur, wenn beides gilt
                (server/src/routes/pages.ts). -->
-          <div class="zeile">
-            <label class="z" for="s-suche">
+          <div class="row">
+            <label class="z" for="switch-search-indexing">
               <span class="t">In Suchmaschinen erscheinen</span>
-              <span class="b" id="s-suche-erklaerung"></span>
+              <span class="b" id="switch-search-indexing-hint"></span>
             </label>
-            <input type="checkbox" class="schalter" id="s-suche" />
+            <input type="checkbox" class="switch" id="switch-search-indexing" />
           </div>
           <!-- Art. 20 DSGVO. Der Bau läuft im Hintergrund und dauert bei vielen
                Medien Minuten — deshalb kommt das Ergebnis per Mail und nicht
                als Download aus diesem Klick. Die Zeile darunter sagt, woran man
                gerade ist; sie kommt aus /auth/me und wird nicht gepollt. -->
-          <div class="zeile">
+          <div class="row">
             <span class="z">
               <span class="t">Alle Daten exportieren</span>
               <!-- EINE Zeile, kein Standardsatz mit Stand darunter: Sobald es
                    einen Auftrag gibt, ist dessen Stand die einzige Auskunft mit
                    Neuigkeitswert. Der Text kommt aus exportZeile()
-                   (src/konto/kontomodell.ts), auch der Satz ohne Auftrag. -->
-              <span class="b" id="ex-stand"></span>
+                   (src/account/account-model.ts), auch der Satz ohne Auftrag. -->
+              <span class="b" id="data-export-status"></span>
             </span>
-            <button type="button" class="knopf" id="btn-export">ZIP anfordern</button>
+            <button type="button" class="button" id="btn-export">ZIP anfordern</button>
           </div>
         </div>
       </div>
 
-      <div class="block gefahrenblock">
-        <div class="block-kopf"><h2>Konto löschen</h2></div>
-        <div class="tafel gefahr">
-          <div class="zeile">
+      <div class="block danger-block">
+        <div class="block-header"><h2>Konto löschen</h2></div>
+        <div class="card danger">
+          <div class="row">
             <span class="z">
               <span class="t">Konto unwiderruflich löschen</span>
               <span class="b">Entfernt dein Konto und alle hochgeladenen Medien permanent.</span>
             </span>
-            <button type="button" class="knopf gefahr" id="btn-loeschen">Konto löschen</button>
+            <button type="button" class="button danger" id="btn-delete">Konto löschen</button>
           </div>
         </div>
       </div>
     </div>
-    <div id="meldung"></div>
+    <div id="message"></div>
     </div>
   </main>
 
@@ -384,8 +384,8 @@
   <footer id="app-footer"></footer>
 
   <script type="module">
-    import { starteKonto } from '/src/konto/konto.ts'
-    void starteKonto()
+    import { startAccount } from '/src/account/account.ts'
+    void startAccount()
   </script>
 </body>
 </html>

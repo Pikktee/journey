@@ -1045,7 +1045,7 @@ function zeichneProfilLinks() {
    nicht. */
 const HANDLE_REGELN = /^[a-z0-9](?:[a-z0-9._-]{1,28})[a-z0-9]$/
 // Was die Seite selbst braucht — plus das Übliche, das sich niemand greifen
-// soll. Im Produkt gehört diese Liste neben src/routen.ts, damit ein neuer
+// soll. Im Produkt gehört diese Liste neben src/routes.ts, damit ein neuer
 // Pfad nicht still einen vergebenen Handle überschreibt.
 const RESERVIERT = new Set([
   'app', 'anmelden', 'registrieren', 'galerie', 'profil', 'admin', 'impressum',
@@ -1400,7 +1400,7 @@ document.querySelectorAll('[data-auge]').forEach((b) => {
   })
 })
 
-// Grobe Attrappe der Kurve aus src/passwortstaerke.ts
+// Grobe Attrappe der Kurve aus src/password-strength.ts
 const stufen = [
   { farbe: '#e5484d', text: 'Zu kurz — Länge ist der Hebel, nicht Sonderzeichen.' },
   { farbe: '#e5824d', text: 'Schwach. Drei zufällige Wörter wären deutlich besser.' },
