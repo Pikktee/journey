@@ -37,16 +37,16 @@ cd /srv/maptale
 ```
 MAPTALE_COOKIE_SECRET=<z. B. `openssl rand -hex 32`>
 MAPTALE_ADMIN_EMAIL=contact@henrikheil.net
-MAPTALE_ADMIN_PASSWORT=<stark>
-MAPTALE_BASIS_URL=https://maptale.io
+MAPTALE_ADMIN_PASSWORD=<stark>
+MAPTALE_BASE_URL=https://maptale.io
 RESEND_API_KEY=re_…            # aus deiner lokalen .env
-MAPTALE_MAIL_ABSENDER=Maptale <noreply@maptale.io>   # Domain muss in Resend verifiziert sein
+MAPTALE_MAIL_FROM=Maptale <noreply@maptale.io>   # Domain muss in Resend verifiziert sein
 OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildanalyse (Vision-Modell via OpenRouter); fehlt er, bleibt das Auto-Wetter wie in M2
-# MAPTALE_VISION_MODELL=google/gemini-2.5-flash-lite   # optional: Vision-Modell überschreiben
-MAPTALE_UMAMI_DB_PASSWORT=<Postgres-Passwort des Umami-Containers>   # optional: nur für den Statistik-Reiter der Verwaltung
+# MAPTALE_VISION_MODEL=google/gemini-2.5-flash-lite   # optional: Vision-Modell überschreiben
+MAPTALE_UMAMI_DB_PASSWORD=<Postgres-Passwort des Umami-Containers>   # optional: nur für den Statistik-Reiter der Verwaltung
 ```
 
-> **`MAPTALE_UMAMI_DB_PASSWORT`** ist das Postgres-Passwort der selbst gehosteten
+> **`MAPTALE_UMAMI_DB_PASSWORD`** ist das Postgres-Passwort der selbst gehosteten
 > Umami-Instanz (Container `umami-db-1` auf demselben Host; die Route fragt ihn
 > per `docker exec … psql` ab). Es steht bewusst nicht im Quelltext — fehlt der
 > Wert, zeigt der Reiter „Statistiken" Nullen, alles andere läuft weiter. Muss
@@ -98,7 +98,7 @@ MAPTALE_UMAMI_DB_PASSWORT=<Postgres-Passwort des Umami-Containers>   # optional:
 > antwortet dort mit JSON-404: Jede Profil- und Tour-Adresse wäre sofort tot.
 >
 > Der Container holt sich das gebaute `profil.html`/`erlebnis.html` zur Laufzeit
-> über `MAPTALE_WEB_URL` (leer = `MAPTALE_BASIS_URL`, in `/srv/maptale/.env`
+> über `MAPTALE_WEB_URL` (leer = `MAPTALE_BASE_URL`, in `/srv/maptale/.env`
 > auf `https://maptale.io` gesetzt). Ist die Variable falsch, antwortet jede
 > dieser Seiten mit 502 — die Gegenprobe unten fängt das ab.
 
@@ -221,8 +221,8 @@ for p in / /app '/erlebnis?tour=kohphangan'; do curl -sI "$A$p" | grep -iE '^(HT
 curl -s $A/api/auth/me | head -c 40
 ```
 
-Nicht vergessen, wenn die Hauptdomain wechselt: `MAPTALE_BASIS_URL` und
-`MAPTALE_MAIL_ABSENDER` in `/srv/maptale/.env` (sonst tragen Bestätigungs- und
+Nicht vergessen, wenn die Hauptdomain wechselt: `MAPTALE_BASE_URL` und
+`MAPTALE_MAIL_FROM` in `/srv/maptale/.env` (sonst tragen Bestätigungs- und
 Reset-Mails weiter die alte Adresse — der Link funktioniert über den Redirect
 zwar, steht aber falsch da), das Secret `CLOUDPANEL_DOCROOT`, die Absender-Domain
 in Resend und `STANDARD_SERVER` in der Android-App.
@@ -231,7 +231,7 @@ in Resend und `STANDARD_SERVER` in der Android-App.
 
 Falls kein Docker: Node 22 + ffmpeg auf den Host (`apt install ffmpeg`), die API
 als systemd-Dienst (`server/` bauen: `npm ci && npm run build`, dann
-`node dist/index.js` mit denselben Env-Variablen, `MAPTALE_DATEN_DIR` auf ein
+`node dist/index.js` mit denselben Env-Variablen, `MAPTALE_DATA_DIR` auf ein
 Verzeichnis mit Schreibrecht, `PORT=8790` da 8787 belegt ist). Der Nginx-Vhost
 bleibt identisch (proxyt weiter auf `127.0.0.1:8790`). Der Deploy zieht dann statt `docker compose` einen
 `git pull && npm ci && npm run build && systemctl restart maptale-api`.

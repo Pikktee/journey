@@ -312,7 +312,7 @@ durchsetzen, die Oberfläche SOLL den Knopf gar nicht erst anbieten.
 **Registrierung: ein Schalter, zwei Ebenen.** Die DB-Einstellung `invitation_required`
 (Vorgabe AN, [invitations.ts](src/auth/invitations.ts)) entscheidet, ob ein Code nötig
 ist — sie liegt in der Datenbank und nicht in der Umgebung, weil sie zur Laufzeit umgelegt wird.
-Darüber steht weiterhin der harte Env-Riegel `MAPTALE_REGISTRIERUNG_OFFEN`: Ist der zu, hilft
+Darüber steht weiterhin der harte Env-Riegel `MAPTALE_REGISTRATION_OPEN`: Ist der zu, hilft
 auch ein gültiger Code nicht. `/auth/me` meldet beides AUCH ohne Anmeldung — genau dort, wo das
 Registrierungsformular danach fragt, ist niemand angemeldet.
 

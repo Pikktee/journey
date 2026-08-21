@@ -4,10 +4,10 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { buildRoute } from '../../src/geo.js'
 
-// Die gerenderten Touren der LOKALEN Instanz. Über MAPTALE_DATEN_DIR
+// Die gerenderten Touren der LOKALEN Instanz. Über MAPTALE_DATA_DIR
 // umlenkbar, falls eine isolierte Instanz gemessen werden soll.
-const WURZEL = process.env['MAPTALE_DATEN_DIR']
-  ? `${process.env['MAPTALE_DATEN_DIR']}/tours`
+const WURZEL = process.env['MAPTALE_DATA_DIR']
+  ? `${process.env['MAPTALE_DATA_DIR']}/tours`
   : new URL('../../server/daten/tours', import.meta.url).pathname
 
 const meter = (a: number[], b: number[]): number => {

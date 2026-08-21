@@ -24,20 +24,20 @@ services:
       # proxy_pass im CloudPanel-Vhost (deploy/cloudpanel-nginx.conf) passen.
       - '127.0.0.1:8790:8787'
     environment:
-      MAPTALE_DATEN_DIR: /data
+      MAPTALE_DATA_DIR: /data
       MAPTALE_COOKIE_SECRET: ${MAPTALE_COOKIE_SECRET:?MAPTALE_COOKIE_SECRET in .env setzen}
       MAPTALE_ADMIN_EMAIL: ${MAPTALE_ADMIN_EMAIL:-}
-      MAPTALE_ADMIN_PASSWORT: ${MAPTALE_ADMIN_PASSWORT:-}
+      MAPTALE_ADMIN_PASSWORD: ${MAPTALE_ADMIN_PASSWORD:-}
       # Adressen, die bei jedem Start die Admin-Rolle bekommen (kommagetrennt).
       # Ungesetzt greift der Default aus server/src/config.ts — leer lassen
       # bedeutet also NICHT „keine Admins", sondern „die eingebauten".
       MAPTALE_ADMINS: ${MAPTALE_ADMINS:-}
       # Hinter CloudPanels TLS-Nginx: Cookies bekommen `secure`.
-      MAPTALE_HINTER_TLS: '1'
+      MAPTALE_BEHIND_TLS: '1'
       # Mehrbenutzer-Betrieb (M9)
-      MAPTALE_BASIS_URL: ${MAPTALE_BASIS_URL:-}
+      MAPTALE_BASE_URL: ${MAPTALE_BASE_URL:-}
       # Woher der Container das GEBAUTE profil.html holt, wenn er /@handle
-      # selbst beantwortet (server/src/page-meta.ts). Leer = wie MAPTALE_BASIS_URL,
+      # selbst beantwortet (server/src/page-meta.ts). Leer = wie MAPTALE_BASE_URL,
       # und das ist der Normalfall: Es ist derselbe Nginx, der die Datei auch
       # dem Browser ausliefert — ein Abruf alle fünf Minuten.
       #
@@ -47,16 +47,16 @@ services:
       # Cache-Periode und spart dafür jede Sonderbehandlung.
       MAPTALE_WEB_URL: ${MAPTALE_WEB_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      MAPTALE_MAIL_ABSENDER: ${MAPTALE_MAIL_ABSENDER:-}
-      MAPTALE_MAX_SPEICHER_PRO_BENUTZER: ${MAPTALE_MAX_SPEICHER_PRO_BENUTZER:-}
-      MAPTALE_REGISTRIERUNG_OFFEN: ${MAPTALE_REGISTRIERUNG_OFFEN:-}
+      MAPTALE_MAIL_FROM: ${MAPTALE_MAIL_FROM:-}
+      MAPTALE_MAX_STORAGE_PER_USER: ${MAPTALE_MAX_STORAGE_PER_USER:-}
+      MAPTALE_REGISTRATION_OPEN: ${MAPTALE_REGISTRATION_OPEN:-}
       # Wetter-Bildanalyse (M5) — optional: ohne Key ist das Feature aus (No-Op).
-      # Vision-Modell läuft über OpenRouter; MAPTALE_VISION_MODELL überschreibt den Default.
+      # Vision-Modell läuft über OpenRouter; MAPTALE_VISION_MODEL überschreibt den Default.
       OPEN_ROUTER_KEY: ${OPEN_ROUTER_KEY:-}
-      MAPTALE_VISION_MODELL: ${MAPTALE_VISION_MODELL:-}
+      MAPTALE_VISION_MODEL: ${MAPTALE_VISION_MODEL:-}
       # Reichweitenmessung: Passwort der Umami-Postgres (Nachbar-Container).
       # Fehlt es, bleibt der Statistik-Reiter der Verwaltung auf Null.
-      MAPTALE_UMAMI_DB_PASSWORT: ${MAPTALE_UMAMI_DB_PASSWORT:-}
+      MAPTALE_UMAMI_DB_PASSWORD: ${MAPTALE_UMAMI_DB_PASSWORD:-}
       # Tracker-Verknüpfungen (Polar & Co.). Der Schlüssel verschlüsselt die
       # OAuth-Tokens in der Datenbank; fehlt er, sind ALLE Anbieter aus — es
       # gibt keinen Klartext-Rückfall. Bewusst nicht aus MAPTALE_COOKIE_SECRET

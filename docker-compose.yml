@@ -4,8 +4,8 @@
 #
 # Erstbetrieb auf dem VPS:
 #   /srv/maptale/.env anlegen (SITE_ADDRESS, MAPTALE_COOKIE_SECRET,
-#   MAPTALE_ADMIN_EMAIL, MAPTALE_ADMIN_PASSWORT; für den Mehrbenutzer-Betrieb
-#   zusätzlich MAPTALE_BASIS_URL, RESEND_API_KEY, MAPTALE_MAIL_ABSENDER) →
+#   MAPTALE_ADMIN_EMAIL, MAPTALE_ADMIN_PASSWORD; für den Mehrbenutzer-Betrieb
+#   zusätzlich MAPTALE_BASE_URL, RESEND_API_KEY, MAPTALE_MAIL_FROM) →
 #   docker compose up -d. Deploys übernimmt .github/workflows/deploy.yml.
 
 services:
@@ -31,19 +31,19 @@ services:
     build: ./server
     restart: unless-stopped
     environment:
-      MAPTALE_DATEN_DIR: /data
+      MAPTALE_DATA_DIR: /data
       MAPTALE_COOKIE_SECRET: ${MAPTALE_COOKIE_SECRET:?MAPTALE_COOKIE_SECRET in .env setzen}
       MAPTALE_ADMIN_EMAIL: ${MAPTALE_ADMIN_EMAIL:-}
-      MAPTALE_ADMIN_PASSWORT: ${MAPTALE_ADMIN_PASSWORT:-}
-      MAPTALE_HINTER_TLS: '1'
+      MAPTALE_ADMIN_PASSWORD: ${MAPTALE_ADMIN_PASSWORD:-}
+      MAPTALE_BEHIND_TLS: '1'
       # Mehrbenutzer-Betrieb (M9): öffentliche URL für Mail-Links, Mail-Versand,
       # Quota, Registrierungs-Schalter. Leere Werte fallen serverseitig auf die
       # Defaults zurück (ohne RESEND_API_KEY loggt der Server den Link nur).
-      MAPTALE_BASIS_URL: ${MAPTALE_BASIS_URL:-}
+      MAPTALE_BASE_URL: ${MAPTALE_BASE_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      MAPTALE_MAIL_ABSENDER: ${MAPTALE_MAIL_ABSENDER:-}
-      MAPTALE_MAX_SPEICHER_PRO_BENUTZER: ${MAPTALE_MAX_SPEICHER_PRO_BENUTZER:-}
-      MAPTALE_REGISTRIERUNG_OFFEN: ${MAPTALE_REGISTRIERUNG_OFFEN:-}
+      MAPTALE_MAIL_FROM: ${MAPTALE_MAIL_FROM:-}
+      MAPTALE_MAX_STORAGE_PER_USER: ${MAPTALE_MAX_STORAGE_PER_USER:-}
+      MAPTALE_REGISTRATION_OPEN: ${MAPTALE_REGISTRATION_OPEN:-}
     volumes:
       - /srv/maptale/daten:/data
 

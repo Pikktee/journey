@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-21
-status: abgearbeitet — Wellen 0 bis 8 gebaut. Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 8 warten auf den nächsten Release. Offen bleibt allein Schritt 9 (die MAPTALE_*-Env-Variablen), ein reiner Ops-Termin mit eigenem Rollback; er steht als nächster Schritt in der Roadmap.
+status: abgearbeitet — Wellen 0 bis 8 und Schritt 9 gebaut. Ausgeliefert ist bis v0.68.0 (Wellen 1 bis 5); der Rest samt Env-Umbenennung wartet auf den nächsten Release.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts

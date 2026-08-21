@@ -342,7 +342,7 @@ Fünf Entscheidungen, die beim Umsetzen dazukamen:
 - **Der Abruf des gebauten HTML geht über den öffentlichen Namen**, nicht über `127.0.0.1`:
   Der HTTP-Vhost leitet auf HTTPS um, und HTTPS auf die Loopback-Adresse scheitert am
   Zertifikatsnamen. Ein TLS-Handshake alle fünf Minuten ist billiger als jede
-  Sonderbehandlung (`MAPTALE_WEB_URL`, Default = `MAPTALE_BASIS_URL`).
+  Sonderbehandlung (`MAPTALE_WEB_URL`, Default = `MAPTALE_BASE_URL`).
 - **Beim Rollout gilt die UMGEKEHRTE Reihenfolge wie in Etappe 1**: erst der Code, dann der
   Vhost. Ein `proxy_pass` auf eine API, die `/@handle` noch nicht kennt, macht jede
   Profilseite sofort tot — während ein zu früher `rewrite`-Block in Etappe 1 nur eine leere

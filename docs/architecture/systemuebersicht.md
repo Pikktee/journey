@@ -70,7 +70,7 @@ Kartendaten: Esri-Satellit, AWS Terrain-DEM, OpenFreeMap-Gebäude, Open-Meteo-We
 | Framework | Fastify 5 |
 | Sprache | TypeScript strict |
 | Datenbank | SQLite (`better-sqlite3`) — Konten, Sitzungen, Quota, Tracker, … |
-| Dateien | Dateisystem unter `MAPTALE_DATEN_DIR` (Touren, Medien, Exporte) |
+| Dateien | Dateisystem unter `MAPTALE_DATA_DIR` (Touren, Medien, Exporte) |
 | Passwörter | Argon2 (`@node-rs/argon2`) |
 | Medien | ffmpeg (Bilder skalieren, Video-Transcode/Faststart) |
 | Mail | Resend (Prod) / Konsole (Dev) |

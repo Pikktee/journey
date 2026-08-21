@@ -22,8 +22,8 @@ import {
 } from '../../src/film-axis.js'
 import { HOLD_FADE_OUT_S, holdS } from '../../src/card-timing.js'
 
-const WURZEL = process.env['MAPTALE_DATEN_DIR']
-  ? `${process.env['MAPTALE_DATEN_DIR']}/tours`
+const WURZEL = process.env['MAPTALE_DATA_DIR']
+  ? `${process.env['MAPTALE_DATA_DIR']}/tours`
   : new URL('../../server/daten/tours', import.meta.url).pathname
 
 interface Tourbau {

@@ -56,7 +56,6 @@ Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
-* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Nur noch Schritt 9: die `MAPTALE_*`-Env-Variablen als eigener Ops-Termin (neue Namen zusätzlich in die Server-`.env`, deployen, alte Zeilen entfernen). Die Wellen 0 bis 8 sind durch, Code und Doku damit fertig.
 * [Konto löschen absichern](concepts/konzept_kontoloeschung_absichern.md) - Passwortpflicht für DELETE /api/auth/me; heute reicht eine offene Sitzung, um Konto, Touren und Medien zu löschen.
 * [Play Store](concepts/konzept_play_store_interner_test.md) - Die App aus dem APK-Versand herausholen. [wartet auf: concepts/konzept_codebase_english_refactoring.md]
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.

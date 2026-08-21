@@ -20,7 +20,7 @@ RUN npm run build && npm prune --omit=dev
 FROM node:22-alpine
 RUN apk add --no-cache ffmpeg
 ENV NODE_ENV=production \
-    MAPTALE_DATEN_DIR=/data \
+    MAPTALE_DATA_DIR=/data \
     PORT=8787
 WORKDIR /app
 COPY package.json ./

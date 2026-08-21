@@ -83,8 +83,8 @@ vorgegeben (`android` / `androiddebugkey`), er ist eine Identität, kein Schutz.
 Trotzdem gehört er nicht ins Repo, sondern in die Secrets: Er entscheidet, wer
 Updates für diese App-Installationen ausliefern kann.
 
-Optional lassen sich abweichende Werte setzen (`MAPTALE_DEBUG_KEYSTORE_PASSWORT`,
-`MAPTALE_DEBUG_KEY_ALIAS`, `MAPTALE_DEBUG_KEY_PASSWORT` als Umgebungsvariablen im
+Optional lassen sich abweichende Werte setzen (`MAPTALE_DEBUG_KEYSTORE_PASSWORD`,
+`MAPTALE_DEBUG_KEY_ALIAS`, `MAPTALE_DEBUG_KEY_PASSWORD` als Umgebungsvariablen im
 Job) — ohne sie gelten die Android-Vorgaben.
 
 ### Und der Play Store?

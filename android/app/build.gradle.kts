@@ -100,9 +100,9 @@ android {
                 storeFile = file(hinterlegt)
                 // Die Vorgaben sind die von Android selbst vergebenen — ein
                 // Debug-Keystore ist kein Geheimnis, sondern eine Identität.
-                storePassword = System.getenv("MAPTALE_DEBUG_KEYSTORE_PASSWORT") ?: "android"
+                storePassword = System.getenv("MAPTALE_DEBUG_KEYSTORE_PASSWORD") ?: "android"
                 keyAlias = System.getenv("MAPTALE_DEBUG_KEY_ALIAS") ?: "androiddebugkey"
-                keyPassword = System.getenv("MAPTALE_DEBUG_KEY_PASSWORT") ?: "android"
+                keyPassword = System.getenv("MAPTALE_DEBUG_KEY_PASSWORD") ?: "android"
             }
         }
     }

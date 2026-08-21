@@ -30,10 +30,10 @@ import { buildRoute, dist, type Route } from '../../src/geo.js'
 import { buildSAtF } from '../../src/route-anchors.js'
 import type { Waypoint } from '../../src/tours.js'
 
-// Die gerenderten Touren der LOKALEN Instanz. Über MAPTALE_DATEN_DIR
+// Die gerenderten Touren der LOKALEN Instanz. Über MAPTALE_DATA_DIR
 // umlenkbar, falls eine isolierte Instanz gemessen werden soll.
-const WURZEL = process.env['MAPTALE_DATEN_DIR']
-  ? `${process.env['MAPTALE_DATEN_DIR']}/tours`
+const WURZEL = process.env['MAPTALE_DATA_DIR']
+  ? `${process.env['MAPTALE_DATA_DIR']}/tours`
   : new URL('../../server/daten/tours', import.meta.url).pathname
 // Meter je FILMsekunde, wie die Engine sie fährt (MODE_SPEED × Basistempo) —
 // derselbe Satz wie in rampen-simulation.ts.

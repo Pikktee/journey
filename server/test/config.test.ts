@@ -20,10 +20,10 @@ describe('konfigAusEnv', () => {
   it('behandelt LEERE Strings (docker-compose ${VAR:-}) wie „nicht gesetzt"', () => {
     const k = configFromEnv({
       PORT: '',
-      MAPTALE_MAX_SPEICHER_PRO_BENUTZER: '',
-      MAPTALE_BASIS_URL: '',
-      MAPTALE_MAIL_ABSENDER: '   ',
-      MAPTALE_DATEN_DIR: '',
+      MAPTALE_MAX_STORAGE_PER_USER: '',
+      MAPTALE_BASE_URL: '',
+      MAPTALE_MAIL_FROM: '   ',
+      MAPTALE_DATA_DIR: '',
       OPEN_ROUTER_KEY: '   ',
     })
     expect(k.port).toBe(8787)
@@ -36,12 +36,12 @@ describe('konfigAusEnv', () => {
 
   it('übernimmt gesetzte Werte', () => {
     const k = configFromEnv({
-      MAPTALE_BASIS_URL: 'https://maptale.henrikheil.net',
-      MAPTALE_MAX_SPEICHER_PRO_BENUTZER: '1048576',
-      MAPTALE_REGISTRIERUNG_OFFEN: '0',
+      MAPTALE_BASE_URL: 'https://maptale.henrikheil.net',
+      MAPTALE_MAX_STORAGE_PER_USER: '1048576',
+      MAPTALE_REGISTRATION_OPEN: '0',
       RESEND_API_KEY: 're_test',
       OPEN_ROUTER_KEY: 'sk-or-test',
-      MAPTALE_VISION_MODELL: 'openai/gpt-4o-mini',
+      MAPTALE_VISION_MODEL: 'openai/gpt-4o-mini',
     })
     expect(k.basisUrl).toBe('https://maptale.henrikheil.net')
     expect(k.maxSpeicherProBenutzer).toBe(1048576)

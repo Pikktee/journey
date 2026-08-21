@@ -59,7 +59,7 @@ nötig — der Google-3D-Key wird nur im Dev genutzt.
 2. Auf dem Server `/srv/maptale/` anlegen mit der [`docker-compose.yml`](docker-compose.yml)
    aus dem Repo und einer `.env`:
    `SITE_ADDRESS=deine-domain.tld`, `MAPTALE_COOKIE_SECRET=<lang & zufällig>`,
-   `MAPTALE_ADMIN_EMAIL`/`MAPTALE_ADMIN_PASSWORT` (Seed-Benutzer). Tour-Daten
+   `MAPTALE_ADMIN_EMAIL`/`MAPTALE_ADMIN_PASSWORD` (Seed-Benutzer). Tour-Daten
    landen im Bind-Mount `/srv/maptale/daten` (→ Backup einplanen!).
 3. Im GitHub-Repo unter **Settings → Secrets and variables → Actions**:
    Secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (Deploy-Key des Servers).
@@ -68,11 +68,11 @@ nötig — der Google-3D-Key wird nur im Dev genutzt.
 
 | Variable | Zweck | Default |
 |---|---|---|
-| `MAPTALE_BASIS_URL` | Öffentliche URL für die Links in System-Mails | `http://localhost:5173` |
+| `MAPTALE_BASE_URL` | Öffentliche URL für die Links in System-Mails | `http://localhost:5173` |
 | `RESEND_API_KEY` | Aktiviert echten Mail-Versand (sonst landet der Bestätigungslink nur im Server-Log) | – |
-| `MAPTALE_MAIL_ABSENDER` | Absender der System-Mails | `Maptale <noreply@luhambo.app>` |
-| `MAPTALE_MAX_SPEICHER_PRO_BENUTZER` | Speicher-Quota je Benutzer (Bytes) | 2 GiB |
-| `MAPTALE_REGISTRIERUNG_OFFEN` | `0` schließt die Selbst-Registrierung (private Instanz) | offen |
+| `MAPTALE_MAIL_FROM` | Absender der System-Mails | `Maptale <noreply@luhambo.app>` |
+| `MAPTALE_MAX_STORAGE_PER_USER` | Speicher-Quota je Benutzer (Bytes) | 2 GiB |
+| `MAPTALE_REGISTRATION_OPEN` | `0` schließt die Selbst-Registrierung (private Instanz) | offen |
 
 Vor dem öffentlichen Start ausfüllen: die Platzhalter in [`impressum.html`](impressum.html)
 und [`datenschutz.html`](datenschutz.html) (Betreiberangaben, Hosting-/Mail-Anbieter).

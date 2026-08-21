@@ -41,7 +41,7 @@ export type AdminStats = {
  * Zahlen der Reichweitenmessung aus der Umami-Datenbank (eigener Container auf
  * demselben Host, deshalb `docker exec … psql`).
  *
- * Das Passwort kommt aus `MAPTALE_UMAMI_DB_PASSWORT` und steht bewusst nirgends
+ * Das Passwort kommt aus `MAPTALE_UMAMI_DB_PASSWORD` und steht bewusst nirgends
  * im Quelltext. Fehlt es, gibt es keine Notfall-Vorgabe: Die Route liefert
  * dieselbe leere Auskunft wie bei jedem anderen Ausfall (Container weg, psql
  * langsam), und der Reiter zeigt Nullen statt einer Fehlerseite.

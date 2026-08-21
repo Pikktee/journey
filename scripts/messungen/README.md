@@ -71,7 +71,7 @@ PLAYWRIGHT=/pfad/zu/node_modules/playwright/index.mjs node scripts/messungen/fra
 
 Der Dev-Server läuft über `devhub` (nicht selbst starten); die Adresse kommt aus
 `MAPTALE_WEB`, Vorgabe `http://maptale.localhost:5123`. Die Daten-Skripte lesen
-`server/daten/tours`, umlenkbar über `MAPTALE_DATEN_DIR`.
+`server/daten/tours`, umlenkbar über `MAPTALE_DATA_DIR`.
 
 ## Die Skripte
 

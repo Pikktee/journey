@@ -144,24 +144,24 @@ const adressen = (wert: string | undefined, standard: string): string[] =>
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     port: zahl(env.PORT, 8787),
-    datenDir: text(env.MAPTALE_DATEN_DIR, './daten'),
+    datenDir: text(env.MAPTALE_DATA_DIR, './daten'),
     cookieSecret: text(env.MAPTALE_COOKIE_SECRET, 'dev-geheimnis-nicht-fuer-prod'),
     adminEmail: env.MAPTALE_ADMIN_EMAIL || null,
-    adminPasswort: env.MAPTALE_ADMIN_PASSWORT || null,
+    adminPasswort: env.MAPTALE_ADMIN_PASSWORD || null,
     adminEmails: adressen(env.MAPTALE_ADMINS, 'contact@henrikheil.net,henrik.heil@gmail.com'),
     maxMediumBytes: zahl(env.MAPTALE_MAX_MEDIUM_BYTES, 500 * 1024 * 1024),
     maxAudioBytes: zahl(env.MAPTALE_MAX_AUDIO_BYTES, 25 * 1024 * 1024),
-    maxSpeicherProBenutzer: zahl(env.MAPTALE_MAX_SPEICHER_PRO_BENUTZER, 2 * 1024 * 1024 * 1024),
-    hinterTls: env.MAPTALE_HINTER_TLS === '1',
-    registrierungOffen: env.MAPTALE_REGISTRIERUNG_OFFEN !== '0',
-    basisUrl: text(env.MAPTALE_BASIS_URL, 'http://localhost:5173'),
-    webUrl: text(env.MAPTALE_WEB_URL, text(env.MAPTALE_BASIS_URL, 'http://localhost:5173')),
-    mailAbsender: text(env.MAPTALE_MAIL_ABSENDER, 'Maptale <noreply@maptale.io>'),
+    maxSpeicherProBenutzer: zahl(env.MAPTALE_MAX_STORAGE_PER_USER, 2 * 1024 * 1024 * 1024),
+    hinterTls: env.MAPTALE_BEHIND_TLS === '1',
+    registrierungOffen: env.MAPTALE_REGISTRATION_OPEN !== '0',
+    basisUrl: text(env.MAPTALE_BASE_URL, 'http://localhost:5173'),
+    webUrl: text(env.MAPTALE_WEB_URL, text(env.MAPTALE_BASE_URL, 'http://localhost:5173')),
+    mailAbsender: text(env.MAPTALE_MAIL_FROM, 'Maptale <noreply@maptale.io>'),
     // Leer (docker-compose ${VAR:-}) wie „nicht gesetzt" behandeln → Feature aus.
     openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,
-    visionModell: text(env.MAPTALE_VISION_MODELL, VISION_MODEL_DEFAULT),
-    umamiDbPasswort: env.MAPTALE_UMAMI_DB_PASSWORT?.trim()
-      ? env.MAPTALE_UMAMI_DB_PASSWORT.trim()
+    visionModell: text(env.MAPTALE_VISION_MODEL, VISION_MODEL_DEFAULT),
+    umamiDbPasswort: env.MAPTALE_UMAMI_DB_PASSWORD?.trim()
+      ? env.MAPTALE_UMAMI_DB_PASSWORD.trim()
       : null,
     trackerSchluessel: geheim(env.MAPTALE_TRACKER_SECRET),
     polar: {
