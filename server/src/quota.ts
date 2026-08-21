@@ -37,9 +37,9 @@ export interface StorageBreakdown {
   other: number
 }
 
-const BILD_ENDUNGEN = /\.(jpe?g|png|webp|avif|heic)$/i
-const VIDEO_ENDUNGEN = /\.(mp4|mov|m4v|webm)$/i
-const AUDIO_ENDUNGEN = /\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i
+const IMAGE_EXTENSIONS = /\.(jpe?g|png|webp|avif|heic)$/i
+const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm)$/i
+const AUDIO_EXTENSIONS = /\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i
 
 /**
  * Ein Dateipfad → seine Art.
@@ -50,15 +50,15 @@ const AUDIO_ENDUNGEN = /\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i
  * selbst (Manifest, Track, `edits.json`, `tour.json`, `enrichment.json`); sie
  * ist winzig, steht aber im Balken, damit die Teile die Summe ergeben.
  */
-export function fileType(pfad: string): keyof StorageBreakdown {
-  if (AUDIO_ENDUNGEN.test(pfad)) return 'audio'
-  if (!pfad.startsWith('media/')) return 'recordings'
-  if (BILD_ENDUNGEN.test(pfad)) return 'photos'
-  if (VIDEO_ENDUNGEN.test(pfad)) return 'videos'
+export function fileType(path: string): keyof StorageBreakdown {
+  if (AUDIO_EXTENSIONS.test(path)) return 'audio'
+  if (!path.startsWith('media/')) return 'recordings'
+  if (IMAGE_EXTENSIONS.test(path)) return 'photos'
+  if (VIDEO_EXTENSIONS.test(path)) return 'videos'
   return 'other'
 }
 
-const LEERE_AUFTEILUNG = (): StorageBreakdown => ({
+const emptyBreakdown = (): StorageBreakdown => ({
   photos: 0,
   videos: 0,
   audio: 0,
@@ -68,34 +68,34 @@ const LEERE_AUFTEILUNG = (): StorageBreakdown => ({
 
 /**
  * Summiert die Bytes aller Touren eines Benutzers über den Storage — plus die
- * benutzerweite Audio-Bibliothek (`<userId>/audio/` im benutzerStorage): auch
+ * benutzerweite Audio-Bibliothek (`<userId>/audio/` im userStorage): auch
  * sie belegt VPS-Platz, sonst wäre sie ein Quota-Schlupfloch. Der Avatar bleibt
  * bewusst außen vor (fixe Obergrenze, kein nennenswerter Platz).
  */
 export async function usedBytes(
   db: Db,
   storage: Storage,
-  benutzerStorage: Storage,
+  userStorage: Storage,
   userId: string,
 ): Promise<number> {
-  const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{
+  const rows = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{
     id: string
   }>
-  let summe = 0
-  for (const { id } of zeilen) summe += await storage.gesamtGroesse(id)
-  for (const datei of await benutzerStorage.listeDateien(userId, 'audio')) summe += datei.groesse
-  return summe
+  let sum = 0
+  for (const { id } of rows) sum += await storage.totalSize(id)
+  for (const file of await userStorage.listFiles(userId, 'audio')) sum += file.size
+  return sum
 }
 
 export async function quotaStatus(
   db: Db,
   storage: Storage,
-  benutzerStorage: Storage,
+  userStorage: Storage,
   userId: string,
   limit: number,
 ): Promise<QuotaStatus> {
-  const benutzt = await usedBytes(db, storage, benutzerStorage, userId)
-  return { used: benutzt, limit, free: Math.max(0, limit - benutzt) }
+  const used = await usedBytes(db, storage, userStorage, userId)
+  return { used: used, limit, free: Math.max(0, limit - used) }
 }
 
 /**
@@ -108,21 +108,20 @@ export async function quotaStatus(
 export async function storageBreakdown(
   db: Db,
   storage: Storage,
-  benutzerStorage: Storage,
+  userStorage: Storage,
   userId: string,
 ): Promise<StorageBreakdown> {
-  const aufteilung = LEERE_AUFTEILUNG()
-  const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{
+  const breakdown = emptyBreakdown()
+  const rows = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{
     id: string
   }>
-  for (const { id } of zeilen) {
-    for (const datei of await storage.alleDateien(id)) {
-      aufteilung[fileType(datei.pfad)] += datei.groesse
+  for (const { id } of rows) {
+    for (const file of await storage.allFiles(id)) {
+      breakdown[fileType(file.path)] += file.size
     }
   }
-  for (const datei of await benutzerStorage.listeDateien(userId, 'audio'))
-    aufteilung.audio += datei.groesse
-  return aufteilung
+  for (const file of await userStorage.listFiles(userId, 'audio')) breakdown.audio += file.size
+  return breakdown
 }
 
 /**
@@ -134,15 +133,15 @@ export async function storageBreakdown(
 export async function checkQuota(
   db: Db,
   storage: Storage,
-  benutzerStorage: Storage,
+  userStorage: Storage,
   userId: string,
   limit: number,
-  zusatzBytes: number,
+  extraBytes: number,
 ): Promise<string | null> {
-  const benutzt = await usedBytes(db, storage, benutzerStorage, userId)
-  if (benutzt + zusatzBytes > limit) {
+  const used = await usedBytes(db, storage, userStorage, userId)
+  if (used + extraBytes > limit) {
     const mb = (b: number): string => (b / (1024 * 1024)).toFixed(0)
-    return `Speicherplatz erschöpft: ${mb(benutzt)} von ${mb(limit)} MB belegt`
+    return `Speicherplatz erschöpft: ${mb(used)} von ${mb(limit)} MB belegt`
   }
   return null
 }

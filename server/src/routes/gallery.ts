@@ -117,7 +117,7 @@ export function registerGalleryRoutes(app: FastifyInstance): void {
     // Für alle anderen gilt 404 statt 403: Ein nicht freigegebenes Profil
     // verrät nicht einmal, dass es existiert (dieselbe Linie wie bei privaten
     // Touren).
-    const istBesitzer = !!person && request.benutzer?.id === person.id
+    const istBesitzer = !!person && request.user?.id === person.id
     if (!person || !profil || (profil.visibility !== 'public' && !istBesitzer)) {
       return reply.code(404).send({ error: 'Profil nicht gefunden' })
     }

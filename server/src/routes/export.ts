@@ -40,7 +40,7 @@ export const exportUrl = (basisUrl: string, token: string): string =>
   `${basisUrl.replace(/\/+$/, '')}/api/export/${token}`
 
 export function registerDataExportRoutes(app: FastifyInstance): void {
-  const { konfig, mail, db, storage } = app.deps
+  const { config, mail, db, storage } = app.deps
 
   // Ein Archiv kostet CPU und Platz. Die Bremse ist der Schutz gegen den
   // Fall, den der UNIQUE-Index NICHT abdeckt: schnell hintereinander
@@ -56,7 +56,7 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
         .send({ error: 'Zu viele Anforderungen. Versuch es später noch einmal.' })
     }
 
-    const { stand, neu } = app.exporte.fordereAn(benutzer.id)
+    const { stand, neu } = app.dataExport.fordereAn(benutzer.id)
     // Läuft schon einer: Der Wunsch ist erfüllt, es passiert nichts weiter —
     // insbesondere geht keine zweite Mail raus. Die Antwort ist dieselbe,
     // damit die Oberfläche keinen Sonderfall zeichnen muss.
@@ -79,8 +79,8 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
    * Zwecks.
    */
   app.get<{ Params: { token: string } }>('/api/export/:token', async (request, reply) => {
-    const id = DataExportService.ausToken(request.params.token, konfig.cookieSecret)
-    const stand = id ? app.exporte.abrufbar(id) : null
+    const id = DataExportService.ausToken(request.params.token, config.cookieSecret)
+    const stand = id ? app.dataExport.abrufbar(id) : null
     // Abgelaufen und gefälscht sind dieselbe Antwort: Ein eigener Text für
     // „abgelaufen" verriete, dass es diesen Auftrag gab.
     if (!id || !stand) {
@@ -90,10 +90,10 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
     if (!info) return reply.code(404).send({ error: 'Dieser Link ist abgelaufen oder ungültig.' })
 
     reply.header('content-type', 'application/zip')
-    reply.header('content-length', String(info.groesse))
+    reply.header('content-length', String(info.size))
     reply.header('content-disposition', 'attachment; filename="maptale-export.zip"')
     reply.header('cache-control', 'private, no-store')
-    return reply.send(app.deps.archive.leseStream(id, ARCHIVE_FILE))
+    return reply.send(app.deps.archive.readStream(id, ARCHIVE_FILE))
   })
 
   /**
@@ -113,12 +113,12 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
   ): Promise<void> {
     try {
       const { bytes, dateien } = await buildAndStore(
-        { db, storage, archive: app.deps.archive, maxBytes: konfig.maxSpeicherProBenutzer * 2 },
+        { db, storage, archive: app.deps.archive, maxBytes: config.maxStoragePerUser * 2 },
         auftragId,
         benutzerId,
         new Date().toISOString(),
       )
-      app.exporte.melde(auftragId, bytes, dateien)
+      app.dataExport.melde(auftragId, bytes, dateien)
       app.log.info({ auftragId, bytes, dateien }, 'Datenexport gebaut')
 
       // Der Versand steht in einem EIGENEN try: Ein Mail-Ausfall darf den
@@ -128,13 +128,13 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
       // gelungenen Export einen gescheiterten.
       try {
         const link = exportUrl(
-          konfig.basisUrl,
-          DataExportService.token(auftragId, konfig.cookieSecret),
+          config.baseUrl,
+          DataExportService.token(auftragId, config.cookieSecret),
         )
-        const { betreff, text, html } = app.mailvorlagen.rendere(
+        const { betreff, text, html } = app.mailTemplates.rendere(
           'export',
           { name, groesse: formatSize(bytes), frist: `${EXPIRY_HOURS} Stunden` },
-          { basisUrl: konfig.basisUrl, link },
+          { basisUrl: config.baseUrl, link },
         )
         await mail.sende({ an: email, betreff, text, html })
       } catch (fehler) {
@@ -142,7 +142,10 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
       }
     } catch (fehler) {
       app.log.error({ fehler, auftragId }, 'Datenexport fehlgeschlagen')
-      app.exporte.meldeFehler(auftragId, fehler instanceof Error ? fehler.message : String(fehler))
+      app.dataExport.meldeFehler(
+        auftragId,
+        fehler instanceof Error ? fehler.message : String(fehler),
+      )
     }
   }
 }

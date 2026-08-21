@@ -54,7 +54,7 @@ describe('Profil', () => {
       visibility: 'private',
       // Zweiter, unabhängiger Zustand: „über den Link erreichbar" und „unter
       // dem eigenen Namen auffindbar" sind verschiedene Entscheidungen. Aus
-      // demselben Grund ist der Standard aus (s. server/src/routes/seiten.ts).
+      // demselben Grund ist der Standard aus (s. server/src/routes/pages.ts).
       searchIndexing: false,
     })
   })
@@ -153,10 +153,10 @@ describe('Avatar', () => {
   it('räumt das vorherige Bild weg', async () => {
     const u = await baueTestApp()
     await ladeAvatarHoch(u, 'alt')
-    const vorher = await u.benutzerStorage.listeDateien(nutzerId(u), 'avatar')
+    const vorher = await u.userStorage.listFiles(nutzerId(u), 'avatar')
     await new Promise((r) => setTimeout(r, 2))
     await ladeAvatarHoch(u, 'neu')
-    const nachher = await u.benutzerStorage.listeDateien(nutzerId(u), 'avatar')
+    const nachher = await u.userStorage.listFiles(nutzerId(u), 'avatar')
     expect(nachher).toHaveLength(1)
     expect(nachher[0]?.name).not.toBe(vorher[0]?.name)
   })
@@ -187,13 +187,13 @@ describe('Avatar', () => {
     const u = await baueTestApp()
     await ladeAvatarHoch(u)
     const id = nutzerId(u)
-    expect(await u.benutzerStorage.listeDateien(id, 'avatar')).toHaveLength(1)
+    expect(await u.userStorage.listFiles(id, 'avatar')).toHaveLength(1)
 
     expect(
       (await u.app.inject({ method: 'DELETE', url: '/api/auth/me', cookies: u.cookies }))
         .statusCode,
     ).toBe(200)
-    expect(await u.benutzerStorage.listeDateien(id, 'avatar')).toHaveLength(0)
+    expect(await u.userStorage.listFiles(id, 'avatar')).toHaveLength(0)
   })
 })
 

@@ -34,7 +34,7 @@ const zielSchema = {
 } as const
 
 export function registerTrackerRoutes(app: FastifyInstance): void {
-  const { konfig } = app.deps
+  const { config } = app.deps
 
   /** Ein Anbieter für die Oberfläche: was er ist, ob er kann, wie es steht. */
   const zeigeAnbieter = (
@@ -75,7 +75,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       if (!provider || !app.tracker.einsatzbereit) {
         return reply.code(404).send({ error: 'Anbieter nicht verfügbar' })
       }
-      const redirectUri = returnUrl(konfig.basisUrl, provider.id)
+      const redirectUri = returnUrl(config.baseUrl, provider.id)
       // Der `state` ist Pflicht und wird SERVERSEITIG gehalten: Ohne ihn ließe
       // sich einem Angemeldeten ein fremdes Anbieter-Konto unterschieben.
       const zustand = app.tracker.merkeZustand(
@@ -98,11 +98,11 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
     // Abbruch beim Anbieter ist kein Fehlerfall, sondern eine Entscheidung —
     // zurück auf die Kontoseite, mit einem Wort dazu.
     if (error || !code || !state || !provider) {
-      return reply.redirect(`${konfig.basisUrl}/konto#tracker=abgebrochen`)
+      return reply.redirect(`${config.baseUrl}/konto#tracker=abgebrochen`)
     }
     const zustand = app.tracker.loeseZustandEin(state)
     if (!zustand || zustand.anbieter !== provider.id) {
-      return reply.redirect(`${konfig.basisUrl}/konto#tracker=abgelaufen`)
+      return reply.redirect(`${config.baseUrl}/konto#tracker=abgelaufen`)
     }
     try {
       let tokens = await provider.tauscheCode(code, zustand.redirectUri)
@@ -116,13 +116,13 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       app.log.warn(
         `Tracker-Verknüpfung fehlgeschlagen (${provider.id}): ${(fehler as Error).message}`,
       )
-      return reply.redirect(`${konfig.basisUrl}/konto#tracker=fehler`)
+      return reply.redirect(`${config.baseUrl}/konto#tracker=fehler`)
     }
     // Die App bekommt einen Deep Link zurück; im Web genügt die Kontoseite.
     return reply.redirect(
       zustand.ziel === 'app'
         ? `maptale://tracker/${provider.id}?ok=1`
-        : `${konfig.basisUrl}/konto#tracker=verbunden`,
+        : `${config.baseUrl}/konto#tracker=verbunden`,
     )
   })
 
@@ -211,9 +211,9 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       const ergebnisse = await runImports(app, app.tracker, sofort)
       if (rest.length) {
         const schluessel = `sync:${verknuepfung.id}`
-        app.trackerLaeufe.set(
+        app.trackerRuns.set(
           schluessel,
-          runImports(app, app.tracker, rest).finally(() => app.trackerLaeufe.delete(schluessel)),
+          runImports(app, app.tracker, rest).finally(() => app.trackerRuns.delete(schluessel)),
         )
       }
       // Der Sync-Zeitpunkt kommt aus `runImports` (nur wenn nichts offen

@@ -15,7 +15,7 @@ import {
   type TrackerProvider,
 } from '../src/tracker/contract.js'
 
-const ZUGANG = { clientId: 'klient-1', clientSecret: 'geheim-1', webhookGeheimnis: 'wh-geheim' }
+const ZUGANG = { clientId: 'klient-1', clientSecret: 'geheim-1', webhookSecret: 'wh-geheim' }
 const TOKENS: ProviderTokens = { zugriff: 'zugriff-abc', externerNutzer: '4711', laeuftAb: null }
 
 const BEISPIEL_GPX = `<?xml version="1.0"?>
@@ -101,12 +101,12 @@ describe('Hilfsrechnungen', () => {
 
 describe('Konfiguration', () => {
   it('ist ohne Client-Zugangsdaten nicht verfügbar', () => {
-    const ohne = new PolarProvider({ clientId: null, clientSecret: null, webhookGeheimnis: null })
+    const ohne = new PolarProvider({ clientId: null, clientSecret: null, webhookSecret: null })
     expect(ohne.konfiguriert).toBe(false)
   })
 
   it('ist auch ohne Webhook-Geheimnis einsatzbereit (es entsteht später)', () => {
-    const provider = new PolarProvider({ clientId: 'a', clientSecret: 'b', webhookGeheimnis: null })
+    const provider = new PolarProvider({ clientId: 'a', clientSecret: 'b', webhookSecret: null })
     expect(provider.konfiguriert).toBe(true)
   })
 })
@@ -244,7 +244,7 @@ describe('Webhook', () => {
   it('lehnt ohne hinterlegtes Geheimnis ALLES ab', () => {
     // Die Alternative wäre ein Eingang, der so lange offen steht, wie jemand
     // die Einrichtung vergisst.
-    const ohne = new PolarProvider({ ...ZUGANG, webhookGeheimnis: null })
+    const ohne = new PolarProvider({ ...ZUGANG, webhookSecret: null })
     expect(
       ohne.webhook.verifiziere({
         rohBody: nutzlast,

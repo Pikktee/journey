@@ -29,7 +29,7 @@ function segment(
 function eingabe(teil: Partial<MusicInput> = {}): MusicInput {
   return {
     segmente: [segment()],
-    wetter: null,
+    weather: null,
     startIso: '2026-07-04T09:00:00+02:00',
     endeIso: '2026-07-04T12:00:00+02:00',
     zone: 'Europe/Zurich',
@@ -74,7 +74,7 @@ describe('waehleMusik', () => {
     const nachts = eingabe({
       startIso: '2026-07-04T22:00:00+02:00',
       endeIso: '2026-07-05T01:30:00+02:00',
-      wetter: [kf(0, 'rain')],
+      weather: [kf(0, 'rain')],
       segmente: [segment('bike', [400, 1400, 2400])],
     })
     expect(chooseMusic(nachts)).toBe(AUTO_MUSIC.nachtfahrt)
@@ -89,13 +89,13 @@ describe('waehleMusik', () => {
   })
 
   it('nasses Drittel gibt „Regentag"', () => {
-    expect(chooseMusic(eingabe({ wetter: [kf(0, 'rain'), kf(0.4, 'off')] }))).toBe(
+    expect(chooseMusic(eingabe({ weather: [kf(0, 'rain'), kf(0.4, 'off')] }))).toBe(
       AUTO_MUSIC.regentag,
     )
   })
 
   it('ein kurzer Schauer reicht nicht', () => {
-    expect(chooseMusic(eingabe({ wetter: [kf(0, 'off'), kf(0.8, 'rain'), kf(0.9, 'off')] }))).toBe(
+    expect(chooseMusic(eingabe({ weather: [kf(0, 'off'), kf(0.8, 'rain'), kf(0.9, 'off')] }))).toBe(
       AUTO_MUSIC.aufbruch,
     )
   })
@@ -175,7 +175,7 @@ describe('waehleMusik', () => {
     const alle = new Set(Object.values(AUTO_MUSIC))
     for (const e of [
       eingabe(),
-      eingabe({ wetter: [kf(0, 'rain')] }),
+      eingabe({ weather: [kf(0, 'rain')] }),
       eingabe({ segmente: [segment('ferry')] }),
       eingabe({ startIso: '2026-07-04T23:00:00+02:00', endeIso: '2026-07-05T02:00:00+02:00' }),
     ]) {
@@ -207,7 +207,7 @@ async function tourBisBereit(u: TestUmgebung): Promise<string> {
     cookies: u.cookies,
   })
   expect(fin.statusCode).toBe(202)
-  await u.app.verarbeitungen.get(id)
+  await u.app.processing.get(id)
   return id
 }
 
@@ -234,7 +234,7 @@ describe('Musik beim ersten Verarbeiten', () => {
       expect(Object.values(AUTO_MUSIC)).toContain(edits.audio?.[0]?.file)
 
       // Und die Tour klingt wirklich: /audio/sfx-Spur über die ganze Strecke.
-      const tour = JSON.parse((await u.storage.lese(id, 'tour.json')).toString()) as {
+      const tour = JSON.parse((await u.storage.read(id, 'tour.json')).toString()) as {
         audio?: Array<{ type: string; src: string; f0: number; f1: number }>
       }
       expect(tour.audio).toHaveLength(1)
@@ -259,7 +259,7 @@ describe('Musik beim ersten Verarbeiten', () => {
         payload: { schema: 'maptale/edits@2', audio: [] },
       })
       expect(weg.statusCode).toBe(202)
-      await u.app.verarbeitungen.get(id)
+      await u.app.processing.get(id)
 
       const neu = await u.app.inject({
         method: 'POST',
@@ -267,7 +267,7 @@ describe('Musik beim ersten Verarbeiten', () => {
         cookies: u.cookies,
       })
       expect(neu.statusCode).toBe(202)
-      await u.app.verarbeitungen.get(id)
+      await u.app.processing.get(id)
 
       expect((await leseEdits(u, id)).audio).toEqual([])
     } finally {
@@ -315,7 +315,7 @@ describe('Musik beim ersten Verarbeiten', () => {
         cookies: u.cookies,
       })
       expect(fin.statusCode).toBe(202)
-      await u.app.verarbeitungen.get(id)
+      await u.app.processing.get(id)
 
       const edits = await leseEdits(u, id)
       expect(edits.audio).toHaveLength(1)

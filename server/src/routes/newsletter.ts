@@ -27,7 +27,7 @@ import { checkUnsubscribeToken } from '../newsletter.js'
 const tokenSchema = { type: 'string', maxLength: 400 } as const
 
 export function registerNewsletterRoutes(app: FastifyInstance): void {
-  const { konfig } = app.deps
+  const { config } = app.deps
   const gebremst = buildRateLimit(20, 10 * 60_000)
 
   /**
@@ -39,7 +39,7 @@ export function registerNewsletterRoutes(app: FastifyInstance): void {
    * etwas tun (der Schalter steht in den Kontoeinstellungen).
    */
   const trageAus = (token: string): boolean => {
-    const userId = checkUnsubscribeToken(token, konfig.cookieSecret)
+    const userId = checkUnsubscribeToken(token, config.cookieSecret)
     if (!userId) return false
     // Der Zustand wird auch dann geschrieben, wenn er schon „aus" war: Die
     // zweite Zeile in der Historie ist der Beleg, dass jemand es noch einmal

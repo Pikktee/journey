@@ -9,7 +9,7 @@
 // der Aufruf.
 import Database from 'better-sqlite3'
 import { describe, expect, it } from 'vitest'
-import { MIGRATIONS_STAND, migriereBis } from '../src/db.js'
+import { MIGRATIONS_VERSION, migrateTo } from '../src/db.js'
 
 const JETZT = '2026-08-20T10:00:00.000Z'
 
@@ -17,7 +17,7 @@ const JETZT = '2026-08-20T10:00:00.000Z'
 function gefuellteAltDatenbank(): Database.Database {
   const db = new Database(':memory:')
   db.pragma('foreign_keys = ON')
-  migriereBis(db, 22)
+  migrateTo(db, 22)
   db.exec(`
     INSERT INTO users (id, email, pw_hash, name, created_at, rolle, profil_sichtbarkeit,
       anzeigename, handle, titelbild, newsletter, suchmaschinen)
@@ -60,9 +60,9 @@ function gefuellteAltDatenbank(): Database.Database {
 describe('Leiter bis Welle 1', () => {
   it('hebt jede Zeile mit — nichts fällt beim Tabellen-Neubau heraus', () => {
     const db = gefuellteAltDatenbank()
-    migriereBis(db, MIGRATIONS_STAND)
+    migrateTo(db, MIGRATIONS_VERSION)
 
-    expect(db.pragma('user_version', { simple: true })).toBe(MIGRATIONS_STAND)
+    expect(db.pragma('user_version', { simple: true })).toBe(MIGRATIONS_VERSION)
     expect(db.pragma('foreign_key_check')).toEqual([])
     // Und die Fremdschlüssel stehen danach wieder an.
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
@@ -93,7 +93,7 @@ describe('Leiter bis Welle 1', () => {
 
   it('zieht die Werte mit, die Teil des Vertrags sind', () => {
     const db = gefuellteAltDatenbank()
-    migriereBis(db, MIGRATIONS_STAND)
+    migrateTo(db, MIGRATIONS_VERSION)
 
     const nutzer = db.prepare('SELECT * FROM users').get() as Record<string, unknown>
     expect(nutzer['role']).toBe('admin')

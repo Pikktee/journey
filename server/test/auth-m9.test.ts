@@ -155,7 +155,7 @@ describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
   })
 
   it('respektiert geschlossene Registrierung (403)', async () => {
-    const u = await baueTestApp(undefined, undefined, undefined, { registrierungOffen: false })
+    const u = await baueTestApp(undefined, undefined, undefined, { registrationOpen: false })
     expect((await registriere(u)).statusCode).toBe(403)
   })
 
@@ -248,11 +248,11 @@ describe('Konto-Löschung (M9, DSGVO)', () => {
       payload: beispielManifest(),
     })
     const id = (tour.json() as { id: string }).id
-    expect(await u.storage.gesamtGroesse(id)).toBeGreaterThan(0)
+    expect(await u.storage.totalSize(id)).toBeGreaterThan(0)
 
     const del = await u.app.inject({ method: 'DELETE', url: '/api/auth/me', cookies: u.cookies })
     expect(del.statusCode).toBe(200)
-    expect(await u.storage.gesamtGroesse(id)).toBe(0)
+    expect(await u.storage.totalSize(id)).toBe(0)
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
@@ -270,7 +270,7 @@ describe('Konto-Löschung (M9, DSGVO)', () => {
 describe('Speicher-Quota (M9)', () => {
   it('meldet Nutzung/Limit über GET /me', async () => {
     const u = await baueTestApp(undefined, undefined, undefined, {
-      maxSpeicherProBenutzer: 10 * 1024 * 1024,
+      maxStoragePerUser: 10 * 1024 * 1024,
     })
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
     expect(me.json()).toMatchObject({
@@ -280,7 +280,7 @@ describe('Speicher-Quota (M9)', () => {
 
   it('lehnt einen Upload ab, der die Quota sprengt (413)', async () => {
     // Winziges Limit: schon das Manifest-freie Medium überschreitet es
-    const u = await baueTestApp(undefined, undefined, undefined, { maxSpeicherProBenutzer: 100 })
+    const u = await baueTestApp(undefined, undefined, undefined, { maxStoragePerUser: 100 })
     const tour = await u.app.inject({
       method: 'POST',
       url: '/api/tours',

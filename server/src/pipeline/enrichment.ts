@@ -88,7 +88,7 @@ export async function computeRawEnrichment(e: {
   manifest: UploadManifest
   edits?: EditOverlay | null
   geocoder: Geocoder
-  wetter?: WeatherSource | null
+  weather?: WeatherSource | null
   protokoll?: (nachricht: string) => void
 }): Promise<{ places: Endpoints; weatherRaw: WeatherKeyframe[] | null }> {
   const startMs = Date.parse(e.manifest.time.start)
@@ -107,12 +107,12 @@ export async function computeRawEnrichment(e: {
   )
 
   let weatherRaw: WeatherKeyframe[] | null = null
-  if (e.wetter) {
+  if (e.weather) {
     try {
       weatherRaw = await computeWeather({
         reihe: buildTimeSeries(rohSegmente),
         startIso: e.manifest.time.start,
-        quelle: e.wetter,
+        quelle: e.weather,
       })
     } catch (fehler) {
       e.protokoll?.(`Auto-Wetter nicht verfügbar: ${(fehler as Error).message}`)

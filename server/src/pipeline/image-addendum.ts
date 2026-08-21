@@ -17,9 +17,9 @@ import type { Db } from '../db.js'
 import type { Storage } from '../storage.js'
 
 export interface BackfillResult {
-  touren: number
+  tours: number
   /** Eingesparte Bytes (Originale minus erzeugte Fassungen) */
-  gespart: number
+  saved: number
 }
 
 /**
@@ -43,14 +43,14 @@ export async function backfillImageVariants(
   const offen = db
     .prepare(`SELECT id, cover FROM tours WHERE status = 'ready' AND cover_thumb IS NULL`)
     .all() as Array<{ id: string; cover: string | null }>
-  if (offen.length === 0) return { touren: 0, gespart: 0 }
+  if (offen.length === 0) return { tours: 0, saved: 0 }
 
   const setzen = db.prepare('UPDATE tours SET cover = ?, cover_thumb = ? WHERE id = ?')
-  let touren = 0
-  let gespart = 0
+  let tours = 0
+  let saved = 0
   for (const { id, cover } of offen) {
     try {
-      gespart += await trageEineTourNach(
+      saved += await trageEineTourNach(
         storage,
         tourJsonPfad,
         werkzeug,
@@ -59,14 +59,14 @@ export async function backfillImageVariants(
         setzen,
         protokoll,
       )
-      touren++
+      tours++
     } catch (fehler) {
       // Eine Tour, die sich nicht aufbereiten lässt, blockiert den Start nicht.
       // Ihr cover_thumb bleibt leer — der nächste Durchlauf versucht es erneut.
       protokoll?.(`Bild-Nachtrag übersprungen für ${id}: ${(fehler as Error).message}`)
     }
   }
-  return { touren, gespart }
+  return { tours, saved }
 }
 
 async function trageEineTourNach(
@@ -78,13 +78,13 @@ async function trageEineTourNach(
   setzen: { run: (...werte: unknown[]) => unknown },
   protokoll?: (nachricht: string) => void,
 ): Promise<number> {
-  const tourJson = JSON.parse((await storage.lese(id, tourJsonPfad)).toString('utf8')) as TourJson
-  const vorher = await storage.gesamtGroesse(id)
+  const tourJson = JSON.parse((await storage.read(id, tourJsonPfad)).toString('utf8')) as TourJson
+  const vorher = await storage.totalSize(id)
   const speicher: ImageStorage = {
-    lese: (relPfad) => storage.lese(id, relPfad),
-    schreibe: (relPfad, inhalt) => storage.schreibe(id, relPfad, inhalt),
+    lese: (relPfad) => storage.read(id, relPfad),
+    schreibe: (relPfad, inhalt) => storage.write(id, relPfad, inhalt),
     info: (relPfad) => storage.info(id, relPfad),
-    loesche: (relPfad) => storage.loesche(id, relPfad),
+    loesche: (relPfad) => storage.remove(id, relPfad),
   }
 
   // Welches Medium das Titelbild ist, steht schon fest — im `cover` der
@@ -117,7 +117,7 @@ async function trageEineTourNach(
       thumb: `/api/media/${id}/${fassungen.thumbDatei}`,
     }
   })
-  await storage.schreibe(id, tourJsonPfad, JSON.stringify({ ...tourJson, media: medien }, null, 2))
+  await storage.write(id, tourJsonPfad, JSON.stringify({ ...tourJson, media: medien }, null, 2))
 
   // Das Titelbild zeigt sonst weiter auf ein Original, das es nicht mehr gibt.
   const neuesTitelMedium = titelMedium ? medien.find((m) => m.id === titelMedium.id) : undefined
@@ -130,5 +130,5 @@ async function trageEineTourNach(
       }
     : chooseCover(medien)
   setzen.run(titelbild?.cover ?? null, titelbild?.thumb ?? null, id)
-  return Math.max(0, vorher - (await storage.gesamtGroesse(id)))
+  return Math.max(0, vorher - (await storage.totalSize(id)))
 }

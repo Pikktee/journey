@@ -29,55 +29,55 @@ export interface AuditLogEntry {
 }
 
 /** So viele Meldungen bleiben stehen; ältere fallen hinten heraus. */
-const PUFFER_GROESSE = 500
+const BUFFER_SIZE = 500
 /** Kappungsgrenze je Meldung — ein Stacktrace-Text darf den Puffer nicht sprengen. */
 const MAX_TEXT = 2000
 
 export class AuditLog {
-  private readonly eintraege: AuditLogEntry[] = []
-  private naechsteNr = 1
+  private readonly entries: AuditLogEntry[] = []
+  private nextNo = 1
 
-  constructor(private readonly groesse: number = PUFFER_GROESSE) {}
+  constructor(private readonly size: number = BUFFER_SIZE) {}
 
-  schreibe(stufe: AuditLogLevel, text: string, detail?: string): void {
-    this.eintraege.push({
-      no: this.naechsteNr++,
+  write(severity: AuditLogLevel, text: string, detail?: string): void {
+    this.entries.push({
+      no: this.nextNo++,
       at: new Date().toISOString(),
-      level: stufe,
+      level: severity,
       text: text.slice(0, MAX_TEXT),
       ...(detail ? { detail: detail.slice(0, MAX_TEXT) } : {}),
     })
     // shift() statt slice(): der Puffer ist im Normalbetrieb genau einen Eintrag
     // zu lang, ein neues Array je Meldung wäre Verschwendung.
-    while (this.eintraege.length > this.groesse) this.eintraege.shift()
+    while (this.entries.length > this.size) this.entries.shift()
   }
 
   /** Neueste zuerst — die Frage ist immer „was ist gerade passiert?". */
-  liste(opt: { stufe?: AuditLogLevel; limit?: number } = {}): AuditLogEntry[] {
-    const gefiltert = opt.stufe
-      ? this.eintraege.filter((e) => e.level === opt.stufe)
-      : this.eintraege
-    const umgekehrt = [...gefiltert].reverse()
-    return opt.limit ? umgekehrt.slice(0, opt.limit) : umgekehrt
+  list(opt: { severity?: AuditLogLevel; limit?: number } = {}): AuditLogEntry[] {
+    const filtered = opt.severity
+      ? this.entries.filter((e) => e.level === opt.severity)
+      : this.entries
+    const reversed = [...filtered].reverse()
+    return opt.limit ? reversed.slice(0, opt.limit) : reversed
   }
 
-  zaehle(): { total: number; errorCount: number } {
+  count(): { total: number; errorCount: number } {
     return {
-      total: this.eintraege.length,
-      errorCount: this.eintraege.filter((e) => e.level === 'failed').length,
+      total: this.entries.length,
+      errorCount: this.entries.filter((e) => e.level === 'failed').length,
     }
   }
 }
 
 /** pino-Level → unsere zwei Stufen; alles unter 40 (info/debug) fällt weg. */
-function stufeAusLevel(level: unknown): AuditLogLevel | null {
+function severityFromLevel(level: unknown): AuditLogLevel | null {
   if (typeof level !== 'number') return null
   if (level >= 50) return 'failed' // error + fatal
   if (level >= 40) return 'warning'
   return null
 }
 
-interface PinoZeile {
+interface PinoRow {
   level?: number
   msg?: string
   err?: { message?: string; type?: string }
@@ -98,28 +98,29 @@ interface PinoZeile {
  * durch und landen nicht im Puffer: Ein Logger darf an einem Log nicht scheitern.
  */
 export function auditLogTarget(
-  protokoll: AuditLog,
-  weiter: (zeile: string) => void = (z) => process.stdout.write(z),
-): { write(zeile: string): void } {
+  log: AuditLog,
+  more: (row: string) => void = (z) => process.stdout.write(z),
+): { write(row: string): void } {
   return {
-    write(zeile: string): void {
-      weiter(zeile)
-      let daten: PinoZeile
+    write(row: string): void {
+      more(row)
+      let payload: PinoRow
       try {
-        daten = JSON.parse(zeile) as PinoZeile
+        payload = JSON.parse(row) as PinoRow
       } catch {
         return
       }
-      const stufe = stufeAusLevel(daten.level)
-      if (!stufe) return
-      const text = daten.msg ?? daten.err?.message ?? '(ohne Meldung)'
+      const severity = severityFromLevel(payload.level)
+      if (!severity) return
+      const text = payload.msg ?? payload.err?.message ?? '(ohne Meldung)'
       // Was die Meldung einordnet: die Anfrage, an der sie hing, und der
       // Fehlertext, falls die Meldung selbst nur die Überschrift ist.
-      const teile: string[] = []
-      if (daten.req?.method && daten.req.url) teile.push(`${daten.req.method} ${daten.req.url}`)
-      if (daten.res?.statusCode) teile.push(`HTTP ${daten.res.statusCode}`)
-      if (daten.err?.message && daten.err.message !== text) teile.push(daten.err.message)
-      protokoll.schreibe(stufe, text, teile.join(' · ') || undefined)
+      const parts: string[] = []
+      if (payload.req?.method && payload.req.url)
+        parts.push(`${payload.req.method} ${payload.req.url}`)
+      if (payload.res?.statusCode) parts.push(`HTTP ${payload.res.statusCode}`)
+      if (payload.err?.message && payload.err.message !== text) parts.push(payload.err.message)
+      log.write(severity, text, parts.join(' · ') || undefined)
     },
   }
 }

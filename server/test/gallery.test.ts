@@ -28,7 +28,7 @@ async function createTour(u: TestUmgebung, clientId = 'client-1'): Promise<strin
     payload: Buffer.from('fake-jpeg'),
   })
   await u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies })
-  await u.app.verarbeitungen.get(id)
+  await u.app.processing.get(id)
   return id
 }
 

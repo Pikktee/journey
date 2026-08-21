@@ -184,7 +184,7 @@ export class DataExportService {
         new Date(jetzt.getTime() - EXPIRY_HOURS * 60 * 60 * 1000).toISOString(),
       ) as Array<{ id: string }>
     for (const { id } of alt) {
-      await this.archive.loescheTour(id).catch(() => undefined)
+      await this.archive.removeTour(id).catch(() => undefined)
       this.db.prepare('DELETE FROM data_exports WHERE id = ?').run(id)
     }
     return alt.length

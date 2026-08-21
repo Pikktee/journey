@@ -300,11 +300,11 @@ describe('Speicher', () => {
          VALUES ('t_konto', ?, 1, 'ready', 'private', '2026-08-06', '2026-08-06')`,
       )
       .run(user)
-    await u.storage.schreibe('t_konto', 'media/m1.w1920.jpg', Buffer.alloc(1000))
-    await u.storage.schreibe('t_konto', 'media/m2.web.mp4', Buffer.alloc(2000))
-    await u.storage.schreibe('t_konto', 'media/ton.mp3', Buffer.alloc(300))
-    await u.storage.schreibe('t_konto', 'original/manifest.json', Buffer.alloc(70))
-    await u.benutzerStorage.schreibe(user, 'audio/eigenes.mp3', Buffer.alloc(500))
+    await u.storage.write('t_konto', 'media/m1.w1920.jpg', Buffer.alloc(1000))
+    await u.storage.write('t_konto', 'media/m2.web.mp4', Buffer.alloc(2000))
+    await u.storage.write('t_konto', 'media/ton.mp3', Buffer.alloc(300))
+    await u.storage.write('t_konto', 'original/manifest.json', Buffer.alloc(70))
+    await u.userStorage.write(user, 'audio/eigenes.mp3', Buffer.alloc(500))
 
     const antwort = await u.app.inject({
       method: 'GET',

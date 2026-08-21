@@ -214,7 +214,7 @@ export class PolarProvider implements TrackerProvider {
     },
 
     verifiziere: (anfrage: WebhookRequest): boolean => {
-      const geheimnis = this.zugang.webhookGeheimnis
+      const geheimnis = this.zugang.webhookSecret
       // Ohne hinterlegtes Geheimnis wird NICHTS akzeptiert. Die Alternative
       // („noch kein Geheimnis, also durchlassen") wäre ein offener Eingang,
       // der genau so lange offen steht, wie jemand die Einrichtung vergisst.

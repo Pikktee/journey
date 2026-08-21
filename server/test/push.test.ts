@@ -81,8 +81,8 @@ async function melde(u: TestUmgebung, externeId: string): Promise<void> {
     },
     payload: rohBody,
   })
-  await Promise.all([...u.app.trackerLaeufe.values()])
-  await Promise.all([...u.app.verarbeitungen.values()])
+  await Promise.all([...u.app.trackerRuns.values()])
+  await Promise.all([...u.app.processing.values()])
 }
 
 /** Ein Gerät über die Route anmelden — mit dem App-Token, wie die App es tut. */

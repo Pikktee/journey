@@ -58,7 +58,7 @@ const FERN_KM = 60
 export interface MusicInput {
   segmente: readonly UploadSegment[]
   /** Ermitteltes Wetter (Roh, vor der Foto-Verfeinerung); null = keins bekannt. */
-  wetter?: readonly WeatherKeyframe[] | null
+  weather?: readonly WeatherKeyframe[] | null
   /** Beginn und Ende der Aufzeichnung (ISO) samt Zeitzone der Tour. */
   startIso: string
   endeIso: string
@@ -122,7 +122,7 @@ function starterBreite(segmente: readonly UploadSegment[]): number | null {
  * gewinnt. „Aufbruch" trägt jede Tour, für die nichts Besonderes gilt.
  */
 export function chooseMusic(eingabe: MusicInput): string {
-  const { segmente, wetter, startIso, endeIso, zone } = eingabe
+  const { segmente, weather, startIso, endeIso, zone } = eingabe
   const beginn = stundeLokal(startIso, zone)
   const ende = stundeLokal(endeIso, zone)
 
@@ -131,7 +131,7 @@ export function chooseMusic(eingabe: MusicInput): string {
   if (nachts(beginn) && nachts(ende)) return AUTO_MUSIC.nachtfahrt
 
   // 2. Nässe über einem guten Drittel der Strecke.
-  if (wetter && wetFraction(wetter) >= NASS_AB) return AUTO_MUSIC.regentag
+  if (weather && wetFraction(weather) >= NASS_AB) return AUTO_MUSIC.regentag
 
   // 3. Berge — Höhenmeter oder schiere Höhe.
   const stats = computeStats(segmente)

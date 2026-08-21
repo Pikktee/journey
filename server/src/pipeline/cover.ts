@@ -27,7 +27,7 @@ export async function backfillCovers(
   for (const { id } of offen) {
     try {
       const tourJson = JSON.parse(
-        (await storage.lese(id, tourJsonPfad)).toString('utf8'),
+        (await storage.read(id, tourJsonPfad)).toString('utf8'),
       ) as TourJson
       // Nur die Anzeigegröße: Die Kachel-Fassung entsteht erst im
       // Bild-Nachtrag, der direkt danach läuft und `cover_thumb` füllt.

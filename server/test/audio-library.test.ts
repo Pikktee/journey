@@ -36,7 +36,7 @@ async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
     cookies: u.cookies,
   })
   expect(antwort.statusCode).toBe(202)
-  await u.app.verarbeitungen.get(tourId)
+  await u.app.processing.get(tourId)
 }
 
 function ladeBibliothekHoch(
@@ -65,7 +65,7 @@ async function setzeEin(u: TestUmgebung, tourId: string, datei = 'meine-musik.mp
     },
   })
   expect(put.statusCode).toBe(202)
-  await u.app.verarbeitungen.get(tourId)
+  await u.app.processing.get(tourId)
 }
 
 async function fremdeCookies(u: TestUmgebung): Promise<{ maptale_session: string }> {
@@ -161,7 +161,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
     await finalisiere(u, id)
     await setzeEin(u, id)
 
-    const tourJson = JSON.parse((await u.storage.lese(id, 'tour.json')).toString()) as TourJson
+    const tourJson = JSON.parse((await u.storage.read(id, 'tour.json')).toString()) as TourJson
     expect(tourJson.audio).toBeDefined()
     expect(tourJson.audio?.[0]?.src).toBe(`/api/tours/${id}/library-audio/meine-musik.mp3`)
 
@@ -181,7 +181,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
     await finalisiere(u, id)
     // Overlay verweist auf eine Datei, die (noch) nicht existiert
     await setzeEin(u, id, 'gibts-nicht.mp3')
-    const tourJson = JSON.parse((await u.storage.lese(id, 'tour.json')).toString()) as TourJson
+    const tourJson = JSON.parse((await u.storage.read(id, 'tour.json')).toString()) as TourJson
     expect(tourJson.audio).toBeUndefined()
   })
 
@@ -209,7 +209,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
       payload: { schema: 'maptale/edits@2' },
     })
     expect(leer.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const del2 = await u.app.inject({
       method: 'DELETE',
@@ -219,7 +219,7 @@ describe('Audio-Bibliothek: Verwendung + Lösch-Schutz', () => {
     expect(del2.statusCode).toBe(200)
     const me = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
     const userId = (me.json() as { user: { id: string } }).user.id
-    expect(await u.benutzerStorage.info(userId, 'audio/meine-musik.mp3')).toBeNull()
+    expect(await u.userStorage.info(userId, 'audio/meine-musik.mp3')).toBeNull()
   })
 
   it('löscht Unbenutztes sofort; Unbekanntes ist 404', async () => {

@@ -49,7 +49,7 @@ export const SESSION_COOKIE = 'maptale_session'
 export const SESSION_NOTICE_COOKIE = 'maptale_returning'
 
 export interface AppDependencies {
-  konfig: Config
+  config: Config
   db: Db
   storage: Storage
   /**
@@ -58,21 +58,21 @@ export interface AppDependencies {
    *
    * Das Interface ist auf Touren zugeschnitten, aber tatsächlich ein
    * ID-benannter Ablagebereich: Pfadprüfung, atomares Schreiben, Größenlimit
-   * und das Wegräumen eines ganzen Bereichs (`deleteTour`) passen unverändert.
+   * und das Wegräumen eines ganzen Bereichs (`removeTour`) passen unverändert.
    * Der erste Parameter jeder Methode ist hier die Benutzer-ID.
    */
-  benutzerStorage: Storage
+  userStorage: Storage
   geocoder: Geocoder
   /** Auto-Wetter-Quelle (M2); null = Feature aus, Player-Fallback greift */
-  wetter: WeatherSource | null
+  weather: WeatherSource | null
   /** Video-Aufbereitung (M4); null = keine Videos verarbeiten (Original ohne Poster) */
-  videoWerkzeug: VideoTool | null
+  videoTool: VideoTool | null
   /** Bild-Aufbereitung (Anzeige- und Kachel-Fassung); null = Originale ausliefern */
-  bildWerkzeug: ImageTool | null
+  imageTool: ImageTool | null
   /** Bild-Klassifikator für die Wetter-Verfeinerung (M5); null = Feature aus */
-  bildKlassifikator: ImageClassifier | null
+  imageClassifier: ImageClassifier | null
   /** OSM-Schienen für die Straßenbahn-Erkennung; null = Feature aus (bleibt bei Rad) */
-  schienen: RailSource | null
+  rails: RailSource | null
   /** Mail-Versand (M9): Registrierungs-Bestätigung + Passwort-Reset */
   mail: MailTransport
   /**
@@ -80,17 +80,17 @@ export interface AppDependencies {
    *
    * Ein dritter Bereich neben Touren und Benutzerdateien, kein Unterordner:
    * Ein Archiv gehört zu keiner Tour, es hat eine eigene Lebensdauer (48 h),
-   * und `deleteTour(auftragId)` räumt es in einem Zug weg.
+   * und `removeTour(exportId)` räumt es in einem Zug weg.
    */
   archive: Storage
   /**
-   * Quelle der gebauten HTML-Seiten für `/@handle` (s. seiten.ts).
+   * Quelle der gebauten HTML-Seiten für `/@handle` (s. page-meta.ts).
    *
    * Optional, weil die Produktion sie nicht setzt — dort genügt der Standard,
-   * der über `konfig.webUrl` an Nginx geht. Tests reichen eine Fassung mit
+   * der über `config.webUrl` an Nginx geht. Tests reichen eine Fassung mit
    * festem HTML herein und kommen ohne Netz aus.
    */
-  seiten?: PageSource
+  pages?: PageSource
   /**
    * Die Tracker-Anbieter (Polar, Wahoo, …) — injiziert wie `geocoder` und
    * `wetter`: Produktion reicht die echten Adapter herein, Tests einen
@@ -112,33 +112,33 @@ declare module 'fastify' {
   interface FastifyInstance {
     deps: AppDependencies
     auth: AuthService
-    einladungen: InvitationService
-    warteliste: WaitlistService
+    invitations: InvitationService
+    waitlist: WaitlistService
     /** Texte der System-Mails — Katalog im Code, Anpassungen in der DB. */
-    mailvorlagen: MailTemplateService
+    mailTemplates: MailTemplateService
     /** Newsletter-Einwilligung: Zustand, Historie, Empfängerliste. */
     newsletter: NewsletterService
     /** Rückmeldungen aus der Alpha: Eingang, Status, Notizen. */
-    rueckmeldungen: FeedbackService
+    feedback: FeedbackService
     /** Laufende Finalize-Verarbeitungen — Tests können gezielt darauf warten. */
-    verarbeitungen: Map<string, Promise<void>>
-    /** Die letzten Warnungen und Fehler für die Verwaltung (s. protokoll.ts). */
-    protokoll: AuditLog
+    processing: Map<string, Promise<void>>
+    /** Die letzten Warnungen und Fehler für die Verwaltung (s. audit-log.ts). */
+    auditLog: AuditLog
     /** Gebaute HTML-Seiten für die Routen, die der Server selbst beantwortet. */
-    seiten: PageSource
+    pages: PageSource
     /** Datenexport: Auftragsverwaltung, Fristen, Aufräumen (Art. 20 DSGVO). */
-    exporte: DataExportService
+    dataExport: DataExportService
     /** Cloud-Verknüpfungen zu Sport-Trackern: Tokens, Importe, Zuordnung. */
     tracker: TrackerService
     /** Welche Tracker-Anbieter es gibt und welche davon konfiguriert sind. */
     trackerRegistry: Registry
     /** Laufende Tracker-Importe — Tests warten gezielt darauf, statt zu pollen. */
-    trackerLaeufe: Map<string, Promise<unknown>>
+    trackerRuns: Map<string, Promise<unknown>>
     /** Push-Geräte und der Versand dorthin; ohne Dienstkonto ein No-Op. */
     push: PushService
   }
   interface FastifyRequest {
-    benutzer: User | null
+    user: User | null
     /**
      * Mit WELCHEM App-Token diese Anfrage kam (null bei Sitzungs-Cookie).
      *
@@ -154,9 +154,9 @@ export function buildApp(deps: AppDependencies): FastifyInstance {
   // Logger-Ziel, nicht an einzelnen Aufrufstellen: Sonst gäbe es zwei Wege,
   // etwas zu melden, und der zweite bliebe irgendwann liegen. Im Test ist der
   // Logger aus — dort füllt sich der Puffer nicht von selbst.
-  const protokoll = new AuditLog()
+  const auditLog = new AuditLog()
   const app = Fastify({
-    logger: process.env.NODE_ENV !== 'test' && { level: 'info', stream: auditLogTarget(protokoll) },
+    logger: process.env.NODE_ENV !== 'test' && { level: 'info', stream: auditLogTarget(auditLog) },
     // Manifeste langer Aufzeichnungen können mehrere MB JSON sein
     bodyLimit: 64 * 1024 * 1024,
     // Hinter Caddy (Prod): request.ip aus X-Forwarded-For nehmen, damit die
@@ -168,23 +168,23 @@ export function buildApp(deps: AppDependencies): FastifyInstance {
 
   app.decorate('deps', deps)
   app.decorate('auth', new AuthService(deps.db))
-  app.decorate('einladungen', new InvitationService(deps.db))
-  app.decorate('warteliste', new WaitlistService(deps.db))
-  app.decorate('mailvorlagen', new MailTemplateService(deps.db))
+  app.decorate('invitations', new InvitationService(deps.db))
+  app.decorate('waitlist', new WaitlistService(deps.db))
+  app.decorate('mailTemplates', new MailTemplateService(deps.db))
   app.decorate('newsletter', new NewsletterService(deps.db))
-  app.decorate('rueckmeldungen', new FeedbackService(deps.db))
-  app.decorate('verarbeitungen', new Map())
-  app.decorate('protokoll', protokoll)
-  app.decorate('seiten', deps.seiten ?? new PageSource(deps.konfig))
-  app.decorate('exporte', new DataExportService(deps.db, deps.archive))
-  app.decorate('tracker', new TrackerService(deps.db, deps.konfig.trackerSchluessel))
+  app.decorate('feedback', new FeedbackService(deps.db))
+  app.decorate('processing', new Map())
+  app.decorate('auditLog', auditLog)
+  app.decorate('pages', deps.pages ?? new PageSource(deps.config))
+  app.decorate('dataExport', new DataExportService(deps.db, deps.archive))
+  app.decorate('tracker', new TrackerService(deps.db, deps.config.trackerSecret))
   app.decorate('trackerRegistry', new Registry(deps.trackerProvider ?? []))
-  app.decorate('trackerLaeufe', new Map())
+  app.decorate('trackerRuns', new Map())
   app.decorate('push', new PushService(deps.db, deps.push))
-  app.decorateRequest('benutzer', null)
+  app.decorateRequest('user', null)
   app.decorateRequest('appTokenId', null)
 
-  app.register(fastifyCookie, { secret: deps.konfig.cookieSecret })
+  app.register(fastifyCookie, { secret: deps.config.cookieSecret })
 
   // Binäre Uploads (Medien) kommen als roher Stream durch — kein Puffern im
   // Speicher. JSON behält den eingebauten Parser.
@@ -194,31 +194,31 @@ export function buildApp(deps: AppDependencies): FastifyInstance {
   app.addHook('preHandler', async (request) => {
     const auth = request.headers.authorization
     if (auth?.startsWith('Bearer ')) {
-      const anmeldung = app.auth.resolveToken(auth.slice('Bearer '.length).trim())
-      request.benutzer = anmeldung?.user ?? null
-      request.appTokenId = anmeldung?.tokenId ?? null
+      const resolved = app.auth.resolveToken(auth.slice('Bearer '.length).trim())
+      request.user = resolved?.user ?? null
+      request.appTokenId = resolved?.tokenId ?? null
       return
     }
     const sessionId = request.cookies[SESSION_COOKIE]
-    if (sessionId) request.benutzer = app.auth.userFromSession(sessionId)
+    if (sessionId) request.user = app.auth.userFromSession(sessionId)
   })
 
   app.setErrorHandler(
-    (fehler: Error & { validation?: unknown; statusCode?: number }, _request, reply) => {
-      if (fehler instanceof TooLargeError) {
-        return reply.code(413).send({ error: fehler.message })
+    (error: Error & { validation?: unknown; statusCode?: number }, _request, reply) => {
+      if (error instanceof TooLargeError) {
+        return reply.code(413).send({ error: error.message })
       }
-      if (fehler.validation) {
-        return reply.code(400).send({ error: 'Ungültige Anfrage', details: fehler.message })
+      if (error.validation) {
+        return reply.code(400).send({ error: 'Ungültige Anfrage', details: error.message })
       }
       // Fastifys eigene Client-Fehler tragen ihren Code SELBST — zu großer Body
       // (413), kaputtes JSON (400), unbekannter Content-Type (415). Alles auf 500
       // zu werfen machte aus „du hast zu viel geschickt" ein „bei uns ist etwas
       // kaputt": Der Aufrufer sucht dann bei uns, und im Log steht eine Störung,
       // die keine ist. Nur die Serverfehler bleiben stumm und geloggt.
-      const code = fehler.statusCode ?? 500
-      if (code >= 400 && code < 500) return reply.code(code).send({ error: fehler.message })
-      app.log.error(fehler)
+      const code = error.statusCode ?? 500
+      if (code >= 400 && code < 500) return reply.code(code).send({ error: error.message })
+      app.log.error(error)
       return reply.code(500).send({ error: 'Interner Fehler' })
     },
   )
@@ -258,11 +258,11 @@ export function buildApp(deps: AppDependencies): FastifyInstance {
 
 /** Gemeinsamer Guard: 401, wenn kein Benutzer aufgelöst wurde. */
 export function requireUser(request: FastifyRequest, reply: FastifyReply): User | null {
-  if (!request.benutzer) {
+  if (!request.user) {
     reply.code(401).send({ error: 'Nicht angemeldet' })
     return null
   }
-  return request.benutzer
+  return request.user
 }
 
 /**
@@ -274,11 +274,11 @@ export function requireUser(request: FastifyRequest, reply: FastifyReply): User 
  * er an der richtigen Stelle, aber nicht berechtigt ist.
  */
 export function requireAdmin(request: FastifyRequest, reply: FastifyReply): User | null {
-  const benutzer = requireUser(request, reply)
-  if (!benutzer) return null
-  if (benutzer.role !== 'admin') {
+  const user = requireUser(request, reply)
+  if (!user) return null
+  if (user.role !== 'admin') {
     reply.code(403).send({ error: 'Nur für Administratoren' })
     return null
   }
-  return benutzer
+  return user
 }

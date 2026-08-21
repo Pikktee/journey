@@ -3747,3 +3747,39 @@ einloeser	redeemed_by_email	property	server/src/auth/invitations.ts (InvitationR
 unbekannt	unknown	union-wert	server/src/auth/invitations.ts (InvitationError)	10	Nachlauf: verlässt den Server nie, indiziert nur CODE_FEHLER in routes/auth.ts
 verbraucht	used	union-wert	server/src/auth/invitations.ts (InvitationError)	10	Nachlauf: verlässt den Server nie, indiziert nur CODE_FEHLER in routes/auth.ts
 abgelaufen	expired	union-wert	server/src/auth/invitations.ts (InvitationError)	10	Nachlauf: verlässt den Server nie, indiziert nur CODE_FEHLER in routes/auth.ts
+groesse	size	property	server/src/storage.ts (FileStat, Storage.listFiles/allFiles); server/src/pipeline/image.ts+video.ts (ImageStorage/VideoStorage.info)	10	Nachlauf: reine Serverform, taucht in keiner API-Antwort auf
+pfad	path	property	server/src/storage.ts (Storage.allFiles)	10	Nachlauf: Zeilenform der Storage-Auflistung, kein API-Feld
+ende	end	property	server/src/storage.ts (Storage.readStream range); server/src/routes/media.ts (parseRange)	10	Nachlauf: Byte-Bereich im Prozess, der HTTP-Range-Header bleibt unberührt
+stufe	severity	property	server/src/audit-log.ts (AuditLog.list-Option)	10	Nachlauf: Aufrufoption, nicht der Query-Parameter level
+ungueltig	invalid	union-wert	server/src/routes/media.ts (parseRange)	10	Nachlauf: Sentinel im Prozess, wird zu HTTP 416 übersetzt
+touren	tours	property	server/src/pipeline/image-addendum.ts (BackfillResult)	10	Nachlauf: Rückgabe des Start-Durchlaufs, landet nur im Log
+gespart	saved	property	server/src/pipeline/image-addendum.ts (BackfillResult)	10	Nachlauf: Rückgabe des Start-Durchlaufs, landet nur im Log
+konfig	config	property	server/src/app.ts (AppDependencies)	10	Nachlauf: DI-Wurzel, kein Vertrag nach außen
+benutzerStorage	userStorage	property	server/src/app.ts (AppDependencies); server/src/quota.ts	10	Nachlauf: DI-Wurzel
+wetter	weather	property	server/src/app.ts (AppDependencies)	10	Nachlauf: DI-Wurzel
+videoWerkzeug	videoTool	property	server/src/app.ts (AppDependencies)	10	Nachlauf: DI-Wurzel
+bildWerkzeug	imageTool	property	server/src/app.ts (AppDependencies)	10	Nachlauf: DI-Wurzel
+bildKlassifikator	imageClassifier	property	server/src/app.ts (AppDependencies)	10	Nachlauf: DI-Wurzel
+schienen	rails	property	server/src/app.ts (AppDependencies)	10	Nachlauf: DI-Wurzel
+seiten	pages	property	server/src/app.ts (AppDependencies + Fastify-Dekoration)	10	Nachlauf: Dekorationsname steht als Zeichenkette in app.decorate und ist mitgezogen
+einladungen	invitations	property	server/src/app.ts (Fastify-Dekoration)	10	Nachlauf: Dekorationsname als Zeichenkette mitgezogen
+warteliste	waitlist	property	server/src/app.ts (Fastify-Dekoration)	10	Nachlauf: Dekorationsname als Zeichenkette mitgezogen
+mailvorlagen	mailTemplates	property	server/src/app.ts (Fastify-Dekoration)	10	Nachlauf: Dekorationsname als Zeichenkette mitgezogen
+rueckmeldungen	feedback	property	server/src/app.ts (Fastify-Dekoration)	10	Nachlauf: Dekorationsname als Zeichenkette mitgezogen
+verarbeitungen	processing	property	server/src/app.ts (Fastify-Dekoration)	10	Nachlauf: Dekorationsname als Zeichenkette mitgezogen
+protokoll	auditLog	property	server/src/app.ts (Fastify-Dekoration)	10	Nachlauf: §6.4 Protokoll→auditLog; Dekorationsname als Zeichenkette mitgezogen
+exporte	dataExport	property	server/src/app.ts (Fastify-Dekoration)	10	Nachlauf: Dekorationsname als Zeichenkette mitgezogen
+trackerLaeufe	trackerRuns	property	server/src/app.ts (Fastify-Dekoration)	10	Nachlauf: Dekorationsname als Zeichenkette mitgezogen
+benutzer	user	property	server/src/app.ts (FastifyRequest-Dekoration)	10	Nachlauf: decorateRequest-Name als Zeichenkette mitgezogen
+datenDir	dataDir	property	server/src/config.ts (Config)	10	Nachlauf: die Env-Variable heisst seit Schritt 9 MAPTALE_DATA_DIR
+adminPasswort	adminPassword	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable seit Schritt 9 englisch
+maxSpeicherProBenutzer	maxStoragePerUser	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable seit Schritt 9 englisch
+hinterTls	behindTls	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable seit Schritt 9 englisch
+registrierungOffen	registrationOpen	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable seit Schritt 9 englisch
+basisUrl	baseUrl	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable seit Schritt 9 englisch; mail-layout.ts und newsletter.ts tragen den Namen noch (eigener Commit)
+mailAbsender	mailFrom	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable seit Schritt 9 englisch
+visionModell	visionModel	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable seit Schritt 9 englisch
+umamiDbPasswort	umamiDbPassword	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable seit Schritt 9 englisch
+trackerSchluessel	trackerSecret	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable MAPTALE_TRACKER_SECRET war schon englisch
+fcmDienstkonto	fcmServiceAccount	property	server/src/config.ts (Config)	10	Nachlauf: der Kommentar begruendete den deutschen Namen mit der Aussenflaeche — die ist die Env-Variable, nicht das Feld
+webhookGeheimnis	webhookSecret	property	server/src/config.ts (ProviderCredentials)	10	Nachlauf: internes Feld, die Env-Variable hiess schon MAPTALE_POLAR_WEBHOOK_SECRET

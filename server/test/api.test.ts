@@ -47,7 +47,7 @@ async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
     cookies: u.cookies,
   })
   expect(antwort.statusCode).toBe(202)
-  await u.app.verarbeitungen.get(tourId)
+  await u.app.processing.get(tourId)
 }
 
 async function ladeTrackHoch(u: TestUmgebung, tourId: string, gpx: string): Promise<void> {
@@ -266,7 +266,7 @@ describe('Tour-Lebenszyklus', () => {
     expect(maxGleichzeitig).toBeGreaterThan(1) // lief nicht nacheinander
     expect(gelesen).toHaveLength(4)
     expect(new Set(gelesen)).toEqual(new Set(['480'])) // die Kachel, nicht die Anzeige-Fassung
-    const cache = JSON.parse((await u.storage.lese(id, 'enrichment.json')).toString()) as {
+    const cache = JSON.parse((await u.storage.read(id, 'enrichment.json')).toString()) as {
       findings: Record<string, { konfidenz: number }>
     }
     // Jeder Befund an seinem Foto — und in Manifest-Reihenfolge abgelegt, damit
@@ -568,7 +568,7 @@ describe('Titelbild', () => {
       payload: { schema: 'maptale/edits@2', cover: 'm2' },
     })
     expect(put.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const liste = await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })
     expect((liste.json() as { tours: Array<{ cover: string | null }> }).tours[0]?.cover).toBe(
@@ -731,7 +731,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
       u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies }),
     ])
     expect([a.statusCode, b.statusCode].sort()).toEqual([202, 409])
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
   })
 
   it('vergibt Tour-Nummern PRO Benutzer (kein Cross-Tenant-Leck)', async () => {
@@ -936,7 +936,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       },
     })
     expect(put.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
@@ -968,7 +968,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
       payload: { schema: 'maptale/edits@2', media: { m1: { caption: 'Bleibt' } } },
     })
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const antwort = await u.app.inject({
       method: 'POST',
@@ -976,7 +976,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
@@ -1035,7 +1035,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       },
     })
     expect(put.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson
@@ -1325,14 +1325,14 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
       payload: { description: 'Erst was' },
     })
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     await u.app.inject({
       method: 'PATCH',
       url: `/api/tours/${id}`,
       cookies: u.cookies,
       payload: { description: '' },
     })
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson
@@ -1360,7 +1360,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       cookies: u.cookies,
       payload: { finale: true, finaleTarget: 'Gletscherschlucht' },
     })
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     const an = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson

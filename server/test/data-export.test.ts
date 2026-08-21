@@ -49,9 +49,9 @@ async function createTour(u: TestUmgebung, no: string, title: string): Promise<s
   u.app.deps.db
     .prepare('UPDATE tours SET title = ?, status = ? WHERE id = ?')
     .run(title, 'ready', id)
-  await u.storage.schreibe(id, 'tour.json', JSON.stringify({ id, title }))
-  await u.storage.schreibe(id, 'media/m1.w1920.jpg', Buffer.from('fake-jpeg'))
-  await u.storage.schreibe(id, 'enrichment.json', JSON.stringify({ intern: true }))
+  await u.storage.write(id, 'tour.json', JSON.stringify({ id, title }))
+  await u.storage.write(id, 'media/m1.w1920.jpg', Buffer.from('fake-jpeg'))
+  await u.storage.write(id, 'enrichment.json', JSON.stringify({ intern: true }))
   return id
 }
 
@@ -62,8 +62,8 @@ describe('Auftragsverwaltung', () => {
     // Fenster, in dem beide Anfragen dasselbe sehen.
     const u = await baueTestApp()
     const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    const erste = u.app.exporte.fordereAn(wer)
-    const zweite = u.app.exporte.fordereAn(wer)
+    const erste = u.app.dataExport.fordereAn(wer)
+    const zweite = u.app.dataExport.fordereAn(wer)
     expect(erste.neu).toBe(true)
     expect(zweite.neu).toBe(false)
     expect(zweite.stand.id).toBe(erste.stand.id)
@@ -74,16 +74,16 @@ describe('Auftragsverwaltung', () => {
   it('lässt nach einem fertigen Auftrag einen neuen zu', async () => {
     const u = await baueTestApp()
     const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    const erste = u.app.exporte.fordereAn(wer)
-    u.app.exporte.melde(erste.stand.id, 100, 3)
-    expect(u.app.exporte.fordereAn(wer).neu).toBe(true)
+    const erste = u.app.dataExport.fordereAn(wer)
+    u.app.dataExport.melde(erste.stand.id, 100, 3)
+    expect(u.app.dataExport.fordereAn(wer).neu).toBe(true)
   })
 
   it('setzt die Frist ab der FERTIGSTELLUNG', async () => {
     const u = await baueTestApp()
     const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    const a = u.app.exporte.fordereAn(wer)
-    const fertig = u.app.exporte.melde(a.stand.id, 100, 3)
+    const a = u.app.dataExport.fordereAn(wer)
+    const fertig = u.app.dataExport.melde(a.stand.id, 100, 3)
     const spanne = new Date(fertig!.expiresAt!).getTime() - new Date(fertig!.finishedAt!).getTime()
     expect(Math.round(spanne / 3_600_000)).toBe(EXPIRY_HOURS)
   })
@@ -114,7 +114,7 @@ describe('Auftragsverwaltung', () => {
       `INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_8','c@d.e','x','A','2026-01-01','a8')`,
     ).run()
     const a = dienst.fordereAn('u_8')
-    await archive.schreibe(a.stand.id, 'maptale-export.zip', Buffer.from('inhalt'))
+    await archive.write(a.stand.id, 'maptale-export.zip', Buffer.from('inhalt'))
     dienst.melde(a.stand.id, 6, 1)
     jetzt = new Date('2026-08-09T10:00:00Z')
     expect(await dienst.raeumeAuf()).toBe(1)
@@ -145,9 +145,9 @@ describe('Konto löschen', () => {
     // gelöschten Kontos bliebe für immer liegen.
     const u = await baueTestApp()
     const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    const a = u.app.exporte.fordereAn(wer)
-    await u.archive.schreibe(a.stand.id, 'maptale-export.zip', Buffer.from('daten'))
-    u.app.exporte.melde(a.stand.id, 5, 1)
+    const a = u.app.dataExport.fordereAn(wer)
+    await u.archive.write(a.stand.id, 'maptale-export.zip', Buffer.from('daten'))
+    u.app.dataExport.melde(a.stand.id, 5, 1)
 
     const weg = await u.app.inject({ method: 'DELETE', url: '/api/auth/me', cookies: u.cookies })
     expect(weg.statusCode).toBe(200)
@@ -278,7 +278,7 @@ describe('Routen', () => {
     // Auf den Hintergrundlauf warten — er hängt an keinem await der Route.
     await warteAufFertig(u)
 
-    const stand = u.app.exporte.stand(u.app.auth.userFromSession(u.cookies.maptale_session)!.id)!
+    const stand = u.app.dataExport.stand(u.app.auth.userFromSession(u.cookies.maptale_session)!.id)!
     expect(stand.status).toBe('done')
     expect(stand.bytes).toBeGreaterThan(0)
 
@@ -337,7 +337,7 @@ describe('Größenangabe', () => {
 async function warteAufFertig(u: TestUmgebung): Promise<void> {
   const id = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
   for (let i = 0; i < 100; i++) {
-    if (u.app.exporte.stand(id)?.status !== 'running') return
+    if (u.app.dataExport.stand(id)?.status !== 'running') return
     await new Promise((r) => setTimeout(r, 20))
   }
   throw new Error('Export wurde nicht fertig')

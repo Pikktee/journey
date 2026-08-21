@@ -40,7 +40,7 @@ async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
     cookies: u.cookies,
   })
   expect(antwort.statusCode).toBe(202)
-  await u.app.verarbeitungen.get(tourId)
+  await u.app.processing.get(tourId)
 }
 
 async function speichereEdits(u: TestUmgebung, tourId: string, overlay: unknown): Promise<void> {
@@ -52,11 +52,11 @@ async function speichereEdits(u: TestUmgebung, tourId: string, overlay: unknown)
     payload: overlay as Record<string, unknown>,
   })
   expect(antwort.statusCode).toBe(202) // fertige Tour → Re-Render startet
-  await u.app.verarbeitungen.get(tourId)
+  await u.app.processing.get(tourId)
 }
 
 const tourJson = async (u: TestUmgebung, id: string): Promise<TourJson> =>
-  JSON.parse((await u.storage.lese(id, 'tour.json')).toString()) as TourJson
+  JSON.parse((await u.storage.read(id, 'tour.json')).toString()) as TourJson
 
 /** Zähl-Momentaufnahme der drei externen Quellen. */
 function stand(u: TestUmgebung, wetter: FixedWeatherSource, klass: FixedClassifier) {
@@ -101,7 +101,7 @@ describe('Anreicherungs-Cache', () => {
     // Finalize (frisch): jede externe Quelle genau einmal (Geocoder: Start + Ziel)
     expect(stand(u, wetter, klass)).toEqual({ geo: 2, weather: 1, klass: 1 })
     // Cache-Artefakt liegt neben tour.json und hält die Roh-Ergebnisse
-    const cache = JSON.parse((await u.storage.lese(id, 'enrichment.json')).toString())
+    const cache = JSON.parse((await u.storage.read(id, 'enrichment.json')).toString())
     expect(cache.schema).toBe('maptale/enrichment@2')
     expect(cache.trimSignature).toBe('null') // kein Trim
     expect(cache.findings.m1).toBeTruthy()
@@ -168,7 +168,7 @@ describe('Anreicherungs-Cache', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const nach = stand(u, wetter, klass)
     expect(nach.geo - vor.geo).toBe(2)

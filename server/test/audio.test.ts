@@ -41,7 +41,7 @@ async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
     cookies: u.cookies,
   })
   expect(antwort.statusCode).toBe(202)
-  await u.app.verarbeitungen.get(tourId)
+  await u.app.processing.get(tourId)
 }
 
 function ladeAudioHoch(
@@ -227,7 +227,7 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
       },
     })
     expect(put.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     // DELETE muss abgelehnt werden — sonst zeigte das gerenderte tour.json auf 404
     const del = await u.app.inject({
       method: 'DELETE',
@@ -287,7 +287,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
       },
     })
     expect(put.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
@@ -325,7 +325,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
       },
     })
     expect(put.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson

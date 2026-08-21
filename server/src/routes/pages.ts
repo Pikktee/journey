@@ -2,7 +2,7 @@
  * Die Seiten, die der Server selbst ausliefert — heute `/@handle`.
  *
  * Die Mechanik (gebautes HTML holen, Meta-Block ersetzen) steht in
- * [seiten.ts](../seiten.ts); hier steht nur, WAS im Kopf einer Profilseite
+ * [page-meta.ts](../page-meta.ts); hier steht nur, WAS im Kopf einer Profilseite
  * landet. Der Rest der Seite bleibt clientseitig wie zuvor: Diese Route macht
  * aus Maptale keine gerenderte Anwendung, sie beantwortet genau die eine Frage,
  * die eine statische Datei nicht beantworten kann — „wer bist du und darfst du
@@ -44,7 +44,7 @@ const VERSCHWIEGEN_TOUR: MetaBlock = {
 
 export function registerPageRoutes(app: FastifyInstance): void {
   const db = app.deps.db
-  const basis = app.deps.konfig.basisUrl.replace(/\/+$/, '')
+  const basis = app.deps.config.baseUrl.replace(/\/+$/, '')
   const absolut = (pfad: string | null): string | null =>
     pfad ? (pfad.startsWith('http') ? pfad : basis + pfad) : null
 
@@ -56,7 +56,7 @@ export function registerPageRoutes(app: FastifyInstance): void {
    */
   app.get<{ Params: { handle: string } }>('/@:handle', async (request, reply) => {
     const roh = request.params.handle
-    const html = await app.seiten.seite('profil.html').catch((fehler) => {
+    const html = await app.pages.seite('profil.html').catch((fehler) => {
       app.log.error({ fehler }, 'profil.html nicht abrufbar')
       return null
     })
@@ -127,7 +127,7 @@ export function registerPageRoutes(app: FastifyInstance): void {
    * steht.
    */
   app.get<{ Params: { kennung: string } }>('/tour/:kennung', async (request, reply) => {
-    const html = await app.seiten.seite('erlebnis.html').catch((fehler) => {
+    const html = await app.pages.seite('erlebnis.html').catch((fehler) => {
       app.log.error({ fehler }, 'erlebnis.html nicht abrufbar')
       return null
     })
@@ -158,7 +158,7 @@ export function registerPageRoutes(app: FastifyInstance): void {
         }
       | undefined
 
-    const istBesitzer = !!request.benutzer && tour?.owner_id === request.benutzer.id
+    const istBesitzer = !!request.user && tour?.owner_id === request.user.id
     if (!tour || (tour.visibility === 'private' && !istBesitzer)) {
       return reply.code(404).send(setMeta(html, VERSCHWIEGEN_TOUR))
     }

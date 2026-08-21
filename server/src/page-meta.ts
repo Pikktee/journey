@@ -22,7 +22,7 @@
  * Hashes, ein mitkopiertes `profil.html` wäre nach dem nächsten Web-Deploy eine
  * Seite, die auf gelöschte Assets zeigt. Stattdessen holt der Container die
  * fertige Datei zur Laufzeit über denselben Nginx, der sie auch dem Browser
- * ausliefert (`konfig.webUrl`), und hält sie ein paar Minuten im Speicher —
+ * ausliefert (`config.webUrl`), und hält sie ein paar Minuten im Speicher —
  * ein Abruf pro Cache-Periode, keine Kopplung an den Build, kein zusätzlicher
  * Deploy-Schritt.
  *

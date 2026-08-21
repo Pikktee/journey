@@ -188,7 +188,7 @@ export interface VideoMeta {
 export interface VideoStorage {
   lese(relPfad: string): Promise<Buffer>
   schreibe(relPfad: string, inhalt: Buffer): Promise<void>
-  info(relPfad: string): Promise<{ groesse: number } | null>
+  info(relPfad: string): Promise<{ size: number } | null>
   loesche(relPfad: string): Promise<void>
 }
 

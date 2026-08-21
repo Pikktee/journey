@@ -28,7 +28,7 @@ async function legeFertigeTourAn(u: TestUmgebung): Promise<string> {
     payload: jpegBytes,
   })
   await u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies })
-  await u.app.verarbeitungen.get(id)
+  await u.app.processing.get(id)
   return id
 }
 
@@ -103,7 +103,7 @@ describe('Fassungen beim Rendern', () => {
       url: `/api/tours/${id}/finalize`,
       cookies: u.cookies,
     })
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     expect(nochmal.statusCode).toBe(202)
   })
 
@@ -118,7 +118,7 @@ describe('Fassungen beim Rendern', () => {
       payload: { schema: 'maptale/edits@2', media: { m1: { caption: 'Am Wasserfall' } } },
     })
     expect(antwort.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const tour = await tourJson(u, id)
     expect(tour.media[0]?.src).toBe(`/api/media/${id}/m1.w1920.jpg`)
@@ -151,7 +151,7 @@ describe('trageBildfassungenNach', () => {
       new FakeImageTool(),
     )
 
-    expect(ergebnis.touren).toBe(1)
+    expect(ergebnis.tours).toBe(1)
     const tour = await tourJson(u, id)
     expect(tour.media[0]?.src).toBe(`/api/media/${id}/m1.w1920.jpg`)
     expect(tour.media[0]?.thumb).toBe(`/api/media/${id}/m1.t480.jpg`)
@@ -173,7 +173,7 @@ describe('trageBildfassungenNach', () => {
     // Beim Rendern schon geschehen — es gibt nichts nachzutragen
     expect(
       (await backfillImageVariants(u.app.deps.db, u.storage, TOUR_JSON_PATH, new FakeImageTool()))
-        .touren,
+        .tours,
     ).toBe(0)
   })
 
@@ -214,7 +214,7 @@ describe('trageBildfassungenNach', () => {
       payload: { schema: 'maptale/edits@2', cover: 'm2' },
     })
     await u.app.inject({ method: 'POST', url: `/api/tours/${id.id}/finalize`, cookies: u.cookies })
-    await u.app.verarbeitungen.get(id.id)
+    await u.app.processing.get(id.id)
 
     await backfillImageVariants(u.app.deps.db, u.storage, TOUR_JSON_PATH, new FakeImageTool())
 
@@ -227,7 +227,7 @@ describe('trageBildfassungenNach', () => {
   it('eine kaputte Tour hält den Start nicht auf', async () => {
     const u = await baueTestApp()
     const id = await legeFertigeTourAn(u)
-    await u.storage.loesche(id, TOUR_JSON_PATH)
+    await u.storage.remove(id, TOUR_JSON_PATH)
 
     const gemeldet: string[] = []
     const ergebnis = await backfillImageVariants(
@@ -237,7 +237,7 @@ describe('trageBildfassungenNach', () => {
       new FakeImageTool(),
       (n) => gemeldet.push(n),
     )
-    expect(ergebnis.touren).toBe(0)
+    expect(ergebnis.tours).toBe(0)
     expect(gemeldet).toHaveLength(1)
   })
 })

@@ -165,25 +165,25 @@ export async function collectEntries(
 
   for (const tour of touren) {
     const ordner = `touren/${tourFolder(tour.nummer, tour.titel)}`
-    const dateien = await deps.storage.alleDateien(tour.id).catch(() => [])
+    const dateien = await deps.storage.allFiles(tour.id).catch(() => [])
     for (const datei of dateien) {
       // Der Zwischenspeicher der Anreicherung bleibt draußen: Er ist unser
       // Rechenweg (Ortsnamen, Wetterabrufe), nicht die Auskunft — und beim
       // nächsten Rendern ohnehin wieder anders.
-      if (datei.pfad === 'enrichment.json') continue
+      if (datei.path === 'enrichment.json') continue
       // `original/manifest.json` → `manifest.json`, `edits.json` →
       // `bearbeitung.json`: Im Archiv zählt, was jemand beim Öffnen versteht,
       // nicht wie wir die Datei intern führen.
       const ziel =
-        datei.pfad === 'original/manifest.json'
+        datei.path === 'original/manifest.json'
           ? 'manifest.json'
-          : datei.pfad === 'edits.json'
+          : datei.path === 'edits.json'
             ? 'bearbeitung.json'
-            : datei.pfad
+            : datei.path
       eintraege.push({
         name: `${ordner}/${ziel}`,
-        inhalt: () => deps.storage.leseStream(tour.id, datei.pfad),
-        gepackt: isCompressed(datei.pfad),
+        inhalt: () => deps.storage.readStream(tour.id, datei.path),
+        gepackt: isCompressed(datei.path),
       })
     }
   }
@@ -204,11 +204,11 @@ export async function buildAndStore(
 ): Promise<{ bytes: number; dateien: number }> {
   const eintraege = await collectEntries(deps, benutzerId, erstelltAm)
   const strom = buildArchive(eintraege)
-  const info = await deps.archive.schreibeStream(
+  const info = await deps.archive.writeStream(
     auftragId,
     ARCHIVE_FILE,
     strom as Readable,
     deps.maxBytes,
   )
-  return { bytes: info.groesse, dateien: eintraege.length }
+  return { bytes: info.size, dateien: eintraege.length }
 }

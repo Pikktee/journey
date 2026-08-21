@@ -47,7 +47,7 @@ async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
     cookies: u.cookies,
   })
   expect(antwort.statusCode).toBe(202)
-  await u.app.verarbeitungen.get(tourId)
+  await u.app.processing.get(tourId)
 }
 
 /** Zwei verankerte Fotos — m1 wäre das automatische Titelbild. */
@@ -85,7 +85,7 @@ async function nachreichen(
 /** Das rohe Manifest der Tour — die Quelle, gegen die der Dedup läuft. */
 async function manifestVon(u: TestUmgebung, tourId: string): Promise<UploadManifest> {
   return JSON.parse(
-    (await u.app.deps.storage.lese(tourId, MANIFEST_PATH)).toString(),
+    (await u.app.deps.storage.read(tourId, MANIFEST_PATH)).toString(),
   ) as UploadManifest
 }
 
@@ -99,8 +99,8 @@ async function manifestVon(u: TestUmgebung, tourId: string): Promise<UploadManif
  * prüfen. Genau so ist er beim Schreiben erst einmal danebengegangen.
  */
 function verzoegereManifestLesen(u: TestUmgebung, ms = 20): void {
-  const echtesLesen = u.storage.lese.bind(u.storage)
-  u.storage.lese = async (tourId: string, pfad: string) => {
+  const echtesLesen = u.storage.read.bind(u.storage)
+  u.storage.read = async (tourId: string, pfad: string) => {
     if (pfad !== MANIFEST_PATH) return echtesLesen(tourId, pfad)
     const daten = await echtesLesen(tourId, pfad)
     await new Promise((r) => setTimeout(r, ms))
@@ -153,7 +153,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
       cookies: u.cookies,
     })
     expect(reprocess.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     const json = await tourJson(u, id)
     expect(json.media.map((m) => m.id)).toContain(neu?.id)
   })
@@ -284,7 +284,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
         },
       ]),
     ])
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const manifest = await manifestVon(u, id)
     expect(manifest.media.find((m) => m.id === 'm1')?.removed).toBe(true)
@@ -311,7 +311,7 @@ describe('Nachreichen (POST /api/tours/:id/media)', () => {
     expect(statusCode).toBe(400)
     // Auch der gültige Eintrag wurde NICHT geschrieben
     const manifest = JSON.parse(
-      (await u.storage.lese(id, 'original/manifest.json')).toString(),
+      (await u.storage.read(id, 'original/manifest.json')).toString(),
     ) as UploadManifest
     expect(manifest.media).toHaveLength(1)
   })
@@ -341,7 +341,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     // m1 ist das automatische Titelbild (erstes verankertes Foto)
     const vorher = await tourJson(u, id)
     expect(vorher.media.map((m) => m.id)).toEqual(expect.arrayContaining(['m1', 'm2']))
-    const grosseVorher = await u.storage.gesamtGroesse(id)
+    const grosseVorher = await u.storage.totalSize(id)
 
     const antwort = await u.app.inject({
       method: 'DELETE',
@@ -349,17 +349,17 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     // Alle m1-Dateien sind weg (Original war schon verworfen, Fassungen jetzt auch)
     for (const datei of ['m1.jpg', 'm1.w1920.jpg', 'm1.t480.jpg']) {
       expect(await u.storage.info(id, `media/${datei}`)).toBeNull()
     }
     // Speicher ist tatsächlich frei
-    expect(await u.storage.gesamtGroesse(id)).toBeLessThan(grosseVorher)
+    expect(await u.storage.totalSize(id)).toBeLessThan(grosseVorher)
     // Tombstone im Manifest, Eintrag bleibt stehen
     const manifest = JSON.parse(
-      (await u.storage.lese(id, 'original/manifest.json')).toString(),
+      (await u.storage.read(id, 'original/manifest.json')).toString(),
     ) as UploadManifest
     expect(manifest.media.find((m) => m.id === 'm1')?.removed).toBe(true)
     // tour.json referenziert m1 nicht mehr; das Cover fällt auf m2 zurück
@@ -383,7 +383,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       cookies: u.cookies,
     })
     expect(erste.statusCode).toBe(200)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     const zweite = await u.app.inject({
       method: 'DELETE',
       url: `/api/tours/${id}/media/m1`,
@@ -436,7 +436,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
     for (const datei of ['v1.mp4', 'v1.web.mp4', 'v1.poster.jpg', 'v1.t480.jpg']) {
       expect(await u.storage.info(id, `media/${datei}`)).toBeNull()
     }
@@ -461,7 +461,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       payload: edits,
     })
     expect(speichern.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const antwort = await u.app.inject({
       method: 'DELETE',
@@ -469,9 +469,9 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
-    const gespeichert = JSON.parse((await u.storage.lese(id, 'edits.json')).toString()) as {
+    const gespeichert = JSON.parse((await u.storage.read(id, 'edits.json')).toString()) as {
       cover?: string
       media?: Record<string, unknown>
     }
@@ -504,7 +504,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     await ladeMediumHoch(u, id, 'm2')
     await finalisiere(u, id)
     await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies })
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const editor = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
@@ -530,7 +530,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
       cookies: u.cookies,
     })
     expect(reprocess.statusCode).toBe(202)
-    await u.app.verarbeitungen.get(id)
+    await u.app.processing.get(id)
 
     const json = await tourJson(u, id)
     expect(json.media.map((m) => m.id)).not.toContain(media[0]?.id)
@@ -560,7 +560,7 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     }
     expect(editor.media.map((m) => m.id)).toEqual(['m1'])
     // Das Manifest behält ihn trotzdem — es ist das Protokoll des Hochgeladenen
-    const manifest = JSON.parse((await u.app.deps.storage.lese(id, MANIFEST_PATH)).toString()) as {
+    const manifest = JSON.parse((await u.app.deps.storage.read(id, MANIFEST_PATH)).toString()) as {
       media: Array<{ id: string }>
     }
     expect(manifest.media.map((m) => m.id)).toContain(media[0]?.id)

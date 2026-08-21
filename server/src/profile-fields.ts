@@ -15,7 +15,7 @@
  */
 
 /** Was nach dem Aufräumen übrig bleiben muss, damit es eine Adresse sein kann. */
-const WEB_ERLAUBT = /^[a-z0-9.-]+\.[a-z]{2,}(?:[/?#].*)?$/i
+const WEB_ALLOWED = /^[a-z0-9.-]+\.[a-z]{2,}(?:[/?#].*)?$/i
 
 /**
  * Ein mitgeliefertes Titelbild — nur der Dateiname, kein Pfad.
@@ -26,10 +26,10 @@ const WEB_ERLAUBT = /^[a-z0-9.-]+\.[a-z]{2,}(?:[/?#].*)?$/i
  * denn der Wert landet in einer URL. Ein erfundener Name kostet nichts: Dann
  * lädt das eigene Banner nicht, und sonst passiert nichts.
  */
-const VORSCHLAG = /^[a-z0-9-]+\.jpg$/
+const SUGGESTION = /^[a-z0-9-]+\.jpg$/
 
-export function isBannerSuggestion(wert: string): boolean {
-  return VORSCHLAG.test(wert)
+export function isBannerSuggestion(value: string): boolean {
+  return SUGGESTION.test(value)
 }
 
 /**
@@ -39,10 +39,10 @@ export function isBannerSuggestion(wert: string): boolean {
  * ein eigenes Bild liegt unter `banner/<zeitstempel>.jpg` im Benutzer-Storage.
  * Der Dateiname hängt wie beim Avatar als `?v=` dran und bricht den Cache.
  */
-export function bannerUrl(userId: string, wert: string | null): string | null {
-  if (!wert) return null
-  if (!wert.includes('/')) return `/titelbilder/${wert}`
-  return `/api/users/${userId}/banner?v=${encodeURIComponent(wert)}`
+export function bannerUrl(userId: string, value: string | null): string | null {
+  if (!value) return null
+  if (!value.includes('/')) return `/titelbilder/${value}`
+  return `/api/users/${userId}/banner?v=${encodeURIComponent(value)}`
 }
 
 /**
@@ -54,14 +54,14 @@ export function bannerUrl(userId: string, wert: string | null): string | null {
  * aussieht, wird verworfen statt „repariert" — ein halb geratener Link führt
  * ins Leere, und das fällt erst dem Leser auf.
  */
-export function normalizeWebsite(roh: string): string | null {
-  const wert = roh
+export function normalizeWebsite(raw: string): string | null {
+  const value = raw
     .trim()
     .replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
     .replace(/^www\./i, '')
     .replace(/\/+$/, '')
-  if (!wert) return null
-  return WEB_ERLAUBT.test(wert) ? wert.slice(0, 200) : null
+  if (!value) return null
+  return WEB_ALLOWED.test(value) ? value.slice(0, 200) : null
 }
 
 /**
@@ -71,13 +71,13 @@ export function normalizeWebsite(roh: string): string | null {
  * Unterstrich. Wer eine ganze Profil-URL einfügt, meint den Namen darin —
  * deshalb wird sie zerlegt, statt sie abzulehnen.
  */
-export function normalizeInstagram(roh: string): string | null {
-  const wert = roh
+export function normalizeInstagram(raw: string): string | null {
+  const value = raw
     .trim()
     .replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
     .replace(/^(?:www\.)?instagram\.com\//i, '')
     .replace(/\/+$/, '')
     .replace(/^@/, '')
-  if (!wert) return null
-  return /^[A-Za-z0-9._]{1,30}$/.test(wert) ? wert : null
+  if (!value) return null
+  return /^[A-Za-z0-9._]{1,30}$/.test(value) ? value : null
 }

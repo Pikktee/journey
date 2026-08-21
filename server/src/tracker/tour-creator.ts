@@ -119,7 +119,7 @@ export async function createTourFromTrack(
   benutzerId: string,
   quelle: CreationSource,
 ): Promise<CreationResult> {
-  const { storage, benutzerStorage, konfig, db } = app.deps
+  const { storage, userStorage, config, db } = app.deps
   const gpx = toGpx(quelle.track)
 
   const startMs = Date.parse(quelle.track.start)
@@ -140,9 +140,9 @@ export async function createTourFromTrack(
   const quotaFehler = await checkQuota(
     db,
     storage,
-    benutzerStorage,
+    userStorage,
     benutzerId,
-    konfig.maxSpeicherProBenutzer,
+    config.maxStoragePerUser,
     Buffer.byteLength(gpx),
   )
   if (quotaFehler) throw new QuotaError(quotaFehler)
@@ -176,7 +176,7 @@ export async function createTourFromTrack(
   if (!angelegt.ok) throw new Error(angelegt.error)
   if (angelegt.reused) return { tourId: angelegt.id, wiederverwendet: true }
 
-  await storage.schreibe(angelegt.id, TRACK_PATH, gpx)
+  await storage.write(angelegt.id, TRACK_PATH, gpx)
   const tour = loadTour(app, angelegt.id)
   if (!tour) throw new Error('Tour verschwand zwischen Anlegen und Finalisieren')
   const fertig = await finalizeTour(app, tour)

@@ -237,7 +237,7 @@ describe('Konten verwalten', () => {
       payload: beispielManifest(),
     })
     const tourId = (tour.json() as { id: string }).id
-    expect(await u.storage.gesamtGroesse(tourId)).toBeGreaterThan(0)
+    expect(await u.storage.totalSize(tourId)).toBeGreaterThan(0)
 
     const ziel = u.app.auth.allUsers().find((b) => b.email === 'test@example.com')!
     const antwort = await u.app.inject({
@@ -246,7 +246,7 @@ describe('Konten verwalten', () => {
       cookies: admin.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    expect(await u.storage.gesamtGroesse(tourId)).toBe(0)
+    expect(await u.storage.totalSize(tourId)).toBe(0)
     expect(u.app.auth.userById(ziel.id)).toBeNull()
   })
 
@@ -533,7 +533,7 @@ describe('Registrierung mit Einladung', () => {
   })
 
   it('bleibt zu, wenn die Umgebung die Registrierung ganz abschaltet — auch mit gültigem Code', async () => {
-    const u = await baueTestApp(undefined, undefined, undefined, { registrierungOffen: false })
+    const u = await baueTestApp(undefined, undefined, undefined, { registrationOpen: false })
     const admin = await legeAdminAn(u)
     const code = await ladeEin(u, admin.cookies)
     expect(
@@ -604,7 +604,7 @@ describe('Registrierung mit Einladung', () => {
   })
 
   it('prüft gar nicht erst, wenn die Umgebung die Registrierung abschaltet', async () => {
-    const u = await baueTestApp(undefined, undefined, undefined, { registrierungOffen: false })
+    const u = await baueTestApp(undefined, undefined, undefined, { registrationOpen: false })
     const admin = await legeAdminAn(u)
     const code = await ladeEin(u, admin.cookies)
     const antwort = await u.app.inject({
@@ -733,7 +733,7 @@ describe('System-Mails verwalten', () => {
     expect(antwort.statusCode).toBe(400)
     expect(antwort.json()).toMatchObject({ error: expect.stringContaining('{{link}}') })
     // Nichts gespeichert: Die Vorlage hängt weiter am Code.
-    expect(u.app.mailvorlagen.bausteine('verification')).toEqual(defaultContent())
+    expect(u.app.mailTemplates.bausteine('verification')).toEqual(defaultContent())
   })
 
   it('kennt keine erfundenen Vorlagen', async () => {
@@ -805,7 +805,7 @@ describe('System-Mails verwalten', () => {
     expect(erg.html).toContain('MAPT-4F7K')
     expect(erg.html).not.toContain('{{')
     expect(erg.issues).toEqual([])
-    expect(u.app.mailvorlagen.alle().every((v) => !v.customized)).toBe(true)
+    expect(u.app.mailTemplates.alle().every((v) => !v.customized)).toBe(true)
   })
 
   it('meldet in der Vorschau dieselben Probleme, an denen das Speichern scheitert', async () => {
@@ -891,8 +891,8 @@ describe('Betriebsprotokoll', () => {
   it('gibt die Meldungen neueste-zuerst aus, mit Zähler und Startzeit', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    u.app.protokoll.schreibe('warning', 'Bildanalyse: HTTP 429 (Rate-Limit)')
-    u.app.protokoll.schreibe('failed', 'Anreicherung fehlgeschlagen', 'Track nicht lesbar')
+    u.app.auditLog.write('warning', 'Bildanalyse: HTTP 429 (Rate-Limit)')
+    u.app.auditLog.write('failed', 'Anreicherung fehlgeschlagen', 'Track nicht lesbar')
 
     const antwort = await u.app.inject({
       method: 'GET',
@@ -917,9 +917,9 @@ describe('Betriebsprotokoll', () => {
     // Antwort eine Wiederholung der ganzen Liste.
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    u.app.protokoll.schreibe('warning', 'alt')
-    u.app.protokoll.schreibe('failed', 'schlimm')
-    u.app.protokoll.schreibe('warning', 'neu')
+    u.app.auditLog.write('warning', 'alt')
+    u.app.auditLog.write('failed', 'schlimm')
+    u.app.auditLog.write('warning', 'neu')
 
     const nurFehler = await u.app.inject({
       method: 'GET',

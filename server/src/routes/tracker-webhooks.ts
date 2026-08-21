@@ -108,11 +108,9 @@ export async function registerTrackerWebhookRoutes(app: FastifyInstance): Promis
       // pollen — dasselbe Muster wie `app.verarbeitungen`.
       if (auftraege.length) {
         const schluessel = `${provider.id}:${auftraege.map((a) => a.externeId).join(',')}`
-        app.trackerLaeufe.set(
+        app.trackerRuns.set(
           schluessel,
-          runImports(app, app.tracker, auftraege).finally(() =>
-            app.trackerLaeufe.delete(schluessel),
-          ),
+          runImports(app, app.tracker, auftraege).finally(() => app.trackerRuns.delete(schluessel)),
         )
       }
       const antwort = provider.webhook.antwort?.(anfrage)

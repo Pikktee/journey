@@ -29,9 +29,9 @@ export const BANNER_FILES: readonly string[] = [
  * dem Handle. Wortgleich mit der Web-Fassung: Ein anderer Streuwert hieße, dass
  * Vorschaukarte und Banner verschiedene Bilder zeigen.
  */
-export function defaultBanner(schluessel: string | null | undefined): string {
-  const wort = schluessel?.trim().toLowerCase() ?? ''
-  let summe = 0
-  for (let i = 0; i < wort.length; i++) summe = (summe * 31 + wort.charCodeAt(i)) % 100_000
-  return BANNER_FILES[summe % BANNER_FILES.length]!
+export function defaultBanner(key: string | null | undefined): string {
+  const word = key?.trim().toLowerCase() ?? ''
+  let sum = 0
+  for (let i = 0; i < word.length; i++) sum = (sum * 31 + word.charCodeAt(i)) % 100_000
+  return BANNER_FILES[sum % BANNER_FILES.length]!
 }

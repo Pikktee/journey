@@ -37,34 +37,34 @@ export const TEST_PLAYER_HTML = TEST_PROFIL_HTML.replace(
 
 export const TEST_KONFIG: Config = {
   port: 0,
-  datenDir: '/nirgendwo',
+  dataDir: '/nirgendwo',
   cookieSecret: 'test',
   adminEmail: null,
-  adminPasswort: null,
+  adminPassword: null,
   adminEmails: [],
   maxMediumBytes: 1024 * 1024,
   maxAudioBytes: 1024 * 1024,
-  maxSpeicherProBenutzer: 50 * 1024 * 1024,
-  hinterTls: false,
-  registrierungOffen: true,
-  basisUrl: 'http://localhost:5173',
+  maxStoragePerUser: 50 * 1024 * 1024,
+  behindTls: false,
+  registrationOpen: true,
+  baseUrl: 'http://localhost:5173',
   webUrl: 'https://maptale.test',
-  mailAbsender: 'Luhambo <noreply@test>',
+  mailFrom: 'Luhambo <noreply@test>',
   openRouterKey: null,
-  visionModell: 'google/gemini-2.5-flash-lite',
+  visionModel: 'google/gemini-2.5-flash-lite',
   // Ohne Passwort läuft im Test nie ein `docker exec` — die Statistik-Route
   // antwortet mit ihrem leeren Ergebnis.
-  umamiDbPasswort: null,
+  umamiDbPassword: null,
   // Fester Schlüssel statt null: Die Tracker-Tests brauchen verschlüsselbare
   // Tokens, und ein zufälliger Wert je Lauf machte gespeicherte Fixtures
   // unlesbar. Echte Anbieter bleiben trotzdem aus — dafür fehlen die
   // Client-IDs, und die Registry meldet sie als „nicht verfügbar".
-  trackerSchluessel: 'test-tracker-schluessel',
-  polar: { clientId: null, clientSecret: null, webhookGeheimnis: null },
+  trackerSecret: 'test-tracker-schluessel',
+  polar: { clientId: null, clientSecret: null, webhookSecret: null },
   // Kein Dienstkonto: index.ts baut daraus keinen FcmPush. Tests, die Push
   // brauchen, reichen einen SammelPush an `baueTestApp` durch — an der
   // Konfiguration hängt nur die Produktions-Verdrahtung.
-  fcmDienstkonto: null,
+  fcmServiceAccount: null,
 }
 
 /**
@@ -105,7 +105,7 @@ export interface TestUmgebung {
   app: FastifyInstance
   storage: MemStorage
   /** Ablage für Benutzerdateien (Avatare) */
-  benutzerStorage: MemStorage
+  userStorage: MemStorage
   /** Ablage der Datenexport-Archive. */
   archive: MemStorage
   mail: SammelMail
@@ -121,19 +121,19 @@ export async function baueTestApp(
   weather: WeatherSource | null = null,
   // Default null: keine Video-Aufbereitung — Video-Tests geben einen
   // FakeVideoWerkzeug herein (Spiegelbild des FfmpegWerkzeug in index.ts)
-  videoWerkzeug: VideoTool | null = null,
+  videoTool: VideoTool | null = null,
   // M9: einzelne Konfig-Werte übersteuern (Quota, Registrierung offen/zu …)
   konfigPatch: Partial<Config> = {},
   // Default null: keine Bildanalyse (M5) — Vision-Tests geben einen
   // FesterKlassifikator herein (Spiegelbild des OpenRouterKlassifikator in index.ts)
-  bildKlassifikator: ImageClassifier | null = null,
+  imageClassifier: ImageClassifier | null = null,
   // Default null: kein Schienen-Abgleich — Tram-Tests geben FesteSchienen
   // herein (Spiegelbild der OverpassSchienen in index.ts)
-  schienen: RailSource | null = null,
+  rails: RailSource | null = null,
   // Default null: keine Bild-Aufbereitung — Medien bleiben Originale. Tests zu
   // den Fassungen geben ein FakeBildWerkzeug herein (Spiegelbild des
   // FfmpegBildWerkzeug in index.ts)
-  bildWerkzeug: ImageTool | null = null,
+  imageTool: ImageTool | null = null,
   // Default leer: keine Tracker-Anbieter — die Routen antworten mit einer
   // leeren Liste. Tracker-Tests geben einen TestProvider herein (Spiegelbild
   // der echten Adapter in index.ts).
@@ -145,26 +145,26 @@ export async function baueTestApp(
 ): Promise<TestUmgebung> {
   const db = openDb(':memory:')
   const storage = new MemStorage()
-  const benutzerStorage = new MemStorage()
+  const userStorage = new MemStorage()
   const archive = new MemStorage()
   const mail = new SammelMail()
   const app = buildApp({
-    konfig: { ...TEST_KONFIG, ...konfigPatch },
+    config: { ...TEST_KONFIG, ...konfigPatch },
     db,
     storage,
-    benutzerStorage,
+    userStorage,
     archive,
     geocoder: new FixedGeocoder(geocoderAntworten),
-    wetter: weather,
-    videoWerkzeug,
-    bildWerkzeug,
-    bildKlassifikator,
-    schienen,
+    weather: weather,
+    videoTool,
+    imageTool,
+    imageClassifier,
+    rails,
     trackerProvider,
     push,
     mail,
     // Ohne Netz: Der Server holt die gebaute Seite sonst über konfig.webUrl.
-    seiten: new PageSource({ webUrl: 'https://maptale.test' }, async (url) =>
+    pages: new PageSource({ webUrl: 'https://maptale.test' }, async (url) =>
       url.endsWith('erlebnis.html') ? TEST_PLAYER_HTML : TEST_PROFIL_HTML,
     ),
   })
@@ -192,7 +192,7 @@ export async function baueTestApp(
   return {
     app,
     storage,
-    benutzerStorage,
+    userStorage,
     archive,
     mail,
     cookies: { maptale_session: sessionCookie?.value ?? '' },
@@ -207,7 +207,7 @@ export async function baueTestApp(
  * Tests, die den offenen Fluss prüfen, machen die Tür hier ausdrücklich auf.
  */
 export function oeffneRegistrierung(u: TestUmgebung): void {
-  u.app.einladungen.setRequired(false)
+  u.app.invitations.setRequired(false)
 }
 
 /** Zweiter Benutzer mit Admin-Rolle, samt Session-Cookie für inject(). */

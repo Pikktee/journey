@@ -26,7 +26,7 @@ describe('trageTitelbilderNach', () => {
     const u = await baueTestApp()
     const id = await legeFertigeTourAn(u)
     u.app.deps.db.prepare('UPDATE tours SET cover = NULL WHERE id = ?').run(id)
-    await u.storage.loesche(id, TOUR_JSON_PATH)
+    await u.storage.remove(id, TOUR_JSON_PATH)
 
     const gemeldet: string[] = []
     expect(
@@ -64,6 +64,6 @@ async function legeFertigeTourAn(u: Umgebung): Promise<string> {
     payload: Buffer.from('fake-jpeg-bytes'),
   })
   await u.app.inject({ method: 'POST', url: `/api/tours/${id}/finalize`, cookies: u.cookies })
-  await u.app.verarbeitungen.get(id)
+  await u.app.processing.get(id)
   return id
 }

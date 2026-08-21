@@ -24,9 +24,9 @@ const alsStream = (inhalt: string): Readable => Readable.from([Buffer.from(inhal
 
 describe('FsStorage', () => {
   it('schreibt und liest Dateien', async () => {
-    await storage.schreibe('t_1', 'original/manifest.json', '{"a":1}')
-    expect((await storage.lese('t_1', 'original/manifest.json')).toString()).toBe('{"a":1}')
-    expect(await storage.info('t_1', 'original/manifest.json')).toEqual({ groesse: 7 })
+    await storage.write('t_1', 'original/manifest.json', '{"a":1}')
+    expect((await storage.read('t_1', 'original/manifest.json')).toString()).toBe('{"a":1}')
+    expect(await storage.info('t_1', 'original/manifest.json')).toEqual({ size: 7 })
   })
 
   it('meldet fehlende Dateien als null', async () => {
@@ -34,50 +34,48 @@ describe('FsStorage', () => {
   })
 
   it('schreibt Streams atomar und meldet die Größe', async () => {
-    const info = await storage.schreibeStream('t_1', 'media/m1.jpg', alsStream('0123456789'), 100)
-    expect(info.groesse).toBe(10)
-    expect((await storage.lese('t_1', 'media/m1.jpg')).toString()).toBe('0123456789')
+    const info = await storage.writeStream('t_1', 'media/m1.jpg', alsStream('0123456789'), 100)
+    expect(info.size).toBe(10)
+    expect((await storage.read('t_1', 'media/m1.jpg')).toString()).toBe('0123456789')
   })
 
   it('bricht über dem Limit ab und hinterlässt keine halbe Datei', async () => {
     await expect(
-      storage.schreibeStream('t_1', 'media/m1.jpg', alsStream('0123456789'), 5),
+      storage.writeStream('t_1', 'media/m1.jpg', alsStream('0123456789'), 5),
     ).rejects.toBeInstanceOf(TooLargeError)
     expect(await storage.info('t_1', 'media/m1.jpg')).toBeNull()
   })
 
   it('liest Byte-Bereiche (Range)', async () => {
-    await storage.schreibe('t_1', 'media/m1.jpg', '0123456789')
+    await storage.write('t_1', 'media/m1.jpg', '0123456789')
     const teile: Buffer[] = []
-    for await (const chunk of storage.leseStream('t_1', 'media/m1.jpg', { start: 2, ende: 5 })) {
+    for await (const chunk of storage.readStream('t_1', 'media/m1.jpg', { start: 2, end: 5 })) {
       teile.push(Buffer.from(chunk))
     }
     expect(Buffer.concat(teile).toString()).toBe('2345')
   })
 
   it('verweigert Pfad-Ausbrüche', async () => {
-    await expect(storage.schreibe('t_1', '../../etc/passwd', 'x')).rejects.toThrow(
-      /Unzulässiger Pfad/,
-    )
+    await expect(storage.write('t_1', '../../etc/passwd', 'x')).rejects.toThrow(/Unzulässiger Pfad/)
   })
 
   it('verweigert Ausbrüche in Geschwisterordner mit gleichem Präfix', async () => {
     // "t_1-boese" beginnt mit "t_1" — ohne Separator-Grenze käme das durch
-    await expect(storage.schreibe('t_1', '../t_1-boese/datei.txt', 'x')).rejects.toThrow(
+    await expect(storage.write('t_1', '../t_1-boese/datei.txt', 'x')).rejects.toThrow(
       /Unzulässiger Pfad/,
     )
   })
 
   it('löscht ganze Touren', async () => {
-    await storage.schreibe('t_1', 'tour.json', '{}')
-    await storage.schreibe('t_2', 'tour.json', '{}')
-    await storage.loescheTour('t_1')
+    await storage.write('t_1', 'tour.json', '{}')
+    await storage.write('t_2', 'tour.json', '{}')
+    await storage.removeTour('t_1')
     expect(await storage.info('t_1', 'tour.json')).toBeNull()
-    expect(await storage.info('t_2', 'tour.json')).toEqual({ groesse: 2 })
+    expect(await storage.info('t_2', 'tour.json')).toEqual({ size: 2 })
   })
 
   it('verweigert Pfad-Ausbrüche auch beim Einzel-Löschen', async () => {
-    await expect(storage.loesche('t_1', '../t_2/tour.json')).rejects.toThrow(/Unzulässiger Pfad/)
+    await expect(storage.remove('t_1', '../t_2/tour.json')).rejects.toThrow(/Unzulässiger Pfad/)
   })
 })
 
@@ -89,37 +87,37 @@ describe.each<{ name: string; baue: () => Storage }>([
 ])('$name: loesche + listeDateien (Baukasten)', ({ baue }) => {
   it('löscht einzelne Dateien; fehlende Dateien sind kein Fehler', async () => {
     const s = baue()
-    await s.schreibe('t_1', 'media/a1.mp3', 'mp3-bytes')
-    await s.loesche('t_1', 'media/a1.mp3')
+    await s.write('t_1', 'media/a1.mp3', 'mp3-bytes')
+    await s.remove('t_1', 'media/a1.mp3')
     expect(await s.info('t_1', 'media/a1.mp3')).toBeNull()
-    await expect(s.loesche('t_1', 'media/gibtsnicht.mp3')).resolves.toBeUndefined()
+    await expect(s.remove('t_1', 'media/gibtsnicht.mp3')).resolves.toBeUndefined()
   })
 
   it('listet Dateien eines Unterordners nicht-rekursiv, sortiert, mit Größe', async () => {
     const s = baue()
-    await s.schreibe('t_1', 'media/b.wav', '123456')
-    await s.schreibe('t_1', 'media/a1.mp3', '0123456789')
-    await s.schreibe('t_1', 'media/unter/tief.mp3', 'x') // Unterordner: ignoriert
-    await s.schreibe('t_1', 'tour.json', '{}') // anderer Ordner: ignoriert
-    await s.schreibe('t_2', 'media/fremd.mp3', 'x') // fremde Tour: ignoriert
-    expect(await s.listeDateien('t_1', 'media')).toEqual([
-      { name: 'a1.mp3', groesse: 10 },
-      { name: 'b.wav', groesse: 6 },
+    await s.write('t_1', 'media/b.wav', '123456')
+    await s.write('t_1', 'media/a1.mp3', '0123456789')
+    await s.write('t_1', 'media/unter/tief.mp3', 'x') // Unterordner: ignoriert
+    await s.write('t_1', 'tour.json', '{}') // anderer Ordner: ignoriert
+    await s.write('t_2', 'media/fremd.mp3', 'x') // fremde Tour: ignoriert
+    expect(await s.listFiles('t_1', 'media')).toEqual([
+      { name: 'a1.mp3', size: 10 },
+      { name: 'b.wav', size: 6 },
     ])
   })
 
   it('liefert für fehlende Ordner eine leere Liste', async () => {
     const s = baue()
-    expect(await s.listeDateien('t_1', 'media')).toEqual([])
+    expect(await s.listFiles('t_1', 'media')).toEqual([])
   })
 
   it('gesamtGroesse summiert rekursiv über alle Unterordner (Quota, M9)', async () => {
     const s = baue()
-    expect(await s.gesamtGroesse('t_1')).toBe(0) // Tour ohne Dateien
-    await s.schreibe('t_1', 'manifest.json', '12345') // 5
-    await s.schreibe('t_1', 'media/a1.mp3', '0123456789') // 10
-    await s.schreibe('t_1', 'original/track.gpx', 'xyz') // 3
-    await s.schreibe('t_2', 'media/fremd.mp3', 'x') // fremde Tour zählt nicht
-    expect(await s.gesamtGroesse('t_1')).toBe(18)
+    expect(await s.totalSize('t_1')).toBe(0) // Tour ohne Dateien
+    await s.write('t_1', 'manifest.json', '12345') // 5
+    await s.write('t_1', 'media/a1.mp3', '0123456789') // 10
+    await s.write('t_1', 'original/track.gpx', 'xyz') // 3
+    await s.write('t_2', 'media/fremd.mp3', 'x') // fremde Tour zählt nicht
+    expect(await s.totalSize('t_1')).toBe(18)
   })
 })

@@ -71,7 +71,7 @@ function alsProfilAntwort(app: FastifyInstance, userId: string) {
     visibility: profil?.visibility ?? 'private',
     // Zweiter, unabhängiger Zustand neben der Sichtbarkeit: „über den Link
     // erreichbar" und „unter dem eigenen Namen auffindbar" sind verschiedene
-    // Entscheidungen (s. server/src/routes/seiten.ts). Steht hier mit, damit
+    // Entscheidungen (s. server/src/routes/pages.ts). Steht hier mit, damit
     // der Schalter der Kontoeinstellungen beim Aufbau richtig liegt.
     searchIndexing:
       ((
@@ -96,7 +96,7 @@ const CODE_FEHLER: Record<InvitationError, string> = {
 }
 
 export function registerAuthRoutes(app: FastifyInstance): void {
-  const { konfig, mail, storage, benutzerStorage, db } = app.deps
+  const { config, mail, storage, userStorage, db } = app.deps
   const loginGebremst = buildRateLimit(10)
   const registrierGebremst = buildRateLimit(5, 10 * 60_000) // 5 pro 10 min je IP
   const resetGebremst = buildRateLimit(5, 10 * 60_000)
@@ -128,7 +128,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const cookieBasis = {
       path: '/',
       sameSite: 'lax' as const,
-      secure: konfig.hinterTls,
+      secure: config.behindTls,
       expires: session.expiresAt,
     }
     reply.setCookie(SESSION_COOKIE, session.id, { ...cookieBasis, httpOnly: true })
@@ -227,7 +227,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (!konfig.registrierungOffen)
+      if (!config.registrationOpen)
         return reply.code(403).send({ error: 'Zurzeit sind keine neuen Konten möglich.' })
       if (registrierGebremst(`ip:${request.ip}`)) {
         return reply
@@ -238,14 +238,14 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
         return reply.code(400).send({ error: 'Diese E-Mail-Adresse stimmt nicht.' })
 
-      const codePflicht = app.einladungen.required()
+      const codePflicht = app.invitations.required()
       const code = request.body.code?.trim() ?? ''
       if (codePflicht) {
         if (!code)
           return reply
             .code(403)
             .send({ error: 'Für ein neues Konto brauchst du einen Einladungscode.' })
-        const grund = app.einladungen.check(code)
+        const grund = app.invitations.check(code)
         if (grund) return reply.code(403).send({ error: CODE_FEHLER[grund] })
       }
       if (app.auth.emailTaken(email))
@@ -253,7 +253,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
       const name = request.body.name?.trim() || nameFromEmail(email)
       const benutzer = await app.auth.createUser(email, request.body.password, name, false)
-      if (codePflicht && !app.einladungen.redeem(code, benutzer.id)) {
+      if (codePflicht && !app.invitations.redeem(code, benutzer.id)) {
         app.auth.deleteUser(benutzer.id)
         return reply.code(403).send({ error: CODE_FEHLER.used })
       }
@@ -262,15 +262,15 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       // Zeitpunkt, Quelle und Textfassung in einem Zug.
       if (request.body.newsletter === true) app.newsletter.setze(benutzer.id, true, 'signup')
       const token = app.auth.createMailToken(benutzer.id, 'verify')
-      const link = `${konfig.basisUrl}${WEB_PATHS.login}#verify=${token}`
+      const link = `${config.baseUrl}${WEB_PATHS.login}#verify=${token}`
       // Die Bestätigungsmail bleibt WERBEFREI: kein Satz über den Newsletter,
       // keine List-Unsubscribe-Kopfzeile. Ein „Übrigens, unser Newsletter …"
       // machte aus der transaktionalen Mail selbst eine Werbemail — und
       // beworben wird die Einwilligung ohnehin nicht, sie wird bestätigt.
-      const { betreff, text, html } = app.mailvorlagen.rendere(
+      const { betreff, text, html } = app.mailTemplates.rendere(
         'verification',
         { name: benutzer.name },
-        { basisUrl: konfig.basisUrl, link },
+        { basisUrl: config.baseUrl, link },
       )
       try {
         await mail.sende({ an: benutzer.email, betreff, text, html })
@@ -306,7 +306,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (!konfig.registrierungOffen)
+      if (!config.registrationOpen)
         return reply.code(403).send({ error: 'Zurzeit sind keine neuen Konten möglich.' })
       if (codeGebremst(`ip:${request.ip}`)) {
         return reply
@@ -315,8 +315,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       }
       // Ohne Einladungspflicht ist jeder Code müßig — die Antwort ist trotzdem
       // „geht", damit ein Formular, das noch fragt, niemanden aussperrt.
-      if (!app.einladungen.required()) return { ok: true, required: false }
-      const grund = app.einladungen.check(request.body.code)
+      if (!app.invitations.required()) return { ok: true, required: false }
+      const grund = app.invitations.check(request.body.code)
       if (grund) return reply.code(403).send({ error: CODE_FEHLER[grund] })
       return { ok: true, required: true }
     },
@@ -369,15 +369,15 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       const userId = app.auth.userIdForEmail(email)
       if (userId) {
         const token = app.auth.createMailToken(userId, 'reset')
-        const link = `${konfig.basisUrl}${WEB_PATHS.login}#reset=${token}`
+        const link = `${config.baseUrl}${WEB_PATHS.login}#reset=${token}`
         // Der Name des KONTOS, nicht der Adress-Anfang: Die Mail geht ohnehin
         // nur an die eigene Adresse, und „Hallo mira.wolf," liest sich wie ein
         // Datenbankfeld.
         const name = app.auth.userById(userId)?.name || 'du'
-        const { betreff, text, html } = app.mailvorlagen.rendere(
+        const { betreff, text, html } = app.mailTemplates.rendere(
           'reset',
           { name },
-          { basisUrl: konfig.basisUrl, link },
+          { basisUrl: config.baseUrl, link },
         )
         try {
           await mail.sende({ an: email, betreff, text, html })
@@ -527,11 +527,11 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       }
       if (!app.auth.emailTaken(email)) {
         const token = app.auth.createMailToken(benutzer.id, 'email', email)
-        const link = `${konfig.basisUrl}${WEB_PATHS.account}#email=${token}`
-        const { betreff, text, html } = app.mailvorlagen.rendere(
+        const link = `${config.baseUrl}${WEB_PATHS.account}#email=${token}`
+        const { betreff, text, html } = app.mailTemplates.rendere(
           'email-change',
           { name: benutzer.name },
-          { basisUrl: konfig.basisUrl, link },
+          { basisUrl: config.baseUrl, link },
         )
         try {
           await mail.sende({ an: email, betreff, text, html })
@@ -654,7 +654,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // finden darf. Zusammengelegt wäre es ein Häkchen zwischen Ort und Instagram.
   //
   // Angenommen wird der Wunsch auch bei privatem Profil — wirksam wird er dann
-  // nicht (`seiten.ts` verlangt beides). Ein gesperrter Schalter zwänge in eine
+  // nicht (`routes/pages.ts` verlangt beides). Ein gesperrter Schalter zwänge in eine
   // Reihenfolge, die niemand kennt; die Zeile in der Oberfläche sagt stattdessen
   // dazu, worauf er wartet.
   app.post<{ Body: { enabled: boolean } }>(
@@ -693,8 +693,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const [stand, aufteilung] = await Promise.all([
-      quotaStatus(db, storage, benutzerStorage, benutzer.id, konfig.maxSpeicherProBenutzer),
-      storageBreakdown(db, storage, benutzerStorage, benutzer.id),
+      quotaStatus(db, storage, userStorage, benutzer.id, config.maxStoragePerUser),
+      storageBreakdown(db, storage, userStorage, benutzer.id),
     ])
     return { ...stand, breakdown: aufteilung }
   })
@@ -704,10 +704,10 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.delete('/api/auth/me', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    for (const tourId of app.auth.tourIds(benutzer.id)) await storage.loescheTour(tourId)
+    for (const tourId of app.auth.tourIds(benutzer.id)) await storage.removeTour(tourId)
     // Auch die Benutzerdateien (Avatar) — sie hängen an keiner Tour und
     // überlebten den Cascade sonst als Waisen auf der Platte.
-    await benutzerStorage.loescheTour(benutzer.id).catch(() => undefined)
+    await userStorage.removeTour(benutzer.id).catch(() => undefined)
     // Dasselbe für ein fertiges Export-Archiv: Seine Zeile fällt gleich dem
     // Cascade zum Opfer, und ohne sie findet der stündliche Aufräumer die
     // Datei nie wieder — ein ZIP mit ALLEN Daten des gelöschten Kontos bliebe
@@ -715,7 +715,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     for (const { id } of app.deps.db
       .prepare('SELECT id FROM data_exports WHERE user_id = ?')
       .all(benutzer.id) as Array<{ id: string }>) {
-      await app.deps.archive.loescheTour(id).catch(() => undefined)
+      await app.deps.archive.removeTour(id).catch(() => undefined)
     }
     app.auth.deleteUser(benutzer.id)
     loescheSessionCookies(reply)
@@ -732,15 +732,15 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     // Dasselbe gilt für die Warteliste: Ob sie überhaupt angeboten wird, hängt
     // an zwei Schaltern und einem Riegel; die Seite soll das nicht nachrechnen.
     const registrierung = {
-      open: konfig.registrierungOffen,
-      invitationRequired: app.einladungen.required(),
+      open: config.registrationOpen,
+      invitationRequired: app.invitations.required(),
       waitlist: waitlistOffered(
-        app.warteliste.open(),
-        app.einladungen.required(),
-        konfig.registrierungOffen,
+        app.waitlist.open(),
+        app.invitations.required(),
+        config.registrationOpen,
       ),
     }
-    if (!request.benutzer) return { user: null, registration: registrierung }
+    if (!request.user) return { user: null, registration: registrierung }
     const sessionId = request.cookies[SESSION_COOKIE]
     if (sessionId && request.cookies[SESSION_NOTICE_COOKIE] !== '1') {
       // Ablauf kennen wir hier nicht exakt — Max-Age wie Session-Dauer reicht.
@@ -748,31 +748,31 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         path: '/',
         httpOnly: false,
         sameSite: 'lax',
-        secure: konfig.hinterTls,
+        secure: config.behindTls,
         maxAge: 30 * 24 * 60 * 60,
       })
     }
     const quota = await quotaStatus(
       db,
       storage,
-      benutzerStorage,
-      request.benutzer.id,
-      konfig.maxSpeicherProBenutzer,
+      userStorage,
+      request.user.id,
+      config.maxStoragePerUser,
     )
     return {
-      user: request.benutzer,
-      verified: app.auth.isVerified(request.benutzer.id),
+      user: request.user,
+      verified: app.auth.isVerified(request.user.id),
       quota,
       registration: registrierung,
       // Eine Spalte, kein Aufruf: Der Schalter der Kontoeinstellungen soll
       // beim Aufbau schon in der richtigen Lage stehen, und `/auth/me` ist die
       // Antwort, auf die diese Seite ohnehin wartet.
-      newsletter: app.newsletter.stand(request.benutzer.id),
-      profile: alsProfilAntwort(app, request.benutzer.id),
+      newsletter: app.newsletter.stand(request.user.id),
+      profile: alsProfilAntwort(app, request.user.id),
       // Der jüngste Export-Auftrag — keine eigene Route zum Pollen: Die
       // Konto-Seite wartet ohnehin auf diese Antwort, und ein Export dauert
       // Minuten, nicht Sekunden. Wer den Stand sehen will, lädt neu.
-      dataExport: app.exporte.stand(request.benutzer.id),
+      dataExport: app.dataExport.stand(request.user.id),
     }
   })
 
@@ -829,8 +829,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         // trotzdem auf der Platte.
         const alt = app.auth.profile(benutzer.id)?.banner ?? null
         app.auth.setBanner(benutzer.id, wert || null)
-        if (alt?.includes('/'))
-          await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+        if (alt?.includes('/')) await userStorage.remove(benutzer.id, alt).catch(() => undefined)
       }
       app.auth.setProfile(benutzer.id, rest)
       return alsProfilAntwort(app, benutzer.id)
@@ -847,16 +846,11 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     if (!benutzer) return
     const alt = app.auth.profile(benutzer.id)?.avatar ?? null
     const datei = `avatar/${Date.now()}.jpg`
-    await benutzerStorage.schreibeStream(
-      benutzer.id,
-      datei,
-      request.body as Readable,
-      MAX_AVATAR_BYTES,
-    )
+    await userStorage.writeStream(benutzer.id, datei, request.body as Readable, MAX_AVATAR_BYTES)
     app.auth.setAvatar(benutzer.id, datei)
     // Erst nach dem erfolgreichen Schreiben aufräumen — bricht der Upload ab,
     // bleibt das bisherige Bild bestehen.
-    if (alt && alt !== datei) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+    if (alt && alt !== datei) await userStorage.remove(benutzer.id, alt).catch(() => undefined)
     return { avatarUrl: avatarUrl(benutzer.id, datei) }
   })
 
@@ -864,7 +858,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const alt = app.auth.profile(benutzer.id)?.avatar
-    if (alt) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+    if (alt) await userStorage.remove(benutzer.id, alt).catch(() => undefined)
     app.auth.setAvatar(benutzer.id, null)
     return { ok: true }
   })
@@ -884,17 +878,12 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     if (!benutzer) return
     const alt = app.auth.profile(benutzer.id)?.banner ?? null
     const datei = `banner/${Date.now()}.jpg`
-    await benutzerStorage.schreibeStream(
-      benutzer.id,
-      datei,
-      request.body as Readable,
-      MAX_TITELBILD_BYTES,
-    )
+    await userStorage.writeStream(benutzer.id, datei, request.body as Readable, MAX_TITELBILD_BYTES)
     app.auth.setBanner(benutzer.id, datei)
     // Nur eigene Dateien aufräumen — ein Vorschlag liegt im Build und gehört
     // allen (er hat keinen Schrägstrich, s. profilfelder.ts).
     if (alt?.includes('/') && alt !== datei)
-      await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+      await userStorage.remove(benutzer.id, alt).catch(() => undefined)
     return { bannerUrl: bannerUrl(benutzer.id, datei) }
   })
 
@@ -902,7 +891,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const alt = app.auth.profile(benutzer.id)?.banner
-    if (alt?.includes('/')) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+    if (alt?.includes('/')) await userStorage.remove(benutzer.id, alt).catch(() => undefined)
     app.auth.setBanner(benutzer.id, null)
     return { ok: true }
   })
@@ -913,14 +902,14 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     // Ein Vorschlag wird hier NICHT ausgeliefert: Er liegt als statische Datei
     // im Build und geht nie durch die API.
     if (!titelbild?.includes('/')) return reply.code(404).send({ error: 'Kein Titelbild' })
-    const info = await benutzerStorage.info(request.params.id, titelbild)
+    const info = await userStorage.info(request.params.id, titelbild)
     if (!info) return reply.code(404).send({ error: 'Kein Titelbild' })
     return reply
       .header('content-type', 'image/jpeg')
       .header('x-content-type-options', 'nosniff')
       .header('cache-control', 'public, max-age=31536000, immutable')
-      .header('content-length', String(info.groesse))
-      .send(benutzerStorage.leseStream(request.params.id, titelbild))
+      .header('content-length', String(info.size))
+      .send(userStorage.readStream(request.params.id, titelbild))
   })
 
   // — Avatar ausliefern (öffentlich) —
@@ -931,13 +920,13 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.get<{ Params: { id: string } }>('/api/users/:id/avatar', async (request, reply) => {
     const profil = app.auth.profile(request.params.id)
     if (!profil?.avatar) return reply.code(404).send({ error: 'Kein Profilbild' })
-    const info = await benutzerStorage.info(request.params.id, profil.avatar)
+    const info = await userStorage.info(request.params.id, profil.avatar)
     if (!info) return reply.code(404).send({ error: 'Kein Profilbild' })
     return reply
       .header('content-type', 'image/jpeg')
       .header('x-content-type-options', 'nosniff')
       .header('cache-control', 'public, max-age=31536000, immutable')
-      .header('content-length', String(info.groesse))
-      .send(benutzerStorage.leseStream(request.params.id, profil.avatar))
+      .header('content-length', String(info.size))
+      .send(userStorage.readStream(request.params.id, profil.avatar))
   })
 }

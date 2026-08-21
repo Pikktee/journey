@@ -153,7 +153,7 @@ describe('Eigenes Titelbild', () => {
     await ladeHoch(u, 'alt')
     await new Promise((r) => setTimeout(r, 2))
     await ladeHoch(u, 'neu')
-    expect(await u.benutzerStorage.listeDateien(nutzerId(u), 'banner')).toHaveLength(1)
+    expect(await u.userStorage.listFiles(nutzerId(u), 'banner')).toHaveLength(1)
   })
 
   it('räumt es auch weg, wenn danach ein Vorschlag gewählt wird', async () => {
@@ -161,7 +161,7 @@ describe('Eigenes Titelbild', () => {
     const u = await baueTestApp()
     await ladeHoch(u)
     await patch(u, { banner: 'kueste.jpg' })
-    expect(await u.benutzerStorage.listeDateien(nutzerId(u), 'banner')).toHaveLength(0)
+    expect(await u.userStorage.listFiles(nutzerId(u), 'banner')).toHaveLength(0)
   })
 
   it('liefert einen Vorschlag NICHT über die API aus', async () => {

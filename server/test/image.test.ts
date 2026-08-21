@@ -69,7 +69,7 @@ function memSpeicher(): ImageStorage & { dateien: Map<string, Buffer> } {
     },
     async info(relPfad) {
       const b = dateien.get(relPfad)
-      return b ? { groesse: b.length } : null
+      return b ? { size: b.length } : null
     },
     async loesche(relPfad) {
       dateien.delete(relPfad)

@@ -87,10 +87,10 @@ export function registerFeedbackRoutes(app: FastifyInstance): void {
       // Eine unbrauchbare Adresse wird verworfen und nicht bemängelt: Sie ist
       // freiwillig, und die Meldung ist auch ohne sie etwas wert.
       const email = request.body.email?.trim()
-      app.rueckmeldungen.nimmAn({
+      app.feedback.nimmAn({
         text,
         email: email && EMAIL_FORM.test(email) ? email : null,
-        userId: request.benutzer?.id ?? null,
+        userId: request.user?.id ?? null,
         context: cleanContext(request.body.context),
         source: request.body.source ?? 'web',
       })
@@ -106,10 +106,8 @@ export function registerFeedbackRoutes(app: FastifyInstance): void {
       if (!requireAdmin(request, reply)) return
       const status = request.query.status
       return {
-        feedback: app.rueckmeldungen.liste(
-          status && STATUS.includes(status) ? { status } : undefined,
-        ),
-        counts: app.rueckmeldungen.zaehlung(),
+        feedback: app.feedback.liste(status && STATUS.includes(status) ? { status } : undefined),
+        counts: app.feedback.zaehlung(),
       }
     },
   )
@@ -136,7 +134,7 @@ export function registerFeedbackRoutes(app: FastifyInstance): void {
       const aenderung: { status?: FeedbackStatus; note?: string | null } = {}
       if (request.body.status !== undefined) aenderung.status = request.body.status
       if (request.body.note !== undefined) aenderung.note = request.body.note
-      const gespeichert = app.rueckmeldungen.aktualisiere(request.params.id, aenderung)
+      const gespeichert = app.feedback.aktualisiere(request.params.id, aenderung)
       if (!gespeichert) return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
       return reply.send({ feedback: gespeichert })
     },
@@ -144,7 +142,7 @@ export function registerFeedbackRoutes(app: FastifyInstance): void {
 
   app.delete<{ Params: { id: string } }>('/api/admin/feedback/:id', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
-    if (!app.rueckmeldungen.loesche(request.params.id)) {
+    if (!app.feedback.loesche(request.params.id)) {
       return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
     }
     return reply.send({ ok: true })

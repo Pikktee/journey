@@ -151,7 +151,7 @@ describe('Abmelden ohne Anmeldung', () => {
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/newsletter/unsubscribe',
-      payload: { token: unsubscribeToken(id, u.app.deps.konfig.cookieSecret) },
+      payload: { token: unsubscribeToken(id, u.app.deps.config.cookieSecret) },
     })
     expect(antwort.statusCode).toBe(200)
     expect(u.app.newsletter.stand(id)).toBe(false)
@@ -163,7 +163,7 @@ describe('Abmelden ohne Anmeldung', () => {
     const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
 
-    const token = unsubscribeToken(id, u.app.deps.konfig.cookieSecret)
+    const token = unsubscribeToken(id, u.app.deps.config.cookieSecret)
     const antwort = await u.app.inject({
       method: 'POST',
       url: `/api/newsletter/one-click/${token}`,
@@ -179,7 +179,7 @@ describe('Abmelden ohne Anmeldung', () => {
     const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
 
-    const echt = unsubscribeToken(id, u.app.deps.konfig.cookieSecret)
+    const echt = unsubscribeToken(id, u.app.deps.config.cookieSecret)
     const gefaelscht = `${echt.split('.')[0]}.${'A'.repeat((echt.split('.')[1] ?? '').length)}`
     const antwort = await u.app.inject({
       method: 'POST',
@@ -193,7 +193,7 @@ describe('Abmelden ohne Anmeldung', () => {
   it('bleibt freundlich, wenn das Konto längst weg ist — das Ziel ist erreicht', async () => {
     const u = await baueTestApp()
     const weg = await u.app.auth.createUser('weg@example.com', 'geheim123', 'Weg')
-    const token = unsubscribeToken(weg.id, u.app.deps.konfig.cookieSecret)
+    const token = unsubscribeToken(weg.id, u.app.deps.config.cookieSecret)
     u.app.auth.deleteUser(weg.id)
 
     const antwort = await u.app.inject({

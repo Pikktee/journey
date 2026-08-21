@@ -19,7 +19,7 @@ export type Db = Database.Database
 type Migration = string | ((db: Db) => void)
 
 // Migrationen laufen der Reihe nach; `user_version` merkt den Stand.
-const MIGRATIONEN: Migration[] = [
+const MIGRATIONS: Migration[] = [
   `
   CREATE TABLE users (
     id TEXT PRIMARY KEY,
@@ -329,7 +329,7 @@ const MIGRATIONEN: Migration[] = [
   // Link hat", und dabei bleibt es, bis jemand aktiv etwas anderes will.
   //
   // Wirksam wird das Feld nur ZUSAMMEN mit `profil_sichtbarkeit = 'public'`
-  // (s. server/src/seiten.ts) — ein privates Profil ist nie indexierbar, egal
+  // (s. server/src/routes/pages.ts) — ein privates Profil ist nie indexierbar, egal
   // was hier steht.
   `
   ALTER TABLE users ADD COLUMN suchmaschinen INTEGER NOT NULL DEFAULT 0;
@@ -888,29 +888,29 @@ const MIGRATIONEN: Migration[] = [
  * fasst sie nie wieder an, denn der Name ist dann in der Welt.
  */
 export function assignMissingHandles(db: Db): void {
-  const zeilen = db
+  const rows = db
     .prepare('SELECT id, email FROM users WHERE handle IS NULL ORDER BY created_at ASC, id ASC')
     .all() as Array<{ id: string; email: string }>
-  const belegt = new Set(
+  const taken = new Set(
     (
       db.prepare('SELECT handle FROM users WHERE handle IS NOT NULL').all() as Array<{
         handle: string
       }>
     ).map((z) => z.handle.toLowerCase()),
   )
-  const setze = db.prepare('UPDATE users SET handle = ? WHERE id = ?')
-  for (const zeile of zeilen) {
-    const handle = findFreeHandle(handleFromEmail(zeile.email), (h) => belegt.has(h))
-    belegt.add(handle)
-    setze.run(handle, zeile.id)
+  const setHandle = db.prepare('UPDATE users SET handle = ? WHERE id = ?')
+  for (const row of rows) {
+    const handle = findFreeHandle(handleFromEmail(row.email), (h) => taken.has(h))
+    taken.add(handle)
+    setHandle.run(handle, row.id)
   }
 }
 
-export function openDb(pfad: string): Db {
-  const db = new Database(pfad)
+export function openDb(path: string): Db {
+  const db = new Database(path)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
-  migriere(db)
+  migrate(db)
   return db
 }
 
@@ -926,10 +926,10 @@ export function openDb(pfad: string): Db {
  * Das Pragma wirkt NICHT innerhalb einer Transaktion, deshalb steht es hier
  * aussen um sie herum; `foreign_key_check` danach ist die Gegenprobe.
  */
-const OHNE_FREMDSCHLUESSEL = new Set<number>([22])
+const WITHOUT_FOREIGN_KEYS = new Set<number>([22])
 
 /** Zahl der Schritte — zugleich der `user_version`, den eine frische DB hat. */
-export const MIGRATIONS_STAND = MIGRATIONEN.length
+export const MIGRATIONS_VERSION = MIGRATIONS.length
 
 /**
  * Nur bis zu einem Stand migrieren.
@@ -939,33 +939,33 @@ export const MIGRATIONS_STAND = MIGRATIONEN.length
  * stattdessen `user_version` zurückdreht, prüfte den Schritt gegen ein Schema,
  * das es so nie gab.
  */
-export function migriereBis(db: Db, ziel: number): void {
-  migriere(db, ziel)
+export function migrateTo(db: Db, target: number): void {
+  migrate(db, target)
 }
 
-function migriere(db: Db, bis = MIGRATIONEN.length): void {
-  const stand = db.pragma('user_version', { simple: true }) as number
-  for (let i = stand; i < bis; i++) {
-    const schritt = MIGRATIONEN[i]
-    if (!schritt) continue
-    const ohneFk = OHNE_FREMDSCHLUESSEL.has(i)
-    if (ohneFk) db.pragma('foreign_keys = OFF')
+function migrate(db: Db, upTo = MIGRATIONS.length): void {
+  const version = db.pragma('user_version', { simple: true }) as number
+  for (let i = version; i < upTo; i++) {
+    const step = MIGRATIONS[i]
+    if (!step) continue
+    const withoutFk = WITHOUT_FOREIGN_KEYS.has(i)
+    if (withoutFk) db.pragma('foreign_keys = OFF')
     try {
       db.transaction(() => {
-        if (typeof schritt === 'string') db.exec(schritt)
-        else schritt(db)
+        if (typeof step === 'string') db.exec(step)
+        else step(db)
         db.pragma(`user_version = ${i + 1}`)
       })()
-      if (ohneFk) {
-        const verletzt = db.pragma('foreign_key_check') as unknown[]
-        if (verletzt.length > 0) {
+      if (withoutFk) {
+        const violations = db.pragma('foreign_key_check') as unknown[]
+        if (violations.length > 0) {
           throw new Error(
-            `Migration ${i + 1} hat ${verletzt.length} Fremdschlüssel-Verletzungen hinterlassen`,
+            `Migration ${i + 1} hat ${violations.length} Fremdschlüssel-Verletzungen hinterlassen`,
           )
         }
       }
     } finally {
-      if (ohneFk) db.pragma('foreign_keys = ON')
+      if (withoutFk) db.pragma('foreign_keys = ON')
     }
   }
 }

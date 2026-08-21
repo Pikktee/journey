@@ -9,12 +9,12 @@ describe('konfigAusEnv', () => {
   it('nutzt Defaults, wenn Variablen fehlen', () => {
     const k = configFromEnv({})
     expect(k.port).toBe(8787)
-    expect(k.maxSpeicherProBenutzer).toBe(2 * 1024 * 1024 * 1024)
-    expect(k.basisUrl).toBe('http://localhost:5173')
-    expect(k.registrierungOffen).toBe(true)
+    expect(k.maxStoragePerUser).toBe(2 * 1024 * 1024 * 1024)
+    expect(k.baseUrl).toBe('http://localhost:5173')
+    expect(k.registrationOpen).toBe(true)
     // M5: ohne Key ist die Bildanalyse aus; das Modell hat einen Default.
     expect(k.openRouterKey).toBeNull()
-    expect(k.visionModell).toBe('google/gemini-2.5-flash-lite')
+    expect(k.visionModel).toBe('google/gemini-2.5-flash-lite')
   })
 
   it('behandelt LEERE Strings (docker-compose ${VAR:-}) wie „nicht gesetzt"', () => {
@@ -27,10 +27,10 @@ describe('konfigAusEnv', () => {
       OPEN_ROUTER_KEY: '   ',
     })
     expect(k.port).toBe(8787)
-    expect(k.maxSpeicherProBenutzer).toBe(2 * 1024 * 1024 * 1024) // NICHT 0!
-    expect(k.basisUrl).toBe('http://localhost:5173')
-    expect(k.mailAbsender).toContain('Maptale')
-    expect(k.datenDir).toBe('./daten')
+    expect(k.maxStoragePerUser).toBe(2 * 1024 * 1024 * 1024) // NICHT 0!
+    expect(k.baseUrl).toBe('http://localhost:5173')
+    expect(k.mailFrom).toContain('Maptale')
+    expect(k.dataDir).toBe('./daten')
     expect(k.openRouterKey).toBeNull() // leerer/whitespace Key = Feature aus
   })
 
@@ -43,10 +43,10 @@ describe('konfigAusEnv', () => {
       OPEN_ROUTER_KEY: 'sk-or-test',
       MAPTALE_VISION_MODEL: 'openai/gpt-4o-mini',
     })
-    expect(k.basisUrl).toBe('https://maptale.henrikheil.net')
-    expect(k.maxSpeicherProBenutzer).toBe(1048576)
-    expect(k.registrierungOffen).toBe(false)
+    expect(k.baseUrl).toBe('https://maptale.henrikheil.net')
+    expect(k.maxStoragePerUser).toBe(1048576)
+    expect(k.registrationOpen).toBe(false)
     expect(k.openRouterKey).toBe('sk-or-test')
-    expect(k.visionModell).toBe('openai/gpt-4o-mini')
+    expect(k.visionModel).toBe('openai/gpt-4o-mini')
   })
 })

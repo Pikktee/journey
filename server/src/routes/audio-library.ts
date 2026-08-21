@@ -46,7 +46,7 @@ function referenziert(
 }
 
 export function registerAudioLibraryRoutes(app: FastifyInstance): void {
-  const { storage, benutzerStorage, konfig, db } = app.deps
+  const { storage, userStorage, config, db } = app.deps
 
   interface TourStand {
     id: string
@@ -65,13 +65,13 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
       touren.map(async (tour) => {
         let edits: EditOverlay | null = null
         if (await storage.info(tour.id, EDITS_PATH)) {
-          edits = JSON.parse((await storage.lese(tour.id, EDITS_PATH)).toString()) as EditOverlay
+          edits = JSON.parse((await storage.read(tour.id, EDITS_PATH)).toString()) as EditOverlay
         }
         let tourAudio: Array<{ src?: string }> | null = null
         if (await storage.info(tour.id, TOUR_JSON_PATH)) {
           tourAudio =
             (
-              JSON.parse((await storage.lese(tour.id, TOUR_JSON_PATH)).toString()) as {
+              JSON.parse((await storage.read(tour.id, TOUR_JSON_PATH)).toString()) as {
                 audio?: Array<{ src?: string }>
               }
             ).audio ?? null
@@ -96,12 +96,12 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
   app.get('/api/audio-library', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    const dateien = await benutzerStorage.listeDateien(benutzer.id, LIBRARY_FOLDER)
+    const dateien = await userStorage.listFiles(benutzer.id, LIBRARY_FOLDER)
     const staende = dateien.length ? await ladeTourStaende(benutzer.id) : []
     return {
       files: dateien.map((d) => ({
         file: d.name,
-        size: d.groesse,
+        size: d.size,
         usedBy: nutzerVon(staende, d.name),
       })),
     }
@@ -117,7 +117,7 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
       const benutzer = requireUser(request, reply)
       if (!benutzer) return
       const relPfad = `${LIBRARY_FOLDER}/${request.params.file}`
-      if (await benutzerStorage.info(benutzer.id, relPfad)) {
+      if (await userStorage.info(benutzer.id, relPfad)) {
         return reply
           .code(409)
           .send({ error: 'Audio-Datei existiert bereits, anderen Namen wählen' })
@@ -127,20 +127,20 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
         const quotaFehler = await checkQuota(
           db,
           storage,
-          benutzerStorage,
+          userStorage,
           benutzer.id,
-          konfig.maxSpeicherProBenutzer,
+          config.maxStoragePerUser,
           laenge,
         )
         if (quotaFehler) return reply.code(413).send({ error: quotaFehler })
       }
-      const info = await benutzerStorage.schreibeStream(
+      const info = await userStorage.writeStream(
         benutzer.id,
         relPfad,
         request.body as Readable,
-        konfig.maxAudioBytes,
+        config.maxAudioBytes,
       )
-      return reply.code(200).send({ file: request.params.file, bytes: info.groesse })
+      return reply.code(200).send({ file: request.params.file, bytes: info.size })
     },
   )
 
@@ -155,25 +155,25 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
       const benutzer = requireUser(request, reply)
       if (!benutzer) return
       const relPfad = `${LIBRARY_FOLDER}/${request.params.file}`
-      const info = await benutzerStorage.info(benutzer.id, relPfad)
+      const info = await userStorage.info(benutzer.id, relPfad)
       if (!info) return reply.code(404).send({ error: 'Audio-Datei nicht gefunden' })
       const endung = request.params.file.split('.').pop() ?? ''
       reply.header('content-type', AUDIO_CONTENT_TYPES[endung] ?? 'application/octet-stream')
       reply.header('x-content-type-options', 'nosniff')
       reply.header('accept-ranges', 'bytes')
       reply.header('cache-control', 'private, max-age=3600')
-      const range = parseRange(request.headers.range, info.groesse)
-      if (range === 'ungueltig') {
-        return reply.code(416).header('content-range', `bytes */${info.groesse}`).send()
+      const range = parseRange(request.headers.range, info.size)
+      if (range === 'invalid') {
+        return reply.code(416).header('content-range', `bytes */${info.size}`).send()
       }
       if (range) {
         reply.code(206)
-        reply.header('content-range', `bytes ${range.start}-${range.ende}/${info.groesse}`)
-        reply.header('content-length', range.ende - range.start + 1)
-        return reply.send(benutzerStorage.leseStream(benutzer.id, relPfad, range))
+        reply.header('content-range', `bytes ${range.start}-${range.end}/${info.size}`)
+        reply.header('content-length', range.end - range.start + 1)
+        return reply.send(userStorage.readStream(benutzer.id, relPfad, range))
       }
-      reply.header('content-length', info.groesse)
-      return reply.send(benutzerStorage.leseStream(benutzer.id, relPfad))
+      reply.header('content-length', info.size)
+      return reply.send(userStorage.readStream(benutzer.id, relPfad))
     },
   )
 
@@ -185,7 +185,7 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
       const benutzer = requireUser(request, reply)
       if (!benutzer) return
       const relPfad = `${LIBRARY_FOLDER}/${request.params.file}`
-      if (!(await benutzerStorage.info(benutzer.id, relPfad))) {
+      if (!(await userStorage.info(benutzer.id, relPfad))) {
         return reply.code(404).send({ error: 'Audio-Datei nicht gefunden' })
       }
       const nutzer = nutzerVon(await ladeTourStaende(benutzer.id), request.params.file)
@@ -195,7 +195,7 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
           error: `Datei wird noch verwendet in ${titel}, dort erst den Eintrag entfernen`,
         })
       }
-      await benutzerStorage.loesche(benutzer.id, relPfad)
+      await userStorage.remove(benutzer.id, relPfad)
       return { ok: true }
     },
   )
@@ -220,19 +220,19 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       const tour = loadTour(app, request.params.id)
-      if (!tour || !canView(tour, request.benutzer?.id ?? null)) {
+      if (!tour || !canView(tour, request.user?.id ?? null)) {
         return reply.code(404).send({ error: 'Nicht gefunden' })
       }
       const { file: datei } = request.params
       let edits: EditOverlay | null = null
       if (await storage.info(tour.id, EDITS_PATH)) {
-        edits = JSON.parse((await storage.lese(tour.id, EDITS_PATH)).toString()) as EditOverlay
+        edits = JSON.parse((await storage.read(tour.id, EDITS_PATH)).toString()) as EditOverlay
       }
       let tourAudio: Array<{ src?: string }> | null = null
       if (await storage.info(tour.id, TOUR_JSON_PATH)) {
         tourAudio =
           (
-            JSON.parse((await storage.lese(tour.id, TOUR_JSON_PATH)).toString()) as {
+            JSON.parse((await storage.read(tour.id, TOUR_JSON_PATH)).toString()) as {
               audio?: Array<{ src?: string }>
             }
           ).audio ?? null
@@ -241,7 +241,7 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
         return reply.code(404).send({ error: 'Nicht gefunden' })
       }
       const relPfad = `${LIBRARY_FOLDER}/${datei}`
-      const info = await benutzerStorage.info(tour.owner_id, relPfad)
+      const info = await userStorage.info(tour.owner_id, relPfad)
       if (!info) return reply.code(404).send({ error: 'Nicht gefunden' })
 
       const endung = datei.split('.').pop() ?? ''
@@ -257,18 +257,18 @@ export function registerAudioLibraryRoutes(app: FastifyInstance): void {
           : 'public, max-age=31536000, immutable',
       )
 
-      const range = parseRange(request.headers.range, info.groesse)
-      if (range === 'ungueltig') {
-        return reply.code(416).header('content-range', `bytes */${info.groesse}`).send()
+      const range = parseRange(request.headers.range, info.size)
+      if (range === 'invalid') {
+        return reply.code(416).header('content-range', `bytes */${info.size}`).send()
       }
       if (range) {
         reply.code(206)
-        reply.header('content-range', `bytes ${range.start}-${range.ende}/${info.groesse}`)
-        reply.header('content-length', range.ende - range.start + 1)
-        return reply.send(benutzerStorage.leseStream(tour.owner_id, relPfad, range))
+        reply.header('content-range', `bytes ${range.start}-${range.end}/${info.size}`)
+        reply.header('content-length', range.end - range.start + 1)
+        return reply.send(userStorage.readStream(tour.owner_id, relPfad, range))
       }
-      reply.header('content-length', info.groesse)
-      return reply.send(benutzerStorage.leseStream(tour.owner_id, relPfad))
+      reply.header('content-length', info.size)
+      return reply.send(userStorage.readStream(tour.owner_id, relPfad))
     },
   )
 }

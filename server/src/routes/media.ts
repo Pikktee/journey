@@ -59,7 +59,7 @@ const audioParamsSchema = {
 } as const
 
 export function registerMediaRoutes(app: FastifyInstance): void {
-  const { storage, benutzerStorage, konfig, db } = app.deps
+  const { storage, userStorage, config, db } = app.deps
 
   // Quota-Vorabprüfung anhand von Content-Length (M9): fängt den Regelfall ab,
   // bevor Bytes fließen. Ohne Header greift weiterhin die harte Pro-Datei-Grenze
@@ -69,15 +69,8 @@ export function registerMediaRoutes(app: FastifyInstance): void {
     request: import('fastify').FastifyRequest,
   ): Promise<string | null> => {
     const laenge = Number(request.headers['content-length'] ?? 0)
-    if (!Number.isFinite(laenge) || laenge <= 0 || !request.benutzer) return null
-    return checkQuota(
-      db,
-      storage,
-      benutzerStorage,
-      request.benutzer.id,
-      konfig.maxSpeicherProBenutzer,
-      laenge,
-    )
+    if (!Number.isFinite(laenge) || laenge <= 0 || !request.user) return null
+    return checkQuota(db, storage, userStorage, request.user.id, config.maxStoragePerUser, laenge)
   }
 
   // — Upload: rohes Binär in den Body, Dateiname kommt aus dem Manifest —
@@ -94,7 +87,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       }
 
       const manifest = JSON.parse(
-        (await storage.lese(tour.id, MANIFEST_PATH)).toString(),
+        (await storage.read(tour.id, MANIFEST_PATH)).toString(),
       ) as UploadManifest
       const medium = manifest.media.find((m) => m.id === request.params.mid)
       if (!medium)
@@ -113,13 +106,13 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       const quotaFehler = await quotaVorabPruefung(request)
       if (quotaFehler) return reply.code(413).send({ error: quotaFehler })
 
-      const info = await storage.schreibeStream(
+      const info = await storage.writeStream(
         tour.id,
         `media/${mediumFilename(medium)}`,
         request.body as Readable,
-        konfig.maxMediumBytes,
+        config.maxMediumBytes,
       )
-      return reply.code(200).send({ id: medium.id, bytes: info.groesse })
+      return reply.code(200).send({ id: medium.id, bytes: info.size })
     },
   )
 
@@ -156,7 +149,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       // wirft den Eintrag des ersten weg (s. manifestsperre.ts).
       return withManifestLock(tour.id, async () => {
         const manifest = JSON.parse(
-          (await storage.lese(tour.id, MANIFEST_PATH)).toString(),
+          (await storage.read(tour.id, MANIFEST_PATH)).toString(),
         ) as UploadManifest
         if (manifest.media.length + request.body.media.length > MAX_MEDIA_PER_TOUR) {
           return reply
@@ -211,7 +204,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
         }
         if (neue.length) {
           manifest.media = [...manifest.media, ...neue]
-          await storage.schreibe(tour.id, MANIFEST_PATH, JSON.stringify(manifest, null, 2))
+          await storage.write(tour.id, MANIFEST_PATH, JSON.stringify(manifest, null, 2))
         }
 
         // Zuordnung zurückgeben: `file` ist das PUT-Ziel (media/<file>).
@@ -248,7 +241,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       // erweckte einen Eintrag, dessen Dateien gerade gelöscht wurden.
       return withManifestLock(tour.id, async () => {
         const manifest = JSON.parse(
-          (await storage.lese(tour.id, MANIFEST_PATH)).toString(),
+          (await storage.read(tour.id, MANIFEST_PATH)).toString(),
         ) as UploadManifest
         const medium = manifest.media.find((m) => m.id === request.params.mid)
         if (!medium)
@@ -269,7 +262,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
                 thumbFilename(medium.id),
               ]
         for (const datei of dateien) {
-          await storage.loesche(tour.id, `media/${datei}`)
+          await storage.remove(tour.id, `media/${datei}`)
         }
 
         // Tombstone ins Manifest — NACH dem Löschen der Dateien: Bricht es
@@ -278,14 +271,14 @@ export function registerMediaRoutes(app: FastifyInstance): void {
         manifest.media = manifest.media.map((m) =>
           m.id === medium.id ? { ...m, removed: true } : m,
         )
-        await storage.schreibe(tour.id, MANIFEST_PATH, JSON.stringify(manifest, null, 2))
+        await storage.write(tour.id, MANIFEST_PATH, JSON.stringify(manifest, null, 2))
 
         // Overlay-Hygiene: Edits zu einer Datei, die es nicht mehr gibt, sind toter
         // Zustand — und ein `titelbild` auf das gelöschte Medium ließe bestimmeCover
         // beim nächsten Render ins Leere greifen statt neu zu wählen.
         if (await storage.info(tour.id, EDITS_PATH)) {
           const edits = JSON.parse(
-            (await storage.lese(tour.id, EDITS_PATH)).toString(),
+            (await storage.read(tour.id, EDITS_PATH)).toString(),
           ) as EditOverlay
           let geaendert = false
           if (edits.media?.[medium.id]) {
@@ -296,7 +289,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
             delete edits.cover
             geaendert = true
           }
-          if (geaendert) await storage.schreibe(tour.id, EDITS_PATH, JSON.stringify(edits, null, 2))
+          if (geaendert) await storage.write(tour.id, EDITS_PATH, JSON.stringify(edits, null, 2))
         }
 
         // Gerenderte Tour direkt neu rendern (aus dem Cache, keine externen
@@ -321,13 +314,13 @@ export function registerMediaRoutes(app: FastifyInstance): void {
     }
     const quotaFehler = await quotaVorabPruefung(request)
     if (quotaFehler) return reply.code(413).send({ error: quotaFehler })
-    const info = await storage.schreibeStream(
+    const info = await storage.writeStream(
       tour.id,
       TRACK_PATH,
       request.body as Readable,
-      konfig.maxMediumBytes,
+      config.maxMediumBytes,
     )
-    return reply.code(200).send({ bytes: info.groesse })
+    return reply.code(200).send({ bytes: info.size })
   })
 
   // — Audio-Assets (Baukasten): Musik/SFX für das Edit-Overlay hochladen —
@@ -357,13 +350,13 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       }
       const quotaFehler = await quotaVorabPruefung(request)
       if (quotaFehler) return reply.code(413).send({ error: quotaFehler })
-      const info = await storage.schreibeStream(
+      const info = await storage.writeStream(
         tour.id,
         relPfad,
         request.body as Readable,
-        konfig.maxAudioBytes,
+        config.maxAudioBytes,
       )
-      return reply.code(200).send({ file: request.params.file, bytes: info.groesse })
+      return reply.code(200).send({ file: request.params.file, bytes: info.size })
     },
   )
 
@@ -386,7 +379,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       // 404-Quelle zeigen lassen — erst Eintrag entfernen und speichern.
       if (await storage.info(tour.id, EDITS_PATH)) {
         const edits = JSON.parse(
-          (await storage.lese(tour.id, EDITS_PATH)).toString(),
+          (await storage.read(tour.id, EDITS_PATH)).toString(),
         ) as EditOverlay
         if (edits.audio?.some((a) => a.file === request.params.file)) {
           return reply.code(409).send({
@@ -399,7 +392,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       if (!(await storage.info(tour.id, relPfad))) {
         return reply.code(404).send({ error: 'Audio-Datei nicht gefunden' })
       }
-      await storage.loesche(tour.id, relPfad)
+      await storage.remove(tour.id, relPfad)
       return { ok: true }
     },
   )
@@ -417,7 +410,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       }
 
       const tour = loadTour(app, tourId)
-      if (!tour || !canView(tour, request.benutzer?.id ?? null)) {
+      if (!tour || !canView(tour, request.user?.id ?? null)) {
         return reply.code(404).send({ error: 'Nicht gefunden' })
       }
 
@@ -439,18 +432,18 @@ export function registerMediaRoutes(app: FastifyInstance): void {
           : 'public, max-age=31536000, immutable',
       )
 
-      const range = parseRange(request.headers.range, info.groesse)
-      if (range === 'ungueltig') {
-        return reply.code(416).header('content-range', `bytes */${info.groesse}`).send()
+      const range = parseRange(request.headers.range, info.size)
+      if (range === 'invalid') {
+        return reply.code(416).header('content-range', `bytes */${info.size}`).send()
       }
       if (range) {
         reply.code(206)
-        reply.header('content-range', `bytes ${range.start}-${range.ende}/${info.groesse}`)
-        reply.header('content-length', range.ende - range.start + 1)
-        return reply.send(storage.leseStream(tourId, relPfad, range))
+        reply.header('content-range', `bytes ${range.start}-${range.end}/${info.size}`)
+        reply.header('content-length', range.end - range.start + 1)
+        return reply.send(storage.readStream(tourId, relPfad, range))
       }
-      reply.header('content-length', info.groesse)
-      return reply.send(storage.leseStream(tourId, relPfad))
+      reply.header('content-length', info.size)
+      return reply.send(storage.readStream(tourId, relPfad))
     },
   )
 }
@@ -458,25 +451,25 @@ export function registerMediaRoutes(app: FastifyInstance): void {
 /**
  * `Range: bytes=a-b` auswerten; nur ein Bereich (mehr braucht kein <video>).
  * RFC 9110: UNVERSTANDENE Range-Syntax (z. B. Multi-Range, fremde Einheit)
- * wird IGNORIERT (→ null, volle 200-Antwort); `ungueltig` (→ 416) ist nur
+ * wird IGNORIERT (→ null, volle 200-Antwort); `invalid` (→ 416) ist nur
  * die syntaktisch korrekte, aber unerfüllbare Anfrage.
  */
 export function parseRange(
   header: string | undefined,
-  groesse: number,
-): { start: number; ende: number } | 'ungueltig' | null {
+  size: number,
+): { start: number; end: number } | 'invalid' | null {
   if (!header) return null
   const m = /^bytes=(\d*)-(\d*)$/.exec(header.trim())
   if (!m) return null // Multi-Range/fremde Einheit: ignorieren, voll antworten
-  const [, vonStr = '', bisStr = ''] = m
-  if (vonStr === '' && bisStr === '') return null // "bytes=-": keine Bereichsangabe
+  const [, fromStr = '', toStr = ''] = m
+  if (fromStr === '' && toStr === '') return null // "bytes=-": keine Bereichsangabe
   // Suffix-Form „-500": die letzten N Bytes
-  if (vonStr === '') {
-    const n = Math.min(Number(bisStr), groesse)
-    return n === 0 ? 'ungueltig' : { start: groesse - n, ende: groesse - 1 }
+  if (fromStr === '') {
+    const n = Math.min(Number(toStr), size)
+    return n === 0 ? 'invalid' : { start: size - n, end: size - 1 }
   }
-  const start = Number(vonStr)
-  const ende = bisStr === '' ? groesse - 1 : Math.min(Number(bisStr), groesse - 1)
-  if (start >= groesse || start > ende) return 'ungueltig'
-  return { start, ende }
+  const start = Number(fromStr)
+  const end = toStr === '' ? size - 1 : Math.min(Number(toStr), size - 1)
+  if (start >= size || start > end) return 'invalid'
+  return { start, end }
 }

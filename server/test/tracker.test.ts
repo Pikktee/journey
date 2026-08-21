@@ -60,10 +60,10 @@ async function melde(
     },
     payload: rohBody,
   })
-  await Promise.all([...u.app.trackerLaeufe.values()])
+  await Promise.all([...u.app.trackerRuns.values()])
   // Der Import stößt die Pipeline an — auch darauf warten, sonst ist die Tour
   // beim Prüfen noch „verarbeitung".
-  await Promise.all([...u.app.verarbeitungen.values()])
+  await Promise.all([...u.app.processing.values()])
   return antwort.statusCode
 }
 
@@ -356,7 +356,7 @@ describe('Webhook → Tour', () => {
     const { u } = await baueMitProvider()
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
-    await Promise.all([...u.app.verarbeitungen.values()])
+    await Promise.all([...u.app.processing.values()])
 
     const { imports } = (
       await u.app.inject({ method: 'GET', url: '/api/tracker/imports', cookies: u.cookies })
@@ -377,7 +377,7 @@ describe('Webhook → Tour', () => {
     const { u } = await baueMitProvider(provider)
     await verknuepfe(u)
     await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'fehlt' })
-    await Promise.all([...u.app.trackerLaeufe.values()])
+    await Promise.all([...u.app.trackerRuns.values()])
 
     const { imports } = (
       await u.app.inject({ method: 'GET', url: '/api/tracker/imports', cookies: u.cookies })
@@ -535,7 +535,7 @@ describe('Webhook → Tour', () => {
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
       tracks: { a1: exampleRawTrack() },
     })
-    const u = await baueTestApp([], null, null, { maxSpeicherProBenutzer: 1 }, null, null, null, [
+    const u = await baueTestApp([], null, null, { maxStoragePerUser: 1 }, null, null, null, [
       provider,
     ])
     await verknuepfe(u)
@@ -661,7 +661,7 @@ describe('Importliste und Benachrichtigung', () => {
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    await Promise.all([...u.app.verarbeitungen.values()])
+    await Promise.all([...u.app.processing.values()])
     expect(antwort.json()).toMatchObject({ found: 1, new: 1 })
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
   })
@@ -679,14 +679,14 @@ describe('Importliste und Benachrichtigung', () => {
     const { u } = await baueMitProvider(provider)
     await verknuepfe(u)
     await u.app.inject({ method: 'POST', url: '/api/tracker/polar/sync', cookies: u.cookies })
-    await Promise.all([...u.app.verarbeitungen.values()])
+    await Promise.all([...u.app.processing.values()])
 
     const zweiter = await u.app.inject({
       method: 'POST',
       url: '/api/tracker/polar/sync',
       cookies: u.cookies,
     })
-    await Promise.all([...u.app.verarbeitungen.values()])
+    await Promise.all([...u.app.processing.values()])
     // Gemeldet wird weiterhin eine — bearbeitet keine mehr.
     expect(zweiter.json()).toMatchObject({ found: 1, new: 0 })
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
@@ -791,7 +791,7 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
       tracks: { a1: exampleRawTrack() },
     })
-    const u = await baueTestApp([], null, null, { maxSpeicherProBenutzer: 1 }, null, null, null, [
+    const u = await baueTestApp([], null, null, { maxStoragePerUser: 1 }, null, null, null, [
       provider,
     ])
     await verknuepfe(u)
@@ -889,8 +889,8 @@ describe('Nachziehen von Hand', () => {
       cookies: u.cookies,
     })
     expect(antwort.json()).toMatchObject({ found: 5, new: 3, inBackground: 2 })
-    await Promise.all([...u.app.trackerLaeufe.values()])
-    await Promise.all([...u.app.verarbeitungen.values()])
+    await Promise.all([...u.app.trackerRuns.values()])
+    await Promise.all([...u.app.processing.values()])
     // Auch die nachlaufenden landen im Konto
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 5 })
   })

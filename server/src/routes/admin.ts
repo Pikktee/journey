@@ -140,16 +140,16 @@ async function holeUmamiStatistiken(dbPasswort: string | null): Promise<AdminSta
 }
 
 export function registerAdminRoutes(app: FastifyInstance): void {
-  const { konfig, storage, benutzerStorage, db } = app.deps
+  const { config, storage, userStorage, db } = app.deps
 
   /** Steht die Adresse in der Konfiguration? Dann ist die Rolle unantastbar. */
   const festerAdmin = (email: string): boolean =>
-    konfig.adminEmails.includes(email.toLowerCase().trim())
+    config.adminEmails.includes(email.toLowerCase().trim())
 
   // — Statistiken —
   app.get('/api/admin/stats', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
-    return holeUmamiStatistiken(konfig.umamiDbPasswort)
+    return holeUmamiStatistiken(config.umamiDbPassword)
   })
 
   // — Benutzer —
@@ -166,10 +166,10 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       benutzer.push({
         ...z,
         fixed: festerAdmin(z.email),
-        storage: await usedBytes(db, storage, benutzerStorage, z.id),
+        storage: await usedBytes(db, storage, userStorage, z.id),
       })
     }
-    return { users: benutzer, quotaLimit: konfig.maxSpeicherProBenutzer }
+    return { users: benutzer, quotaLimit: config.maxStoragePerUser }
   })
 
   // Ein vom Admin angelegtes Konto gilt sofort als bestätigt: Die Bestätigung
@@ -298,8 +298,8 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     if (ziel.role === 'admin' && app.auth.adminCount() <= 1) {
       return reply.code(409).send({ error: 'Es muss mindestens einen Administrator geben' })
     }
-    for (const tourId of app.auth.tourIds(ziel.id)) await storage.loescheTour(tourId)
-    await benutzerStorage.loescheTour(ziel.id).catch(() => undefined)
+    for (const tourId of app.auth.tourIds(ziel.id)) await storage.removeTour(tourId)
+    await userStorage.removeTour(ziel.id).catch(() => undefined)
     app.auth.deleteUser(ziel.id)
     return { ok: true }
   })
@@ -309,10 +309,10 @@ export function registerAdminRoutes(app: FastifyInstance): void {
   app.get('/api/admin/invitations', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
     return {
-      invitations: app.einladungen.all(),
-      invitationRequired: app.einladungen.required(),
-      registrationOpen: konfig.registrierungOffen,
-      baseUrl: konfig.basisUrl,
+      invitations: app.invitations.all(),
+      invitationRequired: app.invitations.required(),
+      registrationOpen: config.registrationOpen,
+      baseUrl: config.baseUrl,
     }
   })
 
@@ -335,7 +335,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       const admin = requireAdmin(request, reply)
       if (!admin) return
       const tage = request.body?.validDays ?? DEFAULT_VALID_DAYS
-      const einladung = app.einladungen.create(admin.id, request.body?.note ?? null, tage || null)
+      const einladung = app.invitations.create(admin.id, request.body?.note ?? null, tage || null)
       return reply.code(201).send({ invitation: einladung })
     },
   )
@@ -344,7 +344,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     '/api/admin/invitations/:code',
     async (request, reply) => {
       if (!requireAdmin(request, reply)) return
-      if (!app.einladungen.revoke(request.params.code)) {
+      if (!app.invitations.revoke(request.params.code)) {
         return reply.code(404).send({ error: 'Unbekannter Code' })
       }
       return { ok: true }
@@ -371,11 +371,11 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       if (!requireAdmin(request, reply)) return
       if (request.body.invitationRequired !== undefined)
-        app.einladungen.setRequired(request.body.invitationRequired)
-      if (request.body.waitlistOpen !== undefined) app.warteliste.setOpen(request.body.waitlistOpen)
+        app.invitations.setRequired(request.body.invitationRequired)
+      if (request.body.waitlistOpen !== undefined) app.waitlist.setOpen(request.body.waitlistOpen)
       return {
-        invitationRequired: app.einladungen.required(),
-        waitlistOpen: app.warteliste.open(),
+        invitationRequired: app.invitations.required(),
+        waitlistOpen: app.waitlist.open(),
       }
     },
   )
@@ -402,7 +402,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
 
   app.get('/api/admin/mail-templates', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
-    return { templates: app.mailvorlagen.alle(), baseUrl: konfig.basisUrl }
+    return { templates: app.mailTemplates.alle(), baseUrl: config.baseUrl }
   })
 
   app.patch<{ Params: { key: string }; Body: MailParts }>(
@@ -418,8 +418,8 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       const probleme = validateParts(getTemplate(schluessel), request.body)
       if (probleme.length)
         return reply.code(400).send({ error: probleme.join(' '), issues: probleme })
-      app.mailvorlagen.setze(schluessel, request.body, admin.id)
-      return { templates: app.mailvorlagen.alle() }
+      app.mailTemplates.setze(schluessel, request.body, admin.id)
+      return { templates: app.mailTemplates.alle() }
     },
   )
 
@@ -429,8 +429,8 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       if (!requireAdmin(request, reply)) return
       const schluessel = request.params.key
       if (!isTemplateKey(schluessel)) return reply.code(404).send({ error: 'Unbekannte Vorlage' })
-      app.mailvorlagen.setzeZurueck(schluessel)
-      return { templates: app.mailvorlagen.alle() }
+      app.mailTemplates.setzeZurueck(schluessel)
+      return { templates: app.mailTemplates.alle() }
     },
   )
 
@@ -473,7 +473,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       const eintrag = getTemplate(schluessel)
       // Ohne mitgeschickte Fassung die gespeicherte: So lässt sich auch aus der
       // Liste heraus testen, nicht nur aus dem offenen Dialog.
-      const bausteine = request.body?.blocks ?? app.mailvorlagen.bausteine(schluessel)
+      const bausteine = request.body?.blocks ?? app.mailTemplates.bausteine(schluessel)
       const { betreff, text, html } = rendereVorschau(bausteine, exampleValues(eintrag))
       try {
         await app.deps.mail.sende({ an: admin.email, betreff: `[Test] ${betreff}`, text, html })
@@ -488,29 +488,29 @@ export function registerAdminRoutes(app: FastifyInstance): void {
   /** Beispielwerte einsetzen und rendern, ohne den gespeicherten Stand anzufassen. */
   function rendereVorschau(bausteine: MailParts, werte: Record<string, string>) {
     return renderMail(bausteine, werte, {
-      basisUrl: konfig.basisUrl,
-      link: werte.link ?? `${konfig.basisUrl}/`,
+      basisUrl: config.baseUrl,
+      link: werte.link ?? `${config.baseUrl}/`,
     })
   }
 
   // — Betriebsprotokoll —
   //
   // Nur lesen: Es gibt kein „Löschen", denn der Puffer ist ohnehin flüchtig
-  // (s. protokoll.ts) — ein Knopf, der Spuren beseitigt, wäre die einzige
+  // (s. audit-log.ts) — ein Knopf, der Spuren beseitigt, wäre die einzige
   // Wirkung. `since` liefert nur das Neue: Die Ansicht fragt im Sekundentakt
   // nach, solange sie offen ist, und soll dabei nicht 500 Zeilen wiederholen.
   app.get<{ Querystring: { level?: string; since?: string } }>(
     '/api/admin/audit-log',
     async (request, reply) => {
       if (!requireAdmin(request, reply)) return
-      const stufe =
+      const severity =
         request.query.level === 'failed' || request.query.level === 'warning'
           ? request.query.level
           : undefined
       const seit = Number(request.query.since)
-      const alle = app.protokoll.liste({ ...(stufe ? { stufe } : {}) })
+      const alle = app.auditLog.list({ ...(severity ? { severity } : {}) })
       const eintraege = Number.isFinite(seit) && seit > 0 ? alle.filter((e) => e.no > seit) : alle
-      return { entries: eintraege, ...app.protokoll.zaehle(), startedAt: START_ZEIT }
+      return { entries: eintraege, ...app.auditLog.count(), startedAt: START_ZEIT }
     },
   )
 }
