@@ -33,8 +33,8 @@ const TAG_BYTES = 16
  * Schlüsselableitung (scrypt) schützt gegen Wörterbuchangriffe, die es hier
  * nicht gibt, und liefe bei JEDEM Entschlüsseln.
  */
-function schluessel(geheimnis: string): Buffer {
-  return createHash('sha256').update(geheimnis, 'utf8').digest()
+function key(secret: string): Buffer {
+  return createHash('sha256').update(secret, 'utf8').digest()
 }
 
 /**
@@ -45,15 +45,15 @@ function schluessel(geheimnis: string): Buffer {
  * entstanden ist, und ein Umstieg wäre nur mit einer Migration über alle
  * Verknüpfungen zu haben.
  */
-export function encrypt(klartext: string, geheimnis: string): string {
+export function encrypt(plaintext: string, secret: string): string {
   const iv = randomBytes(IV_BYTES)
-  const cipher = createCipheriv(ALGO, schluessel(geheimnis), iv)
-  const daten = Buffer.concat([cipher.update(klartext, 'utf8'), cipher.final()])
+  const cipher = createCipheriv(ALGO, key(secret), iv)
+  const data = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
   return [
     'v1',
     iv.toString('base64url'),
     cipher.getAuthTag().toString('base64url'),
-    daten.toString('base64url'),
+    data.toString('base64url'),
   ].join('.')
 }
 
@@ -62,17 +62,17 @@ export function encrypt(klartext: string, geheimnis: string): string {
  * verändertem Geheimtext — der Aufrufer behandelt das wie eine kaputte
  * Verknüpfung (Status `abgelaufen`), nicht wie einen Serverfehler.
  */
-export function decrypt(gepackt: string, geheimnis: string): string {
-  const teile = gepackt.split('.')
-  if (teile.length !== 4 || teile[0] !== 'v1') throw new Error('Unbekanntes Token-Format')
-  const [, ivB64 = '', tagB64 = '', datenB64 = ''] = teile
+export function decrypt(packed: string, secret: string): string {
+  const parts = packed.split('.')
+  if (parts.length !== 4 || parts[0] !== 'v1') throw new Error('Unbekanntes Token-Format')
+  const [, ivB64 = '', tagB64 = '', dataB64 = ''] = parts
   const iv = Buffer.from(ivB64, 'base64url')
   const tag = Buffer.from(tagB64, 'base64url')
   if (iv.length !== IV_BYTES || tag.length !== TAG_BYTES) throw new Error('Token beschädigt')
-  const decipher = createDecipheriv(ALGO, schluessel(geheimnis), iv)
+  const decipher = createDecipheriv(ALGO, key(secret), iv)
   decipher.setAuthTag(tag)
   return Buffer.concat([
-    decipher.update(Buffer.from(datenB64, 'base64url')),
+    decipher.update(Buffer.from(dataB64, 'base64url')),
     decipher.final(),
   ]).toString('utf8')
 }

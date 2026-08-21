@@ -32,13 +32,13 @@ import { defaultBanner } from '../profile-banners.js'
 
 /** Der Kopf, den jede Seite bekommt, über die nichts gesagt werden darf. */
 const VERSCHWIEGEN: MetaBlock = {
-  titel: 'Profil · Maptale',
+  title: 'Profil · Maptale',
   robots: 'noindex',
 }
 
 /** Dasselbe für den Player — der Titel, der ohne Tour im Build steht. */
 const VERSCHWIEGEN_TOUR: MetaBlock = {
-  titel: 'Maptale · 3D-Reiseflug',
+  title: 'Maptale · 3D-Reiseflug',
   robots: 'noindex',
 }
 
@@ -85,7 +85,7 @@ export function registerPageRoutes(app: FastifyInstance): void {
 
     return reply.send(
       setMeta(html, {
-        titel: `${name} · Maptale`,
+        title: `${name} · Maptale`,
         robots: zeile?.search_indexing ? 'index' : 'noindex',
         // Die Bio, wenn es eine gibt — sonst ein Satz, der wenigstens sagt,
         // was einen erwartet. Eine leere Beschreibung wäre die dritte Variante
@@ -171,7 +171,7 @@ export function registerPageRoutes(app: FastifyInstance): void {
     })()
     return reply.send(
       setMeta(html, {
-        titel: `${titel} · Maptale`,
+        title: `${titel} · Maptale`,
         // Nur `public` in den Index — `unlisted` behält die Karte und bleibt
         // aus der Suche. Ein `ready`-Status gehört dazu: Eine Tour in der
         // Verarbeitung hat noch keinen Inhalt, den man indexieren könnte.

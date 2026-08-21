@@ -3,10 +3,10 @@
 import type { TrackerProviderId, TrackerProvider } from './contract.js'
 
 export class Registry {
-  private readonly anbieter = new Map<TrackerProviderId, TrackerProvider>()
+  private readonly providers = new Map<TrackerProviderId, TrackerProvider>()
 
   constructor(provider: readonly TrackerProvider[] = []) {
-    for (const p of provider) this.anbieter.set(p.id, p)
+    for (const p of provider) this.providers.set(p.id, p)
   }
 
   /**
@@ -16,13 +16,13 @@ export class Registry {
    * „Polar (noch nicht eingerichtet)" ist eine Auskunft, ein fehlender Eintrag
    * wäre keine.
    */
-  alle(): TrackerProvider[] {
-    return [...this.anbieter.values()]
+  all(): TrackerProvider[] {
+    return [...this.providers.values()]
   }
 
   /** Nur, was auch wirklich arbeiten kann (Zugangsdaten hinterlegt). */
-  verfuegbare(): TrackerProvider[] {
-    return this.alle().filter((p) => p.konfiguriert)
+  available(): TrackerProvider[] {
+    return this.all().filter((p) => p.configured)
   }
 
   /**
@@ -31,8 +31,8 @@ export class Registry {
    * keine Route beantworten — sonst führte „Verbinden" auf eine Fehlerseite
    * des Anbieters statt auf eine verständliche Meldung bei uns.
    */
-  hole(id: string): TrackerProvider | null {
-    const p = this.anbieter.get(id as TrackerProviderId)
-    return p?.konfiguriert ? p : null
+  get(id: string): TrackerProvider | null {
+    const p = this.providers.get(id as TrackerProviderId)
+    return p?.configured ? p : null
   }
 }

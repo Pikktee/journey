@@ -24,11 +24,9 @@ import {
  * Hallentrainings ohne GPS. Als Fehler geführt, stünde seine Liste dauerhaft
  * rot, und die eine echte Störung ginge darin unter.
  */
-function istUebersprungen(fehler: unknown): boolean {
+function isSkipped(error: unknown): boolean {
   return (
-    fehler instanceof NoRouteError ||
-    fehler instanceof TooSmallError ||
-    fehler instanceof QuotaError
+    error instanceof NoRouteError || error instanceof TooSmallError || error instanceof QuotaError
   )
 }
 
@@ -43,14 +41,14 @@ function istUebersprungen(fehler: unknown): boolean {
  * blieb als `fehler` stehen, und jede weitere Zustellung lief wirkungslos in
  * den Dedup-Index.
  */
-function istWiederholbar(fehler: unknown): boolean {
-  return !(fehler instanceof NoRouteError || fehler instanceof TooSmallError)
+function isRetryable(error: unknown): boolean {
+  return !(error instanceof NoRouteError || error instanceof TooSmallError)
 }
 
 export interface ImportJob {
-  verknuepfung: TrackerLink
+  link: TrackerLink
   provider: TrackerProvider
-  externeId: string
+  externalId: string
 }
 
 /**
@@ -59,46 +57,44 @@ export interface ImportJob {
  */
 export async function runImport(
   app: FastifyInstance,
-  dienst: TrackerService,
-  auftrag: ImportJob,
+  service: TrackerService,
+  job: ImportJob,
 ): Promise<ImportRow | null> {
-  const { verknuepfung, provider, externeId } = auftrag
+  const { link, provider, externalId } = job
   // Der erste Dedup-Riegel. Der zweite ist `client_tour_id` beim Anlegen —
   // keiner davon ist der einzige, weil beide unterschiedliche Wege abdecken:
   // dieser die wiederholte Zustellung, jener den parallelen Anlege-Versuch.
-  const importZeile = dienst.beanspruche(verknuepfung.userId, verknuepfung.provider, externeId)
-  if (!importZeile) return null
+  const importRow = service.claim(link.userId, link.provider, externalId)
+  if (!importRow) return null
 
-  let fertigeTour: string | null = null
+  let finishedTour: string | null = null
   try {
-    const tokens = await dienst.gueltigeTokens(verknuepfung, provider)
-    const track = await provider.holeTrack(tokens, externeId)
-    const { tourId } = await createTourFromTrack(app, verknuepfung.userId, {
-      anbieter: verknuepfung.provider,
-      externeId,
+    const tokens = await service.validTokens(link, provider)
+    const track = await provider.fetchTrack(tokens, externalId)
+    const { tourId } = await createTourFromTrack(app, link.userId, {
+      providerOf: link.provider,
+      externalId,
       track,
     })
-    dienst.schliesseImportAb(importZeile.id, 'done', tourId)
-    fertigeTour = tourId
-  } catch (fehler) {
-    const nachricht = (fehler as Error).message
+    service.finishImport(importRow.id, 'done', tourId)
+    finishedTour = tourId
+  } catch (error) {
+    const message = (error as Error).message
     // Am Deckel ist Schluss. Das steht NICHT im Fehlertext, sondern in den
     // Feldern (`retryable` + `attempts`): Die Oberfläche formuliert daraus
     // „wird noch einmal versucht" oder „aufgegeben nach 3 Versuchen" — in den
     // Text geschrieben stünde es dort ein zweites Mal.
-    const wiederholbar = istWiederholbar(fehler) && importZeile.attempts < MAX_ATTEMPTS
-    if (istUebersprungen(fehler)) {
-      dienst.schliesseImportAb(importZeile.id, 'skipped', null, nachricht, wiederholbar)
+    const retryable = isRetryable(error) && importRow.attempts < MAX_ATTEMPTS
+    if (isSkipped(error)) {
+      service.finishImport(importRow.id, 'skipped', null, message, retryable)
     } else {
-      dienst.schliesseImportAb(importZeile.id, 'failed', null, nachricht, wiederholbar)
+      service.finishImport(importRow.id, 'failed', null, message, retryable)
       // Eine tote Verknüpfung muss SICHTBAR tot sein: Der Nutzer wartet sonst
       // auf Touren, die nie kommen.
-      if (fehler instanceof InvalidTokensError) {
-        dienst.setzeStatus(verknuepfung.id, 'expired', 'Zugang abgelaufen, bitte neu verbinden')
+      if (error instanceof InvalidTokensError) {
+        service.setStatus(link.id, 'expired', 'Zugang abgelaufen, bitte neu verbinden')
       } else {
-        app.log.warn(
-          `Tracker-Import fehlgeschlagen (${verknuepfung.provider}/${externeId}): ${nachricht}`,
-        )
+        app.log.warn(`Tracker-Import fehlgeschlagen (${link.provider}/${externalId}): ${message}`)
       }
     }
   }
@@ -111,14 +107,14 @@ export async function runImport(
   //
   // Gewartet wird trotzdem, damit Tests dem Lauf folgen können, statt auf eine
   // offene Zusage zu pollen. `melde` wirft selbst nicht.
-  if (fertigeTour) {
-    await app.push.melde(verknuepfung.userId, {
+  if (finishedTour) {
+    await app.push.melde(link.userId, {
       type: 'import-finished',
-      tourId: fertigeTour,
-      importId: importZeile.id,
+      tourId: finishedTour,
+      importId: importRow.id,
     })
   }
-  return dienst.importZeile(importZeile.id)
+  return service.importRow(importRow.id)
 }
 
 /**
@@ -129,7 +125,7 @@ export async function runImport(
  * Aktivitäten auf einmal meldet, würde parallel den ganzen Server belegen.
  *
  * Der Sync-Zeitpunkt wird am ENDE gesetzt und nur, wenn nichts offen blieb.
- * Er ist beim Polling-Weg der CURSOR (`listeNeue(tokens, zuletztSyncAm)`):
+ * Er ist beim Polling-Weg der CURSOR (`listNew(tokens, lastSyncAt)`):
  * Vorgerückt, obwohl eine Aktivität gescheitert ist, listet der Anbieter sie
  * beim nächsten Mal nicht mehr — und damit wäre sie auch dann verloren, wenn
  * der neue Anlauf sie längst wieder annehmen würde. Je Verknüpfung entschieden,
@@ -137,23 +133,23 @@ export async function runImport(
  */
 export async function runImports(
   app: FastifyInstance,
-  dienst: TrackerService,
-  auftraege: readonly ImportJob[],
+  service: TrackerService,
+  jobs: readonly ImportJob[],
 ): Promise<ImportRow[]> {
-  const ergebnisse: ImportRow[] = []
-  const beteiligt = new Set<string>()
-  const offen = new Set<string>()
-  for (const auftrag of auftraege) {
-    beteiligt.add(auftrag.verknuepfung.id)
-    const zeile = await runImport(app, dienst, auftrag)
-    if (!zeile) continue
-    ergebnisse.push(zeile)
+  const results: ImportRow[] = []
+  const involved = new Set<string>()
+  const pending = new Set<string>()
+  for (const job of jobs) {
+    involved.add(job.link.id)
+    const row = await runImport(app, service, job)
+    if (!row) continue
+    results.push(row)
     // Offen ist genau das, was noch einmal drankommen soll — dieselbe Frage,
-    // die `beanspruche` beim nächsten Anlauf stellt.
-    if (zeile.retryable) offen.add(auftrag.verknuepfung.id)
+    // die `claim` beim nächsten Anlauf stellt.
+    if (row.retryable) pending.add(job.link.id)
   }
-  for (const id of beteiligt) {
-    if (!offen.has(id)) dienst.merkeSync(id)
+  for (const id of involved) {
+    if (!pending.has(id)) service.noteSync(id)
   }
-  return ergebnisse
+  return results
 }

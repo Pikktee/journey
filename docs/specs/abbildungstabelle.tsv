@@ -3837,3 +3837,32 @@ medientyp	mediaType	property	server/src/pipeline/vision.ts (ImageClassifier.clas
 startOrt	bleibt	property	server/src/pipeline/naming.ts (Endpoints)	10	BLEIBT: persistierter Schluessel in enrichment.json (EnrichmentCache.places)
 zielOrt	bleibt	property	server/src/pipeline/naming.ts (Endpoints)	10	BLEIBT: persistierter Schluessel in enrichment.json (EnrichmentCache.places)
 startEbenen	bleibt	property	server/src/pipeline/naming.ts (Endpoints)	10	BLEIBT: persistierter Schluessel in enrichment.json und Vorschlagsliste der Editor-Route
+zugriff	access	property	server/src/tracker/contract.ts (ProviderTokens)	10	Nachlauf: verschluesselt in tracker_links.tokens, aber das Blob wird als Ganzes gelesen und geschrieben — kein Leser kennt die Feldnamen ausser diesem Modul
+erneuerung	refresh	property	server/src/tracker/contract.ts (ProviderTokens)	10	Nachlauf: s. zugriff
+laeuftAb	expiresAt	property	server/src/tracker/contract.ts (ProviderTokens)	10	Nachlauf: s. zugriff; §6.2 laeuft-ab-am→expiresAt
+externerNutzer	externalUser	property	server/src/tracker/contract.ts (ProviderTokens, TrackerEvent)	10	Nachlauf: die DB-Spalte external_user hiess schon so
+externeId	externalId	property	server/src/tracker/contract.ts (TrackerEvent)	10	Nachlauf
+art	kind	property	server/src/tracker/contract.ts (TrackerEvent)	10	Nachlauf: §6.0 Regel 8, type ist hier vergeben
+zeit	time	property	server/src/tracker/contract.ts (RawPoint)	10	Nachlauf: Prozessform zwischen Adapter und Normalisierer
+punkte	points	property	server/src/tracker/contract.ts (RawTrack)	10	Nachlauf: Prozessform
+titel	title	property	server/src/tracker/contract.ts (RawTrack); server/src/page-meta.ts (MetaBlock)	10	Nachlauf: Prozessform
+sportart	sport	property	server/src/tracker/contract.ts (RawTrack)	10	Nachlauf: Prozessform
+ende	end	property	server/src/tracker/contract.ts (RawTrack)	10	Nachlauf: Prozessform
+rohBody	rawBody	property	server/src/tracker/contract.ts (WebhookRequest)	10	Nachlauf: Prozessform, der HTTP-Body bleibt der HTTP-Body
+kopfzeilen	headers	property	server/src/tracker/contract.ts (WebhookRequest)	10	Nachlauf: Prozessform, die HTTP-Header bleiben unberuehrt
+konfiguriert	configured	property	server/src/tracker/contract.ts (TrackerProvider)	10	Nachlauf
+autorisierungsUrl	authorizationUrl	property	server/src/tracker/contract.ts (TrackerProvider)	10	Nachlauf
+tauscheCode	exchangeCode	property	server/src/tracker/contract.ts (TrackerProvider)	10	Nachlauf
+erneuereTokens	refreshTokens	property	server/src/tracker/contract.ts (TrackerProvider)	10	Nachlauf
+nachVerknuepfung	afterLink	property	server/src/tracker/contract.ts (TrackerProvider)	10	Nachlauf
+trenne	unlink	property	server/src/tracker/contract.ts (TrackerProvider)	10	Nachlauf
+verifiziere	verify	property	server/src/tracker/contract.ts (TrackerProvider.webhook)	10	Nachlauf: verschachteltes Objektliteral, von Hand mitgezogen
+istPing	isPing	property	server/src/tracker/contract.ts (TrackerProvider.webhook)	10	Nachlauf: verschachteltes Objektliteral
+parseEreignisse	parseEvents	property	server/src/tracker/contract.ts (TrackerProvider.webhook)	10	Nachlauf: verschachteltes Objektliteral
+listeNeue	listNew	property	server/src/tracker/contract.ts (TrackerProvider)	10	Nachlauf
+holeTrack	fetchTrack	property	server/src/tracker/contract.ts (TrackerProvider)	10	Nachlauf
+punkte	points	union-wert	server/src/tracker/contract.ts (RawTrack.format)	10	Nachlauf: prozessintern zwischen Adapter und Normalisierer, nie persistiert
+verknuepfung	link	property	server/src/tracker/import-run.ts (ImportJob)	10	Nachlauf
+benutzerId	userId	property	server/src/tracker/tracker.ts (StateEntry)	10	Nachlauf: OAuth-state im Speicher, ueberlebt keinen Neustart
+anbieter	provider	property	server/src/tracker/tracker.ts (StateEntry)	10	Nachlauf: die DB-Spalte provider hiess schon so
+ziel	target	property	server/src/tracker/tracker.ts (StateEntry)	10	Nachlauf

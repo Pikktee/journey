@@ -18,8 +18,8 @@ import type { WebhookRequest } from '../tracker/contract.js'
 /** Fastify-Request → die anbieterneutrale Form aus dem Vertrag. */
 function zuAnfrage(request: FastifyRequest & { rohBody?: string }): WebhookRequest {
   return {
-    rohBody: request.rohBody ?? '',
-    kopfzeilen: request.headers as Record<string, string | undefined>,
+    rawBody: request.rohBody ?? '',
+    headers: request.headers as Record<string, string | undefined>,
     query: (request.query ?? {}) as Record<string, string | undefined>,
   }
 }
@@ -52,9 +52,9 @@ export async function registerTrackerWebhookRoutes(app: FastifyInstance): Promis
   app.get<{ Params: { provider: string } }>(
     '/api/webhooks/tracker/:provider',
     async (request, reply) => {
-      const provider = app.trackerRegistry.hole(request.params.provider)
-      if (!provider?.webhook?.antwort) return reply.code(404).send({ error: 'Nicht gefunden' })
-      return provider.webhook.antwort(zuAnfrage(request))
+      const provider = app.trackerRegistry.get(request.params.provider)
+      if (!provider?.webhook?.response) return reply.code(404).send({ error: 'Nicht gefunden' })
+      return provider.webhook.response(zuAnfrage(request))
     },
   )
 
@@ -64,7 +64,7 @@ export async function registerTrackerWebhookRoutes(app: FastifyInstance): Promis
       bodyLimit: WEBHOOK_BODY_MAX,
     },
     async (request, reply) => {
-      const provider = app.trackerRegistry.hole(request.params.provider)
+      const provider = app.trackerRegistry.get(request.params.provider)
       if (!provider?.webhook) return reply.code(404).send({ error: 'Nicht gefunden' })
       const anfrage = zuAnfrage(request)
 
@@ -74,32 +74,32 @@ export async function registerTrackerWebhookRoutes(app: FastifyInstance): Promis
       // Antwort auf genau diesen Aufruf. Ohne diesen Zweig scheiterte jede
       // Registrierung an der eigenen Prüfung („Ping failed, response was 401").
       // Ungefährlich, weil er nichts auslöst: 200, sonst nichts.
-      if (provider.webhook.istPing?.(anfrage)) return reply.code(200).send({ ok: true })
+      if (provider.webhook.isPing?.(anfrage)) return reply.code(200).send({ ok: true })
 
       // Verifikation ZUERST — vor jedem Datenbankzugriff. Falsche Signatur:
       // 401, kein Eintrag, kein Log-Spam (sonst wäre schon das Protokoll ein
       // Ziel für Müll von außen).
-      if (!(await provider.webhook.verifiziere(anfrage))) {
+      if (!(await provider.webhook.verify(anfrage))) {
         return reply.code(401).send({ error: 'Signatur ungültig' })
       }
 
-      const ereignisse = provider.webhook.parseEreignisse(anfrage)
+      const ereignisse = provider.webhook.parseEvents(anfrage)
       const auftraege: ImportJob[] = []
       for (const ereignis of ereignisse) {
-        const verknuepfung = app.tracker.ausExternerKennung(provider.id, ereignis.externerNutzer)
+        const link = app.tracker.byExternalId(provider.id, ereignis.externalUser)
         // Zustellung für ein Konto, das wir nicht (mehr) kennen: still
         // verwerfen. Eine Fehlermeldung wäre eine Auskunft darüber, welche
         // Anbieter-Konten bei uns liegen.
-        if (!verknuepfung) continue
-        if (ereignis.art === 'abmeldung') {
+        if (!link) continue
+        if (ereignis.kind === 'abmeldung') {
           // Von außen abgemeldet (Strava sendet das ausdrücklich): sichtbar
           // machen statt still verstummen — der Nutzer wartet sonst auf
           // Touren, die nie kommen.
-          app.tracker.setzeStatus(verknuepfung.id, 'expired', 'Zugriff beim Anbieter widerrufen')
+          app.tracker.setStatus(link.id, 'expired', 'Zugriff beim Anbieter widerrufen')
           continue
         }
-        if (verknuepfung.status !== 'active') continue
-        auftraege.push({ verknuepfung, provider, externeId: ereignis.externeId })
+        if (link.status !== 'active') continue
+        auftraege.push({ link, provider, externalId: ereignis.externalId })
       }
 
       // ANTWORTEN, DANN ARBEITEN. Strava verlangt eine Antwort in unter zwei
@@ -107,13 +107,13 @@ export async function registerTrackerWebhookRoutes(app: FastifyInstance): Promis
       // `app.trackerLaeufe`, damit Tests gezielt darauf warten können, statt zu
       // pollen — dasselbe Muster wie `app.verarbeitungen`.
       if (auftraege.length) {
-        const schluessel = `${provider.id}:${auftraege.map((a) => a.externeId).join(',')}`
+        const schluessel = `${provider.id}:${auftraege.map((a) => a.externalId).join(',')}`
         app.trackerRuns.set(
           schluessel,
           runImports(app, app.tracker, auftraege).finally(() => app.trackerRuns.delete(schluessel)),
         )
       }
-      const antwort = provider.webhook.antwort?.(anfrage)
+      const antwort = provider.webhook.response?.(anfrage)
       return reply.code(200).send(antwort ?? { ok: true })
     },
   )

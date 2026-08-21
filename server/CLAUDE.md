@@ -155,7 +155,7 @@ Sport-Uhr landet ohne Handgriff als spielbare Tour im Konto. Gebaut sind Vertrag
 Krypto, Normalisierer, TourAnleger, Importlauf und die Routen; die echten Adapter (Polar
 zuerst) fehlen noch. Konzept: [docs/concepts/konzept_tracker_integrationen.md](../docs/concepts/konzept_tracker_integrationen.md).
 
-**Eine Cloud-Tour ist keine eigene Sorte Tour.** `touranleger.ts` ruft `createTour` und
+**Eine Cloud-Tour ist keine eigene Sorte Tour.** `tour-creator.ts` ruft `createTour` und
 `finalizeTour` aus [routes/tours.ts](src/routes/tours.ts) — dieselben Funktionen wie
 die Upload-Route. Beide wurden genau dafür aus den Routen herausgezogen: Ein zweiter
 Anlege-Pfad hätte Verifikation, Idempotenz, Medien-IDs, Zeit-Semantik und die
@@ -176,7 +176,7 @@ Zustellung für ein unbekanntes Konto wird STILL verworfen — eine Fehlermeldun
 Auskunft darüber, welche Anbieter-Konten bei uns liegen.
 
 **`skipped` ist kein Fehler.** Aktivität ohne GPS, zu kurz (< 100 m UND < 2 min — die
-Schwelle steht gegen das VERSEHEN, nicht gegen die kurze Runde, s. `touranleger.ts`) oder
+Schwelle steht gegen das VERSEHEN, nicht gegen die kurze Runde, s. `tour-creator.ts`) oder
 Speicher voll: Das sind normale Ereignisse, keine Störungen. Als Fehler geführt stünde die
 Liste eines Vielsportlers dauerhaft rot, und die eine echte Störung ginge darin unter.
 Umgekehrt gilt: Eine tote Verknüpfung wird SICHTBAR tot (`expired` samt Grund) — der Nutzer
@@ -188,12 +188,12 @@ Fehler das endgültige Ende einer Aktivität: Die wiederholte Zustellung, auf di
 Verfahren baut (Wahoo staffelt bis 72 h), lief wirkungslos in den Index. `retryable` trennt
 das und wird vom GRUND gesetzt, nicht vom Status: „ohne Route" und „zu kurz" sind Aussagen über
 die Aktivität und bleiben endgültig; „Speicher voll", ein stummer Anbieter und jeder Netzfehler
-sind Aussagen über den Moment. `beanspruche` nimmt eine solche Zeile wieder an (`ON CONFLICT …
+sind Aussagen über den Moment. `claim` nimmt eine solche Zeile wieder an (`ON CONFLICT …
 DO UPDATE … WHERE wiederholbar = 1 AND versuche < MAX_VERSUCHE`), `gemeldet_am` bleibt dabei der
 Zeitpunkt der ERSTEN Meldung. Am Deckel steht der Grund samt „nach 3 Versuchen" in der Zeile —
 ein stiller Deckel läse sich wie ein Lauf, der noch kommt.
 
-**Der Sync-Zeitpunkt ist ein CURSOR, kein Zeitstempel.** `listeNeue(tokens, zuletztSyncAm)`
+**Der Sync-Zeitpunkt ist ein CURSOR, kein Zeitstempel.** `listNew(tokens, lastSyncAt)`
 fragt den Anbieter „was gibt es seitdem?" — vorgerückt, obwohl eine Aktivität offen blieb,
 listet er sie nie wieder auf, und beim Polling-Anbieter gibt es keinen zweiten Weg zu ihr.
 Deshalb setzt ihn `runImports` am ENDE und nur, wenn nichts Wiederholbares übrig ist,
@@ -205,8 +205,8 @@ in Wanduhrzeit; eine Aktivität erscheint beim Anbieter aber lange nach ihrem St
 erst, wenn die Uhr synchronisiert, und dazu muss am Handgelenk die Ergebnisansicht weggeklickt
 sein. Wer in dieser Lücke „Jetzt abrufen" drückt, schob den Cursor hinter die Startzeit seiner
 eigenen Tour, und der Vergleich filterte sie danach für immer weg: Der Rückfallweg konnte das
-eine nicht, wofür es ihn gibt. `PolarProvider.listeNeue` filtert deshalb GAR NICHT mehr nach
-Zeit — die Grenze ist `beanspruche` (Import-Zeile in der Datenbank, VOR jedem Netzaufruf), und
+eine nicht, wofür es ihn gibt. `PolarProvider.listNew` filtert deshalb GAR NICHT mehr nach
+Zeit — die Grenze ist `claim` (Import-Zeile in der Datenbank, VOR jedem Netzaufruf), und
 Polars Liste ist ohnehin kurz. Ein künftiger Adapter, der `since` an die Anbieter-API
 weiterreicht, muss prüfen, worauf sie filtert (Erscheinungszeit ja, Startzeit nein) und im
 Zweifel großzügig überlappen.
@@ -219,11 +219,11 @@ bis der Reverse-Proxy sie abschneidet — der Lauf liefe weiter, der Nutzer säh
 abgelaufener Zugang (409) wie stummer Anbieter (502) werden GEFANGEN; ungefangen liefen beide
 in den allgemeinen Handler, und dort steht „Interner Fehler" statt dessen, was zu tun ist.
 
-**Token-Erneuerung ausschließlich im Kern** (`gueltigeTokens`): Wahoo gibt Refresh-Tokens
+**Token-Erneuerung ausschließlich im Kern** (`validTokens`): Wahoo gibt Refresh-Tokens
 einmalig aus, wer den neuen nicht speichert, hat die Verknüpfung verloren. Eine falsche
 Stelle, ein zerstörter Zustand. Beim Erneuern wird die Anbieter-Nutzerkennung
 weitergetragen — sie kommt oft nicht mit, und auf `null` gesetzt kappte sie den
-Zuordnungsweg des Webhooks. `connected_at` bleibt beim Erneuern dagegen STEHEN: `verknuepfe`
+Zuordnungsweg des Webhooks. `connected_at` bleibt beim Erneuern dagegen STEHEN: `link`
 schreibt beide Fälle, und mitgeschrieben stünde auf der Kontoseite dauerhaft „verbunden seit
 vor ein paar Minuten" (Tokens laufen stündlich ab). Nach dem Trennen gibt es keine Zeile mehr,
 dort setzt der INSERT-Zweig das Datum ohnehin frisch. Die Tokens liegen AES-256-GCM-verschlüsselt
@@ -253,7 +253,7 @@ Touren in sein Konto. Keine Tabelle: Er lebt Minuten, und einen Neustart soll er
 
 **Polar ist der erste echte Adapter** ([provider/polar.ts](src/tracker/provider/polar.ts)).
 Drei Fallen, die man ihm nicht ansieht: Seine Tokens laufen **nicht ab** (kein
-`erneuereTokens`, `laeuftAb: null` — ein Ablaufdatum schickte den Kern in eine Erneuerung, die
+`refreshTokens`, `expiresAt: null` — ein Ablaufdatum schickte den Kern in eine Erneuerung, die
 es nicht gibt); ein zweiter `POST /v3/users` antwortet **409** und das ist beim Neuverbinden
 der Normalfall, kein Fehler; und die Startzeit ist **lokale Zeit ohne Zone plus Versatz in
 Minuten** — wer `Z` anhängt, verschiebt jede Tour um ihren Zonen-Versatz, und das fällt als

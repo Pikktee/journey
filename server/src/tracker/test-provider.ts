@@ -17,97 +17,97 @@ import type {
 } from './contract.js'
 
 export interface TestProviderOptions {
-  /** Tracks je externer Aktivitäts-ID; fehlt eine, wirft `holeTrack`. */
+  /** Tracks je externer Aktivitäts-ID; fehlt eine, wirft `fetchTrack`. */
   tracks?: Record<string, RawTrack>
   /** HMAC-Schlüssel des Webhooks; ohne ihn akzeptiert die Prüfung alles NICHT. */
-  webhookGeheimnis?: string
+  webhookSecret?: string
   /** Nutzerkennung, die der Token-Tausch zurückgibt. */
-  externerNutzer?: string
+  externalUser?: string
   konfiguriert?: boolean
-  /** Ergebnisse für `listeNeue` (Polling-Pfad). */
-  neue?: TrackerEvent[]
-  /** `listeNeue` wirft — der Anbieter ist gerade nicht erreichbar. */
-  listeWirft?: boolean
+  /** Ergebnisse für `listNew` (Polling-Pfad). */
+  news?: TrackerEvent[]
+  /** `listNew` wirft — der Anbieter ist gerade nicht erreichbar. */
+  listThrows?: boolean
   /** Erkennt `{"event":"PING"}` als Erreichbarkeits-Test (wie Polar). */
   istPing?: boolean
 }
 
 /** Signatur, wie sie ein echter Anbieter über den ROHEN Body bildet. */
-export function testSignature(rohBody: string, geheimnis: string): string {
-  return createHmac('sha256', geheimnis).update(rohBody).digest('hex')
+export function testSignature(rohBody: string, secret: string): string {
+  return createHmac('sha256', secret).update(rohBody).digest('hex')
 }
 
 export class TestProvider implements TrackerProvider {
   readonly id = 'polar' as const
-  readonly konfiguriert: boolean
+  readonly configured: boolean
   /** Mitschrift für die Tests: Wurde beim Trennen wirklich abgemeldet? */
-  readonly aufrufe: string[] = []
+  readonly calls: string[] = []
 
   constructor(private opt: TestProviderOptions = {}) {
-    this.konfiguriert = opt.konfiguriert ?? true
+    this.configured = opt.konfiguriert ?? true
   }
 
-  autorisierungsUrl(zustand: string, redirectUri: string): string {
+  authorizationUrl(zustand: string, redirectUri: string): string {
     return `https://anbieter.test/oauth?state=${encodeURIComponent(zustand)}&redirect_uri=${encodeURIComponent(redirectUri)}`
   }
 
-  async tauscheCode(code: string): Promise<ProviderTokens> {
-    this.aufrufe.push(`tausche:${code}`)
+  async exchangeCode(code: string): Promise<ProviderTokens> {
+    this.calls.push(`tausche:${code}`)
     if (code === 'ungueltig') throw new Error('Code abgelehnt')
-    return { zugriff: `zugriff-${code}`, externerNutzer: this.opt.externerNutzer ?? 'extern-1' }
+    return { access: `zugriff-${code}`, externalUser: this.opt.externalUser ?? 'extern-1' }
   }
 
-  async nachVerknuepfung(tokens: ProviderTokens): Promise<ProviderTokens> {
+  async afterLink(tokens: ProviderTokens): Promise<ProviderTokens> {
     // Polars `POST /v3/users`: ohne diesen Schritt liefert die API still nichts
-    this.aufrufe.push('registriere')
+    this.calls.push('registriere')
     return tokens
   }
 
-  async trenne(): Promise<void> {
-    this.aufrufe.push('trenne')
+  async unlink(): Promise<void> {
+    this.calls.push('trenne')
   }
 
   webhook = {
-    istPing: (anfrage: WebhookRequest): boolean => {
+    isPing: (anfrage: WebhookRequest): boolean => {
       if (!this.opt.istPing) return false
       try {
-        const daten = JSON.parse(anfrage.rohBody || '{}') as Record<string, unknown>
+        const data = JSON.parse(anfrage.rawBody || '{}') as Record<string, unknown>
         return (
-          daten['event'] === 'PING' &&
-          daten['user_id'] === undefined &&
-          daten['entity_id'] === undefined
+          data['event'] === 'PING' &&
+          data['user_id'] === undefined &&
+          data['entity_id'] === undefined
         )
       } catch {
         return false
       }
     },
 
-    verifiziere: (anfrage: WebhookRequest): boolean => {
-      const geheimnis = this.opt.webhookGeheimnis
-      if (!geheimnis) return false
-      const mitgeschickt = anfrage.kopfzeilen['polar-webhook-signature'] ?? ''
-      return timingSafeEquals(mitgeschickt, testSignature(anfrage.rohBody, geheimnis))
+    verify: (anfrage: WebhookRequest): boolean => {
+      const secret = this.opt.webhookSecret
+      if (!secret) return false
+      const passed = anfrage.headers['polar-webhook-signature'] ?? ''
+      return timingSafeEquals(passed, testSignature(anfrage.rawBody, secret))
     },
-    parseEreignisse: (anfrage: WebhookRequest): TrackerEvent[] => {
-      const daten = JSON.parse(anfrage.rohBody || '{}') as {
+    parseEvents: (anfrage: WebhookRequest): TrackerEvent[] => {
+      const data = JSON.parse(anfrage.rawBody || '{}') as {
         event?: string
         user_id?: string
         entity_id?: string
       }
-      if (!daten.user_id || !daten.entity_id) return []
+      if (!data.user_id || !data.entity_id) return []
       return [
         {
-          externerNutzer: String(daten.user_id),
-          externeId: String(daten.entity_id),
-          art: daten.event === 'ABMELDUNG' ? 'abmeldung' : 'aktivitaet',
+          externalUser: String(data.user_id),
+          externalId: String(data.entity_id),
+          kind: data.event === 'ABMELDUNG' ? 'abmeldung' : 'aktivitaet',
         },
       ]
     },
   }
 
-  async listeNeue(): Promise<TrackerEvent[]> {
-    if (this.opt.listeWirft) throw new Error('Anbieter antwortet nicht')
-    return this.opt.neue ?? []
+  async listNew(): Promise<TrackerEvent[]> {
+    if (this.opt.listThrows) throw new Error('Anbieter antwortet nicht')
+    return this.opt.news ?? []
   }
 
   /**
@@ -115,14 +115,14 @@ export class TestProvider implements TrackerProvider {
    * Zustellung kommt, bevor der Anbieter die Datei bereitgestellt hat (oder er
    * ist gerade weg), und die WIEDERHOLTE Zustellung findet sie dann vor.
    */
-  setzeTrack(externeId: string, track: RawTrack): void {
-    this.opt.tracks = { ...(this.opt.tracks ?? {}), [externeId]: track }
+  setTrack(externalId: string, track: RawTrack): void {
+    this.opt.tracks = { ...(this.opt.tracks ?? {}), [externalId]: track }
   }
 
-  async holeTrack(_tokens: ProviderTokens, externeId: string): Promise<RawTrack> {
-    this.aufrufe.push(`holeTrack:${externeId}`)
-    const track = this.opt.tracks?.[externeId]
-    if (!track) throw new Error(`Unbekannte Aktivität: ${externeId}`)
+  async fetchTrack(_tokens: ProviderTokens, externalId: string): Promise<RawTrack> {
+    this.calls.push(`fetchTrack:${externalId}`)
+    const track = this.opt.tracks?.[externalId]
+    if (!track) throw new Error(`Unbekannte Aktivität: ${externalId}`)
     return track
   }
 }
@@ -131,21 +131,21 @@ export class TestProvider implements TrackerProvider {
  * Ein brauchbarer Beispieltrack: ~2,4 km in 20 Minuten, im Berner Oberland —
  * über den Mindestgrößen des TourAnlegers, damit er nicht übersprungen wird.
  */
-export function exampleRawTrack(teil: Partial<RawTrack> = {}): RawTrack {
+export function exampleRawTrack(part: Partial<RawTrack> = {}): RawTrack {
   const startMs = Date.parse('2026-07-04T08:00:00Z')
-  const punkte = Array.from({ length: 25 }, (_, i) => ({
+  const points = Array.from({ length: 25 }, (_, i) => ({
     lat: 46.5934 + i * 0.0009,
     lng: 7.9086 + i * 0.0004,
     ele: 800 + i * 4,
-    zeit: new Date(startMs + i * 50_000).toISOString(),
+    time: new Date(startMs + i * 50_000).toISOString(),
   }))
   return {
-    format: 'punkte',
-    punkte,
-    titel: 'Testfahrt',
-    sportart: 'Ride',
+    format: 'points',
+    points,
+    title: 'Testfahrt',
+    sport: 'Ride',
     start: new Date(startMs).toISOString(),
-    ende: new Date(startMs + 24 * 50_000).toISOString(),
-    ...teil,
+    end: new Date(startMs + 24 * 50_000).toISOString(),
+    ...part,
   }
 }

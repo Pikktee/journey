@@ -21,19 +21,19 @@ export const PROVIDER_NAMES: Record<TrackerProviderId, string> = {
 }
 
 export interface ProviderTokens {
-  zugriff: string
-  erneuerung?: string | null
+  access: string
+  refresh?: string | null
   /** ISO; fehlt bei Anbietern mit unbefristeten Tokens (Polar). */
-  laeuftAb?: string | null
+  expiresAt?: string | null
   /** Anbieter-eigene Nutzerkennung (Polar member-id, Strava athlete-id …). */
-  externerNutzer?: string | null
+  externalUser?: string | null
 }
 
 /** Was der Webhook meldet: „Nutzer X hat Aktivität Y" — mehr nicht. */
 export interface TrackerEvent {
-  externerNutzer: string
-  externeId: string
-  art: 'aktivitaet' | 'abmeldung'
+  externalUser: string
+  externalId: string
+  kind: 'aktivitaet' | 'abmeldung'
 }
 
 /** Ein Trackpunkt, wie ihn Anbieter ohne Datei liefern (Strava-Streams, RWGPS). */
@@ -42,7 +42,7 @@ export interface RawPoint {
   lng: number
   ele?: number
   /** ISO 8601 */
-  zeit: string
+  time: string
 }
 
 /**
@@ -55,23 +55,23 @@ export interface RawPoint {
  * Koordinaten. Der Normalisierer ist die eine Stelle, die GPX schreibt.
  */
 export interface RawTrack {
-  format: 'gpx' | 'fit' | 'tcx' | 'punkte'
+  format: 'gpx' | 'fit' | 'tcx' | 'points'
   bytes?: Uint8Array
-  punkte?: RawPoint[]
-  titel?: string | null
+  points?: RawPoint[]
+  title?: string | null
   /** Sportart des Anbieters („Ride", „Run", …) — der Kern übersetzt sie in einen Modus. */
-  sportart?: string | null
+  sport?: string | null
   /** ISO 8601 */
   start: string
   /** ISO 8601 */
-  ende: string
+  end: string
 }
 
 /** Was eine Webhook-Zustellung mitbringt (Fastify-unabhängig, damit testbar). */
 export interface WebhookRequest {
   /** Roher Body — die Signatur wird über die BYTES gebildet, nicht über das geparste JSON. */
-  rohBody: string
-  kopfzeilen: Record<string, string | undefined>
+  rawBody: string
+  headers: Record<string, string | undefined>
   /** Query-Parameter (Strava verifiziert seine Abos darüber). */
   query: Record<string, string | undefined>
 }
@@ -87,20 +87,20 @@ export interface TrackerProvider {
    * Fehlerseite des Anbieters. Dieselbe Linie wie `openRouterKey` in config.ts:
    * fehlt der Schlüssel, ist das Feature aus, nicht kaputt.
    */
-  readonly konfiguriert: boolean
+  readonly configured: boolean
 
-  autorisierungsUrl(zustand: string, redirectUri: string): string
-  tauscheCode(code: string, redirectUri: string): Promise<ProviderTokens>
-  erneuereTokens?(erneuerung: string): Promise<ProviderTokens>
+  authorizationUrl(state: string, redirectUri: string): string
+  exchangeCode(code: string, redirectUri: string): Promise<ProviderTokens>
+  refreshTokens?(refresh: string): Promise<ProviderTokens>
 
   /** Einmalige Pflichtschritte nach dem Verknüpfen (Polar: `POST /v3/users`). */
-  nachVerknuepfung?(tokens: ProviderTokens): Promise<ProviderTokens | void>
+  afterLink?(tokens: ProviderTokens): Promise<ProviderTokens | void>
   /** Beim Trennen: Abo/Autorisierung beim Anbieter aufheben. */
-  trenne?(tokens: ProviderTokens): Promise<void>
+  unlink?(tokens: ProviderTokens): Promise<void>
 
   webhook?: {
     /** Signatur/Challenge prüfen. Falsch = 401, kein Import. */
-    verifiziere(anfrage: WebhookRequest): boolean | Promise<boolean>
+    verify(request: WebhookRequest): boolean | Promise<boolean>
     /**
      * Ist die Zustellung ein reiner Erreichbarkeits-Test?
      *
@@ -114,10 +114,10 @@ export interface TrackerProvider {
      * tut nichts — wer unsignierte Pings schickt, erreicht damit nichts außer
      * einer 200.
      */
-    istPing?(anfrage: WebhookRequest): boolean
-    parseEreignisse(anfrage: WebhookRequest): TrackerEvent[]
+    isPing?(request: WebhookRequest): boolean
+    parseEvents(request: WebhookRequest): TrackerEvent[]
     /** Manche Anbieter verlangen eine Echo-Antwort (Strava: `hub.challenge`). */
-    antwort?(anfrage: WebhookRequest): unknown
+    response?(request: WebhookRequest): unknown
   }
 
   /**
@@ -130,22 +130,22 @@ export interface TrackerProvider {
    * synchronisiert später, der Anbieter rechnet nach). Wer beides vergleicht,
    * verliert genau die Aktivitäten dauerhaft, die in dieser Lücke lagen — und
    * das ist der einzige Fall, für den es den Polling-Weg gibt. Genau so
-   * geschehen, s. `PolarProvider.listeNeue`.
+   * geschehen, s. `PolarProvider.listNew`.
    *
    * Wer `seit` an eine Anbieter-API weiterreicht, prüfe also, WORAUF sie
    * filtert (Erscheinungszeit ist richtig, Startzeit nicht) — im Zweifel
-   * großzügig überlappen lassen: Doppeltes fängt `beanspruche` im Kern ab,
+   * großzügig überlappen lassen: Doppeltes fängt `claim` im Kern ab,
    * bevor auch nur ein Byte geholt wird.
    */
-  listeNeue?(tokens: ProviderTokens, seit: string | null): Promise<TrackerEvent[]>
+  listNew?(tokens: ProviderTokens, since: string | null): Promise<TrackerEvent[]>
 
-  holeTrack(tokens: ProviderTokens, externeId: string): Promise<RawTrack>
+  fetchTrack(tokens: ProviderTokens, externalId: string): Promise<RawTrack>
 }
 
 /** Ein Anbieter, dessen Tokens abgelaufen sind — der Kern setzt dann `abgelaufen`. */
 export class InvalidTokensError extends Error {
-  constructor(nachricht = 'Verknüpfung ist abgelaufen, bitte neu verbinden') {
-    super(nachricht)
+  constructor(message = 'Verknüpfung ist abgelaufen, bitte neu verbinden') {
+    super(message)
     this.name = 'TokensUngueltigFehler'
   }
 }
@@ -158,8 +158,8 @@ export class InvalidTokensError extends Error {
  * Vielsportlers dauerhaft voll.
  */
 export class NoRouteError extends Error {
-  constructor(nachricht = 'Aktivität ohne GPS-Route') {
-    super(nachricht)
+  constructor(message = 'Aktivität ohne GPS-Route') {
+    super(message)
     this.name = 'OhneRouteFehler'
   }
 }
@@ -175,8 +175,8 @@ export class NoRouteError extends Error {
  * TourAnleger zu importieren — sonst hinge an jedem Adapter die halbe Pipeline.
  */
 export class TooSmallError extends Error {
-  constructor(nachricht: string) {
-    super(nachricht)
+  constructor(message: string) {
+    super(message)
     this.name = 'ZuKleinFehler'
   }
 }

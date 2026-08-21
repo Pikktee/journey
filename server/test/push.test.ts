@@ -45,7 +45,7 @@ async function baueMitPush(): Promise<{
   provider: TestProvider
 }> {
   const provider = new TestProvider({
-    webhookGeheimnis: WEBHOOK_GEHEIMNIS,
+    webhookSecret: WEBHOOK_GEHEIMNIS,
     tracks: { a1: exampleRawTrack() },
   })
   const push = new SammelPush()
@@ -70,8 +70,8 @@ async function verknuepfe(u: TestUmgebung): Promise<void> {
 }
 
 /** Eine Webhook-Zustellung samt Warten auf Import UND Pipeline. */
-async function melde(u: TestUmgebung, externeId: string): Promise<void> {
-  const rohBody = JSON.stringify({ event: 'EXERCISE', user_id: 'extern-1', entity_id: externeId })
+async function melde(u: TestUmgebung, externalId: string): Promise<void> {
+  const rohBody = JSON.stringify({ event: 'EXERCISE', user_id: 'extern-1', entity_id: externalId })
   await u.app.inject({
     method: 'POST',
     url: '/api/webhooks/tracker/polar',

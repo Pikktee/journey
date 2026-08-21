@@ -16,7 +16,7 @@ import {
 } from '../src/tracker/contract.js'
 
 const ZUGANG = { clientId: 'klient-1', clientSecret: 'geheim-1', webhookSecret: 'wh-geheim' }
-const TOKENS: ProviderTokens = { zugriff: 'zugriff-abc', externerNutzer: '4711', laeuftAb: null }
+const TOKENS: ProviderTokens = { access: 'zugriff-abc', externalUser: '4711', expiresAt: null }
 
 const BEISPIEL_GPX = `<?xml version="1.0"?>
 <gpx version="1.1"><trk><trkseg>
@@ -102,12 +102,12 @@ describe('Hilfsrechnungen', () => {
 describe('Konfiguration', () => {
   it('ist ohne Client-Zugangsdaten nicht verfügbar', () => {
     const ohne = new PolarProvider({ clientId: null, clientSecret: null, webhookSecret: null })
-    expect(ohne.konfiguriert).toBe(false)
+    expect(ohne.configured).toBe(false)
   })
 
   it('ist auch ohne Webhook-Geheimnis einsatzbereit (es entsteht später)', () => {
     const provider = new PolarProvider({ clientId: 'a', clientSecret: 'b', webhookSecret: null })
-    expect(provider.konfiguriert).toBe(true)
+    expect(provider.configured).toBe(true)
   })
 })
 
@@ -115,7 +115,7 @@ describe('OAuth', () => {
   it('baut die Autorisierungs-URL mit state und redirect_uri', () => {
     const provider = new PolarProvider(ZUGANG)
     const url = new URL(
-      provider.autorisierungsUrl('z-123', 'https://maptale.io/api/tracker/polar/callback'),
+      provider.authorizationUrl('z-123', 'https://maptale.io/api/tracker/polar/callback'),
     )
     expect(url.origin + url.pathname).toBe('https://flow.polar.com/oauth2/authorization')
     expect(url.searchParams.get('response_type')).toBe('code')
@@ -134,7 +134,7 @@ describe('OAuth', () => {
       ],
     ])
     const provider = new PolarProvider(ZUGANG, hol)
-    const tokens = await provider.tauscheCode('code-xyz', 'https://maptale.io/cb')
+    const tokens = await provider.exchangeCode('code-xyz', 'https://maptale.io/cb')
 
     const kopf = (aufrufe[0]?.init?.headers ?? {}) as Record<string, string>
     expect(kopf['authorization']).toBe(
@@ -147,22 +147,22 @@ describe('OAuth', () => {
     expect(koerper.get('redirect_uri')).toBe('https://maptale.io/cb')
 
     // x_user_id wird zur externen Kennung — sie ist der Zuordnungsweg des Webhooks
-    expect(tokens).toMatchObject({ zugriff: 'tok-1', externerNutzer: '4711' })
+    expect(tokens).toMatchObject({ access: 'tok-1', externalUser: '4711' })
     // Polar-Tokens laufen nicht ab: kein Ablaufdatum, keine Erneuerung.
-    // Über den Vertrags-Typ geprüft — dort ist `erneuereTokens` optional, und
+    // Über den Vertrags-Typ geprüft — dort ist `refreshTokens` optional, und
     // genau dieses Weglassen ist die Aussage.
-    expect(tokens.laeuftAb).toBeNull()
-    expect((provider as TrackerProvider).erneuereTokens).toBeUndefined()
+    expect(tokens.expiresAt).toBeNull()
+    expect((provider as TrackerProvider).refreshTokens).toBeUndefined()
   })
 
   it('meldet eine abgelehnte oder unvollständige Token-Antwort als Fehler', async () => {
     const abgelehnt = new PolarProvider(ZUGANG, baueHol([[/polarremote/, { status: 400 }]]).hol)
-    await expect(abgelehnt.tauscheCode('x', 'y')).rejects.toThrow(/400/)
+    await expect(abgelehnt.exchangeCode('x', 'y')).rejects.toThrow(/400/)
     const ohneKennung = new PolarProvider(
       ZUGANG,
       baueHol([[/polarremote/, { json: { access_token: 'a' } }]]).hol,
     )
-    await expect(ohneKennung.tauscheCode('x', 'y')).rejects.toThrow(/Nutzerkennung/)
+    await expect(ohneKennung.exchangeCode('x', 'y')).rejects.toThrow(/Nutzerkennung/)
   })
 })
 
@@ -170,7 +170,7 @@ describe('Registrierung (der Pflichtschritt)', () => {
   it('meldet den Nutzer mit member-id an', async () => {
     const { hol, aufrufe } = baueHol([[/\/v3\/users$/, { json: { 'polar-user-id': 4711 } }]])
     const provider = new PolarProvider(ZUGANG, hol)
-    await provider.nachVerknuepfung(TOKENS)
+    await provider.afterLink(TOKENS)
     expect(aufrufe[0]?.url).toBe('https://www.polaraccesslink.com/v3/users')
     expect(aufrufe[0]?.init?.method).toBe('POST')
     // Die POLAR-Kennung geht heraus, nicht unsere Benutzer-ID: Polar verlangt
@@ -180,28 +180,28 @@ describe('Registrierung (der Pflichtschritt)', () => {
 
   it('nimmt 409 „schon registriert" als Erfolg — sonst scheiterte jedes Neuverbinden', async () => {
     const provider = new PolarProvider(ZUGANG, baueHol([[/\/v3\/users$/, { status: 409 }]]).hol)
-    await expect(provider.nachVerknuepfung(TOKENS)).resolves.toMatchObject({
-      zugriff: 'zugriff-abc',
+    await expect(provider.afterLink(TOKENS)).resolves.toMatchObject({
+      access: 'zugriff-abc',
     })
   })
 
   it('meldet echte Fehler weiter', async () => {
     const provider = new PolarProvider(ZUGANG, baueHol([[/\/v3\/users$/, { status: 500 }]]).hol)
-    await expect(provider.nachVerknuepfung(TOKENS)).rejects.toThrow(/500/)
+    await expect(provider.afterLink(TOKENS)).rejects.toThrow(/500/)
   })
 })
 
 describe('Trennen', () => {
   it('hebt die Autorisierung beim Anbieter auf', async () => {
     const { hol, aufrufe } = baueHol([[/\/v3\/users\/4711$/, { status: 204 }]])
-    await new PolarProvider(ZUGANG, hol).trenne(TOKENS)
+    await new PolarProvider(ZUGANG, hol).unlink(TOKENS)
     expect(aufrufe[0]?.url).toBe('https://www.polaraccesslink.com/v3/users/4711')
     expect(aufrufe[0]?.init?.method).toBe('DELETE')
   })
 
   it('nimmt 404 hin — war schon weg ist auch erledigt', async () => {
     const provider = new PolarProvider(ZUGANG, baueHol([[/\/v3\/users\//, { status: 404 }]]).hol)
-    await expect(provider.trenne(TOKENS)).resolves.toBeUndefined()
+    await expect(provider.unlink(TOKENS)).resolves.toBeUndefined()
   })
 })
 
@@ -219,9 +219,9 @@ describe('Webhook', () => {
   it('nimmt eine korrekt signierte Zustellung an', () => {
     const provider = new PolarProvider(ZUGANG)
     expect(
-      provider.webhook.verifiziere({
-        rohBody: nutzlast,
-        kopfzeilen: { 'polar-webhook-signature': signiere(nutzlast) },
+      provider.webhook.verify({
+        rawBody: nutzlast,
+        headers: { 'polar-webhook-signature': signiere(nutzlast) },
         query: {},
       }),
     ).toBe(true)
@@ -229,10 +229,10 @@ describe('Webhook', () => {
 
   it('weist falsche Signatur, fremdes Geheimnis und veränderten Körper ab', () => {
     const provider = new PolarProvider(ZUGANG)
-    const pruefe = (rohBody: string, sig: string): boolean =>
-      provider.webhook.verifiziere({
-        rohBody,
-        kopfzeilen: { 'polar-webhook-signature': sig },
+    const pruefe = (rawBody: string, sig: string): boolean =>
+      provider.webhook.verify({
+        rawBody,
+        headers: { 'polar-webhook-signature': sig },
         query: {},
       })
     expect(pruefe(nutzlast, 'abc')).toBe(false)
@@ -246,9 +246,9 @@ describe('Webhook', () => {
     // die Einrichtung vergisst.
     const ohne = new PolarProvider({ ...ZUGANG, webhookSecret: null })
     expect(
-      ohne.webhook.verifiziere({
-        rohBody: nutzlast,
-        kopfzeilen: { 'polar-webhook-signature': signiere(nutzlast) },
+      ohne.webhook.verify({
+        rawBody: nutzlast,
+        headers: { 'polar-webhook-signature': signiere(nutzlast) },
         query: {},
       }),
     ).toBe(false)
@@ -257,13 +257,13 @@ describe('Webhook', () => {
   it('erkennt den PING — die einzige Zustellung ohne prüfbare Signatur', () => {
     const provider = new PolarProvider(ZUGANG)
     const ping = JSON.stringify({ timestamp: '2026-08-10T00:00:00Z', event: 'PING' })
-    expect(provider.webhook.istPing({ rohBody: ping, kopfzeilen: {}, query: {} })).toBe(true)
+    expect(provider.webhook.isPing({ rawBody: ping, headers: {}, query: {} })).toBe(true)
   })
 
   it('lässt über den PING-Weg nichts durch, was Arbeit auslöst', () => {
     const provider = new PolarProvider(ZUGANG)
     const istPing = (nutzlast: unknown): boolean =>
-      provider.webhook.istPing({ rohBody: JSON.stringify(nutzlast), kopfzeilen: {}, query: {} })
+      provider.webhook.isPing({ rawBody: JSON.stringify(nutzlast), headers: {}, query: {} })
     // Ein „PING" mit Kennungen wäre der Versuch, an der Signatur vorbei einen
     // Import anzustoßen — er zählt nicht als Ping und fällt in die Prüfung.
     expect(istPing({ event: 'PING', user_id: 4711, entity_id: 'aQlC83' })).toBe(false)
@@ -273,15 +273,15 @@ describe('Webhook', () => {
 
   it('liest ein EXERCISE-Ereignis', () => {
     const provider = new PolarProvider(ZUGANG)
-    expect(
-      provider.webhook.parseEreignisse({ rohBody: nutzlast, kopfzeilen: {}, query: {} }),
-    ).toEqual([{ externerNutzer: '4711', externeId: 'aQlC83', art: 'aktivitaet' }])
+    expect(provider.webhook.parseEvents({ rawBody: nutzlast, headers: {}, query: {} })).toEqual([
+      { externalUser: '4711', externalId: 'aQlC83', kind: 'aktivitaet' },
+    ])
   })
 
   it('übergeht PING, SLEEP und kaputtes JSON, ohne zu werfen', () => {
     const provider = new PolarProvider(ZUGANG)
-    const leer = (rohBody: string): unknown[] =>
-      provider.webhook.parseEreignisse({ rohBody, kopfzeilen: {}, query: {} })
+    const leer = (rawBody: string): unknown[] =>
+      provider.webhook.parseEvents({ rawBody, headers: {}, query: {} })
     // Nicht-Übungen gehen uns nichts an — die Antwort bleibt trotzdem 200,
     // sonst hält Polar die Zustellung für gescheitert und wiederholt sie.
     expect(leer(JSON.stringify({ event: 'PING' }))).toEqual([])
@@ -302,15 +302,15 @@ describe('Track holen', () => {
 
   it('holt Übung und GPX und baut daraus den Rohtrack', async () => {
     const { hol, aufrufe } = holeMit(uebung())
-    const track = await new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')
+    const track = await new PolarProvider(ZUGANG, hol).fetchTrack(TOKENS, 'aQlC83')
 
     expect(track.format).toBe('gpx')
     expect(new TextDecoder().decode(track.bytes)).toContain('<trkpt')
     // Startzeit lokal + Versatz, Ende = Start + Dauer (PT1H2M3S)
     expect(track.start).toBe('2026-07-04T08:40:02.000Z')
-    expect(track.ende).toBe('2026-07-04T09:42:05.000Z')
+    expect(track.end).toBe('2026-07-04T09:42:05.000Z')
     // Die genauere Angabe gewinnt: ROAD_BIKING trägt mehr als CYCLING
-    expect(track.sportart).toBe('ROAD_BIKING')
+    expect(track.sport).toBe('ROAD_BIKING')
     // GPX wird mit dem passenden Accept-Kopf geholt
     const gpxAufruf = aufrufe.find((a) => a.url.endsWith('/gpx'))
     expect((gpxAufruf?.init?.headers as Record<string, string>)['accept']).toBe(
@@ -329,14 +329,14 @@ describe('Track holen', () => {
       has_route: true,
       detailed_sport_info: 'RUNNING',
     })
-    const track = await new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'x1')
+    const track = await new PolarProvider(ZUGANG, hol).fetchTrack(TOKENS, 'x1')
     expect(track.start).toBe('2026-07-04T08:40:02.000Z')
-    expect(track.sportart).toBe('RUNNING')
+    expect(track.sport).toBe('RUNNING')
   })
 
   it('meldet eine Aktivität ohne Route, BEVOR es die Datei holt', async () => {
     const { hol, aufrufe } = holeMit(uebung({ 'has-route': false }))
-    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
+    await expect(new PolarProvider(ZUGANG, hol).fetchTrack(TOKENS, 'aQlC83')).rejects.toThrow(
       NoRouteError,
     )
     // Eine Krafteinheit hat keine Route — sie trotzdem herunterzuladen wäre
@@ -347,21 +347,21 @@ describe('Track holen', () => {
   it('nimmt auch ein 404 auf die GPX-Datei als „ohne Route"', async () => {
     // Die Doku sagt zu diesem Fall nichts, also fangen wir beide Wege ab.
     const { hol } = holeMit(uebung(), { status: 404 })
-    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
+    await expect(new PolarProvider(ZUGANG, hol).fetchTrack(TOKENS, 'aQlC83')).rejects.toThrow(
       NoRouteError,
     )
   })
 
   it('meldet abgelaufene Tokens als solche, damit der Kern die Verknüpfung stilllegt', async () => {
     const { hol } = baueHol([[/\/v3\/exercises/, { status: 401 }]])
-    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
+    await expect(new PolarProvider(ZUGANG, hol).fetchTrack(TOKENS, 'aQlC83')).rejects.toThrow(
       InvalidTokensError,
     )
   })
 
   it('verweigert eine Übung ohne brauchbare Zeitangaben', async () => {
     const { hol } = holeMit(uebung({ duration: 'PT' }))
-    await expect(new PolarProvider(ZUGANG, hol).holeTrack(TOKENS, 'aQlC83')).rejects.toThrow(
+    await expect(new PolarProvider(ZUGANG, hol).fetchTrack(TOKENS, 'aQlC83')).rejects.toThrow(
       /Start- oder Dauerangabe/,
     )
   })
@@ -380,16 +380,16 @@ describe('Nachziehen (Rückfall, wenn eine Zustellung verloren ging)', () => {
     ]
     const { hol } = baueHol([[/\/v3\/exercises$/, { json: liste }]])
     const provider = new PolarProvider(ZUGANG, hol)
-    const ereignisse = await provider.listeNeue(TOKENS, '2026-07-04T00:00:00Z')
-    expect(ereignisse.map((e) => e.externeId)).toEqual(['alt', 'neu'])
-    expect(ereignisse[0]?.externerNutzer).toBe('4711')
+    const ereignisse = await provider.listNew(TOKENS, '2026-07-04T00:00:00Z')
+    expect(ereignisse.map((e) => e.externalId)).toEqual(['alt', 'neu'])
+    expect(ereignisse[0]?.externalUser).toBe('4711')
   })
 
   it('nimmt ohne Zeitpunkt alles und kommt mit der Objekt-Form zurecht', async () => {
     const { hol } = baueHol([
       [/\/v3\/exercises$/, { json: { exercises: [uebung({ id: 'a' }), uebung({ id: 'b' })] } }],
     ])
-    const ereignisse = await new PolarProvider(ZUGANG, hol).listeNeue(TOKENS, null)
-    expect(ereignisse.map((e) => e.externeId)).toEqual(['a', 'b'])
+    const ereignisse = await new PolarProvider(ZUGANG, hol).listNew(TOKENS, null)
+    expect(ereignisse.map((e) => e.externalId)).toEqual(['a', 'b'])
   })
 })

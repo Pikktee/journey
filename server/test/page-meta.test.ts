@@ -37,7 +37,7 @@ async function legeProfilAn(
 
 describe('Meta-Block', () => {
   it('ersetzt nur, was zwischen den Markern steht', () => {
-    const html = setMeta(TEST_PROFIL_HTML, { titel: 'Anna · Maptale', robots: 'index' })
+    const html = setMeta(TEST_PROFIL_HTML, { title: 'Anna · Maptale', robots: 'index' })
     expect(html).toContain('<title>Anna · Maptale</title>')
     expect(html).toContain('content="index"')
     expect(html).not.toContain('Profil · Maptale')
@@ -50,13 +50,13 @@ describe('Meta-Block', () => {
   it('reicht eine Seite ohne Marker unverändert durch', () => {
     // Schlechter Kopf ist besser als weiße Seite.
     const roh = '<html><head><title>Alt</title></head></html>'
-    expect(setMeta(roh, { titel: 'Neu', robots: 'index' })).toBe(roh)
+    expect(setMeta(roh, { title: 'Neu', robots: 'index' })).toBe(roh)
   })
 
   it('entschärft, was aus der Datenbank kommt', () => {
     // Ein Anzeigename ist Freitext. Ohne Escaping bräche er aus dem Attribut
     // aus — und der Meta-Kopf steht ganz oben in jeder Antwort.
-    const meta = buildMeta({ titel: 'Anna " /><script>alert(1)</script>', robots: 'noindex' })
+    const meta = buildMeta({ title: 'Anna " /><script>alert(1)</script>', robots: 'noindex' })
     expect(meta).not.toContain('<script>')
     expect(meta).toContain('&quot;')
   })
@@ -195,7 +195,7 @@ describe('GET /tour/<kennung>', () => {
   /** Tour anlegen und in einen Zustand bringen, den die Seite beschreiben kann. */
   async function createTour(
     u: Awaited<ReturnType<typeof baueTestApp>>,
-    opts: { sicht?: 'private' | 'unlisted' | 'public'; titel?: string; text?: string } = {},
+    opts: { sicht?: 'private' | 'unlisted' | 'public'; title?: string; text?: string } = {},
   ): Promise<string> {
     const a = await u.app.inject({
       method: 'POST',
@@ -205,7 +205,7 @@ describe('GET /tour/<kennung>', () => {
       // wäre die zweite Tour dieselbe wie die erste.
       payload: {
         ...beispielManifest(),
-        clientTourId: `ct-${opts.titel ?? 'a'}-${opts.sicht ?? 'p'}`,
+        clientTourId: `ct-${opts.title ?? 'a'}-${opts.sicht ?? 'p'}`,
       },
     })
     const id = (a.json() as { id: string }).id
@@ -215,7 +215,7 @@ describe('GET /tour/<kennung>', () => {
       )
       .run(
         opts.sicht ?? 'public',
-        opts.titel ?? 'Runde bei Lauterbrunnen',
+        opts.title ?? 'Runde bei Lauterbrunnen',
         opts.text ?? null,
         `/api/media/${id}/m1.w1920.jpg`,
         id,
@@ -225,7 +225,7 @@ describe('GET /tour/<kennung>', () => {
 
   it('setzt Titel, Beschreibung und Titelbild einer öffentlichen Tour', async () => {
     const u = await baueTestApp()
-    const id = await createTour(u, { titel: 'Über den Pass', text: 'Sechs Stunden bergauf.' })
+    const id = await createTour(u, { title: 'Über den Pass', text: 'Sechs Stunden bergauf.' })
     const a = await u.app.inject({ method: 'GET', url: `/tour/${id}` })
     expect(a.statusCode).toBe(200)
     expect(a.body).toContain('<title>Über den Pass · Maptale</title>')
@@ -242,7 +242,7 @@ describe('GET /tour/<kennung>', () => {
     // Der Kern der Stufe: „jeder mit dem Link, sonst niemand". Ein Suchtreffer
     // bräche das, eine Vorschaukarte im Chat ist genau ihr Zweck.
     const u = await baueTestApp()
-    const id = await createTour(u, { sicht: 'unlisted', titel: 'Nur für Freunde' })
+    const id = await createTour(u, { sicht: 'unlisted', title: 'Nur für Freunde' })
     const a = await u.app.inject({ method: 'GET', url: `/tour/${id}` })
     expect(a.body).toContain('content="noindex"')
     expect(a.body).toContain('<title>Nur für Freunde · Maptale</title>')
@@ -251,7 +251,7 @@ describe('GET /tour/<kennung>', () => {
 
   it('verrät eine private Tour nicht — außer ihrem Besitzer', async () => {
     const u = await baueTestApp()
-    const id = await createTour(u, { sicht: 'private', titel: 'Geheime Runde' })
+    const id = await createTour(u, { sicht: 'private', title: 'Geheime Runde' })
     const fremd = await u.app.inject({ method: 'GET', url: `/tour/${id}` })
     expect(fremd.statusCode).toBe(404)
     expect(fremd.body).not.toContain('Geheime Runde')

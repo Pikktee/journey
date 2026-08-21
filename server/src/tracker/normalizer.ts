@@ -24,7 +24,7 @@ function escape(text: string): string {
 }
 
 /** Zahl mit sinnvoller Genauigkeit: 7 Nachkommastellen sind ~1 cm. */
-function koord(n: number): string {
+function coord(n: number): string {
   return n.toFixed(7).replace(/\.?0+$/, '')
 }
 
@@ -33,8 +33,8 @@ function koord(n: number): string {
  * in Pausen gern `null`-Einträge in den Streams); bleibt nichts übrig, ist das
  * eine Aktivität OHNE Route und kein Fehler — s. `NoRouteError`.
  */
-export function pointsToGpx(punkte: readonly RawPoint[], titel?: string | null): string {
-  const gute = punkte
+export function pointsToGpx(points: readonly RawPoint[], title?: string | null): string {
+  const valid = points
     .filter(
       (p) =>
         Number.isFinite(p.lat) &&
@@ -43,24 +43,24 @@ export function pointsToGpx(punkte: readonly RawPoint[], titel?: string | null):
         Math.abs(p.lng) <= 180,
     )
     .slice(0, MAX_POINTS)
-  if (gute.length < 2) throw new NoRouteError()
-  const zeilen = gute.map((p) => {
-    const teile = [`<trkpt lat="${koord(p.lat)}" lon="${koord(p.lng)}">`]
-    if (Number.isFinite(p.ele)) teile.push(`<ele>${koord(p.ele as number)}</ele>`)
+  if (valid.length < 2) throw new NoRouteError()
+  const lines = valid.map((p) => {
+    const parts = [`<trkpt lat="${coord(p.lat)}" lon="${coord(p.lng)}">`]
+    if (Number.isFinite(p.ele)) parts.push(`<ele>${coord(p.ele as number)}</ele>`)
     // Die Zeit ist für die Pipeline kein Beiwerk: An ihr hängen Tempo,
     // Pausen-Kollaps und die Platzierung der Fotos. Unparsbares lieber
     // weglassen als eine erfundene Zeit zu schreiben.
-    if (p.zeit && Number.isFinite(Date.parse(p.zeit))) teile.push(`<time>${escape(p.zeit)}</time>`)
-    teile.push('</trkpt>')
-    return `      ${teile.join('')}`
+    if (p.time && Number.isFinite(Date.parse(p.time))) parts.push(`<time>${escape(p.time)}</time>`)
+    parts.push('</trkpt>')
+    return `      ${parts.join('')}`
   })
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<gpx version="1.1" creator="Maptale" xmlns="http://www.topografix.com/GPX/1/1">',
     '  <trk>',
-    ...(titel ? [`    <name>${escape(titel)}</name>`] : []),
+    ...(title ? [`    <name>${escape(title)}</name>`] : []),
     '    <trkseg>',
-    ...zeilen,
+    ...lines,
     '    </trkseg>',
     '  </trk>',
     '</gpx>',
@@ -82,6 +82,6 @@ export function toGpx(track: RawTrack): string {
     if (!text.includes('<trkpt')) throw new NoRouteError()
     return text
   }
-  if (track.format === 'punkte') return pointsToGpx(track.punkte ?? [], track.titel)
+  if (track.format === 'points') return pointsToGpx(track.points ?? [], track.title)
   throw new Error(`Format ${track.format} wird noch nicht gelesen (Etappe 2)`)
 }

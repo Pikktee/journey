@@ -13,7 +13,7 @@ import { InvalidTokensError } from './contract.js'
 export type TrackerLinkStatus = 'active' | 'expired' | 'disconnected'
 export type ImportStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped'
 
-interface VerknuepfungsZeile {
+interface LinkRow {
   id: string
   user_id: string
   provider: string
@@ -60,11 +60,11 @@ export interface ImportRow {
   error: string | null
   /** Wie oft angelaufen (≥ 1) — steht in der Liste, damit ein Deckel sichtbar ist. */
   attempts: number
-  /** Wartet die Aktivität noch auf einen neuen Anlauf? (s. `beanspruche`) */
+  /** Wartet die Aktivität noch auf einen neuen Anlauf? (s. `claim`) */
   retryable: boolean
 }
 
-function zuVerknuepfung(z: VerknuepfungsZeile): TrackerLink {
+function toLink(z: LinkRow): TrackerLink {
   return {
     id: z.id,
     userId: z.user_id,
@@ -78,19 +78,19 @@ function zuVerknuepfung(z: VerknuepfungsZeile): TrackerLink {
 }
 
 /** Kurzlebiger `state` einer laufenden Autorisierung (OAuth-CSRF-Schutz). */
-interface ZustandsEintrag {
-  benutzerId: string
-  anbieter: TrackerProviderId
-  ziel: 'web' | 'app'
+interface StateEntry {
+  userId: string
+  provider: TrackerProviderId
+  target: 'web' | 'app'
   redirectUri: string
-  laeuftAbMs: number
+  expiresAtMs: number
 }
 
 /**
  * Lebensdauer eines `state`. Kurz genug, dass ein abgefangener Wert nichts
  * nützt, lang genug für eine Anmeldung beim Anbieter samt Zwei-Faktor.
  */
-const ZUSTAND_GILT_MS = 15 * 60 * 1000
+const STATE_TTL_MS = 15 * 60 * 1000
 
 /**
  * Wie oft eine Aktivität höchstens angelaufen wird.
@@ -111,17 +111,17 @@ export class TrackerService {
    * verständliche Fehlermeldung und klickt erneut — dafür eine Tabelle samt
    * Aufräum-Lauf zu führen, wäre mehr Zustand als Nutzen.
    */
-  private readonly zustaende = new Map<string, ZustandsEintrag>()
+  private readonly states = new Map<string, StateEntry>()
 
   constructor(
     private readonly db: Db,
     /** Schlüssel für die Token-Verschlüsselung; null = alle OAuth-Anbieter aus. */
-    private readonly schluessel: string | null,
-    private readonly jetzt: () => Date = () => new Date(),
+    private readonly key: string | null,
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
   get einsatzbereit(): boolean {
-    return this.schluessel !== null
+    return this.key !== null
   }
 
   // — Autorisierung —
@@ -131,37 +131,37 @@ export class TrackerService {
    * sich einem Angemeldeten ein FREMDES Anbieter-Konto unterschieben (der
    * klassische OAuth-CSRF), und ab da liefen fremde Touren in sein Konto.
    */
-  merkeZustand(
-    benutzerId: string,
-    anbieter: TrackerProviderId,
-    ziel: 'web' | 'app',
+  rememberState(
+    userId: string,
+    provider: TrackerProviderId,
+    target: 'web' | 'app',
     redirectUri: string,
   ): string {
-    this.raeumeZustaendeAuf()
-    const zustand = newTourId().replace('t_', 'z_')
-    this.zustaende.set(zustand, {
-      benutzerId,
-      anbieter,
-      ziel,
+    this.purgeStates()
+    const state = newTourId().replace('t_', 'z_')
+    this.states.set(state, {
+      userId,
+      provider,
+      target,
       redirectUri,
-      laeuftAbMs: this.jetzt().getTime() + ZUSTAND_GILT_MS,
+      expiresAtMs: this.now().getTime() + STATE_TTL_MS,
     })
-    return zustand
+    return state
   }
 
   /** Einen `state` einlösen — EINMALIG: Der Eintrag wird dabei verbraucht. */
-  loeseZustandEin(zustand: string): ZustandsEintrag | null {
-    this.raeumeZustaendeAuf()
-    const eintrag = this.zustaende.get(zustand)
-    if (!eintrag) return null
-    this.zustaende.delete(zustand)
-    return eintrag.laeuftAbMs > this.jetzt().getTime() ? eintrag : null
+  redeemState(state: string): StateEntry | null {
+    this.purgeStates()
+    const entry = this.states.get(state)
+    if (!entry) return null
+    this.states.delete(state)
+    return entry.expiresAtMs > this.now().getTime() ? entry : null
   }
 
-  private raeumeZustaendeAuf(): void {
-    const jetztMs = this.jetzt().getTime()
-    for (const [k, v] of this.zustaende) {
-      if (v.laeuftAbMs <= jetztMs) this.zustaende.delete(k)
+  private purgeStates(): void {
+    const nowMs = this.now().getTime()
+    for (const [k, v] of this.states) {
+      if (v.expiresAtMs <= nowMs) this.states.delete(k)
     }
   }
 
@@ -177,15 +177,15 @@ export class TrackerService {
    *
    * `connected_at` bleibt beim UPDATE ABSICHTLICH stehen: Die Funktion legt
    * nicht nur beim Verbinden an, sondern auch bei jeder Token-Erneuerung
-   * (`gueltigeTokens`) — mitgeschrieben stünde auf der Kontoseite dauerhaft
+   * (`validTokens`) — mitgeschrieben stünde auf der Kontoseite dauerhaft
    * „verbunden seit vor ein paar Minuten", weil OAuth-Tokens stündlich
    * erneuert werden. Beim echten Neuverbinden nach dem Trennen gibt es keine
    * Zeile mehr, dort setzt der INSERT-Zweig das Datum frisch.
    */
-  verknuepfe(benutzerId: string, anbieter: TrackerProviderId, tokens: ProviderTokens): TrackerLink {
-    if (!this.schluessel) throw new Error('Tracker-Schlüssel fehlt')
-    const jetztIso = this.jetzt().toISOString()
-    const gepackt = encrypt(JSON.stringify(tokens), this.schluessel)
+  link(userId: string, provider: TrackerProviderId, tokens: ProviderTokens): TrackerLink {
+    if (!this.key) throw new Error('Tracker-Schlüssel fehlt')
+    const nowIso = this.now().toISOString()
+    const packed = encrypt(JSON.stringify(tokens), this.key)
     this.db
       .prepare(
         `INSERT INTO tracker_links
@@ -200,61 +200,57 @@ export class TrackerService {
       )
       .run(
         newTourId().replace('t_', 'v_'),
-        benutzerId,
-        anbieter,
-        tokens.externerNutzer ?? null,
-        gepackt,
-        tokens.laeuftAb ?? null,
-        jetztIso,
+        userId,
+        provider,
+        tokens.externalUser ?? null,
+        packed,
+        tokens.expiresAt ?? null,
+        nowIso,
       )
-    const zeile = this.verknuepfung(benutzerId, anbieter)
-    if (!zeile) throw new Error('Verknüpfung ließ sich nicht anlegen')
-    return zeile
+    const row = this.linkOf(userId, provider)
+    if (!row) throw new Error('Verknüpfung ließ sich nicht anlegen')
+    return row
   }
 
-  verknuepfung(benutzerId: string, anbieter: TrackerProviderId): TrackerLink | null {
+  linkOf(userId: string, provider: TrackerProviderId): TrackerLink | null {
     const z = this.db
       .prepare('SELECT * FROM tracker_links WHERE user_id = ? AND provider = ?')
-      .get(benutzerId, anbieter) as VerknuepfungsZeile | undefined
-    return z ? zuVerknuepfung(z) : null
+      .get(userId, provider) as LinkRow | undefined
+    return z ? toLink(z) : null
   }
 
-  verknuepfungen(benutzerId: string): TrackerLink[] {
-    const zeilen = this.db
+  links(userId: string): TrackerLink[] {
+    const rows = this.db
       .prepare('SELECT * FROM tracker_links WHERE user_id = ? ORDER BY provider')
-      .all(benutzerId) as VerknuepfungsZeile[]
-    return zeilen.map(zuVerknuepfung)
+      .all(userId) as LinkRow[]
+    return rows.map(toLink)
   }
 
   /**
    * Der Zuordnungsweg vom Webhook zum Konto: Der Anbieter schickt SEINE
    * Nutzerkennung, nicht unsere.
    */
-  ausExternerKennung(anbieter: TrackerProviderId, externerNutzer: string): TrackerLink | null {
+  byExternalId(provider: TrackerProviderId, externalUser: string): TrackerLink | null {
     const z = this.db
       .prepare('SELECT * FROM tracker_links WHERE provider = ? AND external_user = ?')
-      .get(anbieter, externerNutzer) as VerknuepfungsZeile | undefined
-    return z ? zuVerknuepfung(z) : null
+      .get(provider, externalUser) as LinkRow | undefined
+    return z ? toLink(z) : null
   }
 
   /** Tokens einer Verknüpfung im Klartext — nur für den Adapter, nie nach außen. */
-  tokens(verknuepfungId: string): ProviderTokens {
-    if (!this.schluessel) throw new Error('Tracker-Schlüssel fehlt')
+  tokens(linkId: string): ProviderTokens {
+    if (!this.key) throw new Error('Tracker-Schlüssel fehlt')
     const z = this.db
       .prepare('SELECT tokens, status FROM tracker_links WHERE id = ?')
-      .get(verknuepfungId) as { tokens: string; status: TrackerLinkStatus } | undefined
+      .get(linkId) as { tokens: string; status: TrackerLinkStatus } | undefined
     if (!z) throw new InvalidTokensError('Verknüpfung nicht gefunden')
     if (z.status !== 'active') throw new InvalidTokensError()
     try {
-      return JSON.parse(decrypt(z.tokens, this.schluessel)) as ProviderTokens
+      return JSON.parse(decrypt(z.tokens, this.key)) as ProviderTokens
     } catch {
       // Falscher Schlüssel (rotiert) oder beschädigte Zeile: Das ist keine
       // Serverstörung, sondern eine tote Verknüpfung — sichtbar machen.
-      this.setzeStatus(
-        verknuepfungId,
-        'expired',
-        'Zugang ließ sich nicht lesen, bitte neu verbinden',
-      )
+      this.setStatus(linkId, 'expired', 'Zugang ließ sich nicht lesen, bitte neu verbinden')
       throw new InvalidTokensError()
     }
   }
@@ -267,47 +263,44 @@ export class TrackerService {
    * speichert, hat die Verknüpfung verloren. Eine falsche Stelle, ein
    * zerstörter Zustand; deshalb genau eine.
    */
-  async gueltigeTokens(
-    verknuepfung: TrackerLink,
-    provider: TrackerProvider,
-  ): Promise<ProviderTokens> {
-    const tokens = this.tokens(verknuepfung.id)
-    const laeuftAbMs = tokens.laeuftAb ? Date.parse(tokens.laeuftAb) : NaN
+  async validTokens(linkOf: TrackerLink, provider: TrackerProvider): Promise<ProviderTokens> {
+    const tokens = this.tokens(linkOf.id)
+    const expiresAtMs = tokens.expiresAt ? Date.parse(tokens.expiresAt) : NaN
     // 60 s Vorlauf: Ein Token, das während des Aufrufs abläuft, ist so
     // unbrauchbar wie ein abgelaufenes.
-    const faellig = Number.isFinite(laeuftAbMs) && laeuftAbMs - 60_000 <= this.jetzt().getTime()
-    if (!faellig) return tokens
-    if (!provider.erneuereTokens || !tokens.erneuerung) {
-      this.setzeStatus(verknuepfung.id, 'expired', 'Zugang abgelaufen, bitte neu verbinden')
+    const due = Number.isFinite(expiresAtMs) && expiresAtMs - 60_000 <= this.now().getTime()
+    if (!due) return tokens
+    if (!provider.refreshTokens || !tokens.refresh) {
+      this.setStatus(linkOf.id, 'expired', 'Zugang abgelaufen, bitte neu verbinden')
       throw new InvalidTokensError()
     }
     try {
-      const neu = await provider.erneuereTokens(tokens.erneuerung)
+      const fresh = await provider.refreshTokens(tokens.refresh)
       // Die Anbieter-Nutzerkennung kommt beim Erneuern oft nicht mit — sie
       // aus Versehen auf null zu setzen, kappte den Zuordnungsweg des
       // Webhooks und die Verknüpfung wäre still taub.
-      const zusammen: ProviderTokens = {
-        ...neu,
-        externerNutzer: neu.externerNutzer ?? tokens.externerNutzer ?? null,
+      const combined: ProviderTokens = {
+        ...fresh,
+        externalUser: fresh.externalUser ?? tokens.externalUser ?? null,
       }
-      this.verknuepfe(verknuepfung.userId, verknuepfung.provider, zusammen)
-      return zusammen
-    } catch (fehler) {
-      this.setzeStatus(verknuepfung.id, 'expired', (fehler as Error).message)
+      this.link(linkOf.userId, linkOf.provider, combined)
+      return combined
+    } catch (error) {
+      this.setStatus(linkOf.id, 'expired', (error as Error).message)
       throw new InvalidTokensError()
     }
   }
 
-  setzeStatus(verknuepfungId: string, status: TrackerLinkStatus, fehler?: string | null): void {
+  setStatus(linkId: string, status: TrackerLinkStatus, error?: string | null): void {
     this.db
       .prepare('UPDATE tracker_links SET status = ?, last_error = ? WHERE id = ?')
-      .run(status, fehler ?? null, verknuepfungId)
+      .run(status, error ?? null, linkId)
   }
 
-  merkeSync(verknuepfungId: string): void {
+  noteSync(linkId: string): void {
     this.db
       .prepare('UPDATE tracker_links SET last_sync_at = ?, last_error = NULL WHERE id = ?')
-      .run(this.jetzt().toISOString(), verknuepfungId)
+      .run(this.now().toISOString(), linkId)
   }
 
   /**
@@ -316,7 +309,7 @@ export class TrackerService {
    * Bereits importierte Touren BLEIBEN — sie gehören dem Nutzer, nicht der
    * Verknüpfung. Das ist eine Aussage, die auch in der Oberfläche steht.
    */
-  trenne(benutzerId: string, anbieter: TrackerProviderId): void {
+  unlink(userId: string, provider: TrackerProviderId): void {
     // Auch das Abruf-Protokoll geht — es beschreibt die VERBINDUNG, nicht die
     // Touren. Das ist die Zusage aus datenschutz.html Abschnitt 10 („bis zum
     // Trennen"); bliebe es liegen, stünde dort eine Frist, die die Datenbank
@@ -325,10 +318,10 @@ export class TrackerService {
     this.db.transaction(() => {
       this.db
         .prepare('DELETE FROM tracker_imports WHERE user_id = ? AND provider = ?')
-        .run(benutzerId, anbieter)
+        .run(userId, provider)
       this.db
         .prepare('DELETE FROM tracker_links WHERE user_id = ? AND provider = ?')
-        .run(benutzerId, anbieter)
+        .run(userId, provider)
     })()
   }
 
@@ -350,14 +343,10 @@ export class TrackerService {
    * dauerhaft kaputt ist, geht nicht bei jeder Zustellung erneut durch die
    * Pipeline.
    */
-  beanspruche(
-    benutzerId: string,
-    anbieter: TrackerProviderId,
-    externeId: string,
-  ): ImportRow | null {
+  claim(userId: string, provider: TrackerProviderId, externalId: string): ImportRow | null {
     const id = newTourId().replace('t_', 'i_')
-    const jetztIso = this.jetzt().toISOString()
-    const ergebnis = this.db
+    const nowIso = this.now().toISOString()
+    const result = this.db
       .prepare(
         `INSERT INTO tracker_imports (id, user_id, provider, external_id, status, reported_at, retryable, attempts)
          VALUES (?, ?, ?, ?, 'running', ?, 0, 1)
@@ -373,28 +362,28 @@ export class TrackerService {
            seen_at = NULL
          WHERE tracker_imports.retryable = 1 AND tracker_imports.attempts < ?`,
       )
-      .run(id, benutzerId, anbieter, externeId, jetztIso, MAX_ATTEMPTS)
-    if (ergebnis.changes === 0) return null
+      .run(id, userId, provider, externalId, nowIso, MAX_ATTEMPTS)
+    if (result.changes === 0) return null
     // Beim erneuten Anlauf gilt die VORHANDENE Zeile — `reported_at` bleibt der
     // Zeitpunkt der ersten Meldung, sonst wanderte die Aktivität in der Liste
     // bei jedem Versuch nach oben.
-    return this.importZeileNach(benutzerId, anbieter, externeId)
+    return this.importRowTo(userId, provider, externalId)
   }
 
-  private importZeileNach(
-    benutzerId: string,
-    anbieter: TrackerProviderId,
-    externeId: string,
+  private importRowTo(
+    userId: string,
+    provider: TrackerProviderId,
+    externalId: string,
   ): ImportRow | null {
     const z = this.db
       .prepare(
         'SELECT id FROM tracker_imports WHERE user_id = ? AND provider = ? AND external_id = ?',
       )
-      .get(benutzerId, anbieter, externeId) as { id: string } | undefined
-    return z ? this.importZeile(z.id) : null
+      .get(userId, provider, externalId) as { id: string } | undefined
+    return z ? this.importRow(z.id) : null
   }
 
-  importZeile(id: string): ImportRow | null {
+  importRow(id: string): ImportRow | null {
     const z = this.db.prepare('SELECT * FROM tracker_imports WHERE id = ?').get(id) as
       Record<string, string | number | null> | undefined
     if (!z) return null
@@ -422,32 +411,25 @@ export class TrackerService {
    * kurz" bleiben wahr, egal wie oft man es versucht; „Speicher voll", ein
    * Anbieter-Ausfall oder ein Netzfehler sind Momentaufnahmen.
    */
-  schliesseImportAb(
+  finishImport(
     id: string,
     status: ImportStatus,
     tourId?: string | null,
-    fehler?: string | null,
-    wiederholbar = false,
+    error?: string | null,
+    retryable = false,
   ): void {
     this.db
       .prepare(
         'UPDATE tracker_imports SET status = ?, tour_id = ?, finished_at = ?, error = ?, retryable = ? WHERE id = ?',
       )
-      .run(
-        status,
-        tourId ?? null,
-        this.jetzt().toISOString(),
-        fehler ?? null,
-        wiederholbar ? 1 : 0,
-        id,
-      )
+      .run(status, tourId ?? null, this.now().toISOString(), error ?? null, retryable ? 1 : 0, id)
   }
 
-  importe(benutzerId: string, grenze = 30): ImportRow[] {
-    const zeilen = this.db
+  imports(userId: string, cutoff = 30): ImportRow[] {
+    const rows = this.db
       .prepare('SELECT id FROM tracker_imports WHERE user_id = ? ORDER BY reported_at DESC LIMIT ?')
-      .all(benutzerId, grenze) as Array<{ id: string }>
-    return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportRow => z !== null)
+      .all(userId, cutoff) as Array<{ id: string }>
+    return rows.map((z) => this.importRow(z.id)).filter((z): z is ImportRow => z !== null)
   }
 
   /**
@@ -465,34 +447,34 @@ export class TrackerService {
    * Die Statistik wird HIER aufgelöst und nicht in der Oberfläche: `stats_json`
    * ist ein internes Format, und die Chronik braucht daraus zwei Zahlen.
    */
-  chronik(benutzerId: string, grenze = 200): Array<ImportRow & { tour: TourSummary | null }> {
-    const zeilen = this.db
+  history(userId: string, cutoff = 200): Array<ImportRow & { tour: TourSummary | null }> {
+    const rows = this.db
       .prepare(
         `SELECT i.id, t.title AS titel, t.stats_json, t.status AS tour_status, t.visibility
          FROM tracker_imports i
          LEFT JOIN tours t ON t.id = i.tour_id
          WHERE i.user_id = ? ORDER BY i.reported_at DESC LIMIT ?`,
       )
-      .all(benutzerId, grenze) as Array<{
+      .all(userId, cutoff) as Array<{
       id: string
-      titel: string | null
+      titleOf: string | null
       stats_json: string | null
       tour_status: string | null
       visibility: string | null
     }>
-    type ChronikZeile = ImportRow & { tour: TourSummary | null }
-    return zeilen.flatMap<ChronikZeile>((z) => {
-      const zeile = this.importZeile(z.id)
-      if (!zeile) return []
-      if (!z.tour_status) return [{ ...zeile, tour: null }]
+    type HistoryRow = ImportRow & { tour: TourSummary | null }
+    return rows.flatMap<HistoryRow>((z) => {
+      const row = this.importRow(z.id)
+      if (!row) return []
+      if (!z.tour_status) return [{ ...row, tour: null }]
       const stats = z.stats_json
         ? (JSON.parse(z.stats_json) as { km?: number; placedMedia?: number })
         : null
       return [
         {
-          ...zeile,
+          ...row,
           tour: {
-            title: z.titel,
+            title: z.titleOf,
             km: typeof stats?.km === 'number' ? stats.km : null,
             placedMedia: typeof stats?.placedMedia === 'number' ? stats.placedMedia : null,
             status: z.tour_status,
@@ -509,25 +491,25 @@ export class TrackerService {
    * `seen_at` steht auf dem SERVER und nicht als Flag im Client: Zwei Geräte
    * am selben Konto sollen dieselbe Tour nicht doppelt melden.
    */
-  offeneImporte(benutzerId: string): ImportRow[] {
-    const zeilen = this.db
+  pendingImports(userId: string): ImportRow[] {
+    const rows = this.db
       .prepare(
         `SELECT id FROM tracker_imports
          WHERE user_id = ? AND seen_at IS NULL AND status IN ('done', 'failed')
          ORDER BY reported_at`,
       )
-      .all(benutzerId) as Array<{ id: string }>
-    return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportRow => z !== null)
+      .all(userId) as Array<{ id: string }>
+    return rows.map((z) => this.importRow(z.id)).filter((z): z is ImportRow => z !== null)
   }
 
-  markiereGesehen(benutzerId: string, ids: readonly string[]): void {
+  markSeen(userId: string, ids: readonly string[]): void {
     if (!ids.length) return
-    const jetztIso = this.jetzt().toISOString()
-    const setze = this.db.prepare(
+    const nowIso = this.now().toISOString()
+    const set = this.db.prepare(
       'UPDATE tracker_imports SET seen_at = ? WHERE id = ? AND user_id = ? AND seen_at IS NULL',
     )
     this.db.transaction(() => {
-      for (const id of ids) setze.run(jetztIso, id, benutzerId)
+      for (const id of ids) set.run(nowIso, id, userId)
     })()
   }
 }

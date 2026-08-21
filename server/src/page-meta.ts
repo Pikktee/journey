@@ -47,7 +47,7 @@ const FRISCHE_MS = 5 * 60 * 1000
  * Frage, wegen der das hier überhaupt existiert.
  */
 export type MetaBlock = {
-  titel: string
+  title: string
   robots: 'index' | 'noindex'
   beschreibung?: string | null
   /** Absolute Adresse dieser Seite — `canonical` und `og:url`. */
@@ -94,7 +94,7 @@ export function buildDescription(roh: string | null | undefined, maxLaenge = 200
 /** Aus einem Metablock die Zeilen bauen, die zwischen den Markern stehen. */
 export function buildMeta(meta: MetaBlock): string {
   const zeilen: string[] = [
-    `<title>${escapeAttribute(meta.titel)}</title>`,
+    `<title>${escapeAttribute(meta.title)}</title>`,
     `<meta name="robots" content="${meta.robots}" />`,
   ]
   if (meta.beschreibung) {
@@ -112,7 +112,7 @@ export function buildMeta(meta: MetaBlock): string {
   zeilen.push(`<meta property="og:type" content="${meta.ogTyp ?? 'website'}" />`)
   zeilen.push('<meta property="og:site_name" content="Maptale" />')
   zeilen.push('<meta property="og:locale" content="de_DE" />')
-  zeilen.push(`<meta property="og:title" content="${escapeAttribute(meta.titel)}" />`)
+  zeilen.push(`<meta property="og:title" content="${escapeAttribute(meta.title)}" />`)
   if (meta.bild) {
     zeilen.push(`<meta property="og:image" content="${escapeAttribute(meta.bild)}" />`)
     if (meta.bildAlt)

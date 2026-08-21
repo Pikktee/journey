@@ -5,7 +5,7 @@ import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 interface Karte {
   id: string
-  titel: string | null
+  title: string | null
   cover: string | null
   km: number | null
   author: { displayName: string; avatarUrl: string | null; id?: string } | null

@@ -24,7 +24,7 @@ import { NoRouteError, TooSmallError, type RawTrack, type TrackerProviderId } fr
  * Server-Erkennung darüber (Tempo, Schienenabgleich), und die kann nur
  * verfeinern, was nicht als Angabe festgeschrieben ist.
  */
-const SPORT_MODI: Array<[RegExp, TravelMode]> = [
+const SPORT_MODES: Array<[RegExp, TravelMode]> = [
   [/ride|cycl|bike|biking|velo/i, 'bike'],
   [/run|walk|hike|hiking|trek|nordic/i, 'walk'],
   [/motor|scooter|moped/i, 'moped'],
@@ -33,10 +33,10 @@ const SPORT_MODI: Array<[RegExp, TravelMode]> = [
 ]
 
 /** Modus aus der Sportart raten; `null` heißt „keine Angabe" (der Server rät selbst). */
-export function travelModeFromSport(sportart: string | null | undefined): TravelMode | null {
-  if (!sportart) return null
-  for (const [muster, modus] of SPORT_MODI) {
-    if (muster.test(sportart)) return modus
+export function travelModeFromSport(sport: string | null | undefined): TravelMode | null {
+  if (!sport) return null
+  for (const [pattern, mode] of SPORT_MODES) {
+    if (pattern.test(sport)) return mode
   }
   return null
 }
@@ -64,44 +64,44 @@ export const MIN_DISTANCE_M = 100
 export const MIN_DURATION_S = 120
 
 export interface CreationSource {
-  anbieter: TrackerProviderId
-  externeId: string
+  providerOf: TrackerProviderId
+  externalId: string
   track: RawTrack
 }
 
 export interface CreationResult {
   tourId: string
   /** true = dieselbe Aktivität lag schon vor (wiederholte Zustellung). */
-  wiederverwendet: boolean
+  reused: boolean
 }
 
 /** Länge eines GPX in Metern (grob, für die Mindestgröße — nicht für Statistik). */
-function streckeM(gpx: string): number {
-  const punkte: Array<[number, number]> = []
+function distanceM(gpx: string): number {
+  const points: Array<[number, number]> = []
   const re =
     /<trkpt\b[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"|<trkpt\b[^>]*lon="([^"]+)"[^>]*lat="([^"]+)"/g
   let m: RegExpExecArray | null
   while ((m = re.exec(gpx))) {
     const lat = Number(m[1] ?? m[4])
     const lng = Number(m[2] ?? m[3])
-    if (Number.isFinite(lat) && Number.isFinite(lng)) punkte.push([lat, lng])
+    if (Number.isFinite(lat) && Number.isFinite(lng)) points.push([lat, lng])
   }
-  let summe = 0
-  for (let i = 1; i < punkte.length; i++) {
-    const [aLat = 0, aLng = 0] = punkte[i - 1] as [number, number]
-    const [bLat = 0, bLng = 0] = punkte[i] as [number, number]
+  let sum = 0
+  for (let i = 1; i < points.length; i++) {
+    const [aLat = 0, aLng = 0] = points[i - 1] as [number, number]
+    const [bLat = 0, bLng = 0] = points[i] as [number, number]
     const dLat = ((bLat - aLat) * Math.PI * 6371000) / 180
     const dLng =
       (((bLng - aLng) * Math.PI * 6371000) / 180) * Math.cos(((aLat + bLat) / 2) * (Math.PI / 180))
-    summe += Math.hypot(dLat, dLng)
+    sum += Math.hypot(dLat, dLng)
   }
-  return summe
+  return sum
 }
 
 /** Wird geworfen, wenn der Speicher des Kontos voll ist (→ `uebersprungen` mit Hinweis). */
 export class QuotaError extends Error {
-  constructor(nachricht: string) {
-    super(nachricht)
+  constructor(message: string) {
+    super(message)
     this.name = 'QuotaFehler'
   }
 }
@@ -116,72 +116,72 @@ export class QuotaError extends Error {
  */
 export async function createTourFromTrack(
   app: FastifyInstance,
-  benutzerId: string,
-  quelle: CreationSource,
+  userId: string,
+  source: CreationSource,
 ): Promise<CreationResult> {
   const { storage, userStorage, config, db } = app.deps
-  const gpx = toGpx(quelle.track)
+  const gpx = toGpx(source.track)
 
-  const startMs = Date.parse(quelle.track.start)
-  const endeMs = Date.parse(quelle.track.ende)
-  if (!Number.isFinite(startMs) || !Number.isFinite(endeMs) || endeMs <= startMs) {
+  const startMs = Date.parse(source.track.start)
+  const endMs = Date.parse(source.track.end)
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
     throw new Error('Aktivität ohne brauchbare Zeitspanne')
   }
-  const dauerS = (endeMs - startMs) / 1000
-  const strecke = streckeM(gpx)
-  if (strecke < MIN_DISTANCE_M && dauerS < MIN_DURATION_S) {
+  const durationS = (endMs - startMs) / 1000
+  const distance = distanceM(gpx)
+  if (distance < MIN_DISTANCE_M && durationS < MIN_DURATION_S) {
     throw new TooSmallError(
-      `Zu kurz für eine Tour (${Math.round(strecke)} m, ${Math.round(dauerS / 60)} min)`,
+      `Zu kurz für eine Tour (${Math.round(distance)} m, ${Math.round(durationS / 60)} min)`,
     )
   }
 
   // Quota VOR dem Anlegen: Eine Tour anzulegen und sie dann am vollen Speicher
   // scheitern zu lassen, hinterließe eine leere Hülle im Konto.
-  const quotaFehler = await checkQuota(
+  const quotaError = await checkQuota(
     db,
     storage,
     userStorage,
-    benutzerId,
+    userId,
     config.maxStoragePerUser,
     Buffer.byteLength(gpx),
   )
-  if (quotaFehler) throw new QuotaError(quotaFehler)
+  if (quotaError) throw new QuotaError(quotaError)
 
-  const modus = travelModeFromSport(quelle.track.sportart)
+  const mode = travelModeFromSport(source.track.sport)
   const manifest: UploadManifest = {
     schema: UPLOAD_SCHEMA_ID,
     // Der Dedup-Riegel: Dieselbe Aktivität ein zweites Mal gemeldet trifft auf
     // den vorhandenen UNIQUE(owner_id, client_tour_id) und bekommt dieselbe
     // Tour-ID zurück, statt eine zweite anzulegen.
-    clientTourId: `${quelle.anbieter}:${quelle.externeId}`,
-    title: quelle.track.titel ?? null,
+    clientTourId: `${source.providerOf}:${source.externalId}`,
+    title: source.track.title ?? null,
     description: null,
     time: {
       start: new Date(startMs).toISOString(),
-      end: new Date(endeMs).toISOString(),
+      end: new Date(endMs).toISOString(),
       // Die Zone des Anbieters ist unbekannt; UTC ist die ehrliche Angabe.
       // Sie steht im Manifest und ist im Studio änderbar — geraten wäre sie
       // dort nicht mehr als solche zu erkennen.
       zone: 'UTC',
     },
     trackFile: 'track.gpx',
-    ...(modus ? { trackMode: modus } : {}),
+    ...(mode ? { trackMode: mode } : {}),
     // Ohne Modus-Angabe darf die Server-Erkennung arbeiten; mit einer
     // geratenen Sportart-Zuordnung wäre sie stillgelegt.
-    ...(modus ? {} : { travelModesAuto: true }),
+    ...(mode ? {} : { travelModesAuto: true }),
     media: [],
   }
 
-  const angelegt = await createTour(app, benutzerId, manifest)
-  if (!angelegt.ok) throw new Error(angelegt.error)
-  if (angelegt.reused) return { tourId: angelegt.id, wiederverwendet: true }
+  const created = await createTour(app, userId, manifest)
+  if (!created.ok) throw new Error(created.error)
+  if (created.reused) return { tourId: created.id, reused: true }
 
-  await storage.write(angelegt.id, TRACK_PATH, gpx)
-  const tour = loadTour(app, angelegt.id)
+  await storage.write(created.id, TRACK_PATH, gpx)
+  const tour = loadTour(app, created.id)
   if (!tour) throw new Error('Tour verschwand zwischen Anlegen und Finalisieren')
-  const fertig = await finalizeTour(app, tour)
-  if (!fertig.ok) throw new Error(fertig.error)
-  return { tourId: angelegt.id, wiederverwendet: false }
+  const finished = await finalizeTour(app, tour)
+  if (!finished.ok) throw new Error(finished.error)
+  return { tourId: created.id, reused: false }
 }
 
 export { NoRouteError, TooSmallError }

@@ -41,19 +41,19 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
     provider: TrackerProvider,
     benutzerId: string | null,
   ): Record<string, unknown> => {
-    const verknuepfung = benutzerId ? app.tracker.verknuepfung(benutzerId, provider.id) : null
+    const link = benutzerId ? app.tracker.linkOf(benutzerId, provider.id) : null
     return {
       id: provider.id,
       name: PROVIDER_NAMES[provider.id],
       // Ohne Zugangsdaten ODER ohne Token-Schlüssel kann niemand verbinden.
       // Beides zusammen, weil ein Anbieter mit Client-ID, aber ohne
       // Schlüssel Tokens im Klartext ablegen müsste — und das tun wir nicht.
-      available: provider.konfiguriert && app.tracker.einsatzbereit,
-      connected: verknuepfung?.status === 'active',
-      status: verknuepfung?.status ?? null,
-      connectedAt: verknuepfung?.connectedAt ?? null,
-      lastSyncAt: verknuepfung?.lastSyncAt ?? null,
-      error: verknuepfung?.lastError ?? null,
+      available: provider.configured && app.tracker.einsatzbereit,
+      connected: link?.status === 'active',
+      status: link?.status ?? null,
+      connectedAt: link?.connectedAt ?? null,
+      lastSyncAt: link?.lastSyncAt ?? null,
+      error: link?.lastError ?? null,
     }
   }
 
@@ -61,7 +61,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
   app.get('/api/tracker/providers', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    return { providers: app.trackerRegistry.alle().map((p) => zeigeAnbieter(p, benutzer.id)) }
+    return { providers: app.trackerRegistry.all().map((p) => zeigeAnbieter(p, benutzer.id)) }
   })
 
   // — Verbinden: Autorisierungs-URL samt `state` ausgeben —
@@ -71,20 +71,20 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const benutzer = requireUser(request, reply)
       if (!benutzer) return
-      const provider = app.trackerRegistry.hole(request.params.provider)
+      const provider = app.trackerRegistry.get(request.params.provider)
       if (!provider || !app.tracker.einsatzbereit) {
         return reply.code(404).send({ error: 'Anbieter nicht verfügbar' })
       }
       const redirectUri = returnUrl(config.baseUrl, provider.id)
       // Der `state` ist Pflicht und wird SERVERSEITIG gehalten: Ohne ihn ließe
       // sich einem Angemeldeten ein fremdes Anbieter-Konto unterschieben.
-      const zustand = app.tracker.merkeZustand(
+      const zustand = app.tracker.rememberState(
         benutzer.id,
         provider.id,
         request.body?.target ?? 'web',
         redirectUri,
       )
-      return { authorizationUrl: provider.autorisierungsUrl(zustand, redirectUri) }
+      return { authorizationUrl: provider.authorizationUrl(zustand, redirectUri) }
     },
   )
 
@@ -94,24 +94,24 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
     Querystring: { code?: string; state?: string; error?: string }
   }>('/api/tracker/:provider/callback', async (request, reply) => {
     const { code, state, error } = request.query
-    const provider = app.trackerRegistry.hole(request.params.provider)
+    const provider = app.trackerRegistry.get(request.params.provider)
     // Abbruch beim Anbieter ist kein Fehlerfall, sondern eine Entscheidung —
     // zurück auf die Kontoseite, mit einem Wort dazu.
     if (error || !code || !state || !provider) {
       return reply.redirect(`${config.baseUrl}/konto#tracker=abgebrochen`)
     }
-    const zustand = app.tracker.loeseZustandEin(state)
-    if (!zustand || zustand.anbieter !== provider.id) {
+    const zustand = app.tracker.redeemState(state)
+    if (!zustand || zustand.provider !== provider.id) {
       return reply.redirect(`${config.baseUrl}/konto#tracker=abgelaufen`)
     }
     try {
-      let tokens = await provider.tauscheCode(code, zustand.redirectUri)
+      let tokens = await provider.exchangeCode(code, zustand.redirectUri)
       // Pflichtschritte des Anbieters (Polar: `POST /v3/users`) — ohne sie
       // liefert die API still nichts, und der Fehler ist beim Debuggen ein
       // stilles Nichts. Was dabei herauskommt (die Nutzerkennung), ist der
       // Zuordnungsweg jedes späteren Webhooks.
-      if (provider.nachVerknuepfung) tokens = (await provider.nachVerknuepfung(tokens)) || tokens
-      app.tracker.verknuepfe(zustand.benutzerId, provider.id, tokens)
+      if (provider.afterLink) tokens = (await provider.afterLink(tokens)) || tokens
+      app.tracker.link(zustand.userId, provider.id, tokens)
     } catch (fehler) {
       app.log.warn(
         `Tracker-Verknüpfung fehlgeschlagen (${provider.id}): ${(fehler as Error).message}`,
@@ -120,7 +120,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
     }
     // Die App bekommt einen Deep Link zurück; im Web genügt die Kontoseite.
     return reply.redirect(
-      zustand.ziel === 'app'
+      zustand.target === 'app'
         ? `maptale://tracker/${provider.id}?ok=1`
         : `${config.baseUrl}/konto#tracker=verbunden`,
     )
@@ -131,24 +131,24 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const anbieter = request.params.provider as TrackerProviderId
-    const verknuepfung = app.tracker.verknuepfung(benutzer.id, anbieter)
-    if (!verknuepfung) return reply.code(404).send({ error: 'Nicht verbunden' })
-    const provider = app.trackerRegistry.hole(anbieter)
+    const link = app.tracker.linkOf(benutzer.id, anbieter)
+    if (!link) return reply.code(404).send({ error: 'Nicht verbunden' })
+    const provider = app.trackerRegistry.get(anbieter)
     // Beim Anbieter abmelden, BEVOR die Tokens verschwinden — danach hätten
     // wir nichts mehr, womit wir uns dort ausweisen könnten. Scheitert es
     // (Anbieter down), wird trotzdem lokal getrennt: Der Nutzer hat es
     // verlangt, und ein hängendes Abo ist besser als eine Verknüpfung, die
     // sich nicht lösen lässt.
-    if (provider?.trenne) {
+    if (provider?.unlink) {
       try {
-        await provider.trenne(app.tracker.tokens(verknuepfung.id))
+        await provider.unlink(app.tracker.tokens(link.id))
       } catch (fehler) {
         app.log.warn(
           `Abmelden beim Anbieter fehlgeschlagen (${anbieter}): ${(fehler as Error).message}`,
         )
       }
     }
-    app.tracker.trenne(benutzer.id, anbieter)
+    app.tracker.unlink(benutzer.id, anbieter)
     // Die Touren bleiben — sie gehören dem Nutzer, nicht der Verknüpfung.
     return { ok: true, toursKept: true }
   })
@@ -169,12 +169,12 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
           .code(429)
           .send({ error: 'Zu viele Abrufe. Versuch es in ein paar Minuten noch einmal.' })
       }
-      const provider = app.trackerRegistry.hole(request.params.provider)
-      const verknuepfung = provider ? app.tracker.verknuepfung(benutzer.id, provider.id) : null
-      if (!provider || !verknuepfung) return reply.code(404).send({ error: 'Nicht verbunden' })
-      if (!provider.listeNeue)
+      const provider = app.trackerRegistry.get(request.params.provider)
+      const link = provider ? app.tracker.linkOf(benutzer.id, provider.id) : null
+      if (!provider || !link) return reply.code(404).send({ error: 'Nicht verbunden' })
+      if (!provider.listNew)
         return reply.code(409).send({ error: 'Dieser Anbieter meldet sich von selbst' })
-      if (verknuepfung.status !== 'active') {
+      if (link.status !== 'active') {
         return reply.code(409).send({ error: 'Verknüpfung ist nicht aktiv, bitte neu verbinden' })
       }
 
@@ -186,8 +186,8 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       let ereignisse
       let tokens
       try {
-        tokens = await app.tracker.gueltigeTokens(verknuepfung, provider)
-        ereignisse = await provider.listeNeue(tokens, verknuepfung.lastSyncAt)
+        tokens = await app.tracker.validTokens(link, provider)
+        ereignisse = await provider.listNew(tokens, link.lastSyncAt)
       } catch (fehler) {
         if (fehler instanceof InvalidTokensError) {
           return reply.code(409).send({ error: 'Zugang abgelaufen, bitte neu verbinden' })
@@ -199,8 +199,8 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       }
 
       const auftraege = ereignisse
-        .filter((e) => e.art === 'aktivitaet')
-        .map((e) => ({ verknuepfung, provider, externeId: e.externeId }))
+        .filter((e) => e.kind === 'aktivitaet')
+        .map((e) => ({ link, provider, externalId: e.externalId }))
       // Anders als beim Webhook wird hier GEWARTET: Wer den Knopf drückt, will
       // das Ergebnis sehen. Aber nur auf die ersten paar — nach einer Woche
       // Funkstille kämen zwanzig Aktivitäten, und die Anfrage stünde minutenlang
@@ -210,7 +210,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       const rest = auftraege.slice(SYNC_SOFORT)
       const ergebnisse = await runImports(app, app.tracker, sofort)
       if (rest.length) {
-        const schluessel = `sync:${verknuepfung.id}`
+        const schluessel = `sync:${link.id}`
         app.trackerRuns.set(
           schluessel,
           runImports(app, app.tracker, rest).finally(() => app.trackerRuns.delete(schluessel)),
@@ -219,7 +219,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       // Der Sync-Zeitpunkt kommt aus `runImports` (nur wenn nichts offen
       // blieb — er ist der Cursor des nächsten Abrufs). Ohne Aufträge gibt es
       // dort nichts zu entscheiden, und „nichts Neues" ist ein Erfolg.
-      if (!auftraege.length) app.tracker.merkeSync(verknuepfung.id)
+      if (!auftraege.length) app.tracker.noteSync(link.id)
       return { found: auftraege.length, new: ergebnisse.length, inBackground: rest.length }
     },
   )
@@ -234,7 +234,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
   app.get('/api/tracker/imports', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    return { imports: app.tracker.chronik(benutzer.id) }
+    return { imports: app.tracker.history(benutzer.id) }
   })
 
   // — Was der Client noch nicht gesehen hat (Grundlage der Benachrichtigung) —
@@ -243,7 +243,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const benutzer = requireUser(request, reply)
       if (!benutzer) return
-      const offen = app.tracker.offeneImporte(benutzer.id)
+      const offen = app.tracker.pendingImports(benutzer.id)
       // Erst mit `?seen=1` gelten sie als abgeholt. Ohne diesen Schritt
       // verschwände eine Meldung schon dadurch, dass ein Hintergrundlauf sie
       // gelesen hat — der Nutzer hätte sie nie zu Gesicht bekommen.
@@ -252,7 +252,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       // (POST …/seen): `?seen=1` quittiert alles, was gerade offen ist —
       // auch das, was der Aufrufer am Ende gar nicht anzeigt.
       if (request.query.seen === '1')
-        app.tracker.markiereGesehen(
+        app.tracker.markSeen(
           benutzer.id,
           offen.map((i) => i.id),
         )
@@ -285,7 +285,7 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       if (!benutzer) return
       // `markiereGesehen` filtert selbst auf das eigene Konto — fremde IDs
       // laufen ins Leere, statt eine Auskunft darüber zu geben, dass es sie gibt.
-      app.tracker.markiereGesehen(benutzer.id, request.body.ids)
+      app.tracker.markSeen(benutzer.id, request.body.ids)
       return { ok: true }
     },
   )
