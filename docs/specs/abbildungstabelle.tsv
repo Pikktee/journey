@@ -3908,3 +3908,8 @@ beiKlick	onClick	property	android/app/src/main/java/app/maptale/ui/ (Compose-Bau
 zurueck	back	property	android/app/src/main/java/app/maptale/ui/ (Screens)	10	Nachlauf: Rueckweg-Callback der Screens
 fokus	focus	property	android/app/src/main/java/app/maptale/ui/Components.kt	10	Nachlauf
 bereit	ready	api-wert	android/app/src/main/java/app/maptale/upload/ApiClient.kt (tourStatus-Rueckfall)	10	FEHLERHEILUNG: der Rueckfallwert war seit Welle 1 deutsch, alle Vergleiche daneben englisch — der Poll konnte nie fertig werden
+anzeigename	anzeigename	json-feld	server/src/data-export-content.ts (AccountDetails.profil); data-export-run.ts (konto.json im ZIP)	10	OFFEN: Produktentscheidung, s. Nachlauf. Das ZIP ist das ausgelieferte Erzeugnis nach Art. 20 DSGVO — deutscher Ordner touren/, deutsche README daneben. Maschinenformat (englisch) oder Produktoberflaeche (deutsch)? vertagt am 2026-08-21
+sichtbarkeit	sichtbarkeit	json-feld	server/src/data-export-content.ts (AccountDetails.profil, TourDetails); data-export-run.ts	10	OFFEN: s. anzeigename; vertagt am 2026-08-21
+zustand	zustand	json-feld	server/src/data-export-content.ts (newsletter.historie); data-export-run.ts	10	OFFEN: s. anzeigename; vertagt am 2026-08-21
+angelegtAm	angelegtAm	json-feld	server/src/data-export-content.ts (AccountDetails, pushGeraete); data-export-run.ts	10	OFFEN: s. anzeigename; vertagt am 2026-08-21. NICHT zu verwechseln mit PushDevice.createdAt im Prozess, das gewandert ist
+touren	touren	json-feld	server/src/data-export-content.ts (tourFolder, Ordnername im ZIP)	10	OFFEN: s. anzeigename; der Ordnername steht in datenschutz.html Abschnitt 11 beschrieben; vertagt am 2026-08-21

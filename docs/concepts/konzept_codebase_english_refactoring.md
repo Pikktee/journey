@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-21
-status: abgearbeitet — Wellen 0 bis 8 und Schritt 9 gebaut. Ausgeliefert ist bis v0.68.0 (Wellen 1 bis 5); der Rest samt Env-Umbenennung wartet auf den nächsten Release.
+status: abgearbeitet — Wellen 0 bis 8, Schritt 9 und der Nachlauf (Welle 10, modul-lokale Namen) gebaut. Ausgeliefert ist bis v0.68.0 (Wellen 1 bis 5); der Rest samt Env-Umbenennung und Nachlauf wartet auf den nächsten Release. Offen sind fünf vertagte Zeilen (JSON-Schlüssel des Datenexport-ZIPs) und der deutsche Rest in android/, den die Stammliste von scripts/deutsche-reste.mjs nicht sieht.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -2019,6 +2019,38 @@ gegen den Code gefallen (§0). Ersetzt durch diese Fassung.
 ---
 
 ## 11. Nächster Schritt
+
+**Nachlauf, gebaut am 2026-08-21 (Welle 10).** Was die acht Wellen nicht
+erfassen KONNTEN: modul-lokale Namen. Die Abbildungstabelle deckt Exporte, also
+stand kein `fehler`, kein `wert`, kein `eintrag` je darin, und kein Wächter
+konnte sie melden. Gemessen hat sie
+[scripts/deutsche-reste.mjs](../../scripts/deutsche-reste.mjs) — 282 Namen in
+734 Dateien am Anfang, 9 Namen in 11 Dateien am Ende, acht Commits mit Gates
+dazwischen. Vier Befunde, die den Lauf gerechtfertigt haben:
+
+- **`AdminFeedback.benutzerId/benutzerName`** gegen `userId`/`userName` des
+  Servers — im Reiter „Rückmeldungen" war der Name seit Welle 1 immer leer und
+  die Suche fand ihn nie. Die §9.2-Sorte: Typ und Leser waren gemeinsam falsch.
+- **`ApiClient.tourStatus` fiel auf `"bereit"` zurück**, während alle
+  Vergleiche daneben `"ready"` prüfen — der Upload-Poll der App konnte ohne
+  `status`-Feld nie fertig werden.
+- **Der Anreicherungs-Cache musste auf `@3`**: `EnrichmentCache.videoMeta` ist
+  eine persistierte Form, und ihre Felder sind mitgewandert.
+- **Ein Route-Platzhalter ist eine Zeichenkette**: `'/tour/:kennung'` mit
+  `Params: { id }` ergibt `undefined`.
+
+`tempoMs` ist dabei entschieden (→ `tempoMps`; `…Ms` gehört nach §6.0 Regel 1
+den Millisekunden). Der Wächter meldet „Aufgeschobene Zeilen in gebauten
+Wellen" seither nur noch für die fünf VERTAGTEN: die deutschen JSON-Schlüssel
+des Datenexport-ZIPs (`anzeigename`, `sichtbarkeit`, `zustand`, `angelegtAm`,
+Ordner `touren/`). Ob das Erzeugnis nach Art. 20 DSGVO ein Maschinenformat ist
+oder eine Produktoberfläche, ist eine Produktentscheidung; sie steht aus.
+
+**Offen bleibt der deutsche Rest in `android/`**, den die Stammliste des
+Messwerkzeugs nicht kennt: rund 90 modul-lokale Namen (`gewaehlt`,
+`ausfuehren`, `Zustandszeile`, `Hauptleiste`, `kurswechsel` …) in Dateien, die
+der Nachlauf nicht geöffnet hat. Ein eigener Lauf, nach derselben Methodik.
+
 
 **Erledigt am 2026-08-19, vor Welle 0:** die Werkzeug-Vorstufe. Prettier
 (De-facto-Stil festgeschrieben, einmaliger Format-Lauf über alle TS/JS-Dateien,
