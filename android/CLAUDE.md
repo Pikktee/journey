@@ -2,7 +2,7 @@
 
 Aufnahme-App (Kotlin, Compose, minSdk 29). Aufgezeichnet wird in einem
 **Foreground-Service**; der Live-Zustand liegt als Prozess-Singleton
-(`AufzeichnungsZustand`, StateFlow), damit die Aufnahme das Verlassen des Screens überlebt.
+(`RecordingState`, StateFlow), damit die Aufnahme das Verlassen des Screens überlebt.
 Alles landet zuerst in Room, der Upload ist entkoppelt (WorkManager, pro Datei
 wiederaufnehmbar).
 
@@ -12,7 +12,7 @@ laufenden Aufnahme führt er zu ihr zurück. Vollbild ohne Leiste laufen Aufzeic
 Foto-Vollansicht, Tour-Detail und Player.
 
 **Eine Tourenliste.** Lokale Entwürfe und Server-Touren werden verschmolzen
-(`ui/Listenverschmelzung.kt`, DOM-frei getestet): Solange hochgeladen wird, gewinnt die lokale
+(`ui/TourListMerge.kt`, DOM-frei getestet): Solange hochgeladen wird, gewinnt die lokale
 Karte (nur sie kennt Fortschritt und Fehler), danach die vom Server (nur sie kennt Titelbild
 und Kilometer). Der Upload startet automatisch beim Beenden der Aufnahme; der Nachzügler beim
 App-Start reiht mit **`ExistingWorkPolicy.KEEP`** ein, sonst setzt er einen wartenden Backoff
@@ -43,7 +43,7 @@ Vier Dinge, die man dabei kippt:
   beschleunigte Aufträge ist begrenzt, ohne den Rückfall wirft schon das Einreihen. Der
   Netzzugang hängt ohnehin nicht daran, sondern am `setForeground` im Auftrag selbst.
 
-Der `FotoNachzugWorker` trifft dieselbe Sperre und ist noch NICHT umgestellt: Seine Meldung
+Der `PhotoBackfillWorker` trifft dieselbe Sperre und ist noch NICHT umgestellt: Seine Meldung
 und die spätere Import-Meldung teilen sich eine ID (4711, „eine Meldung, eine Wahrheit"), und
 WorkManager räumt die Vordergrund-Meldung beim Ende des Auftrags weg — die Endmeldung
 verschwände mit. Das braucht eine eigene Überlegung, keinen schnellen Handgriff.
@@ -54,7 +54,7 @@ Verbund-Primärschlüssel `(tourId, id)`.
 
 **Nach dem Upload ist das Manifest unveränderlich.** Foto-Titel und Titelbild laufen dann über
 das Edit-Overlay: lesen, EINEN Schlüssel ergänzen, zurückschreiben — als **rohes JsonObject**
-(`upload/EditsFortschreibung.kt`). Würde die App es in ein eigenes Modell parsen, fielen im
+(`upload/EditsPatch.kt`). Würde die App es in ein eigenes Modell parsen, fielen im
 Studio gesetzte Kamerafahrten, Musik und Wetterkorrekturen still unter den Tisch.
 
 **Der WebView-Player kann kein Bearer-Token schicken.** Er lädt `erlebnis.html` vom Web-Origin
@@ -63,14 +63,14 @@ deshalb über `POST /api/auth/session-from-token` gegen eine Sitzung — ohne da
 Touren (der Default für neue Touren) in der eigenen App unabspielbar.
 
 **Die Fortbewegung wird bei „Automatisch" unterwegs erkannt** (Play Services Activity
-Recognition, in `play-services-location` schon enthalten). `AufzeichnungsService.starte` bekommt
-dafür `modus = null`; der Service registriert dann Übergänge (`Bewegungserkennung`, ENTER-only,
+Recognition, in `play-services-location` schon enthalten). `RecordingService.start` bekommt
+dafür `travelMode = null`; der Service registriert dann Übergänge (`ActivityRecognizer`, ENTER-only,
 PendingIntent auf den Service statt eigenem Receiver) und schreibt jede Meldung roh als
-Moduswechsel mit. **Geglättet wird erst beim Manifest-Bau** (`ManifestBau.glaetteWechsel` →
-`Bewegungsdeutung.glaette`, pure und getestet): Die Erkennung meldet an Ampeln und beim
+Moduswechsel mit. **Geglättet wird erst beim Manifest-Bau** (`ManifestBuilder.smoothChanges` →
+`ActivityInterpretation.smooth`, pure und getestet): Die Erkennung meldet an Ampeln und beim
 Umsteigen mehrfach in Sekunden, und ungefiltert entstünden dutzende Segmente — die der Server
 als bewusste Umschaltung nimmt und deshalb nicht mehr korrigiert. Aus der Verbesserung würde
-eine Verschlechterung. Das Zerschneiden in `baueSegmente` bleibt davon unberührt mechanisch.
+eine Verschlechterung. Das Zerschneiden in `buildSegments` bleibt davon unberührt mechanisch.
 Welches Fahrzeug es war, weiß kein Sensor: `IN_VEHICLE` wird `jeep`, und der Server hebt
 Abschnitte auf einer Straßenbahntrasse anschließend auf `tram`. Damit er das darf, trägt das
 Manifest `travelModesAuto` — ohne dieses Feld sähe er nur `walk` und könnte eine Angabe nicht
@@ -87,7 +87,7 @@ Passwort außerhalb unserer Reichweite. Der Custom Tab ist dieselbe Sicherheit w
 System-Browser, nur aufgeräumter: Er läuft in unserer Aufgabe, schließt sich nach dem Rückweg
 selbst und lässt keinen Tab liegen. Sein Rückfall ist eingebaut — `CustomTabsIntent` ist im
 Kern ein `ACTION_VIEW` mit Zusatzangaben, ein Browser ohne Custom-Tab-Unterstützung öffnet die
-Seite also ganz normal. Die Leiste trägt `NachtFlaeche`, NICHT das Sonnengelb: Chrome wählt
+Seite also ganz normal. Die Leiste trägt `NightSurface`, NICHT das Sonnengelb: Chrome wählt
 die Schriftfarbe der Adresse nach der Helligkeit, und auf Gelb würde sie schwarz. Drei Dinge, die man dabei kippt: **`setIntent` in
 `onNewIntent`** ist Pflicht, sonst liefert `getIntent()` weiter den Start-Intent und ein
 zweites Verknüpfen im selben App-Leben kommt nie an. **Dem `ok=1` im Link wird NICHT
@@ -95,8 +95,8 @@ geglaubt** — die App fragt den Server nach dem tatsächlichen Zustand; was zä
 Und ein **eigenes Schema statt eines https-App-Links**, weil letzterer eine `assetlinks.json`
 auf der Domain bräuchte: Die Adresse ist kein Ort im Web, sondern ein Rückruf.
 
-**Der Weg von neuen Cloud-Touren ist Push, der Rückfall ist der `TrackerAbfrageWorker`** —
-und beide enden in derselben Funktion (`tracker/Importmeldung.kt`). Getrennt geschrieben
+**Der Weg von neuen Cloud-Touren ist Push, der Rückfall ist der `TrackerPollWorker`** —
+und beide enden in derselben Funktion (`tracker/ImportNotification.kt`). Getrennt geschrieben
 liefen die Fassungen auseinander, und der Unterschied fiele erst auf einem Gerät auf, auf
 dem genau der andere Weg greift. Der periodische Lauf bleibt, weil er drei Fälle fängt, die
 Push nie abdeckt: Geräte ohne Play Services, von der Herstellersoftware verschluckte
@@ -110,7 +110,7 @@ beim Holen quittiert, verliert die Meldung, sobald das Zeigen scheitert — und 
 regelmäßig, weil die Benachrichtigungs-Berechtigung ab Android 13 fehlen kann. Abgehakt wird
 deshalb genau, was erledigt IST: das nicht Meldenswerte immer, das Fertige nur bei gestellter
 Meldung. Ein Import, für den die Berechtigung fehlt, bleibt offen und kommt wieder. Eigener
-Benachrichtigungs-Kanal (`KANAL_IMPORTE`), damit das Stummschalten der dauerhaften
+Benachrichtigungs-Kanal (`CHANNEL_IMPORTS`), damit das Stummschalten der dauerhaften
 Aufzeichnungs-Meldung nicht auch „deine Tour ist da" verschluckt. Beim Abmelden wird der Lauf
 beendet.
 
@@ -122,7 +122,7 @@ kippt: **Die Adresse ist die FID, nicht der Registrierungs-Token** — FCM hat i
 `register()`/`unregister()`/`onRegistered()`; wer eine Anleitung von früher befolgt, baut
 gegen ein abgekündigtes Feld. **Auto-Init ist AUS** (`firebase_messaging_auto_init_enabled`
 im Manifest), denn `firebase-installations` meldet sonst schon beim App-Start eine Kennung
-an Google — vor jeder Zustimmung; eingeschaltet wird sie erst in `MaptalePush.aktiviere`.
+an Google — vor jeder Zustimmung; eingeschaltet wird sie erst in `MaptalePush.enable`.
 Daneben steht `firebase_messaging_installation_id_enabled=true`, und das ist kein
 Widerspruch: Ohne diese Freigabe wirft `register()` mit „API disabled“ — seit die FID die
 Adresse ist, muss eine App ausdrücklich erlauben, dass sie dafür benutzt wird. Das eine
@@ -140,8 +140,8 @@ Einrichtung: [docs/ops/push-einrichten.md](../docs/ops/push-einrichten.md).
 
 **Der Foto-Nachzug ist der eigentliche Produktwert der Tracker-Anbindung**
 (`galerie/`): Der Track kommt aus der Uhr, die Fotos kann nur das Gerät beisteuern. Die
-rechnenden Teile stehen DOM-frei und getestet in `Fotofenster.kt`, die MediaStore-Abfrage in
-`Galerie.kt`, der Weg zum Server in `Fotonachzug.kt`. Sechs Dinge, die man dabei kippt:
+rechnenden Teile stehen DOM-frei und getestet in `PhotoWindow.kt`, die MediaStore-Abfrage in
+`Gallery.kt`, der Weg zum Server in `PhotoBackfill.kt`. Sechs Dinge, die man dabei kippt:
 **Gelesen wird NUR im Zeitfenster einer Tour** — es gibt bewusst keine Funktion, die „alle
 Bilder" liefert; das ist die Zusage aus der Datenschutzerklärung, nicht Sparsamkeit im Code.
 **Es gibt KEINE Toleranz um das Fenster** (`TOLERANZ_MS = 0`): Sie stand einmal bei zwei
@@ -156,7 +156,7 @@ Foto gehört zu der Tour, die lief, als es entstand.
 durch, nur die Positivliste verlöre Hersteller mit eigenem Kamera-Ordner; ohne beides landet
 der Screenshot aus der Pause in der Reise. **`DATE_TAKEN`, nicht `DATE_ADDED`** — wer sein
 Handy nach der Tour an den Rechner hängt, hätte sonst ein Hinzufügedatum von heute.
-**Gefiltert wird auf die Endungen, die der SERVER annimmt** (`endungErlaubt`): Das Pixel legt
+**Gefiltert wird auf die Endungen, die der SERVER annimmt** (`isExtensionAllowed`): Das Pixel legt
 neben jedem Foto eine RAW-Datei ab, und weil die Nachreich-Route keine halben Stapel kennt,
 ließ ein einziges `.dng` den ganzen Nachzug mit 400 scheitern. Nebenwirkung, die man sonst
 extra bauen müsste: RAW und JPEG sind dasselbe Bild und lägen sonst doppelt in der Tour.
@@ -164,7 +164,7 @@ HEIC ist seit v0.55.3 dabei (der Server löst die Kacheln auf — gelöst wurde 
 hätte es nur Android repariert).
 **Videos liegen in einer ZWEITEN Sammlung** (`MediaStore.Video`) und wurden bis 2026-08-10
 gar nicht erst gesucht: Wer unterwegs filmte, bekam nie einen Vorschlag, obwohl die Pipeline
-Video längst annimmt (Transcode, Poster, Faststart). Drei Dinge hängen an `Galeriebild.istVideo`,
+Video längst annimmt (Transcode, Poster, Faststart). Drei Dinge hängen an `GalleryItem.isVideo`,
 und jedes läuft still falsch, wenn es fehlt: die **Content-URI** (IDs werden PRO Sammlung
 vergeben — eine Video-ID an `Images.EXTERNAL_CONTENT_URI` zeigt auf ein fremdes Bild), die
 **Endungsliste** (der Server prüft die Endung gegen den `type`; `.lrv`/`.thm` neben der `.mp4`
@@ -183,20 +183,20 @@ beim Server: Jeder Eintrag trägt eine `source` (`galerie:<MediaStore-ID>`), und
 schon im Manifest steht, wird kein zweites Mal angelegt. Das ist nötig, weil der Dedup über
 `tourDetail` allein NICHT trägt — der liest das gerenderte `tour.json`, und das kennt
 nachgereichte Bilder erst nach `reprocess`; scheitert der, schlüge der nächste Lauf dieselben
-Fotos wieder vor. Der andere ist `nachzugSperre`, ein prozessweiter Mutex: `meldeOffeneImporte`
-läuft aus zwei Richtungen (Push-Dienst und `TrackerAbfrageWorker`), und zwei gleichzeitige
+Fotos wieder vor. Der andere ist `backfillLock`, ein prozessweiter Mutex: `notifyPendingImports`
+läuft aus zwei Richtungen (Push-Dienst und `TrackerPollWorker`), und zwei gleichzeitige
 `POST …/medien` sehen dasselbe Manifest — der Server-Riegel greift erst, wenn der erste
 GESCHRIEBEN hat. Dazu die Längenprüfung vor dem `zip`: Ein stilles Abschneiden lüde Bild B
 unter der ID von A hoch.
 
-**Die Einwilligung lebt in der APP, nicht auf dem Server** (`Konto.fotosAutomatisch`): Die
+**Die Einwilligung lebt in der APP, nicht auf dem Server** (`Account.autoPhotos`): Die
 Galerie liegt auf dem Gerät, und bei zwei Geräten am selben Konto soll nur das mit den Fotos
 hochladen. Sie ist Vorgabe AUS und überlebt das Abmelden nicht — wer sich abmeldet, hat dem
 nächsten Konto auf diesem Gerät nichts erlaubt. Der Schalter im Profil fragt beim
 EINSCHALTEN nach dem Leserecht und bleibt aus, wenn es verweigert wird: ein „an", hinter dem
-nichts passieren kann, wäre die schlechtere Auskunft. **Der Nachzug ist eine eigene ARBEIT** (`FotoNachzugWorker`), nicht Teil des Meldungspfads.
+nichts passieren kann, wäre die schlechtere Auskunft. **Der Nachzug ist eine eigene ARBEIT** (`PhotoBackfillWorker`), nicht Teil des Meldungspfads.
 Er lief dort einmal, damit die Benachrichtigung gleich sagen kann, was dazukam — und das
-kostete am Gerät genau die Benachrichtigung: `meldeOffeneImporte` läuft im Push-Handler,
+kostete am Gerät genau die Benachrichtigung: `notifyPendingImports` läuft im Push-Handler,
 dem Android nur Sekunden gibt; dreizehn Fotos über Mobilfunk sprengen das. Der Prozess
 starb mittendrin (8 von 13 Dateien), und damit gab es WEDER Fotos noch Meldung noch
 Quittung. **Die Meldung gehört seither dem Nachzug** — und sie erzählt den Vorgang, statt sein Ende
@@ -208,15 +208,15 @@ der Listenabruf, bleibt die allgemeine Überschrift statt einer falschen Angabe.
 von vier Anläufen meldet die Tour notfalls ohne Bilder — er greift NICHT bei fehlendem
 Netz, denn dann läuft der Auftrag wegen `NetworkType.CONNECTED` gar nicht erst, und ohne
 Netz hätte die App von der Tour ohnehin nie erfahren. WorkManager überlebt den Prozess, wartet auf Netz und
-wiederholt — dieselbe Wahl wie beim `UploadWorker`. **`suchePassendeFotos` trennt „nichts gefunden" von „noch nicht zu beantworten"** (leere Liste vs. `null`): Eine Tour, die noch rendert, hat kein Zeitfenster — wer das als „nichts gefunden" liest, gibt auf, statt zu warten. Am Gerät kostete genau das eine Tour ihre Fotos: Der Nachzug startete EINE SEKUNDE bevor sie fertig war; zwei andere Touren derselben Runde hatten nur Glück mit dem Zeitpunkt. `null` führt jetzt zu `Result.retry`. Ein Wiederanlauf ist gefahrlos, weil
+wiederholt — dieselbe Wahl wie beim `UploadWorker`. **`findMatchingPhotos` trennt „nichts gefunden" von „noch nicht zu beantworten"** (leere Liste vs. `null`): Eine Tour, die noch rendert, hat kein Zeitfenster — wer das als „nichts gefunden" liest, gibt auf, statt zu warten. Am Gerät kostete genau das eine Tour ihre Fotos: Der Nachzug startete EINE SEKUNDE bevor sie fertig war; zwei andere Touren derselben Runde hatten nur Glück mit dem Zeitpunkt. `null` führt jetzt zu `Result.retry`. Ein Wiederanlauf ist gefahrlos, weil
 die `source` den Server nichts doppelt anlegen lässt. Aus demselben Grund läuft der
 Knopf „Hinzufügen" im `appScope` statt im `viewModelScope`: Wer den Screen verlässt, riss
 den Lauf sonst entzwei. Ohne sie wartet in der Tour selbst eine
 FRAGE (`ServerTourScreen`), und die Screen-Suche läuft genau dann nicht, wenn die Automatik
 an ist: Sonst böte sie an, was längst geschehen ist.
 
-**Video wird stabilisiert, Foto nicht** (`kamera/Stabilisierung.kt`, gebunden in
-`KameraScreen.kt`). CameraX schaltet von sich aus **nichts** ein: `VideoCapture.withOutput(…)`
+**Video wird stabilisiert, Foto nicht** (`camera/Stabilization.kt`, gebunden in
+`CameraScreen.kt`). CameraX schaltet von sich aus **nichts** ein: `VideoCapture.withOutput(…)`
 nahm mit dem rohen Sensorbild auf, und auf dem Pixel 9 sah man jeden Schritt. Es gibt zwei Wege,
 und sie sind nicht austauschbar — `setPreviewStabilizationEnabled` am Preview stabilisiert
 Vorschau UND Aufnahme (Android 13+), `setVideoStabilizationEnabled` am VideoCapture nur die
@@ -235,8 +235,8 @@ seitdem als Zustand vor und wird jeder frischen Instanz mitgegeben, sonst käme 
 gedreht heraus, das zwischen Bindung und nächster Sensormeldung startet. Googles eigene
 Fused-/Cinematic-Stabilisierung der Pixel-Kamera-App ist proprietär und bleibt unerreichbar.
 
-**Eine wartende Videofläche zeigt das Standbild, nicht Schwarz** (`Videoflaeche` in
-`ui/Bausteine.kt`). Ein `VideoView` zeigt vor dem ersten dekodierten Frame nichts, und auf
+**Eine wartende Videofläche zeigt das Standbild, nicht Schwarz** (`VideoSurface` in
+`ui/Components.kt`). Ein `VideoView` zeigt vor dem ersten dekodierten Frame nichts, und auf
 dunklem Grund heißt „nichts" eine leere schwarze Fläche — ohne Ladehinweis, ohne Fehler. Über
 Mobilfunk dauerte das mehrere Sekunden, und wer so lange auf Schwarz sieht, hält das Video für
 kaputt und geht zurück (genau so gemeldet). Gezeigt wird deshalb, bis
@@ -261,14 +261,32 @@ echte, noch nicht hochgeladene Aufnahmen. Schemata werden nach `android/app/sche
 exportiert; der Migrationstest baut daraus die alte Datenbank und lässt Room migrieren und
 validieren.
 
-**Für den einen Schritt 3→4 gilt das NICHT** (Welle 1 der Englisch-Migration,
+**Für den einen Schritt 3→4 galt das NICHT** (Welle 1 der Englisch-Migration,
 [Konzept](../docs/concepts/konzept_codebase_english_refactoring.md) §4.4): Tabellen, Spalten
-und Enum-Speicherwerte gehen auf Englisch, und der Rückfall wirft die lokale Datenbank weg.
-Das ist kein Ersatz für „einfach neu installieren", sondern die Bedingung dafür, dass ein
-APK-Update DERSELBEN Signatur überhaupt startet — ohne den Aufruf stürzt es beim Öffnen der
-v3-Datenbank ab. Tragbar ist es, weil zu diesem Zeitpunkt nur Geräte des Betreibers eine App
-tragen (§4.5). Nach Welle 7 kommt die Zusage zurück: Aufruf raus, Kommentar wieder hin, ab v5
-wieder echte Migrationen.
+und Enum-Speicherwerte gingen auf Englisch, und der Rückfall hat die lokale Datenbank
+verworfen. Dieser Schritt ist mit v0.67.0 gelaufen. **Mit Welle 7 ist die Zusage zurück** —
+der Aufruf ist raus, `MIGRATION_1_2` und `MIGRATION_2_3` stehen nur noch als Historie da (sie
+führen nirgends mehr hin), und eine Datenbank der Version 1 bis 3 gibt es nicht mehr. Zwei
+Dinge, die man dabei falsch erwartet: **Welle 7 hat das Schema nicht angefasst** (sie benennt
+Kotlin-Klassen und -Eigenschaften um, die Spaltennamen sind seit Welle 1 englisch — das
+exportierte `4.json` ist vor und nach ihr byte-gleich), die Version bleibt deshalb bei 4 und
+keine Aufnahme geht dabei verloren. Und **wer noch ein APK von vor v0.67.0 auf dem Gerät hat,
+kann nicht mehr updaten**: Ohne den Rückfall trifft die App auf eine v3-Datenbank und stürzt
+beim Start ab. Der Weg dorthin ist deinstallieren und neu installieren.
+
+**WorkManager ist ein zweites Room** (`WorkQueueMigration.kt`). Er legt den vollqualifizierten
+KLASSENNAMEN eines eingereihten Auftrags in einer eigenen Datenbank ab, und die überlebt jedes
+Update — ein Auftrag unter einem umbenannten Worker scheitert danach mit ClassNotFound, und
+zwar still: Er steht nur im `logcat`. Welle 7 hat `FotoNachzugWorker` und
+`TrackerAbfrageWorker` umbenannt und räumt deren Aufträge beim ersten Start einmalig ab
+(Merker im DataStore, `work_queue_migrated_v7`). Drei Dinge, die man dabei kippt: Abgeräumt
+wird über den **TAG** (WorkManager vergibt jedem Auftrag von sich aus einen mit dem
+Klassennamen) und nicht über den Unique-Namen — welche `photo-backfill-<tourId>` in der
+Schlange stehen, weiß die App nach dem Update nicht mehr. Der `UploadWorker` bleibt in Ruhe,
+weil Klasse UND Paket unverändert sind: Ein `cancelAllWork` würfe genau die Uploads weg,
+hinter denen Daten stehen, die es sonst nirgends gibt. Und der Umzug läuft VOR dem Einreihen
+in `MaptaleApp.onCreate`, sonst träfe das `KEEP` auf einen Auftrag, der eine Zeile später
+abgeräumt wird.
 
 **Nicht erreichbar, aber vorhanden:** `ui/ImportScreen.kt` (GPX-Import) hat keinen Einstieg
 mehr — auf dem Telefon liegen selten GPX-Dateien, das ist eine Studio-Aufgabe. Der Code bleibt

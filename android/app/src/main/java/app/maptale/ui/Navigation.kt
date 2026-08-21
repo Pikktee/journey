@@ -65,22 +65,22 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.maptale.MaptaleApp
-import app.maptale.aufzeichnung.AufzeichnungsService
-import app.maptale.aufzeichnung.AufzeichnungsZustand
-import app.maptale.daten.Modus
-import app.maptale.kamera.KameraScreen
-import app.maptale.upload.Einstellungen
+import app.maptale.recording.RecordingService
+import app.maptale.recording.RecordingState
+import app.maptale.data.TravelMode
+import app.maptale.camera.CameraScreen
+import app.maptale.upload.Settings
 import kotlinx.coroutines.delay
 import java.util.Locale
 
 /**
  * Gemerkter Startwunsch, bis der Berechtigungsdialog beantwortet ist.
  *
- * Eine eigene Klasse statt `Modus?`, weil zwei verschiedene „nichts" zu
+ * Eine eigene Klasse statt `TravelMode?`, weil zwei verschiedene „nichts" zu
  * unterscheiden sind: kein Wunsch offen — oder ein Wunsch ohne Angabe des
  * Fortbewegungsmittels („Automatisch").
  */
-private data class Startwunsch(val modus: Modus?)
+private data class Startwunsch(val travelMode: TravelMode?)
 
 /** Reiter der Hauptnavigation. */
 private const val REITER_TOUREN = "touren"
@@ -91,16 +91,16 @@ fun MaptaleNavigation() {
     val app = LocalContext.current.applicationContext as MaptaleApp
     // Start-Gate: das Konto kommt asynchron aus dem DataStore. Solange es noch
     // null ist, kurz laden; ohne gültiges Token zuerst die Anmeldung, sonst App.
-    val konto by app.einstellungen.konto.collectAsState(initial = null)
+    val account by app.settings.account.collectAsState(initial = null)
 
     when {
-        konto == null -> Box(
-            Modifier.fillMaxSize().background(Nacht),
+        account == null -> Box(
+            Modifier.fillMaxSize().background(Night),
             contentAlignment = Alignment.Center,
         ) {
-            CircularProgressIndicator(color = Sonne)
+            CircularProgressIndicator(color = Sun)
         }
-        konto?.angemeldet != true -> AnmeldungScreen(
+        account?.loggedIn != true -> LoginScreen(
             viewModel = viewModel(factory = MaptaleViewModelFactory(app)),
         )
         else -> AngemeldeteNavigation(app)
@@ -111,7 +111,7 @@ fun MaptaleNavigation() {
 private fun AngemeldeteNavigation(app: MaptaleApp) {
     val navController = rememberNavController()
     val context = LocalContext.current
-    val aufnahme by AufzeichnungsZustand.aktuell.collectAsState()
+    val aufnahme by RecordingState.current.collectAsState()
     var neueTour by remember { mutableStateOf(false) }
 
     // Eigener Sekundentakt: Die Leiste ist auch dann sichtbar, wenn der
@@ -147,7 +147,7 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
             // unterwegs selbst — sofern die Bewegungs-Erlaubnis erteilt wurde,
             // sonst leitet es der Server aus dem Tempo ab. Eine Absage dort darf
             // die Aufnahme nicht verhindern, sie kostet nur die Automatik.
-            AufzeichnungsService.starte(context, wahl.modus, null)
+            RecordingService.start(context, wahl.travelMode, null)
             navController.navigate("aufzeichnung")
         }
     }
@@ -180,7 +180,7 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
             modifier = Modifier.padding(bottom = if (leisteSichtbar) innen.calculateBottomPadding() else 0.dp),
         ) {
             composable(REITER_TOUREN) {
-                TourenScreen(
+                ToursScreen(
                     viewModel = viewModel(factory = MaptaleViewModelFactory(app)),
                     zurAufzeichnung = { navController.navigate("aufzeichnung") },
                     zurTour = { tourId -> navController.navigate("tour/$tourId") },
@@ -188,23 +188,23 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                 )
             }
             composable(REITER_PROFIL) {
-                ProfilScreen(
+                ProfileScreen(
                     viewModel = viewModel(factory = MaptaleViewModelFactory(app)),
                     zurRueckmeldung = { navController.navigate("rueckmeldung") },
                 )
             }
             composable("rueckmeldung") {
                 // Wie der Player vom Prod-Web-Origin und nicht aus
-                // konto.serverUrl: Die erste DataStore-Emission ist null und
+                // account.serverUrl: Die erste DataStore-Emission ist null und
                 // zöge den WebView auf eine tote Adresse.
-                RueckmeldungScreen(
-                    serverUrl = Einstellungen.STANDARD_SERVER,
-                    sitzungHolen = { runCatching { app.apiClient.sitzungFuerPlayer() }.getOrNull() },
+                FeedbackScreen(
+                    serverUrl = Settings.STANDARD_SERVER,
+                    sitzungHolen = { runCatching { app.apiClient.sessionForPlayer() }.getOrNull() },
                     zurueck = { navController.popBackStack() },
                 )
             }
             composable("aufzeichnung") {
-                AufzeichnungScreen(
+                RecordingScreen(
                     zurKamera = { navController.navigate("kamera") },
                     zumFoto = { tourId, mediumId -> navController.navigate("foto/$tourId/$mediumId") },
                     fertig = { tourId ->
@@ -213,7 +213,7 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                 )
             }
             composable("kamera") {
-                KameraScreen(zurueck = { navController.popBackStack() })
+                CameraScreen(zurueck = { navController.popBackStack() })
             }
             composable(
                 "foto/{tourId}/{mediumId}",
@@ -224,7 +224,7 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
             ) { ziel ->
                 val tourId = ziel.arguments?.getString("tourId") ?: return@composable
                 val mediumId = ziel.arguments?.getString("mediumId") ?: return@composable
-                FotoVollansicht(
+                MediumFullscreen(
                     viewModel = viewModel(factory = MaptaleViewModelFactory(app, tourId, mediumId)),
                     zurueck = { navController.popBackStack() },
                 )
@@ -258,12 +258,12 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
             ) { ziel ->
                 val serverId = ziel.arguments?.getString("serverId") ?: return@composable
                 // Der Player lädt erlebnis.html vom WEB-Origin (Prod, fest verdrahtet).
-                // Nicht aus konto.serverUrl, sonst zöge die noch nicht geladene erste
+                // Nicht aus account.serverUrl, sonst zöge die noch nicht geladene erste
                 // DataStore-Emission (null) den WebView auf die tote Dev-URL.
                 PlayerScreen(
-                    serverUrl = Einstellungen.STANDARD_SERVER,
+                    serverUrl = Settings.STANDARD_SERVER,
                     serverTourId = serverId,
-                    sitzungHolen = { runCatching { app.apiClient.sitzungFuerPlayer() }.getOrNull() },
+                    sitzungHolen = { runCatching { app.apiClient.sessionForPlayer() }.getOrNull() },
                     zurueck = { navController.popBackStack() },
                 )
             }
@@ -271,18 +271,18 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
     }
 
     if (neueTour) {
-        NeueTourBlatt(
+        NewTourSheet(
             schliessen = { neueTour = false },
-            starten = { modus ->
+            starten = { travelMode ->
                 neueTour = false
-                wunsch = Startwunsch(modus)
+                wunsch = Startwunsch(travelMode)
                 rechteLauncher.launch(
                     buildList {
                         add(Manifest.permission.ACCESS_FINE_LOCATION)
                         if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
                         // Nur bei „Automatisch" gefragt — wer sein Mittel selbst
                         // gewählt hat, braucht keine Bewegungserkennung.
-                        if (modus == null) add(Manifest.permission.ACTIVITY_RECOGNITION)
+                        if (travelMode == null) add(Manifest.permission.ACTIVITY_RECOGNITION)
                     }.toTypedArray(),
                 )
             },
@@ -316,8 +316,8 @@ private fun wechsleReiter(navController: NavHostController, ziel: String) {
  */
 @Composable
 private fun reiterFarben(): NavigationBarItemColors = NavigationBarItemDefaults.colors(
-    selectedIconColor = Tinte,
-    selectedTextColor = Tinte,
+    selectedIconColor = Ink,
+    selectedTextColor = Ink,
     indicatorColor = Color.Transparent,
     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -340,8 +340,8 @@ private fun Ausloeser(aufnahmeLaeuft: Boolean, beiKlick: () -> Unit, modifier: M
             .size(64.dp)
             .clip(CircleShape)
             // Der eigene dunkle Grund schneidet den Knopf sauber aus der Leiste
-            .background(Nacht)
-            .border(2.dp, Tinte.copy(alpha = 0.5f), CircleShape)
+            .background(Night)
+            .border(2.dp, Ink.copy(alpha = 0.5f), CircleShape)
             .clickable(onClickLabel = beschriftung, onClick = beiKlick)
             .semantics { contentDescription = beschriftung },
         contentAlignment = Alignment.Center,
@@ -350,7 +350,7 @@ private fun Ausloeser(aufnahmeLaeuft: Boolean, beiKlick: () -> Unit, modifier: M
             Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(if (aufnahmeLaeuft) Alarm else Sonne),
+                .background(if (aufnahmeLaeuft) Danger else Sun),
         )
     }
 }
@@ -366,7 +366,7 @@ private fun Hauptleiste(
 ) {
     Box(contentAlignment = Alignment.TopCenter) {
         NavigationBar(
-            containerColor = NachtFlaeche,
+            containerColor = NightSurface,
             tonalElevation = 0.dp,
         ) {
             NavigationBarItem(
@@ -410,7 +410,7 @@ private fun Hauptleiste(
                 Text(
                     dauer,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Alarm,
+                    color = Danger,
                 )
             }
         }

@@ -174,7 +174,7 @@ declare global {
   interface Window {
     __maptale: PlayerDebug
     /** Brücke der Android-App (PlayerScreen.kt, @JavascriptInterface) */
-    MaptaleApp?: { verlassen?: () => void }
+    MaptaleApp?: { exit?: () => void }
   }
 }
 
@@ -1593,7 +1593,7 @@ map.on('load', () => {
   // eine Brücke bereit (PlayerScreen.kt, @JavascriptInterface). Fehlt sie — etwa
   // weil jemand ?app=1 im normalen Browser aufruft —, bleibt der History-Rückweg.
   $('btn-app-back').addEventListener('click', () => {
-    if (window.MaptaleApp?.verlassen) window.MaptaleApp.verlassen()
+    if (window.MaptaleApp?.exit) window.MaptaleApp.exit()
     else history.back()
   })
 

@@ -72,9 +72,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import app.maptale.aufzeichnung.Fotomarke
-import app.maptale.daten.TourEntity
-import app.maptale.daten.TourStatus
+import app.maptale.recording.PhotoMark
+import app.maptale.data.TourEntity
+import app.maptale.data.TourStatus
 import coil.compose.AsyncImage
 import java.util.Locale
 
@@ -86,28 +86,28 @@ fun TourScreen(
     zumFoto: (mediumId: String) -> Unit,
 ) {
     val tour by viewModel.tour.collectAsState(initial = null)
-    val medien by viewModel.medien.collectAsState(initial = emptyList())
+    val media by viewModel.media.collectAsState(initial = emptyList())
     val sichtbarkeit by viewModel.sichtbarkeit.collectAsState()
     val route by viewModel.route.collectAsState()
 
-    var titel by rememberSaveable { mutableStateOf<String?>(null) }
-    var beschreibung by rememberSaveable { mutableStateOf<String?>(null) }
+    var title by rememberSaveable { mutableStateOf<String?>(null) }
+    var description by rememberSaveable { mutableStateOf<String?>(null) }
     var loeschenDialog by remember { mutableStateOf(false) }
     var teilen by remember { mutableStateOf(false) }
 
-    LaunchedEffect(tour?.serverId) { if (tour?.serverId != null) viewModel.ladeSichtbarkeit() }
+    LaunchedEffect(tour?.serverId) { if (tour?.serverId != null) viewModel.loadVisibility() }
 
     // Einmalig aus der Datenbank befüllen; danach gehört der Text dem Nutzer.
     // Die Ausnahme ist der Auto-Titel, den der Upload-Worker nachträgt: hat der
     // Nutzer nichts getippt, soll er ihn sehen statt eines leeren Feldes.
     LaunchedEffect(tour?.id, tour?.title) {
-        if (titel.isNullOrBlank()) titel = tour?.title
-        beschreibung = beschreibung ?: tour?.description
+        if (title.isNullOrBlank()) title = tour?.title
+        description = description ?: tour?.description
     }
 
     // Beim Verlassen sichern — kein „Speichern"-Knopf für zwei Textfelder
     DisposableEffect(tour?.id) {
-        onDispose { if (titel != null) viewModel.sichereTexte(titel, beschreibung) }
+        onDispose { if (title != null) viewModel.saveTexts(title, description) }
     }
 
     val aktuelleTour = tour ?: return
@@ -126,9 +126,9 @@ fun TourScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Kopfbild(
                     tour = aktuelleTour,
-                    titelbild = medien.lastOrNull()?.let { viewModel.datei(it) },
-                    titel = titel.orEmpty(),
-                    setzeTitel = { titel = it },
+                    titelbild = media.lastOrNull()?.let { viewModel.datei(it) },
+                    title = title.orEmpty(),
+                    setTitle = { title = it },
                     abspielen = aktuelleTour.serverId
                         ?.takeIf { aktuelleTour.status == TourStatus.UPLOADED }
                         ?.let { id -> { abspielen(id) } },
@@ -138,30 +138,30 @@ fun TourScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     Spacer(Modifier.height(16.dp))
-                    Kennzahlen(aktuelleTour, medien.size)
+                    Kennzahlen(aktuelleTour, media.size)
                     Zustandszeile(
                         status = aktuelleTour.status,
                         fehler = aktuelleTour.error,
-                        erneutVersuchen = { viewModel.ladeHoch(titel, beschreibung) },
+                        erneutVersuchen = { viewModel.upload(title, description) },
                     )
                     // Die Form der Reise — sobald ein Track vorliegt. Die Fotos
                     // sitzen als Punkte darauf; ohne GPS beim Auslösen hat ein
                     // Medium keinen Anker und bleibt der Skizze fern.
-                    val fotomarken = remember(medien) {
-                        medien.mapNotNull { medium ->
+                    val fotomarken = remember(media) {
+                        media.mapNotNull { medium ->
                             val lng = medium.anchorLng
                             val lat = medium.anchorLat
-                            if (lng != null && lat != null) Fotomarke(medium.id, lng, lat) else null
+                            if (lng != null && lat != null) PhotoMark(medium.id, lng, lat) else null
                         }
                     }
                     if (route.size >= 2) {
                         Spacer(Modifier.height(22.dp))
-                        Abschnittstitel("Route")
+                        SectionTitle("Route")
                         Spacer(Modifier.height(10.dp))
-                        Routenskizze(
-                            spur = route,
+                        RouteSketch(
+                            track = route,
                             abgeschlossen = true,
-                            fotos = fotomarken,
+                            media = fotomarken,
                             beiFotoklick = zumFoto,
                             modifier = Modifier.fillMaxWidth().height(150.dp),
                         )
@@ -174,7 +174,7 @@ fun TourScreen(
                 }
             }
 
-            items(medien, key = { it.id }) { medium ->
+            items(media, key = { it.id }) { medium ->
                 Box(
                     Modifier
                         .aspectRatio(1f)
@@ -188,7 +188,7 @@ fun TourScreen(
                         modifier = Modifier.fillMaxSize(),
                     )
                     if (medium.type == "video") {
-                        Videoabzeichen(Modifier.align(Alignment.Center))
+                        VideoBadge(Modifier.align(Alignment.Center))
                     }
                 }
             }
@@ -196,14 +196,14 @@ fun TourScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     Spacer(Modifier.height(30.dp))
-                    Abschnittstitel("Beschreibung")
+                    SectionTitle("Beschreibung")
                     Spacer(Modifier.height(10.dp))
-                    MarkenFeld(
-                        value = beschreibung ?: "",
-                        onValueChange = { beschreibung = it },
+                    BrandField(
+                        value = description ?: "",
+                        onValueChange = { description = it },
                         placeholder = { Text("Was war das für ein Tag?") },
                         modifier = Modifier.fillMaxWidth().height(104.dp),
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Tinte),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink),
                     )
                     Spacer(Modifier.height(26.dp))
                     // Löschen steht unten, nicht in der Kopfleiste: Es ist der
@@ -220,18 +220,18 @@ fun TourScreen(
         }
 
         // Die Knöpfe schweben über dem Bild, damit der Kopf randlos bleibt
-        Rundknopf(
+        RoundButton(
             symbol = Icons.AutoMirrored.Filled.ArrowBack,
-            beschreibung = "Zurück",
+            description = "Zurück",
             beiKlick = zurueck,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
         // Teilen erst, wenn die Tour beim Server liegt — vorher gäbe es keinen
         // Link, auf den man jemanden schicken könnte.
         if (aktuelleTour.serverId != null) {
-            Rundknopf(
+            RoundButton(
                 symbol = Icons.Default.Share,
-                beschreibung = "Tour teilen",
+                description = "Tour teilen",
                 beiKlick = { teilen = true },
                 modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
             )
@@ -240,12 +240,12 @@ fun TourScreen(
 
     if (teilen) {
         aktuelleTour.serverId?.let { serverId ->
-            TeilenBlatt(
+            ShareSheet(
                 serverTourId = serverId,
-                titel = titel ?: aktuelleTour.title,
-                aktuelleSichtbarkeit = sichtbarkeit ?: Sichtbarkeit.PRIVAT,
+                title = title ?: aktuelleTour.title,
+                aktuelleSichtbarkeit = sichtbarkeit ?: Visibility.PRIVATE,
                 schliessen = { teilen = false },
-                setzeSichtbarkeit = viewModel::setzeSichtbarkeit,
+                setVisibility = viewModel::setVisibility,
             )
         }
     }
@@ -260,8 +260,8 @@ fun TourScreen(
                     loeschenDialog = false
                     // Der Titel des gelöschten Entwurfs darf nicht nachträglich
                     // wieder gesichert werden (DisposableEffect oben).
-                    titel = null
-                    viewModel.loesche(danach = zurueck)
+                    title = null
+                    viewModel.delete(danach = zurueck)
                 }) { Text("Löschen", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { loeschenDialog = false }) { Text("Abbrechen") } },
@@ -279,8 +279,8 @@ fun TourScreen(
 private fun Kopfbild(
     tour: TourEntity,
     titelbild: java.io.File?,
-    titel: String,
-    setzeTitel: (String) -> Unit,
+    title: String,
+    setTitle: (String) -> Unit,
     abspielen: (() -> Unit)?,
 ) {
     val tastatur = LocalSoftwareKeyboardController.current
@@ -330,15 +330,15 @@ private fun Kopfbild(
                 Icon(
                     Icons.Default.PlayArrow,
                     contentDescription = "Tour abspielen",
-                    tint = Tinte,
+                    tint = Ink,
                     modifier = Modifier.size(38.dp),
                 )
             }
         }
 
-        Schreibzeile(
-            wert = titel,
-            setzeWert = setzeTitel,
+        EditRow(
+            wert = title,
+            setzeWert = setTitle,
             platzhalter = if (tour.serverId == null) "Tour benennen" else "Unbenannte Tour",
             stil = MaterialTheme.typography.headlineMedium,
             fokus = fokus,
@@ -351,11 +351,11 @@ private fun Kopfbild(
 
 /** Die harten Zahlen der Reise, in gleich breiten Ziffern. */
 @Composable
-private fun Kennzahlen(tour: TourEntity, fotos: Int) {
+private fun Kennzahlen(tour: TourEntity, media: Int) {
     val teile = buildList {
         add(String.format(Locale.GERMAN, "%.1f km", tour.distanceM / 1000))
         dauer(tour)?.let { add(it) }
-        add(if (fotos == 1) "1 Foto" else "$fotos Fotos")
+        add(if (media == 1) "1 Foto" else "$media Fotos")
     }
     Text(
         teile.joinToString(" · "),
@@ -380,7 +380,7 @@ private fun Zustandszeile(status: TourStatus, fehler: String?, erneutVersuchen: 
             CircularProgressIndicator(
                 Modifier.size(15.dp),
                 strokeWidth = 2.dp,
-                color = Sonne,
+                color = Sun,
             )
             Text(
                 "Wird hochgeladen",

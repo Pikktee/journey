@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 class ApiClientTest {
 
     private lateinit var server: MockWebServer
-    private lateinit var einstellungen: Einstellungen
+    private lateinit var settings: Settings
     private lateinit var client: ApiClient
 
     @Before
@@ -28,8 +28,8 @@ class ApiClientTest {
         server = MockWebServer()
         server.start()
         val context = ApplicationProvider.getApplicationContext<Context>()
-        einstellungen = Einstellungen(context)
-        client = ApiClient(einstellungen)
+        settings = Settings(context)
+        client = ApiClient(settings)
     }
 
     @After
@@ -38,8 +38,8 @@ class ApiClientTest {
     }
 
     private suspend fun melodeAn() {
-        einstellungen.setzeServer(server.url("/").toString().trimEnd('/'))
-        einstellungen.setzeAnmeldung("test@example.com", "lhb_testtoken")
+        settings.setServer(server.url("/").toString().trimEnd('/'))
+        settings.setLogin("test@example.com", "lhb_testtoken")
     }
 
     @Test
@@ -53,24 +53,24 @@ class ApiClientTest {
     }
 
     @Test
-    fun `tourAnlegen sendet Bearer-Token und liest die id`() = runTest {
+    fun `createTour sendet Bearer-Token und liest die id`() = runTest {
         melodeAn()
         server.enqueue(MockResponse().setResponseCode(201).setBody("""{"id":"t_abc"}"""))
-        val id = client.tourAnlegen("""{"schema":"maptale/upload@2"}""")
+        val id = client.createTour("""{"schema":"maptale/upload@2"}""")
         assertEquals("t_abc", id)
         assertEquals("Bearer lhb_testtoken", server.takeRequest().getHeader("Authorization"))
     }
 
     @Test
-    fun `finalisiere wirft 409 zur semantischen Aufloesung im Worker`() = runTest {
+    fun `finalize wirft 409 zur semantischen Aufloesung im Worker`() = runTest {
         // 409 ist doppeldeutig (läuft bereits / Medien fehlen) — der ApiClient
         // reicht ihn durch, der UploadWorker entscheidet über den Tour-Status
         melodeAn()
         server.enqueue(MockResponse().setResponseCode(409).setBody("""{"fehler":"Medien fehlen"}"""))
         try {
-            client.finalisiere("t_abc")
+            client.finalize("t_abc")
             throw AssertionError("ApiFehler erwartet")
-        } catch (fehler: ApiFehler) {
+        } catch (fehler: ApiError) {
             assertEquals(409, fehler.status)
         }
     }
@@ -88,7 +88,7 @@ class ApiClientTest {
     }
 
     @Test
-    fun `toureListe liest Titelbild, Zeitstempel und Hoehenmeter`() = runTest {
+    fun `tourList liest Titelbild, Zeitstempel und Hoehenmeter`() = runTest {
         melodeAn()
         server.enqueue(
             MockResponse().setBody(
@@ -99,11 +99,11 @@ class ApiClientTest {
                 """.trimIndent(),
             ),
         )
-        val tour = client.toureListe().single()
+        val tour = client.tourList().single()
         assertEquals("/api/media/t_1/m1.jpg", tour.cover)
-        assertEquals("2026-07-04T08:00:00.000Z", tour.erstelltAm)
+        assertEquals("2026-07-04T08:00:00.000Z", tour.createdAt)
         assertEquals(12.5, tour.km!!, 1e-9)
-        assertEquals(300.0, tour.hoehenmeter!!, 1e-9)
+        assertEquals(300.0, tour.gainM!!, 1e-9)
     }
 
     @Test
@@ -111,13 +111,13 @@ class ApiClientTest {
         // Vor dem ersten Rendern gibt es kein cover — das darf die Liste nicht kippen
         melodeAn()
         server.enqueue(MockResponse().setBody("""{"tours":[{"id":"t_1","status":"verarbeitung"}]}"""))
-        val tour = client.toureListe().single()
+        val tour = client.tourList().single()
         assertEquals(null, tour.cover)
         assertEquals(null, tour.km)
     }
 
     @Test
-    fun `kontoStand liest Bestaetigung und Kontingent`() = runTest {
+    fun `accountState liest Bestaetigung und Kontingent`() = runTest {
         melodeAn()
         server.enqueue(
             MockResponse().setBody(
@@ -125,21 +125,21 @@ class ApiClientTest {
                    "quota":{"used":1048576,"limit":10485760,"frei":9437184}}""",
             ),
         )
-        val stand = client.kontoStand()
+        val stand = client.accountState()
         assertEquals("a@b.c", stand.email)
-        assertEquals(false, stand.verifiziert)
-        assertEquals(0.1f, stand.quotaAnteil, 1e-6f)
+        assertEquals(false, stand.verified)
+        assertEquals(0.1f, stand.quotaFraction, 1e-6f)
     }
 
     @Test
     fun `Overlay wird gelesen und unveraendert zurueckgeschrieben`() = runTest {
         melodeAn()
         server.enqueue(MockResponse().setBody("""{"schema":"maptale/edits@2","kamera":[]}"""))
-        val overlay = client.editsLesen("t_1")
+        val overlay = client.loadEdits("t_1")
         assertEquals("/api/tours/t_1/edits", server.takeRequest().path)
 
         server.enqueue(MockResponse().setResponseCode(202).setBody("{}"))
-        client.editsSchreiben("t_1", mitMediumTitel(overlay, "m1", "Bucht"))
+        client.saveEdits("t_1", withMediumCaption(overlay, "m1", "Bucht"))
         val anfrage = server.takeRequest()
         assertEquals("PUT", anfrage.method)
         val body = anfrage.body.readUtf8()
@@ -148,10 +148,10 @@ class ApiClientTest {
     }
 
     @Test
-    fun `sitzungFuerPlayer liefert die Sitzungs-ID`() = runTest {
+    fun `sessionForPlayer liefert die Sitzungs-ID`() = runTest {
         melodeAn()
         server.enqueue(MockResponse().setBody("""{"sessionId":"s_abc","ablauf":"2026-08-01T00:00:00Z"}"""))
-        assertEquals("s_abc", client.sitzungFuerPlayer())
+        assertEquals("s_abc", client.sessionForPlayer())
         val anfrage = server.takeRequest()
         assertEquals("POST", anfrage.method)
         assertEquals("/api/auth/session-from-token", anfrage.path)
@@ -159,10 +159,10 @@ class ApiClientTest {
     }
 
     @Test
-    fun `pushGeraetAnmelden schickt Adresse und Plattform`() = runTest {
+    fun `registerPushDevice schickt Adresse und Plattform`() = runTest {
         melodeAn()
         server.enqueue(MockResponse().setBody("""{"ok":true,"push":true,"geraetId":"g_abc"}"""))
-        assertTrue(client.pushGeraetAnmelden("fid-abc"))
+        assertTrue(client.registerPushDevice("fid-abc"))
         val anfrage = server.takeRequest()
         assertEquals("POST", anfrage.method)
         assertEquals("/api/push/devices", anfrage.path)
@@ -178,16 +178,16 @@ class ApiClientTest {
         // beim periodischen Abruf belassen — nicht in einen Fehler laufen.
         melodeAn()
         server.enqueue(MockResponse().setBody("""{"ok":false,"push":false}"""))
-        assertEquals(false, client.pushGeraetAnmelden("fid-abc"))
+        assertEquals(false, client.registerPushDevice("fid-abc"))
     }
 
     @Test
-    fun `pushGeraetAbmelden schickt die Adresse im Body, nicht im Pfad`() = runTest {
+    fun `unregisterPushDevice schickt die Adresse im Body, nicht im Pfad`() = runTest {
         // Im Pfad landete sie in Zugriffsprotokollen — dort hat eine
         // Geräte-Adresse nichts zu suchen.
         melodeAn()
         server.enqueue(MockResponse().setBody("""{"ok":true}"""))
-        client.pushGeraetAbmelden("fid-abc")
+        client.unregisterPushDevice("fid-abc")
         val anfrage = server.takeRequest()
         assertEquals("DELETE", anfrage.method)
         assertEquals("/api/push/devices", anfrage.path)
@@ -199,9 +199,9 @@ class ApiClientTest {
         melodeAn()
         server.enqueue(MockResponse().setResponseCode(413).setBody("""{"fehler":"Datei zu groß"}"""))
         try {
-            client.tourAnlegen("{}")
+            client.createTour("{}")
             throw AssertionError("ApiFehler erwartet")
-        } catch (fehler: ApiFehler) {
+        } catch (fehler: ApiError) {
             assertEquals(413, fehler.status)
             assertTrue(fehler.message!!.contains("Datei zu groß"))
         }

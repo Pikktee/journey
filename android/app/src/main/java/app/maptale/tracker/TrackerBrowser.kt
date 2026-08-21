@@ -20,7 +20,7 @@ import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 
 /**
- * `NachtFlaeche` aus ui/Theme.kt — die Leiste trägt dieselbe dunkle Fläche wie
+ * `NightSurface` aus ui/Theme.kt — die Leiste trägt dieselbe dunkle Fläche wie
  * die App, damit der Übergang nicht blitzt.
  *
  * Bewusst NICHT das Sonnengelb des Akzents: Chrome wählt die Schriftfarbe der
@@ -39,7 +39,7 @@ private const val LEISTE = 0xFF10151C.toInt()
  * ganz normal — es gibt also keinen Fall, in dem hier nichts passiert, außer
  * es ist gar kein Browser installiert. Genau den fängt das `catch`.
  */
-fun oeffneAutorisierung(context: Context, url: String): Boolean {
+fun openAuthorization(context: Context, url: String): Boolean {
     val adresse = Uri.parse(url)
     val tab = CustomTabsIntent.Builder()
         .setShowTitle(false)

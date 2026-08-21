@@ -55,11 +55,11 @@ fun ImportScreen(
     zurueck: () -> Unit,
     abspielen: (String) -> Unit,
 ) {
-    val zustand by viewModel.zustand.collectAsState()
+    val state by viewModel.state.collectAsState()
     var gpxUri by remember { mutableStateOf<Uri?>(null) }
     var gpxName by remember { mutableStateOf<String?>(null) }
     var medienUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var titel by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf("") }
 
     // SAF: GPX öffnen (OpenDocument gibt eine dauerhaft lesbare Uri). GPX hat
     // keinen verlässlichen MIME-Typ → breit filtern und alles zulassen.
@@ -118,32 +118,32 @@ fun ImportScreen(
             }
 
             OutlinedTextField(
-                value = titel,
-                onValueChange = { titel = it },
+                value = title,
+                onValueChange = { title = it },
                 label = { Text("Titel (optional)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            when (val z = zustand) {
-                is ImportViewModel.Zustand.Laedt -> {
+            when (val z = state) {
+                is ImportViewModel.State.Loading -> {
                     LinearProgressIndicator(progress = { z.fortschritt }, modifier = Modifier.fillMaxWidth())
                     Text(z.text, style = MaterialTheme.typography.bodySmall)
                 }
-                is ImportViewModel.Zustand.Fehler ->
-                    Text(z.nachricht, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                is ImportViewModel.Zustand.Fertig -> {
+                is ImportViewModel.State.Failed ->
+                    Text(z.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                is ImportViewModel.State.Complete -> {
                     Text("Import fertig!", color = MaterialTheme.colorScheme.primary)
                     Button(onClick = { abspielen(z.serverTourId) }, modifier = Modifier.fillMaxWidth()) {
                         Text("Abspielen")
                     }
                 }
-                ImportViewModel.Zustand.Ruhe -> {}
+                ImportViewModel.State.Idle -> {}
             }
 
-            val laeuft = zustand is ImportViewModel.Zustand.Laedt
+            val laeuft = state is ImportViewModel.State.Loading
             Button(
-                onClick = { gpxUri?.let { viewModel.importiere(it, medienUris, titel.ifBlank { null }) } },
+                onClick = { gpxUri?.let { viewModel.importGpx(it, medienUris, title.ifBlank { null }) } },
                 enabled = gpxUri != null && !laeuft,
                 modifier = Modifier.fillMaxWidth(),
             ) {

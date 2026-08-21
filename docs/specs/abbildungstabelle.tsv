@@ -2951,7 +2951,6 @@ Bewegungsart	ActivityKind	bezeichner	android	7	§6.5; Werte ON_FOOT/CYCLING/VEHI
 Ruhe	Idle	bezeichner	android (UI-Zustände)	7	§6.5; auch Lädt→Loading, Fertig→Complete
 starteAufnahme	startRecording	bezeichner	android	7	§6.5; auch beendeAufnahme→finishRecording
 fotos_automatisch	auto_photos	datastore-schluessel	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	Grundstock/§6.5; bewusster Schlüsselwechsel (§3.2), Einwilligung fällt einmalig auf die Vorgabe.
-android/…/daten/LuhamboDb.kt	MaptaleDb.kt	datei	android/app/src/main/java/app/maptale/daten/LuhamboDb.kt	7	§6.6; Room v4 + Zusage-Kommentar zurück nach Welle 7 (§4.4)
 AnmeldungScreen.kt	LoginScreen.kt	datei	android/app/src/main/java/app/maptale/ui/AnmeldungScreen.kt	7	Anmeldung→login wie /api/auth/login (§6.7).
 AufzeichnungScreen.kt	RecordingScreen.kt	datei	android/app/src/main/java/app/maptale/ui/AufzeichnungScreen.kt	7	§6.5 wörtlich.
 AufzeichnungsService.kt	RecordingService.kt	datei	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	§6.5; Foreground-Service der GPS-Aufnahme; AndroidManifest-Eintrag im selben Commit.
@@ -2965,13 +2964,13 @@ BildskalierungTest.kt	ImageScalingTest.kt	datei	android/app/src/test/java/app/ma
 EditsFortschreibung.kt	EditsPatch.kt	datei	android/app/src/main/java/app/maptale/upload/EditsFortschreibung.kt	7	VORSCHLAG: Fortschreibung→patch (schreibt einzelne Schlüssel ins rohe Overlay fort; patch ist im Repo etabliert, MediaEditPatch).
 EditsFortschreibungTest.kt	EditsPatchTest.kt	datei	android/app/src/test/java/app/maptale/upload/EditsFortschreibungTest.kt	7	folgt dem Modul.
 Einstellungen.kt	Settings.kt	datei	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	Einstellung→setting (§6.4); DataStore-NAME bleibt (eigene Zeile).
+FotoNachzugWorker.kt	PhotoBackfillWorker.kt	datei	android/app/src/main/java/app/maptale/galerie/FotoNachzugWorker.kt	7	Nachzug→backfill (Grundstock photo-backfill-$tourId); Cancel+Neueinreihen beim ersten Start (§4.4).
+FotoVollansicht.kt	MediumFullscreen.kt	datei	android/app/src/main/java/app/maptale/ui/FotoVollansicht.kt	7	VORSCHLAG: zeigt Foto ODER Video, also medium (§6.1); Vollbild→fullscreen (§6.3a).
 Fotoaufbereitung.kt	PhotoPreparation.kt	datei	android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt	7	VORSCHLAG: Aufbereitung→preparation; skaliert/dreht Kamerafotos vor dem Upload.
 FotoaufbereitungTest.kt	PhotoPreparationTest.kt	datei	android/app/src/test/java/app/maptale/kamera/FotoaufbereitungTest.kt	7	folgt dem Modul.
 Fotofenster.kt	PhotoWindow.kt	datei	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	VORSCHLAG: Fenster→window (Galerie-Zeitfenster); rein rechnend, getestet.
 FotofensterTest.kt	PhotoWindowTest.kt	datei	android/app/src/test/java/app/maptale/galerie/FotofensterTest.kt	7	folgt dem Modul.
 Fotonachzug.kt	PhotoBackfill.kt	datei	android/app/src/main/java/app/maptale/galerie/Fotonachzug.kt	7	Nachzug→backfill wie der Worker-Name im Grundstock; Weg der Galeriebilder zum Server.
-FotoNachzugWorker.kt	PhotoBackfillWorker.kt	datei	android/app/src/main/java/app/maptale/galerie/FotoNachzugWorker.kt	7	Nachzug→backfill (Grundstock photo-backfill-$tourId); Cancel+Neueinreihen beim ersten Start (§4.4).
-FotoVollansicht.kt	MediumFullscreen.kt	datei	android/app/src/main/java/app/maptale/ui/FotoVollansicht.kt	7	VORSCHLAG: zeigt Foto ODER Video, also medium (§6.1); Vollbild→fullscreen (§6.3a).
 Galerie.kt	Gallery.kt	datei	android/app/src/main/java/app/maptale/galerie/Galerie.kt	7	MediaStore-Abfrage im Zeitfenster einer Tour.
 ImportLogik.kt	ImportLogic.kt	datei	android/app/src/main/java/app/maptale/importieren/ImportLogik.kt	7	VORSCHLAG: Logik ist grenzwertiges Füllwort (§6.0 Regel 6); Inhalt sind MIME-, Endungs- und ID-Hilfen.
 Importmeldung.kt	ImportNotification.kt	datei	android/app/src/main/java/app/maptale/tracker/Importmeldung.kt	7	VORSCHLAG: Meldung ist hier die Android-Notification.
@@ -3007,6 +3006,8 @@ Typografie.kt	Typography.kt	datei	android/app/src/main/java/app/maptale/ui/Typog
 UploadFehlerTest.kt	UploadErrorTest.kt	datei	android/app/src/test/java/app/maptale/upload/UploadFehlerTest.kt	7	Fehler→error als Wortbestandteil (§6.1).
 ZoomStufen.kt	ZoomLevels.kt	datei	android/app/src/main/java/app/maptale/kamera/ZoomStufen.kt	7	VORSCHLAG: Stufe→level.
 ZoomStufenTest.kt	ZoomLevelsTest.kt	datei	android/app/src/test/java/app/maptale/kamera/ZoomStufenTest.kt	7	folgt dem Modul.
+android/…/daten/LuhamboDb.kt	MaptaleDb.kt	datei	android/app/src/main/java/app/maptale/daten/LuhamboDb.kt	7	§6.6; Room v4 + Zusage-Kommentar zurück nach Welle 7 (§4.4)
+AufnahmeModus	CaptureMode	enum	android/app/src/main/java/app/maptale/kamera/KameraScreen.kt	7	NACHTRAG 2026-08-21; §6.5 nennt captureMode, nicht aber den Typnamen. Werte FOTO/VIDEO→PHOTO/VIDEO; privat, nur im Speicher. NICHT travelMode.
 Bewegungsart	ActivityKind	enum	android/app/src/main/java/app/maptale/aufzeichnung/Bewegungsdeutung.kt	7	§6.5 wörtlich; Werte ZU_FUSS/RAD/FAHRZEUG→ON_FOOT/CYCLING/VEHICLE; nicht persistiert (kein Converter).
 Modus	TravelMode	enum	android/app/src/main/java/app/maptale/daten/Entities.kt	7	§6.1 Fortbewegung→travelMode (wie Studio-Grundstock); Speicherwerte bleiben (schluessel walk/bike/…, NICHT auf .name vereinheitlichen, §4.4).
 Sichtbarkeit	Visibility	enum	android/app/src/main/java/app/maptale/ui/TeilenLink.kt	7	§6.1; Kotlin-Werte PRIVAT/UNGELISTET/OEFFENTLICH→PRIVATE/UNLISTED/PUBLIC; der Vertrag läuft über .key (private/unlisted/public) und bleibt.
@@ -3016,13 +3017,32 @@ maptale:hintergrund	maptale:background	event-typ	android PlayerScreen.kt; src/ma
 maptale:hintergrund	maptale:background	event-typ	src/filmuhr.ts	7	Grundstock (VORSCHLAG dort): WebView-Bruecke, beide Seiten in EINEM Commit; versagt lautlos, deshalb Welle 7 mit Android
 maptale:vordergrund	maptale:foreground	event-typ	android PlayerScreen.kt; src/main.ts	7	VORSCHLAG; dito
 maptale:vordergrund	maptale:foreground	event-typ	src/filmuhr.ts	7	Grundstock (VORSCHLAG dort); dito
-abmelden	logout	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	wie /api/auth/logout; Push zuerst; auch Settings.logout.
 Abschnittstitel	SectionTitle	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	Überschrift eines Abschnitts.
+AnmeldungScreen	LoginScreen	funktion	android/app/src/main/java/app/maptale/ui/AnmeldungScreen.kt	7	Anmeldung→login (§6.7-Bestand).
+AufzeichnungScreen	RecordingScreen	funktion	android/app/src/main/java/app/maptale/ui/AufzeichnungScreen.kt	7	§6.5 wörtlich.
+FotoVollansicht	MediumFullscreen	funktion	android/app/src/main/java/app/maptale/ui/FotoVollansicht.kt	7	VORSCHLAG: wie die Datei; zeigt Foto oder Video mit Titelfeld.
+KameraScreen	CameraScreen	funktion	android/app/src/main/java/app/maptale/kamera/KameraScreen.kt	7	Composable des Aufnahmebildschirms; Kamera-Modus Foto/Video heißt captureMode (§6.5), NICHT travelMode.
+MarkenFeld	BrandField	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	gestaltetes Textfeld.
+Markenzeichen	BrandMark	funktion	android/app/src/main/java/app/maptale/ui/Marke.kt	7	VORSCHLAG: Logo-Composable.
+NeueTourBlatt	NewTourSheet	funktion	android/app/src/main/java/app/maptale/ui/NeueTourBlatt.kt	7	Blatt→Sheet analog ShareSheet (§6.5); Startblatt mit Modus-Wahl.
+PrimaerKnopf	PrimaryButton	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	Knopf→button.
+ProfilScreen	ProfileScreen	funktion	android/app/src/main/java/app/maptale/ui/ProfilScreen.kt	7	Profil→profile (§6.2).
+Routenskizze	RouteSketch	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	Skizze→sketch.
+RueckmeldungScreen	FeedbackScreen	funktion	android/app/src/main/java/app/maptale/ui/RueckmeldungScreen.kt	7	Rückmeldung→feedback (§6.4); WebView auf /feedback?app=1 bleibt (Produkt-URL, §3.4).
+Rundknopf	RoundButton	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	runder Icon-Knopf.
+Schreibzeile	EditRow	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	VORSCHLAG: einzeilige Bearbeiten-Zeile.
+TeilenBlatt	ShareSheet	funktion	android/app/src/main/java/app/maptale/ui/TeilenBlatt.kt	7	§6.5 wörtlich.
+TourenScreen	ToursScreen	funktion	android/app/src/main/java/app/maptale/ui/TourenScreen.kt	7	§6.5 wörtlich; die Statuswert-Vergleiche darin sind Welle 1.
+Videoabzeichen	VideoBadge	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	Abzeichen→badge.
+Videoflaeche	VideoSurface	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	VideoView mit Standbild statt Schwarz.
+Wortmarke	WordMark	funktion	android/app/src/main/java/app/maptale/ui/Marke.kt	7	VORSCHLAG: Schriftzug-Composable.
+abmelden	logout	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	wie /api/auth/logout; Push zuerst; auch Settings.logout.
 aktionText	actionLabel	funktion	android/app/src/main/java/app/maptale/tracker/TrackerModell.kt	7	VORSCHLAG: Knopftext zur Aktion.
 aktiveStufe	activeLevel	funktion	android/app/src/main/java/app/maptale/kamera/ZoomStufen.kt	7	welche Stufe gerade gilt.
 aktiviere	enable	funktion	android/app/src/main/java/app/maptale/push/MaptalePush.kt	7	VORSCHLAG: Push einschalten und FID hinterlegen.
-aktualisiere	update	funktion	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	Zustand fortschreiben; ViewModel-aktualisiere (neu laden) heißt dagegen refresh.
 aktualisiere	refresh	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	VORSCHLAG: neu laden vom Server→refresh; update bleibt dem Fortschreiben (RecordingState.update) vorbehalten, ein Verb je Bedeutung (§6.0 Regel 3).
+aktualisiere	update	funktion	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	Zustand fortschreiben; ViewModel-aktualisiere (neu laden) heißt dagegen refresh.
+aktualisiereStill	refreshQuietly	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	NACHTRAG 2026-08-21; folgt aktualisiere→refresh, ohne Ladeanzeige.
 aktualisiereTexte	updateTexts	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	Titel und Beschreibung speichern.
 aktualisiereTour	updateTour	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	DAO-Update.
 aktuellesKonto	currentAccount	funktion	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	erstes Element des account-Flows.
@@ -3033,12 +3053,10 @@ anbieterAktion	providerAction	funktion	android/app/src/main/java/app/maptale/tra
 anbieterAusDeepLink	providerFromDeepLink	funktion	android/app/src/main/java/app/maptale/tracker/TrackerModell.kt	7	Anbieter→provider; Deep-Link-Schema maptale://tracker/ bleibt.
 anbieterSatz	providerText	funktion	android/app/src/main/java/app/maptale/tracker/TrackerModell.kt	7	VORSCHLAG: Satz unter dem Anbieternamen (vier Zustände); Inhalt bleibt deutscher Produkttext.
 anmelden	login	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	wie /api/auth/login.
-AnmeldungScreen	LoginScreen	funktion	android/app/src/main/java/app/maptale/ui/AnmeldungScreen.kt	7	Anmeldung→login (§6.7-Bestand).
 arbeitsname	workName	funktion	android/app/src/main/java/app/maptale/upload/UploadWorker.kt	7	liefert upload-<tourId>; der Wert bleibt (Grundstock).
 artAus	activityKindFrom	funktion	android/app/src/main/java/app/maptale/aufzeichnung/Bewegungserkennung.kt	7	VORSCHLAG: liest ActivityKind aus einem Erkennungs-Intent.
 aufKante	scaleToEdge	funktion	android/app/src/main/java/app/maptale/ui/Bildskalierung.kt	7	VORSCHLAG: Bitmap auf Kantenlänge.
 aufLinie	snapToLine	funktion	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	VORSCHLAG: setzt den Punkt auf die gezeichnete Linie.
-AufzeichnungScreen	RecordingScreen	funktion	android/app/src/main/java/app/maptale/ui/AufzeichnungScreen.kt	7	§6.5 wörtlich.
 balleFotos	clusterPhotos	funktion	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	VORSCHLAG: ballen→cluster (nahe Fotomarken gruppieren).
 baue	build	funktion	android/app/src/main/java/app/maptale/daten/LuhamboDb.kt	7	baue→build (§6.3); baut maptale.db, Dateiname der DB bleibt.
 baue	build	funktion	android/app/src/main/java/app/maptale/upload/Manifest.kt	7	komplettes Manifest aus dem Room-Bestand.
@@ -3046,13 +3064,14 @@ baueImport	buildImport	funktion	android/app/src/main/java/app/maptale/upload/Man
 baueSegmente	buildSegments	funktion	android/app/src/main/java/app/maptale/upload/Manifest.kt	7	baue→build (§6.3); zerschneidet an den Moduswechseln.
 beende	clear	funktion	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	VORSCHLAG: räumt den Zustand; end wäre mit finishRecording verwechselbar.
 beendeAufnahme	finishRecording	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	§6.5 wörtlich; Status wird DRAFT.
+beendeAufzeichnung	finishRecording	funktion	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	NACHTRAG 2026-08-21; dito.
 beenden	cancel	funktion	android/app/src/main/java/app/maptale/tracker/TrackerAbfrageWorker.kt	7	VORSCHLAG: bricht den WorkManager-Lauf beim Abmelden ab.
 benenne	buildTitle	funktion	android/app/src/main/java/app/maptale/benennung/TourBenennung.kt	7	VORSCHLAG: verb-first (§6.0 Regel 3); baut den Auto-Titel aus Start und Ziel.
 berechneReisestatistik	computeTravelStats	funktion	android/app/src/main/java/app/maptale/ui/Reisestatistik.kt	7	VORSCHLAG: berechnen→compute.
 bereiteFotoFuerUpload	preparePhotoForUpload	funktion	android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt	7	bereite→prepare; skaliert/dreht vor dem Hochladen.
 beschreibeTouren	describeTours	funktion	android/app/src/main/java/app/maptale/tracker/Importmeldung.kt	7	Titel und Unterzeile der Meldung.
-bilderImZeitfenster	imagesInWindow	funktion	android/app/src/main/java/app/maptale/galerie/Galerie.kt	7	MediaStore-Query auf DATE_TAKEN.
 bildUri	imageUri	funktion	android/app/src/main/java/app/maptale/galerie/Galerie.kt	7	Content-URI je Sammlung.
+bilderImZeitfenster	imagesInWindow	funktion	android/app/src/main/java/app/maptale/galerie/Galerie.kt	7	MediaStore-Query auf DATE_TAKEN.
 darfErkennen	canRecognize	funktion	android/app/src/main/java/app/maptale/aufzeichnung/Bewegungserkennung.kt	7	darf→can wie darfSehen→canView (§6.4); Berechtigungsfrage.
 darfGalerieLesen	canReadGallery	funktion	android/app/src/main/java/app/maptale/galerie/Fotonachzug.kt	7	darf→can (§6.4-Muster).
 deaktiviere	disable	funktion	android/app/src/main/java/app/maptale/push/MaptalePush.kt	7	Push abmelden (Server vor FCM).
@@ -3065,7 +3084,6 @@ ergaenzeSpur	appendPoint	funktion	android/app/src/main/java/app/maptale/aufzeich
 fallbackTitel	fallbackTitle	funktion	android/app/src/main/java/app/maptale/benennung/TourBenennung.kt	7	Datums-Titel; Backend benennt identisch (Server-Seite in ihrer Welle).
 finalisiere	finalize	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	Route heißt schon finalize; 409-Auflösung bleibt.
 formatiereZoom	formatZoom	funktion	android/app/src/main/java/app/maptale/kamera/ZoomStufen.kt	7	Anzeige-Text der Stufe.
-FotoVollansicht	MediumFullscreen	funktion	android/app/src/main/java/app/maptale/ui/FotoVollansicht.kt	7	VORSCHLAG: wie die Datei; zeigt Foto oder Video mit Titelfeld.
 fuegeMediumEin	insertMedium	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	Einzelaufnahme=medium (§6.1).
 fuegeModuswechselEin	insertTravelModeChange	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	analog Entity/Tabelle.
 fuegePunkteEin	insertPoints	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	einfügen→insert (DAO-üblich).
@@ -3076,7 +3094,6 @@ hatTrackpunkte	hasTrackPoints	funktion	android/app/src/main/java/app/maptale/imp
 importiere	importGpx	funktion	android/app/src/main/java/app/maptale/ui/ImportViewModel.kt	7	VORSCHLAG: import allein ist Kotlin-Schlüsselwort.
 istEndgueltigerUploadFehler	isFinalUploadError	funktion	android/app/src/main/java/app/maptale/upload/UploadWorker.kt	7	VORSCHLAG: endgültig→final, positiv formuliert (§6.0 Regel 2 verbietet Negationen wie notRetryable); 400/401/403/413 brauchen den Nutzer.
 istKamerabild	isCameraImage	funktion	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	Positiv- und Negativliste des Ordners.
-KameraScreen	CameraScreen	funktion	android/app/src/main/java/app/maptale/kamera/KameraScreen.kt	7	Composable des Aufnahmebildschirms; Kamera-Modus Foto/Video heißt captureMode (§6.5), NICHT travelMode.
 kontoStand	accountState	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	VORSCHLAG: liefert AccountState; Nomen-Form wie tourStatus.
 lade	load	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	laden→load (§6.4); Tour-Detail.
 ladeFotosHoch	uploadPhotos	funktion	android/app/src/main/java/app/maptale/galerie/Fotonachzug.kt	7	hochladen→upload; inkl. source-Dedup und reprocess.
@@ -3095,9 +3112,8 @@ loeschePunkte	deletePoints	funktion	android/app/src/main/java/app/maptale/daten/
 loescheTour	deleteTour	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	löschen→delete; Repository löscht zusätzlich Dateien und Kinder.
 loescheTour	deleteTour	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	DELETE einer Server-Tour.
 markenEingabeFarben	brandInputColors	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	Marke→brand.
-MarkenFeld	BrandField	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	gestaltetes Textfeld.
-Markenzeichen	BrandMark	funktion	android/app/src/main/java/app/maptale/ui/Marke.kt	7	VORSCHLAG: Logo-Composable.
 medien	media	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	auch im Repository.
+medienAnzahl	mediaCount	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	NACHTRAG 2026-08-21; die Bemerkung zu medienAnzahlFluss nannte es, eine eigene Zeile fehlte (§6.0 Regel 4).
 medienAnzahlFluss	mediaCountFlow	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	Repository medienAnzahl→mediaCount (§6.0 Regel 4).
 medienFluss	mediaFlow	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	auch im Repository.
 medienNachreichen	addMedia	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	§6.3 wörtlich; Route /media und Body-Schlüssel sind Welle 1.
@@ -3114,15 +3130,12 @@ modus	travelModeFor	funktion	android/app/src/main/java/app/maptale/aufzeichnung/
 moduswechsel	travelModeChanges	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	Sammlung Plural (§6.0 Regel 4); auch im Repository.
 nachzugSatz	backfillMessage	funktion	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	VORSCHLAG: formuliert den Meldungssatz (Fotos/Videos/Aufnahmen).
 naechsteMediumNummer	nextMediumNumber	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	nächste freie m-Nummer.
-neueMediumDatei	newMediumFile	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	Funktionsname; der persistierte Geräte-Ordner touren/ ist eine eigene Welle-7-Entscheidung (neuer Ordner tours/ nur für Neuanlagen, Bestand bleibt liegen).
-NeueTourBlatt	NewTourSheet	funktion	android/app/src/main/java/app/maptale/ui/NeueTourBlatt.kt	7	Blatt→Sheet analog ShareSheet (§6.5); Startblatt mit Modus-Wahl.
 neuVerarbeiten	reprocess	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	Route heißt schon reprocess.
+neueMediumDatei	newMediumFile	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	Funktionsname; der persistierte Geräte-Ordner touren/ ist eine eigene Welle-7-Entscheidung (neuer Ordner tours/ nur für Neuanlagen, Bestand bleibt liegen).
 oeffneAutorisierung	openAuthorization	funktion	android/app/src/main/java/app/maptale/tracker/TrackerBrowser.kt	7	öffne→open; OAuth-URL im Custom Tab.
 ortsname	placeName	funktion	android/app/src/main/java/app/maptale/benennung/TourBenennung.kt	7	Ort→place (§6.9 orte→places); Geocoder-Vertrag.
 passendeBilder	matchingImages	funktion	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	Bilder im Fenster minus schon bekannte.
-PrimaerKnopf	PrimaryButton	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	Knopf→button.
 probenFaktor	sampleFactor	funktion	android/app/src/main/java/app/maptale/ui/Bildskalierung.kt	7	inSampleSize-Faktor.
-ProfilScreen	ProfileScreen	funktion	android/app/src/main/java/app/maptale/ui/ProfilScreen.kt	7	Profil→profile (§6.2).
 projiziere	project	funktion	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	Geo-Punkt auf Bildkoordinaten.
 projiziereSpur	projectTrack	funktion	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	ganze Spur projizieren.
 pruefe	check	funktion	android/app/src/main/java/app/maptale/aufzeichnung/PunktFilter.kt	7	prüfe→check (§6.3); nimmt oder verwirft einen rohen Punkt.
@@ -3132,16 +3145,12 @@ pushGeraetAbmelden	unregisterPushDevice	funktion	android/app/src/main/java/app/m
 pushGeraetAnmelden	registerPushDevice	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	VORSCHLAG: Gerät an-/abmelden→register/unregister, nicht login; Route /api/push/devices und Body plattform→platform sind Welle 1.
 registriereFoto	registerPhoto	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	Foto mit m-ID und Anker eintragen.
 registriereVideo	registerVideo	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	Video mit m-ID und Anker eintragen.
-Routenskizze	RouteSketch	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	Skizze→sketch.
-RueckmeldungScreen	FeedbackScreen	funktion	android/app/src/main/java/app/maptale/ui/RueckmeldungScreen.kt	7	Rückmeldung→feedback (§6.4); WebView auf /feedback?app=1 bleibt (Produkt-URL, §3.4).
-Rundknopf	RoundButton	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	runder Icon-Knopf.
 schliesseVerwaisteAufnahmen	closeOrphanedRecordings	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	VORSCHLAG: verwaist→orphaned; nach Prozess-Tod gestrandete Aufnahmen zu Entwürfen machen.
-Schreibzeile	EditRow	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	VORSCHLAG: einzeilige Bearbeiten-Zeile.
 setzeAnmeldung	setLogin	funktion	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	VORSCHLAG: speichert E-Mail und Token.
 setzeAvatar	setAvatar	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	auch ApiClient.setAvatar.
 setzeDistanz	setDistance	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	laufende Distanz fortschreiben.
-setzeFotosAutomatisch	setAutoPhotos	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	auch Settings.setAutoPhotos.
 setzeFotoTitel	setPhotoTitle	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	über das Edit-Overlay (EditsPatch).
+setzeFotosAutomatisch	setAutoPhotos	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	auch Settings.setAutoPhotos.
 setzeMediumCaption	setMediumCaption	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	auch im Repository.
 setzeMediumHochgeladen	setMediumUploaded	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	hochgeladen→uploaded.
 setzeMediumStatus	setMediumStatus	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	Upload-Status eines Mediums.
@@ -3160,40 +3169,36 @@ skaliereFuerAvatar	scaleForAvatar	funktion	android/app/src/main/java/app/maptale
 speicherePunkte	savePoints	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	speichern→save; Flush der gepufferten Punkte samt Distanz.
 starte	start	funktion	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	alle fünf starte-Varianten gleich (Service, Zustand, Erkennung, beide Worker).
 starteAufnahme	startRecording	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	§6.5 wörtlich; legt die Tour mit lokal-ID an.
+starteAufzeichnung	startRecording	funktion	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	NACHTRAG 2026-08-21; §6.5 nennt das Paar, die Tabelle kannte nur starteAufnahme im Repository.
 stoppe	stop	funktion	android/app/src/main/java/app/maptale/aufzeichnung/Bewegungserkennung.kt	7	Übergangs-Registrierung beenden.
 sucheFotos	findPhotos	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	suchen→find (wie findMatchingPhotos).
 suchePassendeFotos	findMatchingPhotos	funktion	android/app/src/main/java/app/maptale/galerie/Fotonachzug.kt	7	suchen→find; null-Semantik (noch nicht beantwortbar) im Kommentar erhalten.
 suchfenster	searchWindow	funktion	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	Zeitfenster einer Tour.
-TeilenBlatt	ShareSheet	funktion	android/app/src/main/java/app/maptale/ui/TeilenBlatt.kt	7	§6.5 wörtlich.
 teilenLink	shareLink	funktion	android/app/src/main/java/app/maptale/ui/TeilenLink.kt	7	öffentlicher Link <server>/tour/<id>; der Pfad bleibt (§3.4).
 tourAnlegen	createTour	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	anlegen→create; POST /api/tours mit Manifest.
-toureListe	tourList	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	VORSCHLAG: behebt zugleich den Tippfehler toureListe; GET /api/tours.
-tourenMitStatus	toursByStatus	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	VORSCHLAG: by statt with, withX ist das immutable-Update-Muster (§6.3); auch im Repository.
-TourenScreen	ToursScreen	funktion	android/app/src/main/java/app/maptale/ui/TourenScreen.kt	7	§6.5 wörtlich; die Statuswert-Vergleiche darin sind Welle 1.
 tourFluss	tourFlow	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	Fluss→Flow (Kotlin-Fachwort); auch im Repository.
 tourMitServerId	tourByServerId	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	VORSCHLAG: by statt with (Nachschlagen, kein Update); auch im Repository.
 tourZeitfenster	tourTimeWindow	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	VORSCHLAG: Nomen-Form wie tourStatus beibehalten; verb-first (§6.0) wäre loadTourTimeWindow.
+toureListe	tourList	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	VORSCHLAG: behebt zugleich den Tippfehler toureListe; GET /api/tours.
+tourenMitStatus	toursByStatus	funktion	android/app/src/main/java/app/maptale/daten/TourDao.kt	7	VORSCHLAG: by statt with, withX ist das immutable-Update-Muster (§6.3); auch im Repository.
+trackHochladen	uploadTrack	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	PUT des GPX beim Import.
 trackerAnbieter	trackerProviders	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	Sammlung Plural (§6.0 Regel 4); der Antwort-Schlüssel anbieter→providers ist Welle 1.
 trackerImporteGesehen	trackerImportsSeen	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	die Route /imports/seen ist Welle 1 (Grundstock).
 trackerOffeneImporte	trackerPendingImports	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	offen→pending (wie der Import-Status); der Antwort-Schlüssel importe→imports ist Welle 1.
 trackerTrennen	disconnectTracker	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	trennen→disconnect; auch ApiClient.disconnectTracker.
 trackerVerbinden	connectTracker	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	verbinden→connect (wie tracker_verknuepfungen connected_at).
 trackerVerbindenUrl	trackerConnectUrl	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	VORSCHLAG; das Antwort-Feld autorisierungsUrl→authorizationUrl und der Body ziel→target sind Welle 1.
-trackHochladen	uploadTrack	funktion	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	PUT des GPX beim Import.
 uebernehmeFotos	acceptPhotos	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	VORSCHLAG: übernehmen→accept (Vorschlag annehmen und hochladen).
 uploadFehlerText	uploadErrorText	funktion	android/app/src/main/java/app/maptale/upload/UploadWorker.kt	7	Fehler als Träger der Meldung→error (§6.1); Erklärung für die Tourliste.
 verfuegbar	available	funktion	android/app/src/main/java/app/maptale/push/MaptalePush.kt	7	auch TrackerProvider.available (Property).
 verlassen	exit	funktion	android/app/src/main/java/app/maptale/ui/PlayerScreen.kt	7	Grundstock MaptaleApp.verlassen→MaptaleApp.exit; VERTRAG mit dem Web-Player, beide Seiten in EINEM Commit (Naht §3.3), Optional-Chaining schluckt den toten Exit lautlos.
 verschmelzeTouren	mergeTours	funktion	android/app/src/main/java/app/maptale/ui/Listenverschmelzung.kt	7	verschmelzen→merge.
 verwirfVorschlag	discardSuggestion	funktion	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	verwerfen→discard.
-Videoabzeichen	VideoBadge	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	Abzeichen→badge.
-Videoflaeche	VideoSurface	funktion	android/app/src/main/java/app/maptale/ui/Bausteine.kt	7	VideoView mit Standbild statt Schwarz.
 vonSchluessel	fromKey	funktion	android/app/src/main/java/app/maptale/daten/Entities.kt	7	von→from; auch Visibility.fromKey.
 vonStatus/zuStatus/vonModus/zuModus/vonUpload/zuUpload	fromStatus/toStatus/fromTravelMode/toTravelMode/fromUpload/toUpload	funktion	android/app/src/main/java/app/maptale/daten/LuhamboDb.kt	7	von/zu→from/to; die Konverter-Mechanik bleibt (Modus weiter über .key, NICHT .name, §4.4).
 waehlbare	selectable	funktion	android/app/src/main/java/app/maptale/ui/TeilenLink.kt	7	VORSCHLAG: zur Wahl stehende Stufen (Galerie-Schalter).
 waehleStabilisierung	chooseStabilization	funktion	android/app/src/main/java/app/maptale/kamera/Stabilisierung.kt	7	VORSCHLAG: wählen→choose; entscheidet den Weg pro Bindung.
 wechsleModus	changeTravelMode	funktion	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	VORSCHLAG: wechseln→change (schreibt einen TravelModeChange).
-Wortmarke	WordMark	funktion	android/app/src/main/java/app/maptale/ui/Marke.kt	7	VORSCHLAG: Schriftzug-Composable.
 zeigeFortschritt	showProgress	funktion	android/app/src/main/java/app/maptale/tracker/Importmeldung.kt	7	zeige→show; laufende Meldung (ID 4711, setOngoing).
 zeigeImportMeldung	showImportNotification	funktion	android/app/src/main/java/app/maptale/tracker/Importmeldung.kt	7	endgültige Meldung über dieselbe ID.
 zeitpunkt	fromIso	funktion	android/app/src/main/java/app/maptale/galerie/Fotonachzug.kt	7	VORSCHLAG: Gegenstück zu toIso (ISO mit örtlichem Versatz zu Epoche ms).
@@ -3209,10 +3214,14 @@ AufzeichnungsZustand	RecordingState	klasse	android/app/src/main/java/app/maptale
 Bewegungsdeutung	ActivityInterpretation	klasse	android/app/src/main/java/app/maptale/aufzeichnung/Bewegungsdeutung.kt	7	VORSCHLAG: wie die Datei.
 Bewegungserkennung	ActivityRecognizer	klasse	android/app/src/main/java/app/maptale/aufzeichnung/Bewegungserkennung.kt	7	VORSCHLAG: GMS-Klasse ActivityRecognition kollidiert (wird hier importiert).
 Bildpunkt	ScreenPoint	klasse	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	VORSCHLAG: projizierter Bildschirmpunkt; nicht ImagePoint, es geht um den Schirm.
+Einstellungen	Settings	klasse	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	NACHTRAG 2026-08-21: folgt dem Dateinamen (§6.4 Einstellung→setting). Der DataStore-NAME einstellungen bleibt (eigene Zeile).
+EinstellungenViewModel	SettingsViewModel	klasse	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	NACHTRAG 2026-08-21; folgt der Klasse.
 EnumKonverter	EnumConverter	klasse	android/app/src/main/java/app/maptale/daten/LuhamboDb.kt	7	Klassenname nicht persistiert; die Speicherwerte selbst sind Welle 1.
+FotoViewModel	PhotoViewModel	klasse	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	NACHTRAG 2026-08-21; Foto→photo.
 Fotomarke	PhotoMark	klasse	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	VORSCHLAG: Foto-Markierung an der Spur.
 Fotopunkt	PhotoPoint	klasse	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	VORSCHLAG: projizierte Foto-Position.
 Galeriebild	GalleryItem	klasse	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	VORSCHLAG: item statt image, es kann auch ein Video sein.
+ImportLogik	ImportLogic	klasse	android/app/src/main/java/app/maptale/importieren/ImportLogik.kt	7	NACHTRAG 2026-08-21; folgt dem Dateinamen.
 Konto	Account	klasse	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	Konto→account (§6.2); gelesener Kontostand aus dem DataStore.
 KontoStand	AccountState	klasse	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	VORSCHLAG: Stand→state; Antwort von /api/auth/me.
 LaufendeAufzeichnung	ActiveRecording	klasse	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	VORSCHLAG: laufend→active; Datenklasse des Live-Zustands.
@@ -3228,6 +3237,7 @@ NachreichMedium	AddMediaItem	klasse	android/app/src/main/java/app/maptale/upload
 OrtsGeocoder	PlaceGeocoder	klasse	android/app/src/main/java/app/maptale/benennung/TourBenennung.kt	7	Ort→place (§6.9 orte→places); Fun-Interface.
 PlayerBruecke	PlayerBridge	klasse	android/app/src/main/java/app/maptale/ui/PlayerScreen.kt	7	Brücke→bridge; der JS-Interface-Name MaptaleApp bleibt.
 ProfilStand	ProfileState	klasse	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	VORSCHLAG: analog AccountState; Felder anzeigename/oeffentlich folgen dem Glossar (displayName), die API-Schlüssel sind Welle 1.
+ProfilViewModel	ProfileViewModel	klasse	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	NACHTRAG 2026-08-21; Profil→profile (§6.2).
 Projektion	Projection	klasse	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	Geo-zu-Bildschirm-Projektion.
 PunktFilter	PointFilter	klasse	android/app/src/main/java/app/maptale/aufzeichnung/PunktFilter.kt	7	zustandsbehafteter Punkte-Filter.
 Reisestatistik	TravelStats	klasse	android/app/src/main/java/app/maptale/ui/Reisestatistik.kt	7	VORSCHLAG: wie die Datei; Properties touren/kilometer im selben Zug prüfen (tourCount/km).
@@ -3244,80 +3254,99 @@ TrackpunktEntity	TrackPointEntity	klasse	android/app/src/main/java/app/maptale/d
 Zeitspanne	TimeSpan	klasse	android/app/src/main/java/app/maptale/upload/Manifest.kt	7	Properties: startMs bleibt, endeMs→endMs.
 ZoomStufe	ZoomLevel	klasse	android/app/src/main/java/app/maptale/kamera/ZoomStufen.kt	7	VORSCHLAG: Stufe→level.
 Zustand	State	klasse	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	VORSCHLAG: sealed Interface; Werte Ruhe/Laedt/Fertig→Idle/Loading/Complete (§6.5) und Fehler→Failed (§6.1).
-lokal-<uuid>	local-<uuid>	manifest-schluessel	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	VORSCHLAG: welle unsicher. Wert ist für den Server opak (Idempotenz-Schlüssel), gilt nur für Neuanlagen; Bestand behält lokal-; auch bleiben wäre vertretbar.
+lokal-<uuid>	local-<uuid>	manifest-schluessel	android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	ENTSCHIEDEN 2026-08-21: geht mit. Wert ist für den Server opak (Idempotenz-Schlüssel), gilt nur für Neuanlagen; hochgeladene Touren tragen längst ihre Server-ID, lokale Entwürfe fielen mit dem Room-Verwurf von Welle 1 weg.
+app/maptale/aufzeichnung/	app/maptale/recording/	ordner	Kotlin-Paket; Importpfade aller Aufzeichnungs-Module	7	NACHTRAG 2026-08-21 (Welle-7-Entscheidung): Die Tabelle kannte nur die Dateien. Pakete gehen mit wie src/galerie/→src/gallery/ in Welle 6; app.maptale (applicationId) bleibt. Worker-Klassennamen ändern sich dadurch — s. §4.4 Cancel+Neueinreihen.
+app/maptale/benennung/	app/maptale/naming/	ordner	Kotlin-Paket	7	NACHTRAG 2026-08-21; dito
+app/maptale/daten/	app/maptale/data/	ordner	Kotlin-Paket; auch der Room-Schema-Ordner app/schemas/app.maptale.<paket>.MaptaleDb/	7	NACHTRAG 2026-08-21; dito. Der Schema-Ordner geht mit, der MigrationTest liest ihn als Pfad.
+app/maptale/galerie/	app/maptale/gallery/	ordner	Kotlin-Paket	7	NACHTRAG 2026-08-21; dito
+app/maptale/importieren/	app/maptale/importing/	ordner	Kotlin-Paket	7	NACHTRAG 2026-08-21; nicht import — Kotlin-Schlüsselwort.
+app/maptale/kamera/	app/maptale/camera/	ordner	Kotlin-Paket	7	NACHTRAG 2026-08-21; dito
+touren/	tours/	ordner	Geräte-Ablage lokaler Medien; android/app/src/main/java/app/maptale/daten/TourRepository.kt	7	ENTSCHIEDEN 2026-08-21: nur für Neuanlagen. Der Bestand unter touren/ bleibt liegen und ist nach dem Room-Verwurf von Welle 1 ohnehin verwaist.
 AKTION_BEWEGUNG	ACTION_ACTIVITY	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	VORSCHLAG: Wert BEWEGUNG→ACTIVITY; die Erkennungs-PendingIntents werden je Aufnahme neu registriert, ein Update beendet die Aufnahme ohnehin.
 AKTION_MODUS	ACTION_TRAVEL_MODE	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	Wert MODUS→TRAVEL_MODE.
 AKTION_PAUSE	ACTION_PAUSE	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	Wert schon neutral.
 AKTION_START	ACTION_START	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	Wert app.maptale.START bleibt.
 AKTION_STOPP	ACTION_STOP	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	Wert app.maptale.STOPP→app.maptale.STOP; Intent-Actions nur im Speicher.
 AKTION_WEITER	ACTION_RESUME	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	VORSCHLAG: weiter→resume; Wert WEITER→RESUME.
-aktuell	current	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	StateFlow der laufenden Aufnahme.
-Alarm	Danger	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: konsistent zu --rot→--danger im Web-Grundstock; Alarm wäre zwar englisch lesbar, aber ein drittes Wort für denselben Begriff.
-angemeldet	loggedIn	property	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	VORSCHLAG: Boolean (gibt es ein Token); positiv, kein is-Zwang (§6.0 Regel 2 erlaubt Adjektive).
-anker	anchor	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	§6.1; auch AddMediaItem.anchor.
-anzeige	label	property	android/app/src/main/java/app/maptale/daten/Entities.kt	7	VORSCHLAG: deutsches UI-Wort eines Modus; der Inhalt bleibt deutscher Produkttext; auch Visibility.label.
-AufCta	OnCta	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	DESIGN-Token on-cta (wie --auf-akzent→--on-cta).
-aufgenommenMs	takenAtMs	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	wie die Room-Spalte (dort Welle 1); auch MediumEntity/ImportMedium.
-AufKnopfGesperrt	OnButtonDisabled	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: analog OnCta.
 AUSGABE_SERVER_ID	OUTPUT_SERVER_ID	property	android/app/src/main/java/app/maptale/upload/UploadWorker.kt	7	Literal serverId bleibt.
 AVATAR_KANTE	AVATAR_EDGE	property	android/app/src/main/java/app/maptale/ui/Bildskalierung.kt	7	VORSCHLAG: Kantenlänge→edge, wie UPLOAD_EDGE.
-benennung	naming	property	android/app/src/main/java/app/maptale/LuhamboApp.kt	7	Benennung→naming (§6.4).
-breite	lat	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	VORSCHLAG: GPS-Breite ist latitude, nicht width; passend zu anchorLat.
-dateiname	fileName	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	auch AddMediaItem.fileName (war NachreichMedium.dateiname).
-distanzM	distanceM	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	auch PointFilter.distanceM.
+Alarm	Danger	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: konsistent zu --rot→--danger im Web-Grundstock; Alarm wäre zwar englisch lesbar, aber ein drittes Wort für denselben Begriff.
+AufCta	OnCta	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	DESIGN-Token on-cta (wie --auf-akzent→--on-cta).
+AufKnopfGesperrt	OnButtonDisabled	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: analog OnCta.
 EINGABE_IMPORT_ID	INPUT_IMPORT_ID	property	android/app/src/main/java/app/maptale/galerie/FotoNachzugWorker.kt	7	Literal importId bleibt.
 EINGABE_TOUR_ID	INPUT_TOUR_ID	property	android/app/src/main/java/app/maptale/galerie/FotoNachzugWorker.kt	7	Konstantenname; Literal tourId bleibt englisch (auch UploadWorker).
-einstellungen	settings	property	android/app/src/main/java/app/maptale/LuhamboApp.kt	7	Einstellung→setting (§6.4); DI-Singleton.
-ereignisse	events	property	android/app/src/main/java/app/maptale/tracker/TrackerRueckkehr.kt	7	SharedFlow der Deep-Link-Rückkehr.
-erstelltAm	createdAt	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	API liefert schon createdAt; …Am→…At (§6.0 Regel 1).
 EXTRA_MODUS	EXTRA_TRAVEL_MODE	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	Literal modus→travelMode.
 EXTRA_TITEL	EXTRA_TITLE	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsService.kt	7	Literal titel→title.
-fotosAutomatisch	autoPhotos	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	passend zum DataStore-Schlüssel auto_photos (§6.5); auch Account.autoPhotos.
-fotoVorschlag	photoSuggestion	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	aktueller Galerie-Vorschlag.
 GALERIE_VERFUEGBAR	GALLERY_AVAILABLE	property	android/app/src/main/java/app/maptale/ui/TeilenLink.kt	7	gibt es die öffentliche Galerie.
 Gedaempft	Muted	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	DESIGN-Token muted (wie --text-gedaempft→--muted im Grundstock).
-genauigkeitM	accuracyM	property	android/app/src/main/java/app/maptale/aufzeichnung/PunktFilter.kt	7	wie die Room-Spalte.
-hoehenmeter	gainM	property	android/app/src/main/java/app/maptale/ui/Reisestatistik.kt	7	VORSCHLAG: passend zu stats.gainM, aus dem der Wert kommt; Einheit im Namen (§6.0 Regel 1); auch ServerTour.gainM.
-istVideo	isVideo	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	is-Boolean (§6.0 Regel 2).
 KANAL_AUFZEICHNUNG	CHANNEL_RECORDING	property	android/app/src/main/java/app/maptale/LuhamboApp.kt	7	nur der Konstantenname; die Kanal-ID aufzeichnung bleibt (§3.4).
 KANAL_IMPORTE	CHANNEL_IMPORTS	property	android/app/src/main/java/app/maptale/LuhamboApp.kt	7	Konstantenname; ID importe bleibt (§3.4).
 KANAL_UPLOAD	CHANNEL_UPLOAD	property	android/app/src/main/java/app/maptale/LuhamboApp.kt	7	Konstantenname; ID upload bleibt.
 KnopfGesperrt	ButtonDisabled	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: gesperrt→disabled.
-konto	account	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	Konto→account (§6.2); auch Settings.account.
 Koralle	Coral	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: DESIGN.md kennt coral.
-laenge	lng	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	VORSCHLAG: GPS-Länge ist longitude, nicht length; passend zu anchorLng.
 LESERECHT	READ_PERMISSION	property	android/app/src/main/java/app/maptale/galerie/Fotonachzug.kt	7	zu erfragende Galerie-Berechtigung.
-letzterPunkt	lastPoint	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	letzter aufgezeichneter Punkt.
-letzterStand	lastAccount	property	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	VORSCHLAG: liefert Account, synchron für den OkHttp-Interceptor.
-lokaleTouren	localTours	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	Start- und ProfilViewModel.
-MaptaleTypografie	MaptaleTypography	property	android/app/src/main/java/app/maptale/ui/Typografie.kt	7	Typografie→Typography.
 MIN_ABSCHNITT_S	MIN_SEGMENT_S	property	android/app/src/main/java/app/maptale/aufzeichnung/Bewegungsdeutung.kt	7	Abschnitt→segment; Mindestdauer 90 s.
+MaptaleTypografie	MaptaleTypography	property	android/app/src/main/java/app/maptale/ui/Typografie.kt	7	Typografie→Typography.
 Nacht	Night	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: dunkelster Grund.
 NachtBg	NightBg	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: Mischname wird konsistent; Seiten-Hintergrund.
 NachtFlaeche	NightSurface	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: Fläche→surface (DESIGN-Token).
+SPUR_HOECHSTZAHL	TRACK_MAX_POINTS	property	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	VORSCHLAG: Deckel der Live-Spur-Punkte.
+Sonne	Sun	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: wörtlich; die semantische Alternative primary belegt MaterialTheme schon.
+TOLERANZ_MS	TOLERANCE_MS	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	bewusst 0; Kommentar mitnehmen.
+Tinte	Ink	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: helle Textfarbe.
+UPLOAD_KANTE	UPLOAD_EDGE	property	android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt	7	VORSCHLAG: Kantenlänge→edge; Ziel-Kante fürs Upload-Foto.
+VerlaufPrimaer	PrimaryGradient	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: Verlauf→gradient.
+aktuell	current	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	StateFlow der laufenden Aufnahme.
+angemeldet	loggedIn	property	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	VORSCHLAG: Boolean (gibt es ein Token); positiv, kein is-Zwang (§6.0 Regel 2 erlaubt Adjektive).
+anker	anchor	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	§6.1; auch AddMediaItem.anchor.
+anzeige	label	property	android/app/src/main/java/app/maptale/daten/Entities.kt	7	VORSCHLAG: deutsches UI-Wort eines Modus; der Inhalt bleibt deutscher Produkttext; auch Visibility.label.
+aufgenommenIso	takenAtIso	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21; wie aufgenommenMs→takenAtMs, Einheit im Namen (§6.0 Regel 1).
+aufgenommenMs	takenAtMs	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	wie die Room-Spalte (dort Welle 1); auch MediumEntity/ImportMedium.
+benennung	naming	property	android/app/src/main/java/app/maptale/LuhamboApp.kt	7	Benennung→naming (§6.4).
+benutztBytes	usedBytes	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21; belegtes Kontingent.
+breite	lat	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	VORSCHLAG: GPS-Breite ist latitude, nicht width; passend zu anchorLat.
+dateiname	fileName	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	auch AddMediaItem.fileName (war NachreichMedium.dateiname).
+distanzM	distanceM	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	auch PointFilter.distanceM.
+einstellungen	settings	property	android/app/src/main/java/app/maptale/LuhamboApp.kt	7	Einstellung→setting (§6.4); DI-Singleton.
+ereignisse	events	property	android/app/src/main/java/app/maptale/tracker/TrackerRueckkehr.kt	7	SharedFlow der Deep-Link-Rückkehr.
+erstelltAm	createdAt	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	API liefert schon createdAt; …Am→…At (§6.0 Regel 1).
+fotoVorschlag	photoSuggestion	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	aktueller Galerie-Vorschlag.
+fotos	media	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21: die Liste trägt ServerMedium, also Foto ODER Video (§6.1) — nicht photos wie der gleichnamige JSON-Schlüssel in Welle 1.
+fotosAutomatisch	autoPhotos	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	passend zum DataStore-Schlüssel auto_photos (§6.5); auch Account.autoPhotos.
+genauigkeitM	accuracyM	property	android/app/src/main/java/app/maptale/aufzeichnung/PunktFilter.kt	7	wie die Room-Spalte.
+hoehenmeter	gainM	property	android/app/src/main/java/app/maptale/ui/Reisestatistik.kt	7	VORSCHLAG: passend zu stats.gainM, aus dem der Wert kommt; Einheit im Namen (§6.0 Regel 1); auch ServerTour.gainM.
+istVideo	isVideo	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	is-Boolean (§6.0 Regel 2).
+kilometer	km	property	android/app/src/main/java/app/maptale/ui/Reisestatistik.kt	7	NACHTRAG 2026-08-21; die Bemerkung zu Reisestatistik nannte tourCount/km, eigene Zeilen fehlten.
+konto	account	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	Konto→account (§6.2); auch Settings.account.
+laenge	lng	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	VORSCHLAG: GPS-Länge ist longitude, nicht length; passend zu anchorLng.
+letzterPunkt	lastPoint	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	letzter aufgezeichneter Punkt.
+letzterStand	lastAccount	property	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	VORSCHLAG: liefert Account, synchron für den OkHttp-Interceptor.
+lokaleTouren	localTours	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	Start- und ProfilViewModel.
+nachricht	message	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21; ApiError-Konstruktor.
 nachzugLaeuft	backfillRunning	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	Nachzug→backfill (Grundstock-Linie).
+nutzertext	caption	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21 (Serverfoto→ServerMedium nannte die Property, ohne Ziel): der vom Nutzer gesetzte Text heißt im Manifest caption; title ist hier schon vergeben.
 ordner	folder	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	Herkunftsordner (Kamera-Positivliste).
 pausiert	paused	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	§6.1 paused (Zustand, Adjektiv).
 punktAnzahl	pointCount	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	…Count (§6.0 Regel 4).
+quellPfad	sourcePath	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21; Serverpfad der abspielbaren Datei.
+quotaAnteil	quotaFraction	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21; Anteil 0..1, kein Prozentwert.
 schluessel	key	property	android/app/src/main/java/app/maptale/daten/Entities.kt	7	wie settings schluessel→key (§6.8); auch Sichtbarkeit/Visibility.key und Toureintrag/TourEntry.key; die WERTE (walk, private, …) bleiben.
+schluesselServer	keyServer	property	android/app/src/main/java/app/maptale/upload/Einstellungen.kt	7	NACHTRAG 2026-08-21; folgt schluessel→key. Auch schluesselToken/schluesselEmail/schluesselFotosAuto→keyToken/keyEmail/keyAutoPhotos. Die WERTE der Schlüssel bleiben (server_url, api_token, email).
 serverTouren	serverTours	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt	7	Server-Tourenliste.
-Sonne	Sun	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: wörtlich; die semantische Alternative primary belegt MaterialTheme schon.
 spielbar	playable	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	Adjektiv-Boolean (§6.0 Regel 2); der verglichene Wert bereit→ready ist Welle 1.
 spur	track	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	GPS-Spur→track (§6.1).
-SPUR_HOECHSTZAHL	TRACK_MAX_POINTS	property	android/app/src/main/java/app/maptale/aufzeichnung/Spur.kt	7	VORSCHLAG: Deckel der Live-Spur-Punkte.
 tempoMps	speedMps	property	android/app/src/main/java/app/maptale/aufzeichnung/PunktFilter.kt	7	VORSCHLAG: echtes GPS-Tempo→speed; tempo bleibt dem Film vorbehalten (MODUS_TEMPO/tempoMs in filmachse.ts).
-Tinte	Ink	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: helle Textfarbe.
-TOLERANZ_MS	TOLERANCE_MS	property	android/app/src/main/java/app/maptale/galerie/Fotofenster.kt	7	bewusst 0; Kommentar mitnehmen.
-UPLOAD_KANTE	UPLOAD_EDGE	property	android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt	7	VORSCHLAG: Kantenlänge→edge; Ziel-Kante fürs Upload-Foto.
-VerlaufPrimaer	PrimaryGradient	property	android/app/src/main/java/app/maptale/ui/Theme.kt	7	VORSCHLAG: Verlauf→gradient.
+touren	tourCount	property	android/app/src/main/java/app/maptale/ui/Reisestatistik.kt	7	NACHTRAG 2026-08-21; Zähler heißen …Count (§6.0 Regel 4). NUR in TravelStats — sonst ist touren→tours.
+zeitzeile	timeLabel	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21; die Maschinenangabe „Foto · 21:03".
+zustand	state	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt; android/app/src/main/java/app/maptale/ui/ImportViewModel.kt	7	NACHTRAG 2026-08-21; folgt Zustand→State. Auch _zustand→_state und internZustand→internalState.
 fotos_automatisch	auto_photos	storage-schluessel	android DataStore	7	§6.5; Schlüsselwechsel ist bewusster Schritt, nicht beiläufig (§3.2)
 MaptaleApp.verlassen	MaptaleApp.exit	window-schluessel	android PlayerScreen.kt; src/main.ts	7	VORSCHLAG; Optional-Chaining schluckt den toten Exit (Naht §3.3)
+FotoNachzugWorker	PhotoBackfillWorker	worker-name	android/app/src/main/java/app/maptale/galerie/FotoNachzugWorker.kt	7	Nachzug→backfill (Grundstock); Klassenname persistiert, Cancel+Neueinreihen (§4.4).
+TrackerAbfrageWorker	TrackerPollWorker	worker-name	android/app/src/main/java/app/maptale/tracker/TrackerAbfrageWorker.kt	7	Abfrage→poll (Grundstock); Klassenname persistiert in der WorkManager-DB, deshalb Cancel+Neueinreihen beim ersten Start (§4.4); periodischer Auftrag!
 fotonachzug-$tourId	photo-backfill-$tourId	worker-name	android (WorkManager)	7	VORSCHLAG; §4.4
 fotonachzug-$tourId	photo-backfill-$tourId	worker-name	android/app/src/main/java/app/maptale/galerie/FotoNachzugWorker.kt	7	Grundstock; §4.4 Cancel+Neueinreihen.
-FotoNachzugWorker	PhotoBackfillWorker	worker-name	android/app/src/main/java/app/maptale/galerie/FotoNachzugWorker.kt	7	Nachzug→backfill (Grundstock); Klassenname persistiert, Cancel+Neueinreihen (§4.4).
 tracker-abfrage	tracker-poll	worker-name	android UploadWorker.kt-Umfeld (WorkManager Unique-Work)	7	VORSCHLAG; Welle 7 cancelt alte Unique-Works und reiht neu ein (§4.4)
 tracker-abfrage	tracker-poll	worker-name	android/app/src/main/java/app/maptale/tracker/TrackerAbfrageWorker.kt	7	Grundstock; Welle 7 cancelt den alten Unique-Work und reiht neu ein (§4.4); periodischer Auftrag.
-TrackerAbfrageWorker	TrackerPollWorker	worker-name	android/app/src/main/java/app/maptale/tracker/TrackerAbfrageWorker.kt	7	Abfrage→poll (Grundstock); Klassenname persistiert in der WorkManager-DB, deshalb Cancel+Neueinreihen beim ersten Start (§4.4); periodischer Auftrag!
 MAPTALE_* (rund 20 Env-Variablen, u.a. MAPTALE_DATEN_DIR, MAPTALE_ADMIN_PASSWORT, MAPTALE_HINTER_TLS, MAPTALE_BASIS_URL)	bleibt bis Schritt 9	env-variable	server/src/config.ts; docker-compose.cloudpanel.yml; server/Dockerfile; CI-Secrets; VPS-.env	9	§3.4/§5; eigener Ops-Schritt NACH Welle 8, nie in einer Code-Welle
 filmS	filmS	api-feld	GET /api/tours (stats.filmS), GET /api/tours/:id (stats.filmS, camera[].filmS, moments[].filmS, audio[].filmS)	-	bleibt (Glossar §6.1: das Filmzeit-Feld heisst filmS)
 finale	finale	api-feld	PATCH /api/tours/:id, GET /api/tours/:id/editor, GET /api/tours (stats.finale)	-	bleibt (schon englisch)

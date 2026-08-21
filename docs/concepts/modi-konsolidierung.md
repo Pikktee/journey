@@ -37,7 +37,7 @@ Voraussetzung für den Ausbau der Modus-Liste in
 | # | Fundstelle | Inhalt |
 |---|---|---|
 | 9 | [upload.ts:13](../../server/src/schema/upload.ts#L13) | `MODI` — Typ + JSON-Schema-Enums |
-| 10 | [Entities.kt:14](../../android/app/src/main/java/app/maptale/daten/Entities.kt#L14) | Kotlin-Enum: Schlüssel + Anzeigename |
+| 10 | [Entities.kt:14](../../android/app/src/main/java/app/maptale/data/Entities.kt#L14) | Kotlin-Enum: Schlüssel + Anzeigename |
 
 **Wächter:** vier Tests in [studio-baukasten.test.ts](../../test/studio-baukasten.test.ts)
 (ab „describe('Fortbewegungs-Modi')") vergleichen per Regex über den Quelltext:
@@ -235,7 +235,7 @@ dazu ist günstig:
 
 - Der TypeConverter speichert **bereits den Austauschformat-Schlüssel**
   (`vonModus(m) = m.schluessel` → `"walk"`, nicht `"WALK"`,
-  [LuhamboDb.kt:16](../../android/app/src/main/java/app/maptale/daten/LuhamboDb.kt#L16)).
+  [MaptaleDb.kt:16](../../android/app/src/main/java/app/maptale/data/MaptaleDb.kt#L16)).
   Die Spalte ist TEXT mit den richtigen Werten → **vermutlich keine Datenmigration**,
   nur ein neuer Schema-Export prüfen.
 - `Modus.vonSchluessel` fällt bei Unbekanntem tolerant auf `WALK` zurück.

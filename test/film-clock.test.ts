@@ -148,9 +148,9 @@ describe('verbindeSichtbarkeit', () => {
       const loese = connectVisibility(uhr)
 
       // Die WebView-Seite: eigene Ereignisse, unabhängig von visibilityState
-      window.dispatchEvent(new Event('maptale:hintergrund'))
+      window.dispatchEvent(new Event('maptale:background'))
       expect(uhr.pauses).toBe(1)
-      window.dispatchEvent(new Event('maptale:vordergrund'))
+      window.dispatchEvent(new Event('maptale:foreground'))
       uhr.frame(1000)
 
       // Der Browser-Weg
@@ -161,7 +161,7 @@ describe('verbindeSichtbarkeit', () => {
       loese()
       doc.visibilityState = 'visible'
       document.dispatchEvent(new Event('visibilitychange'))
-      window.dispatchEvent(new Event('maptale:hintergrund'))
+      window.dispatchEvent(new Event('maptale:background'))
       expect(uhr.pauses).toBe(2) // nach dem Abmelden kommt nichts mehr an
     })
   })

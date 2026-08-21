@@ -37,7 +37,7 @@ object MaptalePush {
      * Zugriff auf `FirebaseMessaging.getInstance()` würfe dann — deshalb steht
      * diese Frage VOR jedem Zugriff und nicht in einem try/catch dahinter.
      */
-    fun verfuegbar(context: Context): Boolean = FirebaseApp.getApps(context).isNotEmpty()
+    fun available(context: Context): Boolean = FirebaseApp.getApps(context).isNotEmpty()
 
     /**
      * Push einschalten: bei FCM anmelden und die Adresse beim eigenen Server
@@ -58,14 +58,14 @@ object MaptalePush {
      * auf dem Server, kein Netz). Der Aufrufer muss daraus nichts machen: Der
      * periodische Abruf läuft weiter, und genau dafür ist er da.
      */
-    suspend fun aktiviere(app: MaptaleApp): Boolean {
-        if (!verfuegbar(app)) return false
+    suspend fun enable(app: MaptaleApp): Boolean {
+        if (!available(app)) return false
         return runCatching {
             val messaging = FirebaseMessaging.getInstance()
             // Erst JETZT darf Firebase seine Installations-ID melden.
             messaging.isAutoInitEnabled = true
             messaging.register().await()
-            app.apiClient.pushGeraetAnmelden(FirebaseInstallations.getInstance().id.await())
+            app.apiClient.registerPushDevice(FirebaseInstallations.getInstance().id.await())
         }.getOrElse { fehler ->
             Log.w("Maptale", "Push konnte nicht eingeschaltet werden", fehler)
             false
@@ -84,11 +84,11 @@ object MaptalePush {
      * serverseitige CASCADE greift nur, wenn der Zugang von außen widerrufen
      * wird.
      */
-    suspend fun deaktiviere(app: MaptaleApp) {
-        if (!verfuegbar(app)) return
+    suspend fun disable(app: MaptaleApp) {
+        if (!available(app)) return
         runCatching {
             val fid = FirebaseInstallations.getInstance().id.await()
-            app.apiClient.pushGeraetAbmelden(fid)
+            app.apiClient.unregisterPushDevice(fid)
             val messaging = FirebaseMessaging.getInstance()
             messaging.unregister().await()
             messaging.isAutoInitEnabled = false

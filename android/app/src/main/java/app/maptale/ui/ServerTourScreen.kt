@@ -82,11 +82,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.maptale.MaptaleApp
-import app.maptale.galerie.darfGalerieLesen
-import app.maptale.galerie.nachzugSatz
-import app.maptale.aufzeichnung.Fotomarke
-import app.maptale.aufzeichnung.duenneAus
-import app.maptale.upload.Serverfoto
+import app.maptale.gallery.canReadGallery
+import app.maptale.gallery.backfillMessage
+import app.maptale.recording.PhotoMark
+import app.maptale.recording.thinOut
+import app.maptale.upload.ServerMedium
 import coil.compose.AsyncImage
 import java.time.Instant
 import java.time.ZoneId
@@ -105,30 +105,30 @@ fun ServerTourScreen(
     val fehler by viewModel.fehler.collectAsState()
     val app = LocalContext.current.applicationContext as MaptaleApp
 
-    var titel by rememberSaveable { mutableStateOf<String?>(null) }
-    var beschreibung by rememberSaveable { mutableStateOf<String?>(null) }
+    var title by rememberSaveable { mutableStateOf<String?>(null) }
+    var description by rememberSaveable { mutableStateOf<String?>(null) }
     var loeschenDialog by remember { mutableStateOf(false) }
     var teilen by remember { mutableStateOf(false) }
-    var grossesFoto by remember { mutableStateOf<Serverfoto?>(null) }
+    var grossesFoto by remember { mutableStateOf<ServerMedium?>(null) }
     // Der VideoView schickt kein Bearer-Token — er kennt nur Kopfzeilen, die wir
     // ihm mitgeben. Dieselbe Sitzung wie beim WebView-Player tut es auch hier.
     var sitzung by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { sitzung = runCatching { app.apiClient.sitzungFuerPlayer() }.getOrNull() }
+    LaunchedEffect(Unit) { sitzung = runCatching { app.apiClient.sessionForPlayer() }.getOrNull() }
 
     // Fotos aus der Galerie, die zeitlich passen — der Weg ohne stehende
     // Einwilligung. Gesucht wird nur, wenn das Leserecht schon erteilt ist und
     // die Automatik AUS ist: Mit Automatik hat der Meldungspfad die Bilder
     // längst hochgeladen, und dann wäre die Frage hier ein zweites Angebot für
     // etwas, das schon geschehen ist.
-    val vorschlag by viewModel.fotoVorschlag.collectAsState()
-    val nachzugLaeuft by viewModel.nachzugLaeuft.collectAsState()
+    val vorschlag by viewModel.photoSuggestion.collectAsState()
+    val backfillRunning by viewModel.backfillRunning.collectAsState()
     var nachzugMeldung by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(tour?.status) {
-        if (tour?.spielbar == true &&
-            darfGalerieLesen(app) &&
-            !app.einstellungen.aktuellesKonto().fotosAutomatisch
+        if (tour?.playable == true &&
+            canReadGallery(app) &&
+            !app.settings.currentAccount().autoPhotos
         ) {
-            viewModel.sucheFotos(app)
+            viewModel.findPhotos(app)
         }
     }
 
@@ -139,15 +139,15 @@ fun ServerTourScreen(
     // beim ersten Bild, machte aus dem noch fehlenden Titel per orEmpty() einen
     // leeren String — und weil der nicht mehr null ist, käme der echte Titel
     // danach nie an.
-    LaunchedEffect(tour) { tour?.let { if (titel == null) titel = it.titel.orEmpty() } }
-    LaunchedEffect(detail) { detail?.let { if (beschreibung == null) beschreibung = it.beschreibung.orEmpty() } }
+    LaunchedEffect(tour) { tour?.let { if (title == null) title = it.title.orEmpty() } }
+    LaunchedEffect(detail) { detail?.let { if (description == null) description = it.description.orEmpty() } }
 
     DisposableEffect(Unit) {
-        onDispose { if (titel != null) viewModel.sichereTexte(titel, beschreibung) }
+        onDispose { if (title != null) viewModel.saveTexts(title, description) }
     }
 
     val unten = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val fotos = detail?.fotos.orEmpty()
+    val media = detail?.media.orEmpty()
     val aktuelleTour = tour
 
     Box(Modifier.fillMaxSize()) {
@@ -161,10 +161,10 @@ fun ServerTourScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Serverkopf(
                     titelbild = aktuelleTour?.cover?.let { app.serverUrl() + it },
-                    titel = titel.orEmpty(),
-                    setzeTitel = { titel = it },
+                    title = title.orEmpty(),
+                    setTitle = { title = it },
                     abspielen = aktuelleTour
-                        ?.takeIf { it.spielbar }
+                        ?.takeIf { it.playable }
                         ?.let { t -> { abspielen(t.id) } },
                 )
             }
@@ -173,11 +173,11 @@ fun ServerTourScreen(
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        kennzahlen(aktuelleTour, fotos.size),
+                        kennzahlen(aktuelleTour, media.size),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (aktuelleTour != null && !aktuelleTour.spielbar) {
+                    if (aktuelleTour != null && !aktuelleTour.playable) {
                         Row(
                             Modifier.fillMaxWidth().padding(top = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -186,7 +186,7 @@ fun ServerTourScreen(
                             Icon(
                                 Icons.Default.HourglassEmpty,
                                 contentDescription = null,
-                                tint = Sonne,
+                                tint = Sun,
                                 modifier = Modifier.size(15.dp),
                             )
                             Text(
@@ -211,10 +211,10 @@ fun ServerTourScreen(
                     // nicht auf dem Sperrbildschirm. Sie steht nur da, wenn
                     // wirklich etwas gefunden wurde — ein „0 Fotos gefunden"
                     // wäre eine Meldung über nichts.
-                    nachzugSatz(
+                    backfillMessage(
                         vorschlag.size,
                         automatisch = false,
-                        videos = vorschlag.count { it.istVideo },
+                        videos = vorschlag.count { it.isVideo },
                     )?.let { frage ->
                         Row(
                             Modifier.fillMaxWidth().padding(top = 14.dp),
@@ -224,7 +224,7 @@ fun ServerTourScreen(
                             Icon(
                                 Icons.Default.AddPhotoAlternate,
                                 contentDescription = null,
-                                tint = Sonne,
+                                tint = Sun,
                                 modifier = Modifier.size(15.dp),
                             )
                             Text(frage, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
@@ -232,21 +232,21 @@ fun ServerTourScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(
                                 onClick = {
-                                    viewModel.uebernehmeFotos(app) { anzahl ->
-                                        nachzugMeldung = nachzugSatz(
+                                    viewModel.acceptPhotos(app) { anzahl ->
+                                        nachzugMeldung = backfillMessage(
                                             anzahl,
                                             automatisch = true,
-                                            videos = vorschlag.count { it.istVideo },
+                                            videos = vorschlag.count { it.isVideo },
                                         )
                                             ?: "Die Fotos ließen sich nicht hinzufügen."
                                     }
                                 },
-                                enabled = !nachzugLaeuft,
+                                enabled = !backfillRunning,
                                 contentPadding = PaddingValues(horizontal = 0.dp),
-                            ) { Text(if (nachzugLaeuft) "Wird hinzugefügt …" else "Hinzufügen") }
+                            ) { Text(if (backfillRunning) "Wird hinzugefügt …" else "Hinzufügen") }
                             TextButton(
-                                onClick = { viewModel.verwirfVorschlag() },
-                                enabled = !nachzugLaeuft,
+                                onClick = { viewModel.discardSuggestion() },
+                                enabled = !backfillRunning,
                                 colors = ButtonDefaults.textButtonColors(
                                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 ),
@@ -264,27 +264,27 @@ fun ServerTourScreen(
 
                     // Die Form der Reise. Nur wenn ein Track da ist — eine reine
                     // Foto-Tour oder eine noch in Verarbeitung hätte keinen.
-                    val route = remember(detail) { detail?.route?.let { duenneAus(it) }.orEmpty() }
+                    val route = remember(detail) { detail?.route?.let { thinOut(it) }.orEmpty() }
                     // Nur platzierte Medien: Wo der Server keinen Anker fand,
                     // gibt es auch keine Stelle auf dem Weg, an die der Punkt
                     // gehörte. Im Gitter darunter sind sie trotzdem alle.
                     val fotomarken = remember(detail) {
-                        fotos.mapNotNull { foto ->
+                        media.mapNotNull { foto ->
                             val lng = foto.anchorLng
                             val lat = foto.anchorLat
-                            if (lng != null && lat != null) Fotomarke(foto.id, lng, lat) else null
+                            if (lng != null && lat != null) PhotoMark(foto.id, lng, lat) else null
                         }
                     }
                     if (route.size >= 2) {
                         Spacer(Modifier.height(22.dp))
-                        Abschnittstitel("Route")
+                        SectionTitle("Route")
                         Spacer(Modifier.height(10.dp))
-                        Routenskizze(
-                            spur = route,
+                        RouteSketch(
+                            track = route,
                             abgeschlossen = true,
-                            fotos = fotomarken,
+                            media = fotomarken,
                             beiFotoklick = { id ->
-                                fotos.firstOrNull { it.id == id }?.let { treffer -> grossesFoto = treffer }
+                                media.firstOrNull { it.id == id }?.let { treffer -> grossesFoto = treffer }
                             },
                             modifier = Modifier.fillMaxWidth().height(150.dp),
                         )
@@ -293,7 +293,7 @@ fun ServerTourScreen(
                 }
             }
 
-            items(fotos, key = { it.id }) { foto ->
+            items(media, key = { it.id }) { foto ->
                 Box(
                     Modifier
                         .aspectRatio(1f)
@@ -303,33 +303,33 @@ fun ServerTourScreen(
                     AsyncImage(
                         // Das Raster zeigt Drittelbreiten — dafür genügt die
                         // Kachel-Fassung. Die Vollansicht holt das große Bild.
-                        model = app.serverUrl() + (foto.thumb ?: foto.pfad),
-                        contentDescription = foto.titel,
+                        model = app.serverUrl() + (foto.thumb ?: foto.path),
+                        contentDescription = foto.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    if (foto.istVideo) {
-                        Videoabzeichen(Modifier.align(Alignment.Center))
+                    if (foto.isVideo) {
+                        VideoBadge(Modifier.align(Alignment.Center))
                     }
                 }
             }
 
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(horizontal = 20.dp)) {
-                    if (laedt && fotos.isEmpty()) {
+                    if (laedt && media.isEmpty()) {
                         Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), Alignment.Center) {
-                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Sonne)
+                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Sun)
                         }
                     }
                     Spacer(Modifier.height(30.dp))
-                    Abschnittstitel("Beschreibung")
+                    SectionTitle("Beschreibung")
                     Spacer(Modifier.height(10.dp))
-                    MarkenFeld(
-                        value = beschreibung ?: "",
-                        onValueChange = { beschreibung = it },
+                    BrandField(
+                        value = description ?: "",
+                        onValueChange = { description = it },
                         placeholder = { Text("Was war das für ein Tag?") },
                         modifier = Modifier.fillMaxWidth().height(104.dp),
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Tinte),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink),
                     )
                     Spacer(Modifier.height(26.dp))
                     TextButton(
@@ -342,15 +342,15 @@ fun ServerTourScreen(
             }
         }
 
-        Rundknopf(
+        RoundButton(
             symbol = Icons.AutoMirrored.Filled.ArrowBack,
-            beschreibung = "Zurück",
+            description = "Zurück",
             beiKlick = zurueck,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
-        Rundknopf(
+        RoundButton(
             symbol = Icons.Default.Share,
-            beschreibung = "Tour teilen",
+            description = "Tour teilen",
             beiKlick = { teilen = true },
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
         )
@@ -358,23 +358,23 @@ fun ServerTourScreen(
 
     grossesFoto?.let { foto ->
         Fotoschau(
-            bildUrl = app.serverUrl() + foto.pfad,
-            videoUrl = (app.serverUrl() + foto.quellPfad).takeIf { foto.istVideo },
+            bildUrl = app.serverUrl() + foto.path,
+            videoUrl = (app.serverUrl() + foto.sourcePath).takeIf { foto.isVideo },
             sitzung = sitzung,
-            nutzertext = foto.nutzertext,
-            zeitzeile = foto.zeitzeile,
-            setzeTitel = { viewModel.setzeFotoTitel(foto.id, it) },
+            caption = foto.caption,
+            timeLabel = foto.timeLabel,
+            setTitle = { viewModel.setPhotoTitle(foto.id, it) },
             schliessen = { grossesFoto = null },
         )
     }
 
     if (teilen && aktuelleTour != null) {
-        TeilenBlatt(
+        ShareSheet(
             serverTourId = aktuelleTour.id,
-            titel = titel ?: aktuelleTour.titel,
-            aktuelleSichtbarkeit = Sichtbarkeit.vonSchluessel(aktuelleTour.visibility),
+            title = title ?: aktuelleTour.title,
+            aktuelleSichtbarkeit = Visibility.fromKey(aktuelleTour.visibility),
             schliessen = { teilen = false },
-            setzeSichtbarkeit = viewModel::setzeSichtbarkeit,
+            setVisibility = viewModel::setVisibility,
         )
     }
 
@@ -392,8 +392,8 @@ fun ServerTourScreen(
                 TextButton(onClick = {
                     loeschenDialog = false
                     // Kein Sichern beim Verlassen mehr — die Tour ist ja weg
-                    titel = null
-                    viewModel.loesche(danach = zurueck)
+                    title = null
+                    viewModel.delete(danach = zurueck)
                 }) { Text("Löschen", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { loeschenDialog = false }) { Text("Abbrechen") } },
@@ -404,8 +404,8 @@ fun ServerTourScreen(
 @Composable
 private fun Serverkopf(
     titelbild: String?,
-    titel: String,
-    setzeTitel: (String) -> Unit,
+    title: String,
+    setTitle: (String) -> Unit,
     abspielen: (() -> Unit)?,
 ) {
     val tastatur = LocalSoftwareKeyboardController.current
@@ -455,15 +455,15 @@ private fun Serverkopf(
                 Icon(
                     Icons.Default.PlayArrow,
                     contentDescription = "Tour abspielen",
-                    tint = Tinte,
+                    tint = Ink,
                     modifier = Modifier.size(38.dp),
                 )
             }
         }
 
-        Schreibzeile(
-            wert = titel,
-            setzeWert = setzeTitel,
+        EditRow(
+            wert = title,
+            setzeWert = setTitle,
             platzhalter = "Unbenannte Tour",
             stil = MaterialTheme.typography.headlineMedium,
             fokus = fokus,
@@ -487,24 +487,24 @@ private fun Fotoschau(
     /** Gesetzt, wenn das Medium ein Video ist — dann wird abgespielt statt gezeigt. */
     videoUrl: String?,
     sitzung: String?,
-    nutzertext: String,
+    caption: String,
     /** „Foto · 14:32“ — der Zeitstempel über dem Titel. */
-    zeitzeile: String?,
-    setzeTitel: (String) -> Unit,
+    timeLabel: String?,
+    setTitle: (String) -> Unit,
     schliessen: () -> Unit,
 ) {
     val tastatur = LocalSoftwareKeyboardController.current
     val fokusManager = LocalFocusManager.current
-    var text by rememberSaveable(nutzertext) { mutableStateOf(nutzertext) }
+    var text by rememberSaveable(caption) { mutableStateOf(caption) }
     val fokus = remember { FocusRequester() }
 
-    val beenden = {
-        setzeTitel(text)
+    val cancel = {
+        setTitle(text)
         schliessen()
     }
     // Auch die Zurück-Geste sichert — sonst wäre der Text je nach Ausstieg da
     // oder weg.
-    BackHandler(onBack = beenden)
+    BackHandler(onBack = cancel)
 
     Box(
         Modifier
@@ -519,8 +519,8 @@ private fun Fotoschau(
             ) { fokusManager.clearFocus() },
     ) {
         if (videoUrl != null) {
-            Videoflaeche(
-                quelle = Uri.parse(videoUrl),
+            VideoSurface(
+                source = Uri.parse(videoUrl),
                 kopfzeilen = sitzung?.let { mapOf("Cookie" to "maptale_session=$it") }.orEmpty(),
                 // `bildUrl` ist bei einem Video das Poster — dasselbe Bild, das
                 // schon die Kachel zeigte. Es steht, bis das erste Videobild da ist.
@@ -530,7 +530,7 @@ private fun Fotoschau(
         } else {
             AsyncImage(
                 model = bildUrl,
-                contentDescription = nutzertext.ifBlank { zeitzeile },
+                contentDescription = caption.ifBlank { timeLabel },
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -545,11 +545,11 @@ private fun Fotoschau(
                 .navigationBarsPadding()
                 .padding(horizontal = 22.dp, vertical = 18.dp),
         ) {
-            if (zeitzeile != null) {
-                Abschnittstitel(zeitzeile)
+            if (timeLabel != null) {
+                SectionTitle(timeLabel)
                 Spacer(Modifier.height(8.dp))
             }
-            Schreibzeile(
+            EditRow(
                 wert = text,
                 setzeWert = { text = it },
                 platzhalter = "Was ist hier zu sehen?",
@@ -558,10 +558,10 @@ private fun Fotoschau(
             )
         }
 
-        Rundknopf(
+        RoundButton(
             symbol = Icons.Default.Close,
-            beschreibung = "Schließen",
-            beiKlick = beenden,
+            description = "Schließen",
+            beiKlick = cancel,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
     }
@@ -569,12 +569,12 @@ private fun Fotoschau(
 
 private val DATUM = DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.GERMAN)
 
-private fun kennzahlen(tour: app.maptale.upload.ServerTour?, fotos: Int): String {
+private fun kennzahlen(tour: app.maptale.upload.ServerTour?, media: Int): String {
     val teile = buildList {
         tour?.km?.let { add(String.format(Locale.GERMAN, "%.1f km", it)) }
-        tour?.hoehenmeter?.takeIf { it > 0 }?.let { add(String.format(Locale.GERMAN, "%.0f hm", it)) }
-        add(if (fotos == 1) "1 Foto" else "$fotos Fotos")
-        tour?.erstelltAm?.let { iso ->
+        tour?.gainM?.takeIf { it > 0 }?.let { add(String.format(Locale.GERMAN, "%.0f hm", it)) }
+        add(if (media == 1) "1 Foto" else "$media Fotos")
+        tour?.createdAt?.let { iso ->
             runCatching { DATUM.withZone(ZoneId.systemDefault()).format(Instant.parse(iso)) }.getOrNull()?.let(::add)
         }
     }

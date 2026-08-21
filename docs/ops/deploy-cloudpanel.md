@@ -207,7 +207,7 @@ für die Zertifikatserneuerung, `/api/`, `location /` → 301) — Muster:
 
 > **`/api/` wird NICHT mitumgeleitet.** Android-Installationen aus der Zeit vor
 > der Umstellung haben die alte Domain als Server gespeichert
-> ([`Einstellungen.kt`](../../android/app/src/main/java/app/maptale/upload/Einstellungen.kt)
+> ([`Einstellungen.kt`](../../android/app/src/main/java/app/maptale/upload/Settings.kt)
 > `STANDARD_SERVER`); OkHttp macht aus einem POST hinter 301/302 ein GET und
 > wirft dabei den `Authorization`-Header ab — jeder Upload einer Alt-Installation
 > schlüge still fehl. Der `location ^~ /api/`-Block bleibt daher unverändert

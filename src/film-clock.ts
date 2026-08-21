@@ -189,11 +189,11 @@ export function connectVisibility(clock: FilmClock): () => void {
   const onBackground = (): void => clock.pause()
   const onForeground = (): void => clock.resume()
   document.addEventListener('visibilitychange', onVisibility)
-  window.addEventListener('maptale:hintergrund', onBackground)
-  window.addEventListener('maptale:vordergrund', onForeground)
+  window.addEventListener('maptale:background', onBackground)
+  window.addEventListener('maptale:foreground', onForeground)
   return () => {
     document.removeEventListener('visibilitychange', onVisibility)
-    window.removeEventListener('maptale:hintergrund', onBackground)
-    window.removeEventListener('maptale:vordergrund', onForeground)
+    window.removeEventListener('maptale:background', onBackground)
+    window.removeEventListener('maptale:foreground', onForeground)
   }
 }

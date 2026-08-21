@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-21
-status: Wellen 0 bis 6 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 6 warten auf den nächsten Release. Das Web ist damit bis auf eine Lücke durch (photopins.ts, s. Welle 6). Offen: Welle 7 (Android), Welle 8 (Doku) und Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
+status: Wellen 0 bis 7 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 7 warten auf den nächsten Release. Damit ist der CODE durch, bis auf eine Lücke (photopins.ts, s. Welle 6 — eigener kleiner Lauf, noch ohne Zielformen in der Tabelle). Offen: Welle 8 (Doku) und Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -26,10 +26,10 @@ betrifft:
   - src/admin/admin.ts
   - DESIGN.md
   - vite.config.js
-  - android/app/src/main/java/app/maptale/daten/Entities.kt
-  - android/app/src/main/java/app/maptale/daten/LuhamboDb.kt
+  - android/app/src/main/java/app/maptale/data/Entities.kt
+  - android/app/src/main/java/app/maptale/data/MaptaleDb.kt
   - android/app/src/main/java/app/maptale/upload/ApiClient.kt
-  - android/app/src/main/java/app/maptale/upload/EditsFortschreibung.kt
+  - android/app/src/main/java/app/maptale/upload/EditsPatch.kt
   - CLAUDE.md
   - docs/specs/austauschformat.md
   - docs/specs/overlay-und-tourjson.md
@@ -240,7 +240,7 @@ dabei grün; der Halt ist die Testsuite plus der Abnahme-Grep aus §8.
 | `tour.json` | Datenordner | Player (`src/remote.ts`), **Android** (`ApiClient.kt` parst es aus `GET /api/tours/:id`: `ServerTourDetail`, Foto-Nachzug-Abgleich), Export-ZIP | `maptale/tour@1` |
 | JSON in DB-Spalten | `tours.stats_json`, `rueckmeldungen.kontext`, `tracker_verknuepfungen.tokens` (`mail_tokens.nutzlast` ist ein roher String, §4.2) | Server, Web (`stats` in Listen) | keine |
 | **HTTP-API** | `server/src/routes/*`, `server/src/app.ts` | Web (`src/studio/api.ts`, `src/remote.ts`, `src/konto`, `src/profil`, `src/admin`, `src/galerie`, `src/app-nav.ts`), **Android** (`ApiClient.kt`, `TourenScreen.kt`, `ImportViewModel.kt`, `TrackerModell.kt`) | keine |
-| Room | `Entities.kt`, `LuhamboDb.kt` | nur App | Version 3, zwei Migrationen |
+| Room | `Entities.kt`, `MaptaleDb.kt` | nur App | Version 4; die Migrationen 1→2 und 2→3 sind Historie, 3→4 war destruktiv (Welle 1) |
 | DataStore | `api_token`, `email`, `server_url`, `fotos_automatisch` | nur App | keine |
 | Cookies | `maptale_session`, `maptale_dabei` | Browser | keine |
 | localStorage | `maptale.ansicht`, `maptale.editor.stimmung`, `maptale_profil_cache`, `maptale:weather`, `maptale:weather-int`, `maptale:music`, `maptale:audio`; sessionStorage `maptale:video-sound` | Browser | keine |
@@ -272,9 +272,9 @@ zugehörigen Test laufen:
 | `vite.config.js` → `src/routes.ts` | die Config importiert `ENTRIES`, `PATH_TO_FILE`, `ROUTES` und `tourFromPath`; sie ist kein TypeScript und läuft in Vites eigenem Loader | ✅ Welle 6, im selben Commit. Fällt laut auf (die Config lädt nicht), steht aber sonst auf keiner Liste |
 | `camera[].preset` → `PRESETS` in `src/tour.ts` | der Player löst den Wert über `PRESETS[name] ?? PRESETS.mittel` auf; der Rückfall ist STILL. Welle 1 benennt die Werte, `tour.ts` ist Welle 5: Dazwischen fiele jede Kamerakante auf „mittel" | Welle 1 zieht BEIDE Stellen im selben Commit mit: die Schlüssel von `PRESETS` UND den Vergleich `k.preset === 'standard'` in `src/main.ts` (`kamFolger`): `standard` steht gar nicht in `PRESETS`, sondern wird dort abgefangen und auf die Einstellung des Zuschauers gelegt; nach `default` liefe er in `distanzFuer`, fiele still auf „mittel" und überschriebe genau die Wahl, die er respektieren soll. `MODE_SCALE` bleibt, Modi wandern nicht |
 | `verarbeite` in `routes/tours.ts` | heute NICHT exportiert; die Start-Migration aus §4.3 muss sie rufen | Welle 1 exportiert oder verschiebt sie, bevor die Migration entsteht |
-| Push-Nutzlast Server → App | [push.ts](../../server/src/push.ts) sendet `{ typ: 'import-fertig', tourId, importId }`, [MaptalePushDienst.kt](../../android/app/src/main/java/app/maptale/push/MaptalePushDienst.kt) vergleicht `data["typ"] != "import-fertig"`. Schlüssel UND Wert deutsch, und die Leser liegen in verschiedenen Wellen (Server 2, App 7) | Welle 1, zusammen mit den übrigen API-Feldern. Sonst kommt jede Import-fertig-Meldung still nie mehr an |
+| Push-Nutzlast Server → App | [push.ts](../../server/src/push.ts) sendet `{ typ: 'import-fertig', tourId, importId }`, [MaptalePushDienst.kt](../../android/app/src/main/java/app/maptale/push/MaptalePushService.kt) vergleicht `data["typ"] != "import-fertig"`. Schlüssel UND Wert deutsch, und die Leser liegen in verschiedenen Wellen (Server 2, App 7) | Welle 1, zusammen mit den übrigen API-Feldern. Sonst kommt jede Import-fertig-Meldung still nie mehr an |
 | Vhost | `deploy/cloudpanel-nginx.conf` proxyt `/api`, `/@`, `/tour/`, `/umami` und die Sitemaps | unberührt, solange `/api/` Präfix bleibt |
-| WebView-Brücke | `maptale:hintergrund`/`vordergrund` + `window.MaptaleApp.verlassen()` verbinden Welle 5 (Player) und Welle 7 (App); versagt LAUTLOS (Optional-Chaining schluckt den toten Exit, ohne das Hintergrund-Event kommt der Ton-Drift zurück) | Welle 5 lässt beide Kanäle unangetastet; Welle 7 ändert beide Seiten in EINEM Commit (derselbe Tag baut Web und APK) |
+| WebView-Brücke | `maptale:background`/`foreground` + `window.MaptaleApp.exit()` verbinden Player und App; versagt LAUTLOS (Optional-Chaining schluckt den toten Exit, ohne das Hintergrund-Event kommt der Ton-Drift zurück) | ✅ Welle 7: beide Seiten in EINEM Commit, bewacht von `test/film-clock.test.ts` |
 | CSS-`<link>`-Namen | `base.css`, `page-elements.css`, `toolkit.css`, `legal-text.css` hängen als `<link>` in den HTML-Köpfen, dazu `basisZuerst()` in vite.config.js | ✅ Welle 6: HTML, CSS-Dateinamen und `GETEILTE_BLAETTER`/`--sheet-*` in vite.config.js im selben Commit; jede Seite gebaut angesehen |
 | Extern registrierte URLs | OAuth-Callback und Webhook der Tracker-Anbieter (`/api/tracker/:provider/callback`, `/api/webhooks/tracker/:provider`) | schon englisch, **bleiben wortgleich**; eine Änderung hieße Neuregistrierung beim Anbieter |
 | Mail-Links auf die API | `/api/export/:token` (48 h gültig), `/api/newsletter/ein-klick/:token` (noch kein Versand live) | Welle 1 zu einem Zeitpunkt ohne laufenden Export; Newsletter-Versand ist Teil B und noch nicht gebaut |
@@ -349,7 +349,7 @@ zugehörigen Test laufen:
   ist flüchtig; es friert der Einheitlichkeit wegen mit ein, dieselbe Naht,
   dieselbe Regel.
 - **Die Notification-Kanal-IDs der App** (`aufzeichnung`, `importe`, `upload`,
-  [LuhamboApp.kt](../../android/app/src/main/java/app/maptale/LuhamboApp.kt)):
+  [MaptaleApp.kt](../../android/app/src/main/java/app/maptale/MaptaleApp.kt)):
   Sie persistieren je Installation SAMT den Einstellungen, die jemand pro
   Kanal getroffen hat. Bleiben wortgleich.
 
@@ -552,7 +552,7 @@ Satz „ab hier ist Stand 1 nicht mehr lesbar."
 ### 4.4 Android: Room v4, destruktiv, einmal
 
 Room steht auf Version 3 mit zwei Migrationen.
-[LuhamboDb.kt](../../android/app/src/main/java/app/maptale/daten/LuhamboDb.kt)
+[MaptaleDb.kt](../../android/app/src/main/java/app/maptale/data/MaptaleDb.kt)
 verzichtet heute ausdrücklich auf `fallbackToDestructiveMigration`, mit der
 Begründung, auf dem Gerät lägen unwiederbringliche Aufnahmen. Für diesen einen
 Schritt gilt das nicht (nur Geräte des Betreibers, §4.5). Aber **„Neuinstallation
@@ -566,7 +566,7 @@ Mit umzubenennen sind die **Enum-Speicherwerte**, aber nur zwei Enums
 speichern überhaupt per `.name`: `TourStatus` (`AUFNAHME, ENTWURF, LAEDT_HOCH,
 HOCHGELADEN, FEHLER`) und `MediumUploadStatus` (`LOKAL, HOCHGELADEN`), s.
 `EnumKonverter` in
-[LuhamboDb.kt](../../android/app/src/main/java/app/maptale/daten/LuhamboDb.kt).
+[MaptaleDb.kt](../../android/app/src/main/java/app/maptale/data/MaptaleDb.kt).
 **`Modus` speichert `.schluessel`** und die sind schon englisch (`walk`,
 `bike`, …): Wer den Converter auf `.name` „vereinheitlicht", schreibt `WALK`
 in die DB und ins Manifest und bricht den `upload@2`-Vertrag, dessen Werte
@@ -623,7 +623,7 @@ mit Leser.
 | **4** ✅ | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `playback`, `export-sheet`, `add-media`, `sfx-library`, `tooltip`, `map-mood`) + Dateiumbenennungen + die DOM-IDs und CSS-Klassen des Studios | mittel |
 | **5** ✅ | Player-Engine (`tour`, `film-axis`, `film-clock`, `card-painter`, `card-layer`, `card-timing`, `route-anchors`, `ui`, `main`, `film-export`, `film-export-channel`, `fullscreen`, `map-attribution`, `tour-texts`, `weather-sky`, `pin-model`, `stops`) + `window.__maptale` + `scripts/messungen` + `test/fixtures/film-axis.json` mit Server-Spiegel + die DOM-Namen des Players | mittel |
 | **6** ✅ | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
-| **7** | Android: ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; Zusage in `LuhamboDb.kt` zurück | niedrig (nur eigene Geräte) |
+| **7** ✅ | Android: Pakete, Dateien, ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; WorkManager-Umzug, WebView-Brücke, Zusage in `MaptaleDb.kt` zurück | niedrig (nur eigene Geräte) |
 | **8** | Doku nach §7: Topf A übersetzen, Topf C archivieren, Start-Migration ausbauen, wenn der Marker überall 2 ist | niedrig |
 | **9** | Betrieb: die `MAPTALE_*`-Env-Variablen (§3.4) samt `docker-compose.cloudpanel.yml`, `server/Dockerfile`, CI-Secrets und den Runbooks in `docs/ops/`. Handgriff in drei Schritten: neue Namen ZUSÄTZLICH in die Server-`.env`, deployen, alte Zeilen entfernen. Kein Code-Rename in den Wellen davor, ein Ops-Schritt mit eigenem Rollback (`.env` zurück, voriges Image) | niedrig, aber still: kein Compiler, kein Test, kein Diff sieht den Fehler |
 
@@ -697,7 +697,7 @@ Klartext aus §4.1, und zwar in beiden Feldnamen.
 Fehlermeldung: `session-aus-token` heißt anders (die Player-WebView bekommt
 keine Sitzung), `/api/auth/me/profil` und `/api/push/geraete` sind 404, und die
 Statuswerte der Tourliste sind unbekannt, also zeigt jede Tour „Wird
-verarbeitet" ([TourenScreen.kt](../../android/app/src/main/java/app/maptale/ui/TourenScreen.kt)
+verarbeitet" ([TourenScreen.kt](../../android/app/src/main/java/app/maptale/ui/ToursScreen.kt)
 fällt in den `else`-Zweig). Für die Geräte des Betreibers ist das tragbar.
 Findet die Messung aus §4.5 ein FREMDES App-Gerät, ist es das nicht mehr, und
 dann wird vorher eine tolerante App-Fassung ausgeliefert, die beide Feld- und
@@ -1080,6 +1080,111 @@ mit einer Ausnahme: `test/base-css.test.ts`, wo die Übersetzungstabelle durch
 eine Regel ersetzt wurde. Er muss VOR dem Prettier-Lauf verglichen werden: Der
 formatiert geänderte Zeilen neu um, und danach verschieben sich die
 Deklarations-Zeilen, an denen der Abzug hängt.
+
+---
+
+### Welle 7: gebaut am 2026-08-21
+
+400 Zeilen der Abbildungstabelle (371 aus Welle 0, 29 im Bau nachgetragen), 87
+Kotlin-Dateien, 60 davon umbenannt, dazu sechs Pakete. Umbenannt wurde
+token-basiert über einen **Kotlin-Regionen-Scanner** statt über den
+TypeScript-Language-Service: `scripts/bindungs-abzug.mjs` ist `ts.createProgram`
+und sieht Kotlin nicht, es gab also kein Netz gegen Verdeckung. Der Ersatz ist
+schwächer und trug trotzdem: Der Scanner zerlegt jede Datei in Code, Kommentar
+und String-Literal und ersetzt NUR in Code — String-Templates (`$name`, `${…}`)
+sind darin wieder Code. Was der Kotlin-Compiler nicht sieht, hat der Scanner
+gemeldet statt angefasst: eine Liste der Fundstellen in Kommentaren und Strings,
+je Name und Datei, von Hand durchgegangen.
+
+**Das Room-Schema hat sich NICHT geändert, und das ist der wichtigste Befund
+dieser Welle.** Die Annahme war, der erste Start nach dem Update werfe die
+lokale Datenbank weg. Er tut es nicht: Tabellen- und Spaltennamen sind seit
+Welle 1 englisch, Welle 7 benennt Kotlin-Klassen und -Eigenschaften um, und das
+exportierte `4.json` ist vor und nach ihr **byte-gleich** (nachgemessen, nicht
+geschlossen). Damit bleibt die Version bei 4, es gibt nichts zu migrieren, und
+die Zusage konnte im selben Commit zurück: `fallbackToDestructiveMigration`
+raus, Kommentar wieder hin. Eine Version 5 anzuheben wäre eine Zahl gewesen, die
+nichts bedeutet. Der Preis steht dafür anderswo: **Wer noch ein APK von vor
+v0.67.0 auf dem Gerät hat, kann nicht mehr updaten** — ohne den Rückfall trifft
+die App auf eine v3-Datenbank und stürzt beim Start ab; der Weg dorthin ist
+deinstallieren und neu installieren.
+
+**`MaptaleDb.build` nimmt seither einen Datenbanknamen mit Vorgabe.** Der
+Migrationstest baute vorher einen zweiten Builder neben dem der App nach — und
+ein nachgebauter Builder bewacht sich selbst: Er hätte den entfernten Rückfall
+weiter mitgeführt, ohne dass ein Test rot wird. Jetzt prüft er denselben
+Builder, und was er beweist, ist die zurückgekehrte Zusage: Eine Datenbank im
+aktuellen Schema BEHÄLT ihre Zeilen.
+
+**Der WorkManager-Umzug ist die eine Stelle, an der ein Rename Laufzeit kostet**
+(`WorkQueueMigration.kt`, §4.4). Drei Dinge, die man dabei kippt: Abgeräumt wird
+über den **Tag** (WorkManager vergibt jedem Auftrag von sich aus einen mit dem
+Klassennamen) und nicht über den Unique-Namen — welche `photo-backfill-<tourId>`
+in der Schlange stehen, weiß die App nach dem Update nicht mehr. Der
+`UploadWorker` bleibt **in Ruhe**, weil Klasse UND Paket unverändert sind: Ein
+`cancelAllWork` würfe genau die Uploads weg, hinter denen Daten stehen, die es
+sonst nirgends gibt. Und der Umzug läuft VOR dem Einreihen in
+`MaptaleApp.onCreate`, sonst träfe das `KEEP` auf einen Auftrag, der eine Zeile
+später abgeräumt wird.
+
+**Die WebView-Brücke ging in beiden Richtungen im selben Commit**
+(`maptale:background`/`maptale:foreground`, `window.MaptaleApp.exit()`): Kotlin
+dispatcht, [film-clock.ts](../../src/film-clock.ts) hört zu,
+[main.ts](../../src/main.ts) ruft. Sie versagt lautlos, deshalb bewacht sie
+[test/film-clock.test.ts](../../test/film-clock.test.ts) — der Test war nach dem
+Umbau rot und ist die einzige Stelle, an der der tote Kanal überhaupt auffällt.
+
+**Vier Fallen, die kein Compiler sieht, und drei davon hat erst der Diff
+gezeigt:**
+
+- **`Object.prototype` leckt in eine Ersetzungstabelle.** `map[w] ?? w` machte
+  aus jedem `toString` im Kotlin-Code die Zeichenkette
+  `function toString() { [native code] }`, aus `valueOf` und `constructor`
+  dasselbe. 21 Stellen, alle sichtbar, weil der Compiler daran erstickt — hätte
+  ein Name nur ein bisschen anders geheißen, wäre es stiller ausgegangen.
+  `Object.hasOwn` statt `??`.
+- **Kotlin-Testnamen stehen in BACKTICKS und sind deutsche Prosa.** Der Scanner
+  behandelte Backtick-Bezeichner als Code und übersetzte mitten im Satz:
+  „Aufnahme starten, Punkte speichern, cancel", „Im Foto-TravelMode bleibt
+  beides aus". Wiederhergestellt wurde über die Regel, die trägt: Ein
+  Backtick-Span MIT Leerzeichen ist Prosa, einer ohne ist ein Bezeichner. Die
+  Symbol-Verweise darin (`buildImport …`, `smoothChanges …`) sind danach von
+  Hand nachgezogen.
+- **Ein umbenannter Kommentar kann eine Zusage brechen.** Der Verweis-Nachzug
+  machte aus `galerie:<MediaStore-ID>` ein `gallery:…` — der WERT bleibt aber
+  (Dedup-Riegel gegen Bestandsdaten, eigene Tabellenzeile), und aus dem
+  Kommentar des Umzugs selbst, der die ALTE Klasse nennen MUSS, wurde die neue.
+  Beides zurückgedreht.
+- **Eine umbenannte Datei nimmt ihre Klasse nicht mit.** Kotlin erlaubt
+  Dateiname ≠ Klassenname, der Compiler schwieg zu 15 Testklassen, die nach dem
+  Umzug noch `FotofensterTest` in `PhotoWindowTest.kt` hießen. Gefunden hat es
+  ausgerechnet der ktlint-Probelauf, der sonst verworfen wurde.
+
+**ktlint ist gemessen und NICHT eingeführt** (§6.0 Regel 9, „spätestens mit
+Welle 7"). Der Probelauf meldet **1127 Verletzungen** über nahezu jede Datei,
+davon 267 „multiline expression should start on a new line", 179 „parameter
+should start on a newline" und 121+121 Klammer-Umbrüche — das ist der
+Formatierungs-Erdstoß, den die Regel ausschließt, und er würde den Wellen-Diff
+begraben. Dazu 48 Meldungen „function name should start with a lowercase
+letter", die jedes `@Composable` treffen und eine Regel-Ausnahme bräuchten. Der
+Lauf hat sich trotzdem gelohnt: Die 15 Testklassen oben sind sein Fund. Wer ihn
+einführt, tut es als eigener Format-Commit in `.git-blame-ignore-revs`, nicht
+als Anhängsel.
+
+**Was NICHT gegangen ist:** die DataStore-Schlüssel `api_token`, `email`,
+`server_url` und der DataStore-Dateiname `einstellungen` (die Tabelle führt sie
+mit „bleibt" — ein Schlüsselwechsel ist eine Abmeldung des Geräts, §3.2), die
+Notification-Kanal-IDs (§3.4), die Enum-Speicherwerte aus Welle 1 und
+`TravelMode.key`. Gewechselt ist genau ein Schlüssel: `fotos_automatisch` →
+`auto_photos`; die Einwilligung fällt dabei einmalig auf ihre Vorgabe (aus),
+und das ist die richtige Richtung.
+
+**Was liegen bleibt:** rund 70 deutsche Bezeichner, die in keiner Zeile der
+Tabelle stehen — lokale Variablen und private Helfer (`ausfuehren`, `antwort`,
+`koerper`, `sende`, `Kennzahl`, `LokaleKarte`, `vermerkeUndRetry`, `istRunde`).
+Das ist dieselbe Grenze wie im Web (`antwort` steht nach Welle 5 weiter in
+`remote.ts`): Die Tabelle ist der Umfang, und was sie nicht kennt, bekommt keine
+geratene Zielform.
 
 ---
 

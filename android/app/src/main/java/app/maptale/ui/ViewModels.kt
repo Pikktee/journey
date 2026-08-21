@@ -8,24 +8,24 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.maptale.MaptaleApp
-import app.maptale.daten.MediumEntity
-import app.maptale.galerie.Galeriebild
-import app.maptale.galerie.ladeFotosHoch
-import app.maptale.galerie.suchePassendeFotos
-import app.maptale.daten.TourEntity
-import app.maptale.daten.TourRepository
+import app.maptale.data.MediumEntity
+import app.maptale.gallery.GalleryItem
+import app.maptale.gallery.uploadPhotos
+import app.maptale.gallery.findMatchingPhotos
+import app.maptale.data.TourEntity
+import app.maptale.data.TourRepository
 import app.maptale.upload.ApiClient
-import app.maptale.upload.ApiFehler
-import app.maptale.upload.Einstellungen
-import app.maptale.upload.Konto
-import app.maptale.upload.KontoStand
-import app.maptale.upload.TrackerAnbieter
-import app.maptale.aufzeichnung.Spurpunkt
-import app.maptale.aufzeichnung.duenneAus
+import app.maptale.upload.ApiError
+import app.maptale.upload.Settings
+import app.maptale.upload.Account
+import app.maptale.upload.AccountState
+import app.maptale.upload.TrackerProvider
+import app.maptale.recording.TrackPoint
+import app.maptale.recording.thinOut
 import app.maptale.upload.ServerTour
 import app.maptale.upload.ServerTourDetail
 import app.maptale.upload.UploadWorker
-import app.maptale.upload.mitMediumTitel
+import app.maptale.upload.withMediumCaption
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -44,18 +44,18 @@ class StartViewModel(
     private val apiClient: ApiClient,
 ) : ViewModel() {
     /** Auf diesem Gerät aufgezeichnete/importierte Touren (Room, Live-Flow). */
-    val lokaleTouren: Flow<List<TourEntity>> = repository.alleTouren()
+    val localTours: Flow<List<TourEntity>> = repository.allTours()
 
     private val internServerTouren = MutableStateFlow<List<ServerTour>>(emptyList())
     /** Touren des angemeldeten Kontos vom Server — inkl. der im Web-Studio erstellten. */
-    val serverTouren: StateFlow<List<ServerTour>> = internServerTouren
+    val serverTours: StateFlow<List<ServerTour>> = internServerTouren
 
-    init { aktualisiere() }
+    init { refresh() }
 
     /** Server-Liste (neu) laden. Fehler (offline/401) lassen die bisherige Liste stehen. */
-    fun aktualisiere() {
+    fun refresh() {
         viewModelScope.launch {
-            runCatching { apiClient.toureListe() }.onSuccess { internServerTouren.value = it }
+            runCatching { apiClient.tourList() }.onSuccess { internServerTouren.value = it }
         }
     }
 
@@ -64,13 +64,13 @@ class StartViewModel(
      * entstanden sind: sie haben keinen lokalen Entwurf, über den man ins
      * Detail käme, wären ohne diesen Weg also in der App gar nicht teilbar.
      */
-    fun setzeSichtbarkeit(serverTourId: String, sichtbarkeit: Sichtbarkeit) {
+    fun setVisibility(serverTourId: String, sichtbarkeit: Visibility) {
         internServerTouren.value = internServerTouren.value.map {
-            if (it.id == serverTourId) it.copy(visibility = sichtbarkeit.schluessel) else it
+            if (it.id == serverTourId) it.copy(visibility = sichtbarkeit.key) else it
         }
         viewModelScope.launch {
-            runCatching { apiClient.setzeSichtbarkeit(serverTourId, sichtbarkeit.schluessel) }
-                .onFailure { aktualisiere() } // Anzeige zurück auf den echten Stand
+            runCatching { apiClient.setVisibility(serverTourId, sichtbarkeit.key) }
+                .onFailure { refresh() } // Anzeige zurück auf den echten Stand
         }
     }
 }
@@ -82,35 +82,35 @@ class TourViewModel(
     private val appContext: Context,
     private val tourId: String,
 ) : ViewModel() {
-    val tour: Flow<TourEntity?> = repository.tourFluss(tourId)
-    val medien: Flow<List<MediumEntity>> = repository.medienFluss(tourId)
+    val tour: Flow<TourEntity?> = repository.tourFlow(tourId)
+    val media: Flow<List<MediumEntity>> = repository.mediaFlow(tourId)
 
     // Der aufgezeichnete Weg als Linie für die Skizze — einmalig geladen und
     // ausgedünnt. Reicht: Ein Entwurf bekommt nach dem Aufnahmeende keine
     // neuen Punkte mehr.
-    private val internRoute = MutableStateFlow<List<Spurpunkt>>(emptyList())
-    val route: StateFlow<List<Spurpunkt>> = internRoute
+    private val internRoute = MutableStateFlow<List<TrackPoint>>(emptyList())
+    val route: StateFlow<List<TrackPoint>> = internRoute
     init {
         viewModelScope.launch {
-            internRoute.value = duenneAus(repository.punkte(tourId).map { Spurpunkt(it.lng, it.lat) })
+            internRoute.value = thinOut(repository.points(tourId).map { TrackPoint(it.lng, it.lat) })
         }
     }
 
     // Wer die Tour sehen darf, weiß nur der Server — auf dem Gerät wird das
     // nicht mitgeführt, sonst gäbe es zwei Wahrheiten, die auseinanderlaufen
     // können (das Studio ändert die Sichtbarkeit ebenfalls).
-    private val internSichtbarkeit = MutableStateFlow<Sichtbarkeit?>(null)
-    val sichtbarkeit: StateFlow<Sichtbarkeit?> = internSichtbarkeit
+    private val internSichtbarkeit = MutableStateFlow<Visibility?>(null)
+    val sichtbarkeit: StateFlow<Visibility?> = internSichtbarkeit
 
-    fun datei(medium: MediumEntity): File = repository.mediumDatei(medium)
+    fun datei(medium: MediumEntity): File = repository.mediumFile(medium)
 
     /** Sichtbarkeit vom Server nachladen (nur sinnvoll nach dem Upload). */
-    fun ladeSichtbarkeit() {
+    fun loadVisibility() {
         viewModelScope.launch {
             val serverId = repository.tour(tourId)?.serverId ?: return@launch
-            runCatching { apiClient.toureListe().firstOrNull { it.id == serverId } }
+            runCatching { apiClient.tourList().firstOrNull { it.id == serverId } }
                 .getOrNull()
-                ?.let { internSichtbarkeit.value = Sichtbarkeit.vonSchluessel(it.visibility) }
+                ?.let { internSichtbarkeit.value = Visibility.fromKey(it.visibility) }
         }
     }
 
@@ -123,41 +123,41 @@ class TourViewModel(
      * Läuft im prozessweiten Scope, weil beim Verlassen des Screens gesichert
      * wird und das ViewModel da schon auf dem Weg nach draußen ist.
      */
-    fun sichereTexte(titel: String?, beschreibung: String?) {
-        val neuerTitel = titel?.trim()?.ifBlank { null }
-        val neueBeschreibung = beschreibung?.trim()?.ifBlank { null }
+    fun saveTexts(title: String?, description: String?) {
+        val neuerTitel = title?.trim()?.ifBlank { null }
+        val neueBeschreibung = description?.trim()?.ifBlank { null }
         appScope.launch {
             val vorher = repository.tour(tourId) ?: return@launch
             if (vorher.title == neuerTitel && vorher.description == neueBeschreibung) return@launch
-            repository.aktualisiereTexte(tourId, neuerTitel, neueBeschreibung)
+            repository.updateTexts(tourId, neuerTitel, neueBeschreibung)
             val serverId = vorher.serverId ?: return@launch
             runCatching { apiClient.patchTour(serverId, neuerTitel, neueBeschreibung) }
         }
     }
 
     /** Sichtbarkeit der Tour beim Server setzen (nur nach dem Upload möglich). */
-    fun setzeSichtbarkeit(sichtbarkeit: Sichtbarkeit) {
+    fun setVisibility(sichtbarkeit: Visibility) {
         internSichtbarkeit.value = sichtbarkeit
         appScope.launch {
             val serverId = repository.tour(tourId)?.serverId ?: return@launch
-            runCatching { apiClient.setzeSichtbarkeit(serverId, sichtbarkeit.schluessel) }
+            runCatching { apiClient.setVisibility(serverId, sichtbarkeit.key) }
                 // Ging es schief, ist die Anzeige gelogen — zurück auf den
                 // Stand, den der Server wirklich kennt.
-                .onFailure { ladeSichtbarkeit() }
+                .onFailure { loadVisibility() }
         }
     }
 
     /** Upload erneut anstoßen (nach einem Fehlschlag). */
-    fun ladeHoch(titel: String?, beschreibung: String?) {
+    fun upload(title: String?, description: String?) {
         viewModelScope.launch {
-            repository.aktualisiereTexte(tourId, titel?.ifBlank { null }, beschreibung?.ifBlank { null })
-            UploadWorker.starte(appContext, tourId)
+            repository.updateTexts(tourId, title?.ifBlank { null }, description?.ifBlank { null })
+            UploadWorker.start(appContext, tourId)
         }
     }
 
-    fun loesche(danach: () -> Unit) {
+    fun delete(danach: () -> Unit) {
         viewModelScope.launch {
-            repository.loescheTour(tourId)
+            repository.deleteTour(tourId)
             danach()
         }
     }
@@ -184,23 +184,23 @@ private suspend fun wiederholeBeiVerarbeitung(versuch: suspend () -> Unit): Bool
         val ergebnis = runCatching { versuch() }
         if (ergebnis.isSuccess) return true
         val fehler = ergebnis.exceptionOrNull()
-        if (fehler !is ApiFehler || fehler.status != 409) return false
+        if (fehler !is ApiError || fehler.status != 409) return false
         if (runde < 2) delay(2_000)
     }
     return false
 }
 
-class FotoViewModel(
+class PhotoViewModel(
     private val repository: TourRepository,
     private val apiClient: ApiClient,
     private val appScope: CoroutineScope,
     private val tourId: String,
     private val mediumId: String,
 ) : ViewModel() {
-    val medium: Flow<MediumEntity?> = repository.mediumFluss(tourId, mediumId)
-    val tour: Flow<TourEntity?> = repository.tourFluss(tourId)
+    val medium: Flow<MediumEntity?> = repository.mediumFlow(tourId, mediumId)
+    val tour: Flow<TourEntity?> = repository.tourFlow(tourId)
 
-    fun datei(medium: MediumEntity): File = repository.mediumDatei(medium)
+    fun datei(medium: MediumEntity): File = repository.mediumFile(medium)
 
     /**
      * Titel setzen — lokal immer, und beim Server, sobald die Tour dort liegt.
@@ -210,20 +210,20 @@ class FotoViewModel(
      * und zurückgeschrieben, damit im Studio gesetzte Kamerafahrten, Musik oder
      * Wetterkorrekturen dabei nicht verloren gehen.
      */
-    fun setzeTitel(titel: String) {
+    fun setTitle(title: String) {
         appScope.launch {
-            repository.setzeMediumCaption(tourId, mediumId, titel)
+            repository.setMediumCaption(tourId, mediumId, title)
             val serverId = repository.tour(tourId)?.serverId ?: return@launch
             wiederholeBeiVerarbeitung {
-                val overlay = apiClient.editsLesen(serverId)
-                apiClient.editsSchreiben(serverId, mitMediumTitel(overlay, mediumId, titel))
+                val overlay = apiClient.loadEdits(serverId)
+                apiClient.saveEdits(serverId, withMediumCaption(overlay, mediumId, title))
             }
         }
     }
 
-    fun loesche(danach: () -> Unit) {
+    fun delete(danach: () -> Unit) {
         viewModelScope.launch {
-            repository.loescheMedium(tourId, mediumId)
+            repository.deleteMedium(tourId, mediumId)
             danach()
         }
     }
@@ -231,26 +231,26 @@ class FotoViewModel(
 }
 
 /** Profil-Reiter: Kontostand vom Server plus die Zahlen der eigenen Touren. */
-class ProfilViewModel(
+class ProfileViewModel(
     repository: TourRepository,
-    private val einstellungen: Einstellungen,
+    private val settings: Settings,
     private val apiClient: ApiClient,
     private val appScope: CoroutineScope,
 ) : ViewModel() {
-    val lokaleTouren: Flow<List<TourEntity>> = repository.alleTouren()
+    val localTours: Flow<List<TourEntity>> = repository.allTours()
 
     private val internServerTouren = MutableStateFlow<List<ServerTour>>(emptyList())
-    val serverTouren: StateFlow<List<ServerTour>> = internServerTouren
+    val serverTours: StateFlow<List<ServerTour>> = internServerTouren
 
-    private val internKonto = MutableStateFlow<KontoStand?>(null)
-    val konto: StateFlow<KontoStand?> = internKonto
+    private val internKonto = MutableStateFlow<AccountState?>(null)
+    val account: StateFlow<AccountState?> = internKonto
 
     /** Stehende Einwilligung für den Foto-Nachzug — sie lebt in der App. */
-    val fotosAutomatisch: StateFlow<Boolean> = einstellungen.konto
-        .map { it.fotosAutomatisch }
+    val autoPhotos: StateFlow<Boolean> = settings.account
+        .map { it.autoPhotos }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    private val internTracker = MutableStateFlow<List<TrackerAnbieter>>(emptyList())
+    private val internTracker = MutableStateFlow<List<TrackerProvider>>(emptyList())
 
     /**
      * Die verbindbaren Sport-Tracker.
@@ -260,14 +260,14 @@ class ProfilViewModel(
      * vielleicht gar nicht existiert, soll das Profil nicht mit einer
      * Fehlermeldung beginnen lassen.
      */
-    val tracker: StateFlow<List<TrackerAnbieter>> = internTracker
+    val tracker: StateFlow<List<TrackerProvider>> = internTracker
 
     /** Kontostand und Tourliste neu holen; Fehler lassen den letzten Stand stehen. */
-    fun aktualisiere() {
+    fun refresh() {
         viewModelScope.launch {
-            runCatching { apiClient.kontoStand() }.onSuccess { internKonto.value = it }
-            runCatching { apiClient.toureListe() }.onSuccess { internServerTouren.value = it }
-            runCatching { apiClient.trackerAnbieter() }.onSuccess { internTracker.value = it }
+            runCatching { apiClient.accountState() }.onSuccess { internKonto.value = it }
+            runCatching { apiClient.tourList() }.onSuccess { internServerTouren.value = it }
+            runCatching { apiClient.trackerProviders() }.onSuccess { internTracker.value = it }
         }
     }
 
@@ -278,9 +278,9 @@ class ProfilViewModel(
      * und ein Anmeldeformular in einer fremden App ist auch die schlechtere
      * Gewohnheit. Zurück kommt die App über den Deep Link.
      */
-    fun trackerVerbinden(anbieterId: String, oeffne: (String) -> Unit, beiFehler: (String) -> Unit) {
+    fun connectTracker(anbieterId: String, oeffne: (String) -> Unit, beiFehler: (String) -> Unit) {
         viewModelScope.launch {
-            runCatching { apiClient.trackerVerbindenUrl(anbieterId) }
+            runCatching { apiClient.trackerConnectUrl(anbieterId) }
                 .onSuccess(oeffne)
                 .onFailure { beiFehler("Das Verbinden ließ sich nicht starten.") }
         }
@@ -293,32 +293,32 @@ class ProfilViewModel(
      * hängen), geschrieben wird danach — bei einem DataStore ist das kein
      * Risiko, er schreibt lokal und schlägt praktisch nie fehl.
      */
-    fun setzeFotosAutomatisch(an: Boolean) {
-        viewModelScope.launch { einstellungen.setzeFotosAutomatisch(an) }
+    fun setAutoPhotos(an: Boolean) {
+        viewModelScope.launch { settings.setAutoPhotos(an) }
     }
 
-    fun trackerTrennen(anbieterId: String, beiFehler: (String) -> Unit) {
+    fun disconnectTracker(anbieterId: String, beiFehler: (String) -> Unit) {
         viewModelScope.launch {
-            runCatching { apiClient.trackerTrennen(anbieterId) }
-                .onSuccess { aktualisiere() }
+            runCatching { apiClient.disconnectTracker(anbieterId) }
+                .onSuccess { refresh() }
                 .onFailure { beiFehler("Das Trennen hat nicht geklappt.") }
         }
     }
 
     /** Anzeigename und Bio sichern (beim Verlassen des Screens). */
-    fun sichereProfil(anzeigename: String, bio: String) {
-        val stand = internKonto.value?.profil ?: return
-        if (anzeigename == stand.anzeigename.orEmpty() && bio == stand.bio.orEmpty()) return
+    fun saveProfile(displayName: String, bio: String) {
+        val stand = internKonto.value?.profile ?: return
+        if (displayName == stand.displayName.orEmpty() && bio == stand.bio.orEmpty()) return
         appScope.launch {
-            runCatching { apiClient.setzeProfil(anzeigename = anzeigename, bio = bio) }
-                .onSuccess { aktualisiereStill() }
+            runCatching { apiClient.setProfile(displayName = displayName, bio = bio) }
+                .onSuccess { refreshQuietly() }
         }
     }
 
-    fun setzeOeffentlich(oeffentlich: Boolean) {
-        internKonto.value = internKonto.value?.let { it.copy(profil = it.profil.copy(oeffentlich = oeffentlich)) }
+    fun setPublic(public: Boolean) {
+        internKonto.value = internKonto.value?.let { it.copy(profile = it.profile.copy(public = public)) }
         viewModelScope.launch {
-            runCatching { apiClient.setzeProfil(oeffentlich = oeffentlich) }.onFailure { aktualisiere() }
+            runCatching { apiClient.setProfile(public = public) }.onFailure { refresh() }
         }
     }
 
@@ -327,27 +327,27 @@ class ProfilViewModel(
      * prozessweiten Scope: Ein Rohfoto zu dekodieren dauert, und der Nutzer
      * soll den Screen inzwischen verlassen dürfen.
      */
-    fun setzeAvatar(oeffne: () -> java.io.InputStream) {
+    fun setAvatar(oeffne: () -> java.io.InputStream) {
         appScope.launch {
             // Auch das Lesen wird abgesichert: die gewählte Datei kann inzwischen
             // weg sein oder gar kein Bild enthalten — das darf die App nicht
             // umwerfen, das Profil bleibt dann einfach unverändert.
-            val jpeg = withContext(Dispatchers.IO) { runCatching { skaliereFuerAvatar(oeffne) }.getOrNull() }
+            val jpeg = withContext(Dispatchers.IO) { runCatching { scaleForAvatar(oeffne) }.getOrNull() }
                 ?: return@launch
-            runCatching { apiClient.setzeAvatar(jpeg) }.onSuccess { aktualisiereStill() }
+            runCatching { apiClient.setAvatar(jpeg) }.onSuccess { refreshQuietly() }
         }
     }
 
-    fun loescheAvatar() {
-        appScope.launch { runCatching { apiClient.loescheAvatar() }.onSuccess { aktualisiereStill() } }
+    fun deleteAvatar() {
+        appScope.launch { runCatching { apiClient.deleteAvatar() }.onSuccess { refreshQuietly() } }
     }
 
-    private suspend fun aktualisiereStill() {
-        runCatching { apiClient.kontoStand() }.onSuccess { internKonto.value = it }
+    private suspend fun refreshQuietly() {
+        runCatching { apiClient.accountState() }.onSuccess { internKonto.value = it }
     }
 
-    fun abmelden() {
-        viewModelScope.launch { einstellungen.abmelden() }
+    fun logout() {
+        viewModelScope.launch { settings.logout() }
     }
 
     /**
@@ -357,53 +357,53 @@ class ProfilViewModel(
      * weg, wäre jede weitere Anfrage mit diesem Token ohnehin ein 401 — und die
      * App bliebe in einem Zustand hängen, aus dem sie sich nicht befreien kann.
      */
-    fun loescheKonto(danach: () -> Unit) {
+    fun deleteAccount(danach: () -> Unit) {
         viewModelScope.launch {
-            runCatching { apiClient.loescheKonto() }
-            einstellungen.abmelden()
+            runCatching { apiClient.deleteAccount() }
+            settings.logout()
             danach()
         }
     }
 }
 
-class EinstellungenViewModel(
-    private val einstellungen: Einstellungen,
+class SettingsViewModel(
+    private val settings: Settings,
     private val apiClient: ApiClient,
 ) : ViewModel() {
 
-    sealed interface Zustand {
-        data object Ruhe : Zustand
-        data object Laedt : Zustand
-        data class Fehler(val nachricht: String) : Zustand
+    sealed interface State {
+        data object Idle : State
+        data object Loading : State
+        data class Failed(val message: String) : State
     }
 
-    val konto: Flow<Konto> = einstellungen.konto
-    private val internZustand = MutableStateFlow<Zustand>(Zustand.Ruhe)
-    val zustand: StateFlow<Zustand> = internZustand
+    val account: Flow<Account> = settings.account
+    private val internalState = MutableStateFlow<State>(State.Idle)
+    val state: StateFlow<State> = internalState
 
-    fun anmelden(email: String, passwort: String) {
+    fun login(email: String, passwort: String) {
         viewModelScope.launch {
-            internZustand.value = Zustand.Laedt
+            internalState.value = State.Loading
             try {
                 // Feste Prod-URL — überschreibt auch einen evtl. veralteten gespeicherten
                 // Dev-Wert, sodass alle authentifizierten Aufrufe gegen Prod laufen.
-                einstellungen.setzeServer(Einstellungen.STANDARD_SERVER)
+                settings.setServer(Settings.STANDARD_SERVER)
                 val token = apiClient.login(
-                    Einstellungen.STANDARD_SERVER,
+                    Settings.STANDARD_SERVER,
                     email.trim(),
                     passwort,
                     geraet = android.os.Build.MODEL ?: "Android",
                 )
-                einstellungen.setzeAnmeldung(email.trim(), token)
-                internZustand.value = Zustand.Ruhe
+                settings.setLogin(email.trim(), token)
+                internalState.value = State.Idle
             } catch (fehler: Exception) {
-                internZustand.value = Zustand.Fehler(fehler.message ?: "Anmeldung fehlgeschlagen")
+                internalState.value = State.Failed(fehler.message ?: "Anmeldung fehlgeschlagen")
             }
         }
     }
 
-    fun abmelden() {
-        viewModelScope.launch { einstellungen.abmelden() }
+    fun logout() {
+        viewModelScope.launch { settings.logout() }
     }
 }
 
@@ -439,18 +439,18 @@ class ServerTourViewModel(
      * Fotos aus der Galerie, die zeitlich zu dieser Tour passen.
      *
      * Der Weg OHNE stehende Einwilligung: Gefunden wird nur auf ausdrückliche
-     * Nachfrage (`sucheFotos`), hochgeladen erst nach einem zweiten Ja. Leer
+     * Nachfrage (`findPhotos`), hochgeladen erst nach einem zweiten Ja. Leer
      * heißt „nichts vorzuschlagen" — und das ist auch der Zustand, solange
      * niemand gesucht hat.
      */
-    private val internFotoVorschlag = MutableStateFlow<List<Galeriebild>>(emptyList())
-    val fotoVorschlag: StateFlow<List<Galeriebild>> = internFotoVorschlag
+    private val internFotoVorschlag = MutableStateFlow<List<GalleryItem>>(emptyList())
+    val photoSuggestion: StateFlow<List<GalleryItem>> = internFotoVorschlag
 
     /** Läuft gerade ein Nachzug? Der Knopf soll währenddessen nicht zweimal gehen. */
     private val internNachzugLaeuft = MutableStateFlow(false)
-    val nachzugLaeuft: StateFlow<Boolean> = internNachzugLaeuft
+    val backfillRunning: StateFlow<Boolean> = internNachzugLaeuft
 
-    init { lade() }
+    init { load() }
 
     /**
      * In der Galerie nach passenden Fotos sehen.
@@ -459,12 +459,12 @@ class ServerTourViewModel(
      * erteilt ist. Ohne Erlaubnis passiert nichts — die Suche fragt nicht von
      * sich aus danach, das tut der Knopf.
      */
-    fun sucheFotos(app: MaptaleApp) {
+    fun findPhotos(app: MaptaleApp) {
         viewModelScope.launch {
             // `null` (Tour rendert noch) wie „nichts" behandeln: Der Screen
             // fragt beim nächsten Statuswechsel ohnehin erneut.
             internFotoVorschlag.value =
-                runCatching { suchePassendeFotos(app, serverId) }.getOrNull().orEmpty()
+                runCatching { findMatchingPhotos(app, serverId) }.getOrNull().orEmpty()
         }
     }
 
@@ -476,7 +476,7 @@ class ServerTourViewModel(
      * in jedem Fall geleert — auch wenn nichts hochging: Sonst stünde die Frage
      * weiter da, und ein zweiter Klick liefe in dieselbe Wand.
      */
-    fun uebernehmeFotos(app: MaptaleApp, danach: (Int) -> Unit) {
+    fun acceptPhotos(app: MaptaleApp, danach: (Int) -> Unit) {
         val bilder = internFotoVorschlag.value
         if (bilder.isEmpty() || internNachzugLaeuft.value) return
         // `appScope` und NICHT `viewModelScope`: Wer den Screen verlässt,
@@ -487,26 +487,26 @@ class ServerTourViewModel(
         // Rendern am Ende.
         appScope.launch {
             internNachzugLaeuft.value = true
-            val geschafft = runCatching { ladeFotosHoch(app, serverId, bilder) }.getOrDefault(0)
+            val geschafft = runCatching { uploadPhotos(app, serverId, bilder) }.getOrDefault(0)
             internFotoVorschlag.value = emptyList()
             internNachzugLaeuft.value = false
             danach(geschafft)
-            if (geschafft > 0) lade()
+            if (geschafft > 0) load()
         }
     }
 
     /** „Nein danke" — der Vorschlag verschwindet für diese Sitzung. */
-    fun verwirfVorschlag() {
+    fun discardSuggestion() {
         internFotoVorschlag.value = emptyList()
     }
 
-    fun lade() {
+    fun load() {
         viewModelScope.launch {
             internLaedt.value = true
             internFehler.value = null
             // Titel, Kilometer, Titelbild und Sichtbarkeit stehen in der Liste,
             // Beschreibung und Fotos im gerenderten Tour-JSON.
-            runCatching { apiClient.toureListe().firstOrNull { it.id == serverId } }
+            runCatching { apiClient.tourList().firstOrNull { it.id == serverId } }
                 .onSuccess { if (it != null) internTour.value = it }
             runCatching { apiClient.tourDetail(serverId) }
                 .onSuccess { internDetail.value = it }
@@ -519,26 +519,26 @@ class ServerTourViewModel(
      * Titel und Beschreibung sichern (beim Verlassen des Screens, deshalb im
      * prozessweiten Scope). Unveränderte Texte lösen keinen Aufruf aus.
      */
-    fun sichereTexte(titel: String?, beschreibung: String?) {
-        val neuerTitel = titel?.trim()?.ifBlank { null }
-        val neueBeschreibung = beschreibung?.trim()?.ifBlank { null }
+    fun saveTexts(title: String?, description: String?) {
+        val neuerTitel = title?.trim()?.ifBlank { null }
+        val neueBeschreibung = description?.trim()?.ifBlank { null }
         val vorher = internTour.value
-        val alteBeschreibung = internDetail.value?.beschreibung?.ifBlank { null }
-        if (vorher != null && vorher.titel == neuerTitel && alteBeschreibung == neueBeschreibung) return
+        val alteBeschreibung = internDetail.value?.description?.ifBlank { null }
+        if (vorher != null && vorher.title == neuerTitel && alteBeschreibung == neueBeschreibung) return
         appScope.launch {
             runCatching { apiClient.patchTour(serverId, neuerTitel, neueBeschreibung) }
             // Der lokale Entwurf lebt nach dem Upload weiter; bliebe sein Titel
             // stehen, hieße die Tour nach einem erneuten Upload wieder alt.
-            repository.tourMitServerId(serverId)?.let {
-                repository.aktualisiereTexte(it.id, neuerTitel, neueBeschreibung)
+            repository.tourByServerId(serverId)?.let {
+                repository.updateTexts(it.id, neuerTitel, neueBeschreibung)
             }
         }
     }
 
-    fun setzeSichtbarkeit(sichtbarkeit: Sichtbarkeit) {
-        internTour.value = internTour.value?.copy(visibility = sichtbarkeit.schluessel)
+    fun setVisibility(sichtbarkeit: Visibility) {
+        internTour.value = internTour.value?.copy(visibility = sichtbarkeit.key)
         appScope.launch {
-            runCatching { apiClient.setzeSichtbarkeit(serverId, sichtbarkeit.schluessel) }
+            runCatching { apiClient.setVisibility(serverId, sichtbarkeit.key) }
         }
     }
 
@@ -554,21 +554,21 @@ class ServerTourViewModel(
      * rendert die Tour nach dem Schreiben neu, und bis das durch ist, stünde
      * hier noch der alte Text.
      */
-    fun setzeFotoTitel(mediumId: String, titel: String) {
+    fun setPhotoTitle(mediumId: String, title: String) {
         val vorher = internDetail.value ?: return
-        val gekuerzt = titel.trim()
-        if (vorher.fotos.firstOrNull { it.id == mediumId }?.nutzertext == gekuerzt) return
+        val gekuerzt = title.trim()
+        if (vorher.media.firstOrNull { it.id == mediumId }?.caption == gekuerzt) return
 
         internDetail.value = vorher.copy(
-            fotos = vorher.fotos.map {
+            media = vorher.media.map {
                 if (it.id != mediumId) it
-                else it.copy(nutzertext = gekuerzt, titel = gekuerzt.ifBlank { it.zeitzeile })
+                else it.copy(caption = gekuerzt, title = gekuerzt.ifBlank { it.timeLabel })
             },
         )
         appScope.launch {
             val geschafft = wiederholeBeiVerarbeitung {
-                val overlay = apiClient.editsLesen(serverId)
-                apiClient.editsSchreiben(serverId, mitMediumTitel(overlay, mediumId, gekuerzt))
+                val overlay = apiClient.loadEdits(serverId)
+                apiClient.saveEdits(serverId, withMediumCaption(overlay, mediumId, gekuerzt))
             }
             if (!geschafft) {
                 internFehler.value = "Der Titel ließ sich nicht speichern."
@@ -577,8 +577,8 @@ class ServerTourViewModel(
             // Auch die lokale Zeile nachziehen, falls der Entwurf noch da ist.
             // Sonst kennen Gerät und Server verschiedene Texte, und der
             // Titel-Abgleich eines erneuten Uploads schriebe den alten zurück.
-            repository.tourMitServerId(serverId)?.let {
-                repository.setzeMediumCaption(it.id, mediumId, gekuerzt)
+            repository.tourByServerId(serverId)?.let {
+                repository.setMediumCaption(it.id, mediumId, gekuerzt)
             }
         }
     }
@@ -588,14 +588,14 @@ class ServerTourViewModel(
      * zweiten Teil taucht sie als „wartet auf Upload" wieder in der Liste auf
      * und der Nachzügler-Upload lädt sie beim nächsten App-Start erneut hoch.
      */
-    fun loesche(danach: () -> Unit) {
+    fun delete(danach: () -> Unit) {
         viewModelScope.launch {
-            val erfolg = runCatching { apiClient.loescheTour(serverId) }.isSuccess
+            val erfolg = runCatching { apiClient.deleteTour(serverId) }.isSuccess
             if (!erfolg) {
                 internFehler.value = "Löschen fehlgeschlagen."
                 return@launch
             }
-            repository.tourMitServerId(serverId)?.let { repository.loescheTour(it.id) }
+            repository.tourByServerId(serverId)?.let { repository.deleteTour(it.id) }
             danach()
         }
     }
@@ -625,18 +625,18 @@ class MaptaleViewModelFactory(
                 app.appScope,
                 requireNotNull(tourId) { "serverId fehlt" },
             ) as T
-        modelClass.isAssignableFrom(FotoViewModel::class.java) ->
-            FotoViewModel(
+        modelClass.isAssignableFrom(PhotoViewModel::class.java) ->
+            PhotoViewModel(
                 app.repository,
                 app.apiClient,
                 app.appScope,
                 requireNotNull(tourId) { "tourId fehlt" },
                 requireNotNull(mediumId) { "mediumId fehlt" },
             ) as T
-        modelClass.isAssignableFrom(ProfilViewModel::class.java) ->
-            ProfilViewModel(app.repository, app.einstellungen, app.apiClient, app.appScope) as T
-        modelClass.isAssignableFrom(EinstellungenViewModel::class.java) ->
-            EinstellungenViewModel(app.einstellungen, app.apiClient) as T
+        modelClass.isAssignableFrom(ProfileViewModel::class.java) ->
+            ProfileViewModel(app.repository, app.settings, app.apiClient, app.appScope) as T
+        modelClass.isAssignableFrom(SettingsViewModel::class.java) ->
+            SettingsViewModel(app.settings, app.apiClient) as T
         modelClass.isAssignableFrom(ImportViewModel::class.java) ->
             ImportViewModel(app) as T
         else -> throw IllegalArgumentException("Unbekanntes ViewModel: ${modelClass.name}")

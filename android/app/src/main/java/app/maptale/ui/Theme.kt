@@ -27,40 +27,40 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /** Der Akzent der Marke — Amber (DESIGN.md `primary` / `amber`). */
-val Sonne = Color(0xFFF59E0B)
+val Sun = Color(0xFFF59E0B)
 
 /** Warmer Verlauf- & Zweitakzent (DESIGN.md `coral`). */
-val Koralle = Color(0xFFFF6F52)
+val Coral = Color(0xFFFF6F52)
 
 /** Warmes Cremeweiß auf Dunkel (DESIGN.md `text` / `on-surface`). */
-val Tinte = Color(0xFFF2EDE3)
+val Ink = Color(0xFFF2EDE3)
 
 /** Seitengrund — bg-deep. */
-val Nacht = Color(0xFF06090E)
+val Night = Color(0xFF06090E)
 
 /** Kachel- / Flächengrund — bg. */
-val NachtBg = Color(0xFF0A0D14)
+val NightBg = Color(0xFF0A0D14)
 
 /** Erhobene Flächen: Leisten, Blätter. */
-val NachtFlaeche = Color(0xFF10151C)
+val NightSurface = Color(0xFF10151C)
 
 /** Gedämpfte Schrift ≈ muted (Tinte @ 64 %). */
-val Gedaempft = Color(0xA3F2EDE3)
+val Muted = Color(0xA3F2EDE3)
 
 /** Text auf Amber/Coral-CTAs (DESIGN.md `on-cta`). */
-val AufCta = Color(0xFF1A1206)
+val OnCta = Color(0xFF1A1206)
 
 /** Aufnahme und Fehler — bewusst nicht Koralle. */
-val Alarm = Color(0xFFE5484D)
+val Danger = Color(0xFFE5484D)
 
 /** Amber → Coral, Primär-CTAs. */
-val VerlaufPrimaer = Brush.linearGradient(listOf(Sonne, Koralle))
+val PrimaryGradient = Brush.linearGradient(listOf(Sun, Coral))
 
 /**
  * Ein GESPERRTER CTA ist eine eigene Gestalt, kein abgedunkelter aktiver.
  *
  * Vorher lag ein Schleier (Tinte @ 60 % Nacht) über dem Amber-Verlauf,
- * während die Schrift `AufCta` blieb — die ist dunkel, weil sie auf Amber
+ * während die Schrift `OnCta` blieb — die ist dunkel, weil sie auf Amber
  * steht. Nach dem Abdunkeln standen dann dunkle Schrift auf dunklem Grund:
  * gemessen 2,1:1, also unter jeder Lesbarkeitsschwelle (4,5:1). Am Telefon
  * sah der Anmelde-Knopf dadurch nicht gesperrt aus, sondern kaputt.
@@ -69,39 +69,39 @@ val VerlaufPrimaer = Brush.linearGradient(listOf(Sonne, Koralle))
  * Schrift, zusammen 4,4:1. Wer hier etwas ändert, prüft das Paar und nicht
  * eine Hälfte davon.
  */
-val KnopfGesperrt = Color(0x1FF2EDE3)
+val ButtonDisabled = Color(0x1FF2EDE3)
 
-/** Schrift auf `KnopfGesperrt` — Tinte @ 50 %. */
-val AufKnopfGesperrt = Color(0x80F2EDE3)
+/** Schrift auf `ButtonDisabled` — Tinte @ 50 %. */
+val OnButtonDisabled = Color(0x80F2EDE3)
 
 private val DunklesSchema = darkColorScheme(
-    primary = Sonne,
-    onPrimary = AufCta,
+    primary = Sun,
+    onPrimary = OnCta,
     primaryContainer = Color(0xFF3B2A0F),
     onPrimaryContainer = Color(0xFFFFD9A0),
 
     // Ausgewählte Chips: warmer Grund, goldene Schrift — kein zweiter Klang.
     secondary = Color(0xFFCBB893),
-    onSecondary = AufCta,
+    onSecondary = OnCta,
     secondaryContainer = Color(0xFF2A2118),
-    onSecondaryContainer = Sonne,
+    onSecondaryContainer = Sun,
 
     tertiary = Color(0xFF8FB2CE),
     onTertiary = Color(0xFF0B131B),
     tertiaryContainer = Color(0xFF1C2A36),
     onTertiaryContainer = Color(0xFFCFE2F2),
 
-    background = Nacht,
-    onBackground = Tinte,
-    surface = NachtBg,
-    onSurface = Tinte,
+    background = Night,
+    onBackground = Ink,
+    surface = NightBg,
+    onSurface = Ink,
     surfaceVariant = Color(0xFF1A212A),
-    onSurfaceVariant = Gedaempft,
+    onSurfaceVariant = Muted,
     surfaceTint = Color.Transparent,
 
     surfaceContainerLowest = Color(0xFF03060A),
     surfaceContainerLow = Color(0xFF0B0F15),
-    surfaceContainer = NachtFlaeche,
+    surfaceContainer = NightSurface,
     surfaceContainerHigh = Color(0xFF161C25),
     surfaceContainerHighest = Color(0xFF1E252F),
 
@@ -109,13 +109,13 @@ private val DunklesSchema = darkColorScheme(
     outline = Color(0xFF3C4650),
     outlineVariant = Color(0x14FFFFFF),
 
-    error = Alarm,
+    error = Danger,
     onError = Color(0xFF2A0A0C),
     errorContainer = Color(0xFF3A1618),
     onErrorContainer = Color(0xFFFFC9CB),
 
-    inverseSurface = Tinte,
-    inverseOnSurface = Nacht,
+    inverseSurface = Ink,
+    inverseOnSurface = Night,
     inversePrimary = Color(0xFF7A5410),
     scrim = Color(0xFF000000),
 )
@@ -133,7 +133,7 @@ private val Formen = Shapes(
 fun MaptaleTheme(inhalt: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = DunklesSchema,
-        typography = MaptaleTypografie,
+        typography = MaptaleTypography,
         shapes = Formen,
         content = inhalt,
     )

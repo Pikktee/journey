@@ -3,12 +3,12 @@
 // vollständig unit-getestet (Segmentierung, Zeit-Offsets, Anker).
 package app.maptale.upload
 
-import app.maptale.aufzeichnung.Bewegungsdeutung
-import app.maptale.aufzeichnung.Modusabschnitt
-import app.maptale.daten.MediumEntity
-import app.maptale.daten.ModuswechselEntity
-import app.maptale.daten.TourEntity
-import app.maptale.daten.TrackpunktEntity
+import app.maptale.recording.ActivityInterpretation
+import app.maptale.recording.TravelModeSegment
+import app.maptale.data.MediumEntity
+import app.maptale.data.TravelModeChangeEntity
+import app.maptale.data.TourEntity
+import app.maptale.data.TrackPointEntity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -17,7 +17,7 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 
 @Serializable
-data class ManifestZeit(val start: String, val end: String, val zone: String)
+data class ManifestTime(val start: String, val end: String, val zone: String)
 
 @Serializable
 data class ManifestSegment(
@@ -42,7 +42,7 @@ data class UploadManifest(
     @SerialName("clientTourId") val clientTourId: String,
     val title: String? = null,
     val description: String? = null,
-    val time: ManifestZeit,
+    val time: ManifestTime,
     // segments ODER trackFile — bei Aufnahme entstehen Segmente aus Room,
     // beim Import (M8) referenziert trackFile das per PUT hochzuladende GPX;
     // die Segmentierung/Platzierung macht dann der Server.
@@ -60,7 +60,7 @@ data class UploadManifest(
 )
 
 /** Zeitspanne einer Aufzeichnung/eines Imports (Millisekunden seit Epoch). */
-data class Zeitspanne(val startMs: Long, val endMs: Long)
+data class TimeSpan(val startMs: Long, val endMs: Long)
 
 /** Ein zu importierendes Medium mit den für die Platzierung nötigen Metadaten. */
 data class ImportMedium(
@@ -72,11 +72,11 @@ data class ImportMedium(
     val anchorLat: Double? = null,
 )
 
-object ManifestBau {
+object ManifestBuilder {
 
     private val json = Json { encodeDefaults = true; explicitNulls = false }
 
-    fun alsJson(manifest: UploadManifest): String = json.encodeToString(manifest)
+    fun toJson(manifest: UploadManifest): String = json.encodeToString(manifest)
 
     private fun iso(ms: Long): String = DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(ms))
 
@@ -85,31 +85,31 @@ object ManifestBau {
      * Zeit-Offsets. Grenzpunkte gehören BEIDEN Segmenten (das Backend erwartet
      * lückenlos anschließende Segmente); leere Schnipsel entfallen.
      */
-    fun baueSegmente(
-        punkte: List<TrackpunktEntity>,
-        wechsel: List<ModuswechselEntity>,
+    fun buildSegments(
+        points: List<TrackPointEntity>,
+        wechsel: List<TravelModeChangeEntity>,
     ): List<ManifestSegment> {
-        if (punkte.size < 2) return emptyList()
+        if (points.size < 2) return emptyList()
         val sortiert = wechsel.sortedBy { it.tOffsetS }
-            .ifEmpty { return listOf(segment("walk", punkte)) }
+            .ifEmpty { return listOf(segment("walk", points)) }
 
         val segmente = mutableListOf<ManifestSegment>()
         for ((index, aktueller) in sortiert.withIndex()) {
             val bis = sortiert.getOrNull(index + 1)?.tOffsetS ?: Double.MAX_VALUE
-            val teil = punkte.filter { it.tOffsetS >= aktueller.tOffsetS && it.tOffsetS <= bis }
+            val teil = points.filter { it.tOffsetS >= aktueller.tOffsetS && it.tOffsetS <= bis }
                 .toMutableList()
             // Grenzpunkt des Vorgängers voranstellen, damit kein Loch entsteht
             if (index > 0) {
-                val letzterVorher = punkte.lastOrNull { it.tOffsetS < aktueller.tOffsetS }
+                val letzterVorher = points.lastOrNull { it.tOffsetS < aktueller.tOffsetS }
                 if (letzterVorher != null && (teil.isEmpty() || teil.first().id != letzterVorher.id)) {
                     teil.add(0, letzterVorher)
                 }
             }
-            if (teil.size >= 2) segmente.add(segment(aktueller.travelMode.schluessel, teil))
+            if (teil.size >= 2) segmente.add(segment(aktueller.travelMode.key, teil))
         }
         // Alle Wechsel ohne brauchbare Punkte (z. B. Wechsel nach dem letzten
         // Punkt) → wenigstens ein Gesamtsegment im Modus des ersten Wechsels
-        return segmente.ifEmpty { listOf(segment(sortiert.first().travelMode.schluessel, punkte)) }
+        return segmente.ifEmpty { listOf(segment(sortiert.first().travelMode.key, points)) }
     }
 
     /**
@@ -120,23 +120,23 @@ object ManifestBau {
      * mehrere Segmente als bewusste Umschaltung und korrigiert sie nicht mehr —
      * aus der Verbesserung würde eine Verschlechterung.
      *
-     * Bewusst NICHT in `baueSegmente`: Das Zerschneiden ist mechanisch und soll
+     * Bewusst NICHT in `buildSegments`: Das Zerschneiden ist mechanisch und soll
      * es bleiben; was ein belastbarer Abschnitt ist, entscheidet
-     * `Bewegungsdeutung` (pure, getestet).
+     * `ActivityInterpretation` (pure, getestet).
      */
-    fun glaetteWechsel(wechsel: List<ModuswechselEntity>, endeS: Double): List<ModuswechselEntity> {
+    fun smoothChanges(wechsel: List<TravelModeChangeEntity>, endeS: Double): List<TravelModeChangeEntity> {
         if (wechsel.size < 2) return wechsel.sortedBy { it.tOffsetS }
-        val behalten = Bewegungsdeutung.glaette(wechsel.map { Modusabschnitt(it.tOffsetS, it.travelMode) }, endeS)
+        val behalten = ActivityInterpretation.smooth(wechsel.map { TravelModeSegment(it.tOffsetS, it.travelMode) }, endeS)
         val vorlage = wechsel.minByOrNull { it.tOffsetS } ?: return wechsel
         return behalten.map { a ->
-            wechsel.firstOrNull { it.tOffsetS == a.tOffsetS && it.travelMode == a.modus }
-                ?: vorlage.copy(tOffsetS = a.tOffsetS, travelMode = a.modus)
+            wechsel.firstOrNull { it.tOffsetS == a.tOffsetS && it.travelMode == a.travelMode }
+                ?: vorlage.copy(tOffsetS = a.tOffsetS, travelMode = a.travelMode)
         }
     }
 
-    private fun segment(mode: String, punkte: List<TrackpunktEntity>) = ManifestSegment(
+    private fun segment(mode: String, points: List<TrackPointEntity>) = ManifestSegment(
         mode = mode,
-        pts = punkte.map { listOf(rund(it.lng, 6), rund(it.lat, 6), rund(it.ele, 1), rund(it.tOffsetS, 1)) },
+        pts = points.map { listOf(rund(it.lng, 6), rund(it.lat, 6), rund(it.ele, 1), rund(it.tOffsetS, 1)) },
     )
 
     private fun rund(x: Double, stellen: Int): Double {
@@ -150,20 +150,20 @@ object ManifestBau {
      * parst das GPX und platziert die Medien. Die App liefert nur die Zeitspanne
      * (aus dem GPX gelesen) und die Medien-Metadaten (aus EXIF, soweit vorhanden).
      */
-    fun baueImport(
+    fun buildImport(
         clientTourId: String,
-        titel: String?,
+        title: String?,
         zone: String,
-        zeitspanne: Zeitspanne,
-        medien: List<ImportMedium>,
+        timeSpan: TimeSpan,
+        media: List<ImportMedium>,
         trackDatei: String = "track.gpx",
     ): UploadManifest = UploadManifest(
         clientTourId = clientTourId,
-        title = titel?.ifBlank { null },
-        time = ManifestZeit(start = iso(zeitspanne.startMs), end = iso(zeitspanne.endMs), zone = zone),
+        title = title?.ifBlank { null },
+        time = ManifestTime(start = iso(timeSpan.startMs), end = iso(timeSpan.endMs), zone = zone),
         segments = null,
         trackFile = trackDatei,
-        media = medien.map { m ->
+        media = media.map { m ->
             ManifestMedium(
                 id = m.id,
                 type = m.typ,
@@ -175,25 +175,25 @@ object ManifestBau {
     )
 
     /** Komplettes Manifest aus dem Room-Bestand einer Tour. */
-    fun baue(
+    fun build(
         tour: TourEntity,
-        punkte: List<TrackpunktEntity>,
-        wechsel: List<ModuswechselEntity>,
-        medien: List<MediumEntity>,
+        points: List<TrackPointEntity>,
+        wechsel: List<TravelModeChangeEntity>,
+        media: List<MediumEntity>,
     ): UploadManifest = UploadManifest(
         clientTourId = tour.id,
         title = tour.title,
         description = tour.description,
-        time = ManifestZeit(
+        time = ManifestTime(
             start = iso(tour.startMs),
-            end = iso(tour.endMs ?: (tour.startMs + ((punkte.lastOrNull()?.tOffsetS ?: 1.0) * 1000).toLong())),
+            end = iso(tour.endMs ?: (tour.startMs + ((points.lastOrNull()?.tOffsetS ?: 1.0) * 1000).toLong())),
             zone = tour.zone,
         ),
-        segments = baueSegmente(punkte, glaetteWechsel(wechsel, punkte.lastOrNull()?.tOffsetS ?: 0.0)),
+        segments = buildSegments(points, smoothChanges(wechsel, points.lastOrNull()?.tOffsetS ?: 0.0)),
         // Nur wenn die App das Mittel selbst erkannt hat, darf der Server die
         // Aufteilung verfeinern (Fahrzeug auf Schienen → Straßenbahn).
         travelModesAuto = if (tour.travelModeAuto) true else null,
-        media = medien.map { m ->
+        media = media.map { m ->
             ManifestMedium(
                 id = m.id,
                 type = m.type,

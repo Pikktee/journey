@@ -33,7 +33,7 @@ Kachel bekommt bewusst kein EXIF: der Block eines Testfotos war 42 KB, mehr als 
 Bestandstouren stellt ein Start-Durchlauf um ([image-addendum.ts](src/pipeline/image-addendum.ts),
 ohne Re-Render, also ohne neue Wetter-/Vision-Aufrufe). **`thumb` kann fehlen** — jede Anzeige
 braucht den Rückfall auf `src`. Die App verkleinert schon vor dem Upload auf 2560 px
-([Fotoaufbereitung.kt](../android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt)) — bewusst
+([Fotoaufbereitung.kt](../android/app/src/main/java/app/maptale/camera/PhotoPreparation.kt)) — bewusst
 größer als die Anzeige-Fassung, denn der Server rechnet aus DIESER Datei.
 
 **Das Manifest wächst, es ändert sich nicht.** Medien kommen auch NACH dem Anlegen dazu

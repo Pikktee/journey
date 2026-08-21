@@ -468,7 +468,7 @@ keine Teilschritte** — `Smooth.to` rechnet `1 − exp(−dt/τ)` und ist bei k
 ein gedeckeltes `dtKamera` ließe sie dauerhaft hinterherhängen (~65 % der vergangenen Zeit bei
 12×). Der **Rückkehr-aus-dem-Hintergrund-Fall hängt an `visibilitychange`**, nicht an einem
 Deckel — die Android-WebView sagt es zusätzlich ausdrücklich
-(`maptale:hintergrund`/`maptale:vordergrund` aus `PlayerScreen.kt`), weil dort nicht zugesichert
+(`maptale:background`/`maptale:foreground` aus `PlayerScreen.kt`), weil dort nicht zugesichert
 ist, dass `visibilitychange` durchkommt. Und was der Notdeckel (1,0 s, ein Netz für Umgebungen
 ohne dieses Ereignis) doch kappt, ist **zählbar** statt unsichtbar: `window.__maptale.uhr`.
 

@@ -10,7 +10,7 @@
 // geht über die System-Geste; beim Verlassen kommen die Leisten wieder.
 //
 // Zurück in die Tourliste führt der Knopf im Web-Player über PlayerBruecke
-// (window.MaptaleApp.verlassen) — zusätzlich zur System-Zurück-Geste.
+// (window.MaptaleApp.exit) — zusätzlich zur System-Zurück-Geste.
 //
 // Kritisch für den Ton: der WebView wird beim Verlassen vollständig abgebaut
 // (about:blank + destroy) und im Hintergrund pausiert — sonst laufen Musik,
@@ -59,16 +59,16 @@ private tailrec fun Context.findeActivity(): Activity? = when (this) {
 /**
  * Brücke für den „Player verlassen"-Knopf der Web-Oberfläche. Im Vollbild gibt es
  * keine Titelleiste mehr; ohne sichtbaren Ausweg bliebe nur die System-Geste, die
- * nicht jeder kennt. Der Web-Player ruft `window.MaptaleApp.verlassen()`.
+ * nicht jeder kennt. Der Web-Player ruft `window.MaptaleApp.exit()`.
  *
  * Nur diese eine, mit @JavascriptInterface annotierte Methode ist aus JavaScript
  * erreichbar (seit API 17), und der WebView lädt ausschließlich unser eigenes
  * Origin — die Angriffsfläche bleibt damit auf genau diesen Aufruf beschränkt.
  * Der Rückweg läuft über den Haupt-Thread, weil Navigation UI-Arbeit ist.
  */
-private class PlayerBruecke(private val ansicht: WebView, private val zurueck: () -> Unit) {
+private class PlayerBridge(private val ansicht: WebView, private val zurueck: () -> Unit) {
     @JavascriptInterface
-    fun verlassen() {
+    fun exit() {
         ansicht.post { zurueck() }
     }
 }
@@ -132,7 +132,7 @@ fun PlayerScreen(
             when (ereignis) {
                 Lifecycle.Event.ON_PAUSE -> {
                     web?.evaluateJavascript(
-                        "window.dispatchEvent(new Event('maptale:hintergrund'))",
+                        "window.dispatchEvent(new Event('maptale:background'))",
                         null,
                     )
                     web?.onPause()
@@ -142,7 +142,7 @@ fun PlayerScreen(
                     web?.onResume()
                     web?.resumeTimers()
                     web?.evaluateJavascript(
-                        "window.dispatchEvent(new Event('maptale:vordergrund'))",
+                        "window.dispatchEvent(new Event('maptale:foreground'))",
                         null,
                     )
                 }
@@ -166,14 +166,14 @@ fun PlayerScreen(
                 // frische Nutzergeste — sonst blockt der WebView den Autoplay.
                 settings.mediaPlaybackRequiresUserGesture = false
                 // Weg zurück in die Tourliste für den Knopf im Web-Player
-                addJavascriptInterface(PlayerBruecke(this, zurueck), "MaptaleApp")
+                addJavascriptInterface(PlayerBridge(this, zurueck), "MaptaleApp")
                 // MapLibre GL braucht WebGL — in modernen WebViews vorhanden.
                 webChromeClient = object : WebChromeClient() {
-                    override fun onConsoleMessage(nachricht: ConsoleMessage): Boolean {
+                    override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                         Log.d(
                             "MaptalePlayer",
-                            "${nachricht.messageLevel()} ${nachricht.message()} " +
-                                "(${nachricht.sourceId()}:${nachricht.lineNumber()})",
+                            "${message.messageLevel()} ${message.message()} " +
+                                "(${message.sourceId()}:${message.lineNumber()})",
                         )
                         return true
                     }
