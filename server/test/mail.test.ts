@@ -46,7 +46,7 @@ describe('Platzhalter', () => {
 
 describe('Mail-Layout', () => {
   it('rendert Betreff, Text und HTML aus denselben Bausteinen', () => {
-    const mail = renderMail(bausteine(), { name: 'Mira' }, { baseUrl: BASIS, link: LINK })
+    const mail = renderMail(bausteine(), { name: 'Mira' }, { webUrl: BASIS, link: LINK })
     expect(mail.subject).toBe('Hallo Mira')
     expect(mail.text).toContain('Hallo Mira,')
     expect(mail.html).toContain('Hallo Mira,')
@@ -56,7 +56,7 @@ describe('Mail-Layout', () => {
   })
 
   it('legt den Knopf-Link in die Text-Fassung, auf eine eigene Zeile', () => {
-    const mail = renderMail(bausteine(), { name: 'Mira' }, { baseUrl: BASIS, link: LINK })
+    const mail = renderMail(bausteine(), { name: 'Mira' }, { webUrl: BASIS, link: LINK })
     // Auf eigener Zeile, damit ein selbst verlinkendes Mail-Programm nicht am
     // nächsten Satzzeichen abschneidet.
     expect(mail.text).toContain(`Los geht’s:\n${LINK}`)
@@ -64,7 +64,7 @@ describe('Mail-Layout', () => {
   })
 
   it('nennt den Link als erste Adresse im Text — daran hängt jeder Bestätigungsfluss', () => {
-    const mail = renderMail(bausteine(), { name: 'Mira' }, { baseUrl: BASIS, link: LINK })
+    const mail = renderMail(bausteine(), { name: 'Mira' }, { webUrl: BASIS, link: LINK })
     expect(mail.text.match(/https?:\/\/\S+/)?.[0]).toBe(LINK)
   })
 
@@ -72,7 +72,7 @@ describe('Mail-Layout', () => {
     const mail = renderMail(
       bausteine({ button: '', text: 'Hier entlang:\n\n{{link}}' }),
       { name: 'Mira', link: LINK },
-      { baseUrl: BASIS, link: LINK },
+      { webUrl: BASIS, link: LINK },
     )
     expect(mail.html).not.toContain('border-radius:999px')
     // Über den Platzhalter kommt er trotzdem an — als anklickbare Adresse.
@@ -83,7 +83,7 @@ describe('Mail-Layout', () => {
     const mail = renderMail(
       bausteine({ text: 'Dein Code:\n\n{{code}}\n\nBis gleich.' }),
       { code: 'MAPT-4F7K' },
-      { baseUrl: BASIS, link: LINK },
+      { webUrl: BASIS, link: LINK },
     )
     expect(mail.html).toContain('letter-spacing:0.12em')
     expect(mail.html).toContain('MAPT-4F7K')
@@ -94,14 +94,14 @@ describe('Mail-Layout', () => {
     const mail = renderMail(
       bausteine(),
       { name: '<script>böse</script>' },
-      { baseUrl: BASIS, link: LINK },
+      { webUrl: BASIS, link: LINK },
     )
     expect(mail.html).not.toContain('<script>böse')
     expect(mail.html).toContain('&lt;script&gt;')
   })
 
   it('trägt Logo, Wortmarke als Alt-Text und die Pflichtlinks der Fußzeile', () => {
-    const mail = renderMail(bausteine(), { name: 'Mira' }, { baseUrl: `${BASIS}/`, link: LINK })
+    const mail = renderMail(bausteine(), { name: 'Mira' }, { webUrl: `${BASIS}/`, link: LINK })
     expect(mail.html).toContain(`${BASIS}/branding/mail-logo.png`)
     expect(mail.html).toContain('alt="Maptale"')
     expect(mail.html).toContain(`${BASIS}/impressum`)
@@ -114,7 +114,7 @@ describe('Mail-Layout', () => {
     const mail = renderMail(
       bausteine({ text: 'Eins\nzwei\n\nDrei' }),
       {},
-      { baseUrl: BASIS, link: LINK },
+      { webUrl: BASIS, link: LINK },
     )
     expect(mail.html).toContain('Eins<br />zwei')
     expect((mail.html.match(/<p style="margin:0 0 16px/g) ?? []).length).toBe(2)
@@ -152,7 +152,7 @@ describe('Vorlagen-Katalog', () => {
     for (const v of TEMPLATES) {
       const werte = exampleValues(v)
       const mail = renderMail(v.defaultContent, werte, {
-        baseUrl: BASIS,
+        webUrl: BASIS,
         link: werte.link ?? BASIS,
       })
       expect(mail.text, v.key).not.toMatch(/\{\{/)
@@ -246,7 +246,7 @@ describe('MailVorlagenDienst', () => {
       { ...getTemplate('verification').defaultContent, title: 'Servus' },
       null,
     )
-    const mail = dienst.render('verification', { name: 'Mira' }, { baseUrl: BASIS, link: LINK })
+    const mail = dienst.render('verification', { name: 'Mira' }, { webUrl: BASIS, link: LINK })
     expect(mail.html).toContain('Servus')
     expect(mail.text.startsWith('Servus')).toBe(true)
   })

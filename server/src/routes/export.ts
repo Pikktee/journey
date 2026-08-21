@@ -131,7 +131,7 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
         const { subject, text, html } = app.mailTemplates.render(
           'export',
           { name, size: formatSize(bytes), deadline: `${EXPIRY_HOURS} Stunden` },
-          { baseUrl: config.baseUrl, link },
+          { webUrl: config.webUrl, link },
         )
         await mail.send({ to2: email, subject, text, html })
       } catch (error) {

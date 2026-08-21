@@ -310,7 +310,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       invitations: app.invitations.all(),
       invitationRequired: app.invitations.required(),
       registrationOpen: config.registrationOpen,
-      baseUrl: config.baseUrl,
+      webUrl: config.webUrl,
     }
   })
 
@@ -400,7 +400,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
 
   app.get('/api/admin/mail-templates', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
-    return { templates: app.mailTemplates.all(), baseUrl: config.baseUrl }
+    return { templates: app.mailTemplates.all(), baseUrl: config.webUrl }
   })
 
   app.patch<{ Params: { key: string }; Body: MailParts }>(
@@ -485,8 +485,8 @@ export function registerAdminRoutes(app: FastifyInstance): void {
   /** Beispielwerte einsetzen und rendern, ohne den gespeicherten Stand anzufassen. */
   function renderPreview(blocks2: MailParts, values: Record<string, string>) {
     return renderMail(blocks2, values, {
-      baseUrl: config.baseUrl,
-      link: values.link ?? `${config.baseUrl}/`,
+      webUrl: config.webUrl,
+      link: values.link ?? `${config.webUrl}/`,
     })
   }
 

@@ -108,6 +108,21 @@ describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
     expect(me.json()).toMatchObject({ verified: false })
   })
 
+  it('schickt den Bestätigungslink auf die WEBSEITE, nicht auf die API', async () => {
+    // Was in einer Mail steht, öffnet jemand womöglich Tage später auf einem
+    // anderen Gerät — eine Adresse, die dort ins Leere führt, merkt niemand
+    // beim Entwickeln. Live sind Web und API dieselbe Adresse, lokal nicht,
+    // und die Tests sahen bisher nur den Hash hinter dem Link. Die
+    // Test-Umgebung hält beide Adressen deshalb verschieden.
+    const u = await baueTestApp()
+    await registriere(u)
+    expect(u.mail.letzterLink()).toMatch(/^https:\/\/maptale\.test\/anmelden#verify=/)
+    // Auch die Fußzeile jeder Mail (Impressum, Datenschutz, Logo) hängt daran.
+    const html = u.mail.nachrichten.at(-1)?.html ?? ''
+    expect(html).toContain('https://maptale.test/impressum')
+    expect(html).not.toContain('http://localhost:5173')
+  })
+
   it('sperrt das Hochladen bis zur Bestätigung, danach klappt es', async () => {
     const u = await baueTestApp()
     const reg = await registriere(u)

@@ -110,9 +110,16 @@ export function checkUnsubscribeToken(token: string, secret: string): string | n
   return userId
 }
 
-/** Die Adresse, unter der ein Abmeldelink liegt — eine Stelle für Mail und Kopfzeile. */
-export const unsubscribeUrl = (baseUrl: string, token: string): string =>
-  `${baseUrl.replace(/\/+$/, '')}${WEB_PATHS.account}#newsletter-aus=${token}`
+/**
+ * Die Adresse, unter der ein Abmeldelink liegt — eine Stelle für Mail und Kopfzeile.
+ *
+ * Sie führt auf die Kontoseite, nimmt also die WEB-Adresse. Ihr Gegenstück
+ * `oneClickUrl` zeigt auf eine Route unter `/api/` und nimmt die der API —
+ * dieselben zwei Zeilen, zwei verschiedene Adressen. Live fällt der
+ * Unterschied nicht auf, weil Nginx beides bedient.
+ */
+export const unsubscribeUrl = (webUrl: string, token: string): string =>
+  `${webUrl.replace(/\/+$/, '')}${WEB_PATHS.account}#newsletter-aus=${token}`
 
 /** Die Adresse, die der Ein-Klick-Widerruf der Mail-Programme anspricht. */
 export const oneClickUrl = (baseUrl: string, token: string): string =>
@@ -131,9 +138,13 @@ export const oneClickUrl = (baseUrl: string, token: string): string =>
  * keine Werbung, und ein „Abbestellen" an einem Passwort-Reset wäre eine
  * Zusage, die niemand einhalten will.
  */
-export function newsletterHeaders(baseUrl: string, token: string): Record<string, string> {
+export function newsletterHeaders(
+  baseUrl: string,
+  webUrl: string,
+  token: string,
+): Record<string, string> {
   return {
-    'List-Unsubscribe': `<${oneClickUrl(baseUrl, token)}>, <${unsubscribeUrl(baseUrl, token)}>`,
+    'List-Unsubscribe': `<${oneClickUrl(baseUrl, token)}>, <${unsubscribeUrl(webUrl, token)}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   }
 }

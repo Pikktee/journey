@@ -36,8 +36,14 @@ export interface MailParts {
 }
 
 export interface LayoutContext {
-  /** Öffentliche Basis-URL für Logo und Fußzeile, ohne Schrägstrich am Ende. */
-  baseUrl: string
+  /**
+   * Adresse der SEITEN für Logo und Fußzeile, ohne Schrägstrich am Ende.
+   *
+   * `webUrl` und nicht `baseUrl`: Was hier entsteht, sind Logo, Startseite,
+   * Impressum und Datenschutz — alles Seiten, keine API. Live ist beides
+   * dieselbe Adresse; lokal zeigte jeder Mail-Link auf den Port der API.
+   */
+  webUrl: string
   /** Ziel des Knopfs; ohne Wert wird kein Knopf gezeichnet. */
   link?: string
 }
@@ -163,7 +169,7 @@ export function renderMail(
   values: Record<string, string>,
   context: LayoutContext,
 ): RenderedMail {
-  const base = context.baseUrl.replace(/\/+$/, '')
+  const base = context.webUrl.replace(/\/+$/, '')
   const fill = (s: string): string => fillPlaceholders(s, values)
 
   const subjectText = fill(blocks.subject).replace(/\s+/g, ' ').trim()

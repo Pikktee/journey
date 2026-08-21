@@ -41,9 +41,17 @@ const imageClassifier: ImageClassifier | null = config.openRouterKey
   ? new OpenRouterClassifier(config.openRouterKey, undefined, config.visionModel)
   : null
 // Mit RESEND_API_KEY: echter Versand; ohne (Dev/kleine Instanz): Link ins Log.
-const mail: MailTransport = process.env.RESEND_API_KEY
-  ? new ResendMail(process.env.RESEND_API_KEY, config.mailFrom)
-  : new ConsoleMail()
+//
+// `MAPTALE_MAIL_CONSOLE=1` erzwingt das Log, auch wenn ein Key dasteht. Nötig
+// geworden, als das Dev-Skript anfing, die `.env` hereinzuziehen: Damit sah der
+// lokale Server plötzlich den Produktions-Key und verschickte beim Ausprobieren
+// eines Passwort-Resets ECHTE Post — an echte Adressen. Ein Schalter und keine
+// Automatik („localhost erkennen"), denn wer lokal den echten Versand prüfen
+// will, soll das können.
+const mail: MailTransport =
+  process.env.RESEND_API_KEY && process.env.MAPTALE_MAIL_CONSOLE !== '1'
+    ? new ResendMail(process.env.RESEND_API_KEY, config.mailFrom)
+    : new ConsoleMail()
 // Tracker-Anbieter. Sie werden IMMER registriert, auch ohne Zugangsdaten:
 // Die Registry meldet einen unkonfigurierten Anbieter als „nicht verfügbar",
 // und die Kontoseite kann „Polar (noch nicht eingerichtet)" zeigen. Verschwiege

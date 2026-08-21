@@ -262,7 +262,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       // Zeitpunkt, Quelle und Textfassung in einem Zug.
       if (request.body.newsletter === true) app.newsletter.set(user.id, true, 'signup')
       const token = app.auth.createMailToken(user.id, 'verify')
-      const link = `${config.baseUrl}${WEB_PATHS.login}#verify=${token}`
+      const link = `${config.webUrl}${WEB_PATHS.login}#verify=${token}`
       // Die Bestätigungsmail bleibt WERBEFREI: kein Satz über den Newsletter,
       // keine List-Unsubscribe-Kopfzeile. Ein „Übrigens, unser Newsletter …"
       // machte aus der transaktionalen Mail selbst eine Werbemail — und
@@ -270,7 +270,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       const { subject, text, html } = app.mailTemplates.render(
         'verification',
         { name: user.name },
-        { baseUrl: config.baseUrl, link },
+        { webUrl: config.webUrl, link },
       )
       try {
         await mail.send({ to2: user.email, subject, text, html })
@@ -369,7 +369,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       const userId = app.auth.userIdForEmail(email)
       if (userId) {
         const token = app.auth.createMailToken(userId, 'reset')
-        const link = `${config.baseUrl}${WEB_PATHS.login}#reset=${token}`
+        const link = `${config.webUrl}${WEB_PATHS.login}#reset=${token}`
         // Der Name des KONTOS, nicht der Adress-Anfang: Die Mail geht ohnehin
         // nur an die eigene Adresse, und „Hallo mira.wolf," liest sich wie ein
         // Datenbankfeld.
@@ -377,7 +377,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         const { subject, text, html } = app.mailTemplates.render(
           'reset',
           { name },
-          { baseUrl: config.baseUrl, link },
+          { webUrl: config.webUrl, link },
         )
         try {
           await mail.send({ to2: email, subject, text, html })
@@ -527,11 +527,11 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       }
       if (!app.auth.emailTaken(email)) {
         const token = app.auth.createMailToken(user.id, 'email', email)
-        const link = `${config.baseUrl}${WEB_PATHS.account}#email=${token}`
+        const link = `${config.webUrl}${WEB_PATHS.account}#email=${token}`
         const { subject, text, html } = app.mailTemplates.render(
           'email-change',
           { name: user.name },
-          { baseUrl: config.baseUrl, link },
+          { webUrl: config.webUrl, link },
         )
         try {
           await mail.send({ to2: email, subject, text, html })

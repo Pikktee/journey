@@ -45,9 +45,9 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
     waitlistOffered(app.waitlist.open(), app.invitations.required(), config.registrationOpen)
 
   const confirmLink = (token: string): string =>
-    `${config.baseUrl}${WEB_PATHS.register}#warteliste=${token}`
+    `${config.webUrl}${WEB_PATHS.register}#warteliste=${token}`
   const leaveLink2 = (token: string): string =>
-    `${config.baseUrl}${WEB_PATHS.register}#warteliste-austragen=${token}`
+    `${config.webUrl}${WEB_PATHS.register}#warteliste-austragen=${token}`
 
   // — Eintragen —
   //
@@ -86,7 +86,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
           const { subject, text, html } = app.mailTemplates.render(
             'waitlist',
             {},
-            { baseUrl: config.baseUrl, link: confirmLink(token) },
+            { webUrl: config.webUrl, link: confirmLink(token) },
           )
           try {
             await mail.send({ to2: email, subject, text, html })
@@ -214,8 +214,8 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
         'waitlist-invitation',
         { code: invitation2.code, leaveLink: leaveLink2(leaveToken) },
         {
-          baseUrl: config.baseUrl,
-          link: `${config.baseUrl}${WEB_PATHS.register}#einladung=${encodeURIComponent(invitation2.code)}`,
+          webUrl: config.webUrl,
+          link: `${config.webUrl}${WEB_PATHS.register}#einladung=${encodeURIComponent(invitation2.code)}`,
         },
       )
       try {

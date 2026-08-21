@@ -251,9 +251,11 @@ describe('Signierter Token', () => {
 
 describe('List-Unsubscribe', () => {
   it('nennt beide Wege und sagt den Ein-Klick zu', () => {
-    const kopfzeilen = newsletterHeaders('https://maptale.io/', 'tok')
+    // Zwei Adressen und nicht eine: Der Ein-Klick-Weg ist eine Route der API,
+    // der Abmeldelink eine Seite. Live sind sie gleich, lokal nicht.
+    const kopfzeilen = newsletterHeaders('https://api.maptale.test/', 'https://maptale.io/', 'tok')
     expect(kopfzeilen['List-Unsubscribe']).toContain(
-      `<${oneClickUrl('https://maptale.io', 'tok')}>`,
+      `<${oneClickUrl('https://api.maptale.test', 'tok')}>`,
     )
     expect(kopfzeilen['List-Unsubscribe']).toContain(
       '<https://maptale.io/konto#newsletter-aus=tok>',
@@ -268,7 +270,7 @@ describe('List-Unsubscribe', () => {
       to2: 'wer@example.com',
       subject: 'Neues von Maptale',
       text: 'Hallo',
-      headers2: newsletterHeaders('https://maptale.io', 'tok'),
+      headers2: newsletterHeaders('https://maptale.io', 'https://maptale.io', 'tok'),
     })
     expect(u.mail.nachrichten.at(-1)?.headers2?.['List-Unsubscribe-Post']).toBe(
       'List-Unsubscribe=One-Click',
