@@ -56,7 +56,7 @@ Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
-* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Wellen 0 bis 7 sind durch, damit ist der CODE fertig: Verträge, API und App seit dem 2026-08-20 live (v0.67.0), am selben Tag die Server-Internals und die DOM-freien Studio-Module, am 2026-08-21 die Studio-Verdrahtung, die Player-Engine, die übrigen src-Module samt CSS und DOM-Namen und zuletzt die Android-App (Pakete, Dateien, ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel, WorkManager-Umzug, WebView-Brücke). Die Wellen 2 bis 7 warten auf den nächsten Release. Als Nächstes Welle 8: die Doku nach §7 (Topf A übersetzen, Topf C archivieren, Start-Migration ausbauen). Danach Schritt 9: die Env-Variablen als eigener Ops-Schritt. Offen daneben, als eigener kleiner Lauf: die 68 deutschen Namen im Inneren von `src/photopins.ts` samt fünf Nachzüglern und der inerten id `foto-karte` (s. Welle 6 im Konzept) - sie stehen in keiner Wellen-Liste und brauchen erst eine Zielform je Bezeichner in der Abbildungstabelle.
+* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Nur noch Schritt 9: die `MAPTALE_*`-Env-Variablen als eigener Ops-Termin (neue Namen zusätzlich in die Server-`.env`, deployen, alte Zeilen entfernen). Die Wellen 0 bis 8 sind durch, Code und Doku damit fertig.
 * [Konto löschen absichern](concepts/konzept_kontoloeschung_absichern.md) - Passwortpflicht für DELETE /api/auth/me; heute reicht eine offene Sitzung, um Konto, Touren und Medien zu löschen.
 * [Play Store](concepts/konzept_play_store_interner_test.md) - Die App aus dem APK-Versand herausholen. [wartet auf: concepts/konzept_codebase_english_refactoring.md]
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
@@ -75,6 +75,8 @@ Gewollt, aber ohne Reihenfolge. Was hier steht, wartet auf einen Anlass.
 * [Live mitverfolgen](concepts/konzept_live_mitverfolgen.md) — Live-Link während der Aufnahme.
 * [Reisen und Sammlungen](concepts/konzept-reisen-sammlungen.md) — Mehrtägige Touren zusammenfassen.
 * [Editor-Ausbau](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
+* [Stimmung und Wetter im Editor](concepts/konzept_editor_stimmung_wetter.md) — Der erste Schritt ist das Raster-Grading, nicht das Partikel-Overlay.
+* [Feinplatzierung](concepts/konzept_feinplatzierung.md) — Zuerst die Zeitfelder des Ton-Inspectors auf Filmzeit mit Nachkommastellen.
 * [Tour nur aus Fotos](concepts/foto-tour.md) — Ganz ohne GPS-Track.
 * [Modi konsolidieren](concepts/modi-konsolidierung.md) — Ein neuer Modus soll eine Zeile sein.
 * [Die Tafeln auf die Leinwand](concepts/die-tafeln-auf-die-leinwand.md) — Erst die Klickflächen von Startscreen und Finale, dann die Optik.

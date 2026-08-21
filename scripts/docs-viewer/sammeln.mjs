@@ -892,7 +892,7 @@ export function standVeraltet(dok, heute = Date.now()) {
  * Text („Mockups: player-leiste-runde3.html (dritte Runde …)"). Wer verlinkt,
  * stellt damit die Beziehung her — ein Pflichtfeld wäre beim nächsten Mockup
  * vergessen. Wo der Link fehlt, die Beziehung aber besteht, übersteuert
- * `<meta name="maptale:gehoert_zu" content="architecture/zeitleiste-umbau.md">`
+ * `<meta name="maptale:gehoert_zu" content="archive/zeitleiste-umbau.md">`
  * — mit UNTERSTRICH, der Leser nimmt nur `[a-z_]`.
  *
  * Geführt wird sie in BEIDE Richtungen: Das Mockup nennt sein Konzept, das

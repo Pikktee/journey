@@ -4,7 +4,7 @@
 // Vorschau auf der Karte. Was BEIDE wissen müssen, steht hier; wie sie es
 // darstellen, bleibt getrennt (der Player läuft linear in Echtzeit, im Editor
 // wird gescrubbt — ein gemeinsames DOM-Bauteil müsste beide Zeitmodelle
-// tragen, s. docs/concepts/konzept_gleichlauf_player_editor.md §6A/§9).
+// tragen, s. docs/archive/konzept_gleichlauf_player_editor.md §6A/§9).
 //
 // Warum eine eigene Datei und nicht `tour.ts`: Die Engine importiert MapLibre.
 // Das Studio lädt MapLibre erst mit dem Editor nach; ein Import aus `tour.ts`

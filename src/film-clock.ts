@@ -5,7 +5,7 @@
 // eine langsamere Tour: Bei 6× Drosselung lief die Bilduhr auf 81,3 % der
 // Echtzeit, bei 12× auf 46,1 % — der Ton lief dabei in Echtzeit weiter, und
 // Bild und Musik standen am Ende Sekunden auseinander
-// (docs/concepts/konzept_gleichlauf_player_editor.md §4.1, §8A).
+// (docs/archive/konzept_gleichlauf_player_editor.md §4.1, §8A).
 //
 // Ein Film mit Ton trifft an dieser Stelle die Wahl jedes Videoplayers: Die
 // Zeit wird gehalten, das Bild springt. Diese Datei ist diese Wahl.

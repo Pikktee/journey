@@ -4,7 +4,7 @@
 // Sekunden Film ergeben — auch wenn das Gerät nur fünf Bilder pro Sekunde
 // schafft. Mit dem alten 50-ms-Deckel kamen dabei 2,5 s heraus, und genau diese
 // Lücke stand am Ende zwischen Bild und Musik
-// (docs/concepts/konzept_gleichlauf_player_editor.md §4.1, §8A).
+// (docs/archive/konzept_gleichlauf_player_editor.md §4.1, §8A).
 
 import { describe, expect, it } from 'vitest'
 import { FilmClock, FRAME_CAP_S, connectVisibility } from '../src/film-clock.js'

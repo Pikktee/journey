@@ -1,11 +1,12 @@
 ---
 stand: 2026-08-17
-status: abgearbeitet: Karte auf der Leinwand, Tafeln herausgelöst
+status: 'abgearbeitet: Karte auf der Leinwand, Tafeln herausgelöst'
 betrifft:
   - Player (src/card-painter.ts, src/card-layer.ts, src/ui.ts, erlebnis.html)
   - Studio-Editor (src/studio/playback.ts, studio.html)
   - Video-Export (src/film-export.ts)
   - geteilte Zahlen (src/card-timing.ts)
+archiviert_aus: concepts
 ---
 
 # Die Foto-Karte auf eine Leinwand

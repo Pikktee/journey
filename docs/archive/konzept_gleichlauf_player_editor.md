@@ -1,10 +1,11 @@
 ---
-stand: 2026-08-14
-status: Pakete A–G gebaut — der Plan ist damit abgearbeitet; offen bleiben die freien Stücke (§9 Szene-Schicht, §10 Tag/Nacht im Editor, §11 Feinplatzierung)
+stand: 2026-08-21
+status: abgearbeitet — Pakete A bis G gebaut, §9 am 14.08. erledigt. §10 und §11 waren nie gebaut und stehen seit dem 2026-08-21 als eigene Konzepte (konzept_editor_stimmung_wetter.md, konzept_feinplatzierung.md)
 betrifft:
   - src/ (Player)
   - src/studio/
   - server/src/pipeline/
+archiviert_aus: concepts
 ---
 
 # Gleichlauf: ein Film, zwei Bühnen
@@ -254,7 +255,7 @@ ist ein Fehler.
 
 | Was | Player | Editor | Warum getrennt |
 |---|---|---|---|
-| **Zeitmodell der Anzeige** | Ereignis + Wanduhr (`transition`, Zustandsmaschine `holdT`/`photoShown`) | Funktion der Kopfposition (dauerhaft pausierte Animationen mit negativem Delay, Balken *gesetzt* statt animiert, Video per Seek) | Der Player läuft linear in Echtzeit, im Editor wird **gescrubbt**. Ein gemeinsames DOM-Bauteil müsste beide Modelle tragen — [zeitleiste-umbau.md](../architecture/zeitleiste-umbau.md) führt das als Merkregel: *„Eine Anzeige, die an einer UHR hängt statt an der Position, driftet."* |
+| **Zeitmodell der Anzeige** | Ereignis + Wanduhr (`transition`, Zustandsmaschine `holdT`/`photoShown`) | Funktion der Kopfposition (dauerhaft pausierte Animationen mit negativem Delay, Balken *gesetzt* statt animiert, Video per Seek) | Der Player läuft linear in Echtzeit, im Editor wird **gescrubbt**. Ein gemeinsames DOM-Bauteil müsste beide Modelle tragen — [zeitleiste-umbau.md](zeitleiste-umbau.md) führt das als Merkregel: *„Eine Anzeige, die an einer UHR hängt statt an der Position, driftet."* |
 | **Ressourcen-Lebenszyklus** | `_stopVideo` mit `load()`, gestaffeltes Vorladen, Standbild + Generationszähler | Neuaufbau per `replaceChildren`, Seek statt Play, beide Schnittkanten im `dataset` (die Datei ist der ungeschnittene Master) | Der Player streamt einen Film **voraus**; der Editor springt in einer Datei umher, die er hat |
 | **Ton-Bedienung** | Ton-Knopf, `sessionStorage`-Gedächtnis | keiner | Gehört dem **Zuschauer**, nicht dem Schneidenden |
 | **Layout** | Vollbild-Bühne, `--photo-ar`/`--vh-app` (samt Android-WebView-Falle: `100dvh` ist dort NULL) | Container-Queries in einer Panel-Fläche | Zwei Bühnen, zwei Maßsysteme |

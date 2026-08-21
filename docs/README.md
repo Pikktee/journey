@@ -460,14 +460,14 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 
 ### 2. `specs/` (Spezifikationen)
 * [`austauschformat.md`](specs/austauschformat.md) — `.maptale`-Export/Import-Format und `tour.json`.
-* [`overlay-und-tourjson.md`](specs/overlay-und-tourjson.md) — Rollenverteilung zwischen `edits.json`, `anreicherung.json` und `tour.json`.
+* [`overlay-und-tourjson.md`](specs/overlay-und-tourjson.md) — Rollenverteilung zwischen `edits.json`, `enrichment.json` und `tour.json`.
 * [`api.md`](specs/api.md) — der HTTP-Vertrag: alle 95 Routen mit Auth-Stufe, Feldern und Aufrufern.
 * [`abbildungstabelle.md`](specs/abbildungstabelle.md) — deutscher Bezeichner zu englischem, je Eintrag mit Fundort und Welle; das Werkstück der Englisch-Migration.
 
 ### 3. `architecture/` (Umgesetzte Entscheidungen)
 * [`systemuebersicht.md`](architecture/systemuebersicht.md) — Tech-Stack & High-Level-Systemarchitektur (Einstieg mit Diagrammen).
 * [`foto-pins-3d.md`](architecture/foto-pins-3d.md) — Three.js Custom-Layer für 3D-Fotopins & Mercator-Skalierung.
-* [`zeitleiste-umbau.md`](architecture/zeitleiste-umbau.md) — Filmzeit-Achse, Halt-Klips, Zustandsbänder, Ton-Trim.
+* [`zeitleiste-umbau.md`](archive/zeitleiste-umbau.md) — Filmzeit-Achse, Halt-Klips, Zustandsbänder, Ton-Trim. Seit 2026-08-21 im Archiv: umgesetzt und abgeschlossen.
 * [`konzept_profil_konto.md`](architecture/konzept_profil_konto.md) — Handle, Profil, Konto, Newsletter-Einwilligung, Export, SEO-Meta.
 
 ### 4. `concepts/` (Offene Konzepte)
@@ -485,11 +485,13 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`modi-konsolidierung.md`](concepts/modi-konsolidierung.md) — Fortbewegungs-Modi auf eine zentrale Tabelle ziehen.
 * [`konzept_editor_zerlegung.md`](concepts/konzept_editor_zerlegung.md) — `editor.ts` in Karte / Inspector / Zeitleiste / Menüs zerlegen.
 * [`konzept_live_mitverfolgen.md`](concepts/konzept_live_mitverfolgen.md) — Live-Link während der App-Aufnahme; Spur und Medien in Echtzeit.
-* [`konzept_gleichlauf_player_editor.md`](concepts/konzept_gleichlauf_player_editor.md) — Ein Film, zwei Bühnen: Editor und Player zur Deckung bringen, bis auf den Takt genau.
+* [`konzept_gleichlauf_player_editor.md`](archive/konzept_gleichlauf_player_editor.md) — Ein Film, zwei Bühnen: Editor und Player zur Deckung bringen, bis auf den Takt genau. Seit 2026-08-21 im Archiv; was offen blieb, steht in den beiden folgenden Blättern.
+* [`konzept_editor_stimmung_wetter.md`](concepts/konzept_editor_stimmung_wetter.md) — Tag/Nacht und Wetter auf der Editor-Karte (E7 des Gleichlauf-Konzepts). Raster-Grading zuerst, Partikel danach. Entwurf, nichts gebaut.
+* [`konzept_feinplatzierung.md`](concepts/konzept_feinplatzierung.md) — Klips framegenau setzen (E6 des Gleichlauf-Konzepts): Filmzeit-Felder, Nudging, ein additives `offsetFilmS` auch für Medien. Entwurf, nichts gebaut.
 * [`konzept_tempoempfinden.md`](concepts/konzept_tempoempfinden.md) — Warum sich der Film an manchen Stellen zu schnell anfühlt: drei behobene Ursachen, zwei offene Kandidaten, die Messwerkzeuge dazu.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
-* [`die-foto-karte-auf-eine-leinwand.md`](concepts/die-foto-karte-auf-eine-leinwand.md) — Warum die Foto-Karte im Player auf einer Leinwand liegt und der Export sie nur holt. Abgearbeitet; das Dokument ist jetzt die Begründung der Zahlen, die in `KARTE` und im Kartenmaler stehen.
+* [`die-foto-karte-auf-eine-leinwand.md`](archive/die-foto-karte-auf-eine-leinwand.md) — Warum die Foto-Karte im Player auf einer Leinwand liegt und der Export sie nur holt. Seit 2026-08-21 im Archiv; das Dokument ist die Begründung der Zahlen, die in `CARD` und im Kartenmaler stehen.
 * [`die-tafeln-auf-die-leinwand.md`](concepts/die-tafeln-auf-die-leinwand.md) — Startscreen und „Ziel erreicht“: der letzte Canvas-Nachbau im Video-Export. Anders als bei der Karte ist „deckungsgleich“ hier ausdrücklich NICHT das Ziel. Entwurf, nichts gebaut.
 * [`eine-buehne-ein-maler.md`](archive/eine-buehne-ein-maler.md) — Die Editor-Vorschau auf denselben Maler wie Player und Film, danach der Blitz zurück. Warum die Begründung für zwei Bühnen abgelaufen ist. Entwurf, nichts gebaut.
 * [`konzept_video_export.md`](concepts/konzept_video_export.md) — Tour als MP4. Etappe 1 gebaut (Film in Player-Tempo, Studio-Blatt). Der geraffte Clip und der Cloud-Auftrag kommen danach.

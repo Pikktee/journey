@@ -15,7 +15,7 @@ Video-Export noch. Ihn ablösen, ohne die Bedienbarkeit am Bildschirm zu verlier
 und ohne die Unterschiede einzuebnen, die dort ABSICHT sind.
 
 Das ist der herausgelöste Rest von
-[Die Foto-Karte auf eine Leinwand](die-foto-karte-auf-eine-leinwand.md), wo er
+[Die Foto-Karte auf eine Leinwand](../archive/die-foto-karte-auf-eine-leinwand.md), wo er
 als Etappe 3 stand. Herausgelöst, weil er ein anderes Ziel hat, und das ist
 mehr als eine Terminfrage, s. §1.
 
@@ -168,7 +168,7 @@ ist die Vorlage), aber mit einer anderen Frage:
 ## 7. Fallen
 
 Die Fallenliste des
-[Karten-Konzepts](die-foto-karte-auf-eine-leinwand.md) gilt vollständig weiter:
+[Karten-Konzepts](../archive/die-foto-karte-auf-eine-leinwand.md) gilt vollständig weiter:
 Sie ist an einer Leinwand im Player abgearbeitet und keine Vermutung mehr. Vier
 davon sind hier besonders scharf:
 
@@ -212,7 +212,7 @@ Dazu eine eigene:
    `KARTEN_MASSE`-Satz für Tafeln ist dagegen richtig, denn eine Tafel ist keine
    Karte.
 5. **Eine geerbte Messung mitnehmen:** der Schleier der Foto-Karte
-   ([§5A dort](die-foto-karte-auf-eine-leinwand.md)). Er bleibt eine DOM-Schicht
+   ([§5A dort](../archive/die-foto-karte-auf-eine-leinwand.md)). Er bleibt eine DOM-Schicht
    mit `backdrop-filter` über dem ganzen Bild, und auf dem M4 kostet er im Halt
    nichts messbares. Auf einem schwachen Gerät könnte er der teuerste Posten der
    Szene sein. Die Frage steht hier, weil beim Finale dieselbe Sorte Glasfläche

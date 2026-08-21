@@ -1,7 +1,7 @@
 # Messungen: Bild, Ton und Filmzeit
 
 Werkzeuge, mit denen die Befunde in
-[konzept_gleichlauf_player_editor.md](../../docs/concepts/konzept_gleichlauf_player_editor.md)
+[konzept_gleichlauf_player_editor.md](../../docs/archive/konzept_gleichlauf_player_editor.md)
 entstanden sind. Sie gehören ins Repo, weil das Konzept **Abnahmekriterien** nennt, die man
 ohne sie nicht prüfen kann („Fertig, wenn bei 6× CPU-Drosselung `Δs ÷ Tempo` sich mit
 `Δ audio.currentTime` auf ±2 % deckt").
@@ -123,7 +123,7 @@ die leeren Klassen stehen als „—" da, statt eine geprüfte Null vorzutäusch
 ## Messwerte vom 12. August 2026
 
 Als Bezugspunkt — wer etwas ändert, sollte gegen diese Zahlen prüfen. Herleitung und
-Einordnung stehen im [Konzept](../../docs/concepts/konzept_gleichlauf_player_editor.md), §4.
+Einordnung stehen im [Konzept](../../docs/archive/konzept_gleichlauf_player_editor.md), §4.
 
 | Messung | Ergebnis |
 |---|---|

@@ -29,7 +29,7 @@ Verwandt, aber anders:
 - ZIP-Datenexport (Kontoeinstellungen, Art. 20 DSGVO). Bytes der Rohdaten, kein Film.
 - ffmpeg in der Pipeline. Skaliert *Aufnahmen*, rendert nicht die Kamerafahrt.
 - [ideen-inspiration.md](ideen-inspiration.md) §1 „Teilen als Clip“. Die Rohidee.
-- [konzept_gleichlauf_player_editor.md](konzept_gleichlauf_player_editor.md). Die
+- [konzept_gleichlauf_player_editor.md](../archive/konzept_gleichlauf_player_editor.md). Die
   Filmuhr und `setzeFilm` sind die Vorbedingung. Ohne sie gäbe es nichts zu steppen.
 
 ---
@@ -301,7 +301,7 @@ Der INHALT kommt deshalb aus denselben Elementen, die der Player füllt
 **Das war die letzte echte Driftquelle**, und sie war nicht theoretisch: Der Ken
 Burns lief im Export in die GEGENRICHTUNG, „Entwickeln", Blitz, Standzeit-Balken
 und die Kennzahl-Pillen fehlten ganz. **Erledigt am 2026-08-17**
-([die-foto-karte-auf-eine-leinwand.md](die-foto-karte-auf-eine-leinwand.md)): Die
+([die-foto-karte-auf-eine-leinwand.md](../archive/die-foto-karte-auf-eine-leinwand.md)): Die
 Karte liegt im Player auf einer Leinwand, der Export holt sie mit demselben
 `drawImage` wie Wetter und Atmosphäre. Für die TAFELN gilt der Absatz weiter —
 Startscreen und „Ziel erreicht" baut der Export noch selbst nach

@@ -364,7 +364,7 @@ Runbooks: [`ops/deploy-cloudpanel.md`](../ops/deploy-cloudpanel.md),
 | Austauschformat | [austauschformat.md](../specs/austauschformat.md) |
 | 3D-Fotopins | [foto-pins-3d.md](foto-pins-3d.md) |
 | Renderer-Labor (ausgebaut) | [../archive/renderer-labor.md](../archive/renderer-labor.md) |
-| Studio-Zeitleiste | [zeitleiste-umbau.md](zeitleiste-umbau.md) |
+| Studio-Zeitleiste | [zeitleiste-umbau.md](../archive/zeitleiste-umbau.md) |
 | Profil & Konto | [konzept_profil_konto.md](konzept_profil_konto.md) |
 | CloudPanel-Deploy | [../ops/deploy-cloudpanel.md](../ops/deploy-cloudpanel.md) |
 | Agenten-Einstieg | [CLAUDE.md](../../CLAUDE.md) im Repo-Root |

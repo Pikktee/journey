@@ -1041,7 +1041,7 @@ describe('Zeitleiste', () => {
 
     it('die Achse rechnet ein Video mit seiner echten Länge', () => {
       // Ein 34-s-Video bekam als „Foto" 5,2 s — an einer 293-s-Tour ~34 px
-      // statt ~200 px Achsenbreite (docs/architecture/zeitleiste-umbau.md §6).
+      // statt ~200 px Achsenbreite (docs/archive/zeitleiste-umbau.md §6).
       expect(mediumHoldS({ type: 'video', durationS: 34 })).toBe(34)
       // holdS ist bei Video wirkungslos: der Player läuft bis zum Dateiende
       expect(mediumHoldS({ type: 'video', durationS: 34, display: { holdS: 8 } })).toBe(34)

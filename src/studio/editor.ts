@@ -4424,7 +4424,7 @@ function renderTimeline(): void {
 // Anfang und Ende; Aufnahmen am selben Ort liegen als Kette hintereinander,
 // weil die Kamera dort einmal hält und sie nacheinander zeigt.
 //
-// Drei Regeln tragen das (docs/architecture/zeitleiste-umbau.md §2A):
+// Drei Regeln tragen das (docs/archive/zeitleiste-umbau.md §2A):
 //  • RECONCILE an `medium.id` — nicht am Titel (der ist weder eindeutig noch
 //    stabil) und erst recht nicht per Neubau: ein Neuaufbau je Zieh-Frame
 //    kostete 2,34 ms und — schlimmer — das gezogene Element samt dekodiertem
@@ -5354,7 +5354,7 @@ function fitTimeWidth(): void {
 // es keinen Wert für „mitten im Halt" (zwei Stützstellen auf derselben
 // Sekunde), die Rückrechnung fällt dort immer auf die linke Haltkante. Genau
 // daran klebte der Kopf — 28 von 39 Frames Stillstand, und mit Pfeiltasten kam
-// man an einem 6-s-Halt nie vorbei (docs/architecture/zeitleiste-umbau.md §1).
+// man an einem 6-s-Halt nie vorbei (docs/archive/zeitleiste-umbau.md §1).
 
 /** Position des Abspielkopfs in Filmsekunden; null = noch keine. */
 let playheadFilmS_: number | null = null

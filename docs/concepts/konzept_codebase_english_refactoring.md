@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-21
-status: Wellen 0 bis 7 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 7 warten auf den nächsten Release. Damit ist der CODE durch, bis auf eine Lücke (photopins.ts, s. Welle 6 — eigener kleiner Lauf, noch ohne Zielformen in der Tabelle). Offen: Welle 8 (Doku) und Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
+status: abgearbeitet — Wellen 0 bis 8 gebaut. Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 8 warten auf den nächsten Release. Offen bleibt allein Schritt 9 (die MAPTALE_*-Env-Variablen), ein reiner Ops-Termin mit eigenem Rollback; er steht als nächster Schritt in der Roadmap.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -385,6 +385,11 @@ Welle 8, nicht früher. Gebraucht wird sie, solange irgendwo eine alte App
 laufen kann; die Start-Migration dagegen läuft schon beim ersten Start des
 neuen Servers.
 
+**Gefallen am 2026-08-21 mit Welle 8.** Die Antwort trägt seither nur noch
+`error`. Die ABLEHNUNG selbst bleibt: Ohne sie fiele ein `@1`-Upload in die
+Schema-Validierung und bekäme genau das `additionalProperties`-Kauderwelsch,
+gegen das dieser Absatz geschrieben ist.
+
 **Mit `@2` fällt auch der Alt-Alias `luhambo/…@1`.** `remote.ts` akzeptiert
 heute `luhambo/tour@1` gleichberechtigt neben `maptale/tour@1`, die
 Schema-Köpfe von `upload.ts` und `edits.ts` nennen `luhambo/upload@1` und
@@ -549,6 +554,17 @@ können (Snapshots, Geräte des Betreibers). Sie wird in einer späteren Welle
 entfernt, wenn der Marker überall 2 ist; das ist ein eigener Commit mit dem
 Satz „ab hier ist Stand 1 nicht mehr lesbar."
 
+**Ausgebaut am 2026-08-21 mit Welle 8**, genau so: Produktion und die lokale
+Instanz stehen auf `.schema = 2`, der einzige Stand-1-Bestand ist der
+Rückweg-Snapshot zu v0.67.0, und ein Rollback spielt ohnehin das alte Image
+ein, das ihn lesen kann. Mit weg sind `keys-v2.ts`, `nachrender.ts` und der
+Generator `scripts/keys-v2-generieren.mjs`. **Ein Nebeneffekt, den man später
+teuer bezahlt, wenn er hier nicht steht:** Der Marker wird seither nicht mehr
+GESCHRIEBEN. Ein Datenordner, der nach diesem Commit entsteht, hat kein
+`daten/.schema` — wer die nächste Start-Migration baut, darf „Marker fehlt"
+nicht wieder als „Stand 1" lesen, sondern muss der Leiter einen eigenen
+Anfangswert geben.
+
 ### 4.4 Android: Room v4, destruktiv, einmal
 
 Room steht auf Version 3 mit zwei Migrationen.
@@ -624,7 +640,7 @@ mit Leser.
 | **5** ✅ | Player-Engine (`tour`, `film-axis`, `film-clock`, `card-painter`, `card-layer`, `card-timing`, `route-anchors`, `ui`, `main`, `film-export`, `film-export-channel`, `fullscreen`, `map-attribution`, `tour-texts`, `weather-sky`, `pin-model`, `stops`) + `window.__maptale` + `scripts/messungen` + `test/fixtures/film-axis.json` mit Server-Spiegel + die DOM-Namen des Players | mittel |
 | **6** ✅ | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
 | **7** ✅ | Android: Pakete, Dateien, ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; WorkManager-Umzug, WebView-Brücke, Zusage in `MaptaleDb.kt` zurück | niedrig (nur eigene Geräte) |
-| **8** | Doku nach §7: Topf A übersetzen, Topf C archivieren, Start-Migration ausbauen, wenn der Marker überall 2 ist | niedrig |
+| **8** ✅ | Doku nach §7: Topf A übersetzt, Topf C archiviert, Start-Migration ausgebaut; dazu die Lücke `photopins.ts` und die fünf Nachzügler | niedrig |
 | **9** | Betrieb: die `MAPTALE_*`-Env-Variablen (§3.4) samt `docker-compose.cloudpanel.yml`, `server/Dockerfile`, CI-Secrets und den Runbooks in `docs/ops/`. Handgriff in drei Schritten: neue Namen ZUSÄTZLICH in die Server-`.env`, deployen, alte Zeilen entfernen. Kein Code-Rename in den Wellen davor, ein Ops-Schritt mit eigenem Rollback (`.env` zurück, voriges Image) | niedrig, aber still: kein Compiler, kein Test, kein Diff sieht den Fehler |
 
 **Warum Welle 1 zuerst und nicht zuletzt.** Die Feldnamen sind das, worum sich
@@ -994,7 +1010,8 @@ Die größte Welle (731 Tabellenzeilen) und die letzte im Web: Konto, Profil,
 Verwaltung, Galerie, die flachen Produktmodule, die CSS-Blätter samt ihren
 Custom Properties und die DOM-Namen der Produkt-Seiten.
 
-**Eine Lücke bleibt, und sie liegt ZWISCHEN den Wellen:**
+**Eine Lücke bleibt, und sie liegt ZWISCHEN den Wellen** (geschlossen am
+2026-08-21 mit Welle 8, s. dort):
 [photopins.ts](../../src/photopins.ts) trägt noch 68 deutsche Namen im Inneren
 (`kopf`, `fuss`, `mast`, `MASSE`, `zeichneKopf` …). Das Modul steht in keiner
 Wellen-Liste: §5 zählt es weder zu 5 noch zu 6, und die Tabelle kennt nur seine
@@ -1185,6 +1202,63 @@ Tabelle stehen — lokale Variablen und private Helfer (`ausfuehren`, `antwort`,
 Das ist dieselbe Grenze wie im Web (`antwort` steht nach Welle 5 weiter in
 `remote.ts`): Die Tabelle ist der Umfang, und was sie nicht kennt, bekommt keine
 geratene Zielform.
+
+---
+
+### Welle 8: gebaut am 2026-08-21
+
+Die letzte Welle mit Code darin, und der kleinste Teil davon ist die Doku.
+
+**Topf A: die acht Dateien, nach denen Agenten handeln.** Die fünf `CLAUDE.md`,
+`austauschformat.md`, `overlay-und-tourjson.md`, `api.md` — Tabelle angewandt,
+dann ein Lesedurchgang je Datei. Die Messwerte stehen wortgleich, wie §7
+verlangt.
+
+**Und der Lesedurchgang hat eine Grenze gefunden, die die Tabelle nicht kennt:
+Doku BESCHREIBT Code, sie schreibt ihn nicht vor.** Drei Stellen sind deshalb
+deutsch geblieben, obwohl sie wie Rückstände aussehen:
+`NewsletterService.empfaenger` (ein Nachzügler aus Welle 2; die Tabelle führt
+`empfaenger` nur als Anker in `datenschutz.html`), `#einladung=` und
+`#tracker=verbunden|…` (nach §3.4 ausdrücklich eingefroren, sie stehen in
+verschickten Mails). Wer sie in der Doku englisch schreibt, macht die Doku
+falsch, nicht den Code richtig. Umgekehrt wurden zwei Namen NICHT rückwirkend
+englisch gemacht, die es nie waren: Das Weiter-Rechteck des Malers und das
+Unterschrift-Feld von `CardText` sind vor der Migration entfallen — ein
+englischer Name dafür wäre eine Erfindung, kein Rename.
+
+**Die `betrifft:`-Listen waren bereits sauber.** Der Lauf aus §7 fand in allen
+53 Dokumenten keinen toten Pfad: Die Wellen 4 bis 7 haben ihn jedes Mal
+mitgezogen, wie §9.1 es verlangt. Der teuerste vorhergesagte Posten dieser
+Welle hat also nichts gekostet, weil er nicht liegen geblieben ist.
+
+**Topf C ist ins Archiv gegangen**, deutsch eingefroren:
+`die-foto-karte-auf-eine-leinwand.md`, `zeitleiste-umbau.md` und
+`konzept_gleichlauf_player_editor.md`. Vorher die offenen Stücke heraus — und
+dabei zeigte sich, dass die `status`-Zeile des Gleichlauf-Konzepts drei offene
+Stücke nannte, während §9 im eigenen Text „Erledigt am 14.08." trägt. Genau der
+Fall, vor dem `CLAUDE.md` warnt: Der Satz ist von Hand gepflegt, niemand prüft
+ihn, er veraltet still. Herausgelöst wurden deshalb ZWEI Stücke, nicht drei —
+E7 als [Stimmung und Wetter im Editor](konzept_editor_stimmung_wetter.md), E6
+als [Feinplatzierung](konzept_feinplatzierung.md). Eine Roadmap-Zeile braucht
+ein Dokument, auf das sie zeigt, und ein Zeiger ins Archiv wäre genau das, was
+§7 verhindern will.
+
+**Die Start-Migration ist ausgebaut** (§4.3), samt `keys-v2.ts`, `nachrender.ts`
+und dem Generator, und im selben Commit das doppelte Fehlerfeld aus §4.1. Der
+Marker `daten/.schema` wird damit nicht mehr GESCHRIEBEN: Wer später wieder eine
+Start-Migration baut, darf „Marker fehlt" nicht als „Stand 1" lesen.
+
+**Und die Lücke aus Welle 6 ist zu**: `photopins.ts` mit 74 neuen
+Tabellenzeilen (Welle 5, der Player), dazu die fünf Nachzügler und die inerte
+id. Zwei Zielformen mussten entschieden werden, weil sie auf bestehende Namen
+liefen: `Projektion` wird **`ScreenPoint`** und nicht `Projection` (in `src/`
+steht bereits `TrackProjection`, und `Projection` ist an `Spur.kt` vergeben),
+und `pxRef` **bleibt** — es ist schon englisch und derselbe Wert wie der
+gleichnamige Parameter von `worldSize`. Dazu zwei Fallen aus früheren Wellen,
+die hier ein zweites Mal auftraten: `FENSTER` wurde `DETAIL_WINDOW` und nicht
+`WINDOW` (§9.1, die verdeckte globale `window` aus Welle 4), und die inerte id
+`foto-karte` wurde `editor-card` und nicht `photo-card` — so heißt die Figur
+des Players.
 
 ---
 
@@ -1722,7 +1796,7 @@ Absichtstexte enthalten kaum Namen.
 |---|---|---|
 | **A** | die fünf `CLAUDE.md`, `austauschformat.md`, `overlay-und-tourjson.md`, das neue `docs/specs/api.md` | Tabelle anwenden, dann **ein** Lesedurchgang je Datei. Hiernach handeln Agenten. Die Specs laufen in Welle 1 mit |
 | **B** | Absichts-Konzepte für Ungebautes | unangetastet |
-| **C** | abgearbeitete Befund-Dokumente: `die-foto-karte-auf-eine-leinwand.md` (Status „abgearbeitet"), `docs/architecture/zeitleiste-umbau.md` (kein Kopf, seit 05.08. umgesetzt), `konzept_gleichlauf_player_editor.md` | ins Archiv, deutsch eingefroren. **Vorher** wandern die offenen Stücke des Gleichlauf-Konzepts (§9 Szene-Schicht, §10 Tag/Nacht im Editor, §11 Feinplatzierung) als eigene Zeilen in die Roadmap, sonst archiviert man offene Arbeit. Umgehängt wird über den Doku-Viewer |
+| **C** | abgearbeitete Befund-Dokumente: `die-foto-karte-auf-eine-leinwand.md` (Status „abgearbeitet"), `docs/architecture/zeitleiste-umbau.md` (kein Kopf, seit 05.08. umgesetzt), `konzept_gleichlauf_player_editor.md` | ins Archiv, deutsch eingefroren. **Vorher** wandern die offenen Stücke des Gleichlauf-Konzepts als eigene Zeilen in die Roadmap, sonst archiviert man offene Arbeit. Umgehängt wird über den Doku-Viewer |
 | **D** | `docs/archive/` | nie anfassen |
 
 **Das Front Matter bricht in ALLEN Töpfen, auch in B.** Jedes Dokument trägt
@@ -1922,7 +1996,7 @@ Umbau.
 ### Historie: die Vertagung vom 13. August 2026
 
 Aufgekommen mitten in Paket B des
-[Gleichlauf-Umbaus](konzept_gleichlauf_player_editor.md), der neue geteilte
+[Gleichlauf-Umbaus](../archive/konzept_gleichlauf_player_editor.md), der neue geteilte
 Module anlegte (`filmuhr.ts`, `einblendung.ts`, `filmachse.ts`). Entschieden
 wurde: alles bleibt deutsch, auch neue Module. Begründung damals: Die Regel
 wäre nicht ablesbar gewesen; ein Mix aus englischer Insel und Sonderregel ist

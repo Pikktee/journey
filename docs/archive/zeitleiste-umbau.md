@@ -1,3 +1,7 @@
+---
+archiviert_aus: architecture
+---
+
 # Zeitleisten-Umbau: Der Halt ist ein Objekt
 
 Ergebnis der Mockup-Session vom **2026-08-04**. Ausgangspunkt war ein Fehlerbericht

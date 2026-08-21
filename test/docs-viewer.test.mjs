@@ -129,7 +129,12 @@ describe('Roadmap-Ansicht', () => {
   it('trennt Abgearbeitetes von dem, was niemand eingeplant hat', () => {
     // Beides in einer Liste behauptete Versäumnisse, wo Erledigtes stand.
     for (const d of roadmap.erledigt) expect(roadmap.offen).not.toContain(d)
-    expect(html).toContain('Abgearbeitet')
+    // Die Klappe gibt es GENAU DANN, wenn etwas darin liegt. Fest auf ihr
+    // Vorhandensein zu prüfen ging gut, solange irgendein Konzept
+    // „abgearbeitet" war und in keiner Phase stand; mit Welle 8 der
+    // Englisch-Migration ist das letzte davon ins Archiv gewandert, und die
+    // leere Klappe wäre eine Überschrift über nichts.
+    expect(html.includes('Abgearbeitet')).toBe(roadmap.erledigt.length > 0)
   })
 
   it('zeigt den Statussatz der laufenden Vorhaben, nicht nur die Ampel', () => {

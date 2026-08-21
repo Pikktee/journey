@@ -26,7 +26,7 @@ Faserrichtung dieses Plans landen, nicht dagegen.
 
 Ergänzt
 [editor-ausbau.md](editor-ausbau.md) (Was) und
-[zeitleiste-umbau.md](../architecture/zeitleiste-umbau.md) (Wie der Achse); hier geht
+[zeitleiste-umbau.md](../archive/zeitleiste-umbau.md) (Wie der Achse); hier geht
 es nur um **Code-Organisation**.
 
 > Die reine Logik liegt schon in `edit-model.ts`, `timeline.ts`, `audio-clip.ts`,
