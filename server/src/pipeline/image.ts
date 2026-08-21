@@ -32,8 +32,8 @@ export const THUMB_EDGE = 480
 // ffmpeg-Güte (2–31, kleiner = besser). An echten Fotos gemessen: Anzeige 4 ≈
 // 240–650 KB, Kachel 5 ≈ 20–40 KB. Höhere Güte kostet spürbar Platz, ohne dass
 // im Overlay etwas dazukäme; niedrigere zeigt bei Ken-Burns-Zoom Artefakte.
-const ANZEIGE_GUETE = 4
-const THUMB_GUETE = 5
+const DISPLAY_QUALITY = 4
+const THUMB_QUALITY = 5
 
 /** Ablage-Name der Anzeige-Fassung (zwei Punkt-Segmente → nie ein Upload-Name). */
 export function displayFilename(mediumId: string): string {
@@ -50,10 +50,10 @@ export interface ImageTool {
    * Auf die längste Kante `kante` bringen (nie hochskalieren) und dabei die
    * EXIF-Drehung 1–8 in die Pixel einrechnen.
    */
-  skaliere(
-    quellPfad: string,
-    zielPfad: string,
-    opt: { kante: number; guete: number; drehung: number },
+  scale(
+    sourcePath: string,
+    targetPath: string,
+    opt: { edge: number; quality: number; orientation: number },
   ): Promise<void>
 }
 
@@ -63,7 +63,7 @@ export interface ImageTool {
  * Tabelle läge jedes Hochformat-Foto quer, sobald wir das EXIF nicht mitgeben —
  * und bei der Kachel-Fassung geben wir es bewusst nicht mit.
  */
-const DREHUNG_FILTER: Record<number, string> = {
+const ORIENTATION_FILTER: Record<number, string> = {
   2: 'hflip',
   3: 'hflip,vflip',
   4: 'vflip',
@@ -77,29 +77,40 @@ const DREHUNG_FILTER: Record<number, string> = {
 export class FfmpegImageTool implements ImageTool {
   constructor(private readonly ffmpeg = 'ffmpeg') {}
 
-  async skaliere(
-    quellPfad: string,
-    zielPfad: string,
-    { kante, guete, drehung }: { kante: number; guete: number; drehung: number },
+  async scale(
+    sourcePath: string,
+    targetPath: string,
+    { edge, quality, orientation }: { edge: number; quality: number; orientation: number },
   ): Promise<void> {
     // Erst drehen, dann in die QUADRATISCHE Box skalieren: so begrenzt eine
     // einzige Angabe die längste Kante, unabhängig von Hoch- oder Querformat.
-    const kette = [
-      DREHUNG_FILTER[drehung],
-      `scale=w='min(${kante},iw)':h='min(${kante},ih)':force_original_aspect_ratio=decrease`,
+    const chain = [
+      ORIENTATION_FILTER[orientation],
+      `scale=w='min(${edge},iw)':h='min(${edge},ih)':force_original_aspect_ratio=decrease`,
     ]
       .filter(Boolean)
       .join(',')
     // HEIC/HEIF braucht einen Zwischenschritt — s. `isTiledImage`.
-    const quelle = isTiledImage(quellPfad) ? await this.setzeKachelnZusammen(quellPfad) : quellPfad
+    const source = isTiledImage(sourcePath) ? await this.mergeTiles(sourcePath) : sourcePath
     try {
       await execFileP(
         this.ffmpeg,
-        ['-y', '-loglevel', 'error', '-i', quelle, '-vf', kette, '-q:v', String(guete), zielPfad],
+        [
+          '-y',
+          '-loglevel',
+          'error',
+          '-i',
+          source,
+          '-vf',
+          chain,
+          '-q:v',
+          String(quality),
+          targetPath,
+        ],
         { maxBuffer: 8 * 1024 * 1024 },
       )
     } finally {
-      if (quelle !== quellPfad) await rm(quelle, { force: true })
+      if (source !== sourcePath) await rm(source, { force: true })
     }
   }
 
@@ -122,12 +133,12 @@ export class FfmpegImageTool implements ImageTool {
    * zweiten Lauf; der Rest ist JPEG-Rundung). PNG als Zwischenformat, damit
    * nicht zweimal JPEG-Verluste übereinanderliegen.
    */
-  private async setzeKachelnZusammen(quellPfad: string): Promise<string> {
-    const ziel = `${quellPfad}.stitch.png`
-    await execFileP(this.ffmpeg, ['-y', '-loglevel', 'error', '-i', quellPfad, ziel], {
+  private async mergeTiles(sourcePath: string): Promise<string> {
+    const target = `${sourcePath}.stitch.png`
+    await execFileP(this.ffmpeg, ['-y', '-loglevel', 'error', '-i', sourcePath, target], {
       maxBuffer: 8 * 1024 * 1024,
     })
-    return ziel
+    return target
   }
 }
 
@@ -138,9 +149,9 @@ export class FfmpegImageTool implements ImageTool {
  * geprüften Endung des Uploads (`mediumFilename`), ist also keine Behauptung
  * des Clients, sondern eine Zusage des Servers.
  */
-export function isTiledImage(pfad: string): boolean {
-  const endung = pfad.toLowerCase().split('.').pop()
-  return endung === 'heic' || endung === 'heif'
+export function isTiledImage(path: string): boolean {
+  const extension = path.toLowerCase().split('.').pop()
+  return extension === 'heic' || extension === 'heif'
 }
 
 /**
@@ -148,16 +159,16 @@ export function isTiledImage(pfad: string): boolean {
  * greift) und protokolliert die Aufrufe als „kante:drehung".
  */
 export class FakeImageTool implements ImageTool {
-  public readonly aufrufe: string[] = []
+  public readonly calls: string[] = []
 
-  async skaliere(
-    _quellPfad: string,
-    zielPfad: string,
-    { kante, drehung }: { kante: number; guete: number; drehung: number },
+  async scale(
+    _sourcePath: string,
+    targetPath: string,
+    { edge, orientation }: { edge: number; quality: number; orientation: number },
   ): Promise<void> {
-    this.aufrufe.push(`${kante}:${drehung}`)
+    this.calls.push(`${edge}:${orientation}`)
     // FFD8 (SOI) + FFDA (SOS) — genug Gerüst, damit mitExif einsetzen kann
-    await writeFile(zielPfad, Buffer.from([0xff, 0xd8, 0xff, 0xda, 0x00, 0x02]))
+    await writeFile(targetPath, Buffer.from([0xff, 0xd8, 0xff, 0xda, 0x00, 0x02]))
   }
 }
 
@@ -175,8 +186,8 @@ export class FakeImageTool implements ImageTool {
 const SOI = 0xd8
 const SOS = 0xda
 const APP1 = 0xe1
-const EXIF_SIGNATUR = 'Exif\0\0'
-const ORIENTIERUNGS_TAG = 0x0112
+const EXIF_SIGNATURE = 'Exif\0\0'
+const ORIENTATION_TAG = 0x0112
 
 /** Der Exif-APP1-Block eines JPEGs (inkl. Marker und Länge), sonst null. */
 export function readExifBlock(jpeg: Buffer): Buffer | null {
@@ -187,35 +198,35 @@ export function readExifBlock(jpeg: Buffer): Buffer | null {
   while (pos + 4 <= jpeg.length && jpeg[pos] === 0xff) {
     const marker = jpeg[pos + 1]
     if (marker === SOS) break
-    const laenge = jpeg.readUInt16BE(pos + 2)
-    if (laenge < 2 || pos + 2 + laenge > jpeg.length) break
-    if (marker === APP1 && jpeg.toString('latin1', pos + 4, pos + 10) === EXIF_SIGNATUR) {
-      return jpeg.subarray(pos, pos + 2 + laenge)
+    const length = jpeg.readUInt16BE(pos + 2)
+    if (length < 2 || pos + 2 + length > jpeg.length) break
+    if (marker === APP1 && jpeg.toString('latin1', pos + 4, pos + 10) === EXIF_SIGNATURE) {
+      return jpeg.subarray(pos, pos + 2 + length)
     }
-    pos += 2 + laenge
+    pos += 2 + length
   }
   return null
 }
 
 /** Position des Orientierungs-Werts im Block (samt Byte-Reihenfolge), sonst null. */
-function findeOrientierung(block: Buffer): { offset: number; grossEndig: boolean } | null {
+function findOrientation(block: Buffer): { offset: number; bigEndian: boolean } | null {
   // Der TIFF-Kopf beginnt hinter Marker (2) + Länge (2) + „Exif\0\0" (6)
   const tiff = 10
   if (block.length < tiff + 8) return null
-  const ordnung = block.toString('latin1', tiff, tiff + 2)
-  const grossEndig = ordnung === 'MM'
-  if (!grossEndig && ordnung !== 'II') return null
-  const lies16 = (o: number): number => (grossEndig ? block.readUInt16BE(o) : block.readUInt16LE(o))
-  const lies32 = (o: number): number => (grossEndig ? block.readUInt32BE(o) : block.readUInt32LE(o))
-  if (lies16(tiff + 2) !== 0x2a) return null
-  const ifd0 = tiff + lies32(tiff + 4)
+  const byteOrder = block.toString('latin1', tiff, tiff + 2)
+  const bigEndian = byteOrder === 'MM'
+  if (!bigEndian && byteOrder !== 'II') return null
+  const read16 = (o: number): number => (bigEndian ? block.readUInt16BE(o) : block.readUInt16LE(o))
+  const read32 = (o: number): number => (bigEndian ? block.readUInt32BE(o) : block.readUInt32LE(o))
+  if (read16(tiff + 2) !== 0x2a) return null
+  const ifd0 = tiff + read32(tiff + 4)
   if (ifd0 + 2 > block.length) return null
-  const anzahl = lies16(ifd0)
-  for (let i = 0; i < anzahl; i++) {
-    const eintrag = ifd0 + 2 + i * 12
-    if (eintrag + 12 > block.length) break
+  const count = read16(ifd0)
+  for (let i = 0; i < count; i++) {
+    const entry = ifd0 + 2 + i * 12
+    if (entry + 12 > block.length) break
     // Tag (2) · Typ (2) · Anzahl (4) · Wert (4) — ein SHORT steht im Feld selbst
-    if (lies16(eintrag) === ORIENTIERUNGS_TAG) return { offset: eintrag + 8, grossEndig }
+    if (read16(entry) === ORIENTATION_TAG) return { offset: entry + 8, bigEndian }
   }
   return null
 }
@@ -223,10 +234,12 @@ function findeOrientierung(block: Buffer): { offset: number; grossEndig: boolean
 /** EXIF-Drehung 1–8; ohne Block oder Tag gilt 1 (schon richtig herum). */
 export function readOrientation(block: Buffer | null): number {
   if (!block) return 1
-  const feld = findeOrientierung(block)
-  if (!feld) return 1
-  const wert = feld.grossEndig ? block.readUInt16BE(feld.offset) : block.readUInt16LE(feld.offset)
-  return wert >= 1 && wert <= 8 ? wert : 1
+  const field = findOrientation(block)
+  if (!field) return 1
+  const value = field.bigEndian
+    ? block.readUInt16BE(field.offset)
+    : block.readUInt16LE(field.offset)
+  return value >= 1 && value <= 8 ? value : 1
 }
 
 /**
@@ -237,12 +250,12 @@ export function readOrientation(block: Buffer | null): number {
  * jedes Hochformat-Foto läge quer.
  */
 export function withoutOrientation(block: Buffer): Buffer {
-  const kopie = Buffer.from(block)
-  const feld = findeOrientierung(kopie)
-  if (!feld) return kopie
-  if (feld.grossEndig) kopie.writeUInt16BE(1, feld.offset)
-  else kopie.writeUInt16LE(1, feld.offset)
-  return kopie
+  const copy = Buffer.from(block)
+  const field = findOrientation(copy)
+  if (!field) return copy
+  if (field.bigEndian) copy.writeUInt16BE(1, field.offset)
+  else copy.writeUInt16LE(1, field.offset)
+  return copy
 }
 
 /** Block direkt hinter SOI einsetzen (dort erwartet ihn jeder Leser). */
@@ -258,7 +271,7 @@ export function withExif(jpeg: Buffer, block: Buffer): Buffer {
 export interface PhotoInput {
   id: string
   /** Datei, aus der die Fassungen entstehen: Foto-Original bzw. Video-Poster */
-  quellDatei: string
+  sourceFile: string
   /**
    * Braucht das Medium eine eigene Anzeige-Fassung?
    *
@@ -266,82 +279,86 @@ export interface PhotoInput {
    * wird. Video-Poster nein: das Poster ist bereits eine abgeleitete Datei in
    * Anzeigegröße und bleibt das Standbild; es braucht nur eine Kachel.
    */
-  anzeige: boolean
+  display: boolean
 }
 
 export interface PhotoMeta {
   /** Anzeige-Fassung; null beim Video-Poster (dort bleibt das Poster) */
-  anzeigeDatei: string | null
-  thumbDatei: string
+  displayFile: string | null
+  thumbFile: string
 }
 
 /** Schmaler Storage-Ausschnitt, den die Aufbereitung braucht (Storage erfüllt ihn). */
 export interface ImageStorage {
-  lese(relPfad: string): Promise<Buffer>
-  schreibe(relPfad: string, inhalt: Buffer): Promise<void>
-  info(relPfad: string): Promise<{ size: number } | null>
-  loesche(relPfad: string): Promise<void>
+  read(relPath: string): Promise<Buffer>
+  write(relPath: string, content: Buffer): Promise<void>
+  info(relPath: string): Promise<{ size: number } | null>
+  remove(relPath: string): Promise<void>
 }
 
-async function bereiteEinFotoAuf(
+async function preparePhoto(
   m: PhotoInput,
-  speicher: ImageStorage,
-  werkzeug: ImageTool,
+  storage: ImageStorage,
+  tool: ImageTool,
 ): Promise<PhotoMeta> {
-  const anzeigeName = displayFilename(m.id)
+  const displayName = displayFilename(m.id)
   const thumbName = thumbFilename(m.id)
-  const meta: PhotoMeta = { anzeigeDatei: m.anzeige ? anzeigeName : null, thumbDatei: thumbName }
+  const meta: PhotoMeta = { displayFile: m.display ? displayName : null, thumbFile: thumbName }
 
-  const anzeigeFehlt = m.anzeige && !(await speicher.info(`media/${anzeigeName}`))
-  const thumbFehlt = !(await speicher.info(`media/${thumbName}`))
+  const displayMissing = m.display && !(await storage.info(`media/${displayName}`))
+  const thumbMissing = !(await storage.info(`media/${thumbName}`))
   // Idempotenz wie bei Poster/Transcode: liegt alles, wird die Quelle nicht
   // einmal gelesen. Das trägt den Regelfall — jedes Edit-Speichern rendert neu.
-  if (!anzeigeFehlt && !thumbFehlt) return meta
+  if (!displayMissing && !thumbMissing) return meta
 
   // Quelle ist das Original; ist es schon verworfen, tritt die Anzeige-Fassung
   // an seine Stelle (so entsteht eine fehlende Kachel auch nachträglich noch).
-  const originalDa = !!(await speicher.info(`media/${m.quellDatei}`))
-  const quelle = originalDa ? m.quellDatei : !anzeigeFehlt && m.anzeige ? anzeigeName : null
-  if (!quelle) throw new Error(`Bilddatei fehlt: ${m.quellDatei}`)
+  const originalPresent = !!(await storage.info(`media/${m.sourceFile}`))
+  const source = originalPresent ? m.sourceFile : !displayMissing && m.display ? displayName : null
+  if (!source) throw new Error(`Bilddatei fehlt: ${m.sourceFile}`)
 
-  const rohdaten = await speicher.lese(`media/${quelle}`)
-  const exif = readExifBlock(rohdaten)
-  const drehung = readOrientation(exif)
-  const endung = quelle.split('.').pop() ?? 'jpg'
+  const raw = await storage.read(`media/${source}`)
+  const exif = readExifBlock(raw)
+  const orientation = readOrientation(exif)
+  const extension = source.split('.').pop() ?? 'jpg'
 
-  const arbeitsdir = await mkdtemp(join(tmpdir(), 'maptale-bild-'))
+  const workDir = await mkdtemp(join(tmpdir(), 'maptale-bild-'))
   try {
-    const quellTemp = join(arbeitsdir, `quelle.${endung}`)
-    await writeFile(quellTemp, rohdaten)
+    const sourceTemp = join(workDir, `quelle.${extension}`)
+    await writeFile(sourceTemp, raw)
 
-    if (anzeigeFehlt) {
-      const ziel = join(arbeitsdir, 'anzeige.jpg')
-      await werkzeug.skaliere(quellTemp, ziel, {
-        kante: DISPLAY_EDGE,
-        guete: ANZEIGE_GUETE,
-        drehung,
+    if (displayMissing) {
+      const target = join(workDir, 'anzeige.jpg')
+      await tool.scale(sourceTemp, target, {
+        edge: DISPLAY_EDGE,
+        quality: DISPLAY_QUALITY,
+        orientation,
       })
-      const gedreht = await readFile(ziel)
-      await speicher.schreibe(
-        `media/${anzeigeName}`,
-        exif ? withExif(gedreht, withoutOrientation(exif)) : gedreht,
+      const rotated = await readFile(target)
+      await storage.write(
+        `media/${displayName}`,
+        exif ? withExif(rotated, withoutOrientation(exif)) : rotated,
       )
     }
-    if (thumbFehlt) {
-      const ziel = join(arbeitsdir, 'thumb.jpg')
-      await werkzeug.skaliere(quellTemp, ziel, { kante: THUMB_EDGE, guete: THUMB_GUETE, drehung })
+    if (thumbMissing) {
+      const target = join(workDir, 'thumb.jpg')
+      await tool.scale(sourceTemp, target, {
+        edge: THUMB_EDGE,
+        quality: THUMB_QUALITY,
+        orientation,
+      })
       // Ohne EXIF: der Block eines Testfotos war 42 KB — mehr als die Kachel
       // selbst. Gelesen wird er ohnehin nur an der Anzeige-Fassung.
-      await speicher.schreibe(`media/${thumbName}`, await readFile(ziel))
+      await storage.write(`media/${thumbName}`, await readFile(target))
     }
   } finally {
-    await rm(arbeitsdir, { recursive: true, force: true })
+    await rm(workDir, { recursive: true, force: true })
   }
 
   // Erst jetzt, mit beiden Fassungen im Storage: das Original ist ersetzt.
   // Vorher zu löschen hieße, bei einem Abbruch alles zu verlieren.
-  if (m.anzeige && originalDa && m.quellDatei !== anzeigeName) {
-    await speicher.loesche(`media/${m.quellDatei}`)
+  if (m.display && originalPresent && m.sourceFile !== displayName) {
+    await storage.remove(`media/${m.sourceFile}`)
   }
   return meta
 }
@@ -351,19 +368,19 @@ async function bereiteEinFotoAuf(
  * Foto lässt die Tour nicht scheitern (Hinweis ins Protokoll, Eintrag fehlt in
  * der Map → enrich.ts liefert dann weiter das Original aus).
  */
-export async function preparePhotos(eingabe: {
-  medien: PhotoInput[]
-  speicher: ImageStorage
-  werkzeug: ImageTool
-  protokoll?: (nachricht: string) => void
+export async function preparePhotos(input: {
+  media: PhotoInput[]
+  storage: ImageStorage
+  tool: ImageTool
+  log?: (message: string) => void
 }): Promise<Map<string, PhotoMeta>> {
-  const { medien, speicher, werkzeug, protokoll } = eingabe
+  const { media, storage, tool, log } = input
   const meta = new Map<string, PhotoMeta>()
-  for (const m of medien) {
+  for (const m of media) {
     try {
-      meta.set(m.id, await bereiteEinFotoAuf(m, speicher, werkzeug))
-    } catch (fehler) {
-      protokoll?.(`Foto-Aufbereitung fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
+      meta.set(m.id, await preparePhoto(m, storage, tool))
+    } catch (error) {
+      log?.(`Foto-Aufbereitung fehlgeschlagen (${m.id}): ${(error as Error).message}`)
     }
   }
   return meta

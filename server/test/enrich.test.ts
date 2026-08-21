@@ -168,7 +168,7 @@ describe('reichereAn', () => {
       caption: null,
     })
     const videoMeta = new Map([
-      ['m2', { durationS: 12.5, videoDatei: 'm2.web.mp4', posterDatei: 'm2.poster.jpg' }],
+      ['m2', { durationS: 12.5, videoFile: 'm2.web.mp4', posterFile: 'm2.poster.jpg' }],
     ])
     const tour = await enrichTour(eingabe({ manifest, videoMeta }))
     const v = tour.media.find((m) => m.id === 'm2')
@@ -319,7 +319,9 @@ describe('reichereAn', () => {
       schnee: [],
     })
     const meldungen: string[] = []
-    const tour = await enrichTour(eingabe({ wetter: kaputt, protokoll: (m) => meldungen.push(m) }))
+    const tour = await enrichTour(
+      eingabe({ wetter: kaputt, protokoll: (m: string) => meldungen.push(m) }),
+    )
     expect(tour.status).toBe('ready')
     expect(tour.weather).toBeUndefined()
     expect(tour.timeline).toBeDefined()

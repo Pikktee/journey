@@ -55,24 +55,24 @@ function exifJpeg(orientierung: number, grossEndig = false): Buffer {
 /** JPEG ohne jedes Metadaten-Segment. */
 const nacktesJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xda, 0x00, 0x02])
 
-function memSpeicher(): ImageStorage & { dateien: Map<string, Buffer> } {
-  const dateien = new Map<string, Buffer>()
+function memSpeicher(): ImageStorage & { files: Map<string, Buffer> } {
+  const files = new Map<string, Buffer>()
   return {
-    dateien,
-    async lese(relPfad) {
-      const b = dateien.get(relPfad)
+    files,
+    async read(relPath) {
+      const b = files.get(relPath)
       if (!b) throw Object.assign(new Error('nicht gefunden'), { code: 'ENOENT' })
       return b
     },
-    async schreibe(relPfad, inhalt) {
-      dateien.set(relPfad, inhalt)
+    async write(relPath, content) {
+      files.set(relPath, content)
     },
-    async info(relPfad) {
-      const b = dateien.get(relPfad)
+    async info(relPath) {
+      const b = files.get(relPath)
       return b ? { size: b.length } : null
     },
-    async loesche(relPfad) {
-      dateien.delete(relPfad)
+    async remove(relPath) {
+      files.delete(relPath)
     },
   }
 }
@@ -151,40 +151,40 @@ describe('mitExif', () => {
   })
 })
 
-describe('bereiteFotosAuf', () => {
+describe('preparePhotos', () => {
   it('erzeugt beide Fassungen und verwirft das Original', async () => {
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.jpg', exifJpeg(1))
-    const werkzeug = new FakeImageTool()
+    sp.files.set('media/m1.jpg', exifJpeg(1))
+    const tool = new FakeImageTool()
 
     const meta = await preparePhotos({
-      medien: [{ id: 'm1', quellDatei: 'm1.jpg', anzeige: true }],
-      speicher: sp,
-      werkzeug,
+      media: [{ id: 'm1', sourceFile: 'm1.jpg', display: true }],
+      storage: sp,
+      tool,
     })
 
-    expect(werkzeug.aufrufe).toEqual(['1920:1', '480:1'])
-    expect(meta.get('m1')).toEqual({ anzeigeDatei: 'm1.w1920.jpg', thumbDatei: 'm1.t480.jpg' })
-    expect(sp.dateien.has('media/m1.w1920.jpg')).toBe(true)
-    expect(sp.dateien.has('media/m1.t480.jpg')).toBe(true)
-    expect(sp.dateien.has('media/m1.jpg')).toBe(false) // verworfen
+    expect(tool.calls).toEqual(['1920:1', '480:1'])
+    expect(meta.get('m1')).toEqual({ displayFile: 'm1.w1920.jpg', thumbFile: 'm1.t480.jpg' })
+    expect(sp.files.has('media/m1.w1920.jpg')).toBe(true)
+    expect(sp.files.has('media/m1.t480.jpg')).toBe(true)
+    expect(sp.files.has('media/m1.jpg')).toBe(false) // verworfen
   })
 
   it('rechnet die Drehung in die Pixel und meldet sie im EXIF als erledigt', async () => {
     // Beides zusammen ist die Bedingung: Wer nur das eine täte, zeigte jedes
     // Hochformat-Foto quer — oder zweimal gedreht.
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.jpg', exifJpeg(6))
-    const werkzeug = new FakeImageTool()
+    sp.files.set('media/m1.jpg', exifJpeg(6))
+    const tool = new FakeImageTool()
 
     await preparePhotos({
-      medien: [{ id: 'm1', quellDatei: 'm1.jpg', anzeige: true }],
-      speicher: sp,
-      werkzeug,
+      media: [{ id: 'm1', sourceFile: 'm1.jpg', display: true }],
+      storage: sp,
+      tool,
     })
 
-    expect(werkzeug.aufrufe).toEqual(['1920:6', '480:6']) // ffmpeg dreht
-    const anzeige = sp.dateien.get('media/m1.w1920.jpg')!
+    expect(tool.calls).toEqual(['1920:6', '480:6']) // ffmpeg dreht
+    const anzeige = sp.files.get('media/m1.w1920.jpg')!
     expect(readOrientation(readExifBlock(anzeige))).toBe(1) // Angabe zurückgesetzt
   })
 
@@ -192,80 +192,80 @@ describe('bereiteFotosAuf', () => {
     // Der Editor liest die Aufnahme-Details aus der ausgelieferten Datei; nach
     // dem Verwerfen des Originals ist die Anzeige-Fassung die letzte Quelle.
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.jpg', exifJpeg(1))
+    sp.files.set('media/m1.jpg', exifJpeg(1))
 
     await preparePhotos({
-      medien: [{ id: 'm1', quellDatei: 'm1.jpg', anzeige: true }],
-      speicher: sp,
-      werkzeug: new FakeImageTool(),
+      media: [{ id: 'm1', sourceFile: 'm1.jpg', display: true }],
+      storage: sp,
+      tool: new FakeImageTool(),
     })
 
-    expect(readExifBlock(sp.dateien.get('media/m1.w1920.jpg')!)).not.toBeNull()
-    expect(readExifBlock(sp.dateien.get('media/m1.t480.jpg')!)).toBeNull()
+    expect(readExifBlock(sp.files.get('media/m1.w1920.jpg')!)).not.toBeNull()
+    expect(readExifBlock(sp.files.get('media/m1.t480.jpg')!)).toBeNull()
   })
 
   it('kommt ohne EXIF aus (gestrippte Datei)', async () => {
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.jpg', nacktesJpeg)
+    sp.files.set('media/m1.jpg', nacktesJpeg)
 
     const meta = await preparePhotos({
-      medien: [{ id: 'm1', quellDatei: 'm1.jpg', anzeige: true }],
-      speicher: sp,
-      werkzeug: new FakeImageTool(),
+      media: [{ id: 'm1', sourceFile: 'm1.jpg', display: true }],
+      storage: sp,
+      tool: new FakeImageTool(),
     })
 
-    expect(meta.get('m1')?.anzeigeDatei).toBe('m1.w1920.jpg')
-    expect(sp.dateien.has('media/m1.jpg')).toBe(false)
+    expect(meta.get('m1')?.displayFile).toBe('m1.w1920.jpg')
+    expect(sp.files.has('media/m1.jpg')).toBe(false)
   })
 
   it('ist idempotent: liegen beide Fassungen, wird nichts gerechnet', async () => {
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.w1920.jpg', Buffer.from('ALT-ANZEIGE'))
-    sp.dateien.set('media/m1.t480.jpg', Buffer.from('ALT-THUMB'))
-    const werkzeug = new FakeImageTool()
+    sp.files.set('media/m1.w1920.jpg', Buffer.from('ALT-ANZEIGE'))
+    sp.files.set('media/m1.t480.jpg', Buffer.from('ALT-THUMB'))
+    const tool = new FakeImageTool()
 
     const meta = await preparePhotos({
-      medien: [{ id: 'm1', quellDatei: 'm1.jpg', anzeige: true }],
-      speicher: sp,
-      werkzeug,
+      media: [{ id: 'm1', sourceFile: 'm1.jpg', display: true }],
+      storage: sp,
+      tool,
     })
 
-    expect(werkzeug.aufrufe).toEqual([])
-    expect(meta.get('m1')?.anzeigeDatei).toBe('m1.w1920.jpg')
-    expect(sp.dateien.get('media/m1.w1920.jpg')?.toString()).toBe('ALT-ANZEIGE')
+    expect(tool.calls).toEqual([])
+    expect(meta.get('m1')?.displayFile).toBe('m1.w1920.jpg')
+    expect(sp.files.get('media/m1.w1920.jpg')?.toString()).toBe('ALT-ANZEIGE')
   })
 
   it('holt eine fehlende Kachel aus der Anzeige-Fassung nach — das Original ist längst weg', async () => {
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.w1920.jpg', exifJpeg(1))
-    const werkzeug = new FakeImageTool()
+    sp.files.set('media/m1.w1920.jpg', exifJpeg(1))
+    const tool = new FakeImageTool()
 
     await preparePhotos({
-      medien: [{ id: 'm1', quellDatei: 'm1.jpg', anzeige: true }],
-      speicher: sp,
-      werkzeug,
+      media: [{ id: 'm1', sourceFile: 'm1.jpg', display: true }],
+      storage: sp,
+      tool,
     })
 
-    expect(werkzeug.aufrufe).toEqual(['480:1']) // nur die Kachel
-    expect(sp.dateien.has('media/m1.t480.jpg')).toBe(true)
+    expect(tool.calls).toEqual(['480:1']) // nur die Kachel
+    expect(sp.files.has('media/m1.t480.jpg')).toBe(true)
   })
 
   it('gibt dem Video-Poster nur eine Kachel und lässt das Poster stehen', async () => {
     // Das Poster IST schon die abgeleitete Anzeigegröße und bleibt das
     // Standbild im Player — eine zweite Fassung daneben wäre nur Ballast.
     const sp = memSpeicher()
-    sp.dateien.set('media/m2.poster.jpg', nacktesJpeg)
-    const werkzeug = new FakeImageTool()
+    sp.files.set('media/m2.poster.jpg', nacktesJpeg)
+    const tool = new FakeImageTool()
 
     const meta = await preparePhotos({
-      medien: [{ id: 'm2', quellDatei: 'm2.poster.jpg', anzeige: false }],
-      speicher: sp,
-      werkzeug,
+      media: [{ id: 'm2', sourceFile: 'm2.poster.jpg', display: false }],
+      storage: sp,
+      tool,
     })
 
-    expect(werkzeug.aufrufe).toEqual(['480:1'])
-    expect(meta.get('m2')).toEqual({ anzeigeDatei: null, thumbDatei: 'm2.t480.jpg' })
-    expect(sp.dateien.has('media/m2.poster.jpg')).toBe(true) // bleibt
+    expect(tool.calls).toEqual(['480:1'])
+    expect(meta.get('m2')).toEqual({ displayFile: null, thumbFile: 'm2.t480.jpg' })
+    expect(sp.files.has('media/m2.poster.jpg')).toBe(true) // bleibt
   })
 
   it('überspringt ein unlesbares Bild, ohne die Tour scheitern zu lassen', async () => {
@@ -273,10 +273,10 @@ describe('bereiteFotosAuf', () => {
     const nachrichten: string[] = []
 
     const meta = await preparePhotos({
-      medien: [{ id: 'm1', quellDatei: 'm1.jpg', anzeige: true }],
-      speicher: sp,
-      werkzeug: new FakeImageTool(),
-      protokoll: (n) => nachrichten.push(n),
+      media: [{ id: 'm1', sourceFile: 'm1.jpg', display: true }],
+      storage: sp,
+      tool: new FakeImageTool(),
+      log: (n) => nachrichten.push(n),
     })
 
     expect(meta.has('m1')).toBe(false)

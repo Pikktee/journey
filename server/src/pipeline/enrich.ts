@@ -77,7 +77,7 @@ export interface TourJson {
     durationS?: number
     /** Video-Standbild fürs Foto-Overlay (M4) */
     poster?: string
-    /** Kachel-Fassung für Listen und Zeitleiste (bild.ts); fehlt bei Altbestand */
+    /** Kachel-Fassung für Listen und Zeitleiste (image.ts); fehlt bei Altbestand */
     thumb?: string
     /** Anzeige-Optionen des Foto-Stopps aus dem Edit-Overlay (Baukasten) */
     display?: { holdS?: number; kenBurns?: boolean }
@@ -216,7 +216,7 @@ export interface EnrichmentInput {
   weatherRaw?: WeatherKeyframe[] | null
   /** Aufbereitete Video-Metadaten je Medien-ID (M4; Dauer/Poster/Auslieferungspfad) */
   videoMeta?: Map<string, VideoMeta>
-  /** Aufbereitete Bild-Fassungen je Medien-ID (bild.ts; Anzeige + Kachel).
+  /** Aufbereitete Bild-Fassungen je Medien-ID (image.ts; Anzeige + Kachel).
    *  Fehlt der Eintrag, bleibt es beim Original — so bleibt Altbestand spielbar. */
   fotoMeta?: Map<string, PhotoMeta>
   /** Bild-Befunde je Medien-ID (M5; vom Aufrufer per Klassifikator vorbereitet) —
@@ -353,11 +353,11 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       // (transkodiert oder Original). Fehlt sie (Foto, oder Aufbereitung fiel
       // aus), bleibt es beim Original ohne Poster.
       const meta = videoMeta?.get(m.id)
-      // Fotos werden in einer Anzeige-Fassung ausgeliefert (bild.ts); das
+      // Fotos werden in einer Anzeige-Fassung ausgeliefert (image.ts); das
       // Original ist danach verworfen. Ohne Fassung — Altbestand oder
       // fehlgeschlagene Aufbereitung — bleibt der Originalname stehen.
       const fassungen = fotoMeta?.get(m.id)
-      const datei = meta?.videoDatei ?? fassungen?.anzeigeDatei ?? mediumFilename(m)
+      const datei = meta?.videoFile ?? fassungen?.displayFile ?? mediumFilename(m)
       // Der Nutzertext ist der TITEL der Aufnahme, und er ist der einzige Text,
       // den eine Aufnahme trägt.
       //
@@ -385,8 +385,8 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       }
       const dauer = meta?.durationS ?? m.durationS
       if (dauer !== undefined) eintrag.durationS = dauer
-      if (meta?.posterDatei) eintrag.poster = `/api/media/${tourId}/${meta.posterDatei}`
-      if (fassungen?.thumbDatei) eintrag.thumb = `/api/media/${tourId}/${fassungen.thumbDatei}`
+      if (meta?.posterFile) eintrag.poster = `/api/media/${tourId}/${meta.posterFile}`
+      if (fassungen?.thumbFile) eintrag.thumb = `/api/media/${tourId}/${fassungen.thumbFile}`
       // Anzeige-Optionen aus dem Overlay (Baukasten) — nur wenn dort gesetzt
       const display = edits?.media?.[m.id]?.display
       if (display) eintrag.display = display

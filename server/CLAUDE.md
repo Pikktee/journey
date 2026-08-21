@@ -6,7 +6,7 @@ die Bedien-Seite der Overlays in [src/studio/CLAUDE.md](../src/studio/CLAUDE.md)
 
 ## Medien und Pipeline
 
-**HEIC wird beim Aufbereiten aufgelöst, in ZWEI Läufen** (`isTiledImage` in bild.ts): Ein
+**HEIC wird beim Aufbereiten aufgelöst, in ZWEI Läufen** (`isTiledImage` in image.ts): Ein
 HEIC vom Telefon besteht aus Kacheln (vier Streams à 512×512 für ein Bild von 1024×1024).
 ffmpeg setzt sie selbst zusammen, aber nur über einen komplexen Filtergraphen — und der
 verträgt sich nicht mit unserem `-vf`. Der naheliegende Ausweg ist eine FALLE:

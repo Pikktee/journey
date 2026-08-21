@@ -112,22 +112,22 @@ function videoMetaFuer(edits: EditOverlay | null): Map<string, VideoMeta> {
       schnitt
         ? {
             durationS: (schnitt.toS ?? VIDEO_QUELL_S) - schnitt.fromS,
-            videoDatei: cutVideoFilename('m2'),
-            posterDatei: 'm2.poster.jpg',
-            quellDauerS: VIDEO_QUELL_S,
+            videoFile: cutVideoFilename('m2'),
+            posterFile: 'm2.poster.jpg',
+            sourceDurationS: VIDEO_QUELL_S,
           }
         : {
             durationS: VIDEO_QUELL_S,
-            videoDatei: 'm2.web.mp4',
-            posterDatei: 'm2.poster.jpg',
-            quellDauerS: VIDEO_QUELL_S,
+            videoFile: 'm2.web.mp4',
+            posterFile: 'm2.poster.jpg',
+            sourceDurationS: VIDEO_QUELL_S,
           },
     ],
   ])
 }
 const fotoMeta = new Map<string, PhotoMeta>([
-  ['m1', { anzeigeDatei: 'm1.w1920.jpg', thumbDatei: 'm1.t480.jpg' }],
-  ['m3', { anzeigeDatei: 'm3.w1920.jpg', thumbDatei: 'm3.t480.jpg' }],
+  ['m1', { displayFile: 'm1.w1920.jpg', thumbFile: 'm1.t480.jpg' }],
+  ['m3', { displayFile: 'm3.w1920.jpg', thumbFile: 'm3.t480.jpg' }],
 ])
 
 // Bedeckt mit einem nassen Fenster am Vormittag (UTC 06:00 … 13:00) — genug,

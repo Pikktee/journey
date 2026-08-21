@@ -210,7 +210,7 @@ export const addMediaJsonSchema = {
 /** Erlaubte Datei-Endungen je Medientyp (bestimmt die abgelegte Datei) */
 const ENDUNGEN: Record<UploadMedium['type'], string[]> = {
   // heic/heif: Voreinstellung vieler Kameras (iPhone, viele Androids). Die
-  // Pipeline löst sie beim Aufbereiten auf (s. `isTiledImage` in bild.ts) —
+  // Pipeline löst sie beim Aufbereiten auf (s. `isTiledImage` in image.ts) —
   // ausgeliefert wird ohnehin nie das Hochgeladene, sondern die Ableitung.
   photo: ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'],
   video: ['mp4', 'mov', 'webm'],

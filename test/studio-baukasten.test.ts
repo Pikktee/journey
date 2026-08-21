@@ -1802,10 +1802,10 @@ describe('clampMediaTrim (Drift-Wächter gegen video.ts)', () => {
     // Leiste SOLL dieselbe Breite zeigen. Laufen sie auseinander, plant man
     // einen Schnitt und sieht später einen anderen.
     const quelle = readFileSync(new URL('../server/src/pipeline/video.ts', import.meta.url), 'utf8')
-    expect(quelle).toMatch(/if \(!\(bisS - vonS > 0\.05\)\) return null/)
+    expect(quelle).toMatch(/if \(!\(toS - fromS > 0\.05\)\) return null/)
     expect(VIDEO_TRIM_MIN_S).toBe(0.05)
     // Der Vollschnitt gilt auf beiden Seiten als „kein Schnitt"
-    expect(quelle).toMatch(/if \(vonS <= 0 && bisS >= durationS\) return null/)
+    expect(quelle).toMatch(/if \(fromS <= 0 && toS >= durationS\) return null/)
   })
 
   it('macht den Ripple zur Folge der Breite, nicht zu eigenem Code', () => {

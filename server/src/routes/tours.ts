@@ -111,7 +111,7 @@ export function loadTour(app: FastifyInstance, id: string): TourRow | null {
 /**
  * Dateien, an denen ein Medium als „vorhanden" gilt: das Original ODER eine
  * daraus abgeleitete Fassung — nach dem ersten Render ist das Original
- * verworfen (bild.ts/video.ts), die Fassung ist dann die einzige Datei.
+ * verworfen (image.ts/video.ts), die Fassung ist dann die einzige Datei.
  */
 export function mediumFileCandidates(medium: UploadMedium): string[] {
   return medium.type === 'photo'
@@ -943,7 +943,7 @@ async function ermittleVideoDauern(
         (await storage.read(tourId, ENRICHMENT_PATH)).toString(),
       ) as EnrichmentCache
       for (const [id, meta] of Object.entries(cache.videoMeta ?? {}))
-        setze(id, meta?.quellDauerS ?? meta?.durationS)
+        setze(id, meta?.sourceDurationS ?? meta?.durationS)
     }
     if (await storage.info(tourId, TOUR_JSON_PATH)) {
       const tourJson = JSON.parse((await storage.read(tourId, TOUR_JSON_PATH)).toString()) as {
@@ -1108,11 +1108,11 @@ export async function processTour(
     //     Cache übernehmen; nur ohne Cache neu berechnen. Das erspart dem
     //     Edit-Speichern ffprobe/Transcode UND die teure, sequenzielle
     //     Foto-Bildanalyse (1 Vision-Call je Foto) — der Löwenanteil der Zeit.
-    const medienSpeicher = {
-      lese: (relPfad: string) => storage.read(tourId, relPfad),
-      schreibe: (relPfad: string, inhalt: Buffer) => storage.write(tourId, relPfad, inhalt),
-      info: (relPfad: string) => storage.info(tourId, relPfad),
-      loesche: (relPfad: string) => storage.remove(tourId, relPfad),
+    const mediaStorage = {
+      read: (relPath: string) => storage.read(tourId, relPath),
+      write: (relPath: string, content: Buffer) => storage.write(tourId, relPath, content),
+      info: (relPath: string) => storage.info(tourId, relPath),
+      remove: (relPath: string) => storage.remove(tourId, relPath),
     }
 
     // Der Video-Schnitt (Etappe 4) ist der EINE Edit, der die ausgelieferte
@@ -1127,33 +1127,37 @@ export async function processTour(
       const videoMedien = manifest.media.filter((m) => m.type === 'video')
       if (videoTool && videoMedien.length) {
         videoMeta = await prepareVideos({
-          medien: videoMedien.map((m) => {
-            const schnitt = edits?.media?.[m.id]?.trim
-            return { id: m.id, originalDatei: mediumFilename(m), ...(schnitt ? { schnitt } : {}) }
+          media: videoMedien.map((m) => {
+            const cutRange = edits?.media?.[m.id]?.trim
+            return {
+              id: m.id,
+              originalFile: mediumFilename(m),
+              ...(cutRange ? { cutRange } : {}),
+            }
           }),
-          speicher: medienSpeicher,
-          werkzeug: videoTool,
-          protokoll,
+          storage: mediaStorage,
+          tool: videoTool,
+          log: protokoll,
         })
       }
     }
 
-    // Bild-Fassungen (bild.ts) — anders als die Blöcke darüber IMMER, auch mit
+    // Bild-Fassungen (image.ts) — anders als die Blöcke darüber IMMER, auch mit
     // gültigem Cache: Sie sind keine berechneten Metadaten, sondern DATEIEN, und
     // welche liegen, weiß nur der Storage. Teuer ist das nicht — liegen beide
     // Fassungen, bleibt es bei zwei stat-Aufrufen je Medium.
     const fotoMeta = imageTool
       ? await preparePhotos({
-          medien: manifest.media.flatMap((m): PhotoInput[] => {
+          media: manifest.media.flatMap((m): PhotoInput[] => {
             if (m.type === 'photo')
-              return [{ id: m.id, quellDatei: mediumFilename(m), anzeige: true }]
+              return [{ id: m.id, sourceFile: mediumFilename(m), display: true }]
             // Videos: Kachel aus dem Standbild — das Poster selbst bleibt
-            const poster = videoMeta.get(m.id)?.posterDatei
-            return poster ? [{ id: m.id, quellDatei: poster, anzeige: false }] : []
+            const poster = videoMeta.get(m.id)?.posterFile
+            return poster ? [{ id: m.id, sourceFile: poster, display: false }] : []
           }),
-          speicher: medienSpeicher,
-          werkzeug: imageTool,
-          protokoll,
+          storage: mediaStorage,
+          tool: imageTool,
+          log: protokoll,
         })
       : new Map<string, PhotoMeta>()
 
@@ -1193,7 +1197,7 @@ export async function processTour(
             const m = fotos[i] as UploadManifest['media'][number]
             try {
               const meta = fotoMeta.get(m.id)
-              const datei = meta?.thumbDatei ?? meta?.anzeigeDatei ?? mediumFilename(m)
+              const datei = meta?.thumbFile ?? meta?.displayFile ?? mediumFilename(m)
               if (!(await storage.info(tourId, `media/${datei}`))) continue
               ergebnisse[i] = await imageClassifier.klassifiziere(
                 {

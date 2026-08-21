@@ -14,7 +14,7 @@ import { chooseCover, type TourJson } from './enrich.js'
 export async function backfillCovers(
   db: Db,
   storage: Storage,
-  tourJsonPfad: string,
+  tourJsonPath: string,
   protokoll?: (nachricht: string) => void,
 ): Promise<number> {
   const offen = db
@@ -22,24 +22,24 @@ export async function backfillCovers(
     .all() as Array<{ id: string }>
   if (offen.length === 0) return 0
 
-  const setzen = db.prepare('UPDATE tours SET cover = ? WHERE id = ?')
+  const writes = db.prepare('UPDATE tours SET cover = ? WHERE id = ?')
   let getan = 0
   for (const { id } of offen) {
     try {
       const tourJson = JSON.parse(
-        (await storage.read(id, tourJsonPfad)).toString('utf8'),
+        (await storage.read(id, tourJsonPath)).toString('utf8'),
       ) as TourJson
       // Nur die Anzeigegröße: Die Kachel-Fassung entsteht erst im
       // Bild-Nachtrag, der direkt danach läuft und `cover_thumb` füllt.
       const titelbild = chooseCover(tourJson.media)
       if (titelbild) {
-        setzen.run(titelbild.cover, id)
+        writes.run(titelbild.cover, id)
         getan++
       }
-    } catch (fehler) {
+    } catch (error) {
       // Eine Tour ohne lesbares tour.json blockiert den Start nicht — sie
       // bekommt ihr Titelbild beim nächsten regulären Render.
-      protokoll?.(`Titelbild-Nachtrag übersprungen für ${id}: ${(fehler as Error).message}`)
+      protokoll?.(`Titelbild-Nachtrag übersprungen für ${id}: ${(error as Error).message}`)
     }
   }
   return getan

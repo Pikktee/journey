@@ -3783,3 +3783,23 @@ umamiDbPasswort	umamiDbPassword	property	server/src/config.ts (Config)	10	Nachla
 trackerSchluessel	trackerSecret	property	server/src/config.ts (Config)	10	Nachlauf: Env-Variable MAPTALE_TRACKER_SECRET war schon englisch
 fcmDienstkonto	fcmServiceAccount	property	server/src/config.ts (Config)	10	Nachlauf: der Kommentar begruendete den deutschen Namen mit der Aussenflaeche — die ist die Env-Variable, nicht das Feld
 webhookGeheimnis	webhookSecret	property	server/src/config.ts (ProviderCredentials)	10	Nachlauf: internes Feld, die Env-Variable hiess schon MAPTALE_POLAR_WEBHOOK_SECRET
+anzeigeDatei	displayFile	property	server/src/pipeline/image.ts (PhotoMeta)	10	Nachlauf: interne Zwischenform; im tour.json heisst das Feld weiterhin src
+thumbDatei	thumbFile	property	server/src/pipeline/image.ts (PhotoMeta)	10	Nachlauf: interne Zwischenform; im tour.json weiterhin thumb
+quellDatei	sourceFile	property	server/src/pipeline/image.ts (PhotoInput)	10	Nachlauf: interne Zwischenform
+anzeige	display	property	server/src/pipeline/image.ts (PhotoInput)	10	Nachlauf: interne Zwischenform
+videoDatei	videoFile	property	server/src/pipeline/video.ts (VideoMeta)	10	Nachlauf: interne Zwischenform; im tour.json weiterhin src
+posterDatei	posterFile	property	server/src/pipeline/video.ts (VideoMeta)	10	Nachlauf: interne Zwischenform; im tour.json weiterhin poster
+quellDauerS	sourceDurationS	property	server/src/pipeline/video.ts (VideoMeta)	10	Nachlauf: ungeschnittene Dateilaenge, verlaesst die Pipeline nicht
+originalDatei	originalFile	property	server/src/pipeline/video.ts (prepareVideos-Eingabe)	10	Nachlauf: interne Zwischenform
+schnitt	cutRange	property	server/src/pipeline/video.ts (prepareVideos-Eingabe)	10	Nachlauf: interne Zwischenform; das Overlay-Feld heisst weiterhin trim
+kante	edge	property	server/src/pipeline/image.ts (ImageTool.scale-Optionen)	10	Nachlauf: Aufrufoption
+guete	quality	property	server/src/pipeline/image.ts (ImageTool.scale-Optionen)	10	Nachlauf: Aufrufoption
+drehung	orientation	property	server/src/pipeline/image.ts (ImageTool.scale-Optionen)	10	Nachlauf: Aufrufoption; das EXIF-Tag selbst bleibt unberuehrt
+grossEndig	bigEndian	property	server/src/pipeline/image.ts (findOrientation)	10	Nachlauf: Rueckgabeform im Prozess
+lese	read	property	server/src/pipeline/image.ts + video.ts (ImageStorage/VideoStorage)	10	Nachlauf: schmaler Storage-Ausschnitt, folgt Storage.read
+schreibe	write	property	server/src/pipeline/image.ts + video.ts (ImageStorage/VideoStorage)	10	Nachlauf: folgt Storage.write
+loesche	remove	property	server/src/pipeline/image.ts + video.ts (ImageStorage/VideoStorage)	10	Nachlauf: folgt Storage.remove
+medien	media	property	server/src/pipeline/image.ts + video.ts (preparePhotos/prepareVideos-Eingabe)	10	Nachlauf: Aufrufoption
+speicher	storage	property	server/src/pipeline/image.ts + video.ts (preparePhotos/prepareVideos-Eingabe)	10	Nachlauf: Aufrufoption
+werkzeug	tool	property	server/src/pipeline/image.ts + video.ts (preparePhotos/prepareVideos-Eingabe)	10	Nachlauf: Aufrufoption
+protokoll	log	property	server/src/pipeline/image.ts + video.ts + image-addendum.ts	10	Nachlauf: Aufrufoption (Hinweiskanal), nicht das AuditLog

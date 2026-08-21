@@ -7,7 +7,7 @@
 // fertigen tour.json werden nur die Medien-Pfade umgeschrieben.
 //
 // Die REIHENFOLGE trägt die Sicherheit: Erst liegen die Fassungen, dann zeigt
-// das tour.json auf sie, und erst danach verwirft bereiteFotosAuf das Original.
+// das tour.json auf sie, und erst danach verwirft preparePhotos das Original.
 // Bricht der Durchlauf mittendrin ab, ist der Zustand jederzeit spielbar — beim
 // nächsten Start macht er dort weiter, wo er aufgehört hat.
 
@@ -36,55 +36,47 @@ export interface BackfillResult {
 export async function backfillImageVariants(
   db: Db,
   storage: Storage,
-  tourJsonPfad: string,
-  werkzeug: ImageTool,
-  protokoll?: (nachricht: string) => void,
+  tourJsonPath: string,
+  tool: ImageTool,
+  log?: (message: string) => void,
 ): Promise<BackfillResult> {
   const offen = db
     .prepare(`SELECT id, cover FROM tours WHERE status = 'ready' AND cover_thumb IS NULL`)
     .all() as Array<{ id: string; cover: string | null }>
   if (offen.length === 0) return { tours: 0, saved: 0 }
 
-  const setzen = db.prepare('UPDATE tours SET cover = ?, cover_thumb = ? WHERE id = ?')
+  const writes = db.prepare('UPDATE tours SET cover = ?, cover_thumb = ? WHERE id = ?')
   let tours = 0
   let saved = 0
   for (const { id, cover } of offen) {
     try {
-      saved += await trageEineTourNach(
-        storage,
-        tourJsonPfad,
-        werkzeug,
-        id,
-        cover,
-        setzen,
-        protokoll,
-      )
+      saved += await backfillOneTour(storage, tourJsonPath, tool, id, cover, writes, log)
       tours++
-    } catch (fehler) {
+    } catch (error) {
       // Eine Tour, die sich nicht aufbereiten lässt, blockiert den Start nicht.
       // Ihr cover_thumb bleibt leer — der nächste Durchlauf versucht es erneut.
-      protokoll?.(`Bild-Nachtrag übersprungen für ${id}: ${(fehler as Error).message}`)
+      log?.(`Bild-Nachtrag übersprungen für ${id}: ${(error as Error).message}`)
     }
   }
   return { tours, saved }
 }
 
-async function trageEineTourNach(
+async function backfillOneTour(
   storage: Storage,
-  tourJsonPfad: string,
-  werkzeug: ImageTool,
+  tourJsonPath: string,
+  tool: ImageTool,
   id: string,
   altesCover: string | null,
-  setzen: { run: (...werte: unknown[]) => unknown },
-  protokoll?: (nachricht: string) => void,
+  writes: { run: (...values: unknown[]) => unknown },
+  log?: (message: string) => void,
 ): Promise<number> {
-  const tourJson = JSON.parse((await storage.read(id, tourJsonPfad)).toString('utf8')) as TourJson
+  const tourJson = JSON.parse((await storage.read(id, tourJsonPath)).toString('utf8')) as TourJson
   const vorher = await storage.totalSize(id)
-  const speicher: ImageStorage = {
-    lese: (relPfad) => storage.read(id, relPfad),
-    schreibe: (relPfad, inhalt) => storage.write(id, relPfad, inhalt),
-    info: (relPfad) => storage.info(id, relPfad),
-    loesche: (relPfad) => storage.remove(id, relPfad),
+  const imageStorage: ImageStorage = {
+    read: (relPath) => storage.read(id, relPath),
+    write: (relPath, content) => storage.write(id, relPath, content),
+    info: (relPath) => storage.info(id, relPath),
+    remove: (relPath) => storage.remove(id, relPath),
   }
 
   // Welches Medium das Titelbild ist, steht schon fest — im `cover` der
@@ -96,31 +88,31 @@ async function trageEineTourNach(
 
   // Die Medien-Pfade im tour.json sind URLs (/api/media/<tour>/<datei>) — die
   // Aufbereitung arbeitet auf Dateinamen.
-  const dateiAus = (url: string | undefined): string | null => url?.split('/').pop() ?? null
-  const fotoMeta = await preparePhotos({
-    medien: tourJson.media.flatMap((m) => {
-      const quelle = dateiAus(m.type === 'photo' ? m.src : m.poster)
-      if (!quelle) return []
-      return [{ id: m.id, quellDatei: quelle, anzeige: m.type === 'photo' }]
+  const fileFrom = (url: string | undefined): string | null => url?.split('/').pop() ?? null
+  const photoMeta = await preparePhotos({
+    media: tourJson.media.flatMap((m) => {
+      const source = fileFrom(m.type === 'photo' ? m.src : m.poster)
+      if (!source) return []
+      return [{ id: m.id, sourceFile: source, display: m.type === 'photo' }]
     }),
-    speicher,
-    werkzeug,
-    ...(protokoll ? { protokoll } : {}),
+    storage: imageStorage,
+    tool,
+    ...(log ? { log } : {}),
   })
 
-  const medien = tourJson.media.map((m) => {
-    const fassungen = fotoMeta.get(m.id)
-    if (!fassungen) return m
+  const media = tourJson.media.map((m) => {
+    const variants = photoMeta.get(m.id)
+    if (!variants) return m
     return {
       ...m,
-      ...(fassungen.anzeigeDatei ? { src: `/api/media/${id}/${fassungen.anzeigeDatei}` } : {}),
-      thumb: `/api/media/${id}/${fassungen.thumbDatei}`,
+      ...(variants.displayFile ? { src: `/api/media/${id}/${variants.displayFile}` } : {}),
+      thumb: `/api/media/${id}/${variants.thumbFile}`,
     }
   })
-  await storage.write(id, tourJsonPfad, JSON.stringify({ ...tourJson, media: medien }, null, 2))
+  await storage.write(id, tourJsonPath, JSON.stringify({ ...tourJson, media }, null, 2))
 
   // Das Titelbild zeigt sonst weiter auf ein Original, das es nicht mehr gibt.
-  const neuesTitelMedium = titelMedium ? medien.find((m) => m.id === titelMedium.id) : undefined
+  const neuesTitelMedium = titelMedium ? media.find((m) => m.id === titelMedium.id) : undefined
   const titelbild = neuesTitelMedium
     ? {
         cover:
@@ -128,7 +120,7 @@ async function trageEineTourNach(
           null,
         thumb: neuesTitelMedium.thumb ?? null,
       }
-    : chooseCover(medien)
-  setzen.run(titelbild?.cover ?? null, titelbild?.thumb ?? null, id)
+    : chooseCover(media)
+  writes.run(titelbild?.cover ?? null, titelbild?.thumb ?? null, id)
   return Math.max(0, vorher - (await storage.totalSize(id)))
 }

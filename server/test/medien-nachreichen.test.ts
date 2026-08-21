@@ -409,11 +409,11 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
 
   it('löscht bei Videos auch Web-Fassung, Poster und Kachel', async () => {
     const werkzeug = new FakeVideoTool({
-      codecVideo: 'h264',
-      codecAudio: 'aac',
+      videoCodec: 'h264',
+      audioCodec: 'aac',
       durationS: 12,
-      breite: 1920,
-      hoehe: 1080,
+      width: 1920,
+      height: 1080,
     })
     const u = await baueTestApp([], null, werkzeug, {}, null, null, new FakeImageTool())
     const manifest = beispielManifest()

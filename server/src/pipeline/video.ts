@@ -18,21 +18,21 @@ import { promisify } from 'node:util'
 const execFileP = promisify(execFile)
 
 export interface VideoInfo {
-  codecVideo: string
+  videoCodec: string
   /** null, wenn das Video keine Tonspur hat */
-  codecAudio: string | null
+  audioCodec: string | null
   durationS: number
-  breite: number
-  hoehe: number
+  width: number
+  height: number
 }
 
 export interface VideoTool {
   /** Codec, Dauer und Auflösung auslesen. */
-  probe(pfad: string): Promise<VideoInfo>
+  probe(path: string): Promise<VideoInfo>
   /** Nach H.264/AAC, max. 1080p, faststart transkodieren (Web-Kompatibilität). */
-  transkodiere(quellPfad: string, zielPfad: string): Promise<void>
+  transcode(sourcePath: string, targetPath: string): Promise<void>
   /** Nur den Container neu schreiben (`-c copy`), damit `moov` vorn liegt. */
-  remuxeFaststart(quellPfad: string, zielPfad: string): Promise<void>
+  remuxFaststart(sourcePath: string, targetPath: string): Promise<void>
   /**
    * Ausschnitt [fromS, toS) neu codieren.
    *
@@ -42,9 +42,9 @@ export interface VideoTool {
    * kostet Rechenzeit, aber ein Schnitt, der nicht dort sitzt, wo man ihn
    * gesetzt hat, ist kein Schnitt.
    */
-  schneide(quellPfad: string, zielPfad: string, vonS: number, bisS?: number): Promise<void>
+  cut(sourcePath: string, targetPath: string, fromS: number, toS?: number): Promise<void>
   /** Einzelbild bei zeitpunktS als JPEG (Poster fürs Foto-Overlay). */
-  erzeugePoster(quellPfad: string, zielPfad: string, zeitpunktS: number): Promise<void>
+  makePoster(sourcePath: string, targetPath: string, atS: number): Promise<void>
 }
 
 // H.264-Video mit AAC/MP3 oder ohne Ton läuft in jedem Browser nativ — alles
@@ -54,8 +54,8 @@ const WEB_VIDEO_CODEC = 'h264'
 const WEB_AUDIO_CODECS = new Set(['aac', 'mp3'])
 
 export function needsTranscoding(info: VideoInfo): boolean {
-  if (info.codecVideo !== WEB_VIDEO_CODEC) return true
-  if (info.codecAudio !== null && !WEB_AUDIO_CODECS.has(info.codecAudio)) return true
+  if (info.videoCodec !== WEB_VIDEO_CODEC) return true
+  if (info.audioCodec !== null && !WEB_AUDIO_CODECS.has(info.audioCodec)) return true
   return false
 }
 
@@ -65,8 +65,8 @@ export function needsTranscoding(info: VideoInfo): boolean {
  * ausgeliefert, das manche Browser (Firefox) nicht abspielen. Nur eine echte
  * .mp4 bleibt unangetastet.
  */
-export function needsWebConversion(info: VideoInfo, originalDatei: string): boolean {
-  return needsTranscoding(info) || !originalDatei.toLowerCase().endsWith('.mp4')
+export function needsWebConversion(info: VideoInfo, originalFile: string): boolean {
+  return needsTranscoding(info) || !originalFile.toLowerCase().endsWith('.mp4')
 }
 
 /**
@@ -87,24 +87,24 @@ export function needsWebConversion(info: VideoInfo, originalDatei: string): bool
  * für keins von beidem, lautet die Antwort „nein" — dann wird umgeschrieben,
  * und das ist der harmlose Ausgang.
  */
-export function hasFaststart(daten: Buffer): boolean {
+export function hasFaststart(data: Buffer): boolean {
   let pos = 0
   // 8 Byte Kopf: 4 Länge + 4 Typ. Weniger ist kein Atom mehr.
-  while (pos + 8 <= daten.length) {
-    let groesse = daten.readUInt32BE(pos)
-    const typ = daten.toString('latin1', pos + 4, pos + 8)
-    if (typ === 'moov') return true
-    if (typ === 'mdat') return false
+  while (pos + 8 <= data.length) {
+    let boxSize = data.readUInt32BE(pos)
+    const boxType = data.toString('latin1', pos + 4, pos + 8)
+    if (boxType === 'moov') return true
+    if (boxType === 'mdat') return false
     // Länge 1 = 64-Bit-Größe im Feld dahinter (große mdat-Boxen); Länge 0 =
     // „bis Dateiende", danach kommt nichts mehr, worauf zu springen wäre.
-    if (groesse === 1) {
-      if (pos + 16 > daten.length) return false
-      const gross = daten.readBigUInt64BE(pos + 8)
-      if (gross > BigInt(Number.MAX_SAFE_INTEGER)) return false
-      groesse = Number(gross)
+    if (boxSize === 1) {
+      if (pos + 16 > data.length) return false
+      const bigSize = data.readBigUInt64BE(pos + 8)
+      if (bigSize > BigInt(Number.MAX_SAFE_INTEGER)) return false
+      boxSize = Number(bigSize)
     }
-    if (groesse < 8) return false
-    pos += groesse
+    if (boxSize < 8) return false
+    pos += boxSize
   }
   return false
 }
@@ -146,14 +146,15 @@ export interface VideoCut {
  * Spanne übrig (oder war gar keine gefordert), ist die Antwort `null` = ganze
  * Datei — ein leerer Schnitt darf kein Video von null Sekunden erzeugen.
  */
-export function clampCut(schnitt: VideoCut | undefined, durationS: number): VideoCut | null {
-  if (!schnitt || !(durationS > 0)) return null
-  const vonS = Math.min(Math.max(0, schnitt.fromS), durationS)
-  const bisS = schnitt.toS === undefined ? durationS : Math.min(Math.max(0, schnitt.toS), durationS)
-  if (!(bisS - vonS > 0.05)) return null
+export function clampCut(cutRange: VideoCut | undefined, durationS: number): VideoCut | null {
+  if (!cutRange || !(durationS > 0)) return null
+  const fromS = Math.min(Math.max(0, cutRange.fromS), durationS)
+  const toS =
+    cutRange.toS === undefined ? durationS : Math.min(Math.max(0, cutRange.toS), durationS)
+  if (!(toS - fromS > 0.05)) return null
   // Der Vollschnitt ist kein Schnitt: er erzwänge einen Transcode ohne Wirkung.
-  if (vonS <= 0 && bisS >= durationS) return null
-  return { fromS: vonS, toS: bisS }
+  if (fromS <= 0 && toS >= durationS) return null
+  return { fromS: fromS, toS: toS }
 }
 
 /**
@@ -164,7 +165,7 @@ export function clampCut(schnitt: VideoCut | undefined, durationS: number): Vide
  * Umschalten sprang das Bild sichtbar. Ein zum Anfang passendes Standbild ist
  * mehr wert als ein schöneres, das nicht zum nächsten Moment passt.
  */
-export function posterTime(_dauerS: number): number {
+export function posterTime(_durationS: number): number {
   return 0
 }
 
@@ -173,23 +174,23 @@ export interface VideoMeta {
   /** Länge der AUSGELIEFERTEN Datei (bei gesetztem Schnitt die getrimmte) */
   durationS: number
   /** Auszuliefernde Videodatei (geschnitten, sonst transkodiert, sonst Original) */
-  videoDatei: string
+  videoFile: string
   /** Poster-JPEG */
-  posterDatei: string
+  posterFile: string
   /**
    * Länge der QUELLE in Sekunden — das Material, gegen das der Editor seine
    * Trimm-Kanten anschlägt. Ohne Schnitt gleich `dauerS`; fehlt das Feld
    * (Cache-Eintrag von vor Etappe 4), gilt `dauerS` als Quelle.
    */
-  quellDauerS?: number
+  sourceDurationS?: number
 }
 
 /** Schmaler Storage-Ausschnitt, den die Aufbereitung braucht (Storage erfüllt ihn). */
 export interface VideoStorage {
-  lese(relPfad: string): Promise<Buffer>
-  schreibe(relPfad: string, inhalt: Buffer): Promise<void>
-  info(relPfad: string): Promise<{ size: number } | null>
-  loesche(relPfad: string): Promise<void>
+  read(relPath: string): Promise<Buffer>
+  write(relPath: string, content: Buffer): Promise<void>
+  info(relPath: string): Promise<{ size: number } | null>
+  remove(relPath: string): Promise<void>
 }
 
 /** Die echte ffmpeg/ffprobe-Anbindung (nur in Produktion; Tests nutzen den Fake). */
@@ -199,13 +200,13 @@ export class FfmpegVideoTool implements VideoTool {
     private readonly ffprobe = 'ffprobe',
   ) {}
 
-  async probe(pfad: string): Promise<VideoInfo> {
+  async probe(path: string): Promise<VideoInfo> {
     const { stdout } = await execFileP(
       this.ffprobe,
-      ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', pfad],
+      ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', path],
       { maxBuffer: 8 * 1024 * 1024 },
     )
-    const daten = JSON.parse(stdout) as {
+    const data = JSON.parse(stdout) as {
       streams?: Array<{
         codec_type?: string
         codec_name?: string
@@ -215,25 +216,25 @@ export class FfmpegVideoTool implements VideoTool {
       }>
       format?: { duration?: string }
     }
-    const v = daten.streams?.find((s) => s.codec_type === 'video')
-    const a = daten.streams?.find((s) => s.codec_type === 'audio')
+    const v = data.streams?.find((s) => s.codec_type === 'video')
+    const a = data.streams?.find((s) => s.codec_type === 'audio')
     if (!v) throw new Error('Keine Videospur gefunden')
     return {
-      codecVideo: v.codec_name ?? '',
-      codecAudio: a?.codec_name ?? null,
-      durationS: Number(daten.format?.duration ?? v.duration ?? 0) || 0,
-      breite: Number(v.width ?? 0),
-      hoehe: Number(v.height ?? 0),
+      videoCodec: v.codec_name ?? '',
+      audioCodec: a?.codec_name ?? null,
+      durationS: Number(data.format?.duration ?? v.duration ?? 0) || 0,
+      width: Number(v.width ?? 0),
+      height: Number(v.height ?? 0),
     }
   }
 
-  async transkodiere(quellPfad: string, zielPfad: string): Promise<void> {
+  async transcode(sourcePath: string, targetPath: string): Promise<void> {
     await execFileP(
       this.ffmpeg,
       [
         '-y',
         '-i',
-        quellPfad,
+        sourcePath,
         // In die 1080p-Box verkleinern (nie hochskalieren: min(iw)/min(ih)),
         // Seitenverhältnis wahren, dann auf gerade Kantenlängen trimmen (libx264
         // verweigert ungerade Dimensionen, u. a. bei Hochformat-Handyvideos).
@@ -251,24 +252,24 @@ export class FfmpegVideoTool implements VideoTool {
         '128k',
         '-movflags',
         '+faststart', // Moov-Atom nach vorn → Seeking ohne Voll-Download
-        zielPfad,
+        targetPath,
       ],
       { maxBuffer: 8 * 1024 * 1024 },
     )
   }
 
-  async remuxeFaststart(quellPfad: string, zielPfad: string): Promise<void> {
+  async remuxFaststart(sourcePath: string, targetPath: string): Promise<void> {
     // `-c copy`: Bild und Ton werden NICHT neu codiert, nur der Container wird
     // neu geschrieben. Das dauert Sekundenbruchteile statt Minuten und kostet
     // keine Qualität — es verschiebt allein den Index nach vorn.
     await execFileP(
       this.ffmpeg,
-      ['-y', '-i', quellPfad, '-c', 'copy', '-movflags', '+faststart', zielPfad],
+      ['-y', '-i', sourcePath, '-c', 'copy', '-movflags', '+faststart', targetPath],
       { maxBuffer: 8 * 1024 * 1024 },
     )
   }
 
-  async schneide(quellPfad: string, zielPfad: string, vonS: number, bisS?: number): Promise<void> {
+  async cut(sourcePath: string, targetPath: string, fromS: number, toS?: number): Promise<void> {
     // `-ss` steht HINTER `-i`: davor sucht ffmpeg zum nächsten Keyframe und
     // schneidet dort — genau der Fehler, den dieser Weg vermeiden soll. Dahinter
     // wird bis zum exakten Zeitpunkt decodiert und ab da geschrieben. Langsamer,
@@ -278,10 +279,10 @@ export class FfmpegVideoTool implements VideoTool {
       [
         '-y',
         '-i',
-        quellPfad,
+        sourcePath,
         '-ss',
-        String(vonS),
-        ...(bisS !== undefined ? ['-to', String(bisS)] : []),
+        String(fromS),
+        ...(toS !== undefined ? ['-to', String(toS)] : []),
         '-vf',
         "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
         '-c:v',
@@ -296,16 +297,16 @@ export class FfmpegVideoTool implements VideoTool {
         '128k',
         '-movflags',
         '+faststart',
-        zielPfad,
+        targetPath,
       ],
       { maxBuffer: 8 * 1024 * 1024 },
     )
   }
 
-  async erzeugePoster(quellPfad: string, zielPfad: string, zeitpunktS: number): Promise<void> {
+  async makePoster(sourcePath: string, targetPath: string, atS: number): Promise<void> {
     await execFileP(
       this.ffmpeg,
-      ['-y', '-ss', String(zeitpunktS), '-i', quellPfad, '-frames:v', '1', '-q:v', '3', zielPfad],
+      ['-y', '-ss', String(atS), '-i', sourcePath, '-frames:v', '1', '-q:v', '3', targetPath],
       { maxBuffer: 8 * 1024 * 1024 },
     )
   }
@@ -317,32 +318,32 @@ export class FfmpegVideoTool implements VideoTool {
  * Protokolliert die Aufrufe, damit Tests „wurde transkodiert?" prüfen können.
  */
 export class FakeVideoTool implements VideoTool {
-  public readonly aufrufe: string[] = []
+  public readonly calls: string[] = []
   constructor(private readonly info: VideoInfo) {}
 
   async probe(): Promise<VideoInfo> {
-    this.aufrufe.push('probe')
+    this.calls.push('probe')
     return this.info
   }
 
-  async transkodiere(_quellPfad: string, zielPfad: string): Promise<void> {
-    this.aufrufe.push('transkodiere')
-    await writeFile(zielPfad, Buffer.from('FAKE-WEB-MP4'))
+  async transcode(_sourcePath: string, targetPath: string): Promise<void> {
+    this.calls.push('transkodiere')
+    await writeFile(targetPath, Buffer.from('FAKE-WEB-MP4'))
   }
 
-  async remuxeFaststart(_quellPfad: string, zielPfad: string): Promise<void> {
-    this.aufrufe.push('remux')
-    await writeFile(zielPfad, Buffer.from('FAKE-FASTSTART-MP4'))
+  async remuxFaststart(_sourcePath: string, targetPath: string): Promise<void> {
+    this.calls.push('remux')
+    await writeFile(targetPath, Buffer.from('FAKE-FASTSTART-MP4'))
   }
 
-  async schneide(_quellPfad: string, zielPfad: string, vonS: number, bisS?: number): Promise<void> {
-    this.aufrufe.push(`schneide:${vonS}-${bisS ?? ''}`)
-    await writeFile(zielPfad, Buffer.from('FAKE-CUT-MP4'))
+  async cut(_sourcePath: string, targetPath: string, fromS: number, toS?: number): Promise<void> {
+    this.calls.push(`schneide:${fromS}-${toS ?? ''}`)
+    await writeFile(targetPath, Buffer.from('FAKE-CUT-MP4'))
   }
 
-  async erzeugePoster(_quellPfad: string, zielPfad: string): Promise<void> {
-    this.aufrufe.push('poster')
-    await writeFile(zielPfad, Buffer.from('FAKE-POSTER-JPEG'))
+  async makePoster(_sourcePath: string, targetPath: string): Promise<void> {
+    this.calls.push('poster')
+    await writeFile(targetPath, Buffer.from('FAKE-POSTER-JPEG'))
   }
 }
 
@@ -357,36 +358,36 @@ export class FakeVideoTool implements VideoTool {
  * der Normalfall, kein Fehler: Liegt nur noch die web.mp4, ist sie die Quelle
  * für Probe und Poster.
  */
-async function bereiteEinVideoAuf(
+async function prepareVideo(
   mediumId: string,
-  originalDatei: string,
-  speicher: VideoStorage,
-  werkzeug: VideoTool,
-  schnitt?: VideoCut,
+  originalFile: string,
+  storage: VideoStorage,
+  tool: VideoTool,
+  cutRange?: VideoCut,
 ): Promise<VideoMeta> {
   const posterName = posterFilename(mediumId)
   const webName = webVideoFilename(mediumId)
-  const schnittName = cutVideoFilename(mediumId)
-  const originalDa = !!(await speicher.info(`media/${originalDatei}`))
-  if (!originalDa && !(await speicher.info(`media/${webName}`))) {
-    throw new Error(`Videodatei fehlt: ${originalDatei}`)
+  const cutName = cutVideoFilename(mediumId)
+  const originalPresent = !!(await storage.info(`media/${originalFile}`))
+  if (!originalPresent && !(await storage.info(`media/${webName}`))) {
+    throw new Error(`Videodatei fehlt: ${originalFile}`)
   }
-  const quellDatei = originalDa ? originalDatei : webName
-  const endung = quellDatei.split('.').pop() ?? 'mp4'
+  const sourceFile = originalPresent ? originalFile : webName
+  const extension = sourceFile.split('.').pop() ?? 'mp4'
 
-  const arbeitsdir = await mkdtemp(join(tmpdir(), 'maptale-video-'))
-  const quellTemp = join(arbeitsdir, `quelle.${endung}`)
+  const workDir = await mkdtemp(join(tmpdir(), 'maptale-video-'))
+  const sourceTemp = join(workDir, `quelle.${extension}`)
   try {
-    const rohdaten = await speicher.lese(`media/${quellDatei}`)
-    await writeFile(quellTemp, rohdaten)
-    const info = await werkzeug.probe(quellTemp)
+    const raw = await storage.read(`media/${sourceFile}`)
+    await writeFile(sourceTemp, raw)
+    const info = await tool.probe(sourceTemp)
 
     // Poster nur erzeugen, wenn es noch nicht liegt (Re-Render nach PATCH soll
     // nicht jedes Mal ffmpeg anwerfen — Poster/Transcode sind deterministisch).
-    if (!(await speicher.info(`media/${posterName}`))) {
-      const posterTemp = join(arbeitsdir, 'poster.jpg')
-      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterTime(info.durationS))
-      await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
+    if (!(await storage.info(`media/${posterName}`))) {
+      const posterTemp = join(workDir, 'poster.jpg')
+      await tool.makePoster(sourceTemp, posterTemp, posterTime(info.durationS))
+      await storage.write(`media/${posterName}`, await readFile(posterTemp))
     }
 
     // Zwei Gründe, eine eigene Auslieferungsdatei zu erzeugen — und beide
@@ -396,20 +397,20 @@ async function bereiteEinVideoAuf(
     // Fall 2 ist der Alltagsfall der App: Ein Pixel liefert H.264/AAC in .mp4
     // und wurde deshalb unangetastet durchgereicht — samt `moov` am Ende, das
     // jede Wiedergabe um Sekunden verzögerte (s. hasFaststart).
-    let videoDatei = quellDatei
-    if (originalDa && needsWebConversion(info, originalDatei)) {
-      videoDatei = webName
-      if (!(await speicher.info(`media/${webName}`))) {
-        const webTemp = join(arbeitsdir, 'web.mp4')
-        await werkzeug.transkodiere(quellTemp, webTemp)
-        await speicher.schreibe(`media/${webName}`, await readFile(webTemp))
+    let videoFile = sourceFile
+    if (originalPresent && needsWebConversion(info, originalFile)) {
+      videoFile = webName
+      if (!(await storage.info(`media/${webName}`))) {
+        const webTemp = join(workDir, 'web.mp4')
+        await tool.transcode(sourceTemp, webTemp)
+        await storage.write(`media/${webName}`, await readFile(webTemp))
       }
-    } else if (originalDa && !hasFaststart(rohdaten)) {
-      videoDatei = webName
-      if (!(await speicher.info(`media/${webName}`))) {
-        const webTemp = join(arbeitsdir, 'web.mp4')
-        await werkzeug.remuxeFaststart(quellTemp, webTemp)
-        await speicher.schreibe(`media/${webName}`, await readFile(webTemp))
+    } else if (originalPresent && !hasFaststart(raw)) {
+      videoFile = webName
+      if (!(await storage.info(`media/${webName}`))) {
+        const webTemp = join(workDir, 'web.mp4')
+        await tool.remuxFaststart(sourceTemp, webTemp)
+        await storage.write(`media/${webName}`, await readFile(webTemp))
       }
     }
 
@@ -421,49 +422,49 @@ async function bereiteEinVideoAuf(
     // Gemessen wird gegen den MASTER, nicht gegen die ausgelieferte Datei: Ein
     // Schnitt (unten) erzeugt eine weitere Fassung, aber er darf das Material
     // nicht verbrauchen — sonst wäre „Trim zurücknehmen" ein Datenverlust.
-    if (videoDatei !== originalDatei && originalDa) {
-      await speicher.loesche(`media/${originalDatei}`)
+    if (videoFile !== originalFile && originalPresent) {
+      await storage.remove(`media/${originalFile}`)
     }
-    const masterDatei = videoDatei
+    const masterFile = videoFile
 
     // Video-Schnitt (Etappe 4): eine eigene Auslieferungsdatei aus dem Master.
     // Geklemmt wird auf das Material — Trimmen legt frei, was da ist. Ohne
     // wirksamen Schnitt bleibt alles, wie es war (kein Transcode, keine Datei).
-    const wirksam = clampCut(schnitt, info.durationS)
-    if (wirksam) {
-      const schnittTemp = join(arbeitsdir, 'schnitt.mp4')
-      await werkzeug.schneide(quellTemp, schnittTemp, wirksam.fromS, wirksam.toS)
-      await speicher.schreibe(`media/${schnittName}`, await readFile(schnittTemp))
+    const effectiveCut = clampCut(cutRange, info.durationS)
+    if (effectiveCut) {
+      const cutTemp = join(workDir, 'schnitt.mp4')
+      await tool.cut(sourceTemp, cutTemp, effectiveCut.fromS, effectiveCut.toS)
+      await storage.write(`media/${cutName}`, await readFile(cutTemp))
       // Das Poster zeigt den ersten Frame der AUSGELIEFERTEN Fassung — sonst
       // stünde dort ein Bild, das im Film gar nicht mehr vorkommt.
-      const posterTemp = join(arbeitsdir, 'poster-schnitt.jpg')
-      await werkzeug.erzeugePoster(schnittTemp, posterTemp, posterTime(0))
-      await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
+      const posterTemp = join(workDir, 'poster-schnitt.jpg')
+      await tool.makePoster(cutTemp, posterTemp, posterTime(0))
+      await storage.write(`media/${posterName}`, await readFile(posterTemp))
       return {
-        durationS: (wirksam.toS ?? info.durationS) - wirksam.fromS,
-        videoDatei: schnittName,
-        posterDatei: posterName,
-        quellDauerS: info.durationS,
+        durationS: (effectiveCut.toS ?? info.durationS) - effectiveCut.fromS,
+        videoFile: cutName,
+        posterFile: posterName,
+        sourceDurationS: info.durationS,
       }
     }
     // Kein (wirksamer) Schnitt mehr: eine frühere Schnittfassung ist jetzt
     // totes Gewicht — der Master liegt ja noch. Das Poster zeigt dann noch den
     // ersten Frame des ALTEN Ausschnitts und muss mit zurück.
-    if (await speicher.info(`media/${schnittName}`)) {
-      await speicher.loesche(`media/${schnittName}`)
-      const posterTemp = join(arbeitsdir, 'poster-ganz.jpg')
-      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterTime(info.durationS))
-      await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
+    if (await storage.info(`media/${cutName}`)) {
+      await storage.remove(`media/${cutName}`)
+      const posterTemp = join(workDir, 'poster-ganz.jpg')
+      await tool.makePoster(sourceTemp, posterTemp, posterTime(info.durationS))
+      await storage.write(`media/${posterName}`, await readFile(posterTemp))
     }
 
     return {
       durationS: info.durationS,
-      videoDatei: masterDatei,
-      posterDatei: posterName,
-      quellDauerS: info.durationS,
+      videoFile: masterFile,
+      posterFile: posterName,
+      sourceDurationS: info.durationS,
     }
   } finally {
-    await rm(arbeitsdir, { recursive: true, force: true })
+    await rm(workDir, { recursive: true, force: true })
   }
 }
 
@@ -472,19 +473,19 @@ async function bereiteEinVideoAuf(
  * Video lässt die Tour nicht scheitern (protokoll-Hinweis, Eintrag fehlt in der
  * Map → enrich.ts liefert dann das Original ohne Poster aus).
  */
-export async function prepareVideos(eingabe: {
-  medien: Array<{ id: string; originalDatei: string; schnitt?: VideoCut }>
-  speicher: VideoStorage
-  werkzeug: VideoTool
-  protokoll?: (nachricht: string) => void
+export async function prepareVideos(input: {
+  media: Array<{ id: string; originalFile: string; cutRange?: VideoCut }>
+  storage: VideoStorage
+  tool: VideoTool
+  log?: (message: string) => void
 }): Promise<Map<string, VideoMeta>> {
-  const { medien, speicher, werkzeug, protokoll } = eingabe
+  const { media, storage, tool, log } = input
   const meta = new Map<string, VideoMeta>()
-  for (const m of medien) {
+  for (const m of media) {
     try {
-      meta.set(m.id, await bereiteEinVideoAuf(m.id, m.originalDatei, speicher, werkzeug, m.schnitt))
-    } catch (fehler) {
-      protokoll?.(`Video-Aufbereitung fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
+      meta.set(m.id, await prepareVideo(m.id, m.originalFile, storage, tool, m.cutRange))
+    } catch (error) {
+      log?.(`Video-Aufbereitung fehlgeschlagen (${m.id}): ${(error as Error).message}`)
     }
   }
   return meta

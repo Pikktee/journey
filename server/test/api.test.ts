@@ -231,12 +231,12 @@ describe('Tour-Lebenszyklus', () => {
     // Bild-Fake, der Fassung UND Bildnummer in die Zieldatei schreibt: nur so
     // ist nachprüfbar, welche der beiden Fassungen bei der Analyse ankommt.
     const bildWerkzeug: ImageTool = {
-      async skaliere(quellPfad, zielPfad, { kante }) {
+      async scale(quellPfad, zielPfad, { edge }) {
         const quelle = await readFile(quellPfad, 'latin1')
         const nummer = quelle.slice(-1)
         await writeFile(
           zielPfad,
-          Buffer.from(`\xff\xd8\xff\xda\x00\x02${kante}#${nummer}`, 'latin1'),
+          Buffer.from(`\xff\xd8\xff\xda\x00\x02${edge}#${nummer}`, 'latin1'),
         )
       },
     }
@@ -295,11 +295,11 @@ describe('Tour-Lebenszyklus', () => {
 
   it('bereitet Videos auf: Poster + Transcode landen im tour.json und werden ausgeliefert (M4)', async () => {
     const werkzeug = new FakeVideoTool({
-      codecVideo: 'hevc', // neues iPhone/Pixel → muss transkodiert werden
-      codecAudio: 'aac',
+      videoCodec: 'hevc', // neues iPhone/Pixel → muss transkodiert werden
+      audioCodec: 'aac',
       durationS: 9.2,
-      breite: 3840,
-      hoehe: 2160,
+      width: 3840,
+      height: 2160,
     })
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], null, werkzeug)
     const manifest = beispielManifest()
@@ -324,7 +324,7 @@ describe('Tour-Lebenszyklus', () => {
     expect(v?.src).toBe(`/api/media/${id}/m2.web.mp4`) // transkodiert, nicht das Original
     expect(v?.poster).toBe(`/api/media/${id}/m2.poster.jpg`)
     expect(v?.durationS).toBe(9.2)
-    expect(werkzeug.aufrufe).toEqual(['probe', 'poster', 'transkodiere'])
+    expect(werkzeug.calls).toEqual(['probe', 'poster', 'transkodiere'])
 
     // Poster ausgeliefert (der erweiterte Dateiname-Regex lässt zwei Punkte durch)
     const poster = await u.app.inject({
@@ -1125,11 +1125,11 @@ describe('Edit-Overlay + Editor (M7)', () => {
   it('Editor-Daten: ein Video bringt seine echte Länge mit (dauerS)', async () => {
     // Ohne sie rechnet die Zeitleiste ein 34-s-Video wie ein Foto mit 5,2 s.
     const werkzeug = new FakeVideoTool({
-      codecVideo: 'h264',
-      codecAudio: 'aac',
+      videoCodec: 'h264',
+      audioCodec: 'aac',
       durationS: 34,
-      breite: 1920,
-      hoehe: 1080,
+      width: 1920,
+      height: 1080,
     })
     const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], null, werkzeug)
     const manifest = beispielManifest()
