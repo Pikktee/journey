@@ -278,6 +278,32 @@ describe('Verknüpfen (OAuth)', () => {
     expect(zweite.headers.location).toContain('tracker=abgelaufen')
   })
 
+  it('schickt zurück auf die WEBSEITE, nicht auf die API', async () => {
+    // Die Kontoseite ist eine Seite des Web, der Callback eine Route der API.
+    // Live ist das dieselbe Adresse — lokal liegt das Web auf dem Vite-Port,
+    // und aus `baseUrl` gebaut landete die Rückkehr im 404 der API, NACH der
+    // erfolgreichen Verknüpfung. Die Tests prüften bis dahin nur den Hash.
+    const { u } = await baueMitProvider()
+    const start = await u.app.inject({
+      method: 'POST',
+      url: '/api/tracker/polar/connect',
+      cookies: u.cookies,
+      payload: {},
+    })
+    const zustand =
+      new URL((start.json() as { authorizationUrl: string }).authorizationUrl).searchParams.get(
+        'state',
+      ) ?? ''
+    for (const url of [
+      `/api/tracker/polar/callback?code=ok&state=${zustand}`,
+      '/api/tracker/polar/callback?code=ok&state=erfunden',
+      '/api/tracker/polar/callback?error=access_denied',
+    ]) {
+      const antwort = await u.app.inject({ method: 'GET', url })
+      expect(antwort.headers.location).toMatch(/^https:\/\/maptale\.test\/konto#tracker=/)
+    }
+  })
+
   it('behandelt den Abbruch beim Anbieter als Entscheidung, nicht als Fehler', async () => {
     const { u } = await baueMitProvider()
     const antwort = await u.app.inject({

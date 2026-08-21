@@ -7,6 +7,7 @@
 import type { FastifyInstance } from 'fastify'
 import { requireUser } from '../app.js'
 import { buildRateLimit } from '../rate-limit.js'
+import { WEB_PATHS } from '../web-paths.js'
 import { runImports } from '../tracker/import-run.js'
 import {
   PROVIDER_NAMES,
@@ -32,6 +33,20 @@ const targetSchema = {
   additionalProperties: false,
   properties: { target: { enum: ['web', 'app'] } },
 } as const
+
+/**
+ * Der Weg zurück auf die Kontoseite, mit einem Wort über den Ausgang im Hash.
+ *
+ * `webUrl` und NICHT `baseUrl`: Die Kontoseite ist eine Seite des Web, der
+ * Callback aber eine Route der API. Live sind das dieselbe Adresse und der
+ * Unterschied kostet nichts; lokal liegt das Web auf dem Vite-Port und die API
+ * auf ihrem eigenen — dort landete jede Rückkehr vom Anbieter im 404 der API,
+ * und zwar NACH der erfolgreichen Verknüpfung. Der Pfad kommt aus `WEB_PATHS`,
+ * damit er nicht die vierte handgeschriebene Kopie von `/konto` ist.
+ */
+function accountReturn(webUrl: string, outcome: string): string {
+  return `${webUrl.replace(/\/+$/, '')}${WEB_PATHS.account}#tracker=${outcome}`
+}
 
 export function registerTrackerRoutes(app: FastifyInstance): void {
   const { config } = app.deps
@@ -98,11 +113,11 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
     // Abbruch beim Anbieter ist kein Fehlerfall, sondern eine Entscheidung —
     // zurück auf die Kontoseite, mit einem Wort dazu.
     if (error || !code || !state || !provider) {
-      return reply.redirect(`${config.baseUrl}/konto#tracker=abgebrochen`)
+      return reply.redirect(accountReturn(config.webUrl, 'abgebrochen'))
     }
     const entry = app.tracker.redeemState(state)
     if (!entry || entry.provider !== provider.id) {
-      return reply.redirect(`${config.baseUrl}/konto#tracker=abgelaufen`)
+      return reply.redirect(accountReturn(config.webUrl, 'abgelaufen'))
     }
     try {
       let tokens = await provider.exchangeCode(code, entry.redirectUri)
@@ -116,13 +131,13 @@ export function registerTrackerRoutes(app: FastifyInstance): void {
       app.log.warn(
         `Tracker-Verknüpfung fehlgeschlagen (${provider.id}): ${(error as Error).message}`,
       )
-      return reply.redirect(`${config.baseUrl}/konto#tracker=fehler`)
+      return reply.redirect(accountReturn(config.webUrl, 'fehler'))
     }
     // Die App bekommt einen Deep Link zurück; im Web genügt die Kontoseite.
     return reply.redirect(
       entry.target === 'app'
         ? `maptale://tracker/${provider.id}?ok=1`
-        : `${config.baseUrl}/konto#tracker=verbunden`,
+        : accountReturn(config.webUrl, 'verbunden'),
     )
   })
 
