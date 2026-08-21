@@ -180,5 +180,10 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
         dao.deleteMedia(tourId)
         dao.deleteTour(tourId)
         File(filesDir, "tours/$tourId").deleteRecursively()
+        // Aufnahmen von VOR Welle 7 liegen unter `touren/`. Ihre Dateien werden
+        // weiter gefunden (der Pfad steht je Medium in der Datenbank), aber ohne
+        // diese Zeile bliebe der Ordner nach dem Löschen als Waise auf dem Gerät
+        // liegen — Fotos und Videos, zu denen es keine Tour mehr gibt.
+        File(filesDir, "touren/$tourId").deleteRecursively()
     }
 }
