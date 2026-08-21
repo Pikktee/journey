@@ -190,11 +190,13 @@ describe('trenneGehabschnitte', () => {
     for (const teil of splitWalkSegments(s)) {
       if (teil.mode !== 'walk') continue
       const dauerS = teil.pts[teil.pts.length - 1]![3] - teil.pts[0]![3]
-      let meter = 0
+      let meters = 0
       for (let i = 1; i < teil.pts.length; i++) {
-        meter += (teil.pts[i]![0] - teil.pts[i - 1]![0]) / GRAD_PRO_METER
+        meters += (teil.pts[i]![0] - teil.pts[i - 1]![0]) / GRAD_PRO_METER
       }
-      expect((meter / dauerS) * 3.6, 'Gehabschnitt schneller als Gehtempo').toBeLessThanOrEqual(8.5)
+      expect((meters / dauerS) * 3.6, 'Gehabschnitt schneller als Gehtempo').toBeLessThanOrEqual(
+        8.5,
+      )
     }
   })
 

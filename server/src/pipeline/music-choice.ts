@@ -38,46 +38,46 @@ export const AUTO_MUSIC = {
 } as const
 
 /** Nasse Wetterlagen — dafür gibt es ein eigenes Stück. */
-const NASS = new Set(['rain', 'storm', 'snow'])
+const WET_MODES = new Set(['rain', 'storm', 'snow'])
 /** Ab diesem Streckenanteil in Nässe gewinnt „Regentag". */
-const NASS_AB = 0.35
+const WET_FROM = 0.35
 /** Nacht: außerhalb dieser lokalen Stunden (6 bis 20 Uhr) ist es dunkel. */
-const TAG_VON = 6
-const TAG_BIS = 20
+const DAY_FROM = 6
+const DAY_TO = 20
 /** Abendliche Ankunft — die Stunden, in denen das Licht golden wird. */
-const ABEND_VON = 17.5
-const ABEND_BIS = 20
+const EVENING_FROM = 17.5
+const EVENING_TO = 20
 /** Bergig: entweder viel geklettert oder wirklich weit oben gewesen. */
-const BERG_GEWINN_M = 600
-const BERG_HOEHE_M = 1200
+const MOUNTAIN_GAIN_M = 600
+const MOUNTAIN_ELEVATION_M = 1200
 /** Wendekreise — dazwischen liegen die Tropen. */
-const TROPEN_BREITE = 23.5
+const TROPICS_LATITUDE = 23.5
 /** Ab dieser Länge fühlt sich eine Tour nach Ferne an. */
-const FERN_KM = 60
+const FAR_KM = 60
 
 export interface MusicInput {
-  segmente: readonly UploadSegment[]
+  segs: readonly UploadSegment[]
   /** Ermitteltes Wetter (Roh, vor der Foto-Verfeinerung); null = keins bekannt. */
   weather?: readonly WeatherKeyframe[] | null
   /** Beginn und Ende der Aufzeichnung (ISO) samt Zeitzone der Tour. */
   startIso: string
-  endeIso: string
+  endIso: string
   zone: string
 }
 
 /** Lokale Stunde als Kommazahl (14:30 → 14.5); NaN bei unbrauchbarer Eingabe. */
-function stundeLokal(iso: string, zone: string): number {
+function localHour(iso: string, zone: string): number {
   const ms = Date.parse(iso)
   if (!Number.isFinite(ms)) return NaN
   try {
-    const teile = new Intl.DateTimeFormat('de-DE', {
+    const parts = new Intl.DateTimeFormat('de-DE', {
       timeZone: zone,
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
     }).formatToParts(new Date(ms))
-    const h = Number(teile.find((t) => t.type === 'hour')?.value)
-    const m = Number(teile.find((t) => t.type === 'minute')?.value)
+    const h = Number(parts.find((t) => t.type === 'hour')?.value)
+    const m = Number(parts.find((t) => t.type === 'minute')?.value)
     return Number.isFinite(h) && Number.isFinite(m) ? h + m / 60 : NaN
   } catch {
     return NaN // unbekannte Zeitzone
@@ -90,26 +90,26 @@ function stundeLokal(iso: string, zone: string): number {
  */
 export function wetFraction(keyframes: readonly WeatherKeyframe[]): number {
   if (keyframes.length === 0) return 0
-  const sortiert = [...keyframes].sort((a, b) => a.f - b.f)
-  let anteil = 0
-  for (const [i, kf] of sortiert.entries()) {
-    if (!NASS.has(kf.mode)) continue
-    const bis = sortiert[i + 1]?.f ?? 1
-    anteil += Math.max(0, Math.min(1, bis) - Math.max(0, kf.f))
+  const sorted = [...keyframes].sort((a, b) => a.f - b.f)
+  let share = 0
+  for (const [i, kf] of sorted.entries()) {
+    if (!WET_MODES.has(kf.mode)) continue
+    const bis = sorted[i + 1]?.f ?? 1
+    share += Math.max(0, Math.min(1, bis) - Math.max(0, kf.f))
   }
-  return Math.min(1, anteil)
+  return Math.min(1, share)
 }
 
 /** Höchster Punkt der Aufzeichnung in Metern (0, wenn keine Punkte vorliegen). */
-function maxHoehe(segmente: readonly UploadSegment[]): number {
-  let hoch = 0
-  for (const seg of segmente) for (const p of seg.pts) if (p[2] > hoch) hoch = p[2]
-  return hoch
+function maxElevation(segs: readonly UploadSegment[]): number {
+  let high = 0
+  for (const seg of segs) for (const p of seg.pts) if (p[2] > high) high = p[2]
+  return high
 }
 
 /** Breitengrad des ersten Punktes — grob genug, um die Tropen zu erkennen. */
-function starterBreite(segmente: readonly UploadSegment[]): number | null {
-  for (const seg of segmente) {
+function startLatitude(segs: readonly UploadSegment[]): number | null {
+  for (const seg of segs) {
     const p = seg.pts[0]
     if (p) return p[1]
   }
@@ -121,35 +121,36 @@ function starterBreite(segmente: readonly UploadSegment[]): number | null {
  * AUTO_MUSIK. Die Regeln greifen in dieser Reihenfolge; die erste, die zutrifft,
  * gewinnt. „Aufbruch" trägt jede Tour, für die nichts Besonderes gilt.
  */
-export function chooseMusic(eingabe: MusicInput): string {
-  const { segmente, weather, startIso, endeIso, zone } = eingabe
-  const beginn = stundeLokal(startIso, zone)
-  const ende = stundeLokal(endeIso, zone)
+export function chooseMusic(input: MusicInput): string {
+  const { segs, weather, startIso, endIso, zone } = input
+  const start2 = localHour(startIso, zone)
+  const end = localHour(endIso, zone)
 
   // 1. Nacht — Dunkelheit prägt eine Fahrt stärker als alles andere.
-  const nachts = (h: number): boolean => Number.isFinite(h) && (h < TAG_VON || h >= TAG_BIS)
-  if (nachts(beginn) && nachts(ende)) return AUTO_MUSIC.nachtfahrt
+  const nachts = (h: number): boolean => Number.isFinite(h) && (h < DAY_FROM || h >= DAY_TO)
+  if (nachts(start2) && nachts(end)) return AUTO_MUSIC.nachtfahrt
 
   // 2. Nässe über einem guten Drittel der Strecke.
-  if (weather && wetFraction(weather) >= NASS_AB) return AUTO_MUSIC.regentag
+  if (weather && wetFraction(weather) >= WET_FROM) return AUTO_MUSIC.regentag
 
   // 3. Berge — Höhenmeter oder schiere Höhe.
-  const stats = computeStats(segmente)
-  if (stats.gainM >= BERG_GEWINN_M || maxHoehe(segmente) >= BERG_HOEHE_M) return AUTO_MUSIC.bergpass
+  const stats = computeStats(segs)
+  if (stats.gainM >= MOUNTAIN_GAIN_M || maxElevation(segs) >= MOUNTAIN_ELEVATION_M)
+    return AUTO_MUSIC.bergpass
 
   // 4. Eine Fähre bedeutet Wasser — dafür ist die Küstenstraße da.
-  if (segmente.some((s) => s.mode === 'ferry')) return AUTO_MUSIC.kuestenstrasse
+  if (segs.some((s) => s.mode === 'ferry')) return AUTO_MUSIC.kuestenstrasse
 
   // 5. Zwischen den Wendekreisen.
-  const breite = starterBreite(segmente)
-  if (breite !== null && Math.abs(breite) <= TROPEN_BREITE) return AUTO_MUSIC.tropen
+  const latitude = startLatitude(segs)
+  if (latitude !== null && Math.abs(latitude) <= TROPICS_LATITUDE) return AUTO_MUSIC.tropen
 
   // 6. Ankunft im Abendlicht.
-  if (Number.isFinite(ende) && ende >= ABEND_VON && ende <= ABEND_BIS)
+  if (Number.isFinite(end) && end >= EVENING_FROM && end <= EVENING_TO)
     return AUTO_MUSIC.goldeneStunde
 
   // 7. Weite Strecke.
-  if (stats.km >= FERN_KM) return AUTO_MUSIC.fernweh
+  if (stats.km >= FAR_KM) return AUTO_MUSIC.fernweh
 
   return AUTO_MUSIC.aufbruch
 }

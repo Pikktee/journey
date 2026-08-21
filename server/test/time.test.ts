@@ -62,9 +62,9 @@ describe('baueZeitreihe', () => {
         ],
       },
     ])
-    expect(reihe.punkte).toHaveLength(4)
-    expect(reihe.gesamtM).toBeCloseTo(350, -1)
-    expect(reihe.dauerS).toBe(150)
+    expect(reihe.points).toHaveLength(4)
+    expect(reihe.totalM).toBeCloseTo(350, -1)
+    expect(reihe.durationS).toBe(150)
   })
 
   it('klemmt rückwärts laufende Zeit-Offsets monoton', () => {
@@ -78,7 +78,7 @@ describe('baueZeitreihe', () => {
         ],
       },
     ])
-    expect(reihe.punkte.map((p) => p.tSek)).toEqual([0, 100, 100])
+    expect(reihe.points.map((p) => p.tSec)).toEqual([0, 100, 100])
   })
 })
 
@@ -88,8 +88,8 @@ describe('findePausen', () => {
     const pausen = findPauses(reihe)
     expect(pausen).toHaveLength(1)
     // Der Aufenthaltsradius verwischt das Ende um wenige Punkte — das ist ok
-    expect(pausen[0]?.dauerS).toBeGreaterThanOrEqual(1500)
-    expect(pausen[0]?.dauerS).toBeLessThan(1500 + 240)
+    expect(pausen[0]?.durationS).toBeGreaterThanOrEqual(1500)
+    expect(pausen[0]?.durationS).toBeLessThan(1500 + 240)
   })
 
   it('findet die einzelne Aufzeichnungslücke am selben Ort', () => {
@@ -106,7 +106,7 @@ describe('findePausen', () => {
     ])
     const pausen = findPauses(reihe)
     expect(pausen).toHaveLength(1)
-    expect(pausen[0]?.dauerS).toBe(1800)
+    expect(pausen[0]?.durationS).toBe(1800)
   })
 
   it('meldet keine Pause bei durchgehender Bewegung', () => {
@@ -153,14 +153,14 @@ describe('raffePausen', () => {
     // Die Rampe reicht eine halbe Filmsekunden-Länge über die Pause hinaus;
     // alles, was weiter weg liegt, trägt exakt seinen Aufnahmezeitstempel.
     const halbeRampeM = metersForFilmSeconds(RAMP_MIN_FILM_S, 'walk') / 2
-    const pausenM = (reihe.punkte[pause.vonIdx] as { dist: number }).dist
+    const pausenM = (reihe.points[pause.fromIdx] as { dist: number }).dist
     let geprueft = 0
-    reihe.punkte.forEach((p, i) => {
+    reihe.points.forEach((p, i) => {
       if (Math.abs(p.dist - pausenM) < halbeRampeM * 2) return
-      expect(roh[i]).toBe(p.tSek)
+      expect(roh[i]).toBe(p.tSec)
       geprueft++
     })
-    expect(geprueft).toBeGreaterThan(reihe.punkte.length / 2)
+    expect(geprueft).toBeGreaterThan(reihe.points.length / 2)
   })
 
   it('erreicht am Fensterende wieder die echte Zeit (kein Rückstand)', () => {
@@ -170,16 +170,16 @@ describe('raffePausen', () => {
     const roh = compressPauses(reihe, findPauses(reihe))
     const pause = findPauses(reihe)[0]!
     // Direkt hinter der Pause ist der Rückstand schon aufgeholt …
-    const kurzDahinter = reihe.punkte.findIndex(
+    const kurzDahinter = reihe.points.findIndex(
       (p, i) =>
-        i > pause.bisIdx && p.dist > (reihe.punkte[pause.bisIdx] as { dist: number }).dist + 200,
+        i > pause.toIdx && p.dist > (reihe.points[pause.toIdx] as { dist: number }).dist + 200,
     )
-    expect(roh[kurzDahinter]).toBe((reihe.punkte[kurzDahinter] as { tSek: number }).tSek)
+    expect(roh[kurzDahinter]).toBe((reihe.points[kurzDahinter] as { tSec: number }).tSec)
   })
 
   it('bleibt monoton und lässt Touren ohne Pausen unverändert', () => {
     const reihe = buildTimeSeries([marsch()])
-    expect(compressPauses(reihe, [])).toEqual(reihe.punkte.map((p) => p.tSek))
+    expect(compressPauses(reihe, [])).toEqual(reihe.points.map((p) => p.tSec))
 
     const roh = compressPauses(mitPause(), findPauses(mitPause()))
     for (let i = 1; i < roh.length; i++) expect(roh[i]).toBeGreaterThanOrEqual(roh[i - 1] as number)
@@ -225,9 +225,9 @@ describe('kollabierePausen', () => {
 
   it('zieht die Drift-Wolke auf einen Ort — die Fake-Strecke verschwindet', () => {
     const roh = [marschMitDrift()]
-    const vorher = buildTimeSeries(roh).gesamtM
+    const vorher = buildTimeSeries(roh).totalM
     const erg = collapsePauses(roh)
-    const nachher = buildTimeSeries(erg).gesamtM
+    const nachher = buildTimeSeries(erg).totalM
     // Die Drift summierte hunderte Meter; übrig bleibt die Marschstrecke
     expect(vorher - nachher).toBeGreaterThan(300)
 
@@ -279,7 +279,7 @@ describe('kollabierePausen', () => {
     // punktförmigen Route (route.total = 0 → NaN im Player).
     const kurz = marschMitDrift({ dauerS: 1560, abS: 30, pauseS: 1500 })
     const erg = collapsePauses([kurz])
-    expect(buildTimeSeries(erg).gesamtM).toBe(buildTimeSeries([kurz]).gesamtM)
+    expect(buildTimeSeries(erg).totalM).toBe(buildTimeSeries([kurz]).totalM)
     expect(erg[0]).toBe(kurz)
     expect(COLLAPSE_MIN_REMAINDER_M).toBeGreaterThan(10) // Destillat-Schwelle bleibt darunter
   })

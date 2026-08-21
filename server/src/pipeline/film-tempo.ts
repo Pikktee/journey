@@ -65,13 +65,13 @@ export function tempoMs(mode: TravelMode): number {
 }
 
 /** Strecke (m), die im Film `sekunden` dauert. */
-export function metersForFilmSeconds(sekunden: number, mode: TravelMode): number {
-  return sekunden * tempoMs(mode)
+export function metersForFilmSeconds(seconds: number, mode: TravelMode): number {
+  return seconds * tempoMs(mode)
 }
 
 /** Filmdauer (s) eines Streckenstücks. */
-export function filmSeconds(meter: number, mode: TravelMode): number {
-  return meter / tempoMs(mode)
+export function filmSeconds(meters: number, mode: TravelMode): number {
+  return meters / tempoMs(mode)
 }
 
 /**
@@ -100,6 +100,6 @@ export function mediumHoldS(m: {
  * Ausblendung addiert, macht jeden Moment im Render um 0,8 s breiter als in der
  * Zeitleiste — und schiebt damit genau die Ton-Klips, um die es geht.
  */
-export function momentHoldS(m: { art: CameraMomentKind; dauerS?: number | undefined }): number {
-  return m.dauerS ?? MOMENT_DEFAULT_S[m.art]
+export function momentHoldS(m: { kind: CameraMomentKind; dauerS?: number | undefined }): number {
+  return m.dauerS ?? MOMENT_DEFAULT_S[m.kind]
 }

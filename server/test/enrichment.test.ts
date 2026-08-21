@@ -59,32 +59,32 @@ const tourJson = async (u: TestUmgebung, id: string): Promise<TourJson> =>
   JSON.parse((await u.storage.read(id, 'tour.json')).toString()) as TourJson
 
 /** Zähl-Momentaufnahme der drei externen Quellen. */
-function stand(u: TestUmgebung, wetter: FixedWeatherSource, klass: FixedClassifier) {
+function stand(u: TestUmgebung, weatherSource: FixedWeatherSource, klass: FixedClassifier) {
   return {
-    geo: (u.app.deps.geocoder as FixedGeocoder).aufrufe,
-    weather: wetter.abfragen.length,
-    klass: klass.aufrufe.length,
+    geo: (u.app.deps.geocoder as FixedGeocoder).calls,
+    weather: weatherSource.queries.length,
+    klass: klass.calls.length,
   }
 }
 
 /** App mit Zähl-Spies, eine fertig finalisierte Tour (Cache liegt vor). */
 async function baueUndFinalisiere() {
-  const wetter = new FixedWeatherSource(
+  const weatherSource = new FixedWeatherSource(
     testGrid(
       '2026-07-04T06',
-      Array.from({ length: 7 }, () => ({ wolken: 80 })),
+      Array.from({ length: 7 }, () => ({ clouds: 80 })),
     ),
   )
   const klass = new FixedClassifier({
-    himmel: 'bedeckt',
-    niederschlag: 'kein',
-    himmelSichtbar: true,
-    konfidenz: 0.9,
+    sky: 'bedeckt',
+    precipitation: 'kein',
+    skyVisible: true,
+    confidence: 0.9,
   })
   // Genug Ortsnamen für Finalize + späteres Neu-Geocoding (Trim/Reprocess).
   const u = await baueTestApp(
     ['Lauterbrunnen', 'Grindelwald', 'Wengen', 'Interlaken', 'Mürren', 'Zweilütschinen'],
-    wetter,
+    weatherSource,
     null,
     {},
     klass,
@@ -92,25 +92,25 @@ async function baueUndFinalisiere() {
   const id = await createTour(u)
   await ladeMediumHoch(u, id)
   await finalisiere(u, id)
-  return { u, wetter, klass, id }
+  return { u, weatherSource, klass, id }
 }
 
 describe('Anreicherungs-Cache', () => {
   it('Finalize füllt den Cache genau einmal', async () => {
-    const { u, wetter, klass, id } = await baueUndFinalisiere()
+    const { u, weatherSource, klass, id } = await baueUndFinalisiere()
     // Finalize (frisch): jede externe Quelle genau einmal (Geocoder: Start + Ziel)
-    expect(stand(u, wetter, klass)).toEqual({ geo: 2, weather: 1, klass: 1 })
+    expect(stand(u, weatherSource, klass)).toEqual({ geo: 2, weather: 1, klass: 1 })
     // Cache-Artefakt liegt neben tour.json und hält die Roh-Ergebnisse
     const cache = JSON.parse((await u.storage.read(id, 'enrichment.json')).toString())
-    expect(cache.schema).toBe('maptale/enrichment@2')
+    expect(cache.schema).toBe('maptale/enrichment@3')
     expect(cache.trimSignature).toBe('null') // kein Trim
     expect(cache.findings.m1).toBeTruthy()
     expect(cache.places).toEqual({ startOrt: 'Lauterbrunnen', zielOrt: 'Grindelwald' })
   })
 
   it('Edit ohne Trim (Caption) macht KEINE externen Aufrufe — rendert aber neu', async () => {
-    const { u, wetter, klass, id } = await baueUndFinalisiere()
-    const vor = stand(u, wetter, klass)
+    const { u, weatherSource, klass, id } = await baueUndFinalisiere()
+    const vor = stand(u, weatherSource, klass)
 
     await speichereEdits(u, id, {
       schema: 'maptale/edits@2',
@@ -118,15 +118,15 @@ describe('Anreicherungs-Cache', () => {
     })
 
     // Der teure Teil bleibt komplett aus (Cache trägt alles)
-    expect(stand(u, wetter, klass)).toEqual(vor)
+    expect(stand(u, weatherSource, klass)).toEqual(vor)
     // ... und der Edit ist trotzdem im gerenderten tour.json angekommen —
     // als ÜBERSCHRIFT, die Uhrzeit rutscht in die Unterzeile
     expect((await tourJson(u, id)).media[0]?.title).toBe('Schön hier')
   })
 
   it('Wetter-Edit ersetzt das Auto-Wetter OHNE externe Aufrufe (reine Render-Änderung)', async () => {
-    const { u, wetter, klass, id } = await baueUndFinalisiere()
-    const vor = stand(u, wetter, klass)
+    const { u, weatherSource, klass, id } = await baueUndFinalisiere()
+    const vor = stand(u, weatherSource, klass)
 
     // Wetter-Grenze am Tour-Start → ganze Tour „storm". Rein render-seitig: der
     // Cache (Geocoding/Auto-Wetter/Bildanalyse) trägt weiter, nichts wird neu geholt.
@@ -136,15 +136,15 @@ describe('Anreicherungs-Cache', () => {
       weather: [{ from: start, mode: 'storm' }],
     })
 
-    expect(stand(u, wetter, klass)).toEqual(vor)
+    expect(stand(u, weatherSource, klass)).toEqual(vor)
     const weather = (await tourJson(u, id)).weather ?? []
     expect(weather.length).toBeGreaterThan(0)
     expect(weather.every((w) => w.source === 'studio' && w.mode === 'storm')).toBe(true)
   })
 
   it('Trim holt Ortsnamen + Wetter neu, aber NICHT die Bildanalyse', async () => {
-    const { u, wetter, klass, id } = await baueUndFinalisiere()
-    const vor = stand(u, wetter, klass)
+    const { u, weatherSource, klass, id } = await baueUndFinalisiere()
+    const vor = stand(u, weatherSource, klass)
 
     // Trim verschiebt den Startpunkt → Ortsnamen + Wetter (trim-abhängig) neu
     await speichereEdits(u, id, {
@@ -152,15 +152,15 @@ describe('Anreicherungs-Cache', () => {
       trim: { start: '2026-07-04T08:13:00+02:00' },
     })
 
-    const nach = stand(u, wetter, klass)
+    const nach = stand(u, weatherSource, klass)
     expect(nach.geo - vor.geo).toBe(2) // Start + Ziel neu geocodiert
     expect(nach.weather - vor.weather).toBe(1) // Auto-Wetter neu
     expect(nach.klass - vor.klass).toBe(0) // Bildanalyse bleibt gecacht — der teure Teil
   })
 
   it('„Neu verarbeiten" (reprocess) holt alles frisch — auch die Bildanalyse', async () => {
-    const { u, wetter, klass, id } = await baueUndFinalisiere()
-    const vor = stand(u, wetter, klass)
+    const { u, weatherSource, klass, id } = await baueUndFinalisiere()
+    const vor = stand(u, weatherSource, klass)
 
     const antwort = await u.app.inject({
       method: 'POST',
@@ -170,7 +170,7 @@ describe('Anreicherungs-Cache', () => {
     expect(antwort.statusCode).toBe(202)
     await u.app.processing.get(id)
 
-    const nach = stand(u, wetter, klass)
+    const nach = stand(u, weatherSource, klass)
     expect(nach.geo - vor.geo).toBe(2)
     expect(nach.weather - vor.weather).toBe(1)
     expect(nach.klass - vor.klass).toBe(1) // frisch klassifiziert

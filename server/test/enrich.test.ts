@@ -12,23 +12,23 @@ const bewoelkt = () =>
   new FixedWeatherSource(
     testGrid(
       '2026-07-04T06',
-      Array.from({ length: 7 }, () => ({ wolken: 80 })),
+      Array.from({ length: 7 }, () => ({ clouds: 80 })),
     ),
   )
 const regnerisch = () =>
   new FixedWeatherSource(
     testGrid(
       '2026-07-04T06',
-      Array.from({ length: 7 }, () => ({ code: 61, regenMm: 1, wolken: 95 })),
+      Array.from({ length: 7 }, () => ({ code: 61, rainMm: 1, clouds: 95 })),
     ),
   )
 
 const eingabe = (patch: Partial<Parameters<typeof enrichTour>[0]> = {}) => ({
   tourId: 't_test1234',
-  nummer: 7,
+  no: 7,
   manifest: beispielManifest(),
-  titelOverride: null,
-  beschreibungOverride: null,
+  titleOverride: null,
+  descriptionOverride: null,
   geocoder: new FixedGeocoder(['Lauterbrunnen', 'Grindelwald']),
   ...patch,
 })
@@ -263,7 +263,7 @@ describe('reichereAn', () => {
   })
 
   it('respektiert Titel-Override aus der DB', async () => {
-    const tour = await enrichTour(eingabe({ titelOverride: 'Mein Tag im Oberland' }))
+    const tour = await enrichTour(eingabe({ titleOverride: 'Mein Tag im Oberland' }))
     expect(tour.brandTitle).toBe('Mein Tag im Oberland')
     expect(tour.titleHtml).toContain('<br />')
   })
@@ -274,12 +274,12 @@ describe('reichereAn', () => {
     expect(aus.finaleTitle).toBe('Grindelwald')
 
     const an = await enrichTour(
-      eingabe({ showFinale: true, finaleZielOverride: 'Gletscherschlucht' }),
+      eingabe({ showFinale: true, finaleTargetOverride: 'Gletscherschlucht' }),
     )
     expect(an.showFinale).toBe(true)
     expect(an.finaleTitle).toBe('Gletscherschlucht')
 
-    const leer = await enrichTour(eingabe({ showFinale: true, finaleZielOverride: '  ' }))
+    const leer = await enrichTour(eingabe({ showFinale: true, finaleTargetOverride: '  ' }))
     expect(leer.finaleTitle).toBe('Grindelwald')
   })
 
@@ -299,28 +299,28 @@ describe('reichereAn', () => {
 
   it('rendert Auto-Wetter-Keyframes, wenn eine Quelle da ist (M2)', async () => {
     // Tour läuft 06:12–12:02 UTC → 7 Stunden-Raster deckt alle Samples
-    const wetter = new FixedWeatherSource(
+    const weatherSource = new FixedWeatherSource(
       testGrid(
         '2026-07-04T06',
-        Array.from({ length: 7 }, () => ({ wolken: 80 })),
+        Array.from({ length: 7 }, () => ({ clouds: 80 })),
       ),
     )
-    const tour = await enrichTour(eingabe({ wetter }))
+    const tour = await enrichTour(eingabe({ weatherSource }))
     expect(tour.weather).toEqual([{ f: 0, mode: 'clouds', k: 0.84, source: 'openmeteo' }])
-    expect(wetter.abfragen[0]?.startTag).toBe('2026-07-04')
+    expect(weatherSource.queries[0]?.startDay).toBe('2026-07-04')
   })
 
   it('lässt weather bei Quellen-Ausfall weg statt zu scheitern', async () => {
     const kaputt = new FixedWeatherSource({
-      zeiten: [],
+      times: [],
       code: [],
-      wolken: [],
-      regen: [],
-      schnee: [],
+      clouds: [],
+      rain: [],
+      snow: [],
     })
     const meldungen: string[] = []
     const tour = await enrichTour(
-      eingabe({ wetter: kaputt, protokoll: (m: string) => meldungen.push(m) }),
+      eingabe({ weatherSource: kaputt, log: (m: string) => meldungen.push(m) }),
     )
     expect(tour.status).toBe('ready')
     expect(tour.weather).toBeUndefined()
@@ -331,15 +331,15 @@ describe('reichereAn', () => {
   // — Wetter-Verfeinerung per Bildanalyse (M5) —
 
   const gewitterBefund: ImageFinding = {
-    himmel: 'bedeckt',
-    niederschlag: 'gewitter',
-    himmelSichtbar: true,
-    konfidenz: 0.9,
+    sky: 'bedeckt',
+    precipitation: 'gewitter',
+    skyVisible: true,
+    confidence: 0.9,
   }
 
   it('verfeinert das Wetter mit Foto-Befunden: ein source:photo-Keyframe erscheint (M5)', async () => {
-    const bildBefunde = new Map<string, ImageFinding>([['m1', gewitterBefund]])
-    const tour = await enrichTour(eingabe({ wetter: bewoelkt(), bildBefunde }))
+    const imageFindings = new Map<string, ImageFinding>([['m1', gewitterBefund]])
+    const tour = await enrichTour(eingabe({ weatherSource: bewoelkt(), imageFindings }))
     const photo = tour.weather?.filter((w) => w.source === 'photo') ?? []
     expect(photo.length).toBeGreaterThan(0)
     expect(photo.every((w) => w.mode === 'storm')).toBe(true)
@@ -348,10 +348,10 @@ describe('reichereAn', () => {
   })
 
   it('lässt API-Niederschlag gegen ein klar-Foto stehen (M5)', async () => {
-    const bildBefunde = new Map<string, ImageFinding>([
-      ['m1', { himmel: 'klar', niederschlag: 'kein', himmelSichtbar: true, konfidenz: 0.95 }],
+    const imageFindings = new Map<string, ImageFinding>([
+      ['m1', { sky: 'klar', precipitation: 'kein', skyVisible: true, confidence: 0.95 }],
     ])
-    const tour = await enrichTour(eingabe({ wetter: regnerisch(), bildBefunde }))
+    const tour = await enrichTour(eingabe({ weatherSource: regnerisch(), imageFindings }))
     expect(tour.weather?.some((w) => w.source === 'photo')).toBeFalsy()
     expect(tour.weather?.every((w) => w.mode === 'rain')).toBe(true)
   })
@@ -365,13 +365,13 @@ describe('reichereAn', () => {
       file: 'x.jpg',
       takenAt: '2026-07-04T06:00:00+02:00',
     })
-    const bildBefunde = new Map<string, ImageFinding>([['m2', gewitterBefund]])
-    const tour = await enrichTour(eingabe({ manifest, wetter: bewoelkt(), bildBefunde }))
+    const imageFindings = new Map<string, ImageFinding>([['m2', gewitterBefund]])
+    const tour = await enrichTour(eingabe({ manifest, weatherSource: bewoelkt(), imageFindings }))
     expect(tour.weather?.some((w) => w.source === 'photo')).toBeFalsy()
   })
 
   it('lässt das Wetter ohne Bild-Befunde exakt wie in M2 (Regressionsschutz)', async () => {
-    const tour = await enrichTour(eingabe({ wetter: bewoelkt() }))
+    const tour = await enrichTour(eingabe({ weatherSource: bewoelkt() }))
     expect(tour.weather).toEqual([{ f: 0, mode: 'clouds', k: 0.84, source: 'openmeteo' }])
   })
 
@@ -381,24 +381,24 @@ describe('reichereAn', () => {
   const abZeit = (offsetS: number): string => new Date(START_MS + offsetS * 1000).toISOString()
 
   it('edits.weather ersetzt das Auto-Wetter und ruft die Quelle gar nicht', async () => {
-    const wetter = bewoelkt()
+    const weatherSource = bewoelkt()
     const tour = await enrichTour(
       eingabe({
-        wetter,
+        weatherSource,
         edits: { schema: 'maptale/edits@2', weather: [{ from: abZeit(0), mode: 'rain' }] },
       }),
     )
     expect(tour.weather?.every((w) => w.source === 'studio')).toBe(true)
     expect(tour.weather?.every((w) => w.mode === 'rain')).toBe(true) // Grenze am Start → ganze Tour Regen
-    expect(wetter.abfragen).toHaveLength(0) // Auto-Wetter-Pfad übersprungen
+    expect(weatherSource.queries).toHaveLength(0) // Auto-Wetter-Pfad übersprungen
   })
 
   it('überspringt bei edits.weather auch die Foto-Verfeinerung (M5)', async () => {
-    const bildBefunde = new Map<string, ImageFinding>([['m1', gewitterBefund]])
+    const imageFindings = new Map<string, ImageFinding>([['m1', gewitterBefund]])
     const tour = await enrichTour(
       eingabe({
-        wetter: bewoelkt(),
-        bildBefunde,
+        weatherSource: bewoelkt(),
+        imageFindings,
         edits: { schema: 'maptale/edits@2', weather: [{ from: abZeit(0), mode: 'clouds' }] },
       }),
     )

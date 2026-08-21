@@ -70,8 +70,8 @@ describe('baueSegmentAusGpx', () => {
   const endMs = Date.parse('2026-07-04T08:30:00Z')
 
   it('nutzt echte Zeitstempel für die Offsets', () => {
-    const { segment, hatZeit } = buildSegmentFromGpx(parseGpx(GPX_MIT_ZEIT), { startMs, endMs })
-    expect(hatZeit).toBe(true)
+    const { segment, hasTime } = buildSegmentFromGpx(parseGpx(GPX_MIT_ZEIT), { startMs, endMs })
+    expect(hasTime).toBe(true)
     expect(segment.pts[0]?.[3]).toBe(0) // erster Punkt bei t=0
     expect(segment.pts[1]?.[3]).toBe(600) // +10 min
     expect(segment.pts[2]?.[3]).toBe(1800) // +30 min
@@ -79,15 +79,15 @@ describe('baueSegmentAusGpx', () => {
   })
 
   it('verteilt Offsets distanzproportional, wenn Zeitstempel fehlen', () => {
-    const { segment, hatZeit } = buildSegmentFromGpx(parseGpx(GPX_OHNE_ZEIT), { startMs, endMs })
-    expect(hatZeit).toBe(false)
+    const { segment, hasTime } = buildSegmentFromGpx(parseGpx(GPX_OHNE_ZEIT), { startMs, endMs })
+    expect(hasTime).toBe(false)
     expect(segment.pts[0]?.[3]).toBe(0)
     expect(segment.pts[1]?.[3]).toBe(1800) // einziges Intervall → volle Spanne
   })
 
   it('übernimmt einen vorgegebenen Modus, sonst Tempo-Heuristik', () => {
     expect(
-      buildSegmentFromGpx(parseGpx(GPX_MIT_ZEIT), { startMs, endMs, modus: 'ferry' }).segment.mode,
+      buildSegmentFromGpx(parseGpx(GPX_MIT_ZEIT), { startMs, endMs, mode2: 'ferry' }).segment.mode,
     ).toBe('ferry')
     // ~0,7 km in 30 min = ~1,4 km/h → walk
     expect(buildSegmentFromGpx(parseGpx(GPX_MIT_ZEIT), { startMs, endMs }).segment.mode).toBe(

@@ -3803,3 +3803,37 @@ medien	media	property	server/src/pipeline/image.ts + video.ts (preparePhotos/pre
 speicher	storage	property	server/src/pipeline/image.ts + video.ts (preparePhotos/prepareVideos-Eingabe)	10	Nachlauf: Aufrufoption
 werkzeug	tool	property	server/src/pipeline/image.ts + video.ts (preparePhotos/prepareVideos-Eingabe)	10	Nachlauf: Aufrufoption
 protokoll	log	property	server/src/pipeline/image.ts + video.ts + image-addendum.ts	10	Nachlauf: Aufrufoption (Hinweiskanal), nicht das AuditLog
+punkte	points	property	server/src/pipeline/time.ts (TimeSeries)	10	Nachlauf: Zeitreihe im Prozess, nicht persistiert
+gesamtM	totalM	property	server/src/pipeline/time.ts (TimeSeries); gpx.ts	10	Nachlauf
+tSek	tSec	property	server/src/pipeline/time.ts (TimePoint)	10	Nachlauf
+ort	at	property	server/src/pipeline/film-axis.ts (RampNode)	10	Nachlauf: Spiegel von src/film-axis.ts, dort hiess das Feld schon at
+halte	stops	property	server/src/pipeline/film-axis.ts (RampNode)	10	Nachlauf: Spiegel; web = stops
+vLinks	vLeft	property	server/src/pipeline/film-axis.ts (RampNode)	10	Nachlauf: Spiegel; web = vLeft
+vRechts	vRight	property	server/src/pipeline/film-axis.ts (RampNode)	10	Nachlauf: Spiegel; web = vRight
+wunschL	wantL	property	server/src/pipeline/film-axis.ts (RampNode)	10	Nachlauf: Spiegel; web = wantL
+wunschR	wantR	property	server/src/pipeline/film-axis.ts (RampNode)	10	Nachlauf: Spiegel; web = wantR
+meter	meters	property	server/src/pipeline/film-axis.ts (DistanceStop, projectOntoTimeSeries)	10	Nachlauf: Prozessform
+gehen	walking	property	server/src/pipeline/tempo.ts (Section)	10	Nachlauf: Prozessform
+hatZeit	hasTime	property	server/src/pipeline/gpx.ts (GpxSegmentResult)	10	Nachlauf: Prozessform
+nummer	no	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption; die DB-Spalte heisst schon no
+titelOverride	titleOverride	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption
+beschreibungOverride	descriptionOverride	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption
+dachzeileOverride	kickerOverride	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption; §6.1 Dachzeile=kicker
+finaleZielOverride	finaleTargetOverride	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption
+audioDateien	audioFiles	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption
+benutzerAudioDateien	userAudioFiles	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption
+wetter	weatherSource	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption; weatherRaw daneben bleibt
+fotoMeta	photoMeta	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption
+bildBefunde	imageFindings	property	server/src/pipeline/enrich.ts (EnrichmentInput)	10	Nachlauf: Aufrufoption
+regenMm	rainMm	property	server/src/pipeline/weather.ts (WeatherHour)	10	Nachlauf: Anbieter-Stundenwert im Prozess, nicht persistiert
+schneeCm	snowCm	property	server/src/pipeline/weather.ts (WeatherHour)	10	Nachlauf: Anbieter-Stundenwert im Prozess
+wolken	clouds	property	server/src/pipeline/weather.ts (WeatherHour)	10	Nachlauf: Anbieter-Stundenwert im Prozess
+startTag	startDay	property	server/src/pipeline/weather.ts (Abfrageprotokoll der Testquelle)	10	Nachlauf
+endeTag	endDay	property	server/src/pipeline/weather.ts (Abfrageprotokoll der Testquelle)	10	Nachlauf
+endeIso	endIso	property	server/src/pipeline/music-choice.ts (MusicInput)	10	Nachlauf: Aufrufoption
+befund	finding	property	server/src/pipeline/vision.ts (refineWeatherWithPhotos-Eingabe)	10	Nachlauf: Aufrufoption; ImageFinding selbst war schon englisch
+daten	data	property	server/src/pipeline/vision.ts (ImageClassifier.classify)	10	Nachlauf: Aufrufoption
+medientyp	mediaType	property	server/src/pipeline/vision.ts (ImageClassifier.classify)	10	Nachlauf: §6.1 mediaType
+startOrt	bleibt	property	server/src/pipeline/naming.ts (Endpoints)	10	BLEIBT: persistierter Schluessel in enrichment.json (EnrichmentCache.places)
+zielOrt	bleibt	property	server/src/pipeline/naming.ts (Endpoints)	10	BLEIBT: persistierter Schluessel in enrichment.json (EnrichmentCache.places)
+startEbenen	bleibt	property	server/src/pipeline/naming.ts (Endpoints)	10	BLEIBT: persistierter Schluessel in enrichment.json und Vorschlagsliste der Editor-Route

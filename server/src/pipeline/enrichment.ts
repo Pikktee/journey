@@ -1,4 +1,4 @@
-// Anreicherungs-Cache (`maptale/enrichment@2`): die TEUREN, extern beschafften
+// Anreicherungs-Cache (`maptale/enrichment@3`): die TEUREN, extern beschafften
 // Ergebnisse der Pipeline liegen als eigenes Artefakt neben tour.json — sie
 // hängen alle an den UNVERÄNDERLICHEN Rohdaten, nicht am Edit-Overlay. Dadurch
 // muss ein Edit-Speichern nur noch das Overlay lokal anwenden (Sekunden­bruchteil)
@@ -20,7 +20,12 @@ import type { ImageFinding } from './vision.js'
 import { computeWeather, type WeatherKeyframe, type WeatherSource } from './weather.js'
 import { buildTimeSeries } from './time.js'
 
-export const ENRICHMENT_SCHEMA_ID = 'maptale/enrichment@2'
+// @3 seit dem Englisch-Nachlauf: `videoMeta` trägt darin die Felder videoFile
+// und posterFile (vorher videoDatei/posterDatei). Ein Cache aus @2 fällt durch
+// den Gleichheitstest in routes/tours.ts und wird neu gerechnet — der Preis ist
+// EIN Anreicherungslauf je Tour. Ohne den Sprung läse enrich.ts `undefined` und
+// fiele auf den Namen des Originals zurück, das längst verworfen ist.
+export const ENRICHMENT_SCHEMA_ID = 'maptale/enrichment@3'
 
 export interface EnrichmentCache {
   schema: typeof ENRICHMENT_SCHEMA_ID
@@ -89,33 +94,33 @@ export async function computeRawEnrichment(e: {
   edits?: EditOverlay | null
   geocoder: Geocoder
   weather?: WeatherSource | null
-  protokoll?: (nachricht: string) => void
+  log?: (message: string) => void
 }): Promise<{ places: Endpoints; weatherRaw: WeatherKeyframe[] | null }> {
   const startMs = Date.parse(e.manifest.time.start)
-  const rohSegmente = applyEditsToSegments(e.manifest.segments ?? [], e.edits ?? null, startMs)
-  const erstes = rohSegmente[0]
-  const letztes = rohSegmente[rohSegmente.length - 1]
-  if (!erstes || !letztes)
+  const rawSegments = applyEditsToSegments(e.manifest.segments ?? [], e.edits ?? null, startMs)
+  const first = rawSegments[0]
+  const last = rawSegments[rawSegments.length - 1]
+  if (!first || !last)
     throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
-  const startPunkt = erstes.pts[0] as UploadPoint
-  const zielPunkt = letztes.pts[letztes.pts.length - 1] as UploadPoint
+  const startPoint = first.pts[0] as UploadPoint
+  const endPoint = last.pts[last.pts.length - 1] as UploadPoint
 
   const places = await geocodeEndpoints(
     e.geocoder,
-    [startPunkt[0], startPunkt[1]],
-    [zielPunkt[0], zielPunkt[1]],
+    [startPoint[0], startPoint[1]],
+    [endPoint[0], endPoint[1]],
   )
 
   let weatherRaw: WeatherKeyframe[] | null = null
   if (e.weather) {
     try {
       weatherRaw = await computeWeather({
-        reihe: buildTimeSeries(rohSegmente),
+        series: buildTimeSeries(rawSegments),
         startIso: e.manifest.time.start,
-        quelle: e.weather,
+        source: e.weather,
       })
-    } catch (fehler) {
-      e.protokoll?.(`Auto-Wetter nicht verfügbar: ${(fehler as Error).message}`)
+    } catch (error) {
+      e.log?.(`Auto-Wetter nicht verfügbar: ${(error as Error).message}`)
     }
   }
   return { places, weatherRaw }

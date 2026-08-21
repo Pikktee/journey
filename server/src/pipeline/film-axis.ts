@@ -48,7 +48,7 @@ export interface FilmAxis {
 }
 
 /** Meter zwischen zwei Punkten (lokale Plattkarte — auf Segmentlänge genau genug). */
-function meterZwischen(a: { lng: number; lat: number }, b: { lng: number; lat: number }): number {
+function metersBetween(a: { lng: number; lat: number }, b: { lng: number; lat: number }): number {
   const kx = 111_320 * Math.cos((a.lat * Math.PI) / 180)
   const dx = (b.lng - a.lng) * kx
   const dy = (b.lat - a.lat) * 110_540
@@ -63,7 +63,7 @@ function meterZwischen(a: { lng: number; lat: number }, b: { lng: number; lat: n
  * andere Wahl verschöbe jeden Anker, der genau auf einer Halt-Zeit sitzt, um
  * die ganze Standzeit.
  */
-function interpoliere(xs: readonly number[], ys: readonly number[], x: number): number {
+function interpolate(xs: readonly number[], ys: readonly number[], x: number): number {
   const n = xs.length
   if (n === 0) return 0
   if (x <= (xs[0] as number)) return ys[0] as number
@@ -71,14 +71,14 @@ function interpoliere(xs: readonly number[], ys: readonly number[], x: number): 
   let lo = 0
   let hi = n - 1
   while (lo < hi) {
-    const mitte = (lo + hi) >> 1
-    if ((xs[mitte] as number) < x) lo = mitte + 1
-    else hi = mitte
+    const mid = (lo + hi) >> 1
+    if ((xs[mid] as number) < x) lo = mid + 1
+    else hi = mid
   }
   const a = xs[lo - 1] as number
   const b = xs[lo] as number
-  const spanne = b - a
-  const u = spanne > 0 ? (x - a) / spanne : 1
+  const span = b - a
+  const u = span > 0 ? (x - a) / span : 1
   return (ys[lo - 1] as number) + u * ((ys[lo] as number) - (ys[lo - 1] as number))
 }
 
@@ -92,23 +92,23 @@ function interpoliere(xs: readonly number[], ys: readonly number[], x: number): 
  * durch das MITTLERE Tempo. Für `v0 = 0` fällt daraus die Halt-Rampe heraus
  * (`2u³ − u⁴`, `T = 2L/v1`).
  */
-function rampenWeg(u: number, v0: number, v1: number): number {
-  const mittel = (v0 + v1) / 2
-  if (!(mittel > 0)) return u
-  return (v0 * u + (v1 - v0) * (u * u * u - (u * u * u * u) / 2)) / mittel
+function rampDistance(u: number, v0: number, v1: number): number {
+  const mean = (v0 + v1) / 2
+  if (!(mean > 0)) return u
+  return (v0 * u + (v1 - v0) * (u * u * u - (u * u * u * u) / 2)) / mean
 }
 
 /** Stützstellen je Rampe — dieselbe Abtastung wie im Web. */
-const RAMPEN_STUFEN = 12
+const RAMP_STEPS = 12
 
 /** Ein Punkt der Achse, an dem sich das Tempo ändert — Spiegel von `Rampenknoten`. */
-interface Rampenknoten {
-  ort: number
-  halte: AxisStop[]
-  vLinks: number
-  vRechts: number
-  wunschL: number
-  wunschR: number
+interface RampNode {
+  at: number
+  stops: AxisStop[]
+  vLeft: number
+  vRight: number
+  wantL: number
+  wantR: number
   lenL: number
   lenR: number
 }
@@ -127,70 +127,70 @@ interface Rampenknoten {
  * Rampe mit runden Längen, die Dosierung steht als `RAMP_M` in film-tempo.ts.
  */
 export function buildFilmAxis(
-  reihe: TimeSeries,
-  halte: readonly AxisStop[],
-  rampeM: number = RAMP_M,
+  series: TimeSeries,
+  stops: readonly AxisStop[],
+  rampM: number = RAMP_M,
 ): FilmAxis | null {
   // — Der Zeit→Strecke-Adapter und die Tempo-Stufen über der Strecke —
   const tS: number[] = []
   const mM: number[] = []
-  const stufen: Array<{ abM: number; v: number }> = []
-  let meter = 0
-  const punkte = reihe.punkte
-  for (let i = 0; i < punkte.length; i++) {
-    const p = punkte[i]
+  const steps: Array<{ abM: number; v: number }> = []
+  let meters = 0
+  const points = series.points
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]
     if (!p) continue
     if (i > 0) {
-      const vor = punkte[i - 1]
+      const before = points[i - 1]
       // Das Tempo des Punktes, VON dem gefahren wird — Grenzen wirken ab ihrem
       // Punkt, exakt wie in der Studio-Achse.
-      if (vor) meter += meterZwischen(vor, p)
+      if (before) meters += metersBetween(before, p)
     }
     const v = tempoMs(p.mode)
-    const letzte = stufen[stufen.length - 1]
-    if (!letzte) stufen.push({ abM: 0, v })
-    else if (letzte.abM === meter) letzte.v = v
-    else if (letzte.v !== v) stufen.push({ abM: meter, v })
-    const letzter = tS.length - 1
-    if (letzter >= 0 && tS[letzter] === p.tSek && mM[letzter] === meter) continue
-    tS.push(p.tSek)
-    mM.push(meter)
+    const last = steps[steps.length - 1]
+    if (!last) steps.push({ abM: 0, v })
+    else if (last.abM === meters) last.v = v
+    else if (last.v !== v) steps.push({ abM: meters, v })
+    const prev = tS.length - 1
+    if (prev >= 0 && tS[prev] === p.tSec && mM[prev] === meters) continue
+    tS.push(p.tSec)
+    mM.push(meters)
   }
-  if (tS.length < 2 || !(meter > 0) || stufen.length === 0) return null
-  const gesamtM = meter
+  if (tS.length < 2 || !(meters > 0) || steps.length === 0) return null
+  const totalM = meters
   // Tempowechsel in der Rampenzone eines Halts wandern AUF den Halt — sonst
   // quetschen sich Wechsel- und Halt-Rampe in die paar Meter dazwischen, und
   // der Film beschleunigt auf voller Höhe, um sofort wieder zu stehen (an
   // Stockholm gemessen: Grenze zu Fuß → Fähre 13 m vor einem Halt).
-  const halteOrte = [...halte]
+  const stopPositions = [...stops]
     .filter((h) => h.widthS > 0)
-    .map((h) => Math.max(0, Math.min(gesamtM, interpoliere(tS, mM, h.offsetS))))
+    .map((h) => Math.max(0, Math.min(totalM, interpolate(tS, mM, h.offsetS))))
     .sort((a, b) => a - b)
-  if (rampeM > 0 && halteOrte.length > 0 && stufen.length > 1) {
-    for (const st of stufen.slice(1)) {
-      let naechster: number | undefined
-      for (const o of halteOrte) {
-        const abstand = Math.abs(o - st.abM)
-        if (abstand < rampeM && (naechster === undefined || abstand < Math.abs(naechster - st.abM)))
-          naechster = o
+  if (rampM > 0 && stopPositions.length > 0 && steps.length > 1) {
+    for (const st of steps.slice(1)) {
+      let nextPoint: number | undefined
+      for (const o of stopPositions) {
+        const dist = Math.abs(o - st.abM)
+        if (dist < rampM && (nextPoint === undefined || dist < Math.abs(nextPoint - st.abM)))
+          nextPoint = o
       }
-      if (naechster !== undefined) st.abM = naechster
+      if (nextPoint !== undefined) st.abM = nextPoint
     }
-    stufen.sort((a, b) => a.abM - b.abM)
-    const geraeumt: Array<{ abM: number; v: number }> = []
-    for (const st of stufen) {
-      const letzte = geraeumt[geraeumt.length - 1]
-      if (!letzte) geraeumt.push(st)
-      else if (letzte.abM === st.abM) letzte.v = st.v
-      else if (letzte.v !== st.v) geraeumt.push(st)
+    steps.sort((a, b) => a.abM - b.abM)
+    const cleared: Array<{ abM: number; v: number }> = []
+    for (const st of steps) {
+      const last = cleared[cleared.length - 1]
+      if (!last) cleared.push(st)
+      else if (last.abM === st.abM) last.v = st.v
+      else if (last.v !== st.v) cleared.push(st)
     }
-    stufen.length = 0
-    stufen.push(...geraeumt)
+    steps.length = 0
+    steps.push(...cleared)
   }
 
-  const tempoBei = (m: number): number => {
-    let v = (stufen[0] as { v: number }).v
-    for (const st of stufen) if (st.abM <= m) v = st.v
+  const tempoAt = (m: number): number => {
+    let v = (steps[0] as { v: number }).v
+    for (const st of steps) if (st.abM <= m) v = st.v
     return v
   }
 
@@ -198,111 +198,111 @@ export function buildFilmAxis(
   //
   // Halte auf die Strecke ziehen — nach ZEIT vorsortiert, damit mehrere Halte
   // in derselben realen Pause (gleicher Meterstand) ihre Reihenfolge behalten.
-  const knoten: Rampenknoten[] = []
-  const knotenAn = (ort: number): Rampenknoten => {
-    const da = knoten.find((k) => k.ort === ort)
+  const nodes: RampNode[] = []
+  const nodeAt = (at: number): RampNode => {
+    const da = nodes.find((k) => k.at === at)
     if (da) return da
-    const neu: Rampenknoten = {
-      ort,
-      halte: [],
-      vLinks: ort <= 0 ? 0 : tempoBei(ort - 1e-9),
-      vRechts: ort >= gesamtM ? 0 : tempoBei(ort),
-      wunschL: 0,
-      wunschR: 0,
+    const fresh: RampNode = {
+      at,
+      stops: [],
+      vLeft: at <= 0 ? 0 : tempoAt(at - 1e-9),
+      vRight: at >= totalM ? 0 : tempoAt(at),
+      wantL: 0,
+      wantR: 0,
       lenL: 0,
       lenR: 0,
     }
-    knoten.push(neu)
-    return neu
+    nodes.push(fresh)
+    return fresh
   }
-  knotenAn(0)
-  knotenAn(gesamtM)
-  for (const st of stufen.slice(1)) if (st.abM > 0 && st.abM < gesamtM) knotenAn(st.abM)
-  for (const h of [...halte].filter((x) => x.widthS > 0).sort((a, b) => a.offsetS - b.offsetS)) {
-    knotenAn(Math.max(0, Math.min(gesamtM, interpoliere(tS, mM, h.offsetS)))).halte.push(h)
+  nodeAt(0)
+  nodeAt(totalM)
+  for (const st of steps.slice(1)) if (st.abM > 0 && st.abM < totalM) nodeAt(st.abM)
+  for (const h of [...stops].filter((x) => x.widthS > 0).sort((a, b) => a.offsetS - b.offsetS)) {
+    nodeAt(Math.max(0, Math.min(totalM, interpolate(tS, mM, h.offsetS)))).stops.push(h)
   }
-  knoten.sort((a, b) => a.ort - b.ort)
+  nodes.sort((a, b) => a.at - b.at)
 
-  for (const k of knoten) {
-    const amStart = k.ort <= 0
-    const amEnde = k.ort >= gesamtM
-    if (k.halte.length > 0) {
-      k.wunschL = amStart ? 0 : rampeM
-      k.wunschR = amEnde ? 0 : rampeM
-    } else if (amStart) {
-      k.wunschR = rampeM
-    } else if (!amEnde) {
+  for (const k of nodes) {
+    const atStart = k.at <= 0
+    const atEnd = k.at >= totalM
+    if (k.stops.length > 0) {
+      k.wantL = atStart ? 0 : rampM
+      k.wantR = atEnd ? 0 : rampM
+    } else if (atStart) {
+      k.wantR = rampM
+    } else if (!atEnd) {
       // Modus-Grenze: EINE Rampe, ganz im SCHNELLEREN Abschnitt — beim
       // Beschleunigen hinter der Grenze, beim Verzögern davor. Symmetrisch
       // gelegt liefe der langsamere Modus auf seinen letzten Metern schon mit
       // dem Tempo des schnelleren.
-      if (k.vRechts > k.vLinks) k.wunschR = rampeM
-      else k.wunschL = rampeM
+      if (k.vRight > k.vLeft) k.wantR = rampM
+      else k.wantL = rampM
     }
   }
   // Kollidierende Rampen teilen sich die Lücke anteilig nach ihrem Bedarf.
-  for (let i = 0; i + 1 < knoten.length; i++) {
-    const links = knoten[i] as Rampenknoten
-    const rechts = knoten[i + 1] as Rampenknoten
-    const luecke = Math.max(0, rechts.ort - links.ort)
-    const bedarf = links.wunschR + rechts.wunschL
-    const faktor = bedarf > luecke ? (bedarf > 0 ? luecke / bedarf : 0) : 1
-    links.lenR = links.wunschR * faktor
-    rechts.lenL = rechts.wunschL * faktor
+  for (let i = 0; i + 1 < nodes.length; i++) {
+    const left = nodes[i] as RampNode
+    const right = nodes[i + 1] as RampNode
+    const gap = Math.max(0, right.at - left.at)
+    const need = left.wantR + right.wantL
+    const factor = need > gap ? (need > 0 ? gap / need : 0) : 1
+    left.lenR = left.wantR * factor
+    right.lenL = right.wantL * factor
   }
 
   // — Der Durchgang —
   const sM: number[] = [0]
   const filmS: number[] = [0]
   let pos = 0
-  let film = 0
+  let filmAt = 0
 
-  const setze = (m: number, f: number): void => {
+  const put = (m: number, f: number): void => {
     const n = sM.length
     if (n > 0 && sM[n - 1] === m && filmS[n - 1] === f) return
     sM.push(m)
     filmS.push(f)
   }
 
-  const reise = (bis: number): void => {
-    while (pos < bis) {
-      let naechste = bis
-      for (const st of stufen) if (st.abM > pos && st.abM < naechste) naechste = st.abM
-      film += (naechste - pos) / tempoBei(pos)
-      pos = naechste
-      setze(pos, film)
+  const travel = (to: number): void => {
+    while (pos < to) {
+      let next = to
+      for (const st of steps) if (st.abM > pos && st.abM < next) next = st.abM
+      filmAt += (next - pos) / tempoAt(pos)
+      pos = next
+      put(pos, filmAt)
     }
   }
 
-  const rampe = (von: number, laenge: number, v0: number, v1: number): void => {
-    if (!(laenge > 0) || !(v0 + v1 > 0)) return
-    const dauer = (2 * laenge) / (v0 + v1)
-    const basis = film
-    for (let k = 1; k <= RAMPEN_STUFEN; k++) {
-      const u = k / RAMPEN_STUFEN
-      setze(von + laenge * rampenWeg(u, v0, v1), basis + dauer * u)
+  const ramp = (from: number, length: number, v0: number, v1: number): void => {
+    if (!(length > 0) || !(v0 + v1 > 0)) return
+    const duration = (2 * length) / (v0 + v1)
+    const base = filmAt
+    for (let k = 1; k <= RAMP_STEPS; k++) {
+      const u = k / RAMP_STEPS
+      put(from + length * rampDistance(u, v0, v1), base + duration * u)
     }
-    film = basis + dauer
-    pos = von + laenge
+    filmAt = base + duration
+    pos = from + length
   }
 
-  for (const k of knoten) {
-    reise(k.ort - k.lenL)
-    if (k.halte.length > 0) {
-      rampe(pos, k.lenL, k.vLinks, 0)
-      for (const h of k.halte) {
-        setze(k.ort, film)
-        sM.push(k.ort)
-        filmS.push(film + h.widthS)
-        film += h.widthS
+  for (const k of nodes) {
+    travel(k.at - k.lenL)
+    if (k.stops.length > 0) {
+      ramp(pos, k.lenL, k.vLeft, 0)
+      for (const h of k.stops) {
+        put(k.at, filmAt)
+        sM.push(k.at)
+        filmS.push(filmAt + h.widthS)
+        filmAt += h.widthS
       }
-      pos = k.ort
-      rampe(k.ort, k.lenR, 0, k.vRechts)
+      pos = k.at
+      ramp(k.at, k.lenR, 0, k.vRight)
     } else {
-      rampe(k.ort - k.lenL, k.lenL + k.lenR, k.vLinks, k.vRechts)
+      ramp(k.at - k.lenL, k.lenL + k.lenR, k.vLeft, k.vRight)
     }
   }
-  reise(gesamtM)
+  travel(totalM)
 
   const totalS = filmS[filmS.length - 1] as number
   if (!(totalS > 0)) return null
@@ -310,8 +310,8 @@ export function buildFilmAxis(
 }
 
 /** Filmsekunde zu einer Aufnahmezeit — zwei Schritte: Zeit → Strecke → Film. */
-export function filmTimeAtRecordingTime(achse: FilmAxis, tSek: number): number {
-  return interpoliere(achse.sM, achse.filmS, interpoliere(achse.tS, achse.mM, tSek))
+export function filmTimeAtRecordingTime(axis: FilmAxis, tSek: number): number {
+  return interpolate(axis.sM, axis.filmS, interpolate(axis.tS, axis.mM, tSek))
 }
 
 /**
@@ -320,8 +320,8 @@ export function filmTimeAtRecordingTime(achse: FilmAxis, tSek: number): number {
  * Der Rückweg Strecke → Zeit ist in einer realen PAUSE mehrdeutig — dort gilt
  * die Ankunft, dieselbe lower_bound-Konvention wie überall.
  */
-export function recordingTimeAtFilmTime(achse: FilmAxis, filmS: number): number {
-  return interpoliere(achse.mM, achse.tS, interpoliere(achse.filmS, achse.sM, filmS))
+export function recordingTimeAtFilmTime(axis: FilmAxis, filmS: number): number {
+  return interpolate(axis.mM, axis.tS, interpolate(axis.filmS, axis.sM, filmS))
 }
 
 /**
@@ -333,20 +333,20 @@ export function recordingTimeAtFilmTime(achse: FilmAxis, filmS: number): number 
  * um mehrere Sekunden. Spiegel von `projiziereAufTrack` (edit-model.ts).
  */
 export function projectOntoTimeSeries(
-  reihe: TimeSeries,
+  series: TimeSeries,
   lng: number,
   lat: number,
-): { meter: number; offsetS: number } {
-  const punkte = reihe.punkte
-  const erster = punkte[0]
-  if (!erster) return { meter: 0, offsetS: 0 }
-  const kx = 111_320 * Math.cos((erster.lat * Math.PI) / 180)
-  let besteD2 = Infinity
-  let meter = erster.dist
-  let offsetS = erster.tSek
-  for (let i = 1; i < punkte.length; i++) {
-    const a = punkte[i - 1]
-    const b = punkte[i]
+): { meters: number; offsetS: number } {
+  const points = series.points
+  const first = points[0]
+  if (!first) return { meters: 0, offsetS: 0 }
+  const kx = 111_320 * Math.cos((first.lat * Math.PI) / 180)
+  let bestD2 = Infinity
+  let meters = first.dist
+  let offsetS = first.tSec
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]
+    const b = points[i]
     if (!a || !b) continue
     const ax = a.lng * kx
     const ay = a.lat * 110_540
@@ -356,19 +356,19 @@ export function projectOntoTimeSeries(
     const py = lat * 110_540
     const dx = bx - ax
     const dy = by - ay
-    const laenge2 = dx * dx + dy * dy
+    const length2 = dx * dx + dy * dy
     const u =
-      laenge2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / laenge2)) : 0
+      length2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length2)) : 0
     const fx = ax + u * dx
     const fy = ay + u * dy
     const d2 = (px - fx) * (px - fx) + (py - fy) * (py - fy)
-    if (d2 < besteD2) {
-      besteD2 = d2
-      meter = a.dist + u * (b.dist - a.dist)
-      offsetS = a.tSek + u * (b.tSek - a.tSek)
+    if (d2 < bestD2) {
+      bestD2 = d2
+      meters = a.dist + u * (b.dist - a.dist)
+      offsetS = a.tSec + u * (b.tSec - a.tSec)
     }
   }
-  return { meter, offsetS }
+  return { meters, offsetS }
 }
 
 /**
@@ -381,30 +381,30 @@ export function projectOntoTimeSeries(
  * ein Halt mit drei Fotos ist im Film eine Folge von dreien.
  */
 export function buildAxisStops(
-  medien: ReadonlyArray<{
+  media: ReadonlyArray<{
     type: 'photo' | 'video'
     /** Streckenmeter des Ankers (unplatzierte Medien gehören nicht in die Liste) */
-    meter: number
+    meters: number
     /** Sekunden ab time.start */
     offsetS: number
     dauerS?: number
     display?: { holdS?: number }
   }>,
-  naheM = NEAR_M,
+  nearM = NEAR_M,
 ): AxisStop[] {
-  const sortiert = [...medien].sort((a, b) => a.meter - b.meter)
-  const gruppen: Array<{ anfangM: number; offsets: number[]; widthS: number }> = []
-  for (const m of sortiert) {
-    const letzte = gruppen[gruppen.length - 1]
-    const dauer = mediumHoldS(m) + STOP_FADE_OUT_S
-    if (letzte && m.meter - letzte.anfangM < naheM) {
-      letzte.offsets.push(m.offsetS)
-      letzte.widthS += dauer
+  const sorted = [...media].sort((a, b) => a.meters - b.meters)
+  const groups: Array<{ startM: number; offsets: number[]; widthS: number }> = []
+  for (const m of sorted) {
+    const last = groups[groups.length - 1]
+    const duration = mediumHoldS(m) + STOP_FADE_OUT_S
+    if (last && m.meters - last.startM < nearM) {
+      last.offsets.push(m.offsetS)
+      last.widthS += duration
     } else {
-      gruppen.push({ anfangM: m.meter, offsets: [m.offsetS], widthS: dauer })
+      groups.push({ startM: m.meters, offsets: [m.offsetS], widthS: duration })
     }
   }
-  return gruppen.map((g) => ({
+  return groups.map((g) => ({
     offsetS: g.offsets.reduce((s, v) => s + v, 0) / g.offsets.length,
     widthS: g.widthS,
   }))
@@ -426,12 +426,12 @@ export function buildAxisStops(
  * Halte hintereinander. `webeHalte` sortiert selbst.
  */
 export function buildMomentStops(
-  momente: ReadonlyArray<{
+  moments: ReadonlyArray<{
     /** Sekunden ab time.start */
     offsetS: number
-    art: CameraMomentKind
+    kind: CameraMomentKind
     dauerS?: number | undefined
   }>,
 ): AxisStop[] {
-  return momente.map((m) => ({ offsetS: m.offsetS, widthS: momentHoldS(m) }))
+  return moments.map((m) => ({ offsetS: m.offsetS, widthS: momentHoldS(m) }))
 }

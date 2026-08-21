@@ -890,7 +890,7 @@ async function ladeOriginalSegmente(
   const { segment } = buildSegmentFromGpx(parseGpx(gpxText), {
     startMs: Date.parse(manifest.time.start),
     endMs: Date.parse(manifest.time.end),
-    ...(manifest.trackMode ? { modus: manifest.trackMode } : {}),
+    ...(manifest.trackMode ? { mode2: manifest.trackMode } : {}),
   })
   return splitWalkSegmentsInSegments(collapsePauses([segment]))
 }
@@ -983,7 +983,7 @@ async function ermittleAutoWetter(
     if (!keyframes.length) return []
     // Bezug ist der GETRIMMTE Track — auf ihm rechnet die Pipeline ihre f-Werte.
     const reihe = buildTimeSeries(applyTourTrim(segmente, edits.trim, startMs))
-    if (reihe.punkte.length < 2) return []
+    if (reihe.points.length < 2) return []
     return weatherToBoundaries(keyframes, reihe, startMs)
   } catch {
     // Kaputtes/altes tour.json darf den Editor nicht am Öffnen hindern
@@ -1016,7 +1016,7 @@ export async function processTour(
     imageClassifier,
     rails,
   } = app.deps
-  const protokoll = (nachricht: string): void => app.log.warn(nachricht)
+  const log = (nachricht: string): void => app.log.warn(nachricht)
   try {
     const tour = loadTour(app, tourId)
     if (!tour) return
@@ -1066,7 +1066,7 @@ export async function processTour(
       const box = isRecording(segmente) ? boundingBox(segmente) : null
       if (box) {
         try {
-          const gehoben = promoteRailSegments(segmente, await rails.gleise(box))
+          const gehoben = promoteRailSegments(segmente, await rails.rails(box))
           if (gehoben.some((s, i) => s.mode !== segmente[i]?.mode)) {
             const startMs = Date.parse(manifest.time.start)
             const mitModi: EditOverlay = {
@@ -1082,7 +1082,7 @@ export async function processTour(
         } catch (fehler) {
           // OSM ist eine Anreicherung, kein Muss — fällt sie aus, bleibt es bei
           // der Tempo-Automatik (Rad statt Bahn).
-          protokoll(`Schienen-Abgleich übersprungen: ${(fehler as Error).message}`)
+          log(`Schienen-Abgleich übersprungen: ${(fehler as Error).message}`)
         }
       }
     }
@@ -1137,7 +1137,7 @@ export async function processTour(
           }),
           storage: mediaStorage,
           tool: videoTool,
-          log: protokoll,
+          log: log,
         })
       }
     }
@@ -1146,7 +1146,7 @@ export async function processTour(
     // gültigem Cache: Sie sind keine berechneten Metadaten, sondern DATEIEN, und
     // welche liegen, weiß nur der Storage. Teuer ist das nicht — liegen beide
     // Fassungen, bleibt es bei zwei stat-Aufrufen je Medium.
-    const fotoMeta = imageTool
+    const photoMeta = imageTool
       ? await preparePhotos({
           media: manifest.media.flatMap((m): PhotoInput[] => {
             if (m.type === 'photo')
@@ -1157,7 +1157,7 @@ export async function processTour(
           }),
           storage: mediaStorage,
           tool: imageTool,
-          log: protokoll,
+          log: log,
         })
       : new Map<string, PhotoMeta>()
 
@@ -1181,11 +1181,11 @@ export async function processTour(
     // Die Ergebnisse werden anschließend in MANIFEST-Reihenfolge einsortiert:
     // Der Cache (enrichment.json) soll nicht je nach Antwortzeiten anders
     // herum stehen, sonst ist jeder Re-Render ein Diff ohne Unterschied.
-    let bildBefunde: Map<string, ImageFinding>
+    let imageFindings: Map<string, ImageFinding>
     if (cache) {
-      bildBefunde = recordToMap(cache.findings)
+      imageFindings = recordToMap(cache.findings)
     } else {
-      bildBefunde = new Map<string, ImageFinding>()
+      imageFindings = new Map<string, ImageFinding>()
       if (imageClassifier) {
         const fotos = manifest.media.filter((x) => x.type === 'photo')
         const ergebnisse = new Array<ImageFinding | null>(fotos.length).fill(null)
@@ -1196,15 +1196,15 @@ export async function processTour(
           for (let i = naechstes++; i < fotos.length; i = naechstes++) {
             const m = fotos[i] as UploadManifest['media'][number]
             try {
-              const meta = fotoMeta.get(m.id)
+              const meta = photoMeta.get(m.id)
               const datei = meta?.thumbFile ?? meta?.displayFile ?? mediumFilename(m)
               if (!(await storage.info(tourId, `media/${datei}`))) continue
-              ergebnisse[i] = await imageClassifier.klassifiziere(
+              ergebnisse[i] = await imageClassifier.classify(
                 {
-                  daten: await storage.read(tourId, `media/${datei}`),
-                  medientyp: bildMedientyp(datei),
+                  data: await storage.read(tourId, `media/${datei}`),
+                  mediaType: bildMedientyp(datei),
                 },
-                (nachricht) => protokoll(`${nachricht} (${m.id})`),
+                (nachricht) => log(`${nachricht} (${m.id})`),
               )
             } catch (fehler) {
               app.log.warn(`Bildanalyse fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
@@ -1215,7 +1215,7 @@ export async function processTour(
           Array.from({ length: Math.min(BILDANALYSE_PARALLEL, fotos.length) }, () => arbeiter()),
         )
         for (const [i, befund] of ergebnisse.entries()) {
-          if (befund) bildBefunde.set((fotos[i] as UploadManifest['media'][number]).id, befund)
+          if (befund) imageFindings.set((fotos[i] as UploadManifest['media'][number]).id, befund)
         }
       }
     }
@@ -1234,7 +1234,7 @@ export async function processTour(
         edits,
         geocoder,
         weather,
-        protokoll,
+        log,
       }))
     }
 
@@ -1244,10 +1244,10 @@ export async function processTour(
     // zurückbekommen. Ein bereits gesetztes `audio` bleibt unangetastet.
     if (erstmals && !edits?.audio?.length) {
       const datei = chooseMusic({
-        segmente: manifest.segments ?? [],
+        segs: manifest.segments ?? [],
         weather: weatherRaw,
         startIso: manifest.time.start,
-        endeIso: manifest.time.end,
+        endIso: manifest.time.end,
         zone: manifest.time.zone,
       })
       const mitMusik: EditOverlay = {
@@ -1260,40 +1260,38 @@ export async function processTour(
 
     // Vorhandene Audio-Dateien an die Pipeline reichen (Baukasten) —
     // edits.audio-Einträge ohne Datei überspringt sie dort mit Warnung.
-    const audioDateien = (await storage.listFiles(tourId, 'media'))
+    const audioFiles = (await storage.listFiles(tourId, 'media'))
       .map((d) => d.name)
       .filter(isAudioFile)
     // Dazu die benutzerweite Bibliothek des Eigentümers (quelle 'benutzer').
-    const benutzerAudioDateien = (await userStorage.listFiles(tour.owner_id, 'audio')).map(
-      (d) => d.name,
-    )
+    const userAudioFiles = (await userStorage.listFiles(tour.owner_id, 'audio')).map((d) => d.name)
 
     // Render ist jetzt rein lokal: alle externen Ergebnisse liegen als Eingabe vor.
     const tourJson = await enrichTour({
       tourId,
-      nummer: tour.no,
+      no: tour.no,
       manifest,
-      titelOverride: tour.title,
-      beschreibungOverride: tour.description,
-      dachzeileOverride: tour.kicker,
+      titleOverride: tour.title,
+      descriptionOverride: tour.description,
+      kickerOverride: tour.kicker,
       showFinale: !!tour.finale,
-      finaleZielOverride: tour.finale_target,
+      finaleTargetOverride: tour.finale_target,
       ...(edits ? { edits } : {}),
-      audioDateien,
-      benutzerAudioDateien,
+      audioFiles,
+      userAudioFiles,
       places,
       weatherRaw,
       ...(videoMeta.size ? { videoMeta } : {}),
-      ...(fotoMeta.size ? { fotoMeta } : {}),
-      ...(bildBefunde.size ? { bildBefunde } : {}),
-      protokoll,
+      ...(photoMeta.size ? { photoMeta } : {}),
+      ...(imageFindings.size ? { imageFindings } : {}),
+      log,
     })
     await storage.write(tourId, TOUR_JSON_PATH, JSON.stringify(tourJson, null, 2))
 
     // Anreicherungs-Cache zurückschreiben — das nächste Edit-Speichern nutzt ihn.
     const neuerCache: EnrichmentCache = {
       schema: ENRICHMENT_SCHEMA_ID,
-      findings: mapToRecord(bildBefunde),
+      findings: mapToRecord(imageFindings),
       videoMeta: mapToRecord(videoMeta),
       videoCutSignature: schnittSig,
       trimSignature: sig,

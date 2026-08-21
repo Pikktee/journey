@@ -19,13 +19,13 @@ import type { WeatherKeyframe, WeatherMode } from './weather.js'
  */
 export interface ImageFinding {
   /** Himmelszustand ohne Niederschlag: klar → off, wolkig/bedeckt → clouds */
-  himmel: 'klar' | 'wolkig' | 'bedeckt'
+  sky: 'klar' | 'wolkig' | 'bedeckt'
   /** Sichtbarer Niederschlag bzw. Nebel; „kein" → der Himmel entscheidet */
-  niederschlag: 'kein' | 'regen' | 'schnee' | 'gewitter' | 'nebel'
+  precipitation: 'kein' | 'regen' | 'schnee' | 'gewitter' | 'nebel'
   /** Ist das Wetter im Bild überhaupt erkennbar? (nicht bei reinen Innenaufnahmen) */
-  himmelSichtbar: boolean
+  skyVisible: boolean
   /** Sicherheit der Einschätzung, 0..1 */
-  konfidenz: number
+  confidence: number
 }
 
 /** Klassifikator hinter Interface (DI) — Tests nutzen FesterKlassifikator. */
@@ -36,16 +36,16 @@ export interface ImageClassifier {
    * von außen dasselbe: eine Tour, die fertig wird und deren Wetter allein aus
    * Open-Meteo kommt (s. Fehlerzweige im OpenRouterKlassifikator).
    */
-  klassifiziere(
-    bild: { daten: Uint8Array; medientyp: string },
-    protokoll?: (nachricht: string) => void,
+  classify(
+    image: { data: Uint8Array; mediaType: string },
+    log?: (message: string) => void,
   ): Promise<ImageFinding>
 }
 
 // Schweregrad-Rangfolge (Plan M5): „mehr Wetter" = höherer Rang. off < clouds <
 // fog < rain < snow < storm — deckungsgleich mit der Idee, dass ein Foto die API
 // nur dann übersteuern darf, wenn es eine dramatischere Wetterlage zeigt.
-const SCHWERE: Record<WeatherMode, number> = {
+const SEVERITY: Record<WeatherMode, number> = {
   off: 0,
   clouds: 1,
   fog: 2,
@@ -55,16 +55,16 @@ const SCHWERE: Record<WeatherMode, number> = {
 }
 
 // Fenster-Halbbreite in f: ein übersteuerndes Foto gilt lokal um seinen Anker.
-const FENSTER_HALB = 0.03
+const WINDOW_HALF = 0.03
 // Kleiner Rand außerhalb des Fensters für die Basis-Restaurationsmarken — hält
 // die Umschalt-Mitte des Players (Grenze auf der Marken-Mitte) am Fensterrand.
-const RAND = 0.005
+const EDGE = 0.005
 // Ab dieser Konfidenz (und nur bei sichtbarem Himmel) darf ein Foto übersteuern.
-const MIN_KONFIDENZ = 0.7
+const MIN_CONFIDENCE = 0.7
 
 const clamp01 = (x: number): number => Math.min(1, Math.max(0, x))
-const rund = (x: number, stellen: number): number => {
-  const p = 10 ** stellen
+const round = (x: number, positions: number): number => {
+  const p = 10 ** positions
   return Math.round(x * p) / p
 }
 
@@ -75,7 +75,7 @@ const rund = (x: number, stellen: number): number => {
  * wmoZuWetter-Stärken (weather.ts).
  */
 export function imageFindingToWeather(b: ImageFinding): { mode: WeatherMode; k: number } {
-  switch (b.niederschlag) {
+  switch (b.precipitation) {
     case 'gewitter':
       return { mode: 'storm', k: 0.8 }
     case 'schnee':
@@ -85,8 +85,8 @@ export function imageFindingToWeather(b: ImageFinding): { mode: WeatherMode; k: 
     case 'nebel':
       return { mode: 'fog', k: 0.7 }
     case 'kein':
-      if (b.himmel === 'bedeckt') return { mode: 'clouds', k: 0.9 }
-      if (b.himmel === 'wolkig') return { mode: 'clouds', k: 0.5 }
+      if (b.sky === 'bedeckt') return { mode: 'clouds', k: 0.9 }
+      if (b.sky === 'wolkig') return { mode: 'clouds', k: 0.5 }
       return { mode: 'off', k: 0.7 } // klar
   }
 }
@@ -96,13 +96,13 @@ export function imageFindingToWeather(b: ImageFinding): { mode: WeatherMode; k: 
  * Players (weatherAt in src/autoweather.ts): die Grenze zwischen zwei Marken
  * liegt auf ihrer Mitte. `basis` muss nach f sortiert sein.
  */
-function basisZustandBei(basis: readonly WeatherKeyframe[], f: number): WeatherKeyframe {
-  if (!basis.length) return { f, mode: 'off', k: 0.7, source: 'openmeteo' }
-  let aktiv = basis[0] as WeatherKeyframe
-  for (const kf of basis) {
-    if (f >= (aktiv.f + kf.f) / 2) aktiv = kf
+function baseStateAt(base: readonly WeatherKeyframe[], f: number): WeatherKeyframe {
+  if (!base.length) return { f, mode: 'off', k: 0.7, source: 'openmeteo' }
+  let active = base[0] as WeatherKeyframe
+  for (const kf of base) {
+    if (f >= (active.f + kf.f) / 2) active = kf
   }
-  return aktiv
+  return active
 }
 
 /**
@@ -122,86 +122,86 @@ function basisZustandBei(basis: readonly WeatherKeyframe[], f: number): WeatherK
  * Überlappung gewinnt das schwerere Wetter). f wird auf [0,1] geklemmt.
  */
 export function refineWeatherWithPhotos(
-  basis: WeatherKeyframe[],
-  fotos: Array<{ f: number; befund: ImageFinding }>,
-  opts?: { fenster?: number; minKonfidenz?: number },
+  base: WeatherKeyframe[],
+  photos: Array<{ f: number; finding: ImageFinding }>,
+  opts?: { window2?: number; minConfidence?: number },
 ): WeatherKeyframe[] {
-  const h = opts?.fenster ?? FENSTER_HALB
-  const minK = opts?.minKonfidenz ?? MIN_KONFIDENZ
-  const sortiert = [...basis].sort((a, b) => a.f - b.f)
+  const h = opts?.window2 ?? WINDOW_HALF
+  const minK = opts?.minConfidence ?? MIN_CONFIDENCE
+  const sorted = [...base].sort((a, b) => a.f - b.f)
 
   // 1. Übersteuernde Fotos → Fenster bestimmen.
-  interface Fenster {
+  interface Window {
     fL: number
     fR: number
     mode: WeatherMode
     k: number
   }
-  const fenster: Fenster[] = []
-  for (const foto of fotos) {
-    const b = foto.befund
-    if (!b.himmelSichtbar || b.konfidenz < minK) continue
+  const window2: Window[] = []
+  for (const photo of photos) {
+    const b = photo.finding
+    if (!b.skyVisible || b.confidence < minK) continue
     const fw = imageFindingToWeather(b)
-    const f = clamp01(foto.f)
-    if (SCHWERE[fw.mode] <= SCHWERE[basisZustandBei(sortiert, f).mode]) continue
-    fenster.push({ fL: clamp01(f - h), fR: clamp01(f + h), mode: fw.mode, k: fw.k })
+    const f = clamp01(photo.f)
+    if (SEVERITY[fw.mode] <= SEVERITY[baseStateAt(sorted, f).mode]) continue
+    window2.push({ fL: clamp01(f - h), fR: clamp01(f + h), mode: fw.mode, k: fw.k })
   }
-  if (!fenster.length) return sortiert.map((kf) => ({ ...kf }))
+  if (!window2.length) return sorted.map((kf) => ({ ...kf }))
 
   // 2. Überlappende Fenster verschmelzen — in der Überlappung gewinnt das
   //    schwerere Wetter (bei Gleichstand die höhere Stärke).
-  fenster.sort((a, b) => a.fL - b.fL)
-  const zusammen: Fenster[] = []
-  for (const w of fenster) {
-    const letzter = zusammen[zusammen.length - 1]
-    if (letzter && w.fL <= letzter.fR) {
-      letzter.fR = Math.max(letzter.fR, w.fR)
+  window2.sort((a, b) => a.fL - b.fL)
+  const combined: Window[] = []
+  for (const w of window2) {
+    const last = combined[combined.length - 1]
+    if (last && w.fL <= last.fR) {
+      last.fR = Math.max(last.fR, w.fR)
       if (
-        SCHWERE[w.mode] > SCHWERE[letzter.mode] ||
-        (SCHWERE[w.mode] === SCHWERE[letzter.mode] && w.k > letzter.k)
+        SEVERITY[w.mode] > SEVERITY[last.mode] ||
+        (SEVERITY[w.mode] === SEVERITY[last.mode] && w.k > last.k)
       ) {
-        letzter.mode = w.mode
-        letzter.k = w.k
+        last.mode = w.mode
+        last.k = w.k
       }
     } else {
-      zusammen.push({ ...w })
+      combined.push({ ...w })
     }
   }
 
-  const innerhalb = (f: number): boolean => zusammen.some((w) => f > w.fL && f < w.fR)
+  const inside = (f: number): boolean => combined.some((w) => f > w.fL && f < w.fR)
 
   // 3. Lokal splicen: Basis-Marken außerhalb der Fenster übernehmen, drinnen
   //    verwerfen; je Fenster Foto-Marken an den Rändern plus Basis-Restauration
   //    knapp außerhalb (pinnt die Umschalt-Mitte an den Rand).
-  const roh: WeatherKeyframe[] = []
-  for (const kf of sortiert) {
-    if (!innerhalb(kf.f)) roh.push({ ...kf })
+  const raw: WeatherKeyframe[] = []
+  for (const kf of sorted) {
+    if (!inside(kf.f)) raw.push({ ...kf })
   }
-  for (const w of zusammen) {
-    const zpre = basisZustandBei(sortiert, w.fL)
-    const zpost = basisZustandBei(sortiert, w.fR)
-    if (w.fL > 0) roh.push({ f: w.fL - RAND, mode: zpre.mode, k: zpre.k, source: zpre.source })
-    roh.push({ f: w.fL, mode: w.mode, k: w.k, source: 'photo' })
-    roh.push({ f: w.fR, mode: w.mode, k: w.k, source: 'photo' })
-    if (w.fR < 1) roh.push({ f: w.fR + RAND, mode: zpost.mode, k: zpost.k, source: zpost.source })
+  for (const w of combined) {
+    const zpre = baseStateAt(sorted, w.fL)
+    const zpost = baseStateAt(sorted, w.fR)
+    if (w.fL > 0) raw.push({ f: w.fL - EDGE, mode: zpre.mode, k: zpre.k, source: zpre.source })
+    raw.push({ f: w.fL, mode: w.mode, k: w.k, source: 'photo' })
+    raw.push({ f: w.fR, mode: w.mode, k: w.k, source: 'photo' })
+    if (w.fR < 1) raw.push({ f: w.fR + EDGE, mode: zpost.mode, k: zpost.k, source: zpost.source })
   }
 
   // 4. Sortieren, runden (wie berechneWetter), Marken auf gleichem f zusammenfassen.
-  roh.sort((a, b) => a.f - b.f)
-  const fertig: WeatherKeyframe[] = []
-  for (const kf of roh) {
-    const eintrag: WeatherKeyframe = {
-      f: rund(kf.f, 4),
+  raw.sort((a, b) => a.f - b.f)
+  const done: WeatherKeyframe[] = []
+  for (const kf of raw) {
+    const entry: WeatherKeyframe = {
+      f: round(kf.f, 4),
       mode: kf.mode,
-      k: rund(kf.k, 2),
+      k: round(kf.k, 2),
       source: kf.source,
     }
-    const vorher = fertig[fertig.length - 1]
+    const before = done[done.length - 1]
     // Gleiche Marke → die spätere (Foto vor Basis-Restauration am selben Rand) gewinnt.
-    if (vorher && vorher.f === eintrag.f) fertig.pop()
-    fertig.push(eintrag)
+    if (before && before.f === entry.f) done.pop()
+    done.push(entry)
   }
-  return fertig
+  return done
 }
 
 // — Echte OpenRouter-Anbindung (nur Produktion; Tests injizieren fetch/Fake) —
@@ -225,14 +225,14 @@ const PROMPT = [
 
 /** Neutraler Befund: konfidenz 0 → übersteuert nie (Fallback bei Parse-/Netzfehler). */
 const NEUTRAL: ImageFinding = {
-  himmel: 'wolkig',
-  niederschlag: 'kein',
-  himmelSichtbar: false,
-  konfidenz: 0,
+  sky: 'wolkig',
+  precipitation: 'kein',
+  skyVisible: false,
+  confidence: 0,
 }
 
-const HIMMEL = new Set<ImageFinding['himmel']>(['klar', 'wolkig', 'bedeckt'])
-const NIEDERSCHLAG = new Set<ImageFinding['niederschlag']>([
+const SKY_MODES = new Set<ImageFinding['sky']>(['klar', 'wolkig', 'bedeckt'])
+const PRECIPITATION_MODES = new Set<ImageFinding['precipitation']>([
   'kein',
   'regen',
   'schnee',
@@ -247,26 +247,26 @@ const NIEDERSCHLAG = new Set<ImageFinding['niederschlag']>([
  * kein JSON enthält, nicht von einem ehrlichen „kein Wetter erkennbar" zu
  * trennen.
  */
-function parseBefund(text: string): ImageFinding | null {
-  const von = text.indexOf('{')
-  const bis = text.lastIndexOf('}')
-  if (von < 0 || bis <= von) return null
+function parseFinding(text: string): ImageFinding | null {
+  const from = text.indexOf('{')
+  const to = text.lastIndexOf('}')
+  if (from < 0 || to <= from) return null
   let obj: Record<string, unknown>
   try {
-    obj = JSON.parse(text.slice(von, bis + 1)) as Record<string, unknown>
+    obj = JSON.parse(text.slice(from, to + 1)) as Record<string, unknown>
   } catch {
     return null
   }
-  const himmel = obj['himmel'] as ImageFinding['himmel']
-  const niederschlag = obj['niederschlag'] as ImageFinding['niederschlag']
-  if (!HIMMEL.has(himmel) || !NIEDERSCHLAG.has(niederschlag)) return null
-  const konfidenz = typeof obj['konfidenz'] === 'number' ? clamp01(obj['konfidenz']) : 0
-  return { himmel, niederschlag, himmelSichtbar: obj['himmelSichtbar'] === true, konfidenz }
+  const sky = obj['himmel'] as ImageFinding['sky']
+  const precipitation = obj['niederschlag'] as ImageFinding['precipitation']
+  if (!SKY_MODES.has(sky) || !PRECIPITATION_MODES.has(precipitation)) return null
+  const confidence = typeof obj['konfidenz'] === 'number' ? clamp01(obj['konfidenz']) : 0
+  return { sky, precipitation, skyVisible: obj['himmelSichtbar'] === true, confidence }
 }
 
 /** Uint8Array → base64 (ohne Zwischen-String je Byte). */
-function zuBase64(daten: Uint8Array): string {
-  return Buffer.from(daten).toString('base64')
+function toBase64(data: Uint8Array): string {
+  return Buffer.from(data).toString('base64')
 }
 
 type FetchFn = typeof fetch
@@ -282,15 +282,15 @@ export class OpenRouterClassifier implements ImageClassifier {
   constructor(
     private readonly apiKey: string,
     private readonly fetchFn: FetchFn = fetch,
-    private readonly modell: string = VISION_MODEL_DEFAULT,
+    private readonly model2: string = VISION_MODEL_DEFAULT,
   ) {}
 
-  async klassifiziere(
-    bild: { daten: Uint8Array; medientyp: string },
-    protokoll?: (nachricht: string) => void,
+  async classify(
+    image: { data: Uint8Array; mediaType: string },
+    log?: (message: string) => void,
   ): Promise<ImageFinding> {
     try {
-      const antwort = await this.fetchFn(OPENROUTER_URL, {
+      const response = await this.fetchFn(OPENROUTER_URL, {
         method: 'POST',
         headers: {
           authorization: `Bearer ${this.apiKey}`,
@@ -300,7 +300,7 @@ export class OpenRouterClassifier implements ImageClassifier {
           'x-title': 'Maptale',
         },
         body: JSON.stringify({
-          model: this.modell,
+          model: this.model2,
           max_tokens: 200,
           messages: [
             {
@@ -309,7 +309,7 @@ export class OpenRouterClassifier implements ImageClassifier {
                 { type: 'text', text: PROMPT },
                 {
                   type: 'image_url',
-                  image_url: { url: `data:${bild.medientyp};base64,${zuBase64(bild.daten)}` },
+                  image_url: { url: `data:${image.mediaType};base64,${toBase64(image.data)}` },
                 },
               ],
             },
@@ -322,33 +322,33 @@ export class OpenRouterClassifier implements ImageClassifier {
       // gleichzeitig und lautlos, und ein per Env umgestelltes Modell, das kein
       // JSON liefert (Reasoning-Modelle verbrauchen max_tokens mit Denk-Tokens),
       // kostet Geld, ohne je etwas zu bewirken.
-      if (!antwort.ok) {
-        const grund =
-          antwort.status === 402
+      if (!response.ok) {
+        const reason =
+          response.status === 402
             ? ' (Guthaben aufgebraucht?)'
-            : antwort.status === 429
+            : response.status === 429
               ? ' (Rate-Limit)'
               : ''
-        protokoll?.(
-          `Bildanalyse: ${this.modell} antwortete mit HTTP ${antwort.status}${grund}, Foto ohne Wirkung`,
+        log?.(
+          `Bildanalyse: ${this.model2} antwortete mit HTTP ${response.status}${reason}, Foto ohne Wirkung`,
         )
         return NEUTRAL
       }
-      const json = (await antwort.json()) as { choices?: Array<{ message?: { content?: string } }> }
+      const json = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>
+      }
       const text = json.choices?.[0]?.message?.content ?? ''
-      const befund = parseBefund(text)
-      if (!befund) {
-        protokoll?.(
-          `Bildanalyse: ${this.modell} lieferte keinen verwertbaren Befund, ` +
+      const finding = parseFinding(text)
+      if (!finding) {
+        log?.(
+          `Bildanalyse: ${this.model2} lieferte keinen verwertbaren Befund, ` +
             (text ? `Antwort begann mit „${text.slice(0, 80)}"` : 'die Antwort war leer'),
         )
         return NEUTRAL
       }
-      return befund
-    } catch (fehler) {
-      protokoll?.(
-        `Bildanalyse: Aufruf an ${this.modell} fehlgeschlagen: ${(fehler as Error).message}`,
-      )
+      return finding
+    } catch (error) {
+      log?.(`Bildanalyse: Aufruf an ${this.model2} fehlgeschlagen: ${(error as Error).message}`)
       return NEUTRAL
     }
   }
@@ -360,16 +360,16 @@ export class OpenRouterClassifier implements ImageClassifier {
  */
 export class FixedClassifier implements ImageClassifier {
   /** Mitschnitt der Aufrufe: Medientyp + Bytelänge des übergebenen Bildes. */
-  public aufrufe: Array<{ medientyp: string; bytes: number }> = []
+  public calls: Array<{ mediaType: string; bytes: number }> = []
   private i = 0
 
-  constructor(private readonly befund: ImageFinding | ImageFinding[]) {}
+  constructor(private readonly finding: ImageFinding | ImageFinding[]) {}
 
-  async klassifiziere(bild: { daten: Uint8Array; medientyp: string }): Promise<ImageFinding> {
-    this.aufrufe.push({ medientyp: bild.medientyp, bytes: bild.daten.length })
-    if (Array.isArray(this.befund)) {
-      return this.befund[Math.min(this.i++, this.befund.length - 1)] ?? NEUTRAL
+  async classify(image: { data: Uint8Array; mediaType: string }): Promise<ImageFinding> {
+    this.calls.push({ mediaType: image.mediaType, bytes: image.data.length })
+    if (Array.isArray(this.finding)) {
+      return this.finding[Math.min(this.i++, this.finding.length - 1)] ?? NEUTRAL
     }
-    return this.befund
+    return this.finding
   }
 }

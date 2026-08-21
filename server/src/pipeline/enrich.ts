@@ -150,23 +150,23 @@ export interface Cover {
  * Reihenfolge liefe irgendwann auseinander und zeigte in der Liste ein anderes
  * Bild als in der Ansicht.
  */
-export function chooseCover(media: TourJson['media'], titelbild?: string): Cover | null {
-  const gewaehlt = titelbild ? media.find((m) => m.id === titelbild) : undefined
-  const alsTitel = (m: TourJson['media'][number] | undefined): Cover | null => {
+export function chooseCover(media: TourJson['media'], cover2?: string): Cover | null {
+  const chosen = cover2 ? media.find((m) => m.id === cover2) : undefined
+  const asCover = (m: TourJson['media'][number] | undefined): Cover | null => {
     if (!m) return null
-    const gross = m.type === 'photo' ? m.src : m.poster
-    return gross ? { cover: gross, thumb: m.thumb ?? null } : null
+    const big = m.type === 'photo' ? m.src : m.poster
+    return big ? { cover: big, thumb: m.thumb ?? null } : null
   }
   return (
-    alsTitel(gewaehlt) ??
-    alsTitel(media.find((m) => m.type === 'photo' && m.anchor)) ??
-    alsTitel(media.find((m) => m.type === 'video' && m.anchor && m.poster)) ??
+    asCover(chosen) ??
+    asCover(media.find((m) => m.type === 'photo' && m.anchor)) ??
+    asCover(media.find((m) => m.type === 'video' && m.anchor && m.poster)) ??
     // Auch ein unplatziertes Foto ist ein besseres Titelbild als gar keins
-    alsTitel(media.find((m) => m.type === 'photo'))
+    asCover(media.find((m) => m.type === 'photo'))
   )
 }
 
-const uhrzeit = (iso: string, zone: string): string => {
+const clockTime = (iso: string, zone: string): string => {
   try {
     return new Intl.DateTimeFormat('de-DE', {
       hour: '2-digit',
@@ -181,27 +181,27 @@ const uhrzeit = (iso: string, zone: string): string => {
 export interface EnrichmentInput {
   tourId: string
   /** Fortlaufende Nummer aus der DB */
-  nummer: number
+  no: number
   manifest: UploadManifest
   /** Nutzer-Overrides aus der DB (PATCH); null = Auto-Benennung */
-  titelOverride: string | null
-  beschreibungOverride: string | null
+  titleOverride: string | null
+  descriptionOverride: string | null
   /**
    * Die Dachzeile über dem Titel. `null` = nie gesetzt (Vorbelegung greift),
    * leerer String = ausdrücklich keine Zeile (s. buildNaming).
    */
-  dachzeileOverride?: string | null
+  kickerOverride?: string | null
   /** Endscreen zeigen? Default false — die meisten Touren haben kein konkretes Ziel */
   showFinale?: boolean
   /** Zielname für den Endscreen; null/leer = geocodierter Ortsname */
-  finaleZielOverride?: string | null
+  finaleTargetOverride?: string | null
   /** Edit-Overlay (M7): Trim/Modus-Grenzen/Medien-Overrides; null = keins */
   edits?: EditOverlay | null
   /** Vorhandene Audio-Dateinamen unter media/ (Baukasten) — edits.audio-Verweise ohne Datei werden übersprungen */
-  audioDateien?: readonly string[]
+  audioFiles?: readonly string[]
   /** Dateinamen der benutzerweiten Audio-Bibliothek des Tour-Eigentümers
    *  (quelle 'benutzer') — Verweise ohne Datei werden ebenso übersprungen */
-  benutzerAudioDateien?: readonly string[]
+  userAudioFiles?: readonly string[]
   /** Geocoder für die Auto-Benennung. Optional: ist `places` vorgegeben (Cache),
    *  wird NICHT geocodiert und der Geocoder nicht gebraucht. */
   geocoder?: Geocoder
@@ -209,7 +209,7 @@ export interface EnrichmentInput {
    *  Benennung daraus + dem aktuellen Titel lokal gebaut (kein Netz). */
   places?: Endpoints
   /** Auto-Wetter-Quelle; fehlt sie, bleibt `weather` weg (Client-Fallback) */
-  wetter?: WeatherSource | null
+  weatherSource?: WeatherSource | null
   /** Vorgegebene rohe Wetter-Keyframes aus dem Cache. `undefined` = aus der
    *  Quelle berechnen; `null`/`[]` = kein Auto-Wetter. Die Foto-Verfeinerung
    *  (M5) läuft danach IMMER lokal, weil sie an den platzierten Fotos hängt. */
@@ -218,13 +218,13 @@ export interface EnrichmentInput {
   videoMeta?: Map<string, VideoMeta>
   /** Aufbereitete Bild-Fassungen je Medien-ID (image.ts; Anzeige + Kachel).
    *  Fehlt der Eintrag, bleibt es beim Original — so bleibt Altbestand spielbar. */
-  fotoMeta?: Map<string, PhotoMeta>
+  photoMeta?: Map<string, PhotoMeta>
   /** Bild-Befunde je Medien-ID (M5; vom Aufrufer per Klassifikator vorbereitet) —
    *  verfeinern das Auto-Wetter lokal am Foto-Anker. Fehlt die Map, bleibt das
    *  Wetter exakt wie in M2 (No-Op ohne konfigurierten Klassifikator). */
-  bildBefunde?: Map<string, ImageFinding>
+  imageFindings?: Map<string, ImageFinding>
   /** Hinweis-Kanal für nicht-fatale Ausfälle (z. B. Wetterdienst down) */
-  protokoll?: (nachricht: string) => void
+  log?: (message: string) => void
 }
 
 /**
@@ -232,28 +232,28 @@ export interface EnrichmentInput {
  * Manifest lesen, tour.json schreiben, Status setzen). Dadurch vollständig
  * ohne Netz und Dateisystem testbar.
  */
-export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
+export async function enrichTour(input: EnrichmentInput): Promise<TourJson> {
   const {
     tourId,
-    nummer,
+    no,
     manifest,
-    titelOverride,
-    beschreibungOverride,
-    dachzeileOverride,
+    titleOverride,
+    descriptionOverride,
+    kickerOverride,
     showFinale = false,
-    finaleZielOverride = null,
+    finaleTargetOverride = null,
     edits,
-    audioDateien,
-    benutzerAudioDateien,
+    audioFiles,
+    userAudioFiles,
     geocoder,
     places,
-    wetter,
+    weatherSource,
     weatherRaw,
     videoMeta,
-    fotoMeta,
-    bildBefunde,
-    protokoll,
-  } = eingabe
+    photoMeta,
+    imageFindings,
+    log,
+  } = input
 
   // Segmente kommen entweder direkt aus dem Manifest oder — bei GPX-Quelle —
   // vom Aufrufer bereits geparst hineingereicht (processTour in tours.ts).
@@ -261,36 +261,36 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
   // den Track, ALLES Nachgelagerte (Benennung, Timeline, Wetter, Platzierung)
   // rechnet auf dem bearbeiteten Stand.
   const startMs = Date.parse(manifest.time.start)
-  const endeMs = Date.parse(manifest.time.end)
-  const rohSegmente = applyEditsToSegments(manifest.segments ?? [], edits, startMs)
-  if (!rohSegmente.length)
+  const endMs = Date.parse(manifest.time.end)
+  const rawSegments = applyEditsToSegments(manifest.segments ?? [], edits, startMs)
+  if (!rawSegments.length)
     throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
-  const erstesSegment = rohSegmente[0]
-  const letztesSegment = rohSegmente[rohSegmente.length - 1]
-  if (!erstesSegment || !letztesSegment) throw new Error('Manifest ohne Segmente')
-  const startPunkt = erstesSegment.pts[0] as UploadPoint
-  const zielPunkt = letztesSegment.pts[letztesSegment.pts.length - 1] as UploadPoint
+  const firstSegment = rawSegments[0]
+  const lastSegment = rawSegments[rawSegments.length - 1]
+  if (!firstSegment || !lastSegment) throw new Error('Manifest ohne Segmente')
+  const startPoint = firstSegment.pts[0] as UploadPoint
+  const endPoint = lastSegment.pts[lastSegment.pts.length - 1] as UploadPoint
 
   // Benennung: bevorzugt aus gecachten Ortsnamen + aktuellem Titel lokal bauen
   // (kein Netz); nur ohne Cache wird direkt geocodiert (Direktaufruf/Test).
-  const nutzerTitel = titelOverride ?? manifest.title ?? null
-  let benennung: Naming
+  const userTitle = titleOverride ?? manifest.title ?? null
+  let naming: Naming
   if (places) {
-    benennung = buildNaming({
+    naming = buildNaming({
       ...places,
-      nutzerTitel,
-      dachzeile: dachzeileOverride ?? null,
-      zeitStart: manifest.time.start,
+      userTitle,
+      kickerText: kickerOverride ?? null,
+      timeStart: manifest.time.start,
       zone: manifest.time.zone,
     })
   } else {
     if (!geocoder) throw new Error('reichereAn: weder places noch geocoder übergeben')
-    benennung = await nameTour({
-      nutzerTitel,
-      dachzeile: dachzeileOverride ?? null,
-      startPunkt: [startPunkt[0], startPunkt[1]],
-      zielPunkt: [zielPunkt[0], zielPunkt[1]],
-      zeitStart: manifest.time.start,
+    naming = await nameTour({
+      userTitle,
+      kickerText: kickerOverride ?? null,
+      startPoint: [startPoint[0], startPoint[1]],
+      endPoint: [endPoint[0], endPoint[1]],
+      timeStart: manifest.time.start,
       zone: manifest.time.zone,
       geocoder,
     })
@@ -299,10 +299,10 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
   // Zeitreihe der ROHEN (getrimmten) Punkte: Sie trägt die kumulierte Distanz,
   // aus der jedes `f` dieses Tour-JSONs entsteht — Timeline, Kamera-Keyframes,
   // Ton-Bereiche, Wetter UND seit E11 der Wegpunkt selbst.
-  const reihe = buildTimeSeries(rohSegmente)
+  const series = buildTimeSeries(rawSegments)
 
   // Statistik auf den ROHDATEN (volle Auflösung), Ausgabe-Punkte vereinfacht.
-  const stats = computeStats(rohSegmente)
+  const stats = computeStats(rawSegments)
   // Je ausgeliefertem Wegpunkt sein `f` (E11, Gleichlauf-Konzept §8D). Ohne das
   // Feld muss der Player `f × route.total` rechnen — und seine Route ist durch
   // Catmull-Rom + 14-m-Resampling 2,2–3,0 % länger als die Rohgeometrie, in der
@@ -310,22 +310,22 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
   // zu beheben: `simplifySegment` wirft Punkte weg, die Länge tragen.
   // Das Feld ist additiv — Bestandstouren bekommen es
   // bei ihrem nächsten Render.
-  let punktIndex = 0
-  const segments = rohSegmente.map((seg) => {
-    const basis = punktIndex
-    punktIndex += seg.pts.length
-    const indizes = simplifyIndices(seg.pts)
-    const eintrag: TourJson['segments'][number] = {
+  let pointIndex = 0
+  const segments = rawSegments.map((seg) => {
+    const base = pointIndex
+    pointIndex += seg.pts.length
+    const indices = simplifyIndices(seg.pts)
+    const entry: TourJson['segments'][number] = {
       mode: seg.mode,
       label: seg.label ?? MODE_LABELS[seg.mode] ?? seg.mode,
-      pts: indizes.map((i): [number, number, number] => {
+      pts: indices.map((i): [number, number, number] => {
         const p = seg.pts[i] as UploadPoint
         return [p[0], p[1], p[2]]
       }),
     }
     // gesamtM = 0 gibt es nur bei einer Tour ohne Ausdehnung — dort wäre jedes
     // `f` eine Null-Division, und der Rückfall im Player ist genauso gut.
-    if (reihe.gesamtM > 0) {
+    if (series.totalM > 0) {
       // GERUNDET, und das ist kein Kosmetik-Schritt: Roh serialisiert JSON jede
       // Zahl mit bis zu 17 signifikanten Stellen (`0.057312851865195705`), also
       // ~21 Zeichen je Punkt. Auf der größten lokalen Tour sind das +19,8 % auf
@@ -333,18 +333,18 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       // den Export der Filmachse ABLEHNT (§12). Acht Nachkommastellen kosten
       // +11,2 % und sind absurd genau: Bei 41,8 km Streckenlänge entspricht
       // 1e-8 einem Weg von 0,4 mm.
-      eintrag.f = indizes.map((i) =>
-        Number(((reihe.punkte[basis + i]?.dist ?? 0) / reihe.gesamtM).toFixed(8)),
+      entry.f = indices.map((i) =>
+        Number(((series.points[base + i]?.dist ?? 0) / series.totalM).toFixed(8)),
       )
     }
-    return eintrag
+    return entry
   })
 
   // Medien-Platzierung (M6): jedem Medium einen Track-Anker geben (GPS nah am
   // Track, sonst Zeit-Mapping, sonst unplatziert). Unplatzierte bleiben mit im
   // tour.json (fürs Studio/den Editor), der Player überspringt sie (kein Anker).
-  const alleTrackpunkte = rohSegmente.flatMap((s) => s.pts)
-  const media = applyMediaEdits(placeMedia(manifest.media, alleTrackpunkte, startMs), edits)
+  const allTrackPoints = rawSegments.flatMap((s) => s.pts)
+  const media = applyMediaEdits(placeMedia(manifest.media, allTrackPoints, startMs), edits)
     // `|| 0`: ein (schema-durchgerutschtes) unparsebares takenAt darf die
     // Sortierung nicht in NaN-Vergleiche kippen (undefinierte Reihenfolge)
     .sort((a, b) => (Date.parse(a.medium.takenAt) || 0) - (Date.parse(b.medium.takenAt) || 0))
@@ -356,8 +356,8 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       // Fotos werden in einer Anzeige-Fassung ausgeliefert (image.ts); das
       // Original ist danach verworfen. Ohne Fassung — Altbestand oder
       // fehlgeschlagene Aufbereitung — bleibt der Originalname stehen.
-      const fassungen = fotoMeta?.get(m.id)
-      const datei = meta?.videoFile ?? fassungen?.displayFile ?? mediumFilename(m)
+      const variants = photoMeta?.get(m.id)
+      const file = meta?.videoFile ?? variants?.displayFile ?? mediumFilename(m)
       // Der Nutzertext ist der TITEL der Aufnahme, und er ist der einzige Text,
       // den eine Aufnahme trägt.
       //
@@ -372,34 +372,34 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       // hat keine Bildunterschrift mehr (ein Halt steht 5,2 s, die kuratierten
       // Texte waren im Median 84 Zeichen — wer sie las, sah das Bild nicht).
       // Das Feld bleibt nur, weil Bestandstouren es tragen.
-      const nutzertext = m.caption?.trim() ?? ''
-      const eintrag: TourJson['media'][number] = {
+      const userText = m.caption?.trim() ?? ''
+      const entry: TourJson['media'][number] = {
         id: m.id,
         type: m.type,
-        src: `/api/media/${tourId}/${datei}`,
-        title: nutzertext,
+        src: `/api/media/${tourId}/${file}`,
+        title: userText,
         caption: '',
         anchor,
         placement,
         takenAt: m.takenAt,
       }
-      const dauer = meta?.durationS ?? m.durationS
-      if (dauer !== undefined) eintrag.durationS = dauer
-      if (meta?.posterFile) eintrag.poster = `/api/media/${tourId}/${meta.posterFile}`
-      if (fassungen?.thumbFile) eintrag.thumb = `/api/media/${tourId}/${fassungen.thumbFile}`
+      const duration = meta?.durationS ?? m.durationS
+      if (duration !== undefined) entry.durationS = duration
+      if (meta?.posterFile) entry.poster = `/api/media/${tourId}/${meta.posterFile}`
+      if (variants?.thumbFile) entry.thumb = `/api/media/${tourId}/${variants.thumbFile}`
       // Anzeige-Optionen aus dem Overlay (Baukasten) — nur wenn dort gesetzt
       const display = edits?.media?.[m.id]?.display
-      if (display) eintrag.display = display
+      if (display) entry.display = display
       // Platz im Foto-Stopp: wirkt erst im Player, wo die Gruppierung entsteht
-      const reihe = edits?.media?.[m.id]?.order
-      if (reihe !== undefined) eintrag.order = reihe
-      return eintrag
+      const series = edits?.media?.[m.id]?.order
+      if (series !== undefined) entry.order = series
+      return entry
     })
 
   // Nichtlineare Pseudo-Zeit: Stützstellen f→Zeit mit komprimierten Pausen.
   // Auto-Wetter ist eine ANREICHERUNG, kein Muss — fällt die Quelle aus, wird
   // `weather` weggelassen und der Player nutzt sein Client-Auto-Wetter.
-  const timeline = distillTimeline(reihe, manifest.time.start)
+  const timeline = distillTimeline(series, manifest.time.start)
 
   // Kamera-Keyframes (Baukasten): absolute `ab`-Zeiten → Streckenanteil f über
   // die Zeitreihe des GETRIMMTEN Tracks (tSek relativ zu manifest.time.start,
@@ -413,15 +413,15 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
   // an, seine Standzeit ist Achsenbreite. Ein hinter dem Track-Ende verworfener
   // Moment darf die Achse nicht verlängern — deshalb ist es genau die gefilterte
   // Liste, die unten in die Halte geht.
-  let momentHalte: AxisStop[] = []
-  let gefilterteMomente: Array<{
+  let momentStops: AxisStop[] = []
+  let filteredMoments: Array<{
     offsetS: number
     kind: CameraMomentKind
     durationS: number | undefined
   }> = []
   if (edits?.moments?.length) {
-    const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
-    gefilterteMomente = edits.moments
+    const trackEndSec = series.points[series.points.length - 1]?.tSec
+    filteredMoments = edits.moments
       .map((m) => ({
         offsetS: (Date.parse(m.from) - startMs) / 1000,
         kind: m.kind,
@@ -429,13 +429,13 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       }))
       .filter((m) => Number.isFinite(m.offsetS))
       .filter((m) => {
-        if (trackEndeSek === undefined || m.offsetS <= trackEndeSek) return true
-        protokoll?.(`Kamera-Moment hinter dem Track-Ende übersprungen (${m.kind})`)
+        if (trackEndSec === undefined || m.offsetS <= trackEndSec) return true
+        log?.(`Kamera-Moment hinter dem Track-Ende übersprungen (${m.kind})`)
         return false
       })
       .sort((a, b) => a.offsetS - b.offsetS)
-    momentHalte = buildMomentStops(
-      gefilterteMomente.map((m) => ({ offsetS: m.offsetS, art: m.kind, dauerS: m.durationS })),
+    momentStops = buildMomentStops(
+      filteredMoments.map((m) => ({ offsetS: m.offsetS, kind: m.kind, dauerS: m.durationS })),
     )
   }
 
@@ -452,22 +452,22 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
    * `null` nur bei einer degenerierten Tour ohne Zeitreihe — dann bleibt es
    * überall beim reinen `f`, also beim Verhalten von vorher.
    */
-  const achse =
-    reihe.punkte.length > 0
-      ? buildFilmAxis(reihe, [
+  const axis =
+    series.points.length > 0
+      ? buildFilmAxis(series, [
           ...buildAxisStops(
             media
               .filter((m) => m.anchor)
               .map((m) => {
-                const ort = projectOntoTimeSeries(
-                  reihe,
+                const place = projectOntoTimeSeries(
+                  series,
                   (m.anchor as [number, number])[0],
                   (m.anchor as [number, number])[1],
                 )
                 return {
                   type: m.type,
-                  meter: ort.meter,
-                  offsetS: ort.offsetS,
+                  meters: place.meters,
+                  offsetS: place.offsetS,
                   ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}),
                   ...(m.display ? { display: m.display } : {}),
                 }
@@ -477,7 +477,7 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
           // kosten sie längst Achsenbreite (achsenHalte in editor.ts). Fehlten
           // sie hier, klänge jeder Ton-Klip, dessen Versatz über einen Moment
           // reicht, im Render an einer anderen Stelle als im Editor.
-          ...momentHalte,
+          ...momentStops,
         ])
       : null
 
@@ -490,22 +490,22 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
    * (§12). Ohne Achse gibt es keine Filmsekunde — dann bleibt das Feld weg und
    * der Player rechnet wie bisher aus `f`.
    */
-  const filmZahl = (filmS: number): number => Number(filmS.toFixed(8))
-  const filmFeld = (tSek: number): number | undefined =>
-    achse ? filmZahl(filmTimeAtRecordingTime(achse, tSek)) : undefined
+  const filmNumber = (filmS: number): number => Number(filmS.toFixed(8))
+  const filmField = (tSek: number): number | undefined =>
+    axis ? filmNumber(filmTimeAtRecordingTime(axis, tSek)) : undefined
 
   let camera: TourJson['camera']
   if (edits?.camera?.length) {
     // Eine Grenze HINTER dem (getrimmten) Track-Ende würde auf f=1 geklemmt —
     // die Kamera schaltete dann sichtbar exakt am Finale um, wo die Grenze nie
     // gemeint war → verwerfen. Vor dem Start bleibt die Klemmung („gilt ab hier").
-    const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
+    const trackEndSec = series.points[series.points.length - 1]?.tSec
     const keyframes = edits.camera
       .map((g) => ({ abMs: Date.parse(g.from), preset: g.preset, scale: g.scale }))
       .filter((g) => Number.isFinite(g.abMs))
       .filter((g) => {
-        if (trackEndeSek === undefined || (g.abMs - startMs) / 1000 <= trackEndeSek) return true
-        protokoll?.(`Kamera-Grenze hinter dem Track-Ende übersprungen (${g.preset})`)
+        if (trackEndSec === undefined || (g.abMs - startMs) / 1000 <= trackEndSec) return true
+        log?.(`Kamera-Grenze hinter dem Track-Ende übersprungen (${g.preset})`)
         return false
       })
       // positionZurZeit ist monoton in der Zeit → nach `ab` sortiert ist auch
@@ -513,36 +513,36 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       .sort((a, b) => a.abMs - b.abMs)
       .map((g) => {
         const tSek = (g.abMs - startMs) / 1000
-        const filmS = filmFeld(tSek)
+        const filmS = filmField(tSek)
         return {
-          f: positionAtTime(reihe, tSek).f,
+          f: positionAtTime(series, tSek).f,
           preset: g.preset,
           ...(g.scale !== undefined && g.scale !== 1 ? { scale: g.scale } : {}),
           ...(filmS !== undefined ? { filmS } : {}),
         }
       })
-    const dedupliziert: NonNullable<TourJson['camera']> = []
+    const deduped: NonNullable<TourJson['camera']> = []
     for (const k of keyframes) {
-      const letzter = dedupliziert[dedupliziert.length - 1]
-      if (letzter && letzter.f === k.f) {
-        letzter.preset = k.preset
-        if (k.scale !== undefined) letzter.scale = k.scale
-        else delete letzter.scale
+      const last = deduped[deduped.length - 1]
+      if (last && last.f === k.f) {
+        last.preset = k.preset
+        if (k.scale !== undefined) last.scale = k.scale
+        else delete last.scale
         // Der spätere Keyframe gewinnt — auch mit seiner Filmsekunde. Bei
         // gleichem `f` können sie sich unterscheiden: genau dann, wenn beide
         // in derselben Standzeit liegen.
-        if (k.filmS !== undefined) letzter.filmS = k.filmS
-      } else dedupliziert.push(k)
+        if (k.filmS !== undefined) last.filmS = k.filmS
+      } else deduped.push(k)
     }
-    if (dedupliziert.length) camera = dedupliziert
+    if (deduped.length) camera = deduped
   }
 
   let moments: TourJson['moments']
-  if (gefilterteMomente.length) {
-    moments = gefilterteMomente.map((m) => {
-      const filmS = filmFeld(m.offsetS)
+  if (filteredMoments.length) {
+    moments = filteredMoments.map((m) => {
+      const filmS = filmField(m.offsetS)
       return {
-        f: positionAtTime(reihe, m.offsetS).f,
+        f: positionAtTime(series, m.offsetS).f,
         kind: m.kind,
         ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
         // Die Filmsekunde des Moments ist eine AUSKUNFT, kein Eingang: Der
@@ -560,75 +560,75 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
   // übersprungen — ein kaputter Verweis darf den Render nie scheitern lassen.
   let audio: TourJson['audio']
   if (edits?.audio?.length) {
-    const vorhandene = new Set(audioDateien ?? [])
-    const benutzerVorhandene = new Set(benutzerAudioDateien ?? [])
-    const ersterPunkt = reihe.punkte[0]
-    const letzterPunkt = reihe.punkte[reihe.punkte.length - 1]
+    const available = new Set(audioFiles ?? [])
+    const userAvailable = new Set(userAudioFiles ?? [])
+    const firstPoint = series.points[0]
+    const lastPoint = series.points[series.points.length - 1]
     /** Streckenanteil zu einer Filmsekunde (über die Achse zurück in die Zeit). */
-    const fBeiFilm = (filmS: number): number =>
-      positionAtTime(reihe, recordingTimeAtFilmTime(achse as NonNullable<typeof achse>, filmS)).f
-    const spuren: NonNullable<TourJson['audio']> = []
-    for (const spur of edits.audio) {
-      const ausBibliothek = spur.source === 'library'
-      const ausBenutzer = spur.source === 'user'
+    const fAtFilm = (filmS: number): number =>
+      positionAtTime(series, recordingTimeAtFilmTime(axis as NonNullable<typeof axis>, filmS)).f
+    const tracks: NonNullable<TourJson['audio']> = []
+    for (const track of edits.audio) {
+      const fromLibrary = track.source === 'library'
+      const fromUserLibrary = track.source === 'user'
       // Tour-lokale Dateien müssen unter media/ liegen, Benutzer-Uploads in der
       // Bibliothek des Eigentümers; kuratierte Effekte sind global
       // (public/audio/sfx/) und werden hier nicht geprüft.
-      if (!ausBibliothek && !ausBenutzer && !vorhandene.has(spur.file)) {
-        protokoll?.(`Audio-Datei fehlt: ${spur.file}`)
+      if (!fromLibrary && !fromUserLibrary && !available.has(track.file)) {
+        log?.(`Audio-Datei fehlt: ${track.file}`)
         continue
       }
-      if (ausBenutzer && !benutzerVorhandene.has(spur.file)) {
-        protokoll?.(`Bibliotheks-Audio fehlt: ${spur.file}`)
+      if (fromUserLibrary && !userAvailable.has(track.file)) {
+        log?.(`Bibliotheks-Audio fehlt: ${track.file}`)
         continue
       }
       // Die Film-Verankerung gilt nur, wenn sie auch benutzt wird UND die Achse
       // steht (eine degenerierte Tour hat keine). Sonst der Weg von vorher —
       // Bestands-Overlays laufen dadurch buchstäblich durch denselben Code.
-      const filmVerankert =
-        achse !== null &&
-        (spur.anchor !== undefined ||
-          spur.offsetFilmS !== undefined ||
-          spur.durationFilmS !== undefined)
-      const tAb = (Date.parse(spur.anchor ?? spur.from) - startMs) / 1000
-      const tBis = spur.to !== undefined ? (Date.parse(spur.to) - startMs) / 1000 : undefined
+      const filmAnchored =
+        axis !== null &&
+        (track.anchor !== undefined ||
+          track.offsetFilmS !== undefined ||
+          track.durationFilmS !== undefined)
+      const tAb = (Date.parse(track.anchor ?? track.from) - startMs) / 1000
+      const tBis = track.to !== undefined ? (Date.parse(track.to) - startMs) / 1000 : undefined
       let f0: number
       let f1: number
       // Die Filmsekunden des Klips (E10) — die eigentliche Auskunft, seit der
       // Player in Filmzeit rechnet. `undefined` nur ohne Achse.
       let filmFromS: number | undefined
       let filmToS: number | undefined
-      if (filmVerankert) {
+      if (filmAnchored) {
         // Anker → Filmsekunde → Versatz drauf → zurück in Zeit und Anteil.
-        const filmFrom = filmTimeAtRecordingTime(achse, tAb) + (spur.offsetFilmS ?? 0)
-        f0 = fBeiFilm(filmFrom)
+        const filmFrom = filmTimeAtRecordingTime(axis, tAb) + (track.offsetFilmS ?? 0)
+        f0 = fAtFilm(filmFrom)
         filmFromS = filmFrom
-        if (spur.durationFilmS !== undefined) {
-          filmToS = filmFrom + spur.durationFilmS
-          f1 = fBeiFilm(filmToS)
-        } else if (spur.type === 'music') {
-          filmToS = tBis !== undefined ? filmTimeAtRecordingTime(achse, tBis) : achse.totalS
-          f1 = tBis !== undefined ? positionAtTime(reihe, tBis).f : 1
+        if (track.durationFilmS !== undefined) {
+          filmToS = filmFrom + track.durationFilmS
+          f1 = fAtFilm(filmToS)
+        } else if (track.type === 'music') {
+          filmToS = tBis !== undefined ? filmTimeAtRecordingTime(axis, tBis) : axis.totalS
+          f1 = tBis !== undefined ? positionAtTime(series, tBis).f : 1
         } else {
           filmToS = filmFrom
           f1 = f0
         }
       } else {
-        f0 = positionAtTime(reihe, tAb).f
-        filmFromS = achse ? filmTimeAtRecordingTime(achse, tAb) : undefined
-        if (spur.type === 'music') {
-          f1 = tBis !== undefined ? positionAtTime(reihe, tBis).f : 1
-          filmToS = achse
+        f0 = positionAtTime(series, tAb).f
+        filmFromS = axis ? filmTimeAtRecordingTime(axis, tAb) : undefined
+        if (track.type === 'music') {
+          f1 = tBis !== undefined ? positionAtTime(series, tBis).f : 1
+          filmToS = axis
             ? tBis !== undefined
-              ? filmTimeAtRecordingTime(achse, tBis)
-              : achse.totalS
+              ? filmTimeAtRecordingTime(axis, tBis)
+              : axis.totalS
             : undefined
         } else {
           // SFX: One-Shot exakt bei f0. Liegt `ab` außerhalb des (getrimmten)
           // Tracks, würde die Klemmung den Knall an den Tour-Start/-Ende legen,
           // wo er nie gemeint war → überspringen.
-          if (ersterPunkt && letzterPunkt && (tAb < ersterPunkt.tSek || tAb > letzterPunkt.tSek)) {
-            protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.file}`)
+          if (firstPoint && lastPoint && (tAb < firstPoint.tSec || tAb > lastPoint.tSec)) {
+            log?.(`Audio außerhalb des Tracks übersprungen: ${track.file}`)
             continue
           }
           f1 = f0
@@ -643,49 +643,49 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       // man muss sie nur in der richtigen Größe messen. Übrig bleibt der Fall,
       // in dem auch der Film keine Zeit dafür hat — etwa eine Spanne, die der
       // Trim vollständig vor den Track-Anfang klemmt.
-      const leer =
+      const empty =
         filmFromS !== undefined && filmToS !== undefined ? !(filmToS > filmFromS) : f1 <= f0
-      if (spur.type === 'music' && leer) {
-        protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.file}`)
+      if (track.type === 'music' && empty) {
+        log?.(`Audio außerhalb des Tracks übersprungen: ${track.file}`)
         continue
       }
-      spuren.push({
-        type: spur.type === 'music' ? 'music' : 'sfx',
+      tracks.push({
+        type: track.type === 'music' ? 'music' : 'sfx',
         // Bibliothek: statisch ausgeliefert (wie ambient.mp3). Benutzer-Upload:
         // über die Tour ausgeliefert, damit deren Sichtbarkeit den Zugriff regelt.
-        src: ausBibliothek
-          ? `/audio/sfx/${spur.file}`
-          : ausBenutzer
-            ? `/api/tours/${tourId}/library-audio/${spur.file}`
-            : `/api/media/${tourId}/${spur.file}`,
+        src: fromLibrary
+          ? `/audio/sfx/${track.file}`
+          : fromUserLibrary
+            ? `/api/tours/${tourId}/library-audio/${track.file}`
+            : `/api/media/${tourId}/${track.file}`,
         f0,
         f1,
         // IMMER mitschreiben, anders als loop/startS darunter: Der Player kennt
         // die Vorgabe des Studio-Reglers (0.8) nicht, und ohne Wert spielte er
         // mit 1.0 — der Film klänge lauter als der Schnitt. Der Wert ist hier
         // absolut; den Master setzt remote.ts auf 1 (s. TourConfig.audioPegel).
-        gain: spur.volume ?? STUDIO_GAIN,
+        gain: track.volume ?? STUDIO_GAIN,
         // Nur mitschreiben, was ausdrücklich gesetzt ist: Der Player kennt
         // dieselben Vorgaben (Musik loopt, SFX nicht) und würde sie sonst aus
         // einem geschriebenen Wert lesen statt aus der Regel — Bestandsdaten
         // bekämen ein Feld, das sie nie hatten.
-        ...(spur.loop !== undefined ? { loop: spur.loop } : {}),
-        ...(spur.startS ? { startS: spur.startS } : {}),
+        ...(track.loop !== undefined ? { loop: track.loop } : {}),
+        ...(track.startS ? { startS: track.startS } : {}),
         // Die Film-Anker (E10). `filmS` steht bei jedem Klip, `filmToS` nur bei
         // einem BEREICH: Ein One-Shot hat keine Länge, und ein zweites Feld mit
         // demselben Wert wäre eine Angabe über nichts. Der Player fällt je
         // Endpunkt einzeln auf `f0`/`f1` zurück — ein Bereich ohne `filmToS`
         // bleibt dadurch ein Bereich.
-        ...(filmFromS !== undefined ? { filmS: filmZahl(filmFromS) } : {}),
+        ...(filmFromS !== undefined ? { filmS: filmNumber(filmFromS) } : {}),
         ...(filmToS !== undefined && filmFromS !== undefined && filmToS > filmFromS
-          ? { filmToS: filmZahl(filmToS) }
+          ? { filmToS: filmNumber(filmToS) }
           : {}),
       })
     }
     // Sortiert nach FILMSEKUNDE, wo es sie gibt: Zwei Klips in derselben
     // Standzeit haben dasselbe `f0` und stünden sonst in beliebiger Reihenfolge.
-    spuren.sort((a, b) => (a.filmS ?? a.f0) - (b.filmS ?? b.f0) || a.f0 - b.f0)
-    if (spuren.length) audio = spuren
+    tracks.sort((a, b) => (a.filmS ?? a.f0) - (b.filmS ?? b.f0) || a.f0 - b.f0)
+    if (tracks.length) audio = tracks
   }
 
   let weather: TourJson['weather']
@@ -693,55 +693,59 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
     // Studio-Wetter (Baukasten): eine bewusst gesetzte Stufenfunktion ersetzt
     // das Auto-Wetter VOLLSTÄNDIG — auch die Foto-Verfeinerung entfällt, weil der
     // Nutzer hier korrigiert, was Open-Meteo/Bildanalyse falsch hatten.
-    const keyframes = weatherFromOverlay(edits.weather, reihe, startMs)
+    const keyframes = weatherFromOverlay(edits.weather, series, startMs)
     if (keyframes.length) weather = keyframes
   } else {
     // Roh-Wetter: bevorzugt vorgegeben (Anreicherungs-Cache, kein Netz); sonst aus
     // der Quelle berechnen (Direktaufruf/Test). `weatherRaw === undefined` heißt
     // „nicht im Cache" → berechnen; `null`/`[]` heißt „berechnet, aber kein Wetter".
-    const wetterVorgegeben = weatherRaw !== undefined
+    const weatherGiven = weatherRaw !== undefined
     try {
       let keyframes: WeatherKeyframe[]
-      if (wetterVorgegeben) {
+      if (weatherGiven) {
         keyframes = weatherRaw ?? []
-      } else if (wetter) {
-        keyframes = await computeWeather({ reihe, startIso: manifest.time.start, quelle: wetter })
+      } else if (weatherSource) {
+        keyframes = await computeWeather({
+          series,
+          startIso: manifest.time.start,
+          source: weatherSource,
+        })
       } else {
         keyframes = []
       }
       // Bildanalyse (M5): platzierte Fotos mit Befund lokal auf ihre f-Position
       // abbilden (Aufnahmezeit → Zeitreihe, wie die Kamera-Keyframes) und das
       // API-Wetter dort verfeinern. Ohne Befunde bleibt `keyframes` unberührt.
-      if (keyframes.length && bildBefunde?.size) {
-        const fotos: Array<{ f: number; befund: ImageFinding }> = []
+      if (keyframes.length && imageFindings?.size) {
+        const photos: Array<{ f: number; finding: ImageFinding }> = []
         for (const m of media) {
           if (m.type !== 'photo' || m.anchor === null) continue // nur platzierte Fotos
-          const befund = bildBefunde.get(m.id)
-          if (!befund) continue
+          const finding = imageFindings.get(m.id)
+          if (!finding) continue
           const tSek = (Date.parse(m.takenAt) - startMs) / 1000
           if (!Number.isFinite(tSek)) continue
-          fotos.push({ f: positionAtTime(reihe, tSek).f, befund })
+          photos.push({ f: positionAtTime(series, tSek).f, finding })
         }
-        if (fotos.length) keyframes = refineWeatherWithPhotos(keyframes, fotos)
+        if (photos.length) keyframes = refineWeatherWithPhotos(keyframes, photos)
       }
       if (keyframes.length) weather = keyframes
-    } catch (fehler) {
-      protokoll?.(`Auto-Wetter nicht verfügbar (${tourId}): ${(fehler as Error).message}`)
+    } catch (error) {
+      log?.(`Auto-Wetter nicht verfügbar (${tourId}): ${(error as Error).message}`)
     }
   }
 
   return {
     schema: TOUR_SCHEMA_ID,
     id: tourId,
-    no: `N°${String(nummer).padStart(2, '0')}`,
+    no: `N°${String(no).padStart(2, '0')}`,
     status: 'ready',
-    brandTitle: benennung.brandTitle,
-    kicker: benennung.kicker,
-    titleHtml: benennung.titleHtml,
-    stops: benennung.stops,
+    brandTitle: naming.brandTitle,
+    kicker: naming.kicker,
+    titleHtml: naming.titleHtml,
+    stops: naming.stops,
     showFinale,
-    finaleTitle: finaleZielOverride?.trim() || benennung.finaleTitle,
-    description: beschreibungOverride ?? manifest.description ?? null,
+    finaleTitle: finaleTargetOverride?.trim() || naming.finaleTitle,
+    description: descriptionOverride ?? manifest.description ?? null,
     time: manifest.time,
     segments,
     media,
@@ -757,12 +761,12 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       ...stats,
       placedMedia: media.filter((m) => m.anchor).length,
       ...(() => {
-        const spur = buildSignature(
+        const track = buildSignature(
           segments.flatMap((s) => s.pts.map((p) => [p[0], p[1]] as const)),
         )
-        return spur ? { trackSignature: spur } : {}
+        return track ? { trackSignature: track } : {}
       })(),
-      ...(achse ? { filmS: Math.round(achse.totalS * 10) / 10 } : {}),
+      ...(axis ? { filmS: Math.round(axis.totalS * 10) / 10 } : {}),
       ...(showFinale ? { finale: true } : {}),
     },
   }

@@ -1,4 +1,4 @@
-// Betriebsprotokoll: Ringpuffer und die Anbindung ans Logger-Ziel.
+// Betriebslog: Ringpuffer und die Anbindung ans Logger-Ziel.
 
 import { describe, expect, it } from 'vitest'
 import { AuditLog, auditLogTarget } from '../src/audit-log.js'

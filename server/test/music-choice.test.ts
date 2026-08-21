@@ -28,10 +28,10 @@ function segment(
 
 function eingabe(teil: Partial<MusicInput> = {}): MusicInput {
   return {
-    segmente: [segment()],
+    segs: [segment()],
     weather: null,
     startIso: '2026-07-04T09:00:00+02:00',
-    endeIso: '2026-07-04T12:00:00+02:00',
+    endIso: '2026-07-04T12:00:00+02:00',
     zone: 'Europe/Zurich',
     ...teil,
   }
@@ -73,9 +73,9 @@ describe('waehleMusik', () => {
   it('Nacht schlägt alles — auch Regen und Berge', () => {
     const nachts = eingabe({
       startIso: '2026-07-04T22:00:00+02:00',
-      endeIso: '2026-07-05T01:30:00+02:00',
+      endIso: '2026-07-05T01:30:00+02:00',
       weather: [kf(0, 'rain')],
-      segmente: [segment('bike', [400, 1400, 2400])],
+      segs: [segment('bike', [400, 1400, 2400])],
     })
     expect(chooseMusic(nachts)).toBe(AUTO_MUSIC.nachtfahrt)
   })
@@ -83,7 +83,7 @@ describe('waehleMusik', () => {
   it('eine Tour, die im Hellen beginnt und in die Nacht läuft, ist keine Nachtfahrt', () => {
     const abends = eingabe({
       startIso: '2026-07-04T16:00:00+02:00',
-      endeIso: '2026-07-04T22:30:00+02:00',
+      endIso: '2026-07-04T22:30:00+02:00',
     })
     expect(chooseMusic(abends)).not.toBe(AUTO_MUSIC.nachtfahrt)
   })
@@ -105,29 +105,29 @@ describe('waehleMusik', () => {
     // ein Dreipunkt-Zickzack würde dabei zu einer Ebene verrechnet.
     // Bleibt unter der Höhenschwelle (1200 m), damit wirklich der Gewinn zählt.
     const hoehen = Array.from({ length: 30 }, (_, i) => 300 + i * 25) // 300 → 1025 m
-    expect(chooseMusic(eingabe({ segmente: [segment('bike', hoehen)] }))).toBe(AUTO_MUSIC.bergpass)
+    expect(chooseMusic(eingabe({ segs: [segment('bike', hoehen)] }))).toBe(AUTO_MUSIC.bergpass)
   })
 
   it('auch ohne Anstieg zählt die schiere Höhe', () => {
-    expect(chooseMusic(eingabe({ segmente: [segment('bike', [2000, 2010, 2020])] }))).toBe(
+    expect(chooseMusic(eingabe({ segs: [segment('bike', [2000, 2010, 2020])] }))).toBe(
       AUTO_MUSIC.bergpass,
     )
   })
 
   it('eine Fähre bedeutet Wasser', () => {
-    expect(chooseMusic(eingabe({ segmente: [segment('bike'), segment('ferry')] }))).toBe(
+    expect(chooseMusic(eingabe({ segs: [segment('bike'), segment('ferry')] }))).toBe(
       AUTO_MUSIC.kuestenstrasse,
     )
   })
 
   it('zwischen den Wendekreisen läuft „Tropen"', () => {
-    expect(chooseMusic(eingabe({ segmente: [segment('moped', [10, 20, 30], 9.7)] }))).toBe(
+    expect(chooseMusic(eingabe({ segs: [segment('moped', [10, 20, 30], 9.7)] }))).toBe(
       AUTO_MUSIC.tropen,
     )
   })
 
   it('knapp außerhalb der Wendekreise nicht mehr', () => {
-    expect(chooseMusic(eingabe({ segmente: [segment('moped', [10, 20, 30], 24.2)] }))).not.toBe(
+    expect(chooseMusic(eingabe({ segs: [segment('moped', [10, 20, 30], 24.2)] }))).not.toBe(
       AUTO_MUSIC.tropen,
     )
   })
@@ -135,14 +135,14 @@ describe('waehleMusik', () => {
   it('Ankunft im Abendlicht gibt „Goldene Stunde"', () => {
     const abend = eingabe({
       startIso: '2026-07-04T15:00:00+02:00',
-      endeIso: '2026-07-04T18:40:00+02:00',
+      endIso: '2026-07-04T18:40:00+02:00',
     })
     expect(chooseMusic(abend)).toBe(AUTO_MUSIC.goldeneStunde)
   })
 
   it('die Zeitzone der Tour entscheidet, nicht die des Servers', () => {
     // Dieselbe absolute Zeit: in Bangkok ist es tiefe Nacht, in Zürich Abend.
-    const utc = { startIso: '2026-07-04T16:30:00Z', endeIso: '2026-07-04T18:00:00Z' }
+    const utc = { startIso: '2026-07-04T16:30:00Z', endIso: '2026-07-04T18:00:00Z' }
     expect(chooseMusic(eingabe({ ...utc, zone: 'Asia/Bangkok' }))).toBe(AUTO_MUSIC.nachtfahrt)
     expect(chooseMusic(eingabe({ ...utc, zone: 'Europe/Zurich' }))).toBe(AUTO_MUSIC.goldeneStunde)
   })
@@ -157,18 +157,18 @@ describe('waehleMusik', () => {
         [8.82, 46.6, 405, 7200],
       ],
     }
-    expect(chooseMusic(eingabe({ segmente: [weit] }))).toBe(AUTO_MUSIC.fernweh)
+    expect(chooseMusic(eingabe({ segs: [weit] }))).toBe(AUTO_MUSIC.fernweh)
   })
 
   it('unbrauchbare Zeitangaben werfen nicht, sondern fallen auf den Standard zurück', () => {
-    expect(chooseMusic(eingabe({ startIso: 'kaputt', endeIso: 'auch kaputt' }))).toBe(
+    expect(chooseMusic(eingabe({ startIso: 'kaputt', endIso: 'auch kaputt' }))).toBe(
       AUTO_MUSIC.aufbruch,
     )
     expect(chooseMusic(eingabe({ zone: 'Nirgendwo/Unbekannt' }))).toBe(AUTO_MUSIC.aufbruch)
   })
 
   it('ohne Segmente bleibt es beim Standard, statt zu stolpern', () => {
-    expect(chooseMusic(eingabe({ segmente: [] }))).toBe(AUTO_MUSIC.aufbruch)
+    expect(chooseMusic(eingabe({ segs: [] }))).toBe(AUTO_MUSIC.aufbruch)
   })
 
   it('vergibt nur Dateien aus der kuratierten Bibliothek', () => {
@@ -176,8 +176,8 @@ describe('waehleMusik', () => {
     for (const e of [
       eingabe(),
       eingabe({ weather: [kf(0, 'rain')] }),
-      eingabe({ segmente: [segment('ferry')] }),
-      eingabe({ startIso: '2026-07-04T23:00:00+02:00', endeIso: '2026-07-05T02:00:00+02:00' }),
+      eingabe({ segs: [segment('ferry')] }),
+      eingabe({ startIso: '2026-07-04T23:00:00+02:00', endIso: '2026-07-05T02:00:00+02:00' }),
     ]) {
       expect(alle.has(chooseMusic(e) as (typeof AUTO_MUSIC)[keyof typeof AUTO_MUSIC])).toBe(true)
     }

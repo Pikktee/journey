@@ -8,9 +8,9 @@ import {
 } from '../src/pipeline/naming.js'
 
 const basis = {
-  startPunkt: [7.9086, 46.5934] as [number, number],
-  zielPunkt: [8.0341, 46.6244] as [number, number],
-  zeitStart: '2026-07-04T08:12:31+02:00',
+  startPoint: [7.9086, 46.5934] as [number, number],
+  endPoint: [8.0341, 46.6244] as [number, number],
+  timeStart: '2026-07-04T08:12:31+02:00',
   zone: 'Europe/Zurich',
 }
 
@@ -18,7 +18,7 @@ describe('benenneTour', () => {
   it('baut „Start → Ziel" aus den Geocoder-Orten', async () => {
     const b = await nameTour({
       ...basis,
-      nutzerTitel: null,
+      userTitle: null,
       geocoder: new FixedGeocoder(['Lauterbrunnen', 'Grindelwald']),
     })
     expect(b.title).toBe('Lauterbrunnen → Grindelwald')
@@ -33,7 +33,7 @@ describe('benenneTour', () => {
   it('erkennt Rundtouren (Start = Ziel)', async () => {
     const b = await nameTour({
       ...basis,
-      nutzerTitel: null,
+      userTitle: null,
       geocoder: new FixedGeocoder(['Wengen', 'Wengen']),
     })
     expect(b.title).toBe('Runde bei Wengen')
@@ -49,24 +49,23 @@ describe('benenneTour', () => {
     // Zustände müssen unterscheidbar bleiben, sonst kann man eine einmal
     // gesetzte Zeile nie wieder loswerden.
     const orte = { startOrt: 'Wengen', zielOrt: 'Wengen' }
-    const zeit = { zeitStart: basis.zeitStart, zone: basis.zone }
+    const zeit = { timeStart: basis.timeStart, zone: basis.zone }
 
     it('nimmt die Vorbelegung, solange nie etwas gesetzt wurde', () => {
-      expect(buildNaming({ ...orte, ...zeit, nutzerTitel: null, dachzeile: null }).kicker).toBe(
+      expect(buildNaming({ ...orte, ...zeit, userTitle: null, kickerText: null }).kicker).toBe(
         'Wengen',
       )
-      expect(buildNaming({ ...orte, ...zeit, nutzerTitel: null }).kicker).toBe('Wengen')
+      expect(buildNaming({ ...orte, ...zeit, userTitle: null }).kicker).toBe('Wengen')
     })
 
     it('lässt die Zeile beim leeren String ausdrücklich weg', () => {
-      expect(buildNaming({ ...orte, ...zeit, nutzerTitel: null, dachzeile: '' }).kicker).toBe('')
-      expect(buildNaming({ ...orte, ...zeit, nutzerTitel: null, dachzeile: '   ' }).kicker).toBe('')
+      expect(buildNaming({ ...orte, ...zeit, userTitle: null, kickerText: '' }).kicker).toBe('')
+      expect(buildNaming({ ...orte, ...zeit, userTitle: null, kickerText: '   ' }).kicker).toBe('')
     })
 
     it('nimmt jeden anderen Text, wie er ist', () => {
       expect(
-        buildNaming({ ...orte, ...zeit, nutzerTitel: null, dachzeile: ' Völklinger Hütte ' })
-          .kicker,
+        buildNaming({ ...orte, ...zeit, userTitle: null, kickerText: ' Völklinger Hütte ' }).kicker,
       ).toBe('Völklinger Hütte')
     })
   })
@@ -74,7 +73,7 @@ describe('benenneTour', () => {
   it('nutzt den Nutzer-Titel unverändert, geocodiert aber die Stops', async () => {
     const b = await nameTour({
       ...basis,
-      nutzerTitel: '  Alpenglühen  ',
+      userTitle: '  Alpenglühen  ',
       geocoder: new FixedGeocoder(['Lauterbrunnen', 'Grindelwald']),
     })
     expect(b.title).toBe('Alpenglühen')
@@ -84,7 +83,7 @@ describe('benenneTour', () => {
   it('fällt ohne Geocoder-Treffer aufs Datum zurück', async () => {
     const b = await nameTour({
       ...basis,
-      nutzerTitel: null,
+      userTitle: null,
       geocoder: new FixedGeocoder([null, null]),
     })
     expect(b.title).toBe('Tour vom 4. Juli 2026')

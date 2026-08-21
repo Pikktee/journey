@@ -28,29 +28,29 @@ export type WeatherMode = (typeof WEATHER_MODES)[number]
 export interface WeatherHour {
   code: number
   /** Bewölkung in % */
-  wolken: number
+  clouds: number
   /** Niederschlag in mm/h */
-  regenMm: number
+  rainMm: number
   /** Schneefall in cm/h */
-  schneeCm: number
+  snowCm: number
 }
 
 /** Stundenraster einer Position: parallele Arrays, Zeiten als ISO-Stunde (UTC). */
 export interface HourlyGrid {
-  zeiten: string[]
+  times: string[]
   code: number[]
-  wolken: number[]
-  regen: number[]
-  schnee: number[]
+  clouds: number[]
+  rain: number[]
+  snow: number[]
 }
 
 /** Wetterdaten-Anbieter hinter Interface (DI) — Tests nutzen FesteWetterQuelle. */
 export interface WeatherSource {
   /** Stundenwerte je Position über einen UTC-Datumsbereich (YYYY-MM-DD). */
-  stunden(
-    punkte: ReadonlyArray<{ lat: number; lng: number }>,
-    startTag: string,
-    endeTag: string,
+  hours(
+    points: ReadonlyArray<{ lat: number; lng: number }>,
+    startDay: string,
+    endDay: string,
   ): Promise<HourlyGrid[]>
 }
 
@@ -62,16 +62,16 @@ const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.m
  * Bewölkung — identisch zu src/autoweather.ts.
  */
 export function wmoToWeather(w: WeatherHour): { mode: WeatherMode; k: number } {
-  if (w.code >= 95) return { mode: 'storm', k: clamp(0.5 + w.regenMm / 8, 0.4, 1) }
-  if (w.schneeCm > 0.05 || (w.code >= 71 && w.code <= 77) || w.code === 85 || w.code === 86) {
-    return { mode: 'snow', k: clamp(0.4 + w.schneeCm / 2.5, 0.4, 1) }
+  if (w.code >= 95) return { mode: 'storm', k: clamp(0.5 + w.rainMm / 8, 0.4, 1) }
+  if (w.snowCm > 0.05 || (w.code >= 71 && w.code <= 77) || w.code === 85 || w.code === 86) {
+    return { mode: 'snow', k: clamp(0.4 + w.snowCm / 2.5, 0.4, 1) }
   }
-  if ((w.code >= 51 && w.code <= 67) || (w.code >= 80 && w.code <= 82) || w.regenMm > 0.15) {
-    return { mode: 'rain', k: clamp(0.4 + w.regenMm / 5, 0.4, 1) }
+  if ((w.code >= 51 && w.code <= 67) || (w.code >= 80 && w.code <= 82) || w.rainMm > 0.15) {
+    return { mode: 'rain', k: clamp(0.4 + w.rainMm / 5, 0.4, 1) }
   }
   if (w.code === 45 || w.code === 48) return { mode: 'fog', k: 0.7 }
-  if (w.wolken >= 25)
-    return { mode: 'clouds', k: clamp(0.4 + 0.6 * ((w.wolken - 25) / 75), 0.4, 1) }
+  if (w.clouds >= 25)
+    return { mode: 'clouds', k: clamp(0.4 + 0.6 * ((w.clouds - 25) / 75), 0.4, 1) }
   return { mode: 'off', k: 0.7 }
 }
 
@@ -86,10 +86,10 @@ export function smoothSamples<T extends { mode: WeatherMode; k: number }>(
   samples: readonly T[],
 ): T[] {
   return samples.map((s, i) => {
-    const vorher = samples[i - 1]
-    const nachher = samples[i + 1]
-    if (vorher && nachher && vorher.mode === nachher.mode && s.mode !== vorher.mode) {
-      return { ...s, mode: vorher.mode, k: (vorher.k + nachher.k) / 2 }
+    const before = samples[i - 1]
+    const after = samples[i + 1]
+    if (before && after && before.mode === after.mode && s.mode !== before.mode) {
+      return { ...s, mode: before.mode, k: (before.k + after.k) / 2 }
     }
     return { ...s }
   })
@@ -102,20 +102,20 @@ export interface WeatherKeyframe {
   source: string
 }
 
-const rund = (x: number, stellen: number): number => {
-  const p = 10 ** stellen
+const round = (x: number, positions: number): number => {
+  const p = 10 ** positions
   return Math.round(x * p) / p
 }
 
-const isoStunde = (ms: number): string => new Date(ms).toISOString().slice(0, 13)
-const isoTag = (ms: number): string => new Date(ms).toISOString().slice(0, 10)
+const isoHour = (ms: number): string => new Date(ms).toISOString().slice(0, 13)
+const isoDay = (ms: number): string => new Date(ms).toISOString().slice(0, 10)
 
 // Deckel für die Stunden-Samples (Mehrtages-Uploads): darüber wird das
 // Stundenraster ausgedünnt statt die Abfrage aufgebläht.
 const MAX_SAMPLES = 96
 // Ab dieser k-Änderung bekommt derselbe Modus einen weiteren Keyframe
 // (setIntensity im Player ist stufenlos — Schauer dürfen an- und abschwellen).
-const K_SCHWELLE = 0.15
+const K_THRESHOLD = 0.15
 
 /**
  * Auto-Wetter berechnen: Stunden-Samples entlang der Strecke ziehen, per
@@ -123,32 +123,28 @@ const K_SCHWELLE = 0.15
  * Wirft bei Quellen-Fehlern — der Aufrufer (enrich) lässt `weather` dann weg
  * und der Player fällt auf sein Client-Auto-Wetter zurück.
  */
-export async function computeWeather(eingabe: {
-  reihe: TimeSeries
+export async function computeWeather(input: {
+  series: TimeSeries
   startIso: string
-  quelle: WeatherSource
+  source: WeatherSource
 }): Promise<WeatherKeyframe[]> {
-  const { reihe, startIso, quelle } = eingabe
+  const { series, startIso, source } = input
   const startMs = Date.parse(startIso)
-  const erster = reihe.punkte[0]
-  const letzter = reihe.punkte[reihe.punkte.length - 1]
-  if (!Number.isFinite(startMs) || !erster || !letzter) return []
+  const first = series.points[0]
+  const last = series.points[series.points.length - 1]
+  if (!Number.isFinite(startMs) || !first || !last) return []
 
   // Sample-Zeitpunkte: Tour-Start, jede volle UTC-Stunde dazwischen, Tour-Ende.
-  const vonMs = startMs + erster.tSek * 1000
-  const bisMs = startMs + letzter.tSek * 1000
-  const stundeMs = 3600_000
-  const zeiten: number[] = [vonMs]
-  const stunden = Math.floor((bisMs - vonMs) / stundeMs)
-  const schritt = Math.max(1, Math.ceil(stunden / MAX_SAMPLES))
-  for (
-    let ms = (Math.floor(vonMs / stundeMs) + 1) * stundeMs;
-    ms < bisMs;
-    ms += schritt * stundeMs
-  ) {
-    zeiten.push(ms)
+  const fromMs = startMs + first.tSec * 1000
+  const toMs = startMs + last.tSec * 1000
+  const hourMs = 3600_000
+  const times: number[] = [fromMs]
+  const hours = Math.floor((toMs - fromMs) / hourMs)
+  const step = Math.max(1, Math.ceil(hours / MAX_SAMPLES))
+  for (let ms = (Math.floor(fromMs / hourMs) + 1) * hourMs; ms < toMs; ms += step * hourMs) {
+    times.push(ms)
   }
-  if (bisMs > vonMs) zeiten.push(bisMs)
+  if (toMs > fromMs) times.push(toMs)
 
   // Der ORT eines Samples folgt der echten Zeit („wo war die Tour um 21 Uhr?"),
   // seine Stelle im Film aber der PSEUDO-Uhr: In einer Pause liegen alle
@@ -156,64 +152,64 @@ export async function computeWeather(eingabe: {
   // Zeitraffer-Rampe. Ohne diese Trennung fielen sie auf ein einziges f und nur
   // die letzte überlebte die Dedup unten — ein Regen, der während der Pause kam
   // und ging, verschwand spurlos.
-  const orte = zeiten.map((ms) => positionAtTime(reihe, (ms - startMs) / 1000))
-  const pseudo = pseudoTimes(reihe)
-  const anteile = zeiten.map((ms) => clockTimeAtFraction(reihe, pseudo, (ms - startMs) / 1000))
-  const raster = await quelle.stunden(orte, isoTag(vonMs), isoTag(bisMs))
+  const places = times.map((ms) => positionAtTime(series, (ms - startMs) / 1000))
+  const pseudo = pseudoTimes(series)
+  const shares = times.map((ms) => clockTimeAtFraction(series, pseudo, (ms - startMs) / 1000))
+  const grid = await source.hours(places, isoDay(fromMs), isoDay(toMs))
 
-  const samples = zeiten.map((ms, i) => {
-    const r = raster[i] ?? raster[0]
-    if (!r?.zeiten?.length) throw new Error('Wetterquelle: keine Stundenwerte')
+  const samples = times.map((ms, i) => {
+    const r = grid[i] ?? grid[0]
+    if (!r?.times?.length) throw new Error('Wetterquelle: keine Stundenwerte')
     // Sample-Stunde im Raster suchen (abgerundet); außerhalb wird geklemmt
-    let hi = r.zeiten.findIndex((z) => z.slice(0, 13) === isoStunde(ms))
-    if (hi < 0) hi = ms < Date.parse(`${r.zeiten[0]}Z`) ? 0 : r.zeiten.length - 1
+    let hi = r.times.findIndex((z) => z.slice(0, 13) === isoHour(ms))
+    if (hi < 0) hi = ms < Date.parse(`${r.times[0]}Z`) ? 0 : r.times.length - 1
     const wx = wmoToWeather({
       code: r.code[hi] ?? 0,
-      wolken: r.wolken[hi] ?? 0,
-      regenMm: r.regen[hi] ?? 0,
-      schneeCm: r.schnee[hi] ?? 0,
+      clouds: r.clouds[hi] ?? 0,
+      rainMm: r.rain[hi] ?? 0,
+      snowCm: r.snow[hi] ?? 0,
     })
-    return { f: anteile[i] as number, mode: wx.mode, k: wx.k }
+    return { f: shares[i] as number, mode: wx.mode, k: wx.k }
   })
 
-  const geglaettet = smoothSamples(samples)
+  const smoothed = smoothSamples(samples)
 
   // Keyframes: erstes Sample immer; danach das letzte Sample VOR jedem
   // Modus-Wechsel plus das erste danach (der Player legt die Umschalt-Grenze
   // auf die Mitte zwischen zwei Marken — so liegt sie zeitlich richtig) sowie
   // deutliche k-Änderungen innerhalb desselben Modus.
-  const behalten = new Array<boolean>(geglaettet.length).fill(false)
-  behalten[0] = true
-  let letztK = (geglaettet[0] as { k: number }).k
-  for (let i = 1; i < geglaettet.length; i++) {
-    const s = geglaettet[i] as { mode: WeatherMode; k: number }
-    const vorher = geglaettet[i - 1] as { mode: WeatherMode; k: number }
-    if (s.mode !== vorher.mode) {
-      behalten[i - 1] = true
-      behalten[i] = true
-      letztK = s.k
-    } else if (Math.abs(s.k - letztK) > K_SCHWELLE) {
-      behalten[i] = true
-      letztK = s.k
+  const keep = new Array<boolean>(smoothed.length).fill(false)
+  keep[0] = true
+  let lastK = (smoothed[0] as { k: number }).k
+  for (let i = 1; i < smoothed.length; i++) {
+    const s = smoothed[i] as { mode: WeatherMode; k: number }
+    const before = smoothed[i - 1] as { mode: WeatherMode; k: number }
+    if (s.mode !== before.mode) {
+      keep[i - 1] = true
+      keep[i] = true
+      lastK = s.k
+    } else if (Math.abs(s.k - lastK) > K_THRESHOLD) {
+      keep[i] = true
+      lastK = s.k
     }
   }
 
   const keyframes: WeatherKeyframe[] = []
-  for (let i = 0; i < geglaettet.length; i++) {
-    if (!behalten[i]) continue
-    const s = geglaettet[i] as { f: number; mode: WeatherMode; k: number }
-    const eintrag: WeatherKeyframe = {
-      f: rund(s.f, 4),
+  for (let i = 0; i < smoothed.length; i++) {
+    if (!keep[i]) continue
+    const s = smoothed[i] as { f: number; mode: WeatherMode; k: number }
+    const entry: WeatherKeyframe = {
+      f: round(s.f, 4),
       mode: s.mode,
-      k: rund(s.k, 2),
+      k: round(s.k, 2),
       source: 'openmeteo',
     }
-    const vorher = keyframes[keyframes.length - 1]
+    const before = keyframes[keyframes.length - 1]
     // Gleiche Marke (Pause: mehrere Stunden auf demselben f) → die spätere gewinnt.
     // Gleiche ZUSTÄNDE in Folge bleiben dagegen absichtlich stehen: die Marke vor
     // einem Wechsel platziert die Umschalt-Mitte des Players zeitlich richtig.
-    if (vorher && vorher.f === eintrag.f) keyframes.pop()
-    keyframes.push(eintrag)
+    if (before && before.f === entry.f) keyframes.pop()
+    keyframes.push(entry)
   }
   return keyframes
 }
@@ -237,13 +233,13 @@ export const WEATHER_DEFAULT_K = 0.7
  * Nutzer-Grenze (statt auf halber Bandbreite).
  */
 export function weatherFromOverlay(
-  grenzen: ReadonlyArray<{ from: string; mode: WeatherMode; intensity?: number }>,
-  reihe: TimeSeries,
+  boundaries: ReadonlyArray<{ from: string; mode: WeatherMode; intensity?: number }>,
+  series: TimeSeries,
   startMs: number,
 ): WeatherKeyframe[] {
-  const marken = grenzen
+  const marks = boundaries
     .map((g) => ({
-      f: positionAtTime(reihe, (Date.parse(g.from) - startMs) / 1000).f,
+      f: positionAtTime(series, (Date.parse(g.from) - startMs) / 1000).f,
       mode: g.mode,
       k: g.intensity ?? WEATHER_DEFAULT_K,
     }))
@@ -253,29 +249,29 @@ export function weatherFromOverlay(
   // Bänder: Grund = klar bis zur ersten Grenze; jede Grenze eröffnet ein Band
   // bis zur nächsten, das letzte reicht bis f=1. Eine Grenze am/vor dem
   // Track-Anfang (f ≤ 0, etwa vor den Trim geklemmt) ersetzt den Grund direkt.
-  const baender: Array<{ von: number; bis: number; mode: WeatherMode; k: number }> = []
-  let von = 0
+  const bands: Array<{ from: number; to: number; mode: WeatherMode; k: number }> = []
+  let from = 0
   let cur: { mode: WeatherMode; k: number } = { mode: 'off', k: WEATHER_DEFAULT_K }
-  for (const m of marken) {
-    if (m.f <= von) {
+  for (const m of marks) {
+    if (m.f <= from) {
       cur = { mode: m.mode, k: m.k }
       continue
     }
-    baender.push({ von, bis: m.f, ...cur })
-    von = m.f
+    bands.push({ from, to: m.f, ...cur })
+    from = m.f
     cur = { mode: m.mode, k: m.k }
   }
-  baender.push({ von, bis: 1, ...cur })
+  bands.push({ from, to: 1, ...cur })
 
-  const roh: WeatherKeyframe[] = []
-  for (const b of baender) {
-    roh.push({ f: rund(b.von, 4), mode: b.mode, k: rund(b.k, 2), source: 'studio' })
-    roh.push({ f: rund(b.bis, 4), mode: b.mode, k: rund(b.k, 2), source: 'studio' })
+  const raw: WeatherKeyframe[] = []
+  for (const b of bands) {
+    raw.push({ f: round(b.from, 4), mode: b.mode, k: round(b.k, 2), source: 'studio' })
+    raw.push({ f: round(b.to, 4), mode: b.mode, k: round(b.k, 2), source: 'studio' })
   }
   // Aufeinanderfolgende identische Keyframes (gleiches f, gleicher Zustand) weg —
   // sie tragen nichts bei und blähen das Tour-JSON nur auf.
   const keyframes: WeatherKeyframe[] = []
-  for (const kf of roh) {
+  for (const kf of raw) {
     const v = keyframes[keyframes.length - 1]
     if (v && v.f === kf.f && v.mode === kf.mode && v.k === kf.k) continue
     keyframes.push(kf)
@@ -299,33 +295,33 @@ export function weatherFromOverlay(
  */
 export function weatherToBoundaries(
   keyframes: readonly WeatherKeyframe[],
-  reihe: TimeSeries,
+  series: TimeSeries,
   startMs: number,
 ): Array<{ from: string; mode: WeatherMode; intensity: number }> {
-  const sortiert = [...keyframes].sort((a, b) => a.f - b.f)
-  const erster = sortiert[0]
-  if (!erster) return []
-  const grenzen: Array<{ from: string; mode: WeatherMode; intensity: number }> = []
-  const zeitBei = (f: number): string =>
-    new Date(startMs + timeAtPosition(reihe, f) * 1000).toISOString()
+  const sorted = [...keyframes].sort((a, b) => a.f - b.f)
+  const first = sorted[0]
+  if (!first) return []
+  const boundaries: Array<{ from: string; mode: WeatherMode; intensity: number }> = []
+  const timeAt = (f: number): string =>
+    new Date(startMs + timeAtPosition(series, f) * 1000).toISOString()
 
-  let letzter: { mode: WeatherMode; k: number } = { mode: erster.mode, k: erster.k }
-  grenzen.push({ from: zeitBei(erster.f), mode: erster.mode, intensity: erster.k })
-  for (let i = 1; i < sortiert.length; i++) {
-    const kf = sortiert[i] as WeatherKeyframe
-    if (kf.mode === letzter.mode && kf.k === letzter.k) continue
-    const vorher = sortiert[i - 1] as WeatherKeyframe
-    grenzen.push({ from: zeitBei((vorher.f + kf.f) / 2), mode: kf.mode, intensity: kf.k })
-    letzter = { mode: kf.mode, k: kf.k }
+  let last: { mode: WeatherMode; k: number } = { mode: first.mode, k: first.k }
+  boundaries.push({ from: timeAt(first.f), mode: first.mode, intensity: first.k })
+  for (let i = 1; i < sorted.length; i++) {
+    const kf = sorted[i] as WeatherKeyframe
+    if (kf.mode === last.mode && kf.k === last.k) continue
+    const before = sorted[i - 1] as WeatherKeyframe
+    boundaries.push({ from: timeAt((before.f + kf.f) / 2), mode: kf.mode, intensity: kf.k })
+    last = { mode: kf.mode, k: kf.k }
   }
   // Zwei Grenzen auf derselben Sekunde (Marken-Paare der Overlay-Erzeugung, oder
   // eine Pause im Track): die spätere gewinnt — sie ist die gültige Aussage.
-  const gefiltert: typeof grenzen = []
-  for (const g of grenzen) {
-    if (gefiltert[gefiltert.length - 1]?.from === g.from) gefiltert.pop()
-    gefiltert.push(g)
+  const filtered: typeof boundaries = []
+  for (const g of boundaries) {
+    if (filtered[filtered.length - 1]?.from === g.from) filtered.pop()
+    filtered.push(g)
   }
-  return gefiltert
+  return filtered
 }
 
 // — Open-Meteo-Anbindung —
@@ -335,11 +331,11 @@ const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive'
 // Das ERA5-Archiv läuft der Gegenwart ~5 Tage hinterher — jüngere Touren
 // beantwortet die Forecast-API (deren Vergangenheit sind Modelldaten, gut genug;
 // M5 verfeinert per Bildanalyse).
-const ARCHIV_VERZUG_TAGE = 6
+const ARCHIVE_LAG_DAYS = 6
 // Open-Meteo bündelt mehrere Positionen pro Abfrage; konservativ gedeckelt.
-const MAX_ORTE_JE_ABFRAGE = 50
+const MAX_PLACES_PER_QUERY = 50
 
-interface OpenMeteoAntwort {
+interface OpenMeteoResponse {
   hourly?: {
     time?: string[]
     weather_code?: number[]
@@ -351,77 +347,77 @@ interface OpenMeteoAntwort {
 
 export class OpenMeteoSource implements WeatherSource {
   // `jetzt` injizierbar: die Forecast/Archiv-Weiche ist sonst nicht testbar
-  constructor(private readonly jetzt: () => Date = () => new Date()) {}
+  constructor(private readonly now: () => Date = () => new Date()) {}
 
-  async stunden(
-    punkte: ReadonlyArray<{ lat: number; lng: number }>,
-    startTag: string,
-    endeTag: string,
+  async hours(
+    points: ReadonlyArray<{ lat: number; lng: number }>,
+    startDay: string,
+    endDay: string,
   ): Promise<HourlyGrid[]> {
-    const alterTage = (this.jetzt().getTime() - Date.parse(`${endeTag}T00:00:00Z`)) / 86_400_000
-    const basisUrl = alterTage < ARCHIV_VERZUG_TAGE ? FORECAST_URL : ARCHIVE_URL
+    const ageDays = (this.now().getTime() - Date.parse(`${endDay}T00:00:00Z`)) / 86_400_000
+    const baseUrl = ageDays < ARCHIVE_LAG_DAYS ? FORECAST_URL : ARCHIVE_URL
 
-    const ergebnisse: HourlyGrid[] = []
-    for (let von = 0; von < punkte.length; von += MAX_ORTE_JE_ABFRAGE) {
-      const gruppe = punkte.slice(von, von + MAX_ORTE_JE_ABFRAGE)
+    const results: HourlyGrid[] = []
+    for (let from = 0; from < points.length; from += MAX_PLACES_PER_QUERY) {
+      const group = points.slice(from, from + MAX_PLACES_PER_QUERY)
       const params = new URLSearchParams({
-        latitude: gruppe.map((p) => p.lat.toFixed(4)).join(','),
-        longitude: gruppe.map((p) => p.lng.toFixed(4)).join(','),
-        start_date: startTag,
-        end_date: endeTag,
+        latitude: group.map((p) => p.lat.toFixed(4)).join(','),
+        longitude: group.map((p) => p.lng.toFixed(4)).join(','),
+        start_date: startDay,
+        end_date: endDay,
         hourly: 'weather_code,cloud_cover,precipitation,snowfall',
         timezone: 'UTC',
       })
-      const antwort = await fetch(`${basisUrl}?${params}`)
-      if (!antwort.ok) throw new Error(`Open-Meteo ${antwort.status}`)
-      const json = (await antwort.json()) as OpenMeteoAntwort | OpenMeteoAntwort[]
-      const saetze = Array.isArray(json) ? json : [json]
-      for (let i = 0; i < gruppe.length; i++) {
-        const hourly = (saetze[i] ?? saetze[0])?.hourly
+      const response = await fetch(`${baseUrl}?${params}`)
+      if (!response.ok) throw new Error(`Open-Meteo ${response.status}`)
+      const json = (await response.json()) as OpenMeteoResponse | OpenMeteoResponse[]
+      const sets = Array.isArray(json) ? json : [json]
+      for (let i = 0; i < group.length; i++) {
+        const hourly = (sets[i] ?? sets[0])?.hourly
         if (!hourly?.time?.length || !hourly.weather_code)
           throw new Error('Open-Meteo: keine Stundenwerte')
-        ergebnisse.push({
-          zeiten: hourly.time,
+        results.push({
+          times: hourly.time,
           code: hourly.weather_code,
-          wolken: hourly.cloud_cover ?? [],
-          regen: hourly.precipitation ?? [],
-          schnee: hourly.snowfall ?? [],
+          clouds: hourly.cloud_cover ?? [],
+          rain: hourly.precipitation ?? [],
+          snow: hourly.snowfall ?? [],
         })
       }
     }
-    return ergebnisse
+    return results
   }
 }
 
 /** Test-Fake: liefert allen Positionen dasselbe vorgegebene Stundenraster. */
 export class FixedWeatherSource implements WeatherSource {
   /** Mitschnitt der Abfragen — Tests prüfen damit den Sample-Plan. */
-  public abfragen: Array<{
-    punkte: Array<{ lat: number; lng: number }>
-    startTag: string
-    endeTag: string
+  public queries: Array<{
+    points: Array<{ lat: number; lng: number }>
+    startDay: string
+    endDay: string
   }> = []
 
-  constructor(private readonly raster: HourlyGrid) {}
+  constructor(private readonly grid: HourlyGrid) {}
 
-  async stunden(
-    punkte: ReadonlyArray<{ lat: number; lng: number }>,
-    startTag: string,
-    endeTag: string,
+  async hours(
+    points: ReadonlyArray<{ lat: number; lng: number }>,
+    startDay: string,
+    endDay: string,
   ): Promise<HourlyGrid[]> {
-    this.abfragen.push({ punkte: punkte.map((p) => ({ ...p })), startTag, endeTag })
-    return punkte.map(() => this.raster)
+    this.queries.push({ points: points.map((p) => ({ ...p })), startDay, endDay })
+    return points.map(() => this.grid)
   }
 }
 
 /** Bequemer Raster-Bau für Tests: Stunden ab `startIsoStunde` (UTC). */
-export function testGrid(startIsoStunde: string, stunden: Array<Partial<WeatherHour>>): HourlyGrid {
-  const startMs = Date.parse(`${startIsoStunde}:00:00Z`)
+export function testGrid(startIsoHour: string, hours: Array<Partial<WeatherHour>>): HourlyGrid {
+  const startMs = Date.parse(`${startIsoHour}:00:00Z`)
   return {
-    zeiten: stunden.map((_, i) => new Date(startMs + i * 3600_000).toISOString().slice(0, 16)),
-    code: stunden.map((s) => s.code ?? 0),
-    wolken: stunden.map((s) => s.wolken ?? 0),
-    regen: stunden.map((s) => s.regenMm ?? 0),
-    schnee: stunden.map((s) => s.schneeCm ?? 0),
+    times: hours.map((_, i) => new Date(startMs + i * 3600_000).toISOString().slice(0, 16)),
+    code: hours.map((s) => s.code ?? 0),
+    clouds: hours.map((s) => s.clouds ?? 0),
+    rain: hours.map((s) => s.rainMm ?? 0),
+    snow: hours.map((s) => s.snowCm ?? 0),
   }
 }

@@ -377,10 +377,10 @@ describe('reichereAn mit Edit-Overlay', () => {
 
   const eingabe = (edits: EditOverlay | null) => ({
     tourId: 't1',
-    nummer: 1,
+    no: 1,
     manifest: manifest(),
-    titelOverride: null,
-    beschreibungOverride: null,
+    titleOverride: null,
+    descriptionOverride: null,
     ...(edits ? { edits } : {}),
     geocoder: new FixedGeocoder(['Start', 'Ziel']),
   })
@@ -459,7 +459,7 @@ describe('reichereAn mit Edit-Overlay', () => {
           { from: iso(3600), preset: 'far' }, // weit hinter dem Track-Ende (t=1800)
         ],
       }),
-      protokoll: (m) => meldungen.push(m),
+      log: (m) => meldungen.push(m),
     })
     // Nur die gültige Grenze bleibt; die späte fällt raus (kein Umschalten am Finale)
     expect(tour.camera).toHaveLength(1)
@@ -492,7 +492,7 @@ describe('reichereAn mit Edit-Overlay', () => {
           { from: iso(3600), kind: 'ascend' }, // hinter Track-Ende (t=1800) → weg
         ],
       }),
-      protokoll: (m) => meldungen.push(m),
+      log: (m) => meldungen.push(m),
     })
     expect(tour.moments).toHaveLength(2)
     // sortiert nach f (300 vor 600)
@@ -513,8 +513,8 @@ describe('reichereAn mit Edit-Overlay', () => {
           { file: 'musik.mp3', type: 'music', from: iso(0), volume: 0.7 },
         ],
       }),
-      audioDateien: ['musik.mp3', 'knall.wav'],
-      protokoll: (m) => meldungen.push(m),
+      audioFiles: ['musik.mp3', 'knall.wav'],
+      log: (m) => meldungen.push(m),
     })
     expect(meldungen).toEqual([])
     expect(tour.audio).toHaveLength(2)
@@ -549,8 +549,8 @@ describe('reichereAn mit Edit-Overlay', () => {
           { file: 'amb-hafen.mp3', type: 'music', from: iso(0), source: 'library' },
         ],
       }),
-      audioDateien: [], // Bibliothekseffekte liegen NICHT unter media/
-      protokoll: (m) => meldungen.push(m),
+      audioFiles: [], // Bibliothekseffekte liegen NICHT unter media/
+      log: (m) => meldungen.push(m),
     })
     expect(meldungen).toEqual([]) // nicht als fehlend gemeldet
     expect(tour.audio).toHaveLength(2)
@@ -565,8 +565,8 @@ describe('reichereAn mit Edit-Overlay', () => {
         schema: 'maptale/edits@2',
         audio: [{ file: 'fehlt.mp3', type: 'music', from: iso(0) }],
       }),
-      audioDateien: ['musik.mp3'],
-      protokoll: (m) => meldungen.push(m),
+      audioFiles: ['musik.mp3'],
+      log: (m) => meldungen.push(m),
     })
     expect(meldungen).toEqual(['Audio-Datei fehlt: fehlt.mp3'])
     expect(tour.audio).toBeUndefined()
@@ -589,8 +589,8 @@ describe('reichereAn mit Edit-Overlay', () => {
           { file: 'ping.ogg', type: 'sfx', from: iso(600) },
         ],
       }),
-      audioDateien: ['vorher.mp3', 'musik.mp3', 'knall.wav', 'ping.ogg'],
-      protokoll: (m) => meldungen.push(m),
+      audioFiles: ['vorher.mp3', 'musik.mp3', 'knall.wav', 'ping.ogg'],
+      log: (m) => meldungen.push(m),
     })
     expect(meldungen).toEqual([
       'Audio außerhalb des Tracks übersprungen: vorher.mp3',
@@ -646,13 +646,13 @@ describe('reichereAn: Ton am Film-Anker', () => {
   const rendere = (edits: EditOverlay) =>
     enrichTour({
       tourId: 't1',
-      nummer: 1,
+      no: 1,
       manifest: manifest(),
-      titelOverride: null,
-      beschreibungOverride: null,
+      titleOverride: null,
+      descriptionOverride: null,
       edits,
       geocoder: new FixedGeocoder(['Start', 'Ziel']),
-      audioDateien: ['musik.mp3', 'knall.wav'],
+      audioFiles: ['musik.mp3', 'knall.wav'],
     })
 
   it('ohne die neuen Felder rendert der Anker wie „ab" — Zeichen für Zeichen', async () => {
@@ -690,10 +690,10 @@ describe('reichereAn: Ton am Film-Anker', () => {
       [0, 5].map((v) =>
         enrichTour({
           tourId: 't1',
-          nummer: 1,
+          no: 1,
           manifest: manifest(),
-          titelOverride: null,
-          beschreibungOverride: null,
+          titleOverride: null,
+          descriptionOverride: null,
           edits: {
             schema: 'maptale/edits@2',
             audio: [
@@ -708,7 +708,7 @@ describe('reichereAn: Ton am Film-Anker', () => {
             ],
           },
           geocoder: new FixedGeocoder(['Start', 'Ziel']),
-          audioDateien: ['musik.mp3'],
+          audioFiles: ['musik.mp3'],
         }),
       ),
     )
@@ -726,10 +726,10 @@ describe('reichereAn: Ton am Film-Anker', () => {
     const meldungen: string[] = []
     const drin = await enrichTour({
       tourId: 't1',
-      nummer: 1,
+      no: 1,
       manifest: manifest(),
-      titelOverride: null,
-      beschreibungOverride: null,
+      titleOverride: null,
+      descriptionOverride: null,
       edits: {
         schema: 'maptale/edits@2',
         audio: [
@@ -744,8 +744,8 @@ describe('reichereAn: Ton am Film-Anker', () => {
         ],
       },
       geocoder: new FixedGeocoder(['Start', 'Ziel']),
-      audioDateien: ['musik.mp3'],
-      protokoll: (m) => meldungen.push(m),
+      audioFiles: ['musik.mp3'],
+      log: (m) => meldungen.push(m),
     })
     const klip = drin.audio?.[0]
     expect(klip).toBeDefined()

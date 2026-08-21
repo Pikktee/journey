@@ -5,7 +5,7 @@
 
 export interface Geocoder {
   /** Ortsname zu einer Koordinate, null wenn nicht auflösbar. */
-  ortsname(lng: number, lat: number): Promise<string | null>
+  placeName(lng: number, lat: number): Promise<string | null>
   /**
    * Die Adress-Ebenen derselben Stelle, von fein nach grob: „Völklingen",
    * „Regionalverband Saarbrücken", „Saarland", „Deutschland".
@@ -15,7 +15,7 @@ export interface Geocoder {
    * Geocoding genau einen Treffer einer festen Prioritätenkette und warfen den
    * Rest weg, obwohl die Antwort ihn schon enthielt.
    */
-  ortsebenen?(lng: number, lat: number): Promise<string[]>
+  placeLevels?(lng: number, lat: number): Promise<string[]>
 }
 
 /** Nominatim (OSM) — bitte fair nutzen: eigener User-Agent, keine Request-Flut. */
@@ -30,36 +30,36 @@ export class NominatimGeocoder implements Geocoder {
    * EINEN Aufruf teilen. Nominatim bittet ausdrücklich um sparsame Nutzung, und
    * beide Fragen beantwortet dieselbe Adress-Aufteilung.
    */
-  private letzte: { schluessel: string; adresse: Record<string, string> | null } | null = null
+  private last: { key: string; address2: Record<string, string> | null } | null = null
 
-  private async adresse(lng: number, lat: number): Promise<Record<string, string> | null> {
-    const schluessel = `${lng},${lat}`
-    if (this.letzte?.schluessel === schluessel) return this.letzte.adresse
-    let adresse: Record<string, string> | null = null
+  private async address2(lng: number, lat: number): Promise<Record<string, string> | null> {
+    const key = `${lng},${lat}`
+    if (this.last?.key === key) return this.last.address2
+    let address2: Record<string, string> | null = null
     try {
       const url = `${this.basisUrl}/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&accept-language=de`
-      const antwort = await fetch(url, { headers: { 'User-Agent': this.userAgent } })
-      if (antwort.ok) {
-        const json = (await antwort.json()) as { address?: Record<string, string> }
-        adresse = json.address ?? {}
+      const response = await fetch(url, { headers: { 'User-Agent': this.userAgent } })
+      if (response.ok) {
+        const json = (await response.json()) as { address?: Record<string, string> }
+        address2 = json.address ?? {}
       }
     } catch {
-      adresse = null
+      address2 = null
     }
-    this.letzte = { schluessel, adresse }
-    return adresse
+    this.last = { key, address2 }
+    return address2
   }
 
-  async ortsname(lng: number, lat: number): Promise<string | null> {
-    const a = await this.adresse(lng, lat)
+  async placeName(lng: number, lat: number): Promise<string | null> {
+    const a = await this.address2(lng, lat)
     if (!a) return null
     return (
       a.village ?? a.town ?? a.city ?? a.municipality ?? a.hamlet ?? a.suburb ?? a.county ?? null
     )
   }
 
-  async ortsebenen(lng: number, lat: number): Promise<string[]> {
-    const a = await this.adresse(lng, lat)
+  async placeLevels(lng: number, lat: number): Promise<string[]> {
+    const a = await this.address2(lng, lat)
     return a ? levelsFromAddress(a) : []
   }
 }
@@ -73,7 +73,7 @@ export class NominatimGeocoder implements Geocoder {
  * ohnehin nicht mit — wer ihn will, schreibt ihn selbst hinein.
  */
 export function levelsFromAddress(a: Record<string, string>): string[] {
-  const kandidaten = [
+  const candidates = [
     a.village,
     a.hamlet,
     a.suburb,
@@ -84,22 +84,22 @@ export function levelsFromAddress(a: Record<string, string>): string[] {
     a.state,
     a.country,
   ]
-  const aus: string[] = []
-  for (const k of kandidaten) {
-    const wert = k?.trim()
-    if (wert && !aus.includes(wert)) aus.push(wert)
+  const out: string[] = []
+  for (const k of candidates) {
+    const value = k?.trim()
+    if (value && !out.includes(value)) out.push(value)
   }
-  return aus
+  return out
 }
 
 export class FixedGeocoder implements Geocoder {
   /** Zahl der ortsname-Aufrufe — Tests prüfen damit die Geocoding-Vermeidung. */
-  public aufrufe = 0
-  constructor(private readonly antworten: ReadonlyArray<string | null>) {}
+  public calls = 0
+  constructor(private readonly responses: ReadonlyArray<string | null>) {}
   private index = 0
-  async ortsname(): Promise<string | null> {
-    this.aufrufe++
-    return this.antworten[this.index++] ?? null
+  async placeName(): Promise<string | null> {
+    this.calls++
+    return this.responses[this.index++] ?? null
   }
 }
 
@@ -115,7 +115,7 @@ export interface Naming {
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-const datumDeutsch = (iso: string, zone: string): string => {
+const germanDate = (iso: string, zone: string): string => {
   const ms = Date.parse(iso)
   if (!Number.isFinite(ms)) return 'unbekanntem Datum' // defensive Rückfallebene (POST validiert bereits)
   try {
@@ -154,15 +154,15 @@ export interface Endpoints {
  */
 export async function geocodeEndpoints(
   geocoder: Geocoder,
-  startPunkt: [number, number],
-  zielPunkt: [number, number],
+  startPoint: [number, number],
+  endPoint: [number, number],
 ): Promise<Endpoints> {
-  const startOrt = await geocoder.ortsname(startPunkt[0], startPunkt[1])
+  const startOrt = await geocoder.placeName(startPoint[0], startPoint[1])
   // Die Ebenen VOR dem Zielpunkt holen: Der Nominatim-Geocoder hält genau eine
   // Antwort vor, ein Aufruf für den Zielpunkt dazwischen würfe sie weg und
   // kostete eine zweite Abfrage derselben Stelle.
-  const startEbenen = (await geocoder.ortsebenen?.(startPunkt[0], startPunkt[1])) ?? []
-  const zielOrt = await geocoder.ortsname(zielPunkt[0], zielPunkt[1])
+  const startEbenen = (await geocoder.placeLevels?.(startPoint[0], startPoint[1])) ?? []
+  const zielOrt = await geocoder.placeName(endPoint[0], endPoint[1])
   return { startOrt, zielOrt, ...(startEbenen.length ? { startEbenen } : {}) }
 }
 
@@ -176,32 +176,32 @@ export async function geocodeEndpoints(
 export function buildNaming(args: {
   startOrt: string | null
   zielOrt: string | null
-  nutzerTitel: string | null
+  userTitle: string | null
   /**
    * Die Dachzeile, wie sie im Studio steht. `null` heißt „nie gesetzt" und
    * nimmt die Vorbelegung (den Startort einer Rundtour), der LEERE String heißt
    * „ausdrücklich keine Zeile". Beides ist unterscheidbar, weil nur so jemand
    * die Zeile auch wieder loswerden kann.
    */
-  dachzeile?: string | null
-  zeitStart: string
+  kickerText?: string | null
+  timeStart: string
   zone: string
 }): Naming {
-  const { startOrt, zielOrt, nutzerTitel, dachzeile, zeitStart, zone } = args
-  const datum = datumDeutsch(zeitStart, zone)
+  const { startOrt, zielOrt, userTitle, kickerText, timeStart, zone } = args
+  const date = germanDate(timeStart, zone)
 
-  const rundtour = startOrt !== null && startOrt === zielOrt
-  const stops = rundtour ? [startOrt] : [startOrt, zielOrt].filter((o): o is string => o !== null)
+  const roundTrip = startOrt !== null && startOrt === zielOrt
+  const stops = roundTrip ? [startOrt] : [startOrt, zielOrt].filter((o): o is string => o !== null)
 
   let title: string
-  if (nutzerTitel && nutzerTitel.trim()) {
-    title = nutzerTitel.trim()
-  } else if (rundtour) {
+  if (userTitle && userTitle.trim()) {
+    title = userTitle.trim()
+  } else if (roundTrip) {
     title = `Runde bei ${startOrt}`
   } else if (startOrt && zielOrt) {
     title = `${startOrt} → ${zielOrt}`
   } else {
-    title = `Tour vom ${datum}`
+    title = `Tour vom ${date}`
   }
 
   // Die Dachzeile.
@@ -215,11 +215,11 @@ export function buildNaming(args: {
   // A nach B stehen beide Orte bereits im Titel oder in der Stationszeile — ein
   // Startort obendrüber wäre die dritte Nennung derselben Gegend.
   const kicker =
-    dachzeile === null || dachzeile === undefined
-      ? rundtour
+    kickerText === null || kickerText === undefined
+      ? roundTrip
         ? (startOrt ?? '')
         : ''
-      : dachzeile.trim()
+      : kickerText.trim()
 
   return {
     title,
@@ -237,17 +237,17 @@ export function buildNaming(args: {
  * `geocodeEndpoints` (gecacht) + `buildNaming` (pro Render).
  */
 export async function nameTour(args: {
-  nutzerTitel: string | null
-  dachzeile?: string | null
-  startPunkt: [number, number]
-  zielPunkt: [number, number]
-  zeitStart: string
+  userTitle: string | null
+  kickerText?: string | null
+  startPoint: [number, number]
+  endPoint: [number, number]
+  timeStart: string
   zone: string
   geocoder: Geocoder
 }): Promise<Naming> {
-  const { nutzerTitel, dachzeile, startPunkt, zielPunkt, zeitStart, zone, geocoder } = args
-  const orte = await geocodeEndpoints(geocoder, startPunkt, zielPunkt)
-  return buildNaming({ ...orte, nutzerTitel, dachzeile: dachzeile ?? null, zeitStart, zone })
+  const { userTitle, kickerText, startPoint, endPoint, timeStart, zone, geocoder } = args
+  const places = await geocodeEndpoints(geocoder, startPoint, endPoint)
+  return buildNaming({ ...places, userTitle, kickerText: kickerText ?? null, timeStart, zone })
 }
 
 /**
@@ -256,26 +256,26 @@ export async function nameTour(args: {
  * unser <br /> ist Markup.
  */
 export function titleToHtml(title: string): string {
-  const pfeil = title.indexOf('→')
-  if (pfeil > 0) {
-    const links = escapeHtml(title.slice(0, pfeil).trim())
-    const rechts = escapeHtml(title.slice(pfeil).trim())
-    return `${links}<br />${rechts}`
+  const arrow = title.indexOf('→')
+  if (arrow > 0) {
+    const left = escapeHtml(title.slice(0, arrow).trim())
+    const right = escapeHtml(title.slice(arrow).trim())
+    return `${left}<br />${right}`
   }
-  const woerter = title.split(/\s+/)
-  if (woerter.length < 2) return escapeHtml(title)
-  let besteTrennung = 1
-  let besteDifferenz = Number.POSITIVE_INFINITY
-  for (let i = 1; i < woerter.length; i++) {
-    const linksLaenge = woerter.slice(0, i).join(' ').length
-    const rechtsLaenge = woerter.slice(i).join(' ').length
-    const differenz = Math.abs(linksLaenge - rechtsLaenge)
-    if (differenz < besteDifferenz) {
-      besteDifferenz = differenz
-      besteTrennung = i
+  const words = title.split(/\s+/)
+  if (words.length < 2) return escapeHtml(title)
+  let bestSplit = 1
+  let bestDifference = Number.POSITIVE_INFINITY
+  for (let i = 1; i < words.length; i++) {
+    const leftLength = words.slice(0, i).join(' ').length
+    const rightLength = words.slice(i).join(' ').length
+    const difference = Math.abs(leftLength - rightLength)
+    if (difference < bestDifference) {
+      bestDifference = difference
+      bestSplit = i
     }
   }
-  const links = escapeHtml(woerter.slice(0, besteTrennung).join(' '))
-  const rechts = escapeHtml(woerter.slice(besteTrennung).join(' '))
-  return `${links}<br />${rechts}`
+  const left = escapeHtml(words.slice(0, bestSplit).join(' '))
+  const right = escapeHtml(words.slice(bestSplit).join(' '))
+  return `${left}<br />${right}`
 }

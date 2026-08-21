@@ -578,7 +578,7 @@ describe('Wetter-Grenzen', () => {
       new URL('../server/src/pipeline/enrich.ts', import.meta.url),
       'utf8',
     )
-    expect(quelle).toMatch(/gain: spur\.volume \?\? STUDIO_GAIN/)
+    expect(quelle).toMatch(/gain: track\.volume \?\? STUDIO_GAIN/)
   })
 })
 

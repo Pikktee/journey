@@ -137,10 +137,10 @@ describe('Filmtempo', () => {
     // Die Engine geht nach `momentDauer` direkt zurück auf `ride`; es gibt kein
     // HOLD_AUSBLEND-Nachspiel wie am Foto-Halt. Spiegel von `momentDurationS` in
     // src/studio/editor.ts.
-    expect(momentHoldS({ art: 'orbit' })).toBe(6)
-    expect(momentHoldS({ art: 'linger' })).toBe(4)
-    expect(momentHoldS({ art: 'ascend', dauerS: 12 })).toBe(12)
-    expect(momentHoldS({ art: 'ascend' })).not.toBe(MOMENT_DEFAULT_S.ascend + STOP_FADE_OUT_S)
+    expect(momentHoldS({ kind: 'orbit' })).toBe(6)
+    expect(momentHoldS({ kind: 'linger' })).toBe(4)
+    expect(momentHoldS({ kind: 'ascend', dauerS: 12 })).toBe(12)
+    expect(momentHoldS({ kind: 'ascend' })).not.toBe(MOMENT_DEFAULT_S.ascend + STOP_FADE_OUT_S)
   })
 
   it('bemisst eine Aufnahme wie die Engine: Video mit seiner Länge, Foto mit der Standzeit', () => {

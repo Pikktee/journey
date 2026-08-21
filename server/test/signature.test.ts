@@ -15,9 +15,9 @@ describe('baueSignatur', () => {
       [8.1, 47.1],
     ])
     expect(sig).not.toBeNull()
-    const punkte = punkteAus(sig!.d)
-    const xs = punkte.map((p) => p[0])
-    const ys = punkte.map((p) => p[1])
+    const points = punkteAus(sig!.d)
+    const xs = points.map((p) => p[0])
+    const ys = points.map((p) => p[1])
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(0)
     expect(Math.max(...xs)).toBeLessThanOrEqual(100)
     expect(Math.min(...ys)).toBeGreaterThanOrEqual(0)
@@ -50,10 +50,10 @@ describe('baueSignatur', () => {
   it('dünnt lange Aufzeichnungen aus, ohne Anfang und Ende zu verlieren', () => {
     const viele = Array.from({ length: 5000 }, (_, i) => [8 + i * 0.0001, 47 + i * 0.0001] as const)
     const sig = buildSignature(viele)!
-    const punkte = punkteAus(sig.d)
-    expect(punkte.length).toBeLessThanOrEqual(91)
-    expect(punkte[0]).toEqual(sig.start)
-    expect(punkte[punkte.length - 1]).toEqual(sig.end)
+    const points = punkteAus(sig.d)
+    expect(points.length).toBeLessThanOrEqual(91)
+    expect(points[0]).toEqual(sig.start)
+    expect(points[points.length - 1]).toEqual(sig.end)
   })
 
   it('liefert null, wo es keine Form gibt', () => {

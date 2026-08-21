@@ -19,33 +19,33 @@ import type { UploadSegment } from '../src/schema/upload.js'
 
 describe('wmoZuWetter', () => {
   it('bildet WMO-Codes wie der Client-Fallback ab', () => {
-    expect(wmoToWeather({ code: 95, wolken: 100, regenMm: 4, schneeCm: 0 })).toEqual({
+    expect(wmoToWeather({ code: 95, clouds: 100, rainMm: 4, snowCm: 0 })).toEqual({
       mode: 'storm',
       k: 1,
     })
-    expect(wmoToWeather({ code: 71, wolken: 100, regenMm: 0, schneeCm: 1 }).mode).toBe('snow')
-    expect(wmoToWeather({ code: 0, wolken: 0, regenMm: 0, schneeCm: 0.1 }).mode).toBe('snow')
-    const regen = wmoToWeather({ code: 61, wolken: 90, regenMm: 1, schneeCm: 0 })
+    expect(wmoToWeather({ code: 71, clouds: 100, rainMm: 0, snowCm: 1 }).mode).toBe('snow')
+    expect(wmoToWeather({ code: 0, clouds: 0, rainMm: 0, snowCm: 0.1 }).mode).toBe('snow')
+    const regen = wmoToWeather({ code: 61, clouds: 90, rainMm: 1, snowCm: 0 })
     expect(regen.mode).toBe('rain')
     expect(regen.k).toBeCloseTo(0.6, 10)
-    expect(wmoToWeather({ code: 45, wolken: 10, regenMm: 0, schneeCm: 0 })).toEqual({
+    expect(wmoToWeather({ code: 45, clouds: 10, rainMm: 0, snowCm: 0 })).toEqual({
       mode: 'fog',
       k: 0.7,
     })
     // Bewölkung 62,5 % → k = 0.4 + 0.6·(37,5/75) = 0.7 (Paritäts-Zahl zum Client)
-    expect(wmoToWeather({ code: 3, wolken: 62.5, regenMm: 0, schneeCm: 0 })).toEqual({
+    expect(wmoToWeather({ code: 3, clouds: 62.5, rainMm: 0, snowCm: 0 })).toEqual({
       mode: 'clouds',
       k: 0.7,
     })
-    expect(wmoToWeather({ code: 0, wolken: 10, regenMm: 0, schneeCm: 0 })).toEqual({
+    expect(wmoToWeather({ code: 0, clouds: 10, rainMm: 0, snowCm: 0 })).toEqual({
       mode: 'off',
       k: 0.7,
     })
   })
 
   it('lässt Gewitter über Schnee über Regen gewinnen', () => {
-    expect(wmoToWeather({ code: 96, wolken: 100, regenMm: 2, schneeCm: 1 }).mode).toBe('storm')
-    expect(wmoToWeather({ code: 85, wolken: 100, regenMm: 2, schneeCm: 0 }).mode).toBe('snow')
+    expect(wmoToWeather({ code: 96, clouds: 100, rainMm: 2, snowCm: 1 }).mode).toBe('storm')
+    expect(wmoToWeather({ code: 85, clouds: 100, rainMm: 2, snowCm: 0 }).mode).toBe('snow')
   })
 })
 
@@ -89,63 +89,63 @@ function vierStundenMarsch(): UploadSegment {
 describe('berechneWetter', () => {
   it('destilliert Keyframes mit Marken vor und nach jedem Wechsel', async () => {
     // Stunden 06+07 klar, 08+09 Regen, 10 klar → Samples [off,off,rain,rain,off]
-    const quelle = new FixedWeatherSource(
+    const source = new FixedWeatherSource(
       testGrid('2026-07-04T06', [
-        { wolken: 5 },
-        { wolken: 10 },
-        { code: 61, regenMm: 1, wolken: 95 },
-        { code: 61, regenMm: 1, wolken: 95 },
-        { wolken: 5 },
+        { clouds: 5 },
+        { clouds: 10 },
+        { code: 61, rainMm: 1, clouds: 95 },
+        { code: 61, rainMm: 1, clouds: 95 },
+        { clouds: 5 },
       ]),
     )
     const keyframes = await computeWeather({
-      reihe: buildTimeSeries([vierStundenMarsch()]),
+      series: buildTimeSeries([vierStundenMarsch()]),
       startIso: START,
-      quelle,
+      source,
     })
     expect(keyframes.map((k) => k.mode)).toEqual(['off', 'off', 'rain', 'rain', 'off'])
     // Marken sitzen auf den Sample-Positionen (0, 07:00→0.25, 08:00→0.5, …)
     expect(keyframes.map((k) => k.f)).toEqual([0, 0.25, 0.5, 0.75, 1])
     expect(keyframes[0]?.source).toBe('openmeteo')
     // Sample-Plan: ein Abruf, 5 Orte (Start, 3 volle Stunden, Ende), Tagesgrenzen
-    expect(quelle.abfragen).toHaveLength(1)
-    expect(quelle.abfragen[0]?.punkte).toHaveLength(5)
-    expect(quelle.abfragen[0]?.startTag).toBe('2026-07-04')
-    expect(quelle.abfragen[0]?.endeTag).toBe('2026-07-04')
+    expect(source.queries).toHaveLength(1)
+    expect(source.queries[0]?.points).toHaveLength(5)
+    expect(source.queries[0]?.startDay).toBe('2026-07-04')
+    expect(source.queries[0]?.endDay).toBe('2026-07-04')
   })
 
   it('glättet ein Ein-Stunden-Flackern weg', async () => {
-    const quelle = new FixedWeatherSource(
+    const source = new FixedWeatherSource(
       testGrid('2026-07-04T06', [
-        { wolken: 5 },
-        { code: 95, regenMm: 4, wolken: 100 }, // einsames Gewitter-Sample
-        { wolken: 5 },
-        { wolken: 5 },
-        { wolken: 5 },
+        { clouds: 5 },
+        { code: 95, rainMm: 4, clouds: 100 }, // einsames Gewitter-Sample
+        { clouds: 5 },
+        { clouds: 5 },
+        { clouds: 5 },
       ]),
     )
     const keyframes = await computeWeather({
-      reihe: buildTimeSeries([vierStundenMarsch()]),
+      series: buildTimeSeries([vierStundenMarsch()]),
       startIso: START,
-      quelle,
+      source,
     })
     expect(keyframes).toEqual([{ f: 0, mode: 'off', k: 0.7, source: 'openmeteo' }])
   })
 
   it('setzt bei deutlicher Stärke-Änderung im selben Modus eine Marke', async () => {
-    const quelle = new FixedWeatherSource(
+    const source = new FixedWeatherSource(
       testGrid('2026-07-04T06', [
-        { code: 61, regenMm: 0.5, wolken: 95 }, // k = 0.5
-        { code: 61, regenMm: 0.5, wolken: 95 },
-        { code: 63, regenMm: 3, wolken: 100 }, // k = 1.0 → Marke
-        { code: 63, regenMm: 3, wolken: 100 },
-        { code: 63, regenMm: 3, wolken: 100 },
+        { code: 61, rainMm: 0.5, clouds: 95 }, // k = 0.5
+        { code: 61, rainMm: 0.5, clouds: 95 },
+        { code: 63, rainMm: 3, clouds: 100 }, // k = 1.0 → Marke
+        { code: 63, rainMm: 3, clouds: 100 },
+        { code: 63, rainMm: 3, clouds: 100 },
       ]),
     )
     const keyframes = await computeWeather({
-      reihe: buildTimeSeries([vierStundenMarsch()]),
+      series: buildTimeSeries([vierStundenMarsch()]),
       startIso: START,
-      quelle,
+      source,
     })
     expect(keyframes.map((k) => [k.mode, k.k])).toEqual([
       ['rain', 0.5],
@@ -165,19 +165,19 @@ describe('berechneWetter', () => {
       pts.push([8.0 + strecke * GRAD_PRO_M, LAT, 500, t])
       if (t < 3600 || t >= 3 * 3600) strecke += 1.4 * 60
     }
-    const quelle = new FixedWeatherSource(
+    const source = new FixedWeatherSource(
       testGrid('2026-07-04T06', [
-        { wolken: 5 }, // 06 klar (vor der Pause)
-        { wolken: 5 }, // 07 klar
-        { code: 61, regenMm: 1, wolken: 95 }, // 08 Regen — mitten in der Pause
-        { code: 61, regenMm: 1, wolken: 95 }, // 09 Regen
-        { wolken: 5 }, // 10 klar (nach der Pause)
+        { clouds: 5 }, // 06 klar (vor der Pause)
+        { clouds: 5 }, // 07 klar
+        { code: 61, rainMm: 1, clouds: 95 }, // 08 Regen — mitten in der Pause
+        { code: 61, rainMm: 1, clouds: 95 }, // 09 Regen
+        { clouds: 5 }, // 10 klar (nach der Pause)
       ]),
     )
     const keyframes = await computeWeather({
-      reihe: buildTimeSeries([{ mode: 'walk', pts }]),
+      series: buildTimeSeries([{ mode: 'walk', pts }]),
       startIso: START,
-      quelle,
+      source,
     })
 
     // Der Regen ist da — mit Anfang UND Ende, nicht auf einen Punkt geschrumpft
@@ -190,15 +190,15 @@ describe('berechneWetter', () => {
   })
 
   it('wirft bei leerer Quelle (enrich lässt weather dann weg)', async () => {
-    const quelle = new FixedWeatherSource({
-      zeiten: [],
+    const source = new FixedWeatherSource({
+      times: [],
       code: [],
-      wolken: [],
-      regen: [],
-      schnee: [],
+      clouds: [],
+      rain: [],
+      snow: [],
     })
     await expect(
-      computeWeather({ reihe: buildTimeSeries([vierStundenMarsch()]), startIso: START, quelle }),
+      computeWeather({ series: buildTimeSeries([vierStundenMarsch()]), startIso: START, source }),
     ).rejects.toThrow(/Stundenwerte/)
   })
 })
@@ -221,8 +221,8 @@ describe('OpenMeteoQuelle', () => {
   it('fragt junge Touren über die Forecast-API ab (Archiv läuft nach)', async () => {
     const fetchMock = vi.fn(async (_url: string) => antwort(2))
     vi.stubGlobal('fetch', fetchMock)
-    const quelle = new OpenMeteoSource(() => new Date('2026-07-08T12:00:00Z'))
-    const raster = await quelle.stunden(
+    const source = new OpenMeteoSource(() => new Date('2026-07-08T12:00:00Z'))
+    const raster = await source.hours(
       [
         { lat: 46.59, lng: 8.0 },
         { lat: 46.6, lng: 8.1 },
@@ -241,8 +241,8 @@ describe('OpenMeteoQuelle', () => {
   it('fragt alte Touren über die Archiv-API ab', async () => {
     const fetchMock = vi.fn(async (_url: string) => antwort(1))
     vi.stubGlobal('fetch', fetchMock)
-    const quelle = new OpenMeteoSource(() => new Date('2026-07-08T12:00:00Z'))
-    await quelle.stunden([{ lat: 46.59, lng: 8.0 }], '2026-06-01', '2026-06-01')
+    const source = new OpenMeteoSource(() => new Date('2026-07-08T12:00:00Z'))
+    await source.hours([{ lat: 46.59, lng: 8.0 }], '2026-06-01', '2026-06-01')
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('archive-api.open-meteo.com/v1/archive')
   })
 
@@ -251,9 +251,9 @@ describe('OpenMeteoQuelle', () => {
       'fetch',
       vi.fn(async () => ({ ok: false, status: 429 }) as Response),
     )
-    const quelle = new OpenMeteoSource(() => new Date('2026-07-08T12:00:00Z'))
+    const source = new OpenMeteoSource(() => new Date('2026-07-08T12:00:00Z'))
     await expect(
-      quelle.stunden([{ lat: 46.59, lng: 8.0 }], '2026-06-01', '2026-06-01'),
+      source.hours([{ lat: 46.59, lng: 8.0 }], '2026-06-01', '2026-06-01'),
     ).rejects.toThrow(/429/)
   })
 })

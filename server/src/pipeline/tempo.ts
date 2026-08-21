@@ -13,20 +13,20 @@ import { distanceM } from './geo.js'
 import type { TravelMode, UploadPoint, UploadSegment } from '../schema/upload.js'
 
 /** Halbe Fensterbreite für den gleitenden Median (s). */
-const FENSTER_S = 30
+const WINDOW_S = 30
 
 /** Unter diesem Tempo beginnt ein Gehabschnitt (km/h). */
-const GEHEN_EIN = 5.5
+const WALK_IN_KMH = 5.5
 
 /**
  * Erst darüber endet er wieder — die Lücke zwischen den Schwellen verhindert,
  * dass ein Abschnitt bei jedem Schwanken um den Grenzwert zerfällt.
  */
-const GEHEN_AUS = 8
+const WALK_OUT_KMH = 8
 
 /** Kürzere Abschnitte gehen im Nachbarn auf (s). */
-const MIN_GEHEN_S = 120
-const MIN_FAHREN_S = 90
+const MIN_WALK_S = 120
+const MIN_RIDE_S = 90
 
 /**
  * Unter dieser VERDRÄNGUNG war es ein Halt, kein Gehen (m).
@@ -42,17 +42,17 @@ const MIN_FAHREN_S = 90
  * fertigen Film dauert, entscheidet die Zeitachse (zeit.ts), nicht die
  * Fortbewegung.
  */
-const MIN_GEH_VERDRAENGUNG_M = 60
+const MIN_WALK_DISPLACEMENT_M = 60
 
 /** Ab diesem Median-Tempo gilt eine Tour ohne Angabe als Radfahrt (km/h). */
 const RAD_AB_KMH = 7
 
 /** So dicht liegen die Punkte einer echten Aufzeichnung mindestens (s). */
-const AUFNAHME_TAKT_S = 35
+const RECORDING_INTERVAL_S = 35
 /** So viele Punkte braucht es, damit der Takt überhaupt etwas aussagt. */
-const AUFNAHME_MIN_PUNKTE = 30
+const RECORDING_MIN_POINTS = 30
 /** So viele Abstände müssen im Takt liegen. */
-const AUFNAHME_ANTEIL = 0.8
+const RECORDING_SHARE = 0.8
 
 /**
  * Sind diese Segmente eine AUFZEICHNUNG — oder gesetzte Wegpunkte?
@@ -69,15 +69,15 @@ const AUFNAHME_ANTEIL = 0.8
  * Tunnel ohne Empfang oder ein kurz pausierter Track reißt sonst jede
  * Aufzeichnung aus der Wertung.
  */
-export function isRecording(segmente: readonly UploadSegment[]): boolean {
-  const zeiten = segmente.flatMap((s) => s.pts.map((p) => p[3]))
-  if (zeiten.length < AUFNAHME_MIN_PUNKTE) return false
-  let imTakt = 0
-  for (let i = 1; i < zeiten.length; i++) {
-    const dt = (zeiten[i] as number) - (zeiten[i - 1] as number)
-    if (dt >= 0 && dt <= AUFNAHME_TAKT_S) imTakt++
+export function isRecording(segs: readonly UploadSegment[]): boolean {
+  const times = segs.flatMap((s) => s.pts.map((p) => p[3]))
+  if (times.length < RECORDING_MIN_POINTS) return false
+  let onBeat = 0
+  for (let i = 1; i < times.length; i++) {
+    const dt = (times[i] as number) - (times[i - 1] as number)
+    if (dt >= 0 && dt <= RECORDING_INTERVAL_S) onBeat++
   }
-  return imTakt / (zeiten.length - 1) >= AUFNAHME_ANTEIL
+  return onBeat / (times.length - 1) >= RECORDING_SHARE
 }
 
 /**
@@ -87,53 +87,53 @@ export function isRecording(segmente: readonly UploadSegment[]): boolean {
  * 80 km/h schleudern und dort einen Fahrabschnitt erfinden würden.
  */
 /** Momentantempo je Punkt aus dem Abstand zu seinen Nachbarn (km/h). */
-function rohTempoKmh(pts: readonly UploadPoint[]): number[] {
-  const roh: number[] = []
+function rawSpeedKmh(pts: readonly UploadPoint[]): number[] {
+  const raw: number[] = []
   for (let i = 0; i < pts.length; i++) {
     const a = pts[Math.max(0, i - 1)]!
     const b = pts[Math.min(pts.length - 1, i + 1)]!
     const dt = b[3] - a[3]
-    roh.push(dt > 0 ? (distanceM([a[0], a[1]], [b[0], b[1]]) / dt) * 3.6 : 0)
+    raw.push(dt > 0 ? (distanceM([a[0], a[1]], [b[0], b[1]]) / dt) * 3.6 : 0)
   }
-  return roh
+  return raw
 }
 
 export function speedProfileKmh(pts: readonly UploadPoint[]): number[] {
   if (pts.length < 2) return pts.map(() => 0)
 
-  const roh = rohTempoKmh(pts)
+  const raw = rawSpeedKmh(pts)
 
   return pts.map((p, i) => {
-    const fenster: number[] = []
-    for (let j = i; j >= 0 && p[3] - pts[j]![3] <= FENSTER_S; j--) fenster.push(roh[j]!)
-    for (let j = i + 1; j < pts.length && pts[j]![3] - p[3] <= FENSTER_S; j++) fenster.push(roh[j]!)
-    fenster.sort((x, y) => x - y)
-    const mitte = Math.floor(fenster.length / 2)
-    return fenster.length % 2 ? fenster[mitte]! : (fenster[mitte - 1]! + fenster[mitte]!) / 2
+    const window: number[] = []
+    for (let j = i; j >= 0 && p[3] - pts[j]![3] <= WINDOW_S; j--) window.push(raw[j]!)
+    for (let j = i + 1; j < pts.length && pts[j]![3] - p[3] <= WINDOW_S; j++) window.push(raw[j]!)
+    window.sort((x, y) => x - y)
+    const mid = Math.floor(window.length / 2)
+    return window.length % 2 ? window[mid]! : (window[mid - 1]! + window[mid]!) / 2
   })
 }
 
 /** Ein zusammenhängender Abschnitt gleicher Fortbewegung. */
-interface Abschnitt {
-  vonIndex: number
-  bisIndex: number
-  gehen: boolean
+interface Section {
+  fromIndex: number
+  toIndex: number
+  walking: boolean
 }
 
 /** Punkte anhand des Tempos in Geh- und Fahrabschnitte teilen (mit Hysterese). */
-function teileNachTempo(tempo: readonly number[]): Abschnitt[] {
-  const abschnitte: Abschnitt[] = []
-  let gehen = tempo[0]! < GEHEN_EIN
+function splitBySpeed(tempo: readonly number[]): Section[] {
+  const sections: Section[] = []
+  let walking = tempo[0]! < WALK_IN_KMH
   let start = 0
   for (let i = 1; i < tempo.length; i++) {
-    const wechsel = gehen ? tempo[i]! > GEHEN_AUS : tempo[i]! < GEHEN_EIN
-    if (!wechsel) continue
-    abschnitte.push({ vonIndex: start, bisIndex: i, gehen })
-    gehen = !gehen
+    const switches = walking ? tempo[i]! > WALK_OUT_KMH : tempo[i]! < WALK_IN_KMH
+    if (!switches) continue
+    sections.push({ fromIndex: start, toIndex: i, walking })
+    walking = !walking
     start = i
   }
-  abschnitte.push({ vonIndex: start, bisIndex: tempo.length - 1, gehen })
-  return abschnitte
+  sections.push({ fromIndex: start, toIndex: tempo.length - 1, walking })
+  return sections
 }
 
 /**
@@ -146,18 +146,18 @@ function teileNachTempo(tempo: readonly number[]): Abschnitt[] {
  * genauer — es zittert nur zu sehr, um allein die Abschnitte zu setzen. Also:
  * Abschnitte per Median finden, ihre Kanten per Momentantempo schärfen.
  */
-function schaerfeGrenzen(abschnitte: Abschnitt[], roh: readonly number[]): Abschnitt[] {
-  for (let i = 1; i < abschnitte.length; i++) {
-    const vor = abschnitte[i - 1]!
-    const nach = abschnitte[i]!
-    const gehoertSchonDazu = (tempo: number): boolean =>
-      nach.gehen ? tempo < GEHEN_EIN : tempo > GEHEN_AUS
-    let grenze = nach.vonIndex
-    while (grenze > vor.vonIndex + 1 && gehoertSchonDazu(roh[grenze - 1]!)) grenze--
-    vor.bisIndex = grenze
-    nach.vonIndex = grenze
+function sharpenBoundaries(sections: Section[], raw: readonly number[]): Section[] {
+  for (let i = 1; i < sections.length; i++) {
+    const before = sections[i - 1]!
+    const after = sections[i]!
+    const alreadyIncluded = (tempo: number): boolean =>
+      after.walking ? tempo < WALK_IN_KMH : tempo > WALK_OUT_KMH
+    let boundary = after.fromIndex
+    while (boundary > before.fromIndex + 1 && alreadyIncluded(raw[boundary - 1]!)) boundary--
+    before.toIndex = boundary
+    after.fromIndex = boundary
   }
-  return abschnitte
+  return sections
 }
 
 /**
@@ -176,60 +176,66 @@ function schaerfeGrenzen(abschnitte: Abschnitt[], roh: readonly number[]): Absch
  *    Median nach einer Pause kippt, ist die halbe Ausfahrt als „zu Fuß"
  *    markiert — es sei denn, man misst am Ende nach.
  */
-function istGlaubwuerdig(a: Abschnitt, pts: readonly UploadPoint[]): boolean {
-  const dauerS = pts[a.bisIndex]![3] - pts[a.vonIndex]![3]
-  if (dauerS < (a.gehen ? MIN_GEHEN_S : MIN_FAHREN_S)) return false
-  if (!a.gehen) return true
+function isCredible(a: Section, pts: readonly UploadPoint[]): boolean {
+  const durationS = pts[a.toIndex]![3] - pts[a.fromIndex]![3]
+  if (durationS < (a.walking ? MIN_WALK_S : MIN_RIDE_S)) return false
+  if (!a.walking) return true
 
-  const von = pts[a.vonIndex]!
-  const bis = pts[a.bisIndex]!
-  if (distanceM([von[0], von[1]], [bis[0], bis[1]]) < MIN_GEH_VERDRAENGUNG_M) return false
+  const from = pts[a.fromIndex]!
+  const to = pts[a.toIndex]!
+  if (distanceM([from[0], from[1]], [to[0], to[1]]) < MIN_WALK_DISPLACEMENT_M) return false
 
   // Fürs Tempo zählt dagegen der zurückgelegte Weg — sonst spräche eine Kurve
   // einen zu schnellen Abschnitt frei, nur weil sie zum Ausgangspunkt zurückführt.
-  let weg = 0
-  for (let i = a.vonIndex + 1; i <= a.bisIndex; i++) {
+  let distance = 0
+  for (let i = a.fromIndex + 1; i <= a.toIndex; i++) {
     const v = pts[i - 1]!
     const n = pts[i]!
-    weg += distanceM([v[0], v[1]], [n[0], n[1]])
+    distance += distanceM([v[0], v[1]], [n[0], n[1]])
   }
-  return dauerS <= 0 || (weg / dauerS) * 3.6 <= GEHEN_AUS
+  return durationS <= 0 || (distance / durationS) * 3.6 <= WALK_OUT_KMH
 }
 
 /** Unglaubwürdige Abschnitte im (zeitlich) größeren Nachbarn aufgehen lassen. */
-function verschmelzeKurze(abschnitte: Abschnitt[], pts: readonly UploadPoint[]): Abschnitt[] {
-  const dauer = (a: Abschnitt): number => pts[a.bisIndex]![3] - pts[a.vonIndex]![3]
-  let liste = abschnitte
-  let geaendert = true
-  while (geaendert && liste.length > 1) {
-    geaendert = false
-    for (let i = 0; i < liste.length; i++) {
-      const a = liste[i]!
-      if (istGlaubwuerdig(a, pts)) continue
+function mergeShort(sections: Section[], pts: readonly UploadPoint[]): Section[] {
+  const duration = (a: Section): number => pts[a.toIndex]![3] - pts[a.fromIndex]![3]
+  let list = sections
+  let changed = true
+  while (changed && list.length > 1) {
+    changed = false
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i]!
+      if (isCredible(a, pts)) continue
       // In den (zeitlich) größeren Nachbarn schlucken, damit kurze Stücke
       // nicht reihum die Richtung wechseln
-      const vor = liste[i - 1]
-      const nach = liste[i + 1]
-      const ziel = !vor ? nach : !nach ? vor : dauer(vor) >= dauer(nach) ? vor : nach
-      if (!ziel) break
-      ziel.vonIndex = Math.min(ziel.vonIndex, a.vonIndex)
-      ziel.bisIndex = Math.max(ziel.bisIndex, a.bisIndex)
-      liste = liste.filter((x) => x !== a)
+      const before = list[i - 1]
+      const after = list[i + 1]
+      const out = !before
+        ? after
+        : !after
+          ? before
+          : duration(before) >= duration(after)
+            ? before
+            : after
+      if (!out) break
+      out.fromIndex = Math.min(out.fromIndex, a.fromIndex)
+      out.toIndex = Math.max(out.toIndex, a.toIndex)
+      list = list.filter((x) => x !== a)
       // Gleichartige Nachbarn zusammenziehen, die durch das Schlucken entstanden
-      liste = liste.reduce<Abschnitt[]>((acc, x) => {
-        const letzte = acc[acc.length - 1]
-        if (letzte && letzte.gehen === x.gehen) {
-          letzte.bisIndex = Math.max(letzte.bisIndex, x.bisIndex)
+      list = list.reduce<Section[]>((acc, x) => {
+        const last = acc[acc.length - 1]
+        if (last && last.walking === x.walking) {
+          last.toIndex = Math.max(last.toIndex, x.toIndex)
           return acc
         }
         acc.push(x)
         return acc
       }, [])
-      geaendert = true
+      changed = true
       break
     }
   }
-  return liste
+  return list
 }
 
 /**
@@ -237,10 +243,10 @@ function verschmelzeKurze(abschnitte: Abschnitt[], pts: readonly UploadPoint[]):
  * Moped, Jeep, Tram und Fähre lassen sich am Tempo nicht auseinanderhalten —
  * sie bleiben Sache des Nutzers.
  */
-function primaerOhneAngabe(tempo: readonly number[]): TravelMode {
-  const fahrend = tempo.filter((t) => t >= GEHEN_EIN).sort((a, b) => a - b)
-  if (!fahrend.length) return 'walk'
-  const median = fahrend[Math.floor(fahrend.length / 2)]!
+function primaryWithoutHint(tempo: readonly number[]): TravelMode {
+  const riding = tempo.filter((t) => t >= WALK_IN_KMH).sort((a, b) => a - b)
+  if (!riding.length) return 'walk'
+  const median = riding[Math.floor(riding.length / 2)]!
   return median > RAD_AB_KMH ? 'bike' : 'walk'
 }
 
@@ -251,28 +257,28 @@ function primaerOhneAngabe(tempo: readonly number[]): TravelMode {
  * Modus-Grenzen aus dem Editor, sonst entsteht beim Verketten eine Lücke.
  * Ändert sich nichts, kommt das Segment unverändert zurück.
  */
-export function splitWalkSegments(segment: UploadSegment): UploadSegment[] {
-  if (segment.pts.length < 4) return [segment]
+export function splitWalkSegments(seg2: UploadSegment): UploadSegment[] {
+  if (seg2.pts.length < 4) return [seg2]
 
-  const tempo = speedProfileKmh(segment.pts)
-  const primaer: TravelMode = segment.mode === 'walk' ? primaerOhneAngabe(tempo) : segment.mode
+  const tempo = speedProfileKmh(seg2.pts)
+  const primary: TravelMode = seg2.mode === 'walk' ? primaryWithoutHint(tempo) : seg2.mode
   // Ohne erkennbare Fahrt bleibt alles, wie es ist
-  if (primaer === 'walk') return [segment]
+  if (primary === 'walk') return [seg2]
 
-  const abschnitte = verschmelzeKurze(
-    schaerfeGrenzen(teileNachTempo(tempo), rohTempoKmh(segment.pts)),
-    segment.pts,
+  const sections = mergeShort(
+    sharpenBoundaries(splitBySpeed(tempo), rawSpeedKmh(seg2.pts)),
+    seg2.pts,
   )
-  if (abschnitte.length < 2) {
+  if (sections.length < 2) {
     // Ein einziger Abschnitt: nur der Modus kann sich noch geändert haben.
     // Das Label des Originals fällt dabei weg — es beschrieb den alten Modus.
-    const mode: TravelMode = abschnitte[0]?.gehen ? 'walk' : primaer
-    return mode === segment.mode ? [segment] : [{ mode, pts: segment.pts }]
+    const mode: TravelMode = sections[0]?.walking ? 'walk' : primary
+    return mode === seg2.mode ? [seg2] : [{ mode, pts: seg2.pts }]
   }
 
-  return abschnitte.map((a) => ({
-    mode: a.gehen ? ('walk' as TravelMode) : primaer,
-    pts: segment.pts.slice(a.vonIndex, a.bisIndex + 1),
+  return sections.map((a) => ({
+    mode: a.walking ? ('walk' as TravelMode) : primary,
+    pts: seg2.pts.slice(a.fromIndex, a.toIndex + 1),
   }))
 }
 
@@ -284,7 +290,7 @@ export function splitWalkSegments(segment: UploadSegment): UploadSegment[] {
  * Chip-Reihe, oder ein GPX-Import mit Vorgabe) — diese Entscheidung wird nicht
  * überschrieben.
  */
-export function splitWalkSegmentsInSegments(segmente: readonly UploadSegment[]): UploadSegment[] {
-  if (segmente.length !== 1) return [...segmente]
-  return splitWalkSegments(segmente[0]!)
+export function splitWalkSegmentsInSegments(segs: readonly UploadSegment[]): UploadSegment[] {
+  if (segs.length !== 1) return [...segs]
+  return splitWalkSegments(segs[0]!)
 }

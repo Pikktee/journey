@@ -156,13 +156,13 @@ describe('Tour-Lebenszyklus', () => {
   })
 
   it('reichert timeline und Auto-Wetter an (M2)', async () => {
-    const wetter = new FixedWeatherSource(
+    const weatherSource = new FixedWeatherSource(
       testGrid(
         '2026-07-04T06',
-        Array.from({ length: 7 }, () => ({ code: 61, regenMm: 1, wolken: 95 })),
+        Array.from({ length: 7 }, () => ({ code: 61, rainMm: 1, clouds: 95 })),
       ),
     )
-    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter)
+    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], weatherSource)
     const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
@@ -176,19 +176,19 @@ describe('Tour-Lebenszyklus', () => {
   })
 
   it('verfeinert das Auto-Wetter per Bildanalyse, wenn ein Klassifikator konfiguriert ist (M5)', async () => {
-    const wetter = new FixedWeatherSource(
+    const weatherSource = new FixedWeatherSource(
       testGrid(
         '2026-07-04T06',
-        Array.from({ length: 7 }, () => ({ wolken: 80 })),
+        Array.from({ length: 7 }, () => ({ clouds: 80 })),
       ), // bewölkt
     )
     const klass = new FixedClassifier({
-      himmel: 'bedeckt',
-      niederschlag: 'gewitter',
-      himmelSichtbar: true,
-      konfidenz: 0.9,
+      sky: 'bedeckt',
+      precipitation: 'gewitter',
+      skyVisible: true,
+      confidence: 0.9,
     })
-    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter, null, {}, klass)
+    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], weatherSource, null, {}, klass)
     const id = await createTour(u)
     await ladeMediumHoch(u, id) // m1 (Foto)
     await finalisiere(u, id)
@@ -197,8 +197,8 @@ describe('Tour-Lebenszyklus', () => {
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as TourJson
     expect(tour.weather?.some((w) => w.source === 'photo' && w.mode === 'storm')).toBe(true)
-    expect(klass.aufrufe).toHaveLength(1) // genau das eine Foto klassifiziert
-    expect(klass.aufrufe[0]?.medientyp).toBe('image/jpeg')
+    expect(klass.calls).toHaveLength(1) // genau das eine Foto klassifiziert
+    expect(klass.calls[0]?.mediaType).toBe('image/jpeg')
   })
 
   it('analysiert die Fotos nebenläufig, ordnet die Befunde aber am Manifest aus (M5)', async () => {
@@ -211,9 +211,9 @@ describe('Tour-Lebenszyklus', () => {
     let maxGleichzeitig = 0
     const gelesen: string[] = []
     const klass: ImageClassifier = {
-      async klassifiziere({ daten }) {
+      async classify({ data }) {
         // Marke aus dem Bild-Fake: „<Kante>#<Bildnummer>" hinter dem JPEG-Gerüst
-        const [, kante, roh] = /(\d+)#(\d)/.exec(Buffer.from(daten).toString('latin1')) ?? []
+        const [, kante, roh] = /(\d+)#(\d)/.exec(Buffer.from(data).toString('latin1')) ?? []
         gelesen.push(kante ?? '?')
         const nummer = Number(roh)
         offen++
@@ -221,10 +221,10 @@ describe('Tour-Lebenszyklus', () => {
         await new Promise((r) => setTimeout(r, (5 - nummer) * 12))
         offen--
         return {
-          himmel: 'bedeckt',
-          niederschlag: 'kein',
-          himmelSichtbar: true,
-          konfidenz: nummer / 10,
+          sky: 'bedeckt',
+          precipitation: 'kein',
+          skyVisible: true,
+          confidence: nummer / 10,
         }
       },
     }
@@ -267,22 +267,22 @@ describe('Tour-Lebenszyklus', () => {
     expect(gelesen).toHaveLength(4)
     expect(new Set(gelesen)).toEqual(new Set(['480'])) // die Kachel, nicht die Anzeige-Fassung
     const cache = JSON.parse((await u.storage.read(id, 'enrichment.json')).toString()) as {
-      findings: Record<string, { konfidenz: number }>
+      findings: Record<string, { confidence: number }>
     }
     // Jeder Befund an seinem Foto — und in Manifest-Reihenfolge abgelegt, damit
     // der Cache nicht je nach Antwortzeiten anders herum steht.
     expect(Object.keys(cache.findings)).toEqual(['m1', 'm2', 'm3', 'm4'])
-    expect(Object.values(cache.findings).map((b) => b.konfidenz)).toEqual([0.1, 0.2, 0.3, 0.4])
+    expect(Object.values(cache.findings).map((b) => b.confidence)).toEqual([0.1, 0.2, 0.3, 0.4])
   })
 
   it('lässt das Wetter ohne konfigurierten Klassifikator unberührt (M5 No-Op)', async () => {
-    const wetter = new FixedWeatherSource(
+    const weatherSource = new FixedWeatherSource(
       testGrid(
         '2026-07-04T06',
-        Array.from({ length: 7 }, () => ({ wolken: 80 })),
+        Array.from({ length: 7 }, () => ({ clouds: 80 })),
       ),
     )
-    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter) // kein Klassifikator
+    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], weatherSource) // kein Klassifikator
     const id = await createTour(u)
     await ladeMediumHoch(u, id)
     await finalisiere(u, id)
@@ -1244,16 +1244,16 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const daten = antwort.json() as { segments: Array<{ pts: number[][] }> }
     // Streckensumme der gelieferten Punkte: ohne Kollaps steckte ~1 km
     // GPS-Zickzack darin (≈ 6,9 km), mit Kollaps bleibt der Marsch (≈ 5,9 km)
-    let meter = 0
+    let meters = 0
     for (const s of daten.segments) {
       for (let i = 1; i < s.pts.length; i++) {
         const dx = ((s.pts[i]?.[0] ?? 0) - (s.pts[i - 1]?.[0] ?? 0)) / gradProM
         const dy = ((s.pts[i]?.[1] ?? 0) - (s.pts[i - 1]?.[1] ?? 0)) * 111_320
-        meter += Math.sqrt(dx * dx + dy * dy)
+        meters += Math.sqrt(dx * dx + dy * dy)
       }
     }
-    expect(meter).toBeGreaterThan(5500)
-    expect(meter).toBeLessThan(6300)
+    expect(meters).toBeGreaterThan(5500)
+    expect(meters).toBeLessThan(6300)
   })
 
   it('Editor-Daten: eine App-Aufnahme wird in Fahrt und Fußweg getrennt', async () => {
@@ -1497,7 +1497,7 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     // korrigierbar (dasselbe Muster wie die Musikwahl)
     const overlay = await ediereOverlay(u, id)
     expect(overlay.travelModes?.map((m) => m.mode)).toEqual(['tram', 'walk', 'tram'])
-    expect(schienen.abfragen).toHaveLength(1)
+    expect(schienen.queries).toHaveLength(1)
 
     // … und wirkt bis ins gerenderte Tour-JSON
     const tour = (
@@ -1516,7 +1516,7 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     await finalisiere(u, id)
 
     expect((await ediereOverlay(u, id)).travelModes).toBeUndefined()
-    expect(schienen.abfragen).toHaveLength(0)
+    expect(schienen.queries).toHaveLength(0)
   })
 
   it('rührt eine im Studio gezogene Modus-Kante nicht an', async () => {
@@ -1535,12 +1535,12 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     await finalisiere(u, id)
 
     expect((await ediereOverlay(u, id)).travelModes?.map((m) => m.mode)).toEqual(['jeep'])
-    expect(schienen.abfragen).toHaveLength(0)
+    expect(schienen.queries).toHaveLength(0)
   })
 
   it('bleibt bei Rad, wenn OSM ausfällt', async () => {
     const kaputt = {
-      gleise: async () => {
+      rails: async () => {
         throw new Error('Overpass 504')
       },
     }
@@ -1626,7 +1626,7 @@ describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
     const id = await createTour(u, manifest)
     await finalisiere(u, id)
 
-    expect(schienen.abfragen).toHaveLength(0)
+    expect(schienen.queries).toHaveLength(0)
     const tour = (
       await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     ).json() as { segments: Array<{ mode: string }> }

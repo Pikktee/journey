@@ -10,7 +10,7 @@
 import type { UploadPoint, UploadSegment } from '../schema/upload.js'
 import type { TrackSignature } from './signature.js'
 
-const ERDRADIUS_M = 6371000
+const EARTH_RADIUS_M = 6371000
 const RAD = Math.PI / 180
 
 /** Haversine-Distanz zweier [lng,lat]-Punkte in Metern. */
@@ -21,24 +21,24 @@ export function distanceM(a: readonly number[], b: readonly number[]): number {
   const dLng = (lng2 - lng1) * RAD
   const h =
     Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.sin(dLng / 2) ** 2
-  return 2 * ERDRADIUS_M * Math.asin(Math.sqrt(h))
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h))
 }
 
 // Für Douglas-Peucker reicht eine lokale Plattkarte (äquirektangular um die
 // mittlere Breite) — auf Tour-Skalen (<100 km) ist der Fehler vernachlässigbar.
-function projiziere(pts: readonly UploadPoint[]): Array<[number, number]> {
-  const latMittel = (pts.reduce((s, p) => s + p[1], 0) / pts.length) * RAD
-  const kx = ERDRADIUS_M * RAD * Math.cos(latMittel)
-  const ky = ERDRADIUS_M * RAD
+function project(pts: readonly UploadPoint[]): Array<[number, number]> {
+  const latMid = (pts.reduce((s, p) => s + p[1], 0) / pts.length) * RAD
+  const kx = EARTH_RADIUS_M * RAD * Math.cos(latMid)
+  const ky = EARTH_RADIUS_M * RAD
   return pts.map((p) => [p[0] * kx, p[1] * ky])
 }
 
-function abstandZurStrecke(p: [number, number], a: [number, number], b: [number, number]): number {
+function distanceToSegment(p: [number, number], a: [number, number], b: [number, number]): number {
   const dx = b[0] - a[0]
   const dy = b[1] - a[1]
-  const laenge2 = dx * dx + dy * dy
-  if (laenge2 === 0) return Math.hypot(p[0] - a[0], p[1] - a[1])
-  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / laenge2
+  const length2 = dx * dx + dy * dy
+  if (length2 === 0) return Math.hypot(p[0] - a[0], p[1] - a[1])
+  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length2
   t = Math.max(0, Math.min(1, t))
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy))
 }
@@ -48,8 +48,8 @@ function abstandZurStrecke(p: [number, number], a: [number, number], b: [number,
  * überlebenden Originalpunkte. Iterativ (Stack) statt rekursiv — lange
  * Aufzeichnungen sollen keinen Callstack sprengen.
  */
-export function simplifySegment(pts: readonly UploadPoint[], toleranzM = 5): UploadPoint[] {
-  return simplifyIndices(pts, toleranzM).map((i) => pts[i] as UploadPoint)
+export function simplifySegment(pts: readonly UploadPoint[], toleranceM = 5): UploadPoint[] {
+  return simplifyIndices(pts, toleranceM).map((i) => pts[i] as UploadPoint)
 }
 
 /**
@@ -60,36 +60,36 @@ export function simplifySegment(pts: readonly UploadPoint[], toleranzM = 5): Upl
  * allein ist es nicht rekonstruierbar. Über den Index findet enrich.ts jeden
  * überlebenden Punkt in der Zeitreihe wieder.
  */
-export function simplifyIndices(pts: readonly UploadPoint[], toleranzM = 5): number[] {
+export function simplifyIndices(pts: readonly UploadPoint[], toleranceM = 5): number[] {
   if (pts.length <= 2) return pts.map((_, i) => i)
-  const xy = projiziere(pts)
-  const behalten = new Array<boolean>(pts.length).fill(false)
-  behalten[0] = behalten[pts.length - 1] = true
+  const xy = project(pts)
+  const keep = new Array<boolean>(pts.length).fill(false)
+  keep[0] = keep[pts.length - 1] = true
 
-  const stapel: Array<[number, number]> = [[0, pts.length - 1]]
-  while (stapel.length) {
-    const [von, bis] = stapel.pop() as [number, number]
-    let maxAbstand = 0
+  const stack: Array<[number, number]> = [[0, pts.length - 1]]
+  while (stack.length) {
+    const [from, to] = stack.pop() as [number, number]
+    let maxDist = 0
     let index = -1
-    for (let i = von + 1; i < bis; i++) {
-      const a = abstandZurStrecke(
+    for (let i = from + 1; i < to; i++) {
+      const a = distanceToSegment(
         xy[i] as [number, number],
-        xy[von] as [number, number],
-        xy[bis] as [number, number],
+        xy[from] as [number, number],
+        xy[to] as [number, number],
       )
-      if (a > maxAbstand) {
-        maxAbstand = a
+      if (a > maxDist) {
+        maxDist = a
         index = i
       }
     }
-    if (index >= 0 && maxAbstand > toleranzM) {
-      behalten[index] = true
-      stapel.push([von, index], [index, bis])
+    if (index >= 0 && maxDist > toleranceM) {
+      keep[index] = true
+      stack.push([from, index], [index, to])
     }
   }
-  const indizes: number[] = []
-  for (let i = 0; i < pts.length; i++) if (behalten[i]) indizes.push(i)
-  return indizes
+  const indices: number[] = []
+  for (let i = 0; i < pts.length; i++) if (keep[i]) indices.push(i)
+  return indices
 }
 
 export interface TourStats {
@@ -119,7 +119,7 @@ export interface TourStats {
 
 // Anstiege zählen erst ab dieser Schwelle (m) — Standard-Hysterese gegen
 // GPS-Höhenrauschen, das sonst selbst nach Glättung Phantom-Höhenmeter sammelt.
-const GAIN_HYSTERESE_M = 5
+const GAIN_HYSTERESIS_M = 5
 
 /**
  * Gesamtdistanz + Höhenmeter über alle Segmente. Höhen werden geglättet UND
@@ -128,38 +128,38 @@ const GAIN_HYSTERESE_M = 5
  * verlieren dadurch nichts (sie kommen in >5-m-Schritten), Zickzack fällt raus.
  */
 export function computeStats(segments: readonly UploadSegment[]): TourStats {
-  let meter = 0
+  let meters = 0
   let gain = 0
   for (const seg of segments) {
     for (let i = 1; i < seg.pts.length; i++) {
-      meter += distanceM(seg.pts[i - 1] as UploadPoint, seg.pts[i] as UploadPoint)
+      meters += distanceM(seg.pts[i - 1] as UploadPoint, seg.pts[i] as UploadPoint)
     }
-    const geglaettet = smooth(
+    const smoothed = smooth(
       seg.pts.map((p) => p[2]),
       5,
     )
-    let tal = geglaettet[0] ?? 0
-    for (const hoehe of geglaettet) {
-      if (hoehe < tal) {
-        tal = hoehe
-      } else if (hoehe - tal >= GAIN_HYSTERESE_M) {
-        gain += hoehe - tal
-        tal = hoehe
+    let valley = smoothed[0] ?? 0
+    for (const elevation of smoothed) {
+      if (elevation < valley) {
+        valley = elevation
+      } else if (elevation - valley >= GAIN_HYSTERESIS_M) {
+        gain += elevation - valley
+        valley = elevation
       }
     }
   }
-  return { km: Math.round(meter / 100) / 10, gainM: Math.round(gain) }
+  return { km: Math.round(meters / 100) / 10, gainM: Math.round(gain) }
 }
 
 /** Gleitendes Mittel mit Fenster ±n. */
-export function smooth(werte: readonly number[], n: number): number[] {
-  return werte.map((_, i) => {
-    let summe = 0
-    let anzahl = 0
-    for (let j = Math.max(0, i - n); j <= Math.min(werte.length - 1, i + n); j++) {
-      summe += werte[j] ?? 0
-      anzahl++
+export function smooth(values: readonly number[], n: number): number[] {
+  return values.map((_, i) => {
+    let sum = 0
+    let count = 0
+    for (let j = Math.max(0, i - n); j <= Math.min(values.length - 1, i + n); j++) {
+      sum += values[j] ?? 0
+      count++
     }
-    return summe / anzahl
+    return sum / count
   })
 }

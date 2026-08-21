@@ -17,11 +17,11 @@ const LAT = 50.1
 const GRAD_PRO_M = 1 / (111_320 * Math.cos((LAT * Math.PI) / 180))
 const GRAD_PRO_M_LAT = 1 / 110_540
 
-/** Gerade Fahrt nach Osten: `meter` lang, ein Punkt je 15 s. */
-function fahrt(meter: number, kmh = 22, versatzM = 0): UploadPoint[] {
+/** Gerade Fahrt nach Osten: `meters` lang, ein Punkt je 15 s. */
+function fahrt(meters: number, kmh = 22, versatzM = 0): UploadPoint[] {
   const pts: UploadPoint[] = []
   const schritt = (kmh / 3.6) * 15
-  for (let s = 0, t = 0; s <= meter; s += schritt, t += 15) {
+  for (let s = 0, t = 0; s <= meters; s += schritt, t += 15) {
     pts.push([8.68 + s * GRAD_PRO_M, LAT + versatzM * GRAD_PRO_M_LAT, 110, t])
   }
   return pts
@@ -104,10 +104,10 @@ describe('umgebungsBox', () => {
   it('umschließt alle Punkte mit Rand', () => {
     const box = boundingBox([segment('bike', fahrt(3000))])
     expect(box).not.toBeNull()
-    expect(box!.sued).toBeLessThan(LAT)
-    expect(box!.nord).toBeGreaterThan(LAT)
+    expect(box!.south).toBeLessThan(LAT)
+    expect(box!.north).toBeGreaterThan(LAT)
     expect(box!.west).toBeLessThan(8.68)
-    expect(box!.ost).toBeGreaterThan(8.68 + 3000 * GRAD_PRO_M)
+    expect(box!.east).toBeGreaterThan(8.68 + 3000 * GRAD_PRO_M)
   })
 
   it('liefert null ohne Punkte', () => {
@@ -139,7 +139,7 @@ describe('OverpassSchienen', () => {
       'Test/1',
       fetchFn as unknown as typeof fetch,
     )
-    const gleise = await quelle.gleise({ sued: 50, west: 8.6, nord: 50.2, ost: 8.8 })
+    const gleise = await quelle.rails({ south: 50, west: 8.6, north: 50.2, east: 8.8 })
 
     expect(gleise).toEqual([
       [
@@ -160,7 +160,7 @@ describe('OverpassSchienen', () => {
       'Test/1',
       fetchFn as unknown as typeof fetch,
     )
-    await expect(quelle.gleise({ sued: 50, west: 8.6, nord: 50.2, ost: 8.8 })).rejects.toThrow(
+    await expect(quelle.rails({ south: 50, west: 8.6, north: 50.2, east: 8.8 })).rejects.toThrow(
       /429/,
     )
   })
@@ -169,8 +169,8 @@ describe('OverpassSchienen', () => {
 describe('FesteSchienen (Test-Doppel)', () => {
   it('schneidet die Abfragen mit', async () => {
     const quelle = new FixedRails([gleisGerade()])
-    await quelle.gleise({ sued: 50, west: 8.6, nord: 50.2, ost: 8.8 })
-    expect(quelle.abfragen).toHaveLength(1)
-    expect(quelle.abfragen[0]?.nord).toBe(50.2)
+    await quelle.rails({ south: 50, west: 8.6, north: 50.2, east: 8.8 })
+    expect(quelle.queries).toHaveLength(1)
+    expect(quelle.queries[0]?.north).toBe(50.2)
   })
 })

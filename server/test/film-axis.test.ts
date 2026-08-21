@@ -26,7 +26,7 @@ import type { UploadSegment } from '../src/schema/upload.js'
 
 /** Gerade Ost-Strecke: `meterProSchritt` je Punkt, ein Punkt je `sekProSchritt`. */
 function geradeStrecke(
-  punkte: number,
+  points: number,
   meterProSchritt: number,
   sekProSchritt: number,
   mode: UploadSegment['mode'] = 'walk',
@@ -34,7 +34,7 @@ function geradeStrecke(
   const gradProMeter = 1 / (111_320 * Math.cos((46.6 * Math.PI) / 180))
   return {
     mode,
-    pts: Array.from({ length: punkte }, (_, i) => [
+    pts: Array.from({ length: points }, (_, i) => [
       7.9 + i * meterProSchritt * gradProMeter,
       46.6,
       800,
@@ -117,7 +117,7 @@ describe('baueFilmAchse', () => {
 })
 
 describe('baueAchsenHalte', () => {
-  const foto = (meter: number, offsetS: number) => ({ type: 'photo' as const, meter, offsetS })
+  const foto = (meters: number, offsetS: number) => ({ type: 'photo' as const, meters, offsetS })
 
   it('fasst Aufnahmen unter 120 Streckenmetern zu EINEM Halt zusammen', () => {
     const halte = buildAxisStops([foto(0, 10), foto(50, 20), foto(119, 30), foto(400, 90)])
@@ -136,12 +136,12 @@ describe('baueAchsenHalte', () => {
   })
 
   it('ein Video zählt mit seiner echten Länge', () => {
-    const halte = buildAxisStops([{ type: 'video', meter: 0, offsetS: 5, dauerS: 34.2 }])
+    const halte = buildAxisStops([{ type: 'video', meters: 0, offsetS: 5, dauerS: 34.2 }])
     expect(halte[0]?.widthS).toBeCloseTo(34.2 + STOP_FADE_OUT_S, 6)
   })
 
   it('eine eigene Standzeit schlägt die Vorgabe', () => {
-    const halte = buildAxisStops([{ type: 'photo', meter: 0, offsetS: 5, display: { holdS: 12 } }])
+    const halte = buildAxisStops([{ type: 'photo', meters: 0, offsetS: 5, display: { holdS: 12 } }])
     expect(halte[0]?.widthS).toBeCloseTo(12 + STOP_FADE_OUT_S, 6)
   })
 })
@@ -149,8 +149,8 @@ describe('baueAchsenHalte', () => {
 describe('baueMomentHalte', () => {
   it('nimmt die Dauer der Art — ohne Ausblendung', () => {
     const halte = buildMomentStops([
-      { offsetS: 100, art: 'orbit' },
-      { offsetS: 200, art: 'linger', dauerS: 9 },
+      { offsetS: 100, kind: 'orbit' },
+      { offsetS: 200, kind: 'linger', dauerS: 9 },
     ])
     // Ein Moment endet in der Engine direkt in der Weiterfahrt; 0,8 s
     // Ausblendung wie am Foto-Halt gibt es dort nicht.
@@ -164,8 +164,8 @@ describe('baueMomentHalte', () => {
     // Anders als Aufnahmen (120-m-Kette): jeder Moment ist ein eigenes
     // Ereignis mit eigener Kamerabewegung.
     const halte = buildMomentStops([
-      { offsetS: 100, art: 'linger' },
-      { offsetS: 101, art: 'linger' },
+      { offsetS: 100, kind: 'linger' },
+      { offsetS: 101, kind: 'linger' },
     ])
     expect(halte).toHaveLength(2)
   })
@@ -176,7 +176,7 @@ describe('baueMomentHalte', () => {
     // kurze Achse auf — er landete im Film um die Momentdauer zu früh.
     const reihe = buildTimeSeries([geradeStrecke(11, 96, 60)])
     const ohne = buildFilmAxis(reihe, [], 0)!
-    const mit = buildFilmAxis(reihe, buildMomentStops([{ offsetS: 300, art: 'orbit' }]), 0)!
+    const mit = buildFilmAxis(reihe, buildMomentStops([{ offsetS: 300, kind: 'orbit' }]), 0)!
     expect(mit.totalS - ohne.totalS).toBeCloseTo(MOMENT_DEFAULT_S.orbit, 6)
     // Ein Anker VOR dem Moment liegt unverändert; 6 Filmsekunden nach ihm steht
     // die Aufnahmeuhr noch im Moment, statt schon weitergelaufen zu sein.
@@ -192,8 +192,8 @@ describe('baueMomentHalte', () => {
     const achse = buildFilmAxis(
       reihe,
       [
-        ...buildAxisStops([{ type: 'photo', meter: 480, offsetS: 300 }]),
-        ...buildMomentStops([{ offsetS: 480, art: 'ascend' }]),
+        ...buildAxisStops([{ type: 'photo', meters: 480, offsetS: 300 }]),
+        ...buildMomentStops([{ offsetS: 480, kind: 'ascend' }]),
       ],
       0,
     )!
@@ -210,14 +210,14 @@ describe('projiziereAufReihe', () => {
     // Auf grob abgetasteten Tracks liegen 60 s zwischen zwei Punkten — würde auf
     // den nächsten Stützpunkt gerundet, spränge ein Halt um eine halbe Minute.
     const reihe = buildTimeSeries([geradeStrecke(3, 1000, 60)])
-    const mitte = reihe.punkte[1]!
+    const mitte = reihe.points[1]!
     const gradProMeter = 1 / (111_320 * Math.cos((46.6 * Math.PI) / 180))
     const ort = projectOntoTimeSeries(reihe, 7.9 + 500 * gradProMeter, 46.6)
     expect(ort.offsetS).toBeCloseTo(30, 0)
     // Auf einen Meter genau: die Zeitreihe misst mit Haversine, die Projektion
     // mit lokaler Plattkarte — über 1 km sind das gut 0,5 m Unterschied.
-    expect(Math.abs(ort.meter - 500)).toBeLessThan(2)
-    expect(mitte.tSek).toBe(60) // die nächste Stützstelle wäre 60 gewesen
+    expect(Math.abs(ort.meters - 500)).toBeLessThan(2)
+    expect(mitte.tSec).toBe(60) // die nächste Stützstelle wäre 60 gewesen
   })
 
   it('klemmt seitlich neben der Strecke auf den nächstgelegenen Punkt', () => {

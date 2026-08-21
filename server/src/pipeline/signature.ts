@@ -25,49 +25,49 @@ export interface TrackSignature {
  * Kachel eben keine Form, statt einen Strich zu erfinden.
  */
 export function buildSignature(
-  punkte: ReadonlyArray<readonly [number, number]>,
+  points: ReadonlyArray<readonly [number, number]>,
 ): TrackSignature | null {
-  if (punkte.length < 2) return null
+  if (points.length < 2) return null
 
   // Gleichmäßig ausdünnen; Anfang und Ende bleiben immer erhalten (sie tragen
   // die Marken).
-  const schritt = Math.max(1, Math.ceil(punkte.length / MAX_POINTS))
-  const roh: Array<readonly [number, number]> = []
-  for (let i = 0; i < punkte.length; i += schritt) roh.push(punkte[i] as readonly [number, number])
-  const letzter = punkte[punkte.length - 1] as readonly [number, number]
-  if (roh[roh.length - 1] !== letzter) roh.push(letzter)
+  const step = Math.max(1, Math.ceil(points.length / MAX_POINTS))
+  const raw: Array<readonly [number, number]> = []
+  for (let i = 0; i < points.length; i += step) raw.push(points[i] as readonly [number, number])
+  const last = points[points.length - 1] as readonly [number, number]
+  if (raw[raw.length - 1] !== last) raw.push(last)
 
-  const lats = roh.map((p) => p[1])
-  const mittlereBreite = (Math.min(...lats) + Math.max(...lats)) / 2
-  const kx = Math.cos((mittlereBreite * Math.PI) / 180)
-  const xs = roh.map((p) => p[0] * kx)
-  const ys = roh.map((p) => p[1])
+  const lats = raw.map((p) => p[1])
+  const midLatitude = (Math.min(...lats) + Math.max(...lats)) / 2
+  const kx = Math.cos((midLatitude * Math.PI) / 180)
+  const xs = raw.map((p) => p[0] * kx)
+  const ys = raw.map((p) => p[1])
   const x0 = Math.min(...xs)
   const x1 = Math.max(...xs)
   const y0 = Math.min(...ys)
   const y1 = Math.max(...ys)
-  const spanne = Math.max(x1 - x0, y1 - y0)
-  if (!(spanne > 0)) return null
+  const span = Math.max(x1 - x0, y1 - y0)
+  if (!(span > 0)) return null
 
   // Seitenverhältnis erhalten: die kürzere Achse wird zentriert, nicht gedehnt.
-  const versatzX = (spanne - (x1 - x0)) / 2
-  const versatzY = (spanne - (y1 - y0)) / 2
-  const abbilden = (i: number): [number, number] => [
-    runde(((xs[i] as number) - x0 + versatzX) * (100 / spanne)),
+  const offsetX = (span - (x1 - x0)) / 2
+  const offsetY = (span - (y1 - y0)) / 2
+  const mapPoint = (i: number): [number, number] => [
+    round(((xs[i] as number) - x0 + offsetX) * (100 / span)),
     // SVG zählt y nach unten, die Erde nach oben
-    runde(100 - ((ys[i] as number) - y0 + versatzY) * (100 / spanne)),
+    round(100 - ((ys[i] as number) - y0 + offsetY) * (100 / span)),
   ]
 
-  const ecken = roh.map((_, i) => abbilden(i))
-  const d = ecken.map((p, i) => `${i ? 'L' : 'M'}${p[0]} ${p[1]}`).join('')
+  const corners = raw.map((_, i) => mapPoint(i))
+  const d = corners.map((p, i) => `${i ? 'L' : 'M'}${p[0]} ${p[1]}`).join('')
   return {
     d,
-    start: ecken[0] as [number, number],
-    end: ecken[ecken.length - 1] as [number, number],
+    start: corners[0] as [number, number],
+    end: corners[corners.length - 1] as [number, number],
   }
 }
 
 /** Eine Nachkommastelle genügt bei 100 Einheiten Kantenlänge — spart Bytes je Kachel. */
-function runde(wert: number): number {
-  return Math.round(wert * 10) / 10
+function round(value: number): number {
+  return Math.round(value * 10) / 10
 }

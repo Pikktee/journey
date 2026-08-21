@@ -20,15 +20,15 @@ function offsetS(iso: string | undefined, startMs: number): number | null {
  * Medien-Anker bleiben unberührt — sie hängen an Koordinaten/Zeiten, nie an f.
  */
 export function applyTourTrim(
-  segmente: readonly UploadSegment[],
+  segs: readonly UploadSegment[],
   trim: EditOverlay['trim'],
   startMs: number,
 ): UploadSegment[] {
-  const von = offsetS(trim?.start, startMs) ?? -Infinity
-  const bis = offsetS(trim?.end, startMs) ?? Infinity
-  if (von === -Infinity && bis === Infinity) return [...segmente]
-  return segmente
-    .map((seg) => ({ ...seg, pts: seg.pts.filter((p) => p[3] >= von && p[3] <= bis) }))
+  const from = offsetS(trim?.start, startMs) ?? -Infinity
+  const to = offsetS(trim?.end, startMs) ?? Infinity
+  if (from === -Infinity && to === Infinity) return [...segs]
+  return segs
+    .map((seg) => ({ ...seg, pts: seg.pts.filter((p) => p[3] >= from && p[3] <= to) }))
     .filter((seg) => seg.pts.length >= 2)
 }
 
@@ -43,43 +43,43 @@ export function applyTourTrim(
  * (src/studio/edit-model.ts), damit Anzeige und Render nie auseinanderlaufen.
  */
 export function applyTravelModes(
-  segmente: readonly UploadSegment[],
-  modi: EditOverlay['travelModes'],
+  segs: readonly UploadSegment[],
+  modes: EditOverlay['travelModes'],
   startMs: number,
 ): UploadSegment[] {
-  const grenzen = (modi ?? [])
+  const boundaries = (modes ?? [])
     .map((g) => ({ abS: offsetS(g.from, startMs), mode: g.mode }))
     .filter((g): g is { abS: number; mode: TravelMode } => g.abS !== null)
     .sort((a, b) => a.abS - b.abS)
-  if (!grenzen.length) return [...segmente]
+  if (!boundaries.length) return [...segs]
 
-  const modusZu = (t: number): TravelMode | null => {
+  const modeAt = (t: number): TravelMode | null => {
     let m: TravelMode | null = null
-    for (const g of grenzen) {
+    for (const g of boundaries) {
       if (g.abS <= t) m = g.mode
       else break
     }
     return m
   }
 
-  const ergebnis: UploadSegment[] = []
-  for (const seg of segmente) {
+  const result: UploadSegment[] = []
+  for (const seg of segs) {
     // In Scheiben gleichen (effektiven) Modus schneiden
-    const scheiben: Array<{ mode: TravelMode; pts: UploadPoint[] }> = []
+    const slices: Array<{ mode: TravelMode; pts: UploadPoint[] }> = []
     for (const p of seg.pts) {
-      const mode = modusZu(p[3]) ?? seg.mode
-      const letzte = scheiben[scheiben.length - 1]
-      if (letzte && letzte.mode === mode) {
-        letzte.pts.push(p)
+      const mode = modeAt(p[3]) ?? seg.mode
+      const last = slices[slices.length - 1]
+      if (last && last.mode === mode) {
+        last.pts.push(p)
       } else {
-        letzte?.pts.push(p) // Grenzpunkt schließt die alte Scheibe ab …
-        scheiben.push({ mode, pts: [p] }) // … und eröffnet die neue
+        last?.pts.push(p) // Grenzpunkt schließt die alte Scheibe ab …
+        slices.push({ mode, pts: [p] }) // … und eröffnet die neue
       }
     }
-    for (const s of scheiben) {
+    for (const s of slices) {
       // Original-Label nur behalten, wenn der Modus unverändert ist —
       // sonst greift die MODE_LABELS-Beschriftung der Pipeline.
-      ergebnis.push({
+      result.push({
         mode: s.mode,
         ...(s.mode === seg.mode && seg.label !== undefined ? { label: seg.label } : {}),
         pts: s.pts,
@@ -88,25 +88,25 @@ export function applyTravelModes(
   }
   // 1-Punkt-Scheiben an Segment-Übergabepunkten sind redundant, wenn der
   // Nachbar denselben Modus hat und den Punkt bereits trägt — weg damit.
-  return ergebnis.filter((s, i) => {
+  return result.filter((s, i) => {
     if (s.pts.length > 1) return true
     const p = s.pts[0] as UploadPoint
-    const traegt = (nachbar: UploadSegment | undefined): boolean =>
-      !!nachbar &&
-      nachbar.mode === s.mode &&
-      nachbar.pts.some((q) => q[3] === p[3] && q[0] === p[0] && q[1] === p[1])
-    return !(traegt(ergebnis[i - 1]) || traegt(ergebnis[i + 1]))
+    const carries = (neighbour: UploadSegment | undefined): boolean =>
+      !!neighbour &&
+      neighbour.mode === s.mode &&
+      neighbour.pts.some((q) => q[3] === p[3] && q[0] === p[0] && q[1] === p[1])
+    return !(carries(result[i - 1]) || carries(result[i + 1]))
   })
 }
 
 /** Trim + Modus-Grenzen in der festen Reihenfolge Trim → Modi anwenden. */
 export function applyEditsToSegments(
-  segmente: readonly UploadSegment[],
+  segs: readonly UploadSegment[],
   edits: EditOverlay | null | undefined,
   startMs: number,
 ): UploadSegment[] {
-  if (!edits) return [...segmente]
-  return applyTravelModes(applyTourTrim(segmente, edits.trim, startMs), edits.travelModes, startMs)
+  if (!edits) return [...segs]
+  return applyTravelModes(applyTourTrim(segs, edits.trim, startMs), edits.travelModes, startMs)
 }
 
 /**
@@ -115,15 +115,15 @@ export function applyEditsToSegments(
  * manueller Anker übersteuert die Auto-Regel → placement 'manuell'.
  */
 export function applyMediaEdits(
-  platziert: readonly PlacedMedium[],
+  placed: readonly PlacedMedium[],
   edits: EditOverlay | null | undefined,
 ): PlacedMedium[] {
-  const medien = edits?.media
-  if (!medien) return [...platziert]
-  return platziert
-    .filter((p) => !medien[p.medium.id]?.removed)
+  const media = edits?.media
+  if (!media) return [...placed]
+  return placed
+    .filter((p) => !media[p.medium.id]?.removed)
     .map((p) => {
-      const e = medien[p.medium.id]
+      const e = media[p.medium.id]
       if (!e) return p
       const medium = e.caption !== undefined ? { ...p.medium, caption: e.caption } : p.medium
       return e.anchor

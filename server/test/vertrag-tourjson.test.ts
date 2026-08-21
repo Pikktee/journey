@@ -125,7 +125,7 @@ function videoMetaFuer(edits: EditOverlay | null): Map<string, VideoMeta> {
     ],
   ])
 }
-const fotoMeta = new Map<string, PhotoMeta>([
+const photoMeta = new Map<string, PhotoMeta>([
   ['m1', { displayFile: 'm1.w1920.jpg', thumbFile: 'm1.t480.jpg' }],
   ['m3', { displayFile: 'm3.w1920.jpg', thumbFile: 'm3.t480.jpg' }],
 ])
@@ -135,31 +135,31 @@ const fotoMeta = new Map<string, PhotoMeta>([
 const wetterQuelle = () =>
   new FixedWeatherSource(
     testGrid('2026-07-04T06', [
-      { wolken: 20 },
-      { wolken: 60 },
-      { code: 61, regenMm: 1.2, wolken: 95 },
-      { code: 61, regenMm: 0.8, wolken: 90 },
-      { wolken: 70 },
-      { wolken: 40 },
-      { wolken: 15 },
-      { wolken: 10 },
+      { clouds: 20 },
+      { clouds: 60 },
+      { code: 61, rainMm: 1.2, clouds: 95 },
+      { code: 61, rainMm: 0.8, clouds: 90 },
+      { clouds: 70 },
+      { clouds: 40 },
+      { clouds: 15 },
+      { clouds: 10 },
     ]),
   )
 
 async function rendere(edits: EditOverlay | null) {
   return enrichTour({
     tourId: 't_vertrag01',
-    nummer: 42,
+    no: 42,
     manifest: vertragManifest(),
-    titelOverride: null,
-    beschreibungOverride: null,
+    titleOverride: null,
+    descriptionOverride: null,
     edits,
     geocoder: new FixedGeocoder(['Lauterbrunnen', 'Grindelwald']),
-    wetter: wetterQuelle(),
+    weatherSource: wetterQuelle(),
     videoMeta: videoMetaFuer(edits),
-    fotoMeta,
-    audioDateien: ['eigene-spur.mp3'],
-    benutzerAudioDateien: ['mein-stueck.mp3'],
+    photoMeta,
+    audioFiles: ['eigene-spur.mp3'],
+    userAudioFiles: ['mein-stueck.mp3'],
   })
 }
 
