@@ -212,3 +212,32 @@ export const ENTRIES: Readonly<Record<string, string>> = Object.fromEntries(
     file,
   ]),
 )
+
+/**
+ * Seiten, die ohne Anmeldung nichts zu zeigen haben.
+ *
+ * Gemeint ist nicht „hier stehen private Daten" — das gilt für die Profilseite
+ * auch —, sondern: Die Seite besteht AUS dem angemeldeten Zustand. Wer sich hier
+ * abmeldet, kann nicht bleiben, wo er ist.
+ *
+ * `/app` steht bewusst NICHT dabei: Dieselbe Seite ist auch die Tür, sie zeigt
+ * nach dem Abmelden ihre Anmeldebühne und weiß das selbst (`studio.ts`).
+ */
+const ACCOUNT_ONLY: ReadonlySet<Page> = new Set<Page>(['account', 'admin'])
+
+/**
+ * Braucht die Seite unter diesem Pfad eine Anmeldung?
+ *
+ * Für das Abmelden: Von einer solchen Seite führt der Weg auf die Startseite,
+ * überall sonst bleibt man stehen. Vorher wurde IMMER neu geladen — auf `/konto`
+ * kam man damit auf derselben Seite wieder heraus, nur mit dem Satz „Für die
+ * Kontoeinstellungen musst du angemeldet sein". Das liest sich wie eine
+ * Zurückweisung, dabei war es die eigene Entscheidung von vor einer Sekunde.
+ *
+ * Die Endung `.html` zählt mit: Die Adressen ohne sie sind die gepflegten, aber
+ * die Dateien liegen im Build und antworten weiterhin.
+ */
+export function requiresAccount(pathname: string): boolean {
+  const clean = pathname.replace(/\.html$/, '').replace(/\/+$/, '') || '/'
+  return [...ACCOUNT_ONLY].some((page) => ROUTES[page].path === clean)
+}

@@ -6,7 +6,7 @@
  * Sonst driftet Nav, CTA und die Rechtstext-Links auseinander.
  */
 
-import { path, profilePath } from './routes.js'
+import { path, profilePath, requiresAccount } from './routes.js'
 import {
   readProfileCache,
   rememberSignedIn,
@@ -348,9 +348,17 @@ export async function mountNavRight(
       })
       container.querySelector('#nav-logout')?.addEventListener('click', () => {
         forgetSignedIn()
-        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() =>
-          location.reload(),
-        )
+        // Wer sich auf einer Seite abmeldet, die es ohne Konto nicht gibt, kann
+        // dort nicht bleiben: Ein Neuladen brachte ihn auf derselben Adresse
+        // wieder heraus, mit „Für die Kontoeinstellungen musst du angemeldet
+        // sein" — die Zurückweisung einer Entscheidung, die er gerade selbst
+        // getroffen hat. Überall sonst wird neu geladen und nicht umgeleitet:
+        // Wer in einer Tour oder auf einem Profil abmeldet, will sie
+        // weiterlesen, nur eben als Gast.
+        const weiter = requiresAccount(location.pathname)
+          ? () => location.assign(path('start'))
+          : () => location.reload()
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(weiter)
       })
     }
   } catch {

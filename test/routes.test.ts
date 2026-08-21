@@ -17,6 +17,7 @@ import {
   handleFromPath,
   path,
   profilePath,
+  requiresAccount,
   tourFromPath,
   tourPath,
 } from '../src/routes'
@@ -370,6 +371,29 @@ describe('routen', () => {
       // scripts/gen-og-bild.mjs — fehlt sie, zeigt jede geteilte Karte ein Loch.
       expect(existsSync(join(wurzel, 'public/og/maptale.jpg'))).toBe(true)
     })
+  })
+
+  // — Seiten, die es ohne Konto nicht gibt —
+  it('kennt Konto und Verwaltung als anmeldepflichtig, den Rest nicht', () => {
+    expect(requiresAccount(path('account'))).toBe(true)
+    expect(requiresAccount(path('admin'))).toBe(true)
+    for (const seite of ['start', 'gallery', 'profile', 'player', 'imprint'] as const) {
+      expect(requiresAccount(path(seite)), seite).toBe(false)
+    }
+    // `/app` ist die Tür UND der Raum: Die Seite zeigt nach dem Abmelden ihre
+    // eigene Anmeldebühne, ein Sprung auf die Startseite wäre dort falsch.
+    expect(requiresAccount(path('app'))).toBe(false)
+    // Die parametrisierten Namensräume gehören niemandem exklusiv.
+    expect(requiresAccount(profilePath('henrik'))).toBe(false)
+    expect(requiresAccount(tourPath('t_9fK4mHx2QbVnRs'))).toBe(false)
+  })
+
+  it('erkennt die Adresse auch mit .html und mit Schrägstrich am Ende', () => {
+    // Beides antwortet weiter, weil die Dateien im Build liegen — wer so
+    // hereinkommt, soll nach dem Abmelden denselben Weg nehmen.
+    expect(requiresAccount('/konto.html')).toBe(true)
+    expect(requiresAccount('/konto/')).toBe(true)
+    expect(requiresAccount('/kontoauszug')).toBe(false)
   })
 
   // — Die Seiten selbst —
