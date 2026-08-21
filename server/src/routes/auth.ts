@@ -275,7 +275,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       try {
         await mail.send({ to2: user.email, subject, text, html })
       } catch (error) {
-        app.log.error({ error }, 'Bestätigungsmail konnte nicht versendet werden')
+        app.log.error(error, 'Bestätigungsmail konnte nicht versendet werden')
       }
       // Direkt einloggen (Cookie) — der Nutzer sieht sofort sein Studio mit dem
       // Hinweis „E-Mail bestätigen", statt nach der Registrierung ausgesperrt zu sein.
@@ -382,7 +382,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         try {
           await mail.send({ to2: email, subject, text, html })
         } catch (error) {
-          app.log.error({ error }, 'Reset-Mail konnte nicht versendet werden')
+          app.log.error(error, 'Reset-Mail konnte nicht versendet werden')
         }
       }
       return { ok: true }
@@ -536,7 +536,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         try {
           await mail.send({ to2: email, subject, text, html })
         } catch (error) {
-          app.log.error({ error }, 'Mail zum Adresswechsel konnte nicht versendet werden')
+          app.log.error(error, 'Mail zum Adresswechsel konnte nicht versendet werden')
         }
       }
       return { ok: true }

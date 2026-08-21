@@ -135,10 +135,10 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
         )
         await mail.send({ to2: email, subject, text, html })
       } catch (error) {
-        app.log.error({ error, jobId }, 'Export-Mail konnte nicht versendet werden')
+        app.log.error({ err: error, jobId }, 'Export-Mail konnte nicht versendet werden')
       }
     } catch (error) {
-      app.log.error({ error, jobId }, 'Datenexport fehlgeschlagen')
+      app.log.error({ err: error, jobId }, 'Datenexport fehlgeschlagen')
       app.dataExport.reportError(jobId, error instanceof Error ? error.message : String(error))
     }
   }

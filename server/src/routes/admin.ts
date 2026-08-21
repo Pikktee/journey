@@ -475,7 +475,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       try {
         await app.deps.mail.send({ to2: admin.email, subject: `[Test] ${subject}`, text, html })
       } catch (error) {
-        app.log.error({ error }, 'Test-Mail konnte nicht versendet werden')
+        app.log.error(error, 'Test-Mail konnte nicht versendet werden')
         return reply.code(502).send({ error: 'Die Testmail konnte nicht versendet werden' })
       }
       return { ok: true, to: admin.email }

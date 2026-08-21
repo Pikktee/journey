@@ -91,7 +91,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
           try {
             await mail.send({ to2: email, subject, text, html })
           } catch (error) {
-            app.log.error({ error }, 'Warteliste-Bestätigungsmail konnte nicht versendet werden')
+            app.log.error(error, 'Warteliste-Bestätigungsmail konnte nicht versendet werden')
           }
         }
       }
@@ -222,7 +222,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
         await mail.send({ to2: entry2.email, subject, text, html })
       } catch (error) {
         app.invitations.revoke(invitation2.code)
-        app.log.error({ error }, 'Warteliste-Einladungsmail konnte nicht versendet werden')
+        app.log.error(error, 'Warteliste-Einladungsmail konnte nicht versendet werden')
         return reply.code(502).send({ error: 'Die Einladung konnte nicht versendet werden' })
       }
       app.waitlist.markInvited(entry2.id, invitation2.code)

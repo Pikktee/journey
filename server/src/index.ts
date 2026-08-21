@@ -108,7 +108,7 @@ const purgeExports = (): void => {
     .then((removed) => {
       if (removed > 0) app.log.info(`${removed} abgelaufene Export-Archive gelöscht`)
     })
-    .catch((error) => app.log.error({ error }, 'Aufräumen der Export-Archive fehlgeschlagen'))
+    .catch((error) => app.log.error(error, 'Aufräumen der Export-Archive fehlgeschlagen'))
 }
 purgeExports()
 setInterval(purgeExports, 60 * 60 * 1000).unref()

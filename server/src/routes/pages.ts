@@ -57,7 +57,7 @@ export function registerPageRoutes(app: FastifyInstance): void {
   app.get<{ Params: { handle: string } }>('/@:handle', async (request, reply) => {
     const raw = request.params.handle
     const html = await app.pages.page('profil.html').catch((error) => {
-      app.log.error({ error }, 'profil.html nicht abrufbar')
+      app.log.error(error, 'profil.html nicht abrufbar')
       return null
     })
     // Ohne die gebaute Seite kann der Server hier nichts liefern, was ein
@@ -129,7 +129,7 @@ export function registerPageRoutes(app: FastifyInstance): void {
    */
   app.get<{ Params: { id: string } }>('/tour/:id', async (request, reply) => {
     const html = await app.pages.page('erlebnis.html').catch((error) => {
-      app.log.error({ error }, 'erlebnis.html nicht abrufbar')
+      app.log.error(error, 'erlebnis.html nicht abrufbar')
       return null
     })
     if (html === null) return reply.code(502).send('Seite gerade nicht verfügbar')
