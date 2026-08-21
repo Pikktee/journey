@@ -39,6 +39,27 @@ wollen:** Jede vorhandene Verknüpfung wird damit unlesbar und muss neu autorisi
 ist weg). Er ist genau deshalb eine eigene Variable und nicht aus `MAPTALE_COOKIE_SECRET`
 abgeleitet — das rotiert man beiläufig.
 
+## 2b. Lokal: die Variablen müssen im Prozess ankommen
+
+Sie stehen in der Wurzel-`.env`, aber `tsx` liest die von sich aus NICHT. Das Dev-Skript des
+Servers zieht sie deshalb ausdrücklich herein:
+
+```
+"dev": "tsx watch --env-file-if-exists=../.env src/index.ts"
+```
+
+`--env-file-if-exists` und nicht `--env-file`: Im Container und in der CI gibt es keine
+`.env`, und Node bricht sonst beim Start ab. Gegenprobe, ob es wirkt, ist die Karte
+„Verbundene Dienste" auf `/konto` — steht dort „Auf diesem Server noch nicht eingerichtet",
+fehlt eine der beiden Variablen aus Schritt 1 und 2 oder sie erreicht den Prozess nicht.
+
+**Die dritte Variable ist `MAPTALE_BASE_URL`**, und sie fällt erst beim Klick auf „Verbinden"
+auf. Aus ihr baut der Adapter den `redirect_uri`, und Polar lehnt jede Adresse ab, die im
+Client nicht hinterlegt ist. Ohne sie gilt der Default `http://localhost:5173` — das ist der
+Vite-Port, unter dem die API gar nicht antwortet. Lokal läuft sie unter der Nummer, die devhub
+vergibt (Slot 23 → `http://localhost:8723`); genau diese Adresse gehört mit `/api/tracker/polar/callback`
+in den Polar-Client aus Schritt 1.
+
 ## 3. Erst deployen, dann den Webhook registrieren
 
 **Die Reihenfolge ist Pflicht, nicht Ordnungsliebe:** Polar schickt beim Anlegen einen PING an

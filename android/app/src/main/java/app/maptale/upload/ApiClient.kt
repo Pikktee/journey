@@ -548,7 +548,7 @@ class ApiClient(private val settings: Settings) {
 
     suspend fun trackerProviders(): List<TrackerProvider> = withContext(Dispatchers.IO) {
         val response = ausfuehren(autorisiert("/api/tracker/providers").get().build())
-        val liste = response["provider"] as? JsonArray ?: return@withContext emptyList()
+        val liste = response["providers"] as? JsonArray ?: return@withContext emptyList()
         liste.mapNotNull { element ->
             val obj = element as? JsonObject ?: return@mapNotNull null
             val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
@@ -571,7 +571,7 @@ class ApiClient(private val settings: Settings) {
      * Browser stehen und die App erführe nie, dass sie fertig ist.
      */
     suspend fun trackerConnectUrl(anbieterId: String): String = withContext(Dispatchers.IO) {
-        val koerper = """{"ziel":"app"}""".toRequestBody(jsonTyp)
+        val koerper = """{"target":"app"}""".toRequestBody(jsonTyp)
         val response = ausfuehren(autorisiert("/api/tracker/$anbieterId/connect").post(koerper).build())
         response["authorizationUrl"]?.jsonPrimitive?.contentOrNull
             ?: throw ApiError(200, "Antwort ohne Autorisierungs-URL")

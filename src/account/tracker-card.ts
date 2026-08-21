@@ -189,7 +189,7 @@ export async function loadTracker(notify: (text: string) => void): Promise<void>
   try {
     const response = await fetch('/api/tracker/providers')
     if (!response.ok) throw new Error(String(response.status))
-    provider = ((await response.json()) as { provider: ProviderState[] }).provider
+    provider = ((await response.json()) as { providers: ProviderState[] }).providers
   } catch {
     // Kein Hinweis-Kasten: Ein Dienst, den es vielleicht gar nicht gibt, soll
     // die Kontoseite nicht mit einer Fehlermeldung beginnen lassen.

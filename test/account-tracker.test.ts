@@ -4,6 +4,8 @@
 // UNTERSCHEIDBAR anfühlen — der teuerste Fehler wäre, „abgelaufen" wie „nicht
 // verbunden" aussehen zu lassen: Dann wartet jemand auf Touren, die nie kommen.
 
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 import {
   providerButtonLabel,
@@ -243,5 +245,37 @@ describe('Rückkehr vom Anbieter', () => {
 
   it('ignoriert einen unbekannten Wert', () => {
     expect(returnText('irgendwas')).toBeNull()
+  })
+})
+
+describe('Tracker-API: die Clients lesen, was der Server sendet', () => {
+  // Der Fall, der das hier nötig gemacht hat: Die Englisch-Migration benannte
+  // in `server/src/routes/tracker.ts` den Antwortschlüssel `anbieter` in
+  // `providers` um und zog den Server-Test mit, nicht aber die beiden Leser.
+  // Web und App lasen weiter `provider`, bekamen `undefined` — und die Karte
+  // „Verbundene Dienste" blieb auf BEIDEN Bühnen unsichtbar. Kein Typfehler,
+  // kein roter Test: Die Grenze zwischen Server und Client ist JSON, und die
+  // prüft niemand von selbst.
+  const route = readFileSync(new URL('../server/src/routes/tracker.ts', import.meta.url), 'utf8')
+  const web = readFileSync(new URL('../src/account/tracker-card.ts', import.meta.url), 'utf8')
+  const app = readFileSync(
+    new URL('../android/app/src/main/java/app/maptale/upload/ApiClient.kt', import.meta.url),
+    'utf8',
+  )
+
+  it('nennt die Anbieter-Liste überall gleich', () => {
+    const key = /return \{ (\w+): app\.trackerRegistry\.all\(\)/.exec(route)?.[1]
+    expect(key).toBeTruthy()
+    expect(web).toContain(`}).${key}`)
+    expect(app).toContain(`response["${key}"]`)
+  })
+
+  it('schickt beim Verbinden den Schlüssel, den das Body-Schema erlaubt', () => {
+    // `additionalProperties: false` — ein deutscher Rest im Body wäre ein 400,
+    // und zwar nur in der App, wo ihn niemand beim Entwickeln sieht.
+    const key = /properties: \{ (\w+): \{ enum: \['web', 'app'\] \} \}/.exec(route)?.[1]
+    expect(key).toBeTruthy()
+    expect(web).toContain(`JSON.stringify({ ${key}: 'web' })`)
+    expect(app).toContain(`{"${key}":"app"}`)
   })
 })
