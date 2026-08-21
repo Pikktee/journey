@@ -21,8 +21,8 @@ import type { TourAudio } from './tours.js'
 
 // — Reine Helfer (DOM-frei) — direkt testbar (test/audiotracks.test.ts, Node ohne Audio) —
 //
-// Die Helfer nehmen bewusst STRUKTURELLE Ausschnitte („was hat filmVonS und
-// filmBisS?") und nicht die ganze `TourAudio`: Das Studio ruft sie mit seinen
+// Die Helfer nehmen bewusst STRUKTURELLE Ausschnitte („was hat filmFromS und
+// filmToS?") und nicht die ganze `TourAudio`: Das Studio ruft sie mit seinen
 // eigenen Klip-Objekten auf (src/studio/playback.ts) — genau darin liegt der
 // Wert, dass es eine Regel für Player und Editor ist und nicht zwei.
 
@@ -30,12 +30,12 @@ import type { TourAudio } from './tours.js'
 export interface AudioTrack extends TourAudio {
   /** Filmsekunde, in der die Spur einsetzt (bei einem One-Shot: seine Marke) */
   filmFromS: number
-  /** Filmsekunde, in der sie endet; ≤ filmVonS heißt „Marke ohne Länge" */
+  /** Filmsekunde, in der sie endet; ≤ filmFromS heißt „Marke ohne Länge" */
   filmToS: number
 }
 
 // Steht der Playhead im Bereich einer Musik-Spur? Halboffenes Intervall
-// [filmVonS, filmBisS): an der Endgrenze ist die Spur schon aus (die Blende
+// [filmFromS, filmToS): an der Endgrenze ist die Spur schon aus (die Blende
 // übernimmt das Weiche).
 export function isActive(spur: { filmFromS: number; filmToS: number }, filmS: number): boolean {
   return spur.filmFromS <= filmS && filmS < spur.filmToS

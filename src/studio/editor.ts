@@ -942,8 +942,8 @@ function clearSelectionOn(): EditorSelectionTarget | null {
       const curve = currentAxis()?.curve
       if (!clip || !curve) return null
       return {
-        fromS: recordingTimeAtFilmTime(curve, clip.filmVon),
-        toS: recordingTimeAtFilmTime(curve, clip.filmBis),
+        fromS: recordingTimeAtFilmTime(curve, clip.filmFrom),
+        toS: recordingTimeAtFilmTime(curve, clip.filmTo),
       }
     },
   )
@@ -2381,7 +2381,7 @@ function setAudioTime(index: number, part: 'from' | 'to', newOffsetS: number): n
   const next = audioClipFrom(index)
   const curve = currentAxis()?.curve
   if (!next || !curve) return newOffsetS
-  return Math.round(recordingTimeAtFilmTime(curve, part === 'from' ? next.filmVon : next.filmBis))
+  return Math.round(recordingTimeAtFilmTime(curve, part === 'from' ? next.filmFrom : next.filmTo))
 }
 
 // — Aufnahme-Details (ausklappbar): was in der Datei über die Aufnahme steht —
@@ -2569,7 +2569,7 @@ function buildAudioFields(index: number, a: AudioEntry): HTMLElement {
       k && axis
         ? commitAudioClip(axis, z.data.time.start, {
             ...k,
-            hasExplicitLength: k.filmBis > k.filmVon,
+            hasExplicitLength: k.filmTo > k.filmFrom,
           })
         : null
     z.edits = mitAudioPatch(z.edits, index, {
@@ -2644,7 +2644,7 @@ function buildAudioFields(index: number, a: AudioEntry): HTMLElement {
 
   // Was von der Datei zu hören ist — die Auskunft zu den beiden Trimm-Kanten.
   if (clip?.fileS) {
-    const length = clip.filmBis - clip.filmVon
+    const length = clip.filmTo - clip.filmFrom
     const isTrimmed = clip.startS > 0 || length < clip.fileS - 0.05
     const info = document.createElement('p')
     info.className = 'inspector-hint'
@@ -4043,7 +4043,7 @@ function axisStops(media: MediaView[], moments: readonly CameraMoment[]): AxisSt
     }))
     return {
       offsetS: s.offsetS,
-      breiteS: items.reduce((sum, st) => sum + st.durationS, 0),
+      widthS: items.reduce((sum, st) => sum + st.durationS, 0),
       kind: 'aufnahmen',
       indices: [i],
       items,
@@ -4055,7 +4055,7 @@ function axisStops(media: MediaView[], moments: readonly CameraMoment[]): AxisSt
   for (const m of moments) {
     stops.push({
       offsetS: isoToOffset(start, m.from),
-      breiteS: momentDurationS(m),
+      widthS: momentDurationS(m),
       kind: 'moment',
       key: m.from,
     })
@@ -4323,11 +4323,11 @@ function renderTimeline(): void {
     const entry = (z.edits.audio ?? [])[k.index]
     const display = audioName(entry ?? { file: k.file, type: k.type, from: start })
     const focused = selectionInfo?.kind === 'audio' && selectionInfo.index === k.index
-    const pointLike = !(k.filmBis > k.filmVon) || !(totalFilmS > 0)
+    const pointLike = !(k.filmTo > k.filmFrom) || !(totalFilmS > 0)
     if (pointLike) {
       const pin = document.createElement('div')
       pin.className = 'timeline-sfx'
-      pin.style.left = pos(filmToFraction(scale, k.filmVon))
+      pin.style.left = pos(filmToFraction(scale, k.filmFrom))
       pin.dataset['role'] = 'sfx'
       pin.dataset['index'] = String(k.index)
       // Ohne gemessene Datei kennt die Leiste die Länge nicht — deshalb (noch)
@@ -4341,14 +4341,14 @@ function renderTimeline(): void {
     const clip = document.createElement('div')
     clip.className = k.type === 'sfx' ? 'timeline-clip sfx' : 'timeline-clip'
     clip.style.top = `${AUDIO_LANE_TOP_PX + k.lane * AUDIO_LANE_PX}px`
-    clip.style.left = pos(filmToFraction(scale, k.filmVon))
+    clip.style.left = pos(filmToFraction(scale, k.filmFrom))
     clip.style.width = pos(
-      Math.max(0.002, filmToFraction(scale, k.filmBis) - filmToFraction(scale, k.filmVon)),
+      Math.max(0.002, filmToFraction(scale, k.filmTo) - filmToFraction(scale, k.filmFrom)),
     )
     clip.dataset['role'] = 'audio-bar'
     clip.dataset['index'] = String(k.index)
     clip.title =
-      `${display} · ${formatFilmTime(k.filmBis - k.filmVon)}` +
+      `${display} · ${formatFilmTime(k.filmTo - k.filmFrom)}` +
       (k.startS > 0 ? ` (ab ${formatFilmTime(k.startS)} der Datei)` : '') +
       ' · ziehen zum Verschieben, Kanten zum Trimmen'
     if (focused) clip.classList.add('selected')
@@ -4533,8 +4533,8 @@ function writeMomentClip(
   selection: boolean,
 ): void {
   el.dataset['from'] = m.from
-  el.style.left = pos(stop.filmVon / totalS)
-  el.style.width = pos((stop.filmBis - stop.filmVon) / totalS)
+  el.style.left = pos(stop.filmFrom / totalS)
+  el.style.width = pos((stop.filmTo - stop.filmFrom) / totalS)
   el.classList.toggle('selected', selection)
   const durationText = formatSeconds(momentDurationS(m))
   const glyph = el.querySelector('.moment-mark')
@@ -4627,8 +4627,8 @@ function writeClip(
   totalS: number,
   selection: boolean,
 ): void {
-  el.style.left = pos(k.filmVon / totalS)
-  el.style.width = pos((k.filmBis - k.filmVon) / totalS)
+  el.style.left = pos(k.filmFrom / totalS)
+  el.style.width = pos((k.filmTo - k.filmFrom) / totalS)
   // classList statt className: `.dragging` überlebt so den Render mitten im Zug.
   el.classList.toggle('selected', selection)
   el.classList.toggle('video', m.type === 'video')
@@ -4672,8 +4672,8 @@ function renderStopZone(axis: TimelineAxis, selectionId: string | null): void {
   if (!stop) return
   const el = document.createElement('div')
   el.className = 'stop-zone'
-  el.style.left = timeX(stop.filmVon / total)
-  el.style.width = `calc(${((stop.filmBis - stop.filmVon) / total).toFixed(5)} * var(--timeline-width))`
+  el.style.left = timeX(stop.filmFrom / total)
+  el.style.width = `calc(${((stop.filmTo - stop.filmFrom) / total).toFixed(5)} * var(--timeline-width))`
   $('lanes').appendChild(el)
 }
 
@@ -5035,8 +5035,8 @@ function dragClip(e: PointerEvent, id: string): void {
     if (
       ownStop &&
       ownClip.count > 1 &&
-      cursorFilm >= ownStop.filmVon &&
-      cursorFilm <= ownStop.filmBis
+      cursorFilm >= ownStop.filmFrom &&
+      cursorFilm <= ownStop.filmTo
     ) {
       const chainSlot = slotInChain(ownStop, cursorFilm)
       target = { kind: 'order', slot: chainSlot.slot }
@@ -5060,7 +5060,7 @@ function dragClip(e: PointerEvent, id: string): void {
       const width = fieldEl?.getBoundingClientRect().width ?? 0
       clip.style.transform =
         foreign && width > 0
-          ? `translateX(${(((foreign.filmBis - ownClip.filmVon) / total) * width).toFixed(1)}px)`
+          ? `translateX(${(((foreign.filmTo - ownClip.filmFrom) / total) * width).toFixed(1)}px)`
           : `translateX(${(ev.clientX - startX).toFixed(1)}px)`
     }
     showDragLabel(
@@ -6070,7 +6070,7 @@ function startEdgeDrag(target: HTMLElement, role: string): void {
   // die Sekunde gerundeter Anker.
   const edgeS = ownIdx >= 0 ? (zeiten[ownIdx] as number) : ownS
   const totalS = axis.curve.totalS
-  const filmVon = filmToOffset(axis, fromS)
+  const filmFrom = filmToOffset(axis, fromS)
 
   let timeAt = (filmS: number): number => fractionToOffset(axis, filmToFraction(axis, filmS))
   let maxFilmS = filmToOffset(axis, toS)
@@ -6084,7 +6084,7 @@ function startEdgeDrag(target: HTMLElement, role: string): void {
     // landet nach jedem Neuaufbau wieder unter dem Zeiger.
     const travelModes = travelModesAroundEdge(edgeS)
     const curve = travelModes
-      ? buildBoundaryCurve(z.track, fromS, toS, travelModes, filmVon, axis.stops ?? [])
+      ? buildBoundaryCurve(z.track, fromS, toS, travelModes, filmFrom, axis.stops ?? [])
       : null
     if (!curve || !travelModes) return
     timeAt = (filmS: number): number => recordingTimeAtFilmTime(curve, filmS)
@@ -6106,7 +6106,7 @@ function startEdgeDrag(target: HTMLElement, role: string): void {
     from,
     fromS,
     toS,
-    minFilmS: filmVon,
+    minFilmS: filmFrom,
     maxFilmS,
     timeAt,
     ...(durationAt ? { durationAt } : {}),
@@ -6235,13 +6235,13 @@ function audioClipFrom(index: number): AudioClip | null {
 function showAudioLabel(clip: AudioClip, patch: AudioClipPatch, atLimit: boolean): void {
   const scale = currentAxis()
   if (!scale) return
-  const filmVon =
+  const filmFrom =
     patch.offsetFilmS + filmToOffset(scale, isoToOffset(z?.data.time.start ?? '', patch.anchor))
-  const length = patch.durationFilmS ?? clip.filmBis - clip.filmVon
+  const length = patch.durationFilmS ?? clip.filmTo - clip.filmFrom
   const parts = [formatFilmTime(length)]
   if (patch.startS) parts.push(`from ${formatFilmTime(patch.startS)} der Datei`)
   if (atLimit) parts.push('kein Material mehr')
-  showTargetLine(filmVon * pxPerFilmS, parts.join(' · '), atLimit)
+  showTargetLine(filmFrom * pxPerFilmS, parts.join(' · '), atLimit)
 }
 
 function wireTimeline(): void {
@@ -6287,7 +6287,7 @@ function wireTimeline(): void {
       const scale = currentAxis()
       const clip = scale ? audioClipFrom(drag.index ?? -1) : null
       if (scale && clip)
-        drag.gripOffsetFilmS = fractionToFilm(scale, laneFraction(e.clientX)) - clip.filmVon
+        drag.gripOffsetFilmS = fractionToFilm(scale, laneFraction(e.clientX)) - clip.filmFrom
     }
   })
 
@@ -6662,13 +6662,13 @@ function getPlaybackPlan(): PlaybackPlan | null {
     if (!a || audioWouldBeDropped(a, z.edits, start, axis)) continue
     const url = audioUrl(a, z.tourId)
     const volume = a.volume ?? STUDIO_GAIN_DEFAULT
-    const from = filmToFraction(axis, k.filmVon)
+    const from = filmToFraction(axis, k.filmFrom)
     // Ein Klip MIT Ausdehnung läuft als Bereich (auch ein Effekt — der Player
     // tut seit Etappe 4 dasselbe); einer ohne bleibt die Überfahr-Marke.
-    if (k.filmBis > k.filmVon) {
+    if (k.filmTo > k.filmFrom) {
       music.push({
         from,
-        to: filmToFraction(axis, k.filmBis),
+        to: filmToFraction(axis, k.filmTo),
         url,
         volume,
         loop: k.loop,

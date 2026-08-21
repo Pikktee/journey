@@ -52,7 +52,7 @@ function achseOhneHalt(): TimelineAxis {
 function achseMitHalt(): TimelineAxis {
   return buildTimelineAxis(
     [{ mode: 'walk', active: true, pts: track() }],
-    [{ offsetS: 600, breiteS: 6 }],
+    [{ offsetS: 600, widthS: 6 }],
     {
       fromS: 0,
       toS: 1800,
@@ -74,8 +74,8 @@ describe('resolveAudioClips — alte und neue Verankerung nebeneinander', () => 
     const audio: AudioEntry[] = [{ file: 'a.mp3', type: 'music', from: '2026-07-04T08:05:00.000Z' }]
     const k = klipVon(resolveAudioClips(audio, START, achse))
     expect(k.legacyAnchored).toBe(true)
-    expect(k.filmVon).toBeCloseTo(BIS_300 + RAMPE, 6) // 300 Aufnahmesekunden Reise + Anfahrt
-    expect(k.filmBis).toBeCloseTo(achse.curve?.totalS ?? 0, 6) // ohne `bis`: bis zum Schluss
+    expect(k.filmFrom).toBeCloseTo(BIS_300 + RAMPE, 6) // 300 Aufnahmesekunden Reise + Anfahrt
+    expect(k.filmTo).toBeCloseTo(achse.curve?.totalS ?? 0, 6) // ohne `bis`: bis zum Schluss
     expect(k.hasExplicitLength).toBe(false)
     expect(k.loop).toBe(true) // Vorgabe für Musik — das bisherige Verhalten
   })
@@ -93,8 +93,8 @@ describe('resolveAudioClips — alte und neue Verankerung nebeneinander', () => 
     ]
     const k = klipVon(resolveAudioClips(audio, START, achse))
     expect(k.legacyAnchored).toBe(false)
-    expect(k.filmVon).toBeCloseTo(BIS_300 + 2.5 + RAMPE, 6)
-    expect(k.filmBis).toBeCloseTo(BIS_300 + 10.5 + RAMPE, 6)
+    expect(k.filmFrom).toBeCloseTo(BIS_300 + 2.5 + RAMPE, 6)
+    expect(k.filmTo).toBeCloseTo(BIS_300 + 10.5 + RAMPE, 6)
     expect(k.hasExplicitLength).toBe(true)
   })
 
@@ -105,13 +105,13 @@ describe('resolveAudioClips — alte und neue Verankerung nebeneinander', () => 
       { file: 'sfx-moewe.mp3', type: 'sfx', from: '2026-07-04T08:05:00.000Z' },
     ]
     const ohneMass = klipVon(resolveAudioClips(audio, START, achse))
-    expect(ohneMass.filmBis).toBe(ohneMass.filmVon) // ungemessen: bleibt ein Punkt
+    expect(ohneMass.filmTo).toBe(ohneMass.filmFrom) // ungemessen: bleibt ein Punkt
     expect(ohneMass.loop).toBe(false) // Vorgabe für Effekte
 
     const gemessen = klipVon(
       resolveAudioClips(audio, START, achse, new Map([['sfx-moewe.mp3', 3.5]])),
     )
-    expect(gemessen.filmBis - gemessen.filmVon).toBeCloseTo(3.5, 6)
+    expect(gemessen.filmTo - gemessen.filmFrom).toBeCloseTo(3.5, 6)
     expect(gemessen.hasExplicitLength).toBe(false) // abgeleitet, nicht entschieden
   })
 
@@ -161,7 +161,7 @@ describe('anchorClips — Anker in Aufnahmezeit, Feinlage in Filmsekunden', () =
       // Auf die Millisekunde: der Versatz wird auf drei Stellen gerundet, damit
       // das Overlay lesbar bleibt. Bei jedem denkbaren Maßstab liegt das weit
       // unter einem Pixel.
-      expect(klipVon(klips).filmVon).toBeCloseTo(filmS, 3)
+      expect(klipVon(klips).filmFrom).toBeCloseTo(filmS, 3)
     }
   })
 
@@ -169,7 +169,7 @@ describe('anchorClips — Anker in Aufnahmezeit, Feinlage in Filmsekunden', () =
     // Der Kernbefund aus §1: Im Halt gibt es keine unterscheidbare Aufnahmezeit.
     // Der Versatz trägt die Feinlage, deshalb landet der Klip trotzdem genau dort.
     const achse = achseMitHalt()
-    const imHalt = achse.stops![0]!.filmVon + 3
+    const imHalt = achse.stops![0]!.filmFrom + 3
     const { anchor, offsetFilmS } = anchorClips(achse, START, imHalt)
     expect(offsetFilmS).toBeGreaterThan(0) // ohne ihn fiele die Lage auf die Haltkante
     const klips = resolveAudioClips(
@@ -177,7 +177,7 @@ describe('anchorClips — Anker in Aufnahmezeit, Feinlage in Filmsekunden', () =
       START,
       achse,
     )
-    expect(klipVon(klips).filmVon).toBeCloseTo(imHalt, 6)
+    expect(klipVon(klips).filmFrom).toBeCloseTo(imHalt, 6)
   })
 })
 
@@ -187,8 +187,8 @@ describe('trimLeft — Anfang und Datei-Einstieg wandern gemeinsam', () => {
     index: 0,
     type: 'music',
     file: 'a.mp3',
-    filmVon: 10,
-    filmBis: 30,
+    filmFrom: 10,
+    filmTo: 30,
     startS: 0,
     loop: true,
     fileS: 60,
@@ -212,7 +212,7 @@ describe('trimLeft — Anfang und Datei-Einstieg wandern gemeinsam', () => {
       const { patch, atLimit } = trimLeft(achse, START, a, 0) // weit nach links gezogen
       expect(patch.startS).toBe(0)
       expect(atLimit).toBe(true)
-      // Die Kante steht bei filmVon − einstiegS = 7, nicht bei 0
+      // Die Kante steht bei filmFrom − einstiegS = 7, nicht bei 0
       expect(patch.durationFilmS).toBeCloseTo(23, 3)
     }
   })
@@ -229,8 +229,8 @@ describe('trimRight — nur das Ende, Loop hebt den Anschlag auf', () => {
     index: 0,
     type: 'sfx',
     file: 'sfx-brandung.mp3',
-    filmVon: 10,
-    filmBis: 14,
+    filmFrom: 10,
+    filmTo: 14,
     startS: 0,
     loop: false,
     fileS: 8,
@@ -274,7 +274,7 @@ describe('trimRight — nur das Ende, Loop hebt den Anschlag auf', () => {
       achse,
       new Map([[a.file, 8]]),
     )
-    expect(klipVon(klips).filmVon).toBeCloseTo(a.filmVon, 3)
+    expect(klipVon(klips).filmFrom).toBeCloseTo(a.filmFrom, 3)
     expect(klipVon(klips).startS).toBeCloseTo(2, 3)
   })
 })
@@ -285,8 +285,8 @@ describe('moveAudioClip — der Klip hängt danach woanders an der Reise', () =>
     index: 0,
     type: 'music',
     file: 'a.mp3',
-    filmVon: 10,
-    filmBis: 30,
+    filmFrom: 10,
+    filmTo: 30,
     startS: 4,
     loop: true,
     fileS: 60,
@@ -304,13 +304,13 @@ describe('moveAudioClip — der Klip hängt danach woanders an der Reise', () =>
       START,
       achse,
     )
-    expect(klipVon(klips).filmVon).toBeCloseTo(25, 3)
+    expect(klipVon(klips).filmFrom).toBeCloseTo(25, 3)
   })
 
   it('schreibt KEINE Länge fest, wo sie nur abgeleitet war', () => {
     // „Läuft bis zum Schluss" darf durch bloßes Verschieben nicht zu einer
     // festen Dauer werden — und ein One-Shot nicht zum Bereich.
-    const offen = { ...basis, hasExplicitLength: false, filmBis: achse.curve?.totalS ?? 0 }
+    const offen = { ...basis, hasExplicitLength: false, filmTo: achse.curve?.totalS ?? 0 }
     expect(moveAudioClip(achse, START, offen, 25).durationFilmS).toBeUndefined()
   })
 })
@@ -329,8 +329,8 @@ describe('commitAudioClip — die Aufwertung ändert die Lage nicht', () => {
     const vorher = klipVon(resolveAudioClips(audio, START, achse))
     const patch = commitAudioClip(achse, START, vorher)
     const nachher = klipVon(resolveAudioClips([{ ...audio[0]!, ...patch }], START, achse))
-    expect(nachher.filmVon).toBeCloseTo(vorher.filmVon, 3)
-    expect(nachher.filmBis).toBeCloseTo(vorher.filmBis, 3)
+    expect(nachher.filmFrom).toBeCloseTo(vorher.filmFrom, 3)
+    expect(nachher.filmTo).toBeCloseTo(vorher.filmTo, 3)
     expect(nachher.legacyAnchored).toBe(false)
   })
 
@@ -353,10 +353,10 @@ describe('Ton-Magnetik — eine geänderte Standzeit nimmt den Ton mit', () => {
   const BASIS_BREITE = 12
 
   /** Dieselbe Achse, nur mit anderer Haltbreite. 30 Aufnahmesekunden = 1 Filmsekunde. */
-  const achseMitBreite = (breiteS: number): TimelineAxis =>
+  const achseMitBreite = (widthS: number): TimelineAxis =>
     buildTimelineAxis(
       [{ mode: 'walk', active: true, pts: track() }],
-      [{ offsetS: HALT_S, breiteS }],
+      [{ offsetS: HALT_S, widthS }],
       {
         fromS: 0,
         toS: 1800,
@@ -369,38 +369,38 @@ describe('Ton-Magnetik — eine geänderte Standzeit nimmt den Ton mit', () => {
     return { file: 'a.mp3', type: 'music', from: anchor, offsetFilmS, durationFilmS: 8 }
   }
 
-  const lageBei = (eintrag: AudioEntry, breiteS: number): AudioClip =>
-    klipVon(resolveAudioClips([eintrag], START, achseMitBreite(breiteS)))
+  const lageBei = (eintrag: AudioEntry, widthS: number): AudioClip =>
+    klipVon(resolveAudioClips([eintrag], START, achseMitBreite(widthS)))
 
   it('lässt einen Klip VOR der Standzeit exakt stehen', () => {
     const klip = verankerterKlip(10)
-    for (const breiteS of [BASIS_BREITE + 10, BASIS_BREITE - 10]) {
-      expect(lageBei(klip, breiteS).filmVon).toBeCloseTo(10, 3)
+    for (const widthS of [BASIS_BREITE + 10, BASIS_BREITE - 10]) {
+      expect(lageBei(klip, widthS).filmFrom).toBeCloseTo(10, 3)
     }
   })
 
   it('rückt einen Klip DAHINTER um genau den Zuwachs mit', () => {
     const klip = verankerterKlip(40)
-    expect(lageBei(klip, BASIS_BREITE).filmVon).toBeCloseTo(40, 3)
-    expect(lageBei(klip, BASIS_BREITE + 10).filmVon).toBeCloseTo(50, 3)
-    expect(lageBei(klip, BASIS_BREITE - 10).filmVon).toBeCloseTo(30, 3)
+    expect(lageBei(klip, BASIS_BREITE).filmFrom).toBeCloseTo(40, 3)
+    expect(lageBei(klip, BASIS_BREITE + 10).filmFrom).toBeCloseTo(50, 3)
+    expect(lageBei(klip, BASIS_BREITE - 10).filmFrom).toBeCloseTo(30, 3)
   })
 
   it('hält die Feinlage INNERHALB der Standzeit, auch wenn diese wächst', () => {
     // Der Versatz misst ab dem Beginn des Halts — der Klip behält seinen Platz
     // darin, statt an die Kante zu rutschen oder mit der Breite zu skalieren.
     const klip = verankerterKlip(23) // 3 Filmsekunden nach Haltbeginn (Filmsekunde 20)
-    for (const breiteS of [BASIS_BREITE + 10, BASIS_BREITE - 10]) {
-      expect(lageBei(klip, breiteS).filmVon).toBeCloseTo(23, 3)
+    for (const widthS of [BASIS_BREITE + 10, BASIS_BREITE - 10]) {
+      expect(lageBei(klip, widthS).filmFrom).toBeCloseTo(23, 3)
     }
   })
 
   it('lässt die LÄNGE unangetastet — sie steht in Filmsekunden', () => {
     for (const filmS of [10, 23, 40]) {
       const klip = verankerterKlip(filmS)
-      for (const breiteS of [BASIS_BREITE, BASIS_BREITE + 10, BASIS_BREITE - 10]) {
-        const k = lageBei(klip, breiteS)
-        expect(k.filmBis - k.filmVon).toBeCloseTo(8, 3)
+      for (const widthS of [BASIS_BREITE, BASIS_BREITE + 10, BASIS_BREITE - 10]) {
+        const k = lageBei(klip, widthS)
+        expect(k.filmTo - k.filmFrom).toBeCloseTo(8, 3)
       }
     }
   })
@@ -418,8 +418,8 @@ describe('Ton-Magnetik — eine geänderte Standzeit nimmt den Ton mit', () => {
     const basis = lageBei(alt, BASIS_BREITE)
     const breiter = lageBei(alt, BASIS_BREITE + 10)
     expect(basis.legacyAnchored).toBe(true)
-    expect(breiter.filmVon).toBeCloseTo(basis.filmVon, 3) // der Anfang bleibt
-    expect(breiter.filmBis - breiter.filmVon).toBeCloseTo(basis.filmBis - basis.filmVon + 10, 3)
+    expect(breiter.filmFrom).toBeCloseTo(basis.filmFrom, 3) // der Anfang bleibt
+    expect(breiter.filmTo - breiter.filmFrom).toBeCloseTo(basis.filmTo - basis.filmFrom + 10, 3)
   })
 })
 
@@ -428,8 +428,8 @@ describe('waveformPosition — die Wellenform gehört zur DATEI, nicht zum Klip'
     index: 0,
     type: 'music',
     file: 'a.mp3',
-    filmVon: 10,
-    filmBis: 30,
+    filmFrom: 10,
+    filmTo: 30,
     startS: 4,
     loop: false,
     fileS: 60,
@@ -486,9 +486,9 @@ describe('setLoop — Loop aus holt den Klip ans Material zurück', () => {
     index: 0,
     type: 'music',
     file: 'a.mp3',
-    filmVon: 10,
+    filmFrom: 10,
     // Unter Loop weit über das Dateiende hinaus gewachsen
-    filmBis: 45,
+    filmTo: 45,
     startS: 0,
     loop: true,
     fileS: 22,
@@ -509,7 +509,7 @@ describe('setLoop — Loop aus holt den Klip ans Material zurück', () => {
   })
 
   it('lässt einen Klip in Ordnung unangetastet', () => {
-    const kurz = { ...basis, filmBis: 18 } // 8 s, passt in die 22-s-Datei
+    const kurz = { ...basis, filmTo: 18 } // 8 s, passt in die 22-s-Datei
     expect(setLoop(achse, START, kurz, false).durationFilmS).toBeCloseTo(8, 3)
   })
 
@@ -531,8 +531,8 @@ describe('loopAfterRoleChange — die Rolle darf das Verhalten nicht still kippe
     index: 0,
     type,
     file: 'a.mp3',
-    filmVon: 0,
-    filmBis: 10,
+    filmFrom: 0,
+    filmTo: 10,
     startS: 0,
     loop,
     lane: 0,

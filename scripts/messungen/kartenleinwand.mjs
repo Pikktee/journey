@@ -48,7 +48,7 @@ await seite.evaluate(() => document.getElementById('btn-start').click())
 const halt = await seite.evaluate(() => {
   const a = window.__maptale.filmAxis
   const h = a.stops.find((x) => x.stop)
-  return h ? { von: h.filmVon, bis: h.filmBis, gesamt: a.totalS } : null
+  return h ? { von: h.filmFrom, bis: h.filmTo, gesamt: a.totalS } : null
 })
 if (!halt) {
   console.log('✗ kein Foto-Halt in der Achse — nichts zu messen')

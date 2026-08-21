@@ -596,29 +596,29 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       let f1: number
       // Die Filmsekunden des Klips (E10) — die eigentliche Auskunft, seit der
       // Player in Filmzeit rechnet. `undefined` nur ohne Achse.
-      let filmVonS: number | undefined
-      let filmBisS: number | undefined
+      let filmFromS: number | undefined
+      let filmToS: number | undefined
       if (filmVerankert) {
         // Anker → Filmsekunde → Versatz drauf → zurück in Zeit und Anteil.
-        const filmVon = filmTimeAtRecordingTime(achse, tAb) + (spur.offsetFilmS ?? 0)
-        f0 = fBeiFilm(filmVon)
-        filmVonS = filmVon
+        const filmFrom = filmTimeAtRecordingTime(achse, tAb) + (spur.offsetFilmS ?? 0)
+        f0 = fBeiFilm(filmFrom)
+        filmFromS = filmFrom
         if (spur.durationFilmS !== undefined) {
-          filmBisS = filmVon + spur.durationFilmS
-          f1 = fBeiFilm(filmBisS)
+          filmToS = filmFrom + spur.durationFilmS
+          f1 = fBeiFilm(filmToS)
         } else if (spur.type === 'music') {
-          filmBisS = tBis !== undefined ? filmTimeAtRecordingTime(achse, tBis) : achse.totalS
+          filmToS = tBis !== undefined ? filmTimeAtRecordingTime(achse, tBis) : achse.totalS
           f1 = tBis !== undefined ? positionAtTime(reihe, tBis).f : 1
         } else {
-          filmBisS = filmVon
+          filmToS = filmFrom
           f1 = f0
         }
       } else {
         f0 = positionAtTime(reihe, tAb).f
-        filmVonS = achse ? filmTimeAtRecordingTime(achse, tAb) : undefined
+        filmFromS = achse ? filmTimeAtRecordingTime(achse, tAb) : undefined
         if (spur.type === 'music') {
           f1 = tBis !== undefined ? positionAtTime(reihe, tBis).f : 1
-          filmBisS = achse
+          filmToS = achse
             ? tBis !== undefined
               ? filmTimeAtRecordingTime(achse, tBis)
               : achse.totalS
@@ -644,7 +644,7 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
       // in dem auch der Film keine Zeit dafür hat — etwa eine Spanne, die der
       // Trim vollständig vor den Track-Anfang klemmt.
       const leer =
-        filmVonS !== undefined && filmBisS !== undefined ? !(filmBisS > filmVonS) : f1 <= f0
+        filmFromS !== undefined && filmToS !== undefined ? !(filmToS > filmFromS) : f1 <= f0
       if (spur.type === 'music' && leer) {
         protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.file}`)
         continue
@@ -676,9 +676,9 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
         // demselben Wert wäre eine Angabe über nichts. Der Player fällt je
         // Endpunkt einzeln auf `f0`/`f1` zurück — ein Bereich ohne `filmToS`
         // bleibt dadurch ein Bereich.
-        ...(filmVonS !== undefined ? { filmS: filmZahl(filmVonS) } : {}),
-        ...(filmBisS !== undefined && filmVonS !== undefined && filmBisS > filmVonS
-          ? { filmToS: filmZahl(filmBisS) }
+        ...(filmFromS !== undefined ? { filmS: filmZahl(filmFromS) } : {}),
+        ...(filmToS !== undefined && filmFromS !== undefined && filmToS > filmFromS
+          ? { filmToS: filmZahl(filmToS) }
           : {}),
       })
     }

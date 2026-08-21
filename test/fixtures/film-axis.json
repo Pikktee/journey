@@ -107,7 +107,7 @@
       "rampM": 0,
       "segments": [{ "fromM": 0, "mode": "walk" }],
       "totalM": 960,
-      "stops": [{ "meterM": 480, "breiteS": 6 }],
+      "stops": [{ "meterM": 480, "widthS": 6 }],
       "totalS": 22,
       "filmTimeAtDistance": [
         [240, 4],
@@ -127,8 +127,8 @@
       "segments": [{ "fromM": 0, "mode": "walk" }],
       "totalM": 960,
       "stops": [
-        { "meterM": 240, "breiteS": 6 },
-        { "meterM": 720, "breiteS": 4 }
+        { "meterM": 240, "widthS": 6 },
+        { "meterM": 720, "widthS": 4 }
       ],
       "totalS": 26,
       "filmTimeAtDistance": [
@@ -153,7 +153,7 @@
         { "fromM": 480, "mode": "ferry" }
       ],
       "totalM": 1080,
-      "stops": [{ "meterM": 480, "breiteS": 5.2 }],
+      "stops": [{ "meterM": 480, "widthS": 5.2 }],
       "totalS": 15.2,
       "filmTimeAtDistance": [
         [480, 8],
@@ -189,7 +189,7 @@
       "rampM": 240,
       "segments": [{ "fromM": 0, "mode": "walk" }],
       "totalM": 960,
-      "stops": [{ "meterM": 480, "breiteS": 6 }],
+      "stops": [{ "meterM": 480, "widthS": 6 }],
       "totalS": 34,
       "filmTimeAtDistance": [
         [240, 8],
@@ -212,8 +212,8 @@
       "segments": [{ "fromM": 0, "mode": "walk" }],
       "totalM": 960,
       "stops": [
-        { "meterM": 240, "breiteS": 6 },
-        { "meterM": 480, "breiteS": 6 }
+        { "meterM": 240, "widthS": 6 },
+        { "meterM": 480, "widthS": 6 }
       ],
       "totalS": 40,
       "filmTimeAtDistance": [
@@ -291,7 +291,7 @@
         { "fromM": 600, "mode": "ferry" }
       ],
       "totalM": 1230,
-      "stops": [{ "meterM": 870, "breiteS": 6 }],
+      "stops": [{ "meterM": 870, "widthS": 6 }],
       "totalS": 34.9,
       "filmTimeAtDistance": [
         [360, 12],

@@ -63,7 +63,7 @@ for (const id of readdirSync(WURZEL)) {
   const halte: DistanceStop[] = [
     ...stopps.map((h: any) => ({
       meterM: rohBeiS(h.s),
-      breiteS: h.items.reduce(
+      widthS: h.items.reduce(
         (s: number, it: any) =>
           s +
           holdS({ ...it, ...(it.durationS !== undefined ? { durationS: it.durationS } : {}) }) +
@@ -73,7 +73,7 @@ for (const id of readdirSync(WURZEL)) {
     })),
     ...(tour.moments ?? []).map((mo: any) => ({
       meterM: rohGesamt * mo.f,
-      breiteS: momentHoldS(mo),
+      widthS: momentHoldS(mo),
     })),
   ]
   const ohne = buildFilmAxis(grenzen, rohGesamt, halte, { rampM: 0 }).totalS

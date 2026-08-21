@@ -45,8 +45,8 @@ export interface AudioClip {
   index: number
   type: 'music' | 'sfx'
   file: string
-  filmVon: number
-  filmBis: number
+  filmFrom: number
+  filmTo: number
   /** Einstieg in die Datei (s) */
   startS: number
   loop: boolean
@@ -92,16 +92,16 @@ export interface AudioClipPatch {
 export function anchorClips(
   axis: TimelineAxis,
   startIso: string,
-  filmVon: number,
+  filmFrom: number,
 ): { anchor: string; offsetFilmS: number } {
-  if (!axis.curve) return { anchor: offsetToIso(startIso, filmVon), offsetFilmS: 0 }
-  const offsetS = recordingTimeAtFilmTime(axis.curve, filmVon)
+  if (!axis.curve) return { anchor: offsetToIso(startIso, filmFrom), offsetFilmS: 0 }
+  const offsetS = recordingTimeAtFilmTime(axis.curve, filmFrom)
   // Auf ganze Sekunden runden: `offsetToIso` schreibt einen sekundengenauen
   // Stempel, und was dabei verlorenginge, landete sonst still im Versatz.
   const anchorS = Math.round(offsetS)
   return {
     anchor: offsetToIso(startIso, anchorS),
-    offsetFilmS: roundTo(filmVon - filmTimeAtRecordingTime(axis.curve, anchorS), 3),
+    offsetFilmS: roundTo(filmFrom - filmTimeAtRecordingTime(axis.curve, anchorS), 3),
   }
 }
 
@@ -124,32 +124,32 @@ function resolvePosition(
   startIso: string,
   axis: TimelineAxis,
   fileS: number | undefined,
-): { filmVon: number; filmBis: number; legacyAnchored: boolean; hasExplicitLength: boolean } {
+): { filmFrom: number; filmTo: number; legacyAnchored: boolean; hasExplicitLength: boolean } {
   const totalS = axis.curve?.totalS ?? 0
   const isNew =
     a.anchor !== undefined || a.offsetFilmS !== undefined || a.durationFilmS !== undefined
   const baseIso = a.anchor ?? a.from
-  const filmVon =
+  const filmFrom =
     filmToOffset(axis, isoToOffset(startIso, baseIso)) + (isNew ? (a.offsetFilmS ?? 0) : 0)
 
-  let filmBis: number
+  let filmTo: number
   let hasExplicitLength = true
   if (a.durationFilmS !== undefined) {
-    filmBis = filmVon + a.durationFilmS
+    filmTo = filmFrom + a.durationFilmS
   } else if (a.type === 'music' && a.to !== undefined) {
-    filmBis = filmToOffset(axis, isoToOffset(startIso, a.to))
+    filmTo = filmToOffset(axis, isoToOffset(startIso, a.to))
   } else if (a.type === 'music') {
     // Musik ohne Ende läuft bis zum Tour-Ende (so rendert es die Pipeline).
-    filmBis = totalS
+    filmTo = totalS
     hasExplicitLength = false
   } else {
     // Ein Effekt klingt, solange seine DATEI dauert — der Player spielt sie
     // aus. Die Marke ohne Länge war eine Lüge der ANZEIGE, nicht des Films;
     // sobald die Datei gemessen ist, zeigt die Leiste, was ohnehin passiert.
-    filmBis = fileS !== undefined && fileS > 0 ? filmVon + fileS : filmVon
+    filmTo = fileS !== undefined && fileS > 0 ? filmFrom + fileS : filmFrom
     hasExplicitLength = false
   }
-  return { filmVon, filmBis: Math.max(filmVon, filmBis), legacyAnchored: !isNew, hasExplicitLength }
+  return { filmFrom, filmTo: Math.max(filmFrom, filmTo), legacyAnchored: !isNew, hasExplicitLength }
 }
 
 /**
@@ -169,13 +169,13 @@ export function resolveAudioClips(
   audio.forEach((a, index) => {
     const fileS = fileDurations?.get(a.file)
     const position = resolvePosition(a, startIso, axis, fileS)
-    if (!Number.isFinite(position.filmVon)) return
+    if (!Number.isFinite(position.filmFrom)) return
     clips.push({
       index,
       type: a.type,
       file: a.file,
-      filmVon: position.filmVon,
-      filmBis: position.filmBis,
+      filmFrom: position.filmFrom,
+      filmTo: position.filmTo,
       startS: a.startS ?? 0,
       loop: a.loop ?? a.type === 'music',
       ...(fileS !== undefined ? { fileS } : {}),
@@ -197,17 +197,17 @@ export function resolveAudioClips(
  * Breite haben, können sie einander überdecken.
  */
 function distributeLanes(clips: AudioClip[]): void {
-  const sorted = [...clips].sort((a, b) => a.filmVon - b.filmVon || a.index - b.index)
+  const sorted = [...clips].sort((a, b) => a.filmFrom - b.filmFrom || a.index - b.index)
   const laneEnds: number[] = []
   for (const k of sorted) {
-    let lane = laneEnds.findIndex((end) => end <= k.filmVon)
+    let lane = laneEnds.findIndex((end) => end <= k.filmFrom)
     if (lane === -1) {
       lane = laneEnds.length
       laneEnds.push(0)
     }
     // Ein Klip ohne Breite (unvermessener Effekt) belegt seine Zeile trotzdem
     // für einen Moment — sonst lägen zwei Pins am selben Ort übereinander.
-    laneEnds[lane] = Math.max(k.filmBis, k.filmVon + AUDIO_MIN_S)
+    laneEnds[lane] = Math.max(k.filmTo, k.filmFrom + AUDIO_MIN_S)
     k.lane = lane
   }
 }
@@ -238,7 +238,7 @@ export function moveAudioClip(
   newFilmVon: number,
 ): AudioClipPatch {
   const totalS = axis.curve?.totalS ?? 0
-  const length = clip.filmBis - clip.filmVon
+  const length = clip.filmTo - clip.filmFrom
   // Ein Klip mit fester Länge bleibt ganz in der Tour; einer, der bis zum Ende
   // läuft, darf überall hin (er wird nur kürzer).
   const rightLimit = clip.hasExplicitLength ? Math.max(0, totalS - length) : totalS
@@ -265,16 +265,16 @@ export function trimLeft(
 ): TrimResult {
   // Wie weit die Kante nach LINKS darf, sagt der Einstieg: so viel Datei liegt
   // vor dem, was gerade zu hören ist.
-  const minFrom = clip.filmVon - clip.startS
+  const minFrom = clip.filmFrom - clip.startS
   // Nach rechts darf sie bis kurz vor die andere Kante — ein Klip ohne Länge
   // wäre nicht mehr zu greifen.
-  const maxFrom = clip.filmBis - AUDIO_MIN_S
+  const maxFrom = clip.filmTo - AUDIO_MIN_S
   const target = Math.max(minFrom, Math.min(newFilmVon, maxFrom))
-  const delta = target - clip.filmVon
+  const delta = target - clip.filmFrom
   return {
     patch: {
       ...anchorClips(axis, startIso, target),
-      durationFilmS: roundTo(clip.filmBis - target, 3),
+      durationFilmS: roundTo(clip.filmTo - target, 3),
       startS: roundTo(Math.max(0, clip.startS + delta), 3),
     },
     atLimit: newFilmVon < minFrom,
@@ -294,20 +294,20 @@ export function trimRight(
   clip: AudioClip,
   newFilmBis: number,
 ): TrimResult {
-  const minTo = clip.filmVon + AUDIO_MIN_S
+  const minTo = clip.filmFrom + AUDIO_MIN_S
   // Rest des Materials hinter dem Einstieg. Unbekannt (noch nicht gemessen) →
   // kein Anschlag: lieber ziehen lassen als eine Kante, die grundlos klemmt.
   const maxTo =
     !clip.loop && clip.fileS !== undefined
-      ? clip.filmVon + Math.max(0, clip.fileS - clip.startS)
+      ? clip.filmFrom + Math.max(0, clip.fileS - clip.startS)
       : Infinity
   const target = Math.max(minTo, Math.min(newFilmBis, maxTo))
   return {
     // Die linke Kante bewegt sich nicht — sie wird nur mitgeschrieben, damit
     // ein Klip in alter Verankerung mit derselben Geste fest wird.
     patch: {
-      ...anchorClips(axis, startIso, clip.filmVon),
-      durationFilmS: roundTo(target - clip.filmVon, 3),
+      ...anchorClips(axis, startIso, clip.filmFrom),
+      durationFilmS: roundTo(target - clip.filmFrom, 3),
       ...(clip.startS > 0 ? { startS: roundTo(clip.startS, 3) } : {}),
     },
     atLimit: newFilmBis > maxTo,
@@ -349,7 +349,7 @@ export function setLoop(
   // Ohne gemessene Datei gibt es keinen Anschlag, an den man zurückholen
   // könnte — dann bliebe nur, die Länge grundlos festzuschreiben.
   if (loop || clip.fileS === undefined) return commitAudioClip(axis, startIso, clip)
-  return trimRight(axis, startIso, { ...clip, loop: false }, clip.filmBis).patch
+  return trimRight(axis, startIso, { ...clip, loop: false }, clip.filmTo).patch
 }
 
 /**
@@ -367,9 +367,9 @@ export function commitAudioClip(
   clip: AudioClip,
 ): AudioClipPatch {
   return {
-    ...anchorClips(axis, startIso, clip.filmVon),
-    ...(clip.hasExplicitLength && clip.filmBis > clip.filmVon
-      ? { durationFilmS: roundTo(clip.filmBis - clip.filmVon, 3) }
+    ...anchorClips(axis, startIso, clip.filmFrom),
+    ...(clip.hasExplicitLength && clip.filmTo > clip.filmFrom
+      ? { durationFilmS: roundTo(clip.filmTo - clip.filmFrom, 3) }
       : {}),
     ...(clip.startS > 0 ? { startS: roundTo(clip.startS, 3) } : {}),
   }
@@ -404,7 +404,7 @@ export function waveformPosition(
   totalFilmS: number,
 ): { widthFraction: number; offsetFraction: number; repeats: number } | null {
   if (!(clip.fileS && clip.fileS > 0) || !(totalFilmS > 0)) return null
-  const clipS = clip.filmBis - clip.filmVon
+  const clipS = clip.filmTo - clip.filmFrom
   const repeats = clip.loop ? Math.max(1, Math.ceil((clip.startS + clipS) / clip.fileS)) : 1
   return {
     widthFraction: clip.fileS / totalFilmS,

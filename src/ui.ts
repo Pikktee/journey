@@ -77,7 +77,7 @@ export interface ProgressBar {
   /** Filmsekunde an einem Streckenmeter (im Halt: seine Ankunft) */
   filmTimeAtS: (s: number) => number
   /** Der Halt, in dem diese Filmsekunde steht — `null` heißt Fahrt */
-  stopAtFilmTime: (filmS: number) => { filmVon: number; filmBis: number } | null
+  stopAtFilmTime: (filmS: number) => { filmFrom: number; filmTo: number } | null
 }
 
 /**
@@ -438,7 +438,7 @@ export class UI {
       const from = this.film.filmTimeAtS(st.s)
       const stop = this.film.stopAtFilmTime(from)
       const filmFrac = from / this.film.totalS
-      const width = stop ? (stop.filmBis - stop.filmVon) / this.film.totalS : 0
+      const width = stop ? (stop.filmTo - stop.filmFrom) / this.film.totalS : 0
       if (width > 0) {
         const span = document.createElement('div')
         span.className = 'stop-span'

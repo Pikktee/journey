@@ -3390,7 +3390,7 @@ spielbar	playable	property	android/app/src/main/java/app/maptale/upload/ApiClien
 spur	track	property	android/app/src/main/java/app/maptale/aufzeichnung/AufzeichnungsZustand.kt	7	GPS-Spur→track (§6.1).
 tempoMps	speedMps	property	android/app/src/main/java/app/maptale/aufzeichnung/PunktFilter.kt	7	VORSCHLAG: echtes GPS-Tempo→speed; tempo bleibt dem Film vorbehalten (MODUS_TEMPO/tempoMs in filmachse.ts).
 touren	tourCount	property	android/app/src/main/java/app/maptale/ui/Reisestatistik.kt	7	NACHTRAG 2026-08-21; Zähler heißen …Count (§6.0 Regel 4). NUR in TravelStats — sonst ist touren→tours.
-zeitzeile	timeLabel	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	NACHTRAG 2026-08-21; die Maschinenangabe „Foto · 21:03".
+zeitzeile	timeLabel	property	android/app/src/main/java/app/maptale/upload/ApiClient.kt	7	"NACHTRAG 2026-08-21; die Maschinenangabe „Foto · 21:03""."
 zustand	state	property	android/app/src/main/java/app/maptale/ui/ViewModels.kt; android/app/src/main/java/app/maptale/ui/ImportViewModel.kt	7	NACHTRAG 2026-08-21; folgt Zustand→State. Auch _zustand→_state und internZustand→internalState.
 fotos_automatisch	auto_photos	storage-schluessel	android DataStore	7	§6.5; Schlüsselwechsel ist bewusster Schritt, nicht beiläufig (§3.2)
 MaptaleApp.verlassen	MaptaleApp.exit	window-schluessel	android PlayerScreen.kt; src/main.ts	7	VORSCHLAG; Optional-Chaining schluckt den toten Exit (Naht §3.3)
@@ -3590,10 +3590,10 @@ bereit	ready	property	src/studio/pruefung.ts	3	ImportReport; kann daraus eine To
 quelle	source	property	src/studio/pruefung.ts	3	ImportReport; die WERTE aufzeichnung/fotos/keine bleiben (Welle 4 mit studio.ts)
 bild	image	property	src/studio/pruefung.ts	3	projectPreview; die Bildpunkte je Eingabepunkt
 bild	image	property	src/photopins.ts	5	Pin und drawHead
-breiteS	breiteS	property	src/studio/zeitleiste.ts	5	BLEIBT BIS WELLE 5: AxisStop erfuellt strukturell Halt aus src/filmachse.ts — die Umbenennung oeffnet den Player-Kern und seinen Server-Zwilling
+breiteS	widthS	property	src/film-axis.ts, src/tour.ts, src/studio/timeline.ts, src/studio/audio-clip.ts, server/src/pipeline/film-axis.ts, test/fixtures/film-axis.json	5	ERLEDIGT 2026-08-21 (Nachlauf zu Welle 5): Der Vorbehalt galt, solange der Player-Kern deutsch war — mit Welle 5 ist er entfallen. Player, Server-Spiegel, Studio und das geteilte Fixture in EINEM Commit; kein Tour-JSON trug die Namen, es war nie ein Vertrag.
 eleZiel	eleTarget	property	src/photopins.ts	5	Pin; Ziel der Terrain-Abfrage
-filmVon	filmVon	property	src/studio/zeitleiste.ts, src/studio/tonklip.ts	5	BLEIBT BIS WELLE 5: StopInterval spiegelt HaltIntervall aus src/filmachse.ts; AudioClip haelt dieselbe Schreibweise
-filmBis	filmBis	property	src/studio/zeitleiste.ts, src/studio/tonklip.ts	5	BLEIBT BIS WELLE 5: dito
+filmVon	filmFrom	property	src/film-axis.ts, src/tour.ts, src/studio/timeline.ts, src/studio/audio-clip.ts, server/src/pipeline/film-axis.ts, test/fixtures/film-axis.json	5	ERLEDIGT 2026-08-21 (Nachlauf zu Welle 5): Der Vorbehalt galt, solange der Player-Kern deutsch war — mit Welle 5 ist er entfallen. Player, Server-Spiegel, Studio und das geteilte Fixture in EINEM Commit; kein Tour-JSON trug die Namen, es war nie ein Vertrag.
+filmBis	filmTo	property	src/film-axis.ts, src/tour.ts, src/studio/timeline.ts, src/studio/audio-clip.ts, server/src/pipeline/film-axis.ts, test/fixtures/film-axis.json	5	ERLEDIGT 2026-08-21 (Nachlauf zu Welle 5): Der Vorbehalt galt, solange der Player-Kern deutsch war — mit Welle 5 ist er entfallen. Player, Server-Spiegel, Studio und das geteilte Fixture in EINEM Commit; kein Tour-JSON trug die Namen, es war nie ein Vertrag.
 fuellung	fill	property	src/photopins.ts	5	StateStyle
 fuss	foot	property	src/photopins.ts	5	SIZES und Pin; dazu die lokale Mesh-Variable
 klickZ	clickZ	property	src/photopins.ts	5	Pin
@@ -3739,3 +3739,5 @@ MAPTALE_UMAMI_DB_PASSWORT	MAPTALE_UMAMI_DB_PASSWORD	env-variable	server/src/conf
 MAPTALE_VISION_MODELL	MAPTALE_VISION_MODEL	env-variable	server/src/config.ts; docker-compose*.yml; server/Dockerfile; VPS-.env	9	Schritt 9, gebaut 2026-08-21: Handgriff an der Server-.env (beide Namenssätze, dann deployen, dann die alten Zeilen)
 MAPTALE_DEBUG_KEYSTORE_PASSWORT	MAPTALE_DEBUG_KEYSTORE_PASSWORD	env-variable	android/app/build.gradle.kts; docs/ops/android-release.md	9	Schritt 9: nur build.gradle.kts liest sie, im CI nicht gesetzt (Defaults greifen) — Umbenennung dort wirkungslos
 MAPTALE_DEBUG_KEY_PASSWORT	MAPTALE_DEBUG_KEY_PASSWORD	env-variable	android/app/build.gradle.kts; docs/ops/android-release.md	9	Schritt 9: nur build.gradle.kts liest sie, im CI nicht gesetzt (Defaults greifen) — Umbenennung dort wirkungslos
+filmVonS	filmFromS	property	server/src/pipeline/enrich.ts	5	ERLEDIGT 2026-08-21 (Nachlauf zu Welle 5): Der Vorbehalt galt, solange der Player-Kern deutsch war — mit Welle 5 ist er entfallen. Player, Server-Spiegel, Studio und das geteilte Fixture in EINEM Commit; kein Tour-JSON trug die Namen, es war nie ein Vertrag.
+filmBisS	filmToS	property	server/src/pipeline/enrich.ts	5	ERLEDIGT 2026-08-21 (Nachlauf zu Welle 5): Der Vorbehalt galt, solange der Player-Kern deutsch war — mit Welle 5 ist er entfallen. Player, Server-Spiegel, Studio und das geteilte Fixture in EINEM Commit; kein Tour-JSON trug die Namen, es war nie ein Vertrag.

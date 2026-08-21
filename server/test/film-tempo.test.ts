@@ -43,7 +43,7 @@ interface Case {
   name: string
   segments: Array<{ fromM: number; mode: string }>
   totalM: number
-  stops: Array<{ meterM: number; breiteS: number }>
+  stops: Array<{ meterM: number; widthS: number }>
   rampM: number
   totalS: number
   filmTimeAtDistance: Array<[number, number]>
@@ -111,7 +111,7 @@ describe('Filmtempo', () => {
   it.each(fixture.cases)('rechnet den Fixture-Fall „$name" wie die Web-Achse', (fall) => {
     const achse = buildFilmAxis(
       alsZeitreihe(fall),
-      fall.stops.map((h) => ({ offsetS: h.meterM, breiteS: h.breiteS })),
+      fall.stops.map((h) => ({ offsetS: h.meterM, widthS: h.widthS })),
       fall.rampM,
     )
     expect(achse).not.toBeNull()

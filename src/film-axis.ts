@@ -112,11 +112,11 @@ export function interpolate(xs: readonly number[], ys: readonly number[], x: num
 
 /** Ein Halt: wo er liegt (in der x-Größe der Kurve) und was er im Film kostet. */
 export interface AxisStop {
-  breiteS: number
+  widthS: number
 }
 
 /** Ein eingewebter Halt: dazu, wo er im FILM liegt. */
-export type StopInterval<H extends AxisStop = AxisStop> = H & { filmVon: number; filmBis: number }
+export type StopInterval<H extends AxisStop = AxisStop> = H & { filmFrom: number; filmTo: number }
 
 // — Die Rampe (E14) —
 //
@@ -441,7 +441,7 @@ export function buildFilmAxis<H extends DistanceStop>(
   // Auf den Halt gezogen stimmt es auch inhaltlich — man bremst ohnehin, und
   // die neue Fortbewegung beginnt mit der Weiterfahrt (dort steigt man ja ein).
   const stopPositions = stops
-    .filter((h) => h.breiteS > 0)
+    .filter((h) => h.widthS > 0)
     .map((h) => Math.max(0, Math.min(totalM, h.meterM)))
     .sort((a, b) => a - b)
   if (rampM > 0 && stopPositions.length > 0 && steps.length > 1) {
@@ -508,7 +508,7 @@ export function buildFilmAxis<H extends DistanceStop>(
   nodeAt(totalM)
   for (const st of steps.slice(1)) if (st.fromM > 0 && st.fromM < totalM) nodeAt(st.fromM)
   for (const h of stops) {
-    if (!(h.breiteS > 0)) continue
+    if (!(h.widthS > 0)) continue
     nodeAt(Math.max(0, Math.min(totalM, h.meterM))).stops.push(h)
   }
   nodes.sort((a, b) => a.at - b.at)
@@ -610,9 +610,9 @@ export function buildFilmAxis<H extends DistanceStop>(
       for (const h of k.stops) {
         put(k.at, film)
         sM.push(k.at)
-        filmS.push(film + h.breiteS)
-        intervals.push({ ...h, filmVon: film, filmBis: film + h.breiteS })
-        film += h.breiteS
+        filmS.push(film + h.widthS)
+        intervals.push({ ...h, filmFrom: film, filmTo: film + h.widthS })
+        film += h.widthS
       }
       pos = k.at
       ramp(k.at, k.lenR, 0, k.vRight)
@@ -653,7 +653,7 @@ export function distanceAtFilmTime(axis: AxisSamples, filmS: number): number {
 /**
  * Steht die Filmsekunde in einem Halt — und in welchem?
  *
- * Die Ankunft (`filmVon`) zählt dazu, die Abfahrt (`filmBis`) nicht: dort läuft
+ * Die Ankunft (`filmFrom`) zählt dazu, die Abfahrt (`filmTo`) nicht: dort läuft
  * die Fahrt schon wieder.
  */
 export function stopAtFilmTime<H extends DistanceStop>(
@@ -661,8 +661,8 @@ export function stopAtFilmTime<H extends DistanceStop>(
   filmS: number,
 ): StopInterval<H> | null {
   for (const stop of axis.stops) {
-    if (filmS < stop.filmVon) return null // Halte sind sortiert
-    if (filmS < stop.filmBis) return stop
+    if (filmS < stop.filmFrom) return null // Halte sind sortiert
+    if (filmS < stop.filmTo) return stop
   }
   return null
 }

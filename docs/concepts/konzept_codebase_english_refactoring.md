@@ -778,11 +778,17 @@ aufgefallen sind:
 - **`Fokus` heißt `EditorSelection`, nicht `Selection`.** Der bloße Name
   verdeckt den gleichnamigen lib.dom-Typ in jeder importierenden Datei; die
   Tabelle nannte die Ausweichform bereits.
-- **Drei Eigenschaften bleiben deutsch, und das ist Absicht**: `breiteS`,
-  `filmVon` und `filmBis`. `AxisStop` erfüllt strukturell `Halt` aus
-  `filmachse.ts`, `StopInterval` spiegelt dessen `HaltIntervall` — die
-  Umbenennung öffnet den Player-Kern samt Server-Zwilling und gehört nach
-  Welle 5. Sie stehen mit dieser Begründung als eigene Zeilen in der Tabelle.
+- **Drei Eigenschaften blieben zunächst deutsch**: `breiteS`, `filmVon` und
+  `filmBis`. `AxisStop` erfüllt strukturell `Halt` aus der Filmachse,
+  `StopInterval` spiegelt dessen `HaltIntervall` — solange der Player-Kern
+  deutsch war, hätte eine Umbenennung ihn samt Server-Zwilling geöffnet.
+  **Mit Welle 5 ist dieser Vorbehalt entfallen, nachgeholt am 2026-08-21**
+  (`filmFrom`, `filmTo`, `widthS`; dazu `filmVonS`/`filmBisS` in `enrich.ts`).
+  Player, Server-Spiegel, Studio und das geteilte Fixture in EINEM Commit; kein
+  `tour.json` trug die Namen, es war nie ein Vertrag. Die Lehre daneben: **Eine
+  Tabellenzeile, deren Zielform gleich dem Ist-Namen ist, prüft nichts** — der
+  Vermerk „bleibt bis Welle 5" wäre nie rot geworden, gefunden hat den Rest ein
+  Blick in `audio-clip.ts`.
 - **Die WERTE der modulinternen Unions bleiben**, obwohl ihre Felder wandern:
   `EditorSelection['kind']` (`modus`/`kamera`/`wetter`) teilt seine Wörter mit
   den `data-lane`-Werten und dem `BoundaryKind` von `editor.ts`, `RulerMark.edge`

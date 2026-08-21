@@ -827,7 +827,7 @@ describe('Zeitleiste', () => {
     ]
     const fSkala = buildScale(fahrTrack)!
     const abschnitte = [{ mode: 'bike' as const, active: true, pts: fahrTrack }]
-    const achse = buildTimelineAxis(abschnitte, [{ offsetS: 600, breiteS: 20 }], fSkala)
+    const achse = buildTimelineAxis(abschnitte, [{ offsetS: 600, widthS: 20 }], fSkala)
     const gesamt = achse.curve?.totalS ?? 0
     // Seit E14 bringt die Achse ihre RAMPEN mit. Bei Radtempo (120 m/s) kostet
     // eine 120-m-Rampe genau eine Filmsekunde. Hier sind es drei: aus dem Stand
@@ -878,7 +878,7 @@ describe('Zeitleiste', () => {
       ]
       const nurFotos = buildTimelineAxis(
         [{ mode: 'walk', active: true, pts: stand }],
-        [{ offsetS: 100, breiteS: 6 }],
+        [{ offsetS: 100, widthS: 6 }],
         buildScale(stand)!,
       )
       expect(nurFotos.curve?.totalS).toBeCloseTo(6, 3)
@@ -928,15 +928,15 @@ describe('Zeitleiste', () => {
       const gerundet = (a: typeof achse): number[][] =>
         (a.stops ?? []).map((h) => [
           h.offsetS,
-          h.breiteS,
-          +h.filmVon.toFixed(3),
-          +h.filmBis.toFixed(3),
+          h.widthS,
+          +h.filmFrom.toFixed(3),
+          +h.filmTo.toFixed(3),
         ])
       expect(gerundet(achse)).toEqual([[600, 20, 50 + 2 * R, 70 + 2 * R]])
       // `indizes` reicht die Achse unverändert durch (Rückweg zum Stopp)
       const mitId = buildTimelineAxis(
         abschnitte,
-        [{ offsetS: 600, breiteS: 20, indices: [3] }],
+        [{ offsetS: 600, widthS: 20, indices: [3] }],
         fSkala,
       )
       expect(mitId.stops?.[0]?.indices).toEqual([3])
@@ -944,8 +944,8 @@ describe('Zeitleiste', () => {
       const zwei = buildTimelineAxis(
         abschnitte,
         [
-          { offsetS: 900, breiteS: 6 },
-          { offsetS: 600, breiteS: 20 },
+          { offsetS: 900, widthS: 6 },
+          { offsetS: 600, widthS: 20 },
         ],
         fSkala,
       )
@@ -956,9 +956,7 @@ describe('Zeitleiste', () => {
         [900, 6, 95 + 4 * R, 101 + 4 * R],
       ])
       // Halte ohne Breite werden nicht eingewebt und tauchen nicht auf
-      expect(buildTimelineAxis(abschnitte, [{ offsetS: 600, breiteS: 0 }], fSkala).stops).toEqual(
-        [],
-      )
+      expect(buildTimelineAxis(abschnitte, [{ offsetS: 600, widthS: 0 }], fSkala).stops).toEqual([])
     })
 
     it('stopAtFilmS sagt, WO im Halt der Kopf steht', () => {
@@ -972,7 +970,7 @@ describe('Zeitleiste', () => {
       // Die Abfahrt gehört schon zur Weiterfahrt
       expect(stopAtFilmS(achse, 70.1 + 2 * R)).toBeNull()
       // … außer der Film endet im Halt: dann steht der Kopf bis zuletzt darin
-      const amEnde = buildTimelineAxis(abschnitte, [{ offsetS: 1200, breiteS: 8 }], fSkala)
+      const amEnde = buildTimelineAxis(abschnitte, [{ offsetS: 1200, widthS: 8 }], fSkala)
       expect(stopAtFilmS(amEnde, amEnde.curve!.totalS)?.inStopS).toBeCloseTo(8, 6)
       // Ohne Halte gibt es nichts zu melden
       expect(stopAtFilmS(buildTimelineAxis(abschnitte, [], fSkala), 10)).toBeNull()
@@ -981,26 +979,26 @@ describe('Zeitleiste', () => {
     it('ein Halt aus drei Aufnahmen löst sich zu „Aufnahme n von m" auf', () => {
       // Drei Fotos à 5,2 s + 0,8 s Ausblendung = 6 s je Aufnahme, 18 s Halt
       const items = ['m1', 'm2', 'm3'].map((id) => ({ id, durationS: 6 }))
-      const drei = buildTimelineAxis(abschnitte, [{ offsetS: 600, breiteS: 18, items }], fSkala)
+      const drei = buildTimelineAxis(abschnitte, [{ offsetS: 600, widthS: 18, items }], fSkala)
       const halt = drei.stops?.[0]
-      expect(halt?.filmBis! - halt!.filmVon).toBeCloseTo(18, 6)
+      expect(halt?.filmTo! - halt!.filmFrom).toBeCloseTo(18, 6)
 
       // Kopf 8 Filmsekunden nach der Ankunft: zweite Aufnahme, 2 s in ihr drin
-      const mitten = stopAtFilmS(drei, halt!.filmVon + 8)
+      const mitten = stopAtFilmS(drei, halt!.filmFrom + 8)
       expect(mitten?.item).toMatchObject({ no: 2, count: 3, id: 'm2' })
       expect(mitten?.item?.inS).toBeCloseTo(2, 6)
       expect(describeStopState(mitten!)).toBe('Aufnahme 2 von 3 · 2,0 s von 6,0 s')
 
       // Kanten: Ankunft ist die erste, kurz vor der Abfahrt die letzte
-      expect(stopAtFilmS(drei, halt!.filmVon)?.item?.no).toBe(1)
-      expect(stopAtFilmS(drei, halt!.filmVon + 17.9)?.item?.no).toBe(3)
+      expect(stopAtFilmS(drei, halt!.filmFrom)?.item?.no).toBe(1)
+      expect(stopAtFilmS(drei, halt!.filmFrom + 17.9)?.item?.no).toBe(3)
       // Eine einzelne Aufnahme braucht kein Zählwerk („Aufnahme 1 von 1")
       const eine = buildTimelineAxis(
         abschnitte,
-        [{ offsetS: 600, breiteS: 6, items: [{ id: 'm1', durationS: 6 }] }],
+        [{ offsetS: 600, widthS: 6, items: [{ id: 'm1', durationS: 6 }] }],
         fSkala,
       )
-      expect(describeStopState(stopAtFilmS(eine, eine.stops![0]!.filmVon + 2.5)!)).toBe(
+      expect(describeStopState(stopAtFilmS(eine, eine.stops![0]!.filmFrom + 2.5)!)).toBe(
         '2,5 s von 6,0 s',
       )
       // Ohne bekannte Stücke zählt die Zeit im ganzen Halt
@@ -1011,9 +1009,9 @@ describe('Zeitleiste', () => {
       // Der alte Weg rechnete in AUFNAHMEzeit: an einem 6-s-Halt kam man nie
       // vorbei, weil die Rückrechnung immer auf die linke Haltkante fiel.
       const halte = [
-        { offsetS: 300, breiteS: 6 },
-        { offsetS: 600, breiteS: 6 },
-        { offsetS: 900, breiteS: 5.2 },
+        { offsetS: 300, widthS: 6 },
+        { offsetS: 600, widthS: 6 },
+        { offsetS: 900, widthS: 5.2 },
       ]
       const a = buildTimelineAxis(abschnitte, halte, fSkala)
       const besucht = new Set<number>()
@@ -1032,9 +1030,9 @@ describe('Zeitleiste', () => {
       // Zum Vergleich der ALTE Weg (Aufnahmezeit als führende Größe): er bleibt
       // an der Haltkante hängen, ein Schritt bringt keine Filmsekunde Gewinn.
       const kante = a.stops![0]!
-      const zeitImHalt = fractionToOffset(a, filmToFraction(a, kante.filmVon + 3))
+      const zeitImHalt = fractionToOffset(a, filmToFraction(a, kante.filmFrom + 3))
       expect(filmToFraction(a, filmToOffset(a, zeitImHalt))).toBeCloseTo(
-        filmToFraction(a, kante.filmVon),
+        filmToFraction(a, kante.filmFrom),
         6,
       )
     })
@@ -1057,14 +1055,14 @@ describe('Zeitleiste', () => {
       }
       const mitVideo = buildTimelineAxis(
         abschnitte,
-        [{ offsetS: 600, breiteS: video.durationS, items: [video] }],
+        [{ offsetS: 600, widthS: video.durationS, items: [video] }],
         fSkala,
       )
       // 100 s Fahrt + 34,8 s Video statt 100 + 6, dazu die drei Rampen
       expect(mitVideo.curve?.totalS).toBeCloseTo(134.8 + 3 * R, 1)
-      expect(mitVideo.stops?.[0]?.breiteS).toBeCloseTo(34.8, 6)
+      expect(mitVideo.stops?.[0]?.widthS).toBeCloseTo(34.8, 6)
       // … und der Kopf steht mitten im Video, nicht in einer 6-s-Annahme
-      expect(stopAtFilmS(mitVideo, mitVideo.stops![0]!.filmVon + 20)?.item?.inS).toBeCloseTo(20, 6)
+      expect(stopAtFilmS(mitVideo, mitVideo.stops![0]!.filmFrom + 20)?.item?.inS).toBeCloseTo(20, 6)
     })
 
     it('Szenen-Klips: ein Halt ist eine Kette, jede Aufnahme mit eigener Breite', () => {
@@ -1077,8 +1075,8 @@ describe('Zeitleiste', () => {
       const kette = buildTimelineAxis(
         abschnitte,
         [
-          { offsetS: 600, breiteS: 46.8, items },
-          { offsetS: 900, breiteS: 6, items: [{ id: 'm3', durationS: 6 }] },
+          { offsetS: 600, widthS: 46.8, items },
+          { offsetS: 900, widthS: 6, items: [{ id: 'm3', durationS: 6 }] },
         ],
         fSkala,
       )
@@ -1086,10 +1084,10 @@ describe('Zeitleiste', () => {
       expect(klips.map((k) => k.id)).toEqual(['m1', 'v1', 'm2', 'm3'])
       // Lückenlos aneinander, jeder mit seiner eigenen Filmbreite
       const halt = kette.stops![0]!
-      expect(klips[0]!.filmVon).toBeCloseTo(halt.filmVon, 6)
-      expect(klips[0]!.filmBis).toBeCloseTo(klips[1]!.filmVon, 6)
-      expect(klips[1]!.filmBis - klips[1]!.filmVon).toBeCloseTo(34.8, 6)
-      expect(klips[2]!.filmBis).toBeCloseTo(halt.filmBis, 6)
+      expect(klips[0]!.filmFrom).toBeCloseTo(halt.filmFrom, 6)
+      expect(klips[0]!.filmTo).toBeCloseTo(klips[1]!.filmFrom, 6)
+      expect(klips[1]!.filmTo - klips[1]!.filmFrom).toBeCloseTo(34.8, 6)
+      expect(klips[2]!.filmTo).toBeCloseTo(halt.filmTo, 6)
       // Der Platz in der Kette ist der Rückweg zum Halt
       expect(klips.map((k) => [k.stopIndex, k.slot, k.count])).toEqual([
         [0, 0, 3],
@@ -1099,7 +1097,7 @@ describe('Zeitleiste', () => {
       ])
       // Halte ohne bekannte Stücke (Kamera-Momente) haben keine Klips
       expect(
-        buildSceneClips(buildTimelineAxis(abschnitte, [{ offsetS: 600, breiteS: 6 }], fSkala)),
+        buildSceneClips(buildTimelineAxis(abschnitte, [{ offsetS: 600, widthS: 6 }], fSkala)),
       ).toEqual([])
     })
 
@@ -1113,30 +1111,30 @@ describe('Zeitleiste', () => {
         { id: 'm2', durationS: 12 + STOP_FADE_OUT_S },
       ]
       const breite = items.reduce((s2, x) => s2 + x.durationS, 0)
-      const a = buildTimelineAxis(abschnitte, [{ offsetS: 600, breiteS: breite, items }], fSkala)
+      const a = buildTimelineAxis(abschnitte, [{ offsetS: 600, widthS: breite, items }], fSkala)
       for (const k of buildSceneClips(a)) {
         // Kurz vor der rechten Kante läuft die Karte noch …
-        const drin = stopAtFilmS(a, k.filmBis - 0.01)
+        const drin = stopAtFilmS(a, k.filmTo - 0.01)
         expect(drin?.item?.id).toBe(k.id)
-        expect(drin!.item!.durationS).toBeCloseTo(k.filmBis - k.filmVon, 6)
+        expect(drin!.item!.durationS).toBeCloseTo(k.filmTo - k.filmFrom, 6)
         // … und an der Ankunft gehört sie schon dem Klip selbst
-        expect(stopAtFilmS(a, k.filmVon + 0.01)?.item?.id).toBe(k.id)
+        expect(stopAtFilmS(a, k.filmFrom + 0.01)?.item?.id).toBe(k.id)
       }
       // Hinter dem letzten Klip ist die Karte weg — nicht davor
-      expect(stopAtFilmS(a, a.stops![0]!.filmBis)).toBeNull()
+      expect(stopAtFilmS(a, a.stops![0]!.filmTo)).toBeNull()
     })
 
     it('Klip-Zug in der Kette: der Platz entscheidet sich an der MITTE', () => {
       const items = ['a', 'b', 'c'].map((id) => ({ id, durationS: 6 }))
-      const kette = buildTimelineAxis(abschnitte, [{ offsetS: 600, breiteS: 18, items }], fSkala)
+      const kette = buildTimelineAxis(abschnitte, [{ offsetS: 600, widthS: 18, items }], fSkala)
       const halt = kette.stops![0]!
       // Vor der Mitte des ersten Klips: Platz 0, die Marke steht an der Ankunft
-      expect(slotInChain(halt, halt.filmVon + 1)).toEqual({ slot: 0, filmS: halt.filmVon })
+      expect(slotInChain(halt, halt.filmFrom + 1)).toEqual({ slot: 0, filmS: halt.filmFrom })
       // Über die Mitte hinaus rutscht sie eine Fuge weiter
-      expect(slotInChain(halt, halt.filmVon + 4)).toEqual({ slot: 1, filmS: halt.filmVon + 6 })
-      expect(slotInChain(halt, halt.filmVon + 10)).toEqual({ slot: 2, filmS: halt.filmVon + 12 })
+      expect(slotInChain(halt, halt.filmFrom + 4)).toEqual({ slot: 1, filmS: halt.filmFrom + 6 })
+      expect(slotInChain(halt, halt.filmFrom + 10)).toEqual({ slot: 2, filmS: halt.filmFrom + 12 })
       // Ganz hinten: Platz 3 von 3 (die Fuge hinter dem letzten Klip)
-      expect(slotInChain(halt, halt.filmBis)).toEqual({ slot: 3, filmS: halt.filmBis })
+      expect(slotInChain(halt, halt.filmTo)).toEqual({ slot: 3, filmS: halt.filmTo })
 
       // … und daraus wird die neue Reihenfolge. Nach hinten geschoben rückt
       // alles dazwischen um eins vor — ohne das landete a immer zu weit rechts.
@@ -1151,13 +1149,13 @@ describe('Zeitleiste', () => {
 
     it('Andocken: nur das INNERE eines fremden Halts zählt', () => {
       const halt = achse.stops![0]!
-      expect(stopInnerAt(achse, halt.filmVon - 0.1)).toBeNull()
+      expect(stopInnerAt(achse, halt.filmFrom - 0.1)).toBeNull()
       // Die Ankunft gehört noch der Fahrt: dort setzt man eine Aufnahme davor ab
-      expect(stopInnerAt(achse, halt.filmVon)).toBeNull()
-      expect(stopInnerAt(achse, halt.filmVon + 0.1)?.offsetS).toBe(600)
-      expect(stopInnerAt(achse, halt.filmBis - 0.1)?.offsetS).toBe(600)
+      expect(stopInnerAt(achse, halt.filmFrom)).toBeNull()
+      expect(stopInnerAt(achse, halt.filmFrom + 0.1)?.offsetS).toBe(600)
+      expect(stopInnerAt(achse, halt.filmTo - 0.1)?.offsetS).toBe(600)
       // Die Abfahrt ebenso — sonst käme man hinter dem Halt nie zum Stehen
-      expect(stopInnerAt(achse, halt.filmBis)).toBeNull()
+      expect(stopInnerAt(achse, halt.filmTo)).toBeNull()
       expect(stopInnerAt(buildTimelineAxis(abschnitte, [], fSkala), 10)).toBeNull()
     })
 
@@ -1186,7 +1184,7 @@ describe('Zeitleiste', () => {
       // sich beim Ziehen nicht, also ist sie exakt umkehrbar. Erst dadurch darf
       // der Zug live ins Modell schreiben — die Kante steht nach jedem
       // Neuaufbau wieder unter dem Zeiger.
-      const halte = [{ offsetS: 300, breiteS: 12 }]
+      const halte = [{ offsetS: 300, widthS: 12 }]
       const a = buildTimelineAxis(abschnitte, halte, fSkala)
       const kurve = buildBoundaryCurve(
         fahrTrack,
@@ -1265,29 +1263,29 @@ describe('Zeitleiste', () => {
     })
 
     it('Einrasten an Haltkanten: ±0,5 s Aufnahmezeit, „dahinter" strikt danach', () => {
-      const a = buildTimelineAxis(abschnitte, [{ offsetS: 600, breiteS: 20 }], fSkala)
+      const a = buildTimelineAxis(abschnitte, [{ offsetS: 600, widthS: 20 }], fSkala)
       const halte = a.stops!
       const halt = halte[0]!
       // Knapp davor: rastet auf die Halt-Zeit selbst (= vor dem Sprung)
-      expect(snapToStop(halte, 599.7, halt.filmVon - 0.3)).toMatchObject({
+      expect(snapToStop(halte, 599.7, halt.filmFrom - 0.3)).toMatchObject({
         tOffsetS: 600,
         behind: false,
       })
       // Knapp dahinter: STRIKT nach der Haltzeit — ein Epsilon fiele auf
       // dieselbe Sekunde zurück (ISO-Anker sind sekundengenau).
-      expect(snapToStop(halte, 600.3, halt.filmBis + 0.3)).toMatchObject({
+      expect(snapToStop(halte, 600.3, halt.filmTo + 0.3)).toMatchObject({
         tOffsetS: 600 + SNAP_BEHIND_S,
         behind: true,
       })
       // Außerhalb der Toleranz bleibt die Zeit, wie sie ist
-      expect(snapToStop(halte, 597, halt.filmVon - 40)).toEqual({
+      expect(snapToStop(halte, 597, halt.filmFrom - 40)).toEqual({
         tOffsetS: 597,
         stop: null,
         behind: false,
       })
       // MITTEN im Halt gibt es keine Zwischenposition — die Zeigerhälfte entscheidet
-      expect(snapToStop(halte, 600, halt.filmVon + 1).behind).toBe(false)
-      expect(snapToStop(halte, 600, halt.filmBis - 1).behind).toBe(true)
+      expect(snapToStop(halte, 600, halt.filmFrom + 1).behind).toBe(false)
+      expect(snapToStop(halte, 600, halt.filmTo - 1).behind).toBe(true)
     })
 
     it('Mitten in einem Halt gibt es keine Zeit — dort MUSS gerastet werden', () => {
@@ -1297,22 +1295,22 @@ describe('Zeitleiste', () => {
       // um bis zu eine ganze Standzeit (gemessen 5,4 s / 17,6 px); genau
       // deshalb ist das Einrasten hier keine Bequemlichkeit, sondern die
       // einzige Art, in einem Halt überhaupt eine Position zu benennen.
-      const a = buildTimelineAxis(abschnitte, [{ offsetS: 600, breiteS: 12 }], fSkala)
+      const a = buildTimelineAxis(abschnitte, [{ offsetS: 600, widthS: 12 }], fSkala)
       const halte = a.stops!
       const halt = halte[0]!
-      const mitten = halt.filmVon + 6
+      const mitten = halt.filmFrom + 6
 
       // Roh: nicht umkehrbar
       const roh = fractionToOffset(a, filmToFraction(a, mitten))
-      expect(filmToOffset(a, roh)).toBeCloseTo(halt.filmVon, 6)
+      expect(filmToOffset(a, roh)).toBeCloseTo(halt.filmFrom, 6)
       // Gerastet: die rechte Flanke, und die ist umkehrbar
       const kur = snapToStop(halte, roh, mitten)
       expect(kur.behind).toBe(true)
       expect(kur.tOffsetS).toBe(600 + SNAP_BEHIND_S)
-      expect(filmToOffset(a, kur.tOffsetS)).toBeGreaterThanOrEqual(halt.filmBis)
+      expect(filmToOffset(a, kur.tOffsetS)).toBeGreaterThanOrEqual(halt.filmTo)
 
       // Außerhalb jedes Halts bleibt die Zeit unangetastet — der Fixpunkt
-      const frei = halt.filmVon - 20
+      const frei = halt.filmFrom - 20
       const freiT = fractionToOffset(a, filmToFraction(a, frei))
       expect(snapToStop(halte, freiT, frei).tOffsetS).toBeCloseTo(freiT, 6)
       expect(filmToOffset(a, freiT)).toBeCloseTo(frei, 6)
@@ -1340,7 +1338,7 @@ describe('Zeitleiste', () => {
     // fährt — klemmen → rasten → schreiben → Achse NEU bauen — und messen am
     // Ende dort, wo der Nutzer hinsieht: an der fertigen Leiste.
     describe('Kantenzug: wo die Grenze landet', () => {
-      const halte = [{ offsetS: 600, breiteS: 20 }]
+      const halte = [{ offsetS: 600, widthS: 20 }]
       /** Achse aus einem Overlay — genau das, was der Editor je Frame neu baut. */
       const achseVon = (edits: EditOverlay): TimelineAxis =>
         buildTimelineAxis(
@@ -1500,16 +1498,16 @@ describe('Zeitleiste', () => {
           RAMP_M / tempoMs('walk') +
           RAMP_M / tempoMs('bike') +
           modusRampeS(tempoMs('walk'), tempoMs('bike'))
-        expect(halt.filmVon).toBeCloseTo(bis, 6) // rechts der Kante
-        expect(halt.filmBis).toBeCloseTo(bis + 20, 6)
+        expect(halt.filmFrom).toBeCloseTo(bis, 6) // rechts der Kante
+        expect(halt.filmTo).toBeCloseTo(bis + 20, 6)
 
-        const f = ziehFrame(start, iso(288), halt.filmVon + 10, zug, 10)
+        const f = ziehFrame(start, iso(288), halt.filmFrom + 10, zug, 10)
         expect(f.gerastet).toBe(true)
         expect(isoToOffset(START, f.from)).toBe(600 + SNAP_BEHIND_S)
         // Der Halt ist mitgewandert (mehr Fußweg davor) — die Kante steht
         // dahinter, nicht mehr auf dem angepeilten Pixel.
         // Alles bis zum Halt ist jetzt Fußweg: 6000 m plus Anfahrt und Bremsen.
-        expect(achseVon(f.edits).stops![0]!.filmVon).toBeCloseTo(
+        expect(achseVon(f.edits).stops![0]!.filmFrom).toBeCloseTo(
           6000 / tempoMs('walk') + (2 * RAMP_M) / tempoMs('walk'),
           6,
         )
@@ -1518,9 +1516,9 @@ describe('Zeitleiste', () => {
         // liegt jetzt links des Halts, also gilt wieder der Fixpunkt. Es
         // pendelt nicht — ein Halt liegt in ruhiger Lage stets RECHTS der
         // Kante, ein Dauerflackern ist damit ausgeschlossen.
-        const f2 = ziehFrame(f.edits, f.from, halt.filmVon + 10, zug, 10)
+        const f2 = ziehFrame(f.edits, f.from, halt.filmFrom + 10, zug, 10)
         expect(f2.gerastet).toBe(false)
-        expect(Math.abs(landung(f2.edits, f2.from) - (halt.filmVon + 10))).toBeLessThan(
+        expect(Math.abs(landung(f2.edits, f2.from) - (halt.filmFrom + 10))).toBeLessThan(
           RUNDUNG_WALK_S + 0.01,
         )
       })
@@ -1550,24 +1548,22 @@ describe('Zeitleiste', () => {
 
         // Vordere Hälfte des Halts → die Grenze landet VOR ihm: er läuft
         // vollständig im neuen Zustand ab.
-        const vorne = ziehFrame(start, iso(300), halt.filmVon + 1, zug, 10)
+        const vorne = ziehFrame(start, iso(300), halt.filmFrom + 1, zug, 10)
         expect(vorne).toMatchObject({ gerastet: true, behind: false })
         expect(isoToOffset(START, vorne.from)).toBe(600)
         const aVorne = achseVon(vorne.edits)
-        expect(landung(vorne.edits, vorne.from)).toBeCloseTo(aVorne.stops![0]!.filmVon, 6)
+        expect(landung(vorne.edits, vorne.from)).toBeCloseTo(aVorne.stops![0]!.filmFrom, 6)
 
         // Hintere Hälfte → dahinter, und zwar eine GANZE Sekunde: ein Epsilon
         // fiele durch die Sekundenrundung des Ankers wieder davor.
-        const hinten = ziehFrame(start, iso(300), halt.filmBis - 1, zug, 10)
+        const hinten = ziehFrame(start, iso(300), halt.filmTo - 1, zug, 10)
         expect(hinten).toMatchObject({ gerastet: true, behind: true })
         expect(isoToOffset(START, hinten.from)).toBe(600 + SNAP_BEHIND_S)
         const aHinten = achseVon(hinten.edits)
-        expect(landung(hinten.edits, hinten.from)).toBeGreaterThanOrEqual(
-          aHinten.stops![0]!.filmBis,
-        )
+        expect(landung(hinten.edits, hinten.from)).toBeGreaterThanOrEqual(aHinten.stops![0]!.filmTo)
 
         // Der Halt bleibt dabei ein Halt — er wird nicht zerschnitten
-        expect(aHinten.stops![0]!.filmBis - aHinten.stops![0]!.filmVon).toBeCloseTo(20, 6)
+        expect(aHinten.stops![0]!.filmTo - aHinten.stops![0]!.filmFrom).toBeCloseTo(20, 6)
       })
 
       it('(c) zwei Grenzen können nicht unter die Mindestbreite zusammenrücken', () => {
@@ -1611,7 +1607,7 @@ describe('Zeitleiste', () => {
         { mode: 'bike' as const, active: true, pts: [fahrTrack[0]!, fahrTrack[1]!] },
         { mode: 'bike' as const, active: false, pts: [fahrTrack[1]!, fahrTrack[2]!] },
       ]
-      const a2 = buildTimelineAxis(mitTrim, [{ offsetS: 300, breiteS: 20 }], fSkala)
+      const a2 = buildTimelineAxis(mitTrim, [{ offsetS: 300, widthS: 20 }], fSkala)
       const spiel = buildPlaybackCurve(a2, mitTrim)
       // Erster Abschnitt (50 s Fahrt + 20 s Halt + drei Rampen) spielt, der
       // getrimmte nicht
@@ -1730,7 +1726,7 @@ describe('Zeitleiste', () => {
     ]
     const achse = buildTimelineAxis(
       [{ mode: 'bike', active: true, pts: track2 }],
-      [{ offsetS: 600, breiteS: 20 }],
+      [{ offsetS: 600, widthS: 20 }],
       buildScale(track2)!,
     )
     const gesamtS = achse.curve!.totalS // 120 s + drei Rampen à 1 s

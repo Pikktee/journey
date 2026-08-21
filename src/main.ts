@@ -438,7 +438,7 @@ const routeAtRaw = (raw: number) => interpolate(rawCum, route.wpS, raw)
  * nichts mehr; es gilt, was das Tour-JSON sagt, und ohne Angabe die
  * Foto-Annahme, die auch das Studio trifft.
  */
-const axisStops: Array<DistanceStop & Omit<EngineStop, 'filmVon' | 'filmBis'>> = [
+const axisStops: Array<DistanceStop & Omit<EngineStop, 'filmFrom' | 'filmTo'>> = [
   ...stops.map((stop) => {
     let from = 0
     const pieces = stop.items.map((m) => {
@@ -447,11 +447,11 @@ const axisStops: Array<DistanceStop & Omit<EngineStop, 'filmVon' | 'filmBis'>> =
       from += clipDurationS(stopHoldS)
       return piece
     })
-    return { meterM: rawAtRoute(stop.s), breiteS: from, stop: stop, moment: null, pieces }
+    return { meterM: rawAtRoute(stop.s), widthS: from, stop: stop, moment: null, pieces }
   }),
   ...moments.map((m) => ({
     meterM: rawAtRoute(m.s),
-    breiteS: momentHoldS(m),
+    widthS: momentHoldS(m),
     stop: null,
     moment: m,
     pieces: [],

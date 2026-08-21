@@ -75,8 +75,8 @@ export interface TravelModeBoundary {
  * anderen Maß weiterschaltet als die Achse gebaut ist.
  */
 export interface EngineStop {
-  filmVon: number
-  filmBis: number
+  filmFrom: number
+  filmTo: number
   stop: PlayerStop | null
   moment: CameraMoment | null
   /** Je Aufnahme: Filmsekunde ab Haltbeginn und ihre STANDzeit (ohne Ausblendung) */
@@ -694,7 +694,7 @@ export class Tour {
     const items = stop?.stop?.items
     const speed = this.displaySpeed
     if (!stop || !items?.length || Math.abs(speed) > 1) return this.clearCard()
-    const inStop = this.filmS - stop.filmVon
+    const inStop = this.filmS - stop.filmFrom
     let idx = 0
     for (let i = items.length - 1; i >= 0; i--) {
       if (inStop >= (stop.pieces[i]?.atS ?? 0)) {
@@ -1108,7 +1108,7 @@ export class Tour {
       this.clearCard()
       const m = stop.moment
       const p = pointAt(route, this.s)
-      const inStop = this.filmS - stop.filmVon
+      const inStop = this.filmS - stop.filmFrom
       if (wasPhase !== 'moment') {
         // Orbit-Azimut nahtlos aus der aktuellen Kameralage übernehmen
         this.orbitA = bearing([p[0], p[1]], [this.cg.lng.v, this.cg.lat.v])
@@ -1126,7 +1126,7 @@ export class Tour {
         )
       } else if (m.kind === 'aufstieg') {
         // Kamera-Bodenpunkt halten, Flughöhe + Blick über die Dauer anheben
-        const t = Math.min(1, inStop / Math.max(0.001, stop.filmBis - stop.filmVon))
+        const t = Math.min(1, inStop / Math.max(0.001, stop.filmTo - stop.filmFrom))
         const ease = t * t * (3 - 2 * t)
         const riderG = this.groundAlt([p[0], p[1]], p[2])
         const targetAlt =

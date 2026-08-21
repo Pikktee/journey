@@ -35,7 +35,7 @@ interface Case {
   name: string
   segments: Array<{ fromM: number; mode: string }>
   totalM: number
-  stops: Array<{ meterM: number; breiteS: number }>
+  stops: Array<{ meterM: number; widthS: number }>
   rampM: number
   totalS: number
   filmTimeAtDistance: Array<[number, number]>
@@ -92,15 +92,15 @@ describe('Filmachse', () => {
   // und der Test sagte nicht mehr, worüber er redet. Die Rampe selbst hat ihre
   // eigenen Fälle im Fixture.
   const walk960 = () =>
-    buildFilmAxis([{ fromM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 6 }], { rampM: 0 })
+    buildFilmAxis([{ fromM: 0, mode: 'walk' }], 960, [{ meterM: 480, widthS: 6 }], { rampM: 0 })
   /** Filmsekunden für 480 m zu Fuß — aus der Tabelle, nicht als Zahl im Test. */
   const halbeStrecke = 480 / tempoMs('walk')
 
   it('gibt einem Halt seine Filmsekunden — die Strecke hat dort keine Ausdehnung', () => {
     const achse = walk960()
     expect(achse.stops).toHaveLength(1)
-    expect(achse.stops[0]?.filmVon).toBeCloseTo(halbeStrecke, 6)
-    expect(achse.stops[0]?.filmBis).toBeCloseTo(halbeStrecke + 6, 6)
+    expect(achse.stops[0]?.filmFrom).toBeCloseTo(halbeStrecke, 6)
+    expect(achse.stops[0]?.filmTo).toBeCloseTo(halbeStrecke + 6, 6)
     // Genau das kann die reine Strecke NICHT: drei Filmsekunden, ein Meterwert.
     const drin = [0.5, 2, 5].map((f) => distanceAtFilmTime(achse, halbeStrecke + f))
     expect(new Set(drin).size).toBe(1)
@@ -109,13 +109,13 @@ describe('Filmachse', () => {
   it('sagt, ob eine Filmsekunde in einem Halt steht — Ankunft ja, Abfahrt nein', () => {
     const achse = walk960()
     expect(stopAtFilmTime(achse, halbeStrecke - 0.1)).toBeNull()
-    expect(stopAtFilmTime(achse, halbeStrecke)?.breiteS).toBe(6)
-    expect(stopAtFilmTime(achse, halbeStrecke + 5.9)?.breiteS).toBe(6)
+    expect(stopAtFilmTime(achse, halbeStrecke)?.widthS).toBe(6)
+    expect(stopAtFilmTime(achse, halbeStrecke + 5.9)?.widthS).toBe(6)
     expect(stopAtFilmTime(achse, halbeStrecke + 6)).toBeNull() // dort läuft die Fahrt schon wieder
   })
 
   it('überspringt Halte ohne Breite, statt sie als Stufe einzuweben', () => {
-    const achse = buildFilmAxis([{ fromM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 0 }], {
+    const achse = buildFilmAxis([{ fromM: 0, mode: 'walk' }], 960, [{ meterM: 480, widthS: 0 }], {
       rampM: 0,
     })
     expect(achse.stops).toEqual([])
@@ -126,11 +126,11 @@ describe('Filmachse', () => {
     // Ein Anker kann hinter dem Tour-Ende landen (Trim, Projektionsfehler). Die
     // Standzeit gehört dann ans Ende — nicht in eine Achse, die dort schon
     // vorbei ist.
-    const achse = buildFilmAxis([{ fromM: 0, mode: 'walk' }], 960, [{ meterM: 5000, breiteS: 6 }], {
+    const achse = buildFilmAxis([{ fromM: 0, mode: 'walk' }], 960, [{ meterM: 5000, widthS: 6 }], {
       rampM: 0,
     })
     expect(achse.totalS).toBeCloseTo(2 * halbeStrecke + 6, 6)
-    expect(achse.stops[0]?.filmVon).toBeCloseTo(2 * halbeStrecke, 6)
+    expect(achse.stops[0]?.filmFrom).toBeCloseTo(2 * halbeStrecke, 6)
   })
 
   it('hält die lower_bound-Konvention „Plateau → Ankunft"', () => {
@@ -186,12 +186,12 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
 
   /** Die Achse des PLAYERS (main.ts baut sie genauso). */
   const spieler = buildFilmAxis([{ fromM: 0, mode: 'walk' }], METER, [
-    { meterM: HALT_M, breiteS: HALT_S },
+    { meterM: HALT_M, widthS: HALT_S },
   ])
   /** Die Achse des EDITORS samt Spielkurve (timeline.ts). */
   const editor = buildTimelineAxis(
     [{ mode: 'walk', active: true, pts: track }],
-    [{ offsetS: HALT_M, breiteS: HALT_S }],
+    [{ offsetS: HALT_M, widthS: HALT_S }],
     {
       fromS: 0,
       toS: METER,

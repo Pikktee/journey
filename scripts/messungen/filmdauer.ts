@@ -74,7 +74,7 @@ for (const id of readdirSync(WURZEL)) {
   const halte: DistanceStop[] = [
     ...stopps.map((h) => ({
       meterM: rohBeiS(h.s),
-      breiteS: h.items.reduce(
+      widthS: h.items.reduce(
         (summe, it) =>
           summe +
           holdS({
@@ -87,7 +87,7 @@ for (const id of readdirSync(WURZEL)) {
     })),
     ...((tour.moments ?? []) as Array<{ f: number; art: string; dauerS?: number }>).map((mo) => ({
       meterM: rohGesamt * mo.f,
-      breiteS: momentHoldS(mo),
+      widthS: momentHoldS(mo),
     })),
   ]
   touren.push({ id, grenzen, gesamtM: rohGesamt, halte })

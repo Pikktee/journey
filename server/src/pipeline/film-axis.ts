@@ -28,7 +28,7 @@ import type { TimeSeries } from './time.js'
 /** Ein Halt auf der Achse: wann er beginnt (Aufnahmezeit) und was er im Film kostet. */
 export interface AxisStop {
   offsetS: number
-  breiteS: number
+  widthS: number
 }
 
 /**
@@ -163,7 +163,7 @@ export function buildFilmAxis(
   // der Film beschleunigt auf voller Höhe, um sofort wieder zu stehen (an
   // Stockholm gemessen: Grenze zu Fuß → Fähre 13 m vor einem Halt).
   const halteOrte = [...halte]
-    .filter((h) => h.breiteS > 0)
+    .filter((h) => h.widthS > 0)
     .map((h) => Math.max(0, Math.min(gesamtM, interpoliere(tS, mM, h.offsetS))))
     .sort((a, b) => a - b)
   if (rampeM > 0 && halteOrte.length > 0 && stufen.length > 1) {
@@ -218,7 +218,7 @@ export function buildFilmAxis(
   knotenAn(0)
   knotenAn(gesamtM)
   for (const st of stufen.slice(1)) if (st.abM > 0 && st.abM < gesamtM) knotenAn(st.abM)
-  for (const h of [...halte].filter((x) => x.breiteS > 0).sort((a, b) => a.offsetS - b.offsetS)) {
+  for (const h of [...halte].filter((x) => x.widthS > 0).sort((a, b) => a.offsetS - b.offsetS)) {
     knotenAn(Math.max(0, Math.min(gesamtM, interpoliere(tS, mM, h.offsetS)))).halte.push(h)
   }
   knoten.sort((a, b) => a.ort - b.ort)
@@ -293,8 +293,8 @@ export function buildFilmAxis(
       for (const h of k.halte) {
         setze(k.ort, film)
         sM.push(k.ort)
-        filmS.push(film + h.breiteS)
-        film += h.breiteS
+        filmS.push(film + h.widthS)
+        film += h.widthS
       }
       pos = k.ort
       rampe(k.ort, k.lenR, 0, k.vRechts)
@@ -393,20 +393,20 @@ export function buildAxisStops(
   naheM = NEAR_M,
 ): AxisStop[] {
   const sortiert = [...medien].sort((a, b) => a.meter - b.meter)
-  const gruppen: Array<{ anfangM: number; offsets: number[]; breiteS: number }> = []
+  const gruppen: Array<{ anfangM: number; offsets: number[]; widthS: number }> = []
   for (const m of sortiert) {
     const letzte = gruppen[gruppen.length - 1]
     const dauer = mediumHoldS(m) + STOP_FADE_OUT_S
     if (letzte && m.meter - letzte.anfangM < naheM) {
       letzte.offsets.push(m.offsetS)
-      letzte.breiteS += dauer
+      letzte.widthS += dauer
     } else {
-      gruppen.push({ anfangM: m.meter, offsets: [m.offsetS], breiteS: dauer })
+      gruppen.push({ anfangM: m.meter, offsets: [m.offsetS], widthS: dauer })
     }
   }
   return gruppen.map((g) => ({
     offsetS: g.offsets.reduce((s, v) => s + v, 0) / g.offsets.length,
-    breiteS: g.breiteS,
+    widthS: g.widthS,
   }))
 }
 
@@ -433,5 +433,5 @@ export function buildMomentStops(
     dauerS?: number | undefined
   }>,
 ): AxisStop[] {
-  return momente.map((m) => ({ offsetS: m.offsetS, breiteS: momentHoldS(m) }))
+  return momente.map((m) => ({ offsetS: m.offsetS, widthS: momentHoldS(m) }))
 }

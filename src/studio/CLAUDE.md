@@ -453,7 +453,7 @@ ABGELEITET, nie umgekehrt. Der Grund ist die Umkehrbarkeit: In Aufnahmezeit gibt
 Wert für „mitten im Halt" (zwei Stützstellen auf derselben Sekunde), jede Rückrechnung fällt
 auf die linke Haltkante. Genau daran klebte der Kopf — 28 von 39 Frames Stillstand, und mit
 Pfeiltasten (5 Filmsekunden) kam man an einem 6-s-Halt NIE vorbei. Deshalb gibt `buildTimelineAxis`
-die Halte als **Intervalle** zurück (`filmVon`/`filmBis`, dazu `items` je Aufnahme und
+die Halte als **Intervalle** zurück (`filmFrom`/`filmTo`, dazu `items` je Aufnahme und
 `indices` als Rückweg zum Stopp), und `stopAtFilmS` beantwortet „steht der Kopf in einem
 Halt, und wo darin?" (`describeStopState`: „Aufnahme 2 von 3 · 2,1 s von 6,0 s") — die
 Grundlage der Klip-Kette aus Etappe 2. **In der Kopfleiste steht diese Auskunft NICHT**: Eine

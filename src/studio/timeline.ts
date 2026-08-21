@@ -812,7 +812,7 @@ export interface StopItem {
 /** Ein Halt für die Achse: wo er liegt und wie viel Filmzeit er kostet. */
 export interface AxisStop {
   offsetS: number
-  breiteS: number
+  widthS: number
   /**
    * Was für ein Halt das ist (im Editor: Aufnahmen oder Kamera-Moment). Für die
    * Achse sind alle Halte gleich — sie kosten Filmzeit und kosten keine
@@ -851,8 +851,8 @@ export interface AxisStopM extends AxisStop {
 
 /** Ein eingewebter Halt: dazu, wo er im FILM liegt. */
 export interface StopInterval extends AxisStopM {
-  filmVon: number
-  filmBis: number
+  filmFrom: number
+  filmTo: number
 }
 
 /** Wo der Kopf in einem Halt steht — die Auskunft für die Statuszeile. */
@@ -879,7 +879,7 @@ export interface StopState {
 /**
  * Steht die Filmsekunde `filmS` in einem Halt — und wo darin?
  *
- * Die Ankunft (`filmVon`) zählt dazu, die Abfahrt (`filmBis`) nicht: dort läuft
+ * Die Ankunft (`filmFrom`) zählt dazu, die Abfahrt (`filmTo`) nicht: dort läuft
  * die Fahrt schon wieder. Ausnahme ist das Ende der Achse — endet der Film in
  * einem Halt, steht der Kopf dort bis zur letzten Sekunde in ihm und nicht im
  * Nichts dahinter.
@@ -889,15 +889,15 @@ export function stopAtFilmS(axis: TimelineAxis, filmS: number): StopState | null
   if (!stops?.length) return null
   const end = axis.curve?.totalS ?? 0
   for (const [index, stop] of stops.entries()) {
-    if (filmS < stop.filmVon) return null // Halte sind sortiert — ab hier kommt nur Späteres
+    if (filmS < stop.filmFrom) return null // Halte sind sortiert — ab hier kommt nur Späteres
     // Toleranz gegen die Rundung der Achsen-Summe: der letzte Halt endet
     // rechnerisch selten exakt auf `totalS`.
-    const atEnd = stop.filmBis >= end - 1e-6
-    const inside = filmS < stop.filmBis || (atEnd && filmS <= end + 1e-6)
+    const atEnd = stop.filmTo >= end - 1e-6
+    const inside = filmS < stop.filmTo || (atEnd && filmS <= end + 1e-6)
     if (inside) {
-      const inStopS = Math.min(Math.max(filmS - stop.filmVon, 0), stop.breiteS)
+      const inStopS = Math.min(Math.max(filmS - stop.filmFrom, 0), stop.widthS)
       const item = itemAt(stop.items, inStopS)
-      return { index, stop, inStopS, remainingS: stop.breiteS - inStopS, ...(item ? { item } : {}) }
+      return { index, stop, inStopS, remainingS: stop.widthS - inStopS, ...(item ? { item } : {}) }
     }
   }
   return null
@@ -939,8 +939,8 @@ export interface SceneClip {
   /** Platz in der Kette (0-basiert) und deren Länge */
   slot: number
   count: number
-  filmVon: number
-  filmBis: number
+  filmFrom: number
+  filmTo: number
 }
 
 /**
@@ -953,15 +953,15 @@ export function buildSceneClips(axis: TimelineAxis): SceneClip[] {
   for (const [stopIndex, stop] of (axis.stops ?? []).entries()) {
     const items = stop.items
     if (!items?.length) continue
-    let film = stop.filmVon
+    let film = stop.filmFrom
     for (const [slot, s] of items.entries()) {
       clips.push({
         id: s.id,
         stopIndex,
         slot,
         count: items.length,
-        filmVon: film,
-        filmBis: film + s.durationS,
+        filmFrom: film,
+        filmTo: film + s.durationS,
       })
       film += s.durationS
     }
@@ -984,7 +984,7 @@ export interface ChainSlot {
  * schon ganz überfahren hat.
  */
 export function slotInChain(stop: StopInterval, filmS: number): ChainSlot {
-  let gap = stop.filmVon
+  let gap = stop.filmFrom
   let slot = 0
   for (const s of stop.items ?? []) {
     if (filmS < gap + s.durationS / 2) break
@@ -1019,8 +1019,8 @@ export function moveToSlot(ids: readonly string[], id: string, slot: number): st
  */
 export function stopInnerAt(axis: TimelineAxis, filmS: number): StopInterval | null {
   for (const stop of axis.stops ?? []) {
-    if (filmS <= stop.filmVon) break // Halte sind sortiert
-    if (filmS < stop.filmBis) return stop
+    if (filmS <= stop.filmFrom) break // Halte sind sortiert
+    if (filmS < stop.filmTo) return stop
   }
   return null
 }
@@ -1077,7 +1077,7 @@ export function formatSeconds(seconds: number): string {
  */
 export function describeStopState(state: StopState): string {
   const s = state.item
-  if (!s) return `${secondsText(state.inStopS)} s von ${secondsText(state.stop.breiteS)} s`
+  if (!s) return `${secondsText(state.inStopS)} s von ${secondsText(state.stop.widthS)} s`
   const time = `${secondsText(s.inS)} s von ${secondsText(s.durationS)} s`
   return s.count > 1 ? `Aufnahme ${s.no} von ${s.count} · ${time}` : time
 }
@@ -1354,7 +1354,7 @@ export function snapToStop(
   let hit: StopInterval | null = null
   let bestDelta = Infinity
   for (const h of stops) {
-    const inside = filmS > h.filmVon && filmS < h.filmBis
+    const inside = filmS > h.filmFrom && filmS < h.filmTo
     const from = Math.abs(h.offsetS - tOffsetS)
     if (!inside && from > SNAP_TOLERANCE_S) continue
     if (inside || from < bestDelta) {
@@ -1363,7 +1363,7 @@ export function snapToStop(
     }
   }
   if (!hit) return { tOffsetS, stop: null, behind: false }
-  const behind = filmS >= (hit.filmVon + hit.filmBis) / 2
+  const behind = filmS >= (hit.filmFrom + hit.filmTo) / 2
   return { tOffsetS: hit.offsetS + (behind ? SNAP_BEHIND_S : 0), stop: hit, behind }
 }
 

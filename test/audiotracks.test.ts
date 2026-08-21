@@ -84,7 +84,7 @@ describe('Equal-Power-Crossfade (Video ↔ Musik)', () => {
   })
 })
 
-describe('istAktiv (Musik-Bereich [filmVonS, filmBisS))', () => {
+describe('istAktiv (Musik-Bereich [filmFromS, filmToS))', () => {
   // Gerechnet wird in FILMSEKUNDEN (E10): Ein Bereich, der ganz in einer
   // Standzeit liegt, hat dort eine Länge — im Streckenanteil hätte er keine.
   const spur = { filmFromS: 20, filmToS: 60 }
