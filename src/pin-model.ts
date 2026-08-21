@@ -4,29 +4,27 @@
 // hier. Dieselbe Arbeitsteilung wie im Studio (edit-model.ts / editor.ts).
 
 /** Fortschritts-Zustand eines Foto-Stopps — Sprache der Timeline und der 2D-Layer. */
-export type PinZustand = 'kommend' | 'naechster' | 'besucht'
+export type PinState = 'kommend' | 'naechster' | 'besucht'
 
 /** Fenster der Detailstufe: wie viele Stopps vor/hinter dem nächsten voll dargestellt werden. */
-export interface Fenster {
-  vor: number
-  zurueck: number
+export interface PinWindow {
+  ahead: number
+  behind: number
 }
 
 /**
  * „Besucht" ab ERREICHEN mit kleinem Vorlauf (Default 20 m), damit es mit dem Einblenden
  * der Foto-Karte zusammenfällt. Erwartet aufsteigend sortierte Streckenmeter.
  */
-export function naechsterIndex(sWerte: readonly number[], s: number, vorlauf = 20): number {
-  const i = sWerte.findIndex((wert) => wert > s + vorlauf)
-  return i === -1 ? sWerte.length : i // alles besucht → hinter dem letzten Stopp
+export function nextIndex(sValues: readonly number[], s: number, lead = 20): number {
+  const i = sValues.findIndex((value) => value > s + lead)
+  return i === -1 ? sValues.length : i // alles besucht → hinter dem letzten Stopp
 }
 
 /** Zustand je Stopp: alles bis `s` besucht, der erste offene ist der nächste. */
-export function zustaende(sWerte: readonly number[], s: number, vorlauf = 20): PinZustand[] {
-  const naechster = naechsterIndex(sWerte, s, vorlauf)
-  return sWerte.map((_, i) =>
-    i < naechster ? 'besucht' : i === naechster ? 'naechster' : 'kommend',
-  )
+export function pinStates(sValues: readonly number[], s: number, lead = 20): PinState[] {
+  const next = nextIndex(sValues, s, lead)
+  return sValues.map((_, i) => (i < next ? 'besucht' : i === next ? 'naechster' : 'kommend'))
 }
 
 /**
@@ -35,12 +33,12 @@ export function zustaende(sWerte: readonly number[], s: number, vorlauf = 20): P
  * das Querformat mit vier Pins doppelt so viel CPU wie das Hochformat mit einem) und hält
  * das Bild ruhig (fünf Masten auf 390 px Breite sind ein Zaun).
  */
-export function stufenZiele(anzahl: number, naechsterIdx: number, fenster: Fenster): number[] {
-  const ziele: number[] = []
-  for (let i = 0; i < anzahl; i++) {
-    ziele.push(i >= naechsterIdx - fenster.zurueck && i < naechsterIdx + fenster.vor ? 1 : 0)
+export function detailTargets(count: number, nextIdx: number, pinWindow: PinWindow): number[] {
+  const targets: number[] = []
+  for (let i = 0; i < count; i++) {
+    targets.push(i >= nextIdx - pinWindow.behind && i < nextIdx + pinWindow.ahead ? 1 : 0)
   }
-  return ziele
+  return targets
 }
 
 /**
@@ -48,10 +46,10 @@ export function stufenZiele(anzahl: number, naechsterIdx: number, fenster: Fenst
  * Rastet am Ziel ein, damit `stufe === ziel` als „fertig" abfragbar bleibt und die
  * Repaint-Anforderung endet.
  */
-export function blendeSchritt(stufe: number, ziel: number, rate: number): number {
-  if (stufe === ziel) return ziel
-  const naechste = stufe + (ziel - stufe) * rate
-  return Math.abs(ziel - naechste) < 0.004 ? ziel : naechste
+export function fadeStep(level: number, target: number, rate: number): number {
+  if (level === target) return target
+  const stepped = level + (target - level) * rate
+  return Math.abs(target - stepped) < 0.004 ? target : stepped
 }
 
 /**
@@ -62,20 +60,20 @@ export function blendeSchritt(stufe: number, ziel: number, rate: number): number
  * Bild sprengt.
  *
  * @param px         Sollmaß in CSS-Pixeln bei Referenzdistanz
- * @param pxProM     Pixel je Meter am Fußpunkt (aus der Projektionsmatrix gemessen)
+ * @param pxPerM     Pixel je Meter am Fußpunkt (aus der Projektionsmatrix gemessen)
  * @param pxRef      Pixel je Meter bei der Referenzdistanz
- * @param perspektive 1 = bildschirmstabil, 0 = echte Weltgröße
+ * @param perspective 1 = bildschirmstabil, 0 = echte Weltgröße
  */
-export function weltGroesse(
+export function worldSize(
   px: number,
-  pxProM: number,
+  pxPerM: number,
   pxRef: number,
-  perspektive: number,
+  perspective: number,
   pxMin: number,
   pxMax: number,
 ): number {
-  const g = Math.pow(px / pxProM, perspektive) * Math.pow(px / pxRef, 1 - perspektive)
-  return Math.min(px * pxMax, Math.max(px * pxMin, g * pxProM)) / pxProM
+  const g = Math.pow(px / pxPerM, perspective) * Math.pow(px / pxRef, 1 - perspective)
+  return Math.min(px * pxMax, Math.max(px * pxMin, g * pxPerM)) / pxPerM
 }
 
 /**
@@ -83,6 +81,6 @@ export function weltGroesse(
  * halbem Kopf hereinragen darf. Three cullt hier nicht selbst — die Kamera trägt nur die
  * Projektionsmatrix von MapLibre, kein Frustum.
  */
-export function imBild(x: number, y: number, w: number, rand = 1.25, randY = 1.6): boolean {
-  return w > 0 && Math.abs(x) < rand && y > -randY && y < randY
+export function inView(x: number, y: number, w: number, margin = 1.25, marginY = 1.6): boolean {
+  return w > 0 && Math.abs(x) < margin && y > -marginY && y < marginY
 }

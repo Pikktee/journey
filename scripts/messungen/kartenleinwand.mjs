@@ -40,15 +40,15 @@ const seite = await kontext.newPage()
 seite.on('pageerror', (e) => console.log(`  ! Seitenfehler: ${e.message}`))
 
 await seite.goto(`${BASIS}/tour/${TOUR}`, { waitUntil: 'domcontentloaded' })
-await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 60000 })
+await seite.waitForFunction(() => window.__maptale?.tour, null, { timeout: 60000 })
 await seite.evaluate(() => document.getElementById('btn-start').click())
 
 // In den ersten Foto-Halt, und zwar auf eine Filmsekunde NACH dem Entwickeln:
 // Dort gilt der harte Vergleich (Etappe 2, „Zwei Zeitfenster, zwei Maßstäbe").
 const halt = await seite.evaluate(() => {
-  const a = window.__j.filmachse
-  const h = a.halte.find((x) => x.stopp)
-  return h ? { von: h.filmVon, bis: h.filmBis, gesamt: a.gesamtS } : null
+  const a = window.__maptale.filmAxis
+  const h = a.stops.find((x) => x.stop)
+  return h ? { von: h.filmVon, bis: h.filmBis, gesamt: a.totalS } : null
 })
 if (!halt) {
   console.log('✗ kein Foto-Halt in der Achse — nichts zu messen')
@@ -65,19 +65,19 @@ if (!halt) {
 // Vergleich auf einer stehenden Filmsekunde rechnet.
 await seite.evaluate((h) => {
   document.body.classList.add('ui-clean')
-  window.__j.tour.setPlaying(true)
-  window.__j.tour.seek((h.von + 3) / h.gesamt)
+  window.__maptale.tour.setPlaying(true)
+  window.__maptale.tour.seek((h.von + 3) / h.gesamt)
 }, halt)
 await seite.waitForTimeout(900)
-await seite.evaluate(() => window.__j.tour.setPlaying(false))
+await seite.evaluate(() => window.__maptale.tour.setPlaying(false))
 await seite.waitForTimeout(200)
 
 const stand = await seite.evaluate(() => {
-  const t = window.__j.tour
+  const t = window.__maptale.tour
   return {
     filmS: t.filmS,
-    liegt: !!document.getElementById('karte'),
-    hatStand: !!window.__j.kartenStand(),
+    liegt: !!document.getElementById('card'),
+    hatStand: !!window.__maptale.cardState(),
   }
 })
 if (!stand.liegt || !stand.hatStand) {
@@ -106,55 +106,57 @@ let fehler = 0
 // — 1. Bildvergleich Bühne gegen Film, gleiches Format —
 if (NUR === 'alles' || NUR === 'bild') {
   const ergebnis = await seite.evaluate(async (code) => {
-    const maler = await import('/src/kartenmaler.ts')
+    const maler = await import('/src/card-painter.ts')
     const vergleiche = eval(code)
     const breite = window.innerWidth
     const hoehe = window.innerHeight
     // Denselben Stand zweimal malen: einmal wie der Bildschirm ihn bekommt,
     // einmal wie der Film. Die Eingaben sind bis auf die beiden benannten
     // Unterschiede identisch — es ist derselbe Maler und derselbe Klip.
-    const stand = window.__j.kartenStand()
+    const stand = window.__maptale.cardState()
     const male = (buehne) => {
       const c = document.createElement('canvas')
       c.width = breite
       c.height = hoehe
       const x = c.getContext('2d')
-      const e = maler.maleKarte(x, { breite, hoehe, ...buehne }, stand)
-      return { ctx: x, masse: e.masse }
+      const e = maler.paintCard(x, { width: breite, height: hoehe, ...buehne }, stand)
+      return { ctx: x, rects: e.rects }
     }
-    const buehne = male({ bedienungSteht: false, ruhig: false, schleier: 'aus' })
-    const film = male({ bedienungSteht: false, ruhig: false, schleier: 'flach' })
-    if (!buehne.masse) return { fehler: 'Karte liegt nicht auf der Bühne' }
-    const r = buehne.masse.karte
-    const g = maler.kartenGeometrie({ breite, hoehe }, stand.medium)
+    const buehne = male({ controls: 0, calm: false, scrim: 'off' })
+    const film = male({ controls: 0, calm: false, scrim: 'flat' })
+    if (!buehne.rects) return { fehler: 'Karte liegt nicht auf der Bühne' }
+    const r = buehne.rects.card
+    const g = maler.cardGeometry({ width: breite, height: hoehe }, stand.medium, {
+      factsOwnLine: false,
+    })
     // Verglichen wird das INNERE der Karte, um den Eckenradius eingerückt: Dort
     // ist das Papier deckend, und nur dort ist der Schleier ohne Einfluss. Durch
     // die runden Ecken und den weichen Schatten schaut er hindurch — das ist die
     // benannte Bühnen-Variante und kein Fehler. Wer über den ganzen
     // Umschließungskasten vergleicht, misst genau den einen Unterschied, der
     // erlaubt ist (gemessen: max 68 von 255 an den Kanten).
-    const rand = Math.ceil(g.kartenRadius) + 1
+    const rand = Math.ceil(g.cardRadius) + 1
     const kasten = [
       Math.round(r.x) + rand,
       Math.round(r.y) + rand,
-      Math.round(r.breite) - rand * 2,
-      Math.round(r.hoehe) - rand * 2,
+      Math.round(r.width) - rand * 2,
+      Math.round(r.height) - rand * 2,
     ]
     const a = buehne.ctx.getImageData(...kasten).data
     const b = film.ctx.getImageData(...kasten).data
     // Und die GEOMETRIE muss über beide Wege dieselbe sein — das ist die Aussage
     // des Skalierungsmodells, und ein Pixelvergleich allein würde sie verfehlen,
     // wenn sich beide Seiten gleich verschöben.
-    const gleich = JSON.stringify(buehne.masse) === JSON.stringify(film.masse)
+    const gleich = JSON.stringify(buehne.rects) === JSON.stringify(film.rects)
     return {
       ...vergleiche(a, b),
       gleich,
       flaeche: `${kasten[2]}×${kasten[3]}`,
-      karte: { breite: Math.round(r.breite), hoehe: Math.round(r.hoehe) },
-      bild: { breite: Math.round(g.bild.breite), hoehe: Math.round(g.bild.hoehe) },
-      titelPx: Number(g.text.titel.schrift.toFixed(2)),
-      mass: buehne.masse.mass,
-      lage: buehne.masse.lage,
+      karte: { breite: Math.round(r.width), hoehe: Math.round(r.height) },
+      bild: { breite: Math.round(g.image.width), hoehe: Math.round(g.image.height) },
+      titelPx: Number(g.text.title.fontPx.toFixed(2)),
+      mass: buehne.rects.scale,
+      lage: buehne.rects.layout,
     }
   }, VERGLEICH)
 
@@ -178,40 +180,42 @@ if (NUR === 'alles' || NUR === 'bild') {
 // — 2. Toleranz des „Entwickelns" —
 if (NUR === 'alles' || NUR === 'entwickeln') {
   const ergebnis = await seite.evaluate(async (code) => {
-    const maler = await import('/src/kartenmaler.ts')
-    const { KARTE } = await import('/src/einblendung.ts')
+    const maler = await import('/src/card-painter.ts')
+    const { CARD } = await import('/src/card-timing.ts')
     const vergleiche = eval(code)
-    const stand = window.__j.kartenStand()
-    if (!stand.quelle) return { fehler: 'keine Zeichenquelle' }
+    const stand = window.__maptale.cardState()
+    if (!stand.source) return { fehler: 'keine Zeichenquelle' }
     const breite = window.innerWidth
     const hoehe = window.innerHeight
-    const g = maler.kartenGeometrie({ breite, hoehe }, stand.medium)
+    const g = maler.cardGeometry({ width: breite, height: hoehe }, stand.medium, {
+      factsOwnLine: false,
+    })
 
     /** Das IDEAL: ein `ctx.filter` mit der interpolierten Kurve, pro Bild neu. */
     const ideal = (t) => {
       const c = document.createElement('canvas')
-      c.width = Math.round(g.bild.breite)
-      c.height = Math.round(g.bild.hoehe)
+      c.width = Math.round(g.image.width)
+      c.height = Math.round(g.image.height)
       const x = c.getContext('2d')
       const w = (von, bis) => von + (bis - von) * t
-      x.filter = `brightness(${w(KARTE.entwickelnVon.brightness, KARTE.entwickelnBis.brightness)}) contrast(${w(KARTE.entwickelnVon.contrast, KARTE.entwickelnBis.contrast)}) saturate(${w(KARTE.entwickelnVon.saturate, KARTE.entwickelnBis.saturate)})`
+      x.filter = `brightness(${w(CARD.developFrom.brightness, CARD.developTo.brightness)}) contrast(${w(CARD.developFrom.contrast, CARD.developTo.contrast)}) saturate(${w(CARD.developFrom.saturate, CARD.developTo.saturate)})`
       // `cover` wie im Maler, aber ohne Ken Burns: Gemessen wird der FILTER.
-      const q = stand.quelle
-      const arQ = q.breite / q.hoehe
+      const q = stand.source
+      const arQ = q.width / q.height
       const arR = c.width / c.height
       let zb = c.width
       let zh = c.height
       if (arQ > arR) zb = c.height * arQ
       else zh = c.width / arQ
-      x.drawImage(q.bild, (c.width - zb) / 2, (c.height - zh) / 2, zb, zh)
+      x.drawImage(q.image, (c.width - zb) / 2, (c.height - zh) / 2, zb, zh)
       return x.getImageData(0, 0, c.width, c.height).data
     }
 
     /** Die FASSUNG des Malers: zwei Puffer, eine Überblendung. */
     const gemalt = (t) => {
       const c = document.createElement('canvas')
-      c.width = Math.round(g.bild.breite)
-      c.height = Math.round(g.bild.hoehe)
+      c.width = Math.round(g.image.width)
+      c.height = Math.round(g.image.height)
       const x = c.getContext('2d')
       const mach = (filter) => {
         const p = document.createElement('canvas')
@@ -219,21 +223,21 @@ if (NUR === 'alles' || NUR === 'entwickeln') {
         p.height = c.height
         const y = p.getContext('2d')
         y.filter = filter
-        const q = stand.quelle
-        const arQ = q.breite / q.hoehe
+        const q = stand.source
+        const arQ = q.width / q.height
         const arR = c.width / c.height
         let zb = c.width
         let zh = c.height
         if (arQ > arR) zb = c.height * arQ
         else zh = c.width / arQ
-        y.drawImage(q.bild, (p.width - zb) / 2, (p.height - zh) / 2, zb, zh)
+        y.drawImage(q.image, (p.width - zb) / 2, (p.height - zh) / 2, zb, zh)
         return p
       }
       const f = (v) => `brightness(${v.brightness}) contrast(${v.contrast}) saturate(${v.saturate})`
-      if (t < 1) x.drawImage(mach(f(KARTE.entwickelnVon)), 0, 0)
+      if (t < 1) x.drawImage(mach(f(CARD.developFrom)), 0, 0)
       if (t > 0) {
         x.globalAlpha = t
-        x.drawImage(mach(f(KARTE.entwickelnBis)), 0, 0)
+        x.drawImage(mach(f(CARD.developTo)), 0, 0)
       }
       return x.getImageData(0, 0, c.width, c.height).data
     }
@@ -242,7 +246,7 @@ if (NUR === 'alles' || NUR === 'entwickeln') {
     for (const t of [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]) {
       proben.push({ t, ...vergleiche(gemalt(t), ideal(t)) })
     }
-    return { proben, dauerS: KARTE.entwickelnDauerS }
+    return { proben, dauerS: CARD.developDurationS }
   }, VERGLEICH)
 
   if (ergebnis.fehler) {
@@ -269,8 +273,8 @@ if (NUR === 'alles' || NUR === 'entwickeln') {
 // — 3. Leistung über die ganze Standzeit —
 if (NUR === 'alles' || NUR === 'leistung') {
   await seite.evaluate((h) => {
-    window.__j.tour.seek(Math.max(0, h.von - 0.6) / h.gesamt)
-    window.__j.tour.setPlaying(true)
+    window.__maptale.tour.seek(Math.max(0, h.von - 0.6) / h.gesamt)
+    window.__maptale.tour.setPlaying(true)
   }, halt)
   const leistung = await seite.evaluate((h) => {
     const dauerMs = (h.bis - h.von + 1.2) * 1000
@@ -290,7 +294,7 @@ if (NUR === 'alles' || NUR === 'leistung') {
             median: sortiert[Math.floor(sortiert.length / 2)],
             p95: sortiert[Math.floor(sortiert.length * 0.95)],
             max: sortiert[sortiert.length - 1],
-            verworfen: window.__j.uhr?.verworfenFrames ?? 0,
+            verworfen: window.__maptale.clock?.droppedFrames ?? 0,
           })
         }
       }

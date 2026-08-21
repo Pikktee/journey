@@ -5,8 +5,8 @@ dreidimensional mit Höhe darstellen — als Pin, der über dem Gelände steht?
 
 **Antwort: ja, aber nur mit einem eigenen Renderer.** Inzwischen die
 **Standarddarstellung** der Foto-Stopps: [src/photopins.js](../../src/photopins.ts) (Three.js-
-Custom-Layer) mit den Rechenregeln in [src/pinmodell.ts](../../src/pinmodell.ts) (DOM-frei,
-21 Vitest-Fälle in [test/pinmodell.test.ts](../../test/pinmodell.test.ts)).
+Custom-Layer) mit den Rechenregeln in [src/pin-model.ts](../../src/pin-model.ts) (DOM-frei,
+21 Vitest-Fälle in [test/pin-model.test.ts](../../test/pin-model.test.ts)).
 
 * `?pins3d=0` schaltet auf die alten flachen Kreise zurück — A/B-Vergleich wie bei den
   Renderer-Flags, und der Rückfall, falls ein Gerät Ärger macht.

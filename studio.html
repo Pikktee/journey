@@ -1498,7 +1498,7 @@
 
          Der Schleier bleibt DOM (`.card-stage::after`, s. u.): Auf einer
          Leinwand hat `backdrop-filter` kein Gegenstück. */
-    .karten-leinwand {
+    .card-canvas {
       position: absolute; inset: 0;
       /* `inset: 0` allein spannt eine Leinwand NICHT auf — ein `canvas` ist ein
          ersetztes Element und löst `width: auto` auf seine PIXELgröße auf. Bei
@@ -1525,11 +1525,11 @@
       content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
       background: rgba(6, 10, 16, 0.3);
       /* Die Deckkraft kommt aus der FILMZEIT: `kartenschicht.ts` schreibt
-         `--schleier-sicht` pro Frame auf die BÜHNE — ein Pseudo-Element nimmt
+         `--scrim-opacity` pro Frame auf die BÜHNE — ein Pseudo-Element nimmt
          keine Inline-Stile, seinen Host kann man dagegen beschriften. Als
          Transition an einer Klasse blieb der Schleier beim Scrubben hinter der
          Karte zurück und kam rückwärts gar nicht mit. */
-      opacity: var(--schleier-sicht, 0);
+      opacity: var(--scrim-opacity, 0);
     }
     /* Die Klasse schaltet nur noch den FILTER (ohne Transition: beim Umschalten
        steht die Karte bei Deckkraft 0, man sieht den Sprung nicht). Ein
@@ -1686,14 +1686,14 @@
       font-size: 11.5px; font-weight: 500;
       color: var(--akzent); opacity: 0.9;
     }
-    .ki-zeile { display: flex; align-items: flex-start; gap: 10px; }
-    .ki-zeile .attribution-symbol { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--text-3); }
-    .ki-zeile b {
+    .attribution-row { display: flex; align-items: flex-start; gap: 10px; }
+    .attribution-row .attribution-symbol { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--text-3); }
+    .attribution-row b {
       display: block; margin-bottom: 1px; font-weight: 500;
       font-size: 11px;
       color: var(--text-3);
     }
-    .ki-zeile .attribution-value { font-family: var(--font-display); font-size: 13.5px; line-height: 1.35; color: var(--text); }
+    .attribution-row .attribution-value { font-family: var(--font-display); font-size: 13.5px; line-height: 1.35; color: var(--text); }
 
     /* ————————————————— Zeitleiste —————————————————
        EINE BAHN JE EREIGNISTYP (Fotos, Fortbewegung, Kamera, Wetter, Momente,
@@ -3878,7 +3878,7 @@
             <button class="attribution-button" type="button" aria-label="Kartenquellen: Esri, Maxar, Earthstar Geographics" aria-describedby="attribution-sources"><svg><use href="#i-info"/></svg></button>
             <div class="attribution-bubble" id="attribution-sources" role="tooltip">
               <span class="attribution-kicker">Kartenquellen</span>
-              <div class="ki-zeile">
+              <div class="attribution-row">
                 <svg class="attribution-symbol" aria-hidden="true"><use href="#i-globe"/></svg>
                 <div><b>Satellitenbild</b><span class="attribution-value">Esri · Maxar · Earthstar&nbsp;Geographics</span></div>
               </div>

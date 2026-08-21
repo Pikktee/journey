@@ -21,9 +21,9 @@ als er glaubt — und merkt es nicht, weil das Ergebnis plausibel aussieht.
 2. **Der `dt`-Deckel verfälschte genau das, was man messen will** — bis Etappe 1. `tour.ts`
    rechnete `dt = Math.min((now - lastT) / 1000, 0.05)`; jede Messung, die die Fortbewegung
    der Engine gegen die Wanduhr hielt, maß damit den Deckel mit. Seit v0.62.0 zählt
-   [src/filmuhr.ts](../../src/filmuhr.ts) echte Frame-Zeit, und der Notdeckel dort liegt bei
+   [src/film-clock.ts](../../src/film-clock.ts) echte Frame-Zeit, und der Notdeckel dort liegt bei
    1,0 s — weit über jedem Frame, das eine Drosselung erzeugt. Wer misst, sollte trotzdem
-   `window.__j.uhr.verworfenS` mitlesen: Ist die Zahl > 0, hat der Aufbau ausgesetzt (und
+   `window.__maptale.clock.droppedS` mitlesen: Ist die Zahl > 0, hat der Aufbau ausgesetzt (und
    nicht bloß gestockt), und die Messung wertet einen anderen Vorgang.
    Für die Rampen wurde die Geschwindigkeitslogik in Node nachgebildet
    ([rampen-simulation.ts](rampen-simulation.ts)) statt im Browser gemessen — das bleibt
@@ -39,18 +39,18 @@ als er glaubt — und merkt es nicht, weil das Ergebnis plausibel aussieht.
 5. **`page.bringToFront()` erzeugt in Headless KEINEN Hintergrund.** Eine zweite Seite nach
    vorn zu holen sieht aus wie ein Tab-Wechsel, liefert aber weder `visibilitychange` noch
    hält es die rAF-Kette an: Die Uhr wurde in einem so gebauten Lauf nie pausiert
-   (`window.__j.uhr.pausen === 0`) und beide Vergleichsläufe kamen erwartungsgemäß gleich
+   (`window.__maptale.clock.pauses === 0`) und beide Vergleichsläufe kamen erwartungsgemäß gleich
    heraus — gemessen wurde nichts. Der Hintergrund muss hergestellt werden: **erst** die
    rAF-Kette kappen (`window.requestAnimationFrame` ersetzen), **dann**
    `visibilityState: 'hidden'` samt Ereignis. Die Reihenfolge ist Teil der Falle — läuft rAF
    weiter, hebt die Selbstheilung der Uhr die Pause nach zwei Frames wieder auf (das ist so
-   gewollt, s. `src/filmuhr.ts`, macht die Messung aber wertlos).
-   `hintergrund-versatz.mjs` macht es richtig; wer selbst misst, prüft `pausen` und
-   `pausiertS` als Kontrolle, dass der Hintergrund überhaupt eingetreten ist.
+   gewollt, s. `src/film-clock.ts`, macht die Messung aber wertlos).
+   `hintergrund-versatz.mjs` macht es richtig; wer selbst misst, prüft `pauses` und
+   `pausedS` als Kontrolle, dass der Hintergrund überhaupt eingetreten ist.
 
 6. **Grün heißt nicht, dass der Player startet.** Typecheck, 643 Web-Tests und der Build waren
-   grün, während der Player auf `main` gar nicht mehr lief: `window.__j.anker = …` stand vor
-   der Zeile, die `window.__j` anlegt, und `Cannot set properties of undefined` brach das
+   grün, während der Player auf `main` gar nicht mehr lief: `window.__maptale.anchors = …` stand vor
+   der Zeile, die `window.__maptale` anlegt, und `Cannot set properties of undefined` brach das
    ganze Modul ab. Keine dieser drei Prüfungen führt Code im Browser aus. Deshalb liegt
    [player-startet.mjs](player-startet.mjs) daneben — fünf Sekunden, und er hätte es gefunden
    (an genau diesem Fehler nachgestellt).
@@ -81,12 +81,12 @@ Der Dev-Server läuft über `devhub` (nicht selbst starten); die Adresse kommt a
 | [frame-verlust.mjs](frame-verlust.mjs) | Den Mechanismus dahinter: Frame-Abstände derselben rAF-Kette, Anteil über dem 50-ms-Deckel, verworfene Zeit. | `node … 12` |
 | [lange-frames.mjs](lange-frames.mjs) | Wer die einzelnen Ruckler verursacht: Frame-Verteilung plus `long-animation-frame`-Attribution nach Skript und Funktion. Fand die DEM-Bereinigung im Main-Thread. | `node … 30000` |
 | [player-startet.mjs](player-startet.mjs) | **Rauchtest**, kein Messwerkzeug: Lädt der Player, kommt die Karte, gibt es Konsolenfehler? Die einzige Frage, die kein Test dieses Repos beantwortet — `tsc` sieht keinen Laufzeitfehler, die Suite ist DOM-frei, der Build bündelt nur. Nach jeder Änderung an `main.ts` und den Modulen darunter. | `node …` |
-| [hintergrund-versatz.mjs](hintergrund-versatz.mjs) | Was der Drosselungs-Lauf NICHT sieht: den Versatz zwischen Bild und Ton nach einer Zeit im Hintergrund. Läuft zweimal — einmal wie ausgeliefert, einmal mit überschriebenem `uhr.laeuft` (das Gate-Verhalten vor dem Nachtrag) — und zeigt so die Wirkung statt nur den Zustand. | `node …` |
+| [hintergrund-versatz.mjs](hintergrund-versatz.mjs) | Was der Drosselungs-Lauf NICHT sieht: den Versatz zwischen Bild und Ton nach einer Zeit im Hintergrund. Läuft zweimal — einmal wie ausgeliefert, einmal mit überschriebenem `clock.running` (das Gate-Verhalten vor dem Nachtrag) — und zeigt so die Wirkung statt nur den Zustand. | `node …` |
 | [rampen-simulation.ts](rampen-simulation.ts) | Anfahr-/Ausrollkosten je Halt in der Engine VOR Etappe 4 — die alte Geschwindigkeitslogik in Node nachgebildet, festes `dt`. Sie ist seit E14 kein Zustandsbericht mehr, sondern die **Kalibrier-Grundlage**: An ihren 64,3 Rampen-Sekunden ist `RAMPE_M` ausgerichtet. | `npx tsx …` |
-| [rampen-kalibrierung.ts](rampen-kalibrierung.ts) | Die Gegenrechnung dazu: Was kosten die Rampen der NEUEN Achse bei verschiedenen Längen, je Tour und in Summe? Die Zahl, die dabei herauskam, steht als `RAMPE_M` in src/filmachse.ts. | `npx tsx …` |
-| [durchlauf-gegen-achse.mjs](durchlauf-gegen-achse.mjs) | Deckt sich die Dauer eines echten Durchlaufs mit `filmachse.gesamtS`? **Abnahmekriterium für Etappe 4** (< 1 %, vorher 9–13 %). Läuft bei Tempo 8, misst die Wanduhr. | `node …` |
+| [rampen-kalibrierung.ts](rampen-kalibrierung.ts) | Die Gegenrechnung dazu: Was kosten die Rampen der NEUEN Achse bei verschiedenen Längen, je Tour und in Summe? Die Zahl, die dabei herauskam, steht als `RAMPE_M` in src/film-axis.ts. | `npx tsx …` |
+| [durchlauf-gegen-achse.mjs](durchlauf-gegen-achse.mjs) | Deckt sich die Dauer eines echten Durchlaufs mit `filmAxis.totalS`? **Abnahmekriterium für Etappe 4** (< 1 %, vorher 9–13 %). Läuft bei Tempo 8, misst die Wanduhr. | `node …` |
 | [leiste-filmlinear.mjs](leiste-filmlinear.mjs) | Ob die Fortschrittsleiste die Zeitachse des Films ist: Läuft der Kopf durch einen Halt durch (statt davor stillzustehen), landet ein Scrub in dessen MITTE, und bekommt die Tag/Nacht-Regie weiterhin den STRECKENanteil? **Abnahmekriterium für Etappe 5** — die dritte Frage ist Falle 1 des Konzepts und die einzige, die still danebengehen kann. | `node …` |
-| [filmdauer.ts](filmdauer.ts) | Wie lang der Film je Tour ist — und was eine gestalterische Zahl daran ändert (`MODUS_TEMPO`, `RAMPE_M`). Der Beleg dafür, dass eine solche Änderung JEDE bestehende Tour anfasst. | `npx tsx …` |
+| [filmdauer.ts](filmdauer.ts) | Wie lang der Film je Tour ist — und was eine gestalterische Zahl daran ändert (`TRAVEL_MODE_TEMPO`, `RAMP_M`). Der Beleg dafür, dass eine solche Änderung JEDE bestehende Tour anfasst. | `npx tsx …` |
 | [bildschirmtempo.mjs](bildschirmtempo.mjs) | Zwei Zahlen für die Frage „wirkt es schnell?": das sichtbare Tempo gegen das von der Achse GEMEINTE (der Kurven-Effekt der Catmull-Rom-Glättung) und das Bildschirm-Tempo (Fahrtempo ÷ Kameradistanz). **Abnahme für die Vorverdichtung und für die Kamera-Kopplung.** | `node …` |
 | [routen-laenge.ts](routen-laenge.ts) | Wie viel länger `route.total` (Catmull-Rom + 14-m-Resample) gegenüber der Rohgeometrie ist, in der der Server `f` misst. | `npx tsx …` |
 | [anker-versatz.ts](anker-versatz.ts) | Den Rest, den keine Uhr behebt: wo ein `f`-Anker landet gegen den Ort, den der Server gemeint hat — **je Ankerklasse**, alter Weg (`f × route.total`) gegen neuen (Wegpunkt-Tabelle). **Abnahmekriterium für Etappe 2.** | `npx tsx …` |
@@ -139,7 +139,7 @@ Einordnung stehen im [Konzept](../../docs/concepts/konzept_gleichlauf_player_edi
 knappes Prozent). Die Bildrate fällt unverändert (60 → 31 → 19 fps): Das Gerät lässt jetzt
 Bilder aus, statt die Tour zu verlangsamen.
 
-Der fehlende Rest ist **nicht verlorene Zeit** — `verworfenS` bleibt 0 —, sondern das
+Der fehlende Rest ist **nicht verlorene Zeit** — `droppedS` bleibt 0 —, sondern das
 Messfenster selbst: Es lässt bis 3 % Untertempo zu (`speed > ziel * 0.97`), und die
 gewerteten Intervalle liegen im Mittel etwas unter dem Ziel.
 
@@ -158,13 +158,13 @@ die gebaute Route folgt dort einer Catmull-Rom-Kurve; wo Wegpunkte weit auseinan
 bedeutungslos — Anker liegen auf Wegpunkten oder nah daran —, aber „Kriterium erfüllt" heißt
 nicht „exakt", und wer die nächste Etappe misst, sollte wissen, wo der Rest sitzt.
 
-Woher die Übersetzung im laufenden Player kommt, sagt `window.__j.anker`: `tabelle` oder
-`rueckfall`. Bei den kuratierten Touren ist `rueckfall` richtig (sie haben kein Wegpunkt-`f`);
+Woher die Übersetzung im laufenden Player kommt, sagt `window.__maptale.anchors`: `table` oder
+`fallback`. Bei den kuratierten Touren ist `fallback` richtig (sie haben kein Wegpunkt-`f`);
 bei einer aufgezeichneten ist er ein Datenfehler, der sich sonst als „alles wie früher" tarnt.
 
 Und **6 s Hintergrund** ([hintergrund-versatz.mjs](hintergrund-versatz.mjs)) ergeben 0 m
 Versatz im Bild UND +0,00…0,01 s im Ton, der dort pausiert steht. Die Gegenprobe mit dem
-alten Gate-Verhalten, nur `uhr.laeuft` überschrieben: **+6,01 s** — der Ton lief die volle
+alten Gate-Verhalten, nur `clock.running` überschrieben: **+6,01 s** — der Ton lief die volle
 Abwesenheit weiter, dauerhaft (die Position wird nur beim Eintritt in einen Bereich
 gesetzt).
 

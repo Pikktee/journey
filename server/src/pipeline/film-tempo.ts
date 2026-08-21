@@ -19,13 +19,13 @@ import type { TravelMode } from '../schema/upload.js'
 export const BASE_TEMPO_MS = 120
 
 /**
- * Tempo-Faktor je Fortbewegung — Spiegel von `MODUS_TEMPO` in src/filmachse.ts.
+ * Tempo-Faktor je Fortbewegung — Spiegel von `TRAVEL_MODE_TEMPO` in src/film-axis.ts.
  *
  * Gestalterische Zahlen, keine physikalischen; `walk` ging nach dem Abfahren
  * des Rampen-Nachtrags von 0,4 auf 0,5 (zu träge). Wer sie ändert, ändert die
  * Dauer jeder bestehenden Tour — und muss beide Seiten anfassen.
  */
-export const MODUS_TEMPO: Record<TravelMode, number> = {
+export const TRAVEL_MODE_TEMPO: Record<TravelMode, number> = {
   walk: 0.5,
   bike: 1,
   moped: 1.15,
@@ -42,7 +42,7 @@ export const STOP_FADE_OUT_S = 0.8
 export const NEAR_M = 120
 
 /**
- * `RAMPE_M` in src/filmachse.ts: Anfahr- und Ausrollstrecke in Metern (E14).
+ * `RAMP_M` in src/film-axis.ts: Anfahr- und Ausrollstrecke in Metern (E14).
  *
  * Sie ist der Grund, warum diese Kopie in DERSELBEN Auslieferung mitgeht wie
  * Etappe 4: Kennt die Server-Achse die Rampen nicht, lösen `anker +
@@ -50,7 +50,7 @@ export const NEAR_M = 120
  * Etappe 3 gerade beendet hat. Herleitung der Zahl steht drüben, sie ist
  * gestalterisch und nicht technisch.
  */
-export const RAMPE_M = 120
+export const RAMP_M = 120
 
 /** `MOMENT_DEFAULT_S` in src/tour.ts: Filmzeit eines Kamera-Moments ohne eigene Angabe. */
 export const MOMENT_DEFAULT_S: Record<CameraMomentKind, number> = {
@@ -61,7 +61,7 @@ export const MOMENT_DEFAULT_S: Record<CameraMomentKind, number> = {
 
 /** Meter, die der Film in dieser Fortbewegung je Sekunde zurücklegt. */
 export function tempoMs(mode: TravelMode): number {
-  return BASE_TEMPO_MS * (MODUS_TEMPO[mode] ?? 1)
+  return BASE_TEMPO_MS * (TRAVEL_MODE_TEMPO[mode] ?? 1)
 }
 
 /** Strecke (m), die im Film `sekunden` dauert. */

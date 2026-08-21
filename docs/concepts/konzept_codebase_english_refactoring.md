@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-21
-status: Wellen 0 bis 4 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 4 warten auf den nächsten Release. Wellen 5 bis 8 offen, Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
+status: Wellen 0 bis 5 gebaut; Welle 1 ist als v0.67.0 ausgeliefert, die Wellen 2 bis 5 warten auf den nächsten Release. Wellen 6 bis 8 offen, Schritt 9 (Env) ganz am Ende. Was je Welle geschah, steht in ihrem Abschnitt.
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -16,8 +16,8 @@ betrifft:
   - src/studio/timeline.ts
   - src/studio/audio-clip.ts
   - src/studio/import-validation.ts
-  - src/filmachse.ts
-  - src/kartenmaler.ts
+  - src/film-axis.ts
+  - src/card-painter.ts
   - android/app/src/main/java/app/maptale/daten/Entities.kt
   - android/app/src/main/java/app/maptale/daten/LuhamboDb.kt
   - android/app/src/main/java/app/maptale/upload/ApiClient.kt
@@ -237,8 +237,8 @@ dabei grün; der Halt ist die Testsuite plus der Abnahme-Grep aus §8.
 | Cookies | `maptale_session`, `maptale_dabei` | Browser | keine |
 | localStorage | `maptale.ansicht`, `maptale.editor.stimmung`, `maptale_profil_cache`, `maptale:weather`, `maptale:weather-int`, `maptale:music`, `maptale:audio`; sessionStorage `maptale:video-sound` | Browser | keine |
 | WebView-Brücke | `maptale:hintergrund`/`maptale:vordergrund` (Events), `window.MaptaleApp.verlassen()` | App (`PlayerScreen.kt`) ↔ Player (`src/main.ts`) | keine |
-| `postMessage`-Kanal | `src/exportformat.ts` | Studio ↔ Export-Rahmen, gleiche Welt | keine |
-| `window.__j`, `window.__studio` | Player, Studio | **`scripts/messungen/*`** (Playwright) | keine |
+| `postMessage`-Kanal | `src/film-export-channel.ts` | Studio ↔ Export-Rahmen, gleiche Welt | keine |
+| `window.__maptale`, `window.__studio` | Player, Studio | **`scripts/messungen/*`** (Playwright) | keine |
 | Query-Parameter | `?tour`, `?app`, `?dev`, `?pins3d`, `?reverse` | Android-WebView (`?app=1`), Bookmarks | keine |
 
 **Was von der Tabelle in Welle 1 gehört:** die ersten sieben Zeilen und Room.
@@ -257,10 +257,10 @@ zugehörigen Test laufen:
 | API-Felder Server → Web | handgetippte Typen in `src/studio/api.ts`, `src/remote.ts`, `src/konto/*`, `src/profil/*`, `src/admin/*`, `src/galerie/*` | Welle 1 ändert beide Seiten in einem Commit; Smoke über alle Seiten (§8) |
 | API-Felder Server → Android | `ApiClient.kt` Data Classes, String-Vergleiche auf `"bereit"`/`"fehler"` (`TourenScreen.kt:258`, `ImportViewModel.kt:119`) | Welle 1; App-Release im selben Tag wie der Server |
 | `edits.json` ← Android | `EditsFortschreibung.kt` mit rohen Schlüsseln `"medien"`, `"titelbild"`, `"caption"` | Welle 1; Android-Unit-Test auf die neuen Schlüssel |
-| `test/fixtures/filmachse.json` | EIN Fixture, zwei Testwelten (`test/filmachse.test.ts`, `server/test/filmtempo.test.ts`) | Welle 5 ändert Fixture und Server-Spiegel zusammen |
-| Server-Spiegel ohne Import | `server/src/webpfade.ts`, `server/src/handle.ts`, `server/src/pipeline/filmtempo.ts`, `filmachse.ts`, `STUDIO_PEGEL` in `schema/edits.ts` | bestehende Drift-Wächter in `test/routen.test.ts`, `test/filmachse.test.ts`, `test/audio*.test.ts` |
+| `test/fixtures/film-axis.json` | EIN Fixture, zwei Testwelten (`test/film-axis.test.ts`, `server/test/filmtempo.test.ts`) | Welle 5 ändert Fixture und Server-Spiegel zusammen |
+| Server-Spiegel ohne Import | `server/src/web-paths.ts`, `server/src/handle.ts`, `server/src/pipeline/film-tempo.ts`, `film-axis.ts`, `STUDIO_PEGEL` in `schema/edits.ts` | bestehende Drift-Wächter in `test/routen.test.ts`, `test/film-axis.test.ts`, `test/audio*.test.ts` |
 | Text-Wächter | Tests, die Quelltext als Zeichenkette lesen (`test/newsletter-einwilligung.test.ts`, `test/session-hinweis.test.ts`, `test/routen.test.ts`, `test/basis-css.test.ts`) | laufen ohnehin; wer rot wird, passt den Wächter an, nicht den Code |
-| Messskripte | `scripts/messungen/*.ts|mjs` importieren `src/filmachse`, `src/einblendung`, `src/kartenmaler`, `src/streckenanker`, `src/geo` und lesen `window.__j.filmachse`, `.filmS`, `.uhr`, `.exportMess`; `scripts/seed-demo-touren.mjs` importiert `src/tours` | Welle 5 zieht `scripts/messungen` mit, Welle 6 den Rest von `scripts/`; Abnahme: jedes Messskript einmal gestartet |
+| Messskripte | `scripts/messungen/*.ts|mjs` importieren `src/film-axis`, `src/card-timing`, `src/card-painter`, `src/route-anchors`, `src/geo` und lesen `window.__maptale.filmAxis`, `.filmTime`, `.clock`, `.exportStats`; `scripts/seed-demo-touren.mjs` importiert `src/tours` | Welle 5 zieht `scripts/messungen` mit, Welle 6 den Rest von `scripts/`; Abnahme: jedes Messskript einmal gestartet |
 | `vite.config.js` → `src/routen.ts` | die Config importiert `EINSTIEGE`, `PFAD_ZU_DATEI`, `ROUTEN` und `tourAusPfad`; sie ist kein TypeScript und läuft in Vites eigenem Loader | Welle 6, im selben Commit. Fällt laut auf (die Config lädt nicht), steht aber sonst auf keiner Liste |
 | `camera[].preset` → `PRESETS` in `src/tour.ts` | der Player löst den Wert über `PRESETS[name] ?? PRESETS.mittel` auf; der Rückfall ist STILL. Welle 1 benennt die Werte, `tour.ts` ist Welle 5: Dazwischen fiele jede Kamerakante auf „mittel" | Welle 1 zieht BEIDE Stellen im selben Commit mit: die Schlüssel von `PRESETS` UND den Vergleich `k.preset === 'standard'` in `src/main.ts` (`kamFolger`): `standard` steht gar nicht in `PRESETS`, sondern wird dort abgefangen und auf die Einstellung des Zuschauers gelegt; nach `default` liefe er in `distanzFuer`, fiele still auf „mittel" und überschriebe genau die Wahl, die er respektieren soll. `MODE_SCALE` bleibt, Modi wandern nicht |
 | `verarbeite` in `routes/tours.ts` | heute NICHT exportiert; die Start-Migration aus §4.3 muss sie rufen | Welle 1 exportiert oder verschiebt sie, bevor die Migration entsteht |
@@ -613,7 +613,7 @@ mit Leser.
 | **2** ✅ | Server-Internals: Pipeline, Routen-Handler, Mail-Bausteine, Auth, Dateiumbenennungen in `server/src` | mittel |
 | **3** ✅ | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `pruefung`; `stopps` geht nach Tabelle mit Welle 5) | niedrig |
 | **4** ✅ | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `playback`, `export-sheet`, `add-media`, `sfx-library`, `tooltip`, `map-mood`) + Dateiumbenennungen + die DOM-IDs und CSS-Klassen des Studios | mittel |
-| **5** | Player-Engine (`tour`, `filmachse`, `filmuhr`, `kartenmaler`, `kartenschicht`, `einblendung`, `streckenanker`, `ui`, `main`, `exportfilm`, `exportformat`, `vollbild`, `karteninfo`, `tourtexte`, `wetterhimmel`, `pinmodell`) + `window.__j` + `scripts/messungen` + `test/fixtures/filmachse.json` mit Server-Spiegel | mittel |
+| **5** ✅ | Player-Engine (`tour`, `film-axis`, `film-clock`, `card-painter`, `card-layer`, `card-timing`, `route-anchors`, `ui`, `main`, `film-export`, `film-export-channel`, `fullscreen`, `map-attribution`, `tour-texts`, `weather-sky`, `pin-model`, `stops`) + `window.__maptale` + `scripts/messungen` + `test/fixtures/film-axis.json` mit Server-Spiegel + die DOM-Namen des Players | mittel |
 | **6** | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
 | **7** | Android: ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; Zusage in `LuhamboDb.kt` zurück | niedrig (nur eigene Geräte) |
 | **8** | Doku nach §7: Topf A übersetzen, Topf C archivieren, Start-Migration ausbauen, wenn der Marker überall 2 ist | niedrig |
@@ -747,7 +747,7 @@ aufgefallen sind:
   dort als „beim Umbau prüfen" markiert: `Achse` → `FilmAxis` trifft
   `Filmachse` → `FilmAxis`, `baueAchse` → `buildFilmAxis` trifft
   `baueFilmachse` → `buildFilmAxis` — und `timeline.ts` IMPORTIERT beide aus
-  [filmachse.ts](../../src/filmachse.ts). Der Editor-Typ heißt jetzt
+  [filmachse.ts](../../src/film-axis.ts). Der Editor-Typ heißt jetzt
   `TimelineAxis` / `buildTimelineAxis` (§6.3: Zeitleiste = `timeline`), der
   Name `FilmAxis` bleibt dem geteilten Modul. Dieselbe Sorte Befund wie
   `TrackerAnbieter` in Welle 2, nur diesmal in der Tabelle vorhergesehen.
@@ -904,14 +904,81 @@ die Feld-Ausnahmen entfallen:
 | `LEERES_OVERLAY` / `HISTORIE_MAX` | `EMPTY_OVERLAY` / `HISTORY_MAX` |
 | `WETTER_MODI` / `MODI` | `WEATHER_MODES` / `TRAVEL_MODES` |
 
-### Welle 5: der Player
+### Welle 5: gebaut am 2026-08-21
 
-Die Wörter stehen in §6.3a, die Modulnamen in §6.6. Drei Dinge, die nur hier
-vorkommen: `window.__j` wird zu `window.__maptale` mit englischen Schlüsseln
-(`filmAxis`, `filmTime`, `clock`, `exportStats`), die Messskripte unter
-`scripts/messungen/` ziehen im selben Commit mit, und
+Die Wörter stehen in §6.3a, die Modulnamen in §6.6. Drei Dinge kommen nur hier
+vor: `window.__j` wird zu `window.__maptale` mit englischen Schlüsseln
+(`filmAxis`, `filmTime`, `clock`, `exportStats`, `cardState`, `anchors`), die
+Messskripte unter `scripts/messungen/` ziehen im selben Commit mit, und
 `test/fixtures/filmachse.json` wird zu `film-axis.json` mit englischen
-Schlüsseln auf beiden Seiten (Web-Test und `server/test/filmtempo.test.ts`).
+Schlüsseln auf beiden Seiten (`test/film-axis.test.ts` und
+`server/test/film-tempo.test.ts` lesen dasselbe Fixture aus zwei
+tsconfig-Welten).
+
+429 Zeilen der Abbildungstabelle, 15 Moduldateien unter `src/` samt ihren
+zwölf Testdateien, das Fixture, die beiden Server-Spiegel und die DOM-Seite des
+Players: zwölf ids, 29 CSS-Klassen und sieben Custom Properties in
+[erlebnis.html](../../erlebnis.html) und [style.css](../../src/style.css).
+
+**Der Bindungs-Abzug ist jetzt eingecheckt** ([scripts/bindungs-abzug.mjs](../../scripts/bindungs-abzug.mjs),
+s. §9.1). Er lief vor und nach jedem der dreizehn Läufe; abgewichen ist er nur
+dort, wo eine Shorthand-Eigenschaft von Hand aufgelöst wurde (`playing: laeuft`
+statt `playing`), und das sind zusätzliche Identifier-Stellen, keine geänderten
+Bindungen. Sonst war er Zeile für Zeile gleich, über alle 80 388 Stellen.
+
+**Drei Befunde, die kein Test gesehen hatte, und alle drei stammen aus Welle 1:**
+
+- **`{ dauerS: m.durationS }` wurde zu `{ durationS: m.durationS }`.** Die Zeile
+  WAR der Adapter zwischen dem JSON-Schlüssel und dem internen Namen; nach der
+  Umbenennung war sie ein no-op, `standzeitS` las weiter `m.dauerS`, und jeder
+  Video-Halt im Player stand seither 5,2 s statt seiner Dateilänge. Geheilt hat
+  es sich dadurch, dass Welle 5 den internen Namen auf `durationS` zieht — die
+  Zeile ist damit ersatzlos entfallen.
+- **`remote.ts` las `audio[].filmBisS`, der Server schreibt `filmToS`** (§6.7,
+  Welle 1). Jeder Musik-Bereich fiel also still auf `f1` zurück, statt seine
+  Filmsekunde zu benutzen — die eine Größe, die einen Klip mitten in einer
+  Standzeit verorten kann.
+- **`window.__j.anchor` gegen `window.__j.anker`**: Der Player schrieb den einen
+  Namen, die Messskripte lasen den anderen, und `?? '—'` schluckte es. Beide
+  heißen jetzt `anchors`.
+
+Alle drei sind dieselbe Sorte wie in §9.2 unten: ein Feldname, den kein
+Compiler prüft, weil auf der einen Seite ein Objektliteral und auf der anderen
+ein handgetippter Typ steht.
+
+Fünf Dinge, die beim Bauen aufgefallen sind:
+
+- **Zwei Wellen können auf DENSELBEN Zielnamen laufen, ohne dass der Prüfer
+  etwas sagt.** Er vergleicht je Fundort. `haltedauerS` in `timeline.ts` hieß
+  seit Welle 3 `holdS`, und die Tabelle bildet `standzeitS` in `card-timing.ts`
+  ebenfalls darauf ab. Entschieden: Die geteilte Regel (Foto UND Video) behält
+  `holdS`, der Editor-Helfer heißt `photoHoldS` — er kennt kein Video. Wäre es
+  unbemerkt geblieben, hätte der lokale Name den Import verdeckt, und
+  `mediumHoldS` hätte sich selbst gerufen.
+- **Wer eine Funktion umbenennt, benennt gleichnamige EIGENSCHAFTEN mit.** Das
+  Werkzeug fasst jede Deklaration dieses Namens in der Datei an, und
+  `display: { holdS?: number }` ist ein Vertragsfeld, das bleiben muss. Zweimal
+  von Hand zurückgedreht.
+- **Union-Werte gehen mit ihrem Typ, auch wenn sie nirgends persistiert sind.**
+  `'quer'`/`'hoch'` der Export-Lage stehen im DATEINAMEN des Films
+  (`maptale-…-landscape-720.mp4`) und als `data-orientation` im Export-Blatt;
+  `'breit'`/`'schmal'`/`'quer'` sind zugleich die Schlüssel von `CARD_METRICS`.
+  41 solcher Zeilen sind neu in der Tabelle.
+- **Die Query des Export-Rahmens ist ein Vertrag zwischen zwei Dateien im
+  selben Repo** (`?lage=&groesse=&rahmen=` → `?orientation=&size=&embedded=`).
+  Sie fällt nicht auf, wenn man nur eine Seite ändert: Der Leser fällt auf die
+  Vorgabe zurück, und der Film käme still im falschen Format heraus.
+- **Der Wächter 4 aus Welle 4 deckt jetzt auch die Player-Module ab**
+  ([client-vertrag.test.ts](../../test/client-vertrag.test.ts)). Über ganz
+  `src/` gelegt meldete er die Produktseiten, deren DOM-Namen bis Welle 6
+  deutsch bleiben — er läuft deshalb über eine benannte Liste: `src/studio/`
+  plus die 22 Player-Module.
+
+Rot geworden sind sechs Text-Wächter, und wieder war das die gute Nachricht:
+`card-painter-css.test.ts` (`CARD.*`, `CARD_STAGE.flightLiftPx.editor`, der
+Schleier-Vergleich), `studio-stops.test.ts` (`nearM`, `orderInStop`),
+`studio-playback.test.ts` (die geteilte Klang-Regel), `markdown-links.test.ts`
+(28 umbenannte Dateien) und `client-vertrag.test.ts` selbst.
 
 ---
 
@@ -925,7 +992,7 @@ ohnehin öffnet:
 
 | Begriff | verbindlich | Alt-Namen im Code | wo |
 |---|---|---|---|
-| Ort, an dem der Film anhält | **Halt** / `stop` | `Stopp`, `PlayerStopp`, `gruppiereStopps` | Player + `src/studio/stopps.ts` |
+| Ort, an dem der Film anhält | **Halt** / `stop` | `Stopp`, `PlayerStopp`, `gruppiereStopps` | Player + `src/studio/stops.ts` |
 | Wie lange die Karte steht | **Standzeit** / `holdDuration`, Feld `holdS` | `haltedauerS` | `timeline.ts`, `editor.ts` |
 | Zeit, die der Film läuft | **Filmzeit** / `filmTime` | einheitlich | |
 
@@ -1134,7 +1201,7 @@ maschinell erhoben; was hier steht, sind die Fälle, bei denen die Zielform eine
 Entscheidung war. Zwei bekannte Lücken, damit niemand sie für abgedeckt hält:
 die Ordnernamen `src/konto/`, `src/profil/`, `src/galerie/` (stehen in jedem
 Importpfad und sind nirgends entschieden) und die Testdateien
-(`test/vollbild.test.ts`, `test/kartenmaler.test.ts`,
+(`test/fullscreen.test.ts`, `test/card-painter.test.ts`,
 `server/test/anreicherung.test.ts`, …), die mit ihrem Modul in dessen Welle
 gehen.
 
@@ -1143,7 +1210,7 @@ gehen.
 | `src/studio/edit-model.ts` | `edit-model.ts` | 4 |
 | `src/studio/timeline.ts` | `timeline.ts` | 4 |
 | `src/studio/audio-clip.ts` | `audio-clip.ts` | 4 |
-| `src/studio/stopps.ts` | `stops.ts` | 5 (nicht 4: [einblendung.ts](../../src/einblendung.ts) und [geo.ts](../../src/geo.ts) importieren es, die Umbenennung öffnet Player-Kern-Dateien) |
+| `src/studio/stops.ts` | `stops.ts` | 5 (nicht 4: [einblendung.ts](../../src/card-timing.ts) und [geo.ts](../../src/geo.ts) importieren es, die Umbenennung öffnet Player-Kern-Dateien) |
 | `src/studio/import-validation.ts` | `import-validation.ts` | 4 |
 | `src/studio/playback.ts` | `playback.ts` | 4 |
 | `src/studio/export-sheet.ts` | `export-sheet.ts` | 4 |
@@ -1151,20 +1218,20 @@ gehen.
 | `src/studio/add-media.ts` | `add-media.ts` | 4 |
 | `src/studio/sfx-library.ts` | `sfx-library.ts` | 4 |
 | `src/studio/tooltip.ts` | `tooltip.ts` | 4 |
-| `src/filmachse.ts` | `film-axis.ts` | 5 |
-| `src/filmuhr.ts` | `film-clock.ts` | 5 |
-| `src/kartenmaler.ts` | `card-painter.ts` | 5 |
-| `src/kartenschicht.ts` | `card-layer.ts` | 5 |
-| `src/einblendung.ts` | `card-timing.ts` | 5 |
-| `src/streckenanker.ts` | `route-anchors.ts` | 5 |
-| `src/karteninfo.ts` | `map-attribution.ts` | 5 |
-| `src/tourtexte.ts` | `tour-texts.ts` | 5 |
-| `src/wetterhimmel.ts` | `weather-sky.ts` | 5 |
-| `src/vollbild.ts` | `fullscreen.ts` | 5 |
-| `src/exportfilm.ts` | `film-export.ts` | 5 |
-| `src/exportformat.ts` | `film-export-channel.ts` | 5 |
-| `src/pinmodell.ts` | `pin-model.ts` | 5 |
-| `src/demclean-rechnung.ts` | `dem-clean-math.ts` | 5 |
+| `src/film-axis.ts` | `film-axis.ts` | 5 |
+| `src/film-clock.ts` | `film-clock.ts` | 5 |
+| `src/card-painter.ts` | `card-painter.ts` | 5 |
+| `src/card-layer.ts` | `card-layer.ts` | 5 |
+| `src/card-timing.ts` | `card-timing.ts` | 5 |
+| `src/route-anchors.ts` | `route-anchors.ts` | 5 |
+| `src/map-attribution.ts` | `map-attribution.ts` | 5 |
+| `src/tour-texts.ts` | `tour-texts.ts` | 5 |
+| `src/weather-sky.ts` | `weather-sky.ts` | 5 |
+| `src/fullscreen.ts` | `fullscreen.ts` | 5 |
+| `src/film-export.ts` | `film-export.ts` | 5 |
+| `src/film-export-channel.ts` | `film-export-channel.ts` | 5 |
+| `src/pin-model.ts` | `pin-model.ts` | 5 |
+| `src/dem-clean-math.ts` | `dem-clean-math.ts` | 5 |
 | `src/sichtbarkeit.ts` | `visibility.ts` | 6 |
 | `src/profil/profilmodell.ts` | `profile-model.ts` | 6 |
 | `src/profil/profilbearbeiten.ts` | `edit-profile.ts` | 6 |
@@ -1397,7 +1464,7 @@ Produktseiten in Welle 6). Drei Fallen:
   ([basis-css](../../test/basis-css.test.ts),
   [player-schichtung](../../test/player-schichtung.test.ts) mit
   `.karten-leinwand`, `.dock`, `.zurueck`, `.karten-info`,
-  [app-nav](../../test/app-nav.test.ts), [einblendung-css](../../test/einblendung-css.test.ts),
+  [app-nav](../../test/app-nav.test.ts), [einblendung-css](../../test/card-painter-css.test.ts),
   [entwicklungsstand](../../test/entwicklungsstand.test.ts)). Sie werden rot,
   und das ist die gute Nachricht; angepasst wird der Wächter, nicht der Code.
 - **`DESIGN.md` führt seine Tokens SCHON englisch** (`primary`, `amber`, `text`,
@@ -1584,6 +1651,22 @@ Aus den Wellen 1 bis 3, jede Zeile ein bezahlter Fehler:
 - **Text-Wächter werden rot, und das ist die gute Nachricht.** Angepasst wird
   der Wächter, nicht der Code. Doku-Links und `betrifft:`-Listen wandern
   mechanisch mit; Zwillinge aussparen, die in einer anderen Welle liegen.
+- **Vor und nach jedem Lauf der BINDUNGS-ABZUG**
+  ([scripts/bindungs-abzug.mjs](../../scripts/bindungs-abzug.mjs)). Er notiert
+  für JEDE Identifier-Stelle unter `src/` und `test/`, auf welche Deklaration
+  sie auflöst (80 388 Stellen, 1,7 s), und danach muss er Zeile für Zeile gleich
+  sein. Er ist der einzige Wächter gegen VERDECKUNG: In Welle 4 hat
+  `fenster` → `window` in `wireTimeline` die globale `window` verdeckt, und 17
+  `window.addEventListener` der Pointer-Gesten hingen danach am Spuren-Fenster
+  statt am Dokument. Beides ist `EventTarget`, also schwieg der Compiler, und
+  kein Test wurde rot. Drei Dinge machen ihn erst brauchbar: Verglichen wird
+  über die Deklarations-ZEILE und nicht über eine laufende Nummer (sonst
+  verrutscht alles, sobald eine Eigenschaft dazukommt), die NAMEN stehen nicht
+  darin (sie ändern sich ja gerade), und die SPALTE auch nicht — ein längerer
+  Zielname verschiebt jede weitere Stelle derselben Zeile. `--alias` schreibt
+  umbenannte Dateipfade auf ihren alten Namen zurück, sonst wäre jede
+  Dateiumbenennung ein Diff über die halbe Datei und der echte Befund darin
+  unsichtbar.
 
 ### 9.2 Was kein Test sieht
 

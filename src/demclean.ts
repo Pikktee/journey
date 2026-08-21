@@ -28,7 +28,7 @@
 // wie ein zufälliger Aussetzer aus. Der `fetch` bleibt hier (er kennt das
 // Abbruch-Signal), nur die Bildarbeit geht hinüber.
 
-import { bereinigeHoehen, KACHEL } from './demclean-rechnung.js'
+import { cleanElevations, TILE } from './dem-clean-math.js'
 
 /** Antwort des Workers: `data === null` heißt „nichts geändert". */
 interface Antwort {
@@ -113,13 +113,13 @@ async function bereinige(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
 
 async function imMainThread(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
   const bmp = await createImageBitmap(new Blob([buf], { type: 'image/png' }))
-  const cv = new OffscreenCanvas(KACHEL, KACHEL)
+  const cv = new OffscreenCanvas(TILE, TILE)
   const ctx = cv.getContext('2d', { willReadFrequently: true })
   if (!ctx) return null
   ctx.drawImage(bmp, 0, 0)
   bmp.close?.()
-  const img = ctx.getImageData(0, 0, KACHEL, KACHEL)
-  if (!bereinigeHoehen(img.data)) return null
+  const img = ctx.getImageData(0, 0, TILE, TILE)
+  if (!cleanElevations(img.data)) return null
   ctx.putImageData(img, 0, 0)
   return await (await cv.convertToBlob({ type: 'image/png' })).arrayBuffer()
 }

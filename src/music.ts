@@ -4,13 +4,13 @@
 // aktiviert ist — sonst blendet sie sanft aus und pausiert.
 // Ducking bei Video-Ton: folgt der Video-Hülle (Equal-Power), s. audiotracks.ts.
 import { SeamlessLoop } from './audioloop.js'
-import { alsHuelle, VERKLING_BLENDE, videoMusikDuck, type DuckPegel } from './audiotracks.js'
+import { asEnvelope, FADE_OUT_S, musicDuck, type DuckVolumes } from './audiotracks.js'
 
-export interface Hintergrundmusik {
+export interface BackgroundMusic {
   setGate(fn: () => boolean): void
   setEnabled(on: boolean): void
   /** Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel. */
-  setDucking(pegel: DuckPegel): void
+  setDucking(pegel: DuckVolumes): void
   /**
    * Schneller ausklingen als an einer gewöhnlichen Gate-Kante (~0,9 s statt
    * 2,5 s) — der Weg zum Endscreen und zurück zum Startscreen. Die Tour-Musik
@@ -29,7 +29,7 @@ export interface Hintergrundmusik {
 export function createMusic(
   url: string,
   { volume = 0.16 }: { volume?: number } = {},
-): Hintergrundmusik {
+): BackgroundMusic {
   const loop = new SeamlessLoop(url, { xfade: 1.4 })
   let enabled = true
   let gate = (): boolean => false
@@ -44,7 +44,7 @@ export function createMusic(
     const want = enabled && gate()
     if (want) verklingt = false
     const tgt = want ? volume : 0
-    master += (tgt - master) * (verklingt ? VERKLING_BLENDE : 0.06) // 2,5 s, beim Verklingen 0,9 s
+    master += (tgt - master) * (verklingt ? FADE_OUT_S : 0.06) // 2,5 s, beim Verklingen 0,9 s
     duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s)
     if (want && loop.paused && !loop._blocked) loop.play().catch(() => {})
     loop.volume = master * duck
@@ -68,8 +68,8 @@ export function createMusic(
       enabled = on
     },
     // Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel.
-    setDucking: (pegel: DuckPegel) => {
-      duckTgt = videoMusikDuck(alsHuelle(pegel))
+    setDucking: (pegel: DuckVolumes) => {
+      duckTgt = musicDuck(asEnvelope(pegel))
     },
     verklinge: () => {
       verklingt = true

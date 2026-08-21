@@ -29,11 +29,11 @@
 // niemanden belasten, der nur schneidet.
 
 import {
-  alsHuelle,
-  musikVersatzS,
-  sfxSollFeuern,
-  videoMusikDuck,
-  type DuckPegel,
+  asEnvelope,
+  musicOffsetS,
+  sfxShouldFire,
+  musicDuck,
+  type DuckVolumes,
 } from '../audiotracks.js'
 import { fractionAt, filmAt, type FilmCurve } from './timeline.js'
 
@@ -170,13 +170,13 @@ export interface Playback {
    *  `urls` listet ALLE laufenden Spuren — bei Überlappung mehr als eine. */
   audioState: () => { url: string | null; running: boolean; urls: string[] }
   /**
-   * Video-Ton-Hülle 0..1 → Musik ducken, wie `AudioSpuren.setDucking` im Player.
+   * Video-Ton-Hülle 0..1 → Musik ducken, wie `AudioTracks.setDucking` im Player.
    * Ohne sie liefe die Filmmusik im Editor unter dem Ton der Aufnahme ungedämpft
    * weiter — der Schnitt klänge anders als der Film, und genau das soll das
    * Abspielen prüfen. SFX werden wie im Player NICHT gedämpft: Ein Effekt, der
    * zur Szene gehört, soll nicht unter deren eigenem Ton wegtauchen.
    */
-  setDucking: (volume: DuckPegel) => void
+  setDucking: (volume: DuckVolumes) => void
   /** Alles verstummen und Elemente freigeben (Editor verlassen) */
   close: () => void
 }
@@ -265,7 +265,7 @@ export function createPlayback(options: PlaybackOptions): Playback {
           () => {
             if (!el || !el.duration) return
             try {
-              el.currentTime = musikVersatzS(
+              el.currentTime = musicOffsetS(
                 sinceClipStartS(onEntry, clip.from, curve),
                 el.duration,
                 clip.startS,
@@ -286,7 +286,7 @@ export function createPlayback(options: PlaybackOptions): Playback {
         // die im Film JETZT liefe — ohne die Datei neu zu laden.
         if (el.duration) {
           try {
-            el.currentTime = musikVersatzS(
+            el.currentTime = musicOffsetS(
               sinceClipStartS(fraction, clip.from, plan.curve),
               el.duration,
               clip.startS,
@@ -315,7 +315,7 @@ export function createPlayback(options: PlaybackOptions): Playback {
     for (const k of plan.sounds) {
       // Dieselbe Regel wie im Player (audiotracks.ts): nur beim Vorwärts-
       // Überfahren, und ein Sprung „verbraucht" die Marke lautlos.
-      if (!sfxSollFeuern(filmBefore, filmAfter, filmAt(plan.curve, k.fraction), true)) continue
+      if (!sfxShouldFire(filmBefore, filmAfter, filmAt(plan.curve, k.fraction), true)) continue
       const a = new Audio(k.url)
       a.volume = Math.max(0, Math.min(1, k.volume))
       if (k.startS) a.currentTime = k.startS // linker Trim gilt auch beim One-Shot
@@ -398,8 +398,8 @@ export function createPlayback(options: PlaybackOptions): Playback {
         urls: playing.map((el) => el.src),
       }
     },
-    setDucking: (p: DuckPegel) => {
-      const next = videoMusikDuck(alsHuelle(p))
+    setDucking: (p: DuckVolumes) => {
+      const next = musicDuck(asEnvelope(p))
       if (next === duck) return
       duck = next
       // Laufende Elemente sofort nachziehen: Der nächste `playMusic`-Durchlauf

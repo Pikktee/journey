@@ -60,7 +60,7 @@ interface Blitz {
 }
 
 /** Was main.ts vom Overlay braucht. */
-export interface Wetteroverlay {
+export interface WeatherOverlay {
   setMode(m: string): void
   setIntensity(v: number): void
   setGate(fn: () => boolean): void
@@ -197,7 +197,7 @@ function macheFlockenSprite(): HTMLCanvasElement | null {
   return sprite
 }
 
-export function createWeather(container: HTMLElement): Wetteroverlay {
+export function createWeather(container: HTMLElement): WeatherOverlay {
   const canvas = document.createElement('canvas')
   canvas.id = 'weather'
   canvas.setAttribute('aria-hidden', 'true')

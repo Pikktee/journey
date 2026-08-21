@@ -29,17 +29,17 @@ for (const tour of TOUREN) {
     await browser.newContext({ viewport: { width: 1280, height: 800 } })
   ).newPage()
   await seite.goto(`${BASIS}/tour/${tour}`, { waitUntil: 'domcontentloaded' })
-  await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 45000 })
-  const gesamt = await seite.evaluate(() => window.__j.filmachse.gesamtS)
+  await seite.waitForFunction(() => window.__maptale?.tour, null, { timeout: 45000 })
+  const gesamt = await seite.evaluate(() => window.__maptale.filmAxis.totalS)
   const TEMPO = tempoFuer(gesamt)
   await seite.evaluate((t) => {
     document.getElementById('btn-start').click()
-    window.__j.tour.mult = t
+    window.__maptale.tour.mult = t
     window.__messung = { start: performance.now(), ende: null }
     const beobachte = () => {
-      const tr = window.__j.tour
+      const tr = window.__maptale.tour
       if (
-        tr.filmS >= window.__j.filmachse.gesamtS - 0.05 ||
+        tr.filmS >= window.__maptale.filmAxis.totalS - 0.05 ||
         tr.phase === 'intro' ||
         tr.phase === 'finale'
       ) {
@@ -55,8 +55,8 @@ for (const tour of TOUREN) {
     .catch(() => {})
   const m = await seite.evaluate(() => ({
     wand: window.__messung.ende ? (window.__messung.ende - window.__messung.start) / 1000 : null,
-    verworfen: window.__j.uhr.verworfenS,
-    pausiert: window.__j.uhr.pausiertS,
+    verworfen: window.__maptale.clock.droppedS,
+    pausiert: window.__maptale.clock.pausedS,
   }))
   const film = m.wand === null ? null : m.wand * TEMPO
   console.log(

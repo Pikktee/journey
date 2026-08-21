@@ -20,17 +20,17 @@
  * Popup verschwand dort hinter der Steuerleiste.
  */
 
-import type { Map as MapLibreKarte } from 'maplibre-gl'
+import type { Map as MapLibreMap } from 'maplibre-gl'
 
-export interface Datenquelle {
+export interface MapSource {
   /** Was man dieser Quelle im Bild ansieht („Satellitenbild", „Gelände") */
-  rolle: string
+  role: string
   /** Rechtezeile. HTML erlaubt (Links) — die Texte stammen aus unserem Code. */
   html: string
 }
 
 /** Quellen-ID im Stil → was der Zuschauer davon sieht */
-const ROLLEN: Record<string, string> = {
+const ROLES: Record<string, string> = {
   satellite: 'Satellitenbild',
   dem: 'Gelände & Höhen',
 }
@@ -40,28 +40,28 @@ const ROLLEN: Record<string, string> = {
  * etwa das Wetter-Archiv). Quellen ohne `attribution` fallen weg, Duplikate
  * derselben Rechtezeile werden zusammengefasst.
  */
-export function sammleQuellen(
+export function collectSources(
   sources: Record<string, { attribution?: string | undefined } | undefined>,
-  extra: readonly Datenquelle[] = [],
-): Datenquelle[] {
-  const aus: Datenquelle[] = []
-  const gesehen = new Set<string>()
-  for (const [id, quelle] of Object.entries(sources)) {
-    const html = quelle?.attribution?.trim()
-    if (!html || gesehen.has(html)) continue
-    gesehen.add(html)
-    aus.push({ rolle: ROLLEN[id] ?? 'Kartendaten', html })
+  extra: readonly MapSource[] = [],
+): MapSource[] {
+  const out: MapSource[] = []
+  const seen = new Set<string>()
+  for (const [id, source] of Object.entries(sources)) {
+    const html = source?.attribution?.trim()
+    if (!html || seen.has(html)) continue
+    seen.add(html)
+    out.push({ role: ROLES[id] ?? 'Kartendaten', html })
   }
   for (const q of extra) {
-    if (gesehen.has(q.html)) continue
-    gesehen.add(q.html)
-    aus.push(q)
+    if (seen.has(q.html)) continue
+    seen.add(q.html)
+    out.push(q)
   }
-  return aus
+  return out
 }
 
 /** HTML-Rechtezeile zu reinem Text (für eingebrannte Attribution im Export). */
-export function htmlAlsText(html: string): string {
+export function htmlToText(html: string): string {
   return html
     .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/g, ' ')
@@ -77,16 +77,16 @@ export function htmlAlsText(html: string): string {
  * Eine Zeile für den Einbrand: Rolle und Rechte, durch Punkte getrennt.
  * Dieselben Felder wie das Popup, ohne Markup.
  */
-export function quellenAlsText(quellen: readonly Datenquelle[]): string {
-  return quellen.map((q) => `${q.rolle}: ${htmlAlsText(q.html)}`).join(' · ')
+export function sourcesAsText(sources: readonly MapSource[]): string {
+  return sources.map((q) => `${q.role}: ${htmlToText(q.html)}`).join(' · ')
 }
 
 /**
  * Einbrand ohne Rollen-Präfix: im Clip zählt der Rechteinhaber, nicht die
  * Zeilenüberschrift des Popups. Kürzer, dieselben Quellen.
  */
-export function quellenAlsEinbrand(quellen: readonly Datenquelle[]): string {
-  return quellen.map((q) => htmlAlsText(q.html)).join(' · ')
+export function sourcesForBurnIn(sources: readonly MapSource[]): string {
+  return sources.map((q) => htmlToText(q.html)).join(' · ')
 }
 
 const ICON =
@@ -94,50 +94,50 @@ const ICON =
   'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
   '<circle cx="12" cy="12" r="9.2"/><path d="M12 11.1v5.3"/><path d="M12 7.7h.01"/></svg>'
 
-export function createKartenInfo(
-  karte: MapLibreKarte,
-  extra: readonly Datenquelle[] = [],
-): { entferne(): void } {
-  let offen = false
-  let zuTimer = 0
+export function createMapAttribution(
+  map: MapLibreMap,
+  extra: readonly MapSource[] = [],
+): { remove(): void } {
+  let open = false
+  let closeTimer = 0
 
   const el = document.createElement('div')
-  el.className = 'karten-info'
+  el.className = 'map-attribution'
 
-  const knopf = document.createElement('button')
-  knopf.type = 'button'
-  knopf.className = 'karten-info-knopf'
-  knopf.title = 'Kartendaten & Quellen'
-  knopf.setAttribute('aria-label', 'Kartendaten und Quellen')
-  knopf.setAttribute('aria-expanded', 'false')
-  knopf.setAttribute('aria-controls', 'karten-info-popup')
-  knopf.innerHTML = ICON
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'map-attribution-button'
+  button.title = 'Kartendaten & Quellen'
+  button.setAttribute('aria-label', 'Kartendaten und Quellen')
+  button.setAttribute('aria-expanded', 'false')
+  button.setAttribute('aria-controls', 'map-attribution-popup')
+  button.innerHTML = ICON
 
   const popup = document.createElement('div')
-  popup.className = 'karten-info-popup'
-  popup.id = 'karten-info-popup'
+  popup.className = 'map-attribution-popup'
+  popup.id = 'map-attribution-popup'
   popup.hidden = true
 
-  el.append(popup, knopf)
+  el.append(popup, button)
 
-  const baueInhalt = () => {
-    if (popup.dataset.gefuellt) return
+  const buildContent = () => {
+    if (popup.dataset.filled) return
     // getStyle() wirft, solange der Stil noch nicht geladen ist — der Inhalt
     // wird beim ersten Öffnen gebaut, dann ist er längst da.
-    let sources: Record<string, { attribution?: string }> = {}
+    let styleSources: Record<string, { attribution?: string }> = {}
     try {
-      sources = (karte.getStyle()?.sources ?? {}) as Record<string, { attribution?: string }>
+      styleSources = (map.getStyle()?.sources ?? {}) as Record<string, { attribution?: string }>
     } catch {
       /* Stil noch nicht bereit: dann zeigen wir nur die Extra-Quellen */
     }
-    const quellen = sammleQuellen(sources, extra)
+    const sources = collectSources(styleSources, extra)
     popup.innerHTML =
-      '<p class="ki-titel">Kartendaten</p>' +
-      quellen
+      '<p class="attribution-title">Kartendaten</p>' +
+      sources
         .map(
           (q) =>
-            `<div class="ki-zeile"><span class="ki-rolle">${q.rolle}</span>` +
-            `<span class="ki-quelle">${q.html}</span></div>`,
+            `<div class="attribution-row"><span class="attribution-role">${q.role}</span>` +
+            `<span class="attribution-source">${q.html}</span></div>`,
         )
         .join('')
     // Links verlassen den Player immer in einem neuen Tab: ein Wegnavigieren
@@ -146,63 +146,63 @@ export function createKartenInfo(
       a.target = '_blank'
       a.rel = 'noopener noreferrer'
     }
-    popup.dataset.gefuellt = '1'
+    popup.dataset.filled = '1'
   }
 
-  const setzeOffen = (auf: boolean) => {
-    if (auf === offen) return
-    offen = auf
-    knopf.setAttribute('aria-expanded', String(auf))
+  const setOpen = (on: boolean) => {
+    if (on === open) return
+    open = on
+    button.setAttribute('aria-expanded', String(on))
     // Solange die Quellen offen sind, zieht sich die UI nicht zurück (main.ts) —
     // sonst blendete der Text weg, während man ihn liest.
-    document.body.classList.toggle('info-offen', auf)
-    clearTimeout(zuTimer)
-    if (auf) {
-      baueInhalt()
+    document.body.classList.toggle('attribution-open', on)
+    clearTimeout(closeTimer)
+    if (on) {
+      buildContent()
       popup.hidden = false
       // Ein Frame Abstand: direkt aus display:none heraus überspringt der
       // Browser die Transition und das Popup erschiene ohne Bewegung.
       requestAnimationFrame(() => {
-        if (offen) popup.classList.add('offen')
+        if (open) popup.classList.add('open')
       })
     } else {
-      popup.classList.remove('offen')
-      zuTimer = window.setTimeout(() => {
-        if (!offen) popup.hidden = true
+      popup.classList.remove('open')
+      closeTimer = window.setTimeout(() => {
+        if (!open) popup.hidden = true
       }, 220)
     }
   }
 
-  const aufKnopf = (e: MouseEvent) => {
+  const onButton = (e: MouseEvent) => {
     e.stopPropagation()
-    setzeOffen(!offen)
+    setOpen(!open)
   }
   // Klick im Popup (etwa auf einen Link) darf nicht als „woanders" gelten
-  const aufPopup = (e: MouseEvent) => e.stopPropagation()
-  const aufDokument = (e: Event) => {
-    if (offen && !el.contains(e.target as Node)) setzeOffen(false)
+  const onPopup = (e: MouseEvent) => e.stopPropagation()
+  const onDocument = (e: Event) => {
+    if (open && !el.contains(e.target as Node)) setOpen(false)
   }
-  const aufTaste = (e: KeyboardEvent) => {
-    if (offen && e.key === 'Escape') {
-      setzeOffen(false)
-      knopf.focus()
+  const onKey = (e: KeyboardEvent) => {
+    if (open && e.key === 'Escape') {
+      setOpen(false)
+      button.focus()
     }
   }
 
-  knopf.addEventListener('click', aufKnopf)
-  popup.addEventListener('click', aufPopup)
-  document.addEventListener('pointerdown', aufDokument)
-  document.addEventListener('keydown', aufTaste)
+  button.addEventListener('click', onButton)
+  popup.addEventListener('click', onPopup)
+  document.addEventListener('pointerdown', onDocument)
+  document.addEventListener('keydown', onKey)
   document.body.appendChild(el)
 
   return {
-    entferne() {
-      knopf.removeEventListener('click', aufKnopf)
-      popup.removeEventListener('click', aufPopup)
-      document.removeEventListener('pointerdown', aufDokument)
-      document.removeEventListener('keydown', aufTaste)
-      clearTimeout(zuTimer)
-      document.body.classList.remove('info-offen')
+    remove() {
+      button.removeEventListener('click', onButton)
+      popup.removeEventListener('click', onPopup)
+      document.removeEventListener('pointerdown', onDocument)
+      document.removeEventListener('keydown', onKey)
+      clearTimeout(closeTimer)
+      document.body.classList.remove('attribution-open')
       el.remove()
     },
   }

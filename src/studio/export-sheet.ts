@@ -4,7 +4,7 @@
  * Wählt Lage und Größe und rendert DANN IM SELBEN BLATT: Die Export-Seite läuft
  * als gleich-origin `iframe` klein skaliert über dem Fortschrittsbalken, meldet
  * ihren Stand per `postMessage` und schiebt die fertige Datei als Puffer
- * herauf. Der Encoder bleibt drüben in exportfilm.ts, damit MapLibre und
+ * herauf. Der Encoder bleibt drüben in film-export.ts, damit MapLibre und
  * mediabunny nicht ins Studio-Bundle wandern — der Rahmen ist genau die
  * Grenze, die das sicherstellt.
  *
@@ -20,21 +20,21 @@
  */
 
 import {
-  EXPORT_FPS_WAHL,
-  EXPORT_NACHRICHT,
-  EXPORT_VORGABE,
-  clipDauerS,
+  EXPORT_FPS_CHOICES,
+  EXPORT_MESSAGE,
+  EXPORT_DEFAULT,
+  exportClipDurationS,
   exportQuery,
   exportViewport,
-  formatiereClipzeit,
-  istExportFps,
-  restzeitS,
-  restzeitText,
+  formatClipTime,
+  isExportFps,
+  remainingS,
+  remainingText,
   type ExportFormat,
-  type ExportGroesse,
-  type ExportLage,
-  type ExportMeldung,
-} from '../exportformat.js'
+  type ExportSize,
+  type ExportOrientation,
+  type ExportMessage,
+} from '../film-export-channel.js'
 import { tourPfad } from '../routen.js'
 
 export interface ExportSheetTour {
@@ -45,12 +45,12 @@ export interface ExportSheetTour {
   track?: { d: string; start: [number, number]; end: [number, number] } | null
   /** Länge des FILMS in Sekunden aus `stats.filmS`; fehlt bei Altbestand. */
   filmS?: number | null
-  /** Endscreen — er zählt zur Länge der DATEI, s. `clipDauerS`. */
+  /** Endscreen — er zählt zur Länge der DATEI, s. `exportClipDurationS`. */
   finale?: boolean | null
 }
 
 let backdrop: HTMLElement | null = null
-let format: ExportFormat = { ...EXPORT_VORGABE }
+let format: ExportFormat = { ...EXPORT_DEFAULT }
 let current: ExportSheetTour | null = null
 let frame: HTMLIFrameElement | null = null
 let observer: ResizeObserver | null = null
@@ -97,8 +97,8 @@ function buildSheet(): HTMLElement {
           <div class="film-export-row">
             <div class="film-export-label">Ausrichtung</div>
             <div class="inspector-buttons" role="radiogroup" aria-label="Ausrichtung">
-              <button type="button" data-orientation="quer">Quer</button>
-              <button type="button" data-orientation="hoch">Hochkant</button>
+              <button type="button" data-orientation="landscape">Quer</button>
+              <button type="button" data-orientation="portrait">Hochkant</button>
             </div>
           </div>
           <div class="film-export-row">
@@ -111,7 +111,7 @@ function buildSheet(): HTMLElement {
           <div class="film-export-row">
             <div class="film-export-label">Bildrate</div>
             <div class="inspector-buttons" role="radiogroup" aria-label="Bildrate">
-              ${EXPORT_FPS_WAHL.map((n) => `<button type="button" data-fps="${n}">${n}</button>`).join('')}
+              ${EXPORT_FPS_CHOICES.map((n) => `<button type="button" data-fps="${n}">${n}</button>`).join('')}
             </div>
           </div>
         </div>
@@ -161,19 +161,19 @@ function buildSheet(): HTMLElement {
   $('button[data-save]', el).addEventListener('click', save)
   el.querySelectorAll<HTMLButtonElement>('[data-orientation]').forEach((b) => {
     b.addEventListener('click', () =>
-      setFormat({ ...format, lage: b.dataset.orientation as ExportLage }),
+      setFormat({ ...format, orientation: b.dataset.orientation as ExportOrientation }),
     )
   })
   el.querySelectorAll<HTMLButtonElement>('[data-size]').forEach((b) => {
     b.addEventListener('click', () => {
       const n = Number.parseInt(b.dataset.size ?? '', 10)
-      setFormat({ ...format, groesse: n as ExportGroesse })
+      setFormat({ ...format, size: n as ExportSize })
     })
   })
   el.querySelectorAll<HTMLButtonElement>('[data-fps]').forEach((b) => {
     b.addEventListener('click', () => {
       const n = Number.parseInt(b.dataset.fps ?? '', 10)
-      if (istExportFps(n)) setFormat({ ...format, fps: n })
+      if (isExportFps(n)) setFormat({ ...format, fps: n })
     })
   })
   document.body.appendChild(el)
@@ -184,18 +184,18 @@ function setFormat(n: ExportFormat): void {
   format = n
   if (!backdrop) return
   backdrop.querySelectorAll<HTMLButtonElement>('[data-orientation]').forEach((b) => {
-    b.classList.toggle('aktiv', b.dataset.orientation === format.lage)
+    b.classList.toggle('aktiv', b.dataset.orientation === format.orientation)
   })
   backdrop.querySelectorAll<HTMLButtonElement>('[data-size]').forEach((b) => {
-    b.classList.toggle('aktiv', b.dataset.size === String(format.groesse))
+    b.classList.toggle('aktiv', b.dataset.size === String(format.size))
   })
   backdrop.querySelectorAll<HTMLButtonElement>('[data-fps]').forEach((b) => {
     b.classList.toggle('aktiv', b.dataset.fps === String(format.fps))
   })
   const vp = exportViewport(format)
   const preview = $('#film-export-preview', backdrop)
-  preview.classList.toggle('portrait', format.lage === 'hoch')
-  preview.style.aspectRatio = `${vp.breite} / ${vp.hoehe}`
+  preview.classList.toggle('portrait', format.orientation === 'portrait')
+  preview.style.aspectRatio = `${vp.width} / ${vp.height}`
   lastWidth = 0 // Formatwechsel ändert das Seitenverhältnis, nicht nur die Breite
   fitFrame()
 }
@@ -243,10 +243,10 @@ function paintPreview(tour: ExportSheetTour): void {
   // Ohne bekannte Filmlänge lieber nichts als eine geratene — sie ist die
   // Erwartung an Dateigröße und Wartezeit (Altbestand bekommt sie beim
   // nächsten Rendern, wie `track` und `photos`).
-  const clipS = filmS && filmS > 0 ? clipDauerS(filmS, tour.finale === true) : 0
+  const clipS = filmS && filmS > 0 ? exportClipDurationS(filmS, tour.finale === true) : 0
   $('#film-export-subtitle', backdrop).textContent = title
   duration.hidden = !(clipS > 0)
-  duration.textContent = clipS > 0 ? formatiereClipzeit(clipS) : ''
+  duration.textContent = clipS > 0 ? formatClipTime(clipS) : ''
 }
 
 /**
@@ -268,9 +268,9 @@ function fitFrame(): void {
   const width = stage.clientWidth
   if (width < 1 || width === lastWidth) return
   lastWidth = width
-  frame.style.width = `${vp.breite}px`
-  frame.style.height = `${vp.hoehe}px`
-  frame.style.transform = `scale(${width / vp.breite})`
+  frame.style.width = `${vp.width}px`
+  frame.style.height = `${vp.height}px`
+  frame.style.transform = `scale(${width / vp.width})`
 }
 
 /**
@@ -420,18 +420,18 @@ function abort(): void {
 
 function onMessage(e: MessageEvent): void {
   if (e.origin !== location.origin || !backdrop) return
-  const m = e.data as ExportMeldung | undefined
-  if (!m || m.typ !== EXPORT_NACHRICHT) return
+  const m = e.data as ExportMessage | undefined
+  if (!m || m.type !== EXPORT_MESSAGE) return
   const state = $('#film-export-status', backdrop)
   const rest = $('#film-export-remaining', backdrop)
   const fill = $('#film-export-fill', backdrop)
   const fraction = m.frames && m.frame ? m.frame / m.frames : 0
   fill.style.width = `${Math.round(fraction * 100)}%`
 
-  if (m.stand === 'fertig' && m.daten && m.dateiname) {
-    doneFile = { name: m.dateiname, data: m.daten }
+  if (m.status === 'fertig' && m.data && m.fileName) {
+    doneFile = { name: m.fileName, data: m.data }
     fill.style.width = '100%'
-    state.textContent = `Fertig. ${formatiereClipzeit(m.clipS ?? 0)} Film.`
+    state.textContent = `Fertig. ${formatClipTime(m.clipS ?? 0)} Film.`
     rest.textContent = ''
     cancelArmed = false
     $('#film-export-prompt', backdrop).hidden = true
@@ -447,10 +447,10 @@ function onMessage(e: MessageEvent): void {
   }
   state.textContent = m.text ?? ''
   rest.textContent =
-    m.stand === 'laeuft'
-      ? restzeitText(restzeitS(m.frame ?? 0, m.frames ?? 0, (Date.now() - startMs) / 1000))
+    m.status === 'laeuft'
+      ? remainingText(remainingS(m.frame ?? 0, m.frames ?? 0, (Date.now() - startMs) / 1000))
       : ''
-  if (m.stand === 'fehler') {
+  if (m.status === 'fehler') {
     // Gescheitert heißt: Es läuft nichts mehr. Bliebe der Rahmen stehen,
     // fragte „Abbrechen" für einen toten Lauf nach — und `beforeunload`
     // hielte weiter das Neuladen auf.
@@ -502,7 +502,7 @@ export function closeExportSheet(): void {
 export function openExportSheet(tour: ExportSheetTour): void {
   if (!backdrop) backdrop = buildSheet()
   current = tour
-  format = { ...EXPORT_VORGABE }
+  format = { ...EXPORT_DEFAULT }
   setFormat(format)
   paintPreview(tour)
   showRun(false)

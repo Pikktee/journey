@@ -26,13 +26,13 @@ function zIndex(selektor: string): number {
 
 describe('Schichtung der Player-Bühne', () => {
   it('legt Steuerleiste und Weg zurück über Foto-Karte und Finale', () => {
-    const bild = Math.max(zIndex('.karten-leinwand'), zIndex('.finale'))
+    const bild = Math.max(zIndex('.card-canvas'), zIndex('.finale'))
     // Die Steuerleiste — der Griff, den man beim Scrubben braucht.
     expect(zIndex('.dock')).toBeGreaterThan(bild)
     // Oben links steht genau EIN Element: der Weg hinaus.
-    expect(zIndex('.zurueck')).toBeGreaterThan(bild)
+    expect(zIndex('.exit-pill')).toBeGreaterThan(bild)
     // Die Pflicht-Attribution ist Bedienung, kein Bild.
-    expect(zIndex('.karten-info')).toBeGreaterThan(bild)
+    expect(zIndex('.map-attribution')).toBeGreaterThan(bild)
   })
 
   it('hält den Startscreen über allem, was zur Fahrt gehört', () => {
@@ -45,8 +45,8 @@ describe('Schichtung der Player-Bühne', () => {
   // darüber die Bedienung (DOM, weil Knöpfe im Film nichts zu suchen haben).
   // Vertauscht man die oberen zwei, ist die Karte über ihren eigenen Knöpfen.
   it('stapelt Schleier, Bild und Bedienung in dieser Reihenfolge', () => {
-    expect(zIndex('.photo-backdrop')).toBeLessThan(zIndex('.karten-leinwand'))
-    expect(zIndex('.karten-leinwand')).toBeLessThan(zIndex('.photo-layer'))
+    expect(zIndex('.photo-backdrop')).toBeLessThan(zIndex('.card-canvas'))
+    expect(zIndex('.card-canvas')).toBeLessThan(zIndex('.photo-layer'))
     // Und die Bedienung der Karte bleibt unter der Steuerleiste: Wer scrubbt,
     // greift die Leiste, auch wenn die Karte liegt (E17).
     expect(zIndex('.photo-layer')).toBeLessThan(zIndex('.dock'))
@@ -59,7 +59,7 @@ describe('Schichtung der Player-Bühne', () => {
   // stehen, während sich alles andere zurückzog: monatelang unbemerkt, weil die
   // Regel dasteht und richtig aussieht.
   it('blendet ALLE drei Elemente des Rückzugs wirklich aus', () => {
-    for (const sel of ['.zurueck', '.next-stop', '.dock']) {
+    for (const sel of ['.exit-pill', '.next-stop', '.dock']) {
       const regel = new RegExp(`body\\.ui-clean ${sel.replace('.', '\\.')}\\s*\\{([^}]*)\\}`, 'm')
       const treffer = regel.exec(css)
       expect(treffer, `body.ui-clean ${sel} fehlt in style.css`).not.toBeNull()

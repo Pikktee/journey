@@ -15,14 +15,14 @@ function eclipticLongitude(d: number) {
 }
 
 /** Sonnenstand an einem Ort: Höhe über dem Horizont und Azimut, beide in Grad. */
-export interface Sonnenstand {
+export interface SunPosition {
   /** Grad über dem Horizont (negativ = untergegangen) */
   altitude: number
   /** Grad von Norden, im Uhrzeigersinn */
   azimuth: number
 }
 
-export function sunPosition(date: Date, lat: number, lng: number): Sonnenstand {
+export function sunPosition(date: Date, lat: number, lng: number): SunPosition {
   const lw = rad * -lng
   const phi = rad * lat
   const d = toDays(date)

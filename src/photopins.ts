@@ -6,7 +6,7 @@
 // jedem Grat, sobald die Kamera flach stand.
 //
 // Die Rechenregeln (Zustände, Detailstufen-Fenster, Blende, Maßstab) liegen DOM-frei und
-// getestet in [pinmodell.ts](pinmodell.ts); hier steht nur Three.js/MapLibre-Verdrahtung.
+// getestet in [pin-model.ts](pin-model.ts); hier steht nur Three.js/MapLibre-Verdrahtung.
 //
 // WARUM EIN EIGENER RENDERER (Machbarkeit, an MapLibre 5.24 geprüft):
 //   · Symbol-/Circle-Layer können in MapLibre NICHT über Grund gehoben werden — die
@@ -37,21 +37,21 @@ import * as THREE from 'three'
 import maplibregl, { type CustomLayerInterface, type Map as MapLibreKarte } from 'maplibre-gl'
 import { EXAGGERATION, type LngLat2D } from './map.js'
 import {
-  naechsterIndex,
-  zustaende,
-  stufenZiele,
-  blendeSchritt,
-  weltGroesse,
-  imBild,
-  type Fenster,
-  type PinZustand,
-} from './pinmodell.js'
-import type { Lichtstimmung } from './daynight.js'
+  nextIndex,
+  pinStates,
+  detailTargets,
+  fadeStep,
+  worldSize,
+  inView,
+  type PinWindow,
+  type PinState,
+} from './pin-model.js'
+import type { LightMood } from './daynight.js'
 
 const DEG = Math.PI / 180
 
 /** Ein Foto-Stopp, wie ihn der Verdrahter aus der Route baut (s. main.ts). */
-export interface PinStopp {
+export interface PinStop {
   lnglat: LngLat2D
   /** Streckenmeter des Halts */
   s: number
@@ -62,11 +62,11 @@ export interface PinStopp {
 }
 
 /** Steuerung des Layers; `sync` ist signaturgleich zum Rückgabewert von addSpotLayers. */
-export interface PinSteuerung {
+export interface PinControl {
   sync(s: number): void
-  setFenster(f?: Partial<Fenster>): void
+  setFenster(f?: Partial<PinWindow>): void
   setVisible(on: boolean): void
-  applyDayNight(p?: Pick<Lichtstimmung, 'br'> | null): void
+  applyDayNight(p?: Pick<LightMood, 'br'> | null): void
   setTiefentest(on: boolean): void
   setMasse(m?: Partial<typeof MASSE>): void
   _dbg(): unknown
@@ -87,7 +87,7 @@ interface ZustandStil {
 //   kommend  = creme gefüllt, dünner neutraler Ring
 //   naechster = creme gefüllt + Amber-Ring (Ziel)
 //   besucht  = amber gefüllt + weißer Ring
-const ZUSTAND: Record<PinZustand, ZustandStil> = {
+const ZUSTAND: Record<PinState, ZustandStil> = {
   kommend: {
     fuellung: '#f6f1e7',
     ring: 'rgba(23,17,6,0.42)',
@@ -100,7 +100,7 @@ const ZUSTAND: Record<PinZustand, ZustandStil> = {
 }
 
 // Bildschirmmaße des Pins in CSS-Pixeln bei der Referenzdistanz. Als Objekt, damit die
-// Proportionen am laufenden Player nachjustierbar sind (__j.pins.setMasse({ mast: 90 })).
+// Proportionen am laufenden Player nachjustierbar sind (__maptale.pins.setMasse({ mast: 90 })).
 const MASSE = {
   kopf: 17, // Radius der Kopfscheibe
   mast: 74, // Fuß → Kopfmitte
@@ -125,7 +125,7 @@ const PX_MAX = 1.7
 // FENSTER heißt: der nächste Stopp, der zuletzt besuchte und (am Desktop) der zweite
 // kommende. Der Übergang wird GEBLENDET (s. pin.stufe) — ein harter Wechsel Pin↔Punkt
 // beim Vorbeifahren würde poppen, und genau an der Stelle schaut man hin.
-const FENSTER = { vor: COARSE ? 1 : 2, zurueck: 1 }
+const FENSTER = { ahead: COARSE ? 1 : 2, behind: 1 }
 const BLENDE = 0.12 // Anteil pro Frame, mit dem sich stufe ihrem Ziel nähert (~0,3 s)
 
 // 4×4 spaltenweise multiplizieren — float64 wegen der Mercator-Präzision.
@@ -148,7 +148,7 @@ function mat4mul(a: ArrayLike<number>, b: ArrayLike<number>, o: number[]): numbe
 function zeichneKopf(
   canvas: HTMLCanvasElement,
   nummer: number,
-  zustand: PinZustand,
+  zustand: PinState,
   bild: HTMLImageElement | null,
 ) {
   const S = 192
@@ -273,7 +273,7 @@ function fussTextur(): THREE.CanvasTexture {
 
 /** Ein Pin samt seinen drei Meshes und seinem geblendeten Detailstufen-Zustand. */
 interface Pin {
-  sp: PinStopp
+  sp: PinStop
   nummer: number
   /** Mercator, relativ zum Ursprung */
   mx: number
@@ -281,7 +281,7 @@ interface Pin {
   /** Aktuelle (weich nachgezogene) Fußhöhe und ihr Ziel aus der Terrain-Abfrage */
   ele: number
   eleZiel: number | null
-  zustand: PinZustand
+  zustand: PinState
   /** 0 = flacher Bodenpunkt, 1 = voller Pin (wird geblendet) */
   stufe: number
   zielStufe: number
@@ -309,12 +309,12 @@ interface Pin {
  */
 export function installPhotoPins(
   map: MapLibreKarte,
-  spots: PinStopp[],
+  spots: PinStop[],
   {
     onSelect,
-    variante = 'nummer',
-  }: { onSelect?: (s: number) => void; variante?: 'nummer' | 'foto' } = {},
-): PinSteuerung {
+    variant = 'nummer',
+  }: { onSelect?: (s: number) => void; variant?: 'nummer' | 'foto' } = {},
+): PinControl {
   if (COARSE) {
     MASSE.kopf = 14
     MASSE.mast = 62
@@ -422,7 +422,7 @@ export function installPhotoPins(
 
   // Foto-Variante: Bilder nachladen, Kopf beim Eintreffen neu zeichnen. Der Kopf muss
   // dafür deutlich größer sein — bei 17 px Radius ist ein Foto ein Farbfleck.
-  if (variante === 'foto') {
+  if (variant === 'foto') {
     MASSE.kopf = COARSE ? 22 : 27
     MASSE.mast = COARSE ? 74 : 88
     for (const p of pins) {
@@ -509,7 +509,7 @@ export function installPhotoPins(
     // Maßstab bei Referenzdistanz (Pixel je Meter) — Bezug der weltfesten Größe.
     const pxRef = 1 / (k * D_REF)
     const groesse = (px: number, pxProM: number) =>
-      weltGroesse(px, pxProM, pxRef, MASSE.perspektive, PX_MIN, PX_MAX)
+      worldSize(px, pxProM, pxRef, MASSE.perspektive, PX_MIN, PX_MAX)
 
     for (const pin of pins) {
       if (pin.eleZiel != null) pin.ele += (pin.eleZiel - pin.ele) * 0.18 // weich nachziehen
@@ -525,7 +525,7 @@ export function installPhotoPins(
       // Bodenpunkt heraus — dadurch wandert auch das Klickziel (der Kopf) beim Ausblenden
       // von selbst auf den Boden zurück, und der Stopp bleibt anfassbar.
       if (pin.stufe !== pin.zielStufe) {
-        pin.stufe = blendeSchritt(pin.stufe, pin.zielStufe, BLENDE)
+        pin.stufe = fadeStep(pin.stufe, pin.zielStufe, BLENDE)
         blendet = true // s. render(): sonst friert die Blende in der Pause ein
       }
       const stufe = pin.stufe
@@ -542,7 +542,7 @@ export function installPhotoPins(
       // keine Frustum-Info trägt — die Projektion kommt von MapLibre), also prüfen wir
       // Fuß UND Kopf gegen den Clip-Raum. Gemessen: 0,59 → 0,2 ms CPU je Frame.
       projiziere(m, pin.mx, pin.my, zFuss + hM * mpu, pB)
-      const drin = imBild(pA.x, pA.y, pA.w) || imBild(pB.x, pB.y, pB.w)
+      const drin = inView(pA.x, pA.y, pA.w) || inView(pB.x, pB.y, pB.w)
       // Ausgeblendete Stufe = ein Draw statt drei (genau hier liegt die Ersparnis)
       const voll = stufe > 0.02
       pin.fuss.visible = drin
@@ -675,8 +675,8 @@ export function installPhotoPins(
     sync(s) {
       let anstossen = false
       const sWerte = pins.map((p) => p.sp.s)
-      const zust = zustaende(sWerte, s)
-      const ziele = stufenZiele(pins.length, naechsterIndex(sWerte, s), FENSTER)
+      const zust = pinStates(sWerte, s)
+      const ziele = detailTargets(pins.length, nextIndex(sWerte, s), FENSTER)
       for (let i = 0; i < pins.length; i++) {
         const pin = pins[i]
         const z = zust[i]
@@ -698,10 +698,10 @@ export function installPhotoPins(
       // Blende trägt sich selbst weiter (s. `render`).
       if (anstossen || pins.some((p) => p.stufe !== p.zielStufe)) map.triggerRepaint()
     },
-    // Fenstergröße zur Laufzeit: __j.pins.setFenster({ vor: 3, zurueck: 1 })
-    setFenster({ vor, zurueck } = {}) {
-      if (vor != null) FENSTER.vor = Math.max(1, vor)
-      if (zurueck != null) FENSTER.zurueck = Math.max(0, zurueck)
+    // Fenstergröße zur Laufzeit: __maptale.pins.setFenster({ ahead: 3, behind: 1 })
+    setFenster({ ahead, behind } = {}) {
+      if (ahead != null) FENSTER.ahead = Math.max(1, ahead)
+      if (behind != null) FENSTER.behind = Math.max(0, behind)
       map.triggerRepaint()
     },
     setVisible(on: boolean) {
@@ -710,7 +710,7 @@ export function installPhotoPins(
     },
     // Nachts leicht zurücknehmen — der Pin bleibt UI, soll aber nicht wie ein
     // Scheinwerfer über der dunklen Landschaft stehen.
-    applyDayNight(p?: Pick<Lichtstimmung, 'br'> | null) {
+    applyDayNight(p?: Pick<LightMood, 'br'> | null) {
       const b = Math.max(0.55, Math.min(1, p?.br ?? 1))
       for (const pin of pins) {
         pin.mast.material.opacity = 0.92 * b
@@ -728,7 +728,7 @@ export function installPhotoPins(
       }
       map.triggerRepaint()
     },
-    // Live-Regler in der Konsole: __j.pins.setMasse({ mast: 90, kopf: 20 })
+    // Live-Regler in der Konsole: __maptale.pins.setMasse({ mast: 90, kopf: 20 })
     setMasse({ mast, kopf, fuss, perspektive } = {}) {
       if (mast != null) MASSE.mast = mast
       if (kopf != null) MASSE.kopf = kopf

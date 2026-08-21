@@ -259,7 +259,7 @@ und steht bewusst nicht in diesem Konzept.
 | API-Felder Server → Web | gezogen. Die Gegenprobe war ein Abgleich der Pfade in `api.md` mit den registrierten Fastify-Routen in beide Richtungen: keine dokumentierte ohne Route, keine Route ohne Eintrag. Dabei fielen elf Client-Aufrufe auf alte Adressen auf (`/api/galerie`, `/api/auth/me/geraete`, `/api/audio-bibliothek`, …) und fünf Stellen, die die Fehlerhülle als `koerper.fehler` lasen. Der Smoke über die Seiten steht noch aus |
 | API-Felder Server → Android | gezogen. `ApiClient.kt` samt Data Classes; die String-Vergleiche stehen auf `"ready"`/`"failed"`/`"processing"` (`TourenScreen.kt`, `ImportViewModel.kt`, `UploadWorker.kt`) |
 | `edits.json` ← Android | gezogen. `EditsFortschreibung.kt` schreibt `media`, `cover`, `caption` und `maptale/edits@2` |
-| `test/fixtures/filmachse.json` | angefasst, obwohl Welle 5: die Moment-Arten sind Vertragswerte (`orbit`/`ascend`/`linger`). Fixture, Web-Hälfte und Server-Spiegel im selben Commit |
+| `test/fixtures/film-axis.json` | angefasst, obwohl Welle 5: die Moment-Arten sind Vertragswerte (`orbit`/`ascend`/`linger`). Fixture, Web-Hälfte und Server-Spiegel im selben Commit |
 | Server-Spiegel ohne Import | unberührt geblieben, Drift-Wächter grün. `STUDIO_PEGEL` heißt `STUDIO_GAIN`, der Wächter zieht mit |
 | Text-Wächter | einer war rot, und zwar zu Recht: `test/newsletter-einwilligung.test.ts` baute die Label-Präfixe (`registrierung-…`) aus dem Quellen-Schlüssel. Der Wortlaut-Nachweis nach Art. 7 bleibt deutsch, also steht die Zuordnung jetzt ausdrücklich im Wächter |
 | Messskripte | unberührt (Welle 5) |

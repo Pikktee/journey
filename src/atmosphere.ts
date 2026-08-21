@@ -8,8 +8,8 @@
 // drei Ebenen dieselbe — dadurch sind Sterne welt-verankert (bewegen sich korrekt
 // mit dem Blick) und die Sonne sitzt exakt an ihrem echten Azimut/Höhe.
 import { overlayPixelRatio } from './map.js'
-import type { KameraPose } from './tour.js'
-import type { Sonnenstand } from './sun.js'
+import type { CameraPose } from './tour.js'
+import type { SunPosition } from './sun.js'
 
 const DEG = Math.PI / 180
 
@@ -17,29 +17,29 @@ const DEG = Math.PI / 180
 type Vec3 = [number, number, number]
 
 /** Blickrichtung der echten Render-Kamera (MapLibre getPitch/getBearing), in Grad. */
-export interface Kamerablick {
+export interface CameraView {
   pitch: number
   bearing: number
 }
 
 /** Wetter-Himmel vom Umschalter — Wolkendeckung, Wolken-Schwere, Nebel (je 0..1). */
-export interface WetterHimmel {
+export interface WeatherSky {
   cover?: number
   dark?: number
   fog?: number
 }
 
 /** Was der Verdrahter (main.ts) vom Overlay braucht. */
-export interface Atmosphaere {
-  setSun(s: Sonnenstand): void
+export interface Atmosphere {
+  setSun(s: SunPosition): void
   _dbg(): unknown
   setFov(deg: number): void
-  setWeather(o: WetterHimmel | null | undefined): void
+  setWeather(o: WeatherSky | null | undefined): void
   setGate(fn: () => boolean): void
   setTerrain(fn: (lng: number, lat: number) => number | null | undefined): void
-  setCamera(fn: () => Kamerablick): void
+  setCamera(fn: () => CameraView): void
   setSky(horColor?: string | null, skyColor?: string | null, fogColor?: string | null): void
-  render(pose: KameraPose): void
+  render(pose: CameraPose): void
   /**
    * Feste Frame-Zeit statt Wanduhr (Video-Export), `null` = zurück zur Wanduhr.
    *
@@ -228,7 +228,7 @@ function cloudTileFrom(field: Float32Array, lo: number, hi: number): HTMLCanvasE
   return cv
 }
 
-export function createAtmosphere(container: HTMLElement): Atmosphaere {
+export function createAtmosphere(container: HTMLElement): Atmosphere {
   // Fern-Unschärfe: schmaler backdrop-filter-Streifen unter der Horizontlinie
   // (progressiv maskiert). Nimmt der Ferne die Schärfe wie echte Distanz-Unschärfe
   // und kaschiert damit v. a. die Esri-LOD-Kante (ferne Kacheln = andere Auflösung/
@@ -237,7 +237,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   // auf cameraToSeaLevelDistance, bei Pitch ~86 beginnt Fog jenseits des Horizonts).
   // Liegt UNTER dem Atmosphäre-Canvas (z-index, style.css) und blurt nur die Karte.
   const blurEl = document.createElement('div')
-  blurEl.id = 'farblur'
+  blurEl.id = 'color-blur'
   blurEl.setAttribute('aria-hidden', 'true')
   container.appendChild(blurEl)
   const canvas = document.createElement('canvas')
@@ -246,7 +246,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   container.appendChild(canvas)
   const ctx = kontext2d(canvas, 'Overlay')
 
-  let sun: Sonnenstand | null = null // { altitude, azimuth } in Grad
+  let sun: SunPosition | null = null // { altitude, azimuth } in Grad
   // Horizont-/Himmel-/Fog-Farbe (RGB), von daynight
   let sky: { hor: Vec3; skyc: Vec3; fogc: Vec3 } = {
     hor: [170, 205, 235],
@@ -273,7 +273,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   // DEM-Abfragen bei ~10 statt ~190 je Bild. Ohne diese Zeile kostet der
   // inkrementelle Fächer im Film das Vielfache und bringt nichts.
   let probeUhr = 0
-  let getCam: (() => Kamerablick) | null = null // die ECHTE (geclampte) Render-Kamera aus MapLibre
+  let getCam: (() => CameraView) | null = null // die ECHTE (geclampte) Render-Kamera aus MapLibre
   // Wetter-Himmel: cover = Wolkendeckung, dark = Wolken-Schwere, fog = Nebel.
   // wx ist das Ziel (vom Umschalter), wxCur zieht weich nach → Umschalten blendet.
   let wx = { cover: 0, dark: 0, fog: 0 }
@@ -285,7 +285,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   let sunOcc = 0,
     sunOccTgt = 0 // Wolken-Alpha AN der Sonnenposition (0..1) — steuert das Direktlicht
   let animGate: (() => boolean) | null = null // () => true solange die Szene animiert; false ⇒ Wolken-Drift friert ein (Pause)
-  let lastPose: KameraPose | null = null,
+  let lastPose: CameraPose | null = null,
     lastRenderAt = 0 // fürs Idle-Nachrendern in der Pause
   let camAlt = 0 // Kamerahöhe über NN — bestimmt, wie weit der Blick unter den Horizont reicht
   let terrainQ: ((lng: number, lat: number) => number | null | undefined) | null = null // Szenenhöhe (überhöht, wie pose.alt) — von main.ts
@@ -377,7 +377,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   // gekapptem Pitch ALLES (Sonne + Verdeckungslinie) um die Clamp-Differenz zu tief
   // gegenüber der gerenderten Szene — die Sonne „versinkt in der Textur unterhalb
   // des Horizonts". Fallback ohne Kamera-Zugriff: Pose-Richtung wie bisher.
-  function basisFrom(pose: KameraPose): Basis | null {
+  function basisFrom(pose: CameraPose): Basis | null {
     const cam = getCam?.()
     let fwd: Vec3 | null
     if (cam) {
@@ -451,7 +451,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   // Ein DEM-Strahl: höchster abgetasteter Silhouetten-Punkt entlang eines Azimuts,
   // als ndcY + Distanz (null, wenn nichts abtastbar). Genutzt für den Blick-Bearing
   // (Dunst-Band) UND den Sonnen-Azimut (Scheiben-Verdeckung).
-  function probeRay(pose: KameraPose, b: Basis, be: number): Sondenwert | null {
+  function probeRay(pose: CameraPose, b: Basis, be: number): Sondenwert | null {
     if (!terrainQ || !pose.cg) return null
     const la0 = pose.cg[1] * DEG
     const ln0 = pose.cg[0] * DEG
@@ -508,7 +508,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
 
   // Ein einzelner Fächer-Strahl. Die weiche Glättung (0,55 s) + die horizontale
   // Interpolation in drawHaze machen Kamera-Schwenks graduell statt sprunghaft.
-  function fanWert(pose: KameraPose, b: Basis, off: number): number {
+  function fanWert(pose: CameraPose, b: Basis, off: number): number {
     const cam = getCam?.()
     if (!cam) return 1
     const rp = probeRay(pose, b, (cam.bearing + off) * DEG)
@@ -523,7 +523,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     return 1 - rise * near
   }
 
-  function probeFan(pose: KameraPose, b: Basis): number[] {
+  function probeFan(pose: CameraPose, b: Basis): number[] {
     const cam = getCam?.()
     if (!cam) return FAN_OFF.map(() => 1)
     return FAN_OFF.map((off) => fanWert(pose, b, off))
@@ -1082,19 +1082,19 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     for (const L of layers) {
       const tiles = cloudTiers[L.ti]
       // Beide Formstufen der Blende: unten (tierA) und die nächsthärtere
-      const kachelA = tiles?.[tierA]
-      const kachelB = tiles?.[tierA + 1]
+      const tileA = tiles?.[tierA]
+      const tileB = tiles?.[tierA + 1]
       const tw = Math.max(260, w * L.sc)
       let xo = (-(bearing * pxDeg) - cloudT * L.sp) % tw
       if (xo > 0) xo -= tw
       for (let x = xo; x < w; x += tw) {
-        if (u < 0.995 && kachelA) {
+        if (u < 0.995 && tileA) {
           cc.globalAlpha = L.al * (1 - u)
-          cc.drawImage(kachelA, x, bandTop, tw, bandH)
+          cc.drawImage(tileA, x, bandTop, tw, bandH)
         }
-        if (u > 0.005 && kachelB) {
+        if (u > 0.005 && tileB) {
           cc.globalAlpha = L.al * u
-          cc.drawImage(kachelB, x, bandTop, tw, bandH)
+          cc.drawImage(tileB, x, bandTop, tw, bandH)
         }
       }
     }
@@ -1223,11 +1223,11 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
     ctx.fillRect(0, 0, w, h)
   }
 
-  const api: Atmosphaere = {
+  const api: Atmosphere = {
     setSun: (s) => {
       sun = s
     },
-    // Debug-Einblick (window.__j-Konvention): innere Zustände + aktuelle Projektion
+    // Debug-Einblick (window.__maptale-Konvention): innere Zustände + aktuelle Projektion
     _dbg: () => {
       const b = lastPose ? basisFrom(lastPose) : null
       const p = b && sun ? project(sunDirENU(sun.altitude, sun.azimuth), b) : null

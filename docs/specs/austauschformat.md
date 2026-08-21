@@ -78,7 +78,7 @@ Grundprinzipien:
   Schlüssel legt keinen zweiten Eintrag an. Der Foto-Nachzug der App setzt ihn, das
   Studio nicht (s. [konzept_medien_nachreichen_und_loeschen.md](../concepts/konzept_medien_nachreichen_und_loeschen.md)).
   Die Liste ist deckungsgleich mit `MODI` in `server/src/schema/upload.ts` und der
-  Engine (`MODUS_TEMPO` in `src/filmachse.ts`, `MODE_SCALE` in `src/tour.ts`);
+  Engine (`MODUS_TEMPO` in `src/film-axis.ts`, `MODE_SCALE` in `src/tour.ts`);
   Motorgeräusche gibt es für
   `moped`, `jeep` und `ferry` (`MODE_SOUND` in `src/vehicle.ts`).
 - `title: null` ⇒ Auto-Benennung serverseitig (Reverse-Geocoding Start/Ziel).
@@ -154,7 +154,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   `handle` kommen nur bei öffentlichem Profil dazu, sonst gibt es keine Seite,
   auf die der Name führen könnte. Dieselbe Linie wie die Galerie-Karte.
 - **`description` ist auf 150 Zeichen ausgelegt** (`BESCHREIBUNG_MAX` in
-  `src/tourtexte.ts`). Das Schema erlaubt weiter 5000 — Bestandstexte sollen
+  `src/tour-texts.ts`). Das Schema erlaubt weiter 5000 — Bestandstexte sollen
   nicht abgelehnt werden —, das Studio-Feld begrenzt neue Eingaben, und der
   Startscreen kürzt Längeres an der Wortgrenze. Unter 150 bleibt der Text auch in
   der Vorschaukarte geteilter Links ungekürzt (die kürzt bei 200).
@@ -185,7 +185,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   von `pts`, auf der ROHEN Geometrie gemessen — parallele Liste, gleiche Länge.
   Der Player baut daraus mit `route.wpS` (`src/geo.ts`) eine Tabelle und
   übersetzt JEDEN `f`-Anker der Tour EINMAL beim Laden nach Streckenmetern
-  (`src/streckenanker.ts`); danach rechnet er nur noch in Metern. Betroffen sind
+  (`src/route-anchors.ts`); danach rechnet er nur noch in Metern. Betroffen sind
   `audio[].f0/f1`, `camera[].f`, `moments[].f`, `weather[].f` und `timeline[].f`.
   Drei Dinge hängen daran:
   - **Fehlt das Feld, fällt der Player auf `f × route.total` zurück** — das ist
@@ -344,7 +344,7 @@ den **bearbeiteten** (getrimmten) Track ab: `camera.from → camera[].f`,
 `audio.from/to → f0/f1` (Musik ohne `to` → f1 = 1; Einträge, die komplett
 außerhalb der Wiedergabespanne liegen, entfallen mit Warnung). Parallel dazu
 läuft dieselbe Abbildung über die **Film-Achse** (`server/src/pipeline/filmachse.ts`,
-Spiegel von `src/filmachse.ts`) und liefert die Film-Anker. „Komplett außerhalb"
+Spiegel von `src/film-axis.ts`) und liefert die Film-Anker. „Komplett außerhalb"
 wird seit E10 in FILMZEIT geprüft: Ein Klip ganz in einer Standzeit hat dort
 sehr wohl eine Länge und bleibt — vorher fiel genau er heraus.
 

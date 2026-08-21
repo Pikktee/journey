@@ -6,11 +6,11 @@
 // Wie serverseitig gilt: Edits referenzieren stabile Anker (Medien-IDs,
 // Koordinaten, absolute Zeitstempel), nie den Streckenanteil f.
 
-import { MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S } from '../filmachse.js'
+import { MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S } from '../film-axis.js'
 
 /**
  * Fortbewegungs-Modi — deckungsgleich mit MODI in server/src/schema/upload.ts
- * und mit der Player-Engine (MODUS_TEMPO in src/filmachse.ts, MODE_SCALE in
+ * und mit der Player-Engine (MODUS_TEMPO in src/film-axis.ts, MODE_SCALE in
  * src/tour.ts). Reihenfolge
  * wie in der UI: unmotorisiert → motorisiert → öffentlich → Wasser.
  * Ein Drift-Wächter in test/studio-baukasten.test.ts vergleicht die Liste mit
@@ -140,7 +140,7 @@ export interface CameraMoment {
 
 /**
  * Default-Dauern je Moment-Art (s) — KEINE Kopie mehr, sondern dieselbe Tabelle,
- * aus der auch die Engine liest (src/filmachse.ts, seit Paket D). Der Name bleibt
+ * aus der auch die Engine liest (src/film-axis.ts, seit Paket D). Der Name bleibt
  * hier stehen, er steht im ganzen Editor.
  */
 export const MOMENT_DEFAULT_S: Record<CameraMomentKind, number> = ENGINE_MOMENT_DEFAULT_S

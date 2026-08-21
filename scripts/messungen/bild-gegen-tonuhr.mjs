@@ -8,7 +8,7 @@
 //   PLAYWRIGHT=/pfad/zu/node_modules/playwright/index.mjs node scripts/messungen/…
 const { chromium } = await import(process.env['PLAYWRIGHT'] ?? 'playwright')
 
-const TOUR = 't_cGuHmm3vMa4ggQ'
+const TOUR = process.env['TOUR'] ?? 't_cGuHmm3vMa4ggQ'
 const BASIS = process.env['MAPTALE_WEB'] ?? 'http://maptale.localhost:5123'
 const DROSSEL = Number(process.argv[2] ?? 1)
 const SEKUNDEN = 25
@@ -33,7 +33,7 @@ await seite.addInitScript(() => {
 })
 
 await seite.goto(`${BASIS}/tour/${TOUR}`, { waitUntil: 'domcontentloaded' })
-await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 60000 })
+await seite.waitForFunction(() => window.__maptale?.tour, null, { timeout: 60000 })
 
 // Frames zählen, um die tatsächliche Bildrate zu kennen
 await seite.evaluate(() => {
@@ -57,7 +57,7 @@ const TEMPO = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 
 
 const ergebnis = await seite.evaluate(
   async ([sekunden, tempoTab]) => {
-    const t = window.__j.tour
+    const t = window.__maptale.tour
     const warte = (ms) => new Promise((r) => setTimeout(r, ms))
     const ton0 = () => (window.__toene ?? []).find((e) => e.currentSrc && !e.paused) ?? null
     let dsSumme = 0

@@ -7,10 +7,10 @@
 // (docs/concepts/konzept_gleichlauf_player_editor.md §4.1, §8A).
 
 import { describe, expect, it } from 'vitest'
-import { Filmuhr, NOT_DECKEL_S, verbindeSichtbarkeit } from '../src/filmuhr.js'
+import { FilmClock, FRAME_CAP_S, connectVisibility } from '../src/film-clock.js'
 
 /** Spielt `dauerMs` Echtzeit in Frames von `frameMs` ab, liefert die Filmzeit. */
-function spiele(uhr: Filmuhr, dauerMs: number, frameMs: number, startMs = 0): number {
+function spiele(uhr: FilmClock, dauerMs: number, frameMs: number, startMs = 0): number {
   let film = 0
   for (let t = startMs + frameMs; t <= startMs + dauerMs; t += frameMs) film += uhr.frame(t)
   return film
@@ -18,65 +18,65 @@ function spiele(uhr: Filmuhr, dauerMs: number, frameMs: number, startMs = 0): nu
 
 describe('Filmuhr', () => {
   it('zählt 10 s Echtzeit auch bei 200-ms-Frames als 10 s Film', () => {
-    const uhr = new Filmuhr(() => 0)
+    const uhr = new FilmClock(() => 0)
     expect(spiele(uhr, 10_000, 200)).toBeCloseTo(10, 6)
   })
 
   it('gibt bei flüssigen 60 fps dieselbe Zeit', () => {
-    const uhr = new Filmuhr(() => 0)
+    const uhr = new FilmClock(() => 0)
     expect(spiele(uhr, 10_000, 1000 / 60)).toBeCloseTo(10, 3)
   })
 
   it('verliert auch bei 205-ms-Frames nichts — der gemessene Fall bei 12×', () => {
-    const uhr = new Filmuhr(() => 0)
+    const uhr = new FilmClock(() => 0)
     const film = spiele(uhr, 20_500, 205)
     expect(film).toBeCloseTo(20.5, 6)
-    expect(uhr.verworfenS).toBe(0) // der Notdeckel darf hier NICHT greifen
-    expect(uhr.laengstesFrameS).toBeCloseTo(0.205, 6)
+    expect(uhr.droppedS).toBe(0) // der Notdeckel darf hier NICHT greifen
+    expect(uhr.longestFrameS).toBeCloseTo(0.205, 6)
   })
 
   it('zählt, was der Notdeckel doch kappt — und merkt sich den Wert VOR dem Kappen', () => {
-    const uhr = new Filmuhr(() => 0)
+    const uhr = new FilmClock(() => 0)
     uhr.frame(1000)
     const dt = uhr.frame(1000 + 5000) // 5 s Aussetzer ohne jedes Ereignis
-    expect(dt).toBe(NOT_DECKEL_S)
-    expect(uhr.verworfenS).toBeCloseTo(5 - NOT_DECKEL_S, 6)
-    expect(uhr.verworfenFrames).toBe(1)
+    expect(dt).toBe(FRAME_CAP_S)
+    expect(uhr.droppedS).toBeCloseTo(5 - FRAME_CAP_S, 6)
+    expect(uhr.droppedFrames).toBe(1)
     // Stünde hier 1,0, wäre der Zähler bei genau den Fällen blind, für die er da ist
-    expect(uhr.laengstesFrameS).toBeCloseTo(5, 6)
+    expect(uhr.longestFrameS).toBeCloseTo(5, 6)
   })
 
   it('meldet jeden Wechsel von `laeuft` — daran hängt der Ton', () => {
     // Die Ton-Schleifen haben eigene Timer und liefen im Hintergrund weiter,
     // während die Filmuhr stand: Musik voraus, Bild zurück (Konzept §4.1).
     let wanduhr = 0
-    const uhr = new Filmuhr(() => wanduhr)
+    const uhr = new FilmClock(() => wanduhr)
     const meldungen: boolean[] = []
-    uhr.beiWechsel = (laeuft) => meldungen.push(laeuft)
-    expect(uhr.laeuft).toBe(true)
+    uhr.onChange = (laeuft) => meldungen.push(laeuft)
+    expect(uhr.running).toBe(true)
 
-    uhr.pausiere()
-    expect(uhr.laeuft).toBe(false)
-    uhr.pausiere() // zweites Mal: kein zweiter Wechsel
+    uhr.pause()
+    expect(uhr.running).toBe(false)
+    uhr.pause() // zweites Mal: kein zweiter Wechsel
     wanduhr = 4000
-    uhr.weiter()
-    expect(uhr.laeuft).toBe(true)
-    uhr.weiter() // ebenso
+    uhr.resume()
+    expect(uhr.running).toBe(true)
+    uhr.resume() // ebenso
     expect(meldungen).toEqual([false, true])
   })
 
   it('überspringt die Abwesenheit statt sie in den Film zu schieben', () => {
     let wanduhr = 1000
-    const uhr = new Filmuhr(() => wanduhr)
+    const uhr = new FilmClock(() => wanduhr)
     uhr.frame(1000)
-    uhr.pausiere()
+    uhr.pause()
     wanduhr = 61_000 // eine Minute im Hintergrund
-    uhr.weiter()
+    uhr.resume()
     expect(uhr.frame(61_000)).toBe(0) // erstes Frame nach der Rückkehr setzt neu an
     expect(uhr.frame(61_016)).toBeCloseTo(0.016, 6)
-    expect(uhr.pausiertS).toBeCloseTo(60, 6)
-    expect(uhr.pausen).toBe(1)
-    expect(uhr.verworfenS).toBe(0) // der Notdeckel war nicht beteiligt
+    expect(uhr.pausedS).toBeCloseTo(60, 6)
+    expect(uhr.pauses).toBe(1)
+    expect(uhr.droppedS).toBe(0) // der Notdeckel war nicht beteiligt
   })
 
   it('läuft während der Pause NICHT beim nächsten Frame wieder los', () => {
@@ -84,13 +84,13 @@ describe('Filmuhr', () => {
     // Frame direkt nach `pausiere()` setzte die Uhr wieder in Gang, und die
     // Tour fuhr durch die „Pause" hindurch weiter.
     let wanduhr = 1000
-    const uhr = new Filmuhr(() => wanduhr)
+    const uhr = new FilmClock(() => wanduhr)
     uhr.frame(1000)
-    uhr.pausiere()
+    uhr.pause()
     expect(uhr.frame(1016)).toBe(0)
     wanduhr = 6000
-    uhr.weiter()
-    expect(uhr.pausiertS).toBeCloseTo(5, 6)
+    uhr.resume()
+    expect(uhr.pausedS).toBeCloseTo(5, 6)
     expect(uhr.frame(6000)).toBe(0)
     expect(uhr.frame(6016)).toBeCloseTo(0.016, 6)
   })
@@ -100,21 +100,21 @@ describe('Filmuhr', () => {
     // Zurückkommen nicht durchkommt. Ein EINZELNES nachlaufendes Frame hebt die
     // Pause aber nicht auf.
     let wanduhr = 1000
-    const uhr = new Filmuhr(() => wanduhr)
+    const uhr = new FilmClock(() => wanduhr)
     uhr.frame(1000)
-    uhr.pausiere()
+    uhr.pause()
     wanduhr = 3000
     expect(uhr.frame(3000)).toBe(0) // erstes Frame: noch Pause
-    expect(uhr.selbstweiter).toBe(0)
+    expect(uhr.selfResumes).toBe(0)
     expect(uhr.frame(3016)).toBe(0) // zweites: die Seite ist offensichtlich da
-    expect(uhr.selbstweiter).toBe(1)
-    expect(uhr.pausiertS).toBeCloseTo(2, 6)
+    expect(uhr.selfResumes).toBe(1)
+    expect(uhr.pausedS).toBeCloseTo(2, 6)
     expect(uhr.frame(3032)).toBe(0) // setzt neu an
     expect(uhr.frame(3048)).toBeCloseTo(0.016, 6)
   })
 
   it('ignoriert rückwärts laufende und doppelte Zeitstempel', () => {
-    const uhr = new Filmuhr(() => 0)
+    const uhr = new FilmClock(() => 0)
     uhr.frame(1000)
     expect(uhr.frame(1000)).toBe(0)
     expect(uhr.frame(900)).toBe(0)
@@ -144,25 +144,25 @@ function mitFensterAttrappe(
 describe('verbindeSichtbarkeit', () => {
   it('hält die Uhr bei `visibilitychange` an — und beim App-Ereignis der WebView', () => {
     mitFensterAttrappe((doc) => {
-      const uhr = new Filmuhr(() => 0)
-      const loese = verbindeSichtbarkeit(uhr)
+      const uhr = new FilmClock(() => 0)
+      const loese = connectVisibility(uhr)
 
       // Die WebView-Seite: eigene Ereignisse, unabhängig von visibilityState
       window.dispatchEvent(new Event('maptale:hintergrund'))
-      expect(uhr.pausen).toBe(1)
+      expect(uhr.pauses).toBe(1)
       window.dispatchEvent(new Event('maptale:vordergrund'))
       uhr.frame(1000)
 
       // Der Browser-Weg
       doc.visibilityState = 'hidden'
       document.dispatchEvent(new Event('visibilitychange'))
-      expect(uhr.pausen).toBe(2)
+      expect(uhr.pauses).toBe(2)
 
       loese()
       doc.visibilityState = 'visible'
       document.dispatchEvent(new Event('visibilitychange'))
       window.dispatchEvent(new Event('maptale:hintergrund'))
-      expect(uhr.pausen).toBe(2) // nach dem Abmelden kommt nichts mehr an
+      expect(uhr.pauses).toBe(2) // nach dem Abmelden kommt nichts mehr an
     })
   })
 })

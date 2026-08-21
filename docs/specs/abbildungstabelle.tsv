@@ -3575,3 +3575,43 @@ zeit	time	union-wert	src/studio/add-media.ts (Classification)	4	NACHTRAG 2026-08
 ablage	tray	union-wert	src/studio/add-media.ts (Classification)	4	NACHTRAG 2026-08-21 (Welle 4): Wert baut die Klasse .add-row.tray
 reihe	order	union-wert	src/studio/editor.ts (Zug-Etikett)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, kein DOM
 ort	location	union-wert	src/studio/editor.ts (Zug-Etikett)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, kein DOM
+holdS	photoHoldS	export-funktion	src/studio/timeline.ts	5	Welle 5: Kollision zweier Wellen auf EIN Ziel. Welle 3 nannte `haltedauerS` hier holdS, die Tabelle bildet `standzeitS` (card-timing.ts) ebenfalls auf holdS ab; beide Fundorte, also schwieg der Prüfer. Entschieden am 21.08.: die geteilte Regel (Foto UND Video) behält holdS, der Editor-Helfer heisst photoHoldS — er kennt kein Video
+quer	landscape	union-wert	src/film-export-channel.ts (ExportOrientation)	5	Wert von `orientation`; steht auch im Dateinamen des Films und in data-orientation des Export-Blatts
+hoch	portrait	union-wert	src/film-export-channel.ts (ExportOrientation)	5	dito
+breit	wide	union-wert	src/card-painter.ts (CardLayout)	5	Layout der Foto-Karte, zugleich Schluessel in CARD_METRICS
+schmal	narrow	union-wert	src/card-painter.ts (CardLayout)	5	dito
+quer	landscape	union-wert	src/card-painter.ts (CardLayout)	5	dito; Homonym zu ExportOrientation, gleiche Zielform, verschiedene Typen
+foto	photo	union-wert	src/card-painter.ts (CardMedium.kind)	5	intern, kein JSON-Wert (dort heisst es laengst photo)
+aus	off	union-wert	src/card-painter.ts (CardStage.scrim)	5	Schleier der Buehne
+flach	flat	union-wert	src/card-painter.ts (CardStage.scrim)	5	die benannte Buehnen-Variante des Films
+kommend	upcoming	union-wert	src/pin-model.ts (PinState)	5	Zustand eines Foto-Pins; nur intern, die 2D-Punkte fahren ueber feature-state
+naechster	next	union-wert	src/pin-model.ts (PinState)	5	dito
+besucht	visited	union-wert	src/pin-model.ts (PinState)	5	dito
+tabelle	table	union-wert	src/route-anchors.ts (SAtF.source)	5	steht als window.__maptale.anchors in der Konsole
+rueckfall	fallback	union-wert	src/route-anchors.ts (SAtF.source)	5	dito
+halte	stops	objekt-schluessel	src/film-axis.ts (FilmAxis)	5	Achsen-Interface; der Server-Spiegel hat eigene Felder
+uebergaenge	transitions	objekt-schluessel	src/film-axis.ts (FilmAxis)	5	dito
+modi	modes	objekt-schluessel	src/film-axis.ts (FilmAxis)	5	dito
+gesamtM	totalM	objekt-schluessel	src/film-axis.ts (FilmAxis)	5	dito
+gesamtS	totalS	objekt-schluessel	src/film-axis.ts; server/src/pipeline/film-axis.ts	5	Spiegel: der Server hiess bis hierher ebenfalls gesamtS
+abM	fromM	objekt-schluessel	src/film-axis.ts (DistanceSegment)	5	auch Fixture-Schluessel
+typ	type	objekt-schluessel	src/film-export-channel.ts (ExportMessage)	5	postMessage-Kanal Studio ↔ Export-Rahmen, beide Seiten im selben Commit
+stand	status	objekt-schluessel	src/film-export-channel.ts (ExportMessage)	5	dito
+dateiname	fileName	objekt-schluessel	src/film-export-channel.ts (ExportMessage)	5	dito
+daten	data	objekt-schluessel	src/film-export-channel.ts (ExportMessage)	5	dito
+sBeiFilm	sAtFilmTime	objekt-schluessel	src/tour.ts (FilmTrack); src/ui.ts (ProgressBar)	5	Zwilling: die Leiste hat ein schmales Gegenstueck zur Filmspur
+filmBeiS	filmTimeAtS	objekt-schluessel	src/tour.ts (FilmTrack); src/ui.ts (ProgressBar)	5	dito
+haltBeiFilm	stopAtFilmTime	objekt-schluessel	src/tour.ts (FilmTrack); src/ui.ts (ProgressBar)	5	dito
+skalaBeiS	scaleAtS	objekt-schluessel	src/tour.ts (FilmTrack)	5	Kameradistanz an einem Streckenmeter
+modusBeiS	travelModeAtS	objekt-schluessel	src/tour.ts (FilmTrack)	5	die Fortbewegung, wie die ACHSE sie sieht
+hinweis	note	json-schluessel	test/fixtures/film-axis.json	5	Verhaltens-Fixture, von zwei Testwelten gelesen
+standzeit	hold	json-schluessel	test/fixtures/film-axis.json	5	dito
+faelle	cases	json-schluessel	test/fixtures/film-axis.json	5	dito
+haltAbstandM	stopSpacingM	json-schluessel	test/fixtures/film-axis.json	5	dito
+abschnitte	segments	json-schluessel	test/fixtures/film-axis.json	5	dito
+rampeM	rampM	json-schluessel	test/fixtures/film-axis.json	5	dito
+filmBeiStrecke	filmTimeAtDistance	json-schluessel	test/fixtures/film-axis.json	5	dito
+streckeBeiFilm	distanceAtFilmTime	json-schluessel	test/fixtures/film-axis.json	5	dito
+fotoS	photoS	json-schluessel	test/fixtures/film-axis.json	5	dito
+ausblendS	fadeOutS	json-schluessel	test/fixtures/film-axis.json	5	dito
+offen	open	css-klasse	src/map-attribution.ts,src/style.css	5	Zustandsklasse des Kartendaten-Popups; die gleichnamige Klasse der Dialogschicht (dialog-offen) liegt in Welle 6

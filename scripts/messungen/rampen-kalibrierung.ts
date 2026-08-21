@@ -1,7 +1,7 @@
 // Kalibrierung der Rampenlänge (E14): Wie viel Filmzeit kosten die Rampen der
 // NEUEN Achse gegenüber den früher simulierten?
 //
-// `RAMPE_M` ist eine GESTALTERISCHE Zahl — sie entscheidet, wie sich der Antritt
+// `RAMP_M` ist eine GESTALTERISCHE Zahl — sie entscheidet, wie sich der Antritt
 // anfühlt — und sie soll die Fahrt nicht sprunghaft anders machen. Also wird sie
 // gegen die Summe der heutigen Rampen-Sekunden ausgerichtet
 // (rampen-simulation.ts, 64,3 s über die vier Fixtur-Touren). Dass sich die
@@ -12,9 +12,9 @@
 // aus main.ts) — für eine Kalibrierung auf ganze Zehner-Meter genügt sie, und
 // der Fehler liegt unter einem Prozent der Rampensumme.
 import { readFileSync, readdirSync } from 'node:fs'
-import { buildRoute, nearestS, gruppiereStopps, dist } from '../../src/geo.js'
-import { baueFilmachse, momentHaltS, type Streckenhalt } from '../../src/filmachse.js'
-import { HOLD_AUSBLEND, standzeitS } from '../../src/einblendung.js'
+import { buildRoute, nearestS, groupStops, dist } from '../../src/geo.js'
+import { buildFilmAxis, momentHoldS, type DistanceStop } from '../../src/film-axis.js'
+import { HOLD_FADE_OUT_S, holdS } from '../../src/card-timing.js'
 
 const WURZEL = new URL('../../server/daten/tours', import.meta.url).pathname
 // Heutige Rampen-Sekunden je Tour (scripts/messungen/rampen-simulation.ts)
@@ -59,28 +59,28 @@ for (const id of readdirSync(WURZEL)) {
 
   const medien = (tour.media ?? []).filter((x: any) => Array.isArray(x.anchor))
   const verankert = medien.map((x: any) => ({ ...x, s: nearestS(route, x.anchor) }))
-  const stopps = gruppiereStopps(verankert as any).sort((a: any, b: any) => a.s - b.s)
-  const halte: Streckenhalt[] = [
+  const stopps = groupStops(verankert as any).sort((a: any, b: any) => a.s - b.s)
+  const halte: DistanceStop[] = [
     ...stopps.map((h: any) => ({
       meterM: rohBeiS(h.s),
       breiteS: h.items.reduce(
         (s: number, it: any) =>
           s +
-          standzeitS({ ...it, ...(it.durationS !== undefined ? { dauerS: it.durationS } : {}) }) +
-          HOLD_AUSBLEND,
+          holdS({ ...it, ...(it.durationS !== undefined ? { durationS: it.durationS } : {}) }) +
+          HOLD_FADE_OUT_S,
         0,
       ),
     })),
     ...(tour.moments ?? []).map((mo: any) => ({
       meterM: rohGesamt * mo.f,
-      breiteS: momentHaltS(mo),
+      breiteS: momentHoldS(mo),
     })),
   ]
-  const ohne = baueFilmachse(grenzen, rohGesamt, halte, { rampeM: 0 }).gesamtS
+  const ohne = buildFilmAxis(grenzen, rohGesamt, halte, { rampM: 0 }).totalS
   touren.push({
     id,
     ohne,
-    je: (l) => baueFilmachse(grenzen, rohGesamt, halte, { rampeM: l }).gesamtS - ohne,
+    je: (l) => buildFilmAxis(grenzen, rohGesamt, halte, { rampM: l }).totalS - ohne,
   })
 }
 

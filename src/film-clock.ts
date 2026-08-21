@@ -25,7 +25,7 @@
  * Notdeckel in Sekunden — kein Frame-Deckel, sondern ein Netz.
  *
  * Er ist NICHT das Werkzeug für den Hintergrund-Fall (das ist
- * `verbindeSichtbarkeit`), sondern fängt Umgebungen, in denen die rAF-Kette
+ * `connectVisibility`), sondern fängt Umgebungen, in denen die rAF-Kette
  * aussetzt, ohne dass ein Ereignis davon erzählt. Deshalb liegt er weit über
  * jedem realen Frame: gemessen 205 ms bei 12× Drosselung, am Telefon mehr —
  * aber nie eine Sekunde. Ein Wert in der Größenordnung echter Stocker (die
@@ -34,7 +34,7 @@
  *
  * Was er doch kappt, ist gezählt (`verworfenS`) und nicht unsichtbar.
  */
-export const NOT_DECKEL_S = 1.0
+export const FRAME_CAP_S = 1.0
 
 /**
  * Zählt Filmsekunden aus einer monotonen Echtzeituhr.
@@ -43,9 +43,9 @@ export const NOT_DECKEL_S = 1.0
  * die Filmsekunde `tour.filmS`, aus der Position, Halt und Foto-Karte folgen.
  * Daneben nur noch Ästhetisches: die Tweens und die Glättungsfilter der Kamera.
  */
-export class Filmuhr {
+export class FilmClock {
   /** Zeitstempel des letzten Frames; `null` = das nächste Frame setzt neu an. */
-  private vorige: number | null = null
+  private previous: number | null = null
   /**
    * Wanduhr-Zeitpunkt des Anhaltens, `null` = Uhr läuft.
    *
@@ -56,28 +56,28 @@ export class Filmuhr {
    * Lebenszyklus der Activity, nicht am Zeichentakt der Seite. Ohne die
    * Trennung lief die Uhr ein Frame nach `pausiere()` einfach weiter (gemessen).
    */
-  private pausiertBei: number | null = null
-  private jetztMs: () => number
+  private pausedAt: number | null = null
+  private nowMs: () => number
 
   /** Sekunden, die der Notdeckel gekappt hat. */
-  verworfenS = 0
+  droppedS = 0
   /** Frames, in denen der Notdeckel gegriffen hat. */
-  verworfenFrames = 0
+  droppedFrames = 0
   /** Sekunden, die als Abwesenheit übersprungen wurden (Hintergrund). */
-  pausiertS = 0
+  pausedS = 0
   /** Wie oft die Uhr angehalten wurde. */
-  pausen = 0
+  pauses = 0
   /** Wie oft sie ohne Gegenstück von selbst weiterlief (s. `frame`). */
-  selbstweiter = 0
+  selfResumes = 0
   /** Frames seit dem Anhalten (nur intern, aber lesbar nützlich). */
   private frameInPause = 0
   /**
    * Längstes gemessenes Frame in Sekunden — VOR dem Notdeckel.
    *
-   * Nach dem Kappen stünde dort für jeden Ausreißer exakt `NOT_DECKEL_S`, also
+   * Nach dem Kappen stünde dort für jeden Ausreißer exakt `FRAME_CAP_S`, also
    * genau bei den Fällen nichts, für die der Zähler da ist.
    */
-  laengstesFrameS = 0
+  longestFrameS = 0
 
   /**
    * Wird bei jedem Wechsel von `laeuft` gerufen (Anhalten, Weiterlaufen).
@@ -88,21 +88,21 @@ export class Filmuhr {
    * Minute im Hintergrund eine Minute weiter als das Bild — der Befund aus §4.1
    * des Konzepts, den die Drosselungs-Messung nicht sieht.
    */
-  beiWechsel: ((laeuft: boolean) => void) | null = null
+  onChange: ((running: boolean) => void) | null = null
 
   /** Läuft die Uhr? (false = Seite im Hintergrund) */
-  get laeuft(): boolean {
-    return this.pausiertBei === null
+  get running(): boolean {
+    return this.pausedAt === null
   }
 
-  constructor(jetztMs: () => number = () => performance.now()) {
-    this.jetztMs = jetztMs
-    this.vorige = jetztMs()
+  constructor(nowMs: () => number = () => performance.now()) {
+    this.nowMs = nowMs
+    this.previous = nowMs()
   }
 
   /** Filmsekunden seit dem letzten Frame. `now` ist der rAF-Zeitstempel. */
   frame(now: number): number {
-    if (this.pausiertBei !== null) {
+    if (this.pausedAt !== null) {
       // Angehalten — aber es kommen Bilder. Im Hintergrund feuert `rAF` nicht;
       // kommen ZWEI Frames in Folge, ist die Seite offensichtlich wieder da und
       // das Gegenstück zur Pause ist ausgeblieben (eine `evaluateJavascript`-
@@ -112,27 +112,27 @@ export class Filmuhr {
       // damit ein einzelnes noch laufendes Bild die Pause nicht aufhebt.
       this.frameInPause++
       if (this.frameInPause < 2) return 0
-      this.weiter()
-      this.selbstweiter++
+      this.resume()
+      this.selfResumes++
       return 0
     }
     this.frameInPause = 0
-    if (this.vorige === null) {
+    if (this.previous === null) {
       // Erstes Frame nach einer Pause: Es setzt neu an, holt aber nichts nach.
-      this.vorige = now
+      this.previous = now
       return 0
     }
-    let dt = (now - this.vorige) / 1000
+    let dt = (now - this.previous) / 1000
     // Rückwärts laufende oder gleiche Zeitstempel (zwei rAF-Aufrufe im selben
     // Frame kommen vor) sind keine Filmzeit — und sie dürfen den Bezugspunkt
     // NICHT übernehmen: Sonst zählte das nächste Frame die Differenz doppelt.
     if (!(dt > 0)) return 0
-    this.vorige = now
-    if (dt > this.laengstesFrameS) this.laengstesFrameS = dt // vor dem Deckel
-    if (dt > NOT_DECKEL_S) {
-      this.verworfenS += dt - NOT_DECKEL_S
-      this.verworfenFrames++
-      dt = NOT_DECKEL_S
+    this.previous = now
+    if (dt > this.longestFrameS) this.longestFrameS = dt // vor dem Deckel
+    if (dt > FRAME_CAP_S) {
+      this.droppedS += dt - FRAME_CAP_S
+      this.droppedFrames++
+      dt = FRAME_CAP_S
     }
     return dt
   }
@@ -144,24 +144,24 @@ export class Filmuhr {
    * Abwesenheit vor — der Player käme aus einer Minute Tab-Wechsel einen
    * Kilometer weiter zurück.
    */
-  pausiere(): void {
-    if (this.pausiertBei !== null) return
-    this.vorige = null
-    this.pausiertBei = this.jetztMs()
-    this.pausen++
-    this.beiWechsel?.(false)
+  pause(): void {
+    if (this.pausedAt !== null) return
+    this.previous = null
+    this.pausedAt = this.nowMs()
+    this.pauses++
+    this.onChange?.(false)
   }
 
   /**
    * Uhr wieder laufen lassen. Das nächste Frame liefert 0 und setzt neu an —
    * es gibt bewusst keine „nachgeholte" Zeit.
    */
-  weiter(): void {
-    if (this.pausiertBei === null) return
-    this.pausiertS += Math.max(0, (this.jetztMs() - this.pausiertBei) / 1000)
-    this.pausiertBei = null
+  resume(): void {
+    if (this.pausedAt === null) return
+    this.pausedS += Math.max(0, (this.nowMs() - this.pausedAt) / 1000)
+    this.pausedAt = null
     // `vorige` bleibt null: Erst das nächste Frame kennt seinen Zeitstempel.
-    this.beiWechsel?.(true)
+    this.onChange?.(true)
   }
 }
 
@@ -180,20 +180,20 @@ export class Filmuhr {
  * Gibt eine Abmelde-Funktion zurück (heute ungenutzt: Der Player lebt so lange
  * wie die Seite).
  */
-export function verbindeSichtbarkeit(uhr: Filmuhr): () => void {
+export function connectVisibility(clock: FilmClock): () => void {
   if (typeof document === 'undefined') return () => {}
-  const beiSichtbarkeit = (): void => {
-    if (document.visibilityState === 'hidden') uhr.pausiere()
-    else uhr.weiter()
+  const onVisibility = (): void => {
+    if (document.visibilityState === 'hidden') clock.pause()
+    else clock.resume()
   }
-  const beiHintergrund = (): void => uhr.pausiere()
-  const beiVordergrund = (): void => uhr.weiter()
-  document.addEventListener('visibilitychange', beiSichtbarkeit)
-  window.addEventListener('maptale:hintergrund', beiHintergrund)
-  window.addEventListener('maptale:vordergrund', beiVordergrund)
+  const onBackground = (): void => clock.pause()
+  const onForeground = (): void => clock.resume()
+  document.addEventListener('visibilitychange', onVisibility)
+  window.addEventListener('maptale:hintergrund', onBackground)
+  window.addEventListener('maptale:vordergrund', onForeground)
   return () => {
-    document.removeEventListener('visibilitychange', beiSichtbarkeit)
-    window.removeEventListener('maptale:hintergrund', beiHintergrund)
-    window.removeEventListener('maptale:vordergrund', beiVordergrund)
+    document.removeEventListener('visibilitychange', onVisibility)
+    window.removeEventListener('maptale:hintergrund', onBackground)
+    window.removeEventListener('maptale:vordergrund', onForeground)
   }
 }

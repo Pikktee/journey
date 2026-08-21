@@ -18,7 +18,7 @@
 // vergeht sie im Schnelldurchlauf. Der Himmel dreht dort sichtbar von Dämmerung
 // auf Nacht — ein etabliertes filmisches Mittel, das die Pause miterzählt,
 // statt sie zu verschlucken. Bemessen wird das Fenster in FILMsekunden
-// (filmtempo.ts), nicht in Metern: 200 m sind zu Fuß vier Sekunden und auf der
+// (film-tempo.ts), nicht in Metern: 200 m sind zu Fuß vier Sekunden und auf der
 // Fähre eine halbe.
 
 import type { TravelMode, UploadPoint, UploadSegment } from '../schema/upload.js'

@@ -1,6 +1,6 @@
 // Die Film-Achse der Pipeline (Etappe 4): Aufnahmezeit ↔ Filmsekunde.
 //
-// Sie ist der Server-Spiegel der geteilten Achse (src/filmachse.ts, von Player
+// Sie ist der Server-Spiegel der geteilten Achse (src/film-axis.ts, von Player
 // und Studio benutzt). Beide müssen dasselbe rechnen — sonst startet ein
 // Ton-Klip im fertigen Film woanders, als der Editor ihn gezeigt hat. Die Zahlen
 // hält das gemeinsame Verhaltens-Fixture zusammen (filmtempo.test.ts), die
@@ -52,7 +52,7 @@ describe('baueFilmAchse', () => {
     // Zu Fuß: 60 m/s Filmtempo. 10 Schritte à 96 m = 960 m → 16 Filmsekunden.
     const achse = buildFilmAxis(buildTimeSeries([geradeStrecke(11, 96, 60)]), [], 0)
     expect(achse).not.toBeNull()
-    expect(achse?.gesamtS).toBeCloseTo(960 / tempoMs('walk'), 1)
+    expect(achse?.totalS).toBeCloseTo(960 / tempoMs('walk'), 1)
     // Aufnahmezeit läuft 600 s, Filmzeit 16 s — die Achse ist kein Zeitmaß
     expect(filmTimeAtRecordingTime(achse!, 300)).toBeCloseTo(480 / tempoMs('walk'), 1)
   })
@@ -62,7 +62,7 @@ describe('baueFilmAchse', () => {
     const achse = buildFilmAxis(reihe, [{ offsetS: 300, breiteS: 6 }], 0)!
     const ankunft = 480 / tempoMs('walk')
     // Der Halt kostet 6 Filmsekunden, die Tour wird also um 6 s länger
-    expect(achse.gesamtS).toBeCloseTo(960 / tempoMs('walk') + 6, 1)
+    expect(achse.totalS).toBeCloseTo(960 / tempoMs('walk') + 6, 1)
     // Auf der Halt-Zeit steht die ANKUNFT (lower_bound-Konvention)
     expect(filmTimeAtRecordingTime(achse, 300)).toBeCloseTo(ankunft, 1)
     // Und mitten im Halt: dieselbe Aufnahmezeit, verschiedene Filmsekunden
@@ -100,7 +100,7 @@ describe('baueFilmAchse', () => {
     // kostet eine Reisezeit ihrer Strecke. Am Tour-Ende wird nicht gebremst.
     const r = 240 / tempoMs('walk')
     const achse = buildFilmAxis(reihe, [{ offsetS: 300, breiteS: 6 }], 240)!
-    expect(achse.gesamtS).toBeCloseTo(960 / tempoMs('walk') + 6 + 3 * r, 4)
+    expect(achse.totalS).toBeCloseTo(960 / tempoMs('walk') + 6 + 3 * r, 4)
     // Ankunft am Halt: Reise bis 480 m plus die zwei Rampen davor
     expect(filmTimeAtRecordingTime(achse, 300)).toBeCloseTo(480 / tempoMs('walk') + 2 * r, 4)
     // Und die Rampe ist eine FORM, kein Sprung: Nach der halben Rampenzeit sind
@@ -112,7 +112,7 @@ describe('baueFilmAchse', () => {
   it('schnellere Fortbewegung staucht die Achse', () => {
     const zuFuss = buildFilmAxis(buildTimeSeries([geradeStrecke(11, 96, 60, 'walk')]), [], 0)!
     const faehre = buildFilmAxis(buildTimeSeries([geradeStrecke(11, 96, 60, 'ferry')]), [], 0)!
-    expect(zuFuss.gesamtS / faehre.gesamtS).toBeCloseTo(tempoMs('ferry') / tempoMs('walk'), 2)
+    expect(zuFuss.totalS / faehre.totalS).toBeCloseTo(tempoMs('ferry') / tempoMs('walk'), 2)
   })
 })
 
@@ -177,7 +177,7 @@ describe('baueMomentHalte', () => {
     const reihe = buildTimeSeries([geradeStrecke(11, 96, 60)])
     const ohne = buildFilmAxis(reihe, [], 0)!
     const mit = buildFilmAxis(reihe, buildMomentStops([{ offsetS: 300, art: 'orbit' }]), 0)!
-    expect(mit.gesamtS - ohne.gesamtS).toBeCloseTo(MOMENT_DEFAULT_S.orbit, 6)
+    expect(mit.totalS - ohne.totalS).toBeCloseTo(MOMENT_DEFAULT_S.orbit, 6)
     // Ein Anker VOR dem Moment liegt unverändert; 6 Filmsekunden nach ihm steht
     // die Aufnahmeuhr noch im Moment, statt schon weitergelaufen zu sein.
     expect(filmTimeAtRecordingTime(mit, 120)).toBeCloseTo(filmTimeAtRecordingTime(ohne, 120), 6)
@@ -198,7 +198,7 @@ describe('baueMomentHalte', () => {
       0,
     )!
     // Fahrt + Foto (Standzeit samt Ausblendung) + Moment (nur Dauer)
-    expect(achse.gesamtS).toBeCloseTo(
+    expect(achse.totalS).toBeCloseTo(
       960 / tempoMs('walk') + STOP_ENGINE_S + STOP_FADE_OUT_S + MOMENT_DEFAULT_S.ascend,
       6,
     )
@@ -235,7 +235,7 @@ describe('Drift-Wächter gegen die Web-Achse', () => {
   // Vorher stand an dieser Stelle ein Wächter, der src/studio/timeline.ts als
   // TEXT las und auf `tS.splice(i, 0, h.offsetS, h.offsetS)` prüfte. Er fiel mit
   // Paket D — nicht weil das Weben sich geändert hätte, sondern weil es
-  // umgezogen ist (src/filmachse.ts) und in Metern rechnet. Genau das ist der
+  // umgezogen ist (src/film-axis.ts) und in Metern rechnet. Genau das ist der
   // Grund, warum ein Quelltext-Wächter keiner ist.
 
   it('liefert bei doppelten Stützstellen die ANKUNFT, nicht die Abfahrt', () => {
@@ -254,6 +254,6 @@ describe('Drift-Wächter gegen die Web-Achse', () => {
     const mit = buildFilmAxis(reihe, [{ offsetS: 300, breiteS: 6 }], 0)!
     expect(filmTimeAtRecordingTime(mit, 120)).toBeCloseTo(filmTimeAtRecordingTime(ohne, 120), 6) // davor: unverändert
     expect(filmTimeAtRecordingTime(mit, 480)).toBeCloseTo(filmTimeAtRecordingTime(ohne, 480) + 6, 6) // danach: um die Breite
-    expect(mit.gesamtS - ohne.gesamtS).toBeCloseTo(6, 6)
+    expect(mit.totalS - ohne.totalS).toBeCloseTo(6, 6)
   })
 })

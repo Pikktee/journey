@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
-  vollbildMoeglich,
-  vollbildErwuenscht,
-  imVollbild,
-  betreteVollbild,
-  verlasseVollbild,
-} from '../src/vollbild'
+  fullscreenAvailable,
+  fullscreenWanted,
+  isFullscreen,
+  enterFullscreen,
+  exitFullscreen,
+} from '../src/fullscreen'
 
 // Die Umgebung ist `node` (vitest.config.js) — es gibt also kein `document`.
 // Das ist hier kein Hindernis, sondern der Punkt: Das Modul fragt nur nach
@@ -31,12 +31,12 @@ afterEach(() => {
 describe('vollbildMoeglich', () => {
   it('sagt nein, wo der Browser es nicht kann (iPhone vor Safari 26, iframe ohne allow)', () => {
     setzeDokument({ fullscreenEnabled: false, documentElement: {} })
-    expect(vollbildMoeglich()).toBe(false)
+    expect(fullscreenAvailable()).toBe(false)
   })
 
   it('nimmt auch die alte Schreibweise mit `webkit`', () => {
     setzeDokument({ webkitFullscreenEnabled: true, documentElement: {} })
-    expect(vollbildMoeglich()).toBe(true)
+    expect(fullscreenAvailable()).toBe(true)
   })
 })
 
@@ -48,18 +48,18 @@ describe('vollbildErwuenscht', () => {
 
   it('sagt ja bei Finger ohne Maus (Telefon, Tablet)', () => {
     setzeFenster((q: string) => ({ matches: q === '(hover: none) and (pointer: coarse)' }))
-    expect(vollbildErwuenscht()).toBe(true)
+    expect(fullscreenWanted()).toBe(true)
   })
 
   it('sagt nein am Schreibtisch — auch mit Berührungsbildschirm', () => {
     // Ein Notebook mit Touchscreen hat ein Trackpad: hover: hover, pointer: fine.
     setzeFenster(() => ({ matches: false }))
-    expect(vollbildErwuenscht()).toBe(false)
+    expect(fullscreenWanted()).toBe(false)
   })
 
   it('sagt nein, wo es matchMedia gar nicht gibt', () => {
     setzeFenster(undefined)
-    expect(vollbildErwuenscht()).toBe(false)
+    expect(fullscreenWanted()).toBe(false)
   })
 })
 
@@ -67,7 +67,7 @@ describe('betreteVollbild', () => {
   it('ruft gar nicht erst, wenn der Browser es nicht kann', () => {
     const requestFullscreen = vi.fn()
     setzeDokument({ fullscreenEnabled: false, documentElement: { requestFullscreen } })
-    betreteVollbild()
+    enterFullscreen()
     expect(requestFullscreen).not.toHaveBeenCalled()
   })
 
@@ -78,15 +78,15 @@ describe('betreteVollbild', () => {
       fullscreenElement: {},
       documentElement: { requestFullscreen },
     })
-    expect(imVollbild()).toBe(true)
-    betreteVollbild()
+    expect(isFullscreen()).toBe(true)
+    enterFullscreen()
     expect(requestFullscreen).not.toHaveBeenCalled()
   })
 
   it('ruft die präfixierte Fassung, wo es die andere nicht gibt', () => {
     const webkitRequestFullscreen = vi.fn()
     setzeDokument({ webkitFullscreenEnabled: true, documentElement: { webkitRequestFullscreen } })
-    betreteVollbild()
+    enterFullscreen()
     expect(webkitRequestFullscreen).toHaveBeenCalledOnce()
   })
 
@@ -103,7 +103,7 @@ describe('betreteVollbild', () => {
         },
       },
     })
-    expect(() => betreteVollbild()).not.toThrow()
+    expect(() => enterFullscreen()).not.toThrow()
   })
 
   it('lässt keine unbehandelte Ablehnung zurück, wenn das Promise scheitert', async () => {
@@ -112,7 +112,7 @@ describe('betreteVollbild', () => {
       fullscreenEnabled: true,
       documentElement: { requestFullscreen: () => abgelehnt },
     })
-    expect(() => betreteVollbild()).not.toThrow()
+    expect(() => enterFullscreen()).not.toThrow()
     // Hängt an der Ablehnung noch kein `catch`, meldet Node sie beim nächsten
     // Durchlauf der Warteschlange als unhandledRejection.
     await new Promise((r) => setTimeout(r, 0))
@@ -122,17 +122,17 @@ describe('betreteVollbild', () => {
 
 describe('verlasseVollbild', () => {
   it('tut nichts, wenn gar kein Vollbild steht', () => {
-    const exitFullscreen = vi.fn()
-    setzeDokument({ fullscreenEnabled: true, fullscreenElement: null, exitFullscreen })
-    verlasseVollbild()
-    expect(exitFullscreen).not.toHaveBeenCalled()
+    const raeumAb = vi.fn()
+    setzeDokument({ fullscreenEnabled: true, fullscreenElement: null, exitFullscreen: raeumAb })
+    exitFullscreen()
+    expect(raeumAb).not.toHaveBeenCalled()
   })
 
   it('räumt ab, wenn eines steht', () => {
-    const exitFullscreen = vi.fn(() => Promise.resolve())
-    setzeDokument({ fullscreenEnabled: true, fullscreenElement: {}, exitFullscreen })
-    verlasseVollbild()
-    expect(exitFullscreen).toHaveBeenCalledOnce()
+    const raeumAb = vi.fn(() => Promise.resolve())
+    setzeDokument({ fullscreenEnabled: true, fullscreenElement: {}, exitFullscreen: raeumAb })
+    exitFullscreen()
+    expect(raeumAb).toHaveBeenCalledOnce()
   })
 
   it('bricht nicht ab, wenn das Abräumen scheitert', () => {
@@ -142,6 +142,6 @@ describe('verlasseVollbild', () => {
         throw new Error('nein')
       },
     })
-    expect(() => verlasseVollbild()).not.toThrow()
+    expect(() => exitFullscreen()).not.toThrow()
   })
 })

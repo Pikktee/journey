@@ -88,7 +88,7 @@ Player und Studio-Editor holen World Imagery über die anonyme URL
 `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}`
 
 (`src/map.ts`, `src/studio/editor.ts`). Galerie und Profil tun das nicht.
-Attribution steht am ⓘ ([src/karteninfo.ts](../../src/karteninfo.ts)) und im
+Attribution steht am ⓘ ([src/map-attribution.ts](../../src/map-attribution.ts)) und im
 Impressum: Esri, Maxar, Earthstar Geographics.
 
 Das ist der Living-Atlas-Dienst **ohne** Konto, **ohne** API-Key, **ohne**

@@ -14,7 +14,7 @@ const cdp = await seite.context().newCDPSession(seite)
 await seite.goto('http://maptale.localhost:5123/tour/t_cGuHmm3vMa4ggQ', {
   waitUntil: 'domcontentloaded',
 })
-await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 60000 })
+await seite.waitForFunction(() => window.__maptale?.tour, null, { timeout: 60000 })
 await seite.evaluate(() => document.getElementById('btn-start').click())
 await seite.waitForTimeout(2000)
 if (DROSSEL > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: DROSSEL })

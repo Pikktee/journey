@@ -5,17 +5,17 @@
 // (Streckenanteil): die Leiste zeigt die ZEIT der Aufzeichnung, damit
 // Trim/Grenzen/Audio exakt an den absoluten Zeit-Ankern des Overlays hängen.
 
-import { HOLD_AUSBLEND, HOLD_HIDE, standzeitS } from '../einblendung.js'
+import { HOLD_FADE_OUT_S, HOLD_HIDE, holdS } from '../card-timing.js'
 import {
-  baueFilmachse,
-  filmBeiStrecke,
-  interpoliere,
-  rampenVersatzS,
-  streckeBeiFilm,
+  buildFilmAxis,
+  filmTimeAtDistance,
+  interpolate,
+  rampOffsetS,
+  distanceAtFilmTime,
   tempoMs,
-  type Filmachse,
-  type Streckenabschnitt,
-} from '../filmachse.js'
+  type FilmAxis,
+  type DistanceSegment,
+} from '../film-axis.js'
 import {
   isoToOffset,
   offsetToIso,
@@ -41,7 +41,7 @@ export interface TimeScale {
 /**
  * Aufnahmezeit ↔ Filmzeit — seit Paket D über die STRECKE (Konzept E12).
  *
- * Die Rechnung selbst steht in [src/filmachse.ts](../filmachse.ts) und ist mit
+ * Die Rechnung selbst steht in [src/film-axis.ts](../film-axis.ts) und ist mit
  * dem Player geteilt; hier liegt der ADAPTER, den der Editor dafür braucht:
  * `tS`/`mM` sind parallel (je Stützpunkt seine Aufnahmezeit und sein
  * Streckenmeter), `core` ist die Achse darüber.
@@ -59,7 +59,7 @@ export interface TimeScale {
 export interface AxisCurve {
   tS: number[]
   mM: number[]
-  core: Filmachse<AxisStopM>
+  core: FilmAxis<AxisStopM>
   /** Filmzeit der ganzen Achse inkl. Halte */
   totalS: number
   /**
@@ -72,12 +72,12 @@ export interface AxisCurve {
 
 /** Aufnahmezeit → Streckenmeter. Ein Plateau darin ist eine reale Pause. */
 function metersAtTime(curve: AxisCurve, tOffsetS: number): number {
-  return interpoliere(curve.tS, curve.mM, tOffsetS)
+  return interpolate(curve.tS, curve.mM, tOffsetS)
 }
 
 /** Streckenmeter → Aufnahmezeit (Umkehrung; Plateau → Ankunft). */
 function timeAtMeters(curve: AxisCurve, meterM: number): number {
-  return interpoliere(curve.mM, curve.tS, meterM)
+  return interpolate(curve.mM, curve.tS, meterM)
 }
 
 /**
@@ -627,12 +627,12 @@ export function buildTrimHandles(
 // an jedem Foto an). Beides auf einer Achse zu zeigen wäre verwirrend — deshalb
 // nur diese eine Zahl.
 //
-// Das Tempo-Modell ist seit Paket D KEINE Kopie mehr: `filmachse.ts` ist DOM-
+// Das Tempo-Modell ist seit Paket D KEINE Kopie mehr: `film-axis.ts` ist DOM-
 // und importfrei, Studio und Player lesen dieselben Zahlen (`tempoMs`). Genauso
-// stehen Standzeit und Ausblendung in `einblendung.ts`. Die alten Namen bleiben,
+// stehen Standzeit und Ausblendung in `card-timing.ts`. Die alten Namen bleiben,
 // sie stehen im ganzen Editor.
 export const STOP_ENGINE_S = HOLD_HIDE
-export const STOP_FADE_OUT_S = HOLD_AUSBLEND
+export const STOP_FADE_OUT_S = HOLD_FADE_OUT_S
 
 /** Meter zwischen zwei Trackpunkten (lokale Plattkarte — auf Segmentlänge genau genug). */
 function metersBetween(a: TrackPoint, b: TrackPoint): number {
@@ -674,7 +674,7 @@ function rideS(a: { mode: TravelMode; pts: readonly TrackPoint[] }): number {
 }
 
 /** Haltedauer eines Fotos, wie die Engine sie anwendet (display.holdS oder Default). */
-export function holdS(display?: { holdS?: number }): number {
+export function photoHoldS(display?: { holdS?: number }): number {
   return display?.holdS ?? STOP_ENGINE_S
 }
 
@@ -695,9 +695,9 @@ export function mediumHoldS(m: {
 }): number {
   if (m.type === 'video' && m.durationS !== undefined && m.durationS > 0)
     return videoFilmS(m.durationS, m.trim)
-  // Ohne Schnitt ist es dieselbe Regel wie im Player (`standzeitS`) — der
+  // Ohne Schnitt ist es dieselbe Regel wie im Player (`holdS`) — der
   // Video-Trim ist der eine Zusatz, den nur der Editor kennt.
-  return standzeitS(m)
+  return holdS(m)
 }
 
 /**
@@ -741,12 +741,12 @@ export function videoFilmS(fileS: number, trim?: { fromS: number; toS?: number }
 /**
  * Wo das Video steht, wenn der Kopf `imS` Sekunden im Klip ist.
  *
- * Die Rechnung wohnt seit E15 in [einblendung.ts](../einblendung.ts) — der
+ * Die Rechnung wohnt seit E15 in [card-timing.ts](../card-timing.ts) — der
  * Player braucht sie genauso, und ein Import Player→Studio ist die eine
  * Richtung, die das Gleichlauf-Konzept ausschließt (§8C). Hier bleibt sie
  * lesbar, weil `syncImage` sie unter diesem Namen kennt.
  */
-export { videoStandS } from '../einblendung.js'
+export { videoPositionS } from '../card-timing.js'
 
 /**
  * Dauer in Sekunden → kurze Anzeige („2:05 Std", „14 Min", „38 Sek").
@@ -781,17 +781,17 @@ export interface FilmCurve {
   totalS: number
 }
 
-// `interpoliere` mit ihrer lower_bound-Konvention steht seit Paket D in
-// filmachse.ts — sie war zwischen Studio und Server schon byte-identisch.
+// `interpolate` mit ihrer lower_bound-Konvention steht seit Paket D in
+// film-axis.ts — sie war zwischen Studio und Server schon byte-identisch.
 
 /** Fahr-Filmsekunde an einem Achsen-Anteil. */
 export function filmAt(curve: FilmCurve, fraction: number): number {
-  return interpoliere(curve.fractions, curve.filmS, fraction)
+  return interpolate(curve.fractions, curve.filmS, fraction)
 }
 
 /** Achsen-Anteil zu einer Fahr-Filmsekunde (Umkehrung; Plateau → Ankunft). */
 export function fractionAt(curve: FilmCurve, filmS: number): number {
-  return interpoliere(curve.filmS, curve.fractions, filmS)
+  return interpolate(curve.filmS, curve.fractions, filmS)
 }
 
 // — Filmzeit-ACHSE —
@@ -1115,14 +1115,14 @@ export function buildTimelineAxis(
   const adapter = buildAdapter(displaySegments)
   if (adapter.tS.length < 2) return { ...scale, stops: [] }
 
-  const core = baueFilmachse(adapter.boundaries, adapter.totalM, stopsOnDistance(adapter, stops))
+  const core = buildFilmAxis(adapter.boundaries, adapter.totalM, stopsOnDistance(adapter, stops))
   // Degeneriert-Wächter erst NACH den Halten: Eine Foto-Tour ohne nennenswerte
   // Fahrstrecke hat trotzdem einen echten Film (fast nur Standzeiten).
-  if (core.gesamtS < 1) return { ...scale, stops: [] }
+  if (core.totalS < 1) return { ...scale, stops: [] }
   return {
     ...scale,
-    curve: { tS: adapter.tS, mM: adapter.mM, core, totalS: core.gesamtS },
-    stops: core.halte,
+    curve: { tS: adapter.tS, mM: adapter.mM, core, totalS: core.totalS },
+    stops: core.stops,
   }
 }
 
@@ -1130,7 +1130,7 @@ export function buildTimelineAxis(
 interface Adapter {
   tS: number[]
   mM: number[]
-  boundaries: Streckenabschnitt[]
+  boundaries: DistanceSegment[]
   totalM: number
 }
 
@@ -1148,10 +1148,10 @@ function buildAdapter(
 ): Adapter {
   const tS: number[] = []
   const mM: number[] = []
-  const boundaries: Streckenabschnitt[] = []
+  const boundaries: DistanceSegment[] = []
   let meters = 0
   for (const a of displaySegments) {
-    boundaries.push({ abM: meters, mode: a.mode })
+    boundaries.push({ fromM: meters, mode: a.mode })
     for (let i = 0; i < a.pts.length; i++) {
       const p = a.pts[i] as TrackPoint
       if (i > 0) meters += metersBetween(a.pts[i - 1] as TrackPoint, p)
@@ -1175,7 +1175,7 @@ function buildAdapter(
 function stopsOnDistance(adapter: Adapter, stops: readonly AxisStop[]): AxisStopM[] {
   return [...stops]
     .sort((a, b) => a.offsetS - b.offsetS)
-    .map((h) => ({ ...h, meterM: interpoliere(adapter.tS, adapter.mM, h.offsetS) }))
+    .map((h) => ({ ...h, meterM: interpolate(adapter.tS, adapter.mM, h.offsetS) }))
 }
 
 // — Der Zug einer FORTBEWEGUNGS-Grenze: analytisch, nicht per Bisektion —
@@ -1213,7 +1213,7 @@ function stopsOnDistance(adapter: Adapter, stops: readonly AxisStop[]): AxisStop
  *   liegt im schnelleren Abschnitt, also im Fenster. Sie kommt als
  *   `startTempoMs` in die Achse, damit sie mitgerechnet wird.
  * - An der gezogenen Kante selbst, wenn der Film dort VERZÖGERT: Dann liegt
- *   ihre Rampe davor, ersetzt also Reise im linken Modus (`rampenVersatzS`).
+ *   ihre Rampe davor, ersetzt also Reise im linken Modus (`rampOffsetS`).
  *   Beschleunigt er, liegt sie dahinter und geht das Fenster nichts an.
  *
  * Null, wenn im Fenster keine zwei Trackpunkte liegen: dann gibt es nichts zu
@@ -1238,7 +1238,7 @@ export function buildBoundaryCurve(
   // Mit welchem Tempo betritt der Film das Fenster? Am Tour-Anfang aus dem
   // Stand (0), sonst mit dem Tempo des Abschnitts davor — daraus baut die Achse
   // die Rampe an der linken Fensterkante selbst.
-  const core = baueFilmachse(
+  const core = buildFilmAxis(
     adapter.boundaries,
     adapter.totalM,
     stopsOnDistance(adapter, inWindow),
@@ -1246,12 +1246,12 @@ export function buildBoundaryCurve(
       startTempoMs: filmAtFrom <= 0 ? 0 : before === null ? null : tempoMs(before),
     },
   )
-  const offsetS = filmAtFrom + rampenVersatzS(tempoMs(left), tempoMs(right))
+  const offsetS = filmAtFrom + rampOffsetS(tempoMs(left), tempoMs(right))
   return {
     tS: adapter.tS,
     mM: adapter.mM,
     core,
-    totalS: offsetS + core.gesamtS,
+    totalS: offsetS + core.totalS,
     offsetS,
   }
 }
@@ -1274,12 +1274,12 @@ function pointsBetween(track: readonly TrackPoint[], fromS: number, toS: number)
  * gilt die Ankunft, dieselbe lower_bound-Konvention wie überall.
  */
 export function recordingTimeAtFilmTime(curve: AxisCurve, filmS: number): number {
-  return timeAtMeters(curve, streckeBeiFilm(curve.core, filmS - (curve.offsetS ?? 0)))
+  return timeAtMeters(curve, distanceAtFilmTime(curve.core, filmS - (curve.offsetS ?? 0)))
 }
 
 /** Filmsekunde zu einer Aufnahmezeit (Zeit → Strecke → Film). */
 export function filmTimeAtRecordingTime(curve: AxisCurve, tOffsetS: number): number {
-  return (curve.offsetS ?? 0) + filmBeiStrecke(curve.core, metersAtTime(curve, tOffsetS))
+  return (curve.offsetS ?? 0) + filmTimeAtDistance(curve.core, metersAtTime(curve, tOffsetS))
 }
 
 /**

@@ -201,7 +201,7 @@ describe('DOM-Kennungen gegen das Markup', () => {
  * der Wächter die neue Welle nicht, und das ist die einzige Stelle, an der er
  * still zu wenig tut.
  */
-const GEBAUTE_WELLEN = new Set(['1', '2', '3', '4'])
+const GEBAUTE_WELLEN = new Set(['1', '2', '3', '4', '5'])
 
 /**
  * Ist-Werte aus gebauten Wellen: Wörter, die im Markup nichts mehr zu suchen
@@ -307,15 +307,48 @@ const KEINE_DOM_NAMEN = new Set([
   'fokus', // id einer MapLibre-Quelle, kein DOM
   'neu', // Sortierung „neu zuerst"
   'alt', // Sortierung „alt zuerst"
-  'hoch', // ExportLage aus exportformat.ts (Welle 5)
+  'hoch', // ExportLage aus film-export-channel.ts (Welle 5)
   'laeuft', // Zustand einer Export-Meldung (Welle 5)
-  'bereit', // KartenSchichtStand aus kartenschicht.ts (Welle 5)
+  'bereit', // KartenSchichtStand aus card-layer.ts (Welle 5)
   'ohne-ort', // MessageType des Upload-Befunds
   'ausserhalb', // derselbe
 ])
 
+/** Die Module der Welle 5 — die Player-Engine samt ihrer Verdrahtung. */
+const PLAYER_MODULE = [
+  'main.ts',
+  'ui.ts',
+  'tour.ts',
+  'card-layer.ts',
+  'card-painter.ts',
+  'card-timing.ts',
+  'film-axis.ts',
+  'film-clock.ts',
+  'film-export.ts',
+  'film-export-channel.ts',
+  'map-attribution.ts',
+  'route-anchors.ts',
+  'tour-texts.ts',
+  'weather-sky.ts',
+  'pin-model.ts',
+  'photopins.ts',
+  'fullscreen.ts',
+  'map.ts',
+  'atmosphere.ts',
+  'weather.ts',
+  'daynight.ts',
+  'audiotracks.ts',
+]
+
 describe('DOM-Namen im Client-Code', () => {
-  const studioDateien = dateien('src/studio', ['.ts'])
+  // Seit Welle 5 auch die Player-Module: Ihre ids und Klassen stehen genauso
+  // als Argument eines Helfers oder als Stück einer Klassenliste im Code
+  // (`$('photo-image')`, `span.className = 'stop-span'`) und werden von keinem
+  // Selektor-Test gesehen.
+  // Nur die Module GEBAUTER Wellen: Welle 4 (`src/studio/`) und Welle 5 (die
+  // Player-Engine). Über ganz `src/` gelegt meldete er die Produktseiten, deren
+  // DOM-Namen noch deutsch sind und es bis Welle 6 auch bleiben.
+  const studioDateien = [...dateien('src/studio', ['.ts']), ...PLAYER_MODULE.map((n) => `src/${n}`)]
 
   it('kein Modul nennt eine id oder Klasse, die es nicht mehr gibt', () => {
     const alt = veralteteDomNamen()

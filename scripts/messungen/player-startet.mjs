@@ -3,7 +3,7 @@
 // Die Frage klingt trivial und ist die einzige, die KEIN Test dieses Repos
 // beantwortet: `tsc` sieht keinen Laufzeitfehler, die Vitest-Suite ist DOM-frei,
 // der Build bündelt nur. Genau dadurch ist einmal ein Einzeiler durchgerutscht
-// (`window.__j.anker = …`, gesetzt bevor `window.__j` existierte): Typecheck,
+// (`window.__maptale.anchors = …`, gesetzt bevor `window.__maptale` existierte): Typecheck,
 // 621 Tests und Build blieben grün, der Player brach beim Laden mit
 // `Cannot set properties of undefined` ab und startete auf `main` nicht mehr.
 //
@@ -40,21 +40,23 @@ for (const tour of TOUREN) {
   let stand = { ok: false, grund: 'unbekannt' }
   try {
     await seite.goto(`${BASIS}/tour/${tour}`, { waitUntil: 'domcontentloaded' })
-    // `__j.tour` entsteht erst im `map.on('load')`-Callback — damit deckt das
+    // `__maptale.tour` entsteht erst im `map.on('load')`-Callback — damit deckt das
     // Warten die ganze Kette ab: Modul geladen, Tour-Daten da, Karte bereit.
-    await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 45000 })
+    await seite.waitForFunction(() => window.__maptale?.tour, null, { timeout: 45000 })
     await seite.evaluate(() => document.getElementById('btn-start').click())
     await seite.waitForTimeout(2500)
     stand = await seite.evaluate(() => {
-      const t = window.__j.tour
+      const t = window.__maptale.tour
       return {
         ok: t.s >= 0 && Number.isFinite(t.s),
         grund: '',
         phase: t.phase,
         s: Math.round(t.s),
-        anker: window.__j.anker ?? '—',
-        achse: window.__j.filmachse ? Math.round(window.__j.filmachse.gesamtS) + ' s' : '—',
-        verworfenS: window.__j.uhr ? +window.__j.uhr.verworfenS.toFixed(2) : null,
+        anker: window.__maptale.anchors ?? '—',
+        achse: window.__maptale.filmAxis
+          ? Math.round(window.__maptale.filmAxis.totalS) + ' s'
+          : '—',
+        droppedS: window.__maptale.clock ? +window.__maptale.clock.droppedS.toFixed(2) : null,
       }
     })
   } catch (e) {

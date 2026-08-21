@@ -1,19 +1,19 @@
 // Geometrie-Helfer: Haversine, Kurswinkel, Catmull-Rom-Glättung, gleichmäßiges Resampling.
-import { reihenfolgeImHalt } from './einblendung.js'
-import type { Wegpunkt } from './tours.js'
+import { orderInStop } from './card-timing.js'
+import type { Waypoint } from './tours.js'
 
 const D2R = Math.PI / 180
 const R = 6371000
 
 /** Punkt mit mindestens [lng, lat] — die Höhe interessiert Distanz und Kurs nicht. */
-export type LngLat = [number, number] | Wegpunkt
+export type LngLat = [number, number] | Waypoint
 
 /**
  * Die geglättete, gleichmäßig abgetastete Route. `cum[i]` ist der Streckenmeter
  * von `coords[i]`; `s` (der Streckenmeter) ist die eine Zustandsvariable des Players.
  */
 export interface Route {
-  coords: Wegpunkt[]
+  coords: Waypoint[]
   cum: number[]
   /** Gesamtlänge in Metern */
   total: number
@@ -23,7 +23,7 @@ export interface Route {
    * Streckenmeter je EINGABE-Wegpunkt (parallel zur Liste, die `buildRoute`
    * bekam) — die Hälfte der f-Übersetzung, die auf dieser Seite liegt
    * (Gleichlauf-Konzept §8D). Zusammen mit dem `f` je Wegpunkt aus dem
-   * Tour-JSON wird daraus die Tabelle, mit der `src/streckenanker.ts` jeden
+   * Tour-JSON wird daraus die Tabelle, mit der `src/route-anchors.ts` jeden
    * f-Anker exakt nach `s` übersetzt.
    */
   wpS: number[]
@@ -112,17 +112,17 @@ function cr(p0: number, p1: number, p2: number, p3: number, t: number): number {
  * folgt, also formal eckiger wird; für die Kamera macht das nichts, weil ihr
  * Kurs ohnehin durch einen eigenen Tiefpass läuft (src/tour.ts).
  */
-export const STUETZ_MAX_M = 25
+export const VERTEX_MAX_M = 25
 
 /**
  * Wegpunkte linear nachverdichten, bevor geglättet wird.
  *
  * Gibt neben den dichteren Punkten die Indizes der ORIGINALE zurück: `wpS`
  * muss weiterhin je EINGEGEBENEM Wegpunkt einen Wegstand liefern — daran hängen
- * die `f`-Anker (src/streckenanker.ts) und die Roh-Meter-Tabelle (src/main.ts).
+ * die `f`-Anker (src/route-anchors.ts) und die Roh-Meter-Tabelle (src/main.ts).
  */
-function verdichte(waypoints: Wegpunkt[], maxM: number): { pts: Wegpunkt[]; original: number[] } {
-  const pts: Wegpunkt[] = [waypoints[0]!]
+function verdichte(waypoints: Waypoint[], maxM: number): { pts: Waypoint[]; original: number[] } {
+  const pts: Waypoint[] = [waypoints[0]!]
   const original: number[] = [0]
   for (let i = 1; i < waypoints.length; i++) {
     const a = waypoints[i - 1]!
@@ -142,12 +142,12 @@ function verdichte(waypoints: Wegpunkt[], maxM: number): { pts: Wegpunkt[]; orig
 //
 // Die `!` in den Schleifen unten sind allesamt Laufindizes innerhalb der eigenen
 // Länge — der Aufrufer schuldet nur eine nicht leere Wegpunktliste.
-export function buildRoute(waypoints: Wegpunkt[], step = 14, stuetzMaxM = STUETZ_MAX_M): Route {
-  const { pts: stuetz, original } = verdichte(waypoints, stuetzMaxM)
+export function buildRoute(waypoints: Waypoint[], step = 14, vertexMaxM = VERTEX_MAX_M): Route {
+  const { pts: stuetz, original } = verdichte(waypoints, vertexMaxM)
   const erster = stuetz[0]!
   const letzter = stuetz[stuetz.length - 1]!
   const pts = [erster, ...stuetz, letzter]
-  const dense: Wegpunkt[] = []
+  const dense: Waypoint[] = []
   const SEGS = 18
   for (let i = 0; i < pts.length - 3; i++) {
     const [p0, p1, p2, p3] = [pts[i]!, pts[i + 1]!, pts[i + 2]!, pts[i + 3]!]
@@ -162,7 +162,7 @@ export function buildRoute(waypoints: Wegpunkt[], step = 14, stuetzMaxM = STUETZ
   }
   dense.push([...letzter])
 
-  const coords: Wegpunkt[] = [dense[0]!]
+  const coords: Waypoint[] = [dense[0]!]
   const cum = [0]
   // Wegstand je Stützpunkt der dichten Kurve — daraus fällt `wpS` ab: Wegpunkt
   // `k` steckt in `dense[k * SEGS]` (die Schleife oben setzt bei `j === 0` genau
@@ -218,7 +218,7 @@ export function indexAt(route: Route, s: number): number {
 }
 
 // Position [lng, lat, ele] bei Streckenmeter s
-export function pointAt(route: Route, s: number): Wegpunkt {
+export function pointAt(route: Route, s: number): Waypoint {
   const { coords, cum, total } = route
   const c = Math.max(0, Math.min(s, total))
   const i = Math.max(1, indexAt(route, c))
@@ -252,13 +252,13 @@ export function nearestS(route: Route, lnglat: LngLat): number {
 
 /**
  * Streckenmeter, unter denen zwei Fotos als „am selben Ort" gelten.
- * Das Studio spiegelt den Wert (NAHE_M in src/studio/stopps.ts); ein
+ * Das Studio spiegelt den Wert (NAHE_M in src/studio/stops.ts); ein
  * Drift-Wächter in test/studio-stopps.test.ts vergleicht beide.
  */
-export const NAHE_M = 120
+export const NEAR_M = 120
 
 /** Ein Foto, wie die Gruppierung es braucht: verankert an `s`, optional gereiht. */
-export interface StoppFoto {
+export interface StopItem {
   /** Streckenmeter des Ankers */
   s: number
   /** Platz im Halt (0-basiert, im Studio gesetzt) */
@@ -266,7 +266,7 @@ export interface StoppFoto {
 }
 
 /** Ein Halt: Streckenmeter des ERSTEN Fotos plus alle Aufnahmen dort. */
-export interface Stopp<T extends StoppFoto> {
+export interface Stop<T extends StopItem> {
   s: number
   items: T[]
 }
@@ -283,18 +283,18 @@ export interface Stopp<T extends StoppFoto> {
  *
  * Erwartet Fotos MIT `s` (Streckenmeter), aufsteigend sortiert.
  */
-export function gruppiereStopps<T extends StoppFoto>(photos: T[], naheM = NAHE_M): Array<Stopp<T>> {
-  const stops: Array<Stopp<T>> = []
+export function groupStops<T extends StopItem>(photos: T[], nearM = NEAR_M): Array<Stop<T>> {
+  const stops: Array<Stop<T>> = []
   for (const p of photos) {
     const last = stops[stops.length - 1]
-    if (last && p.s - last.s < naheM) last.items.push(p)
+    if (last && p.s - last.s < nearM) last.items.push(p)
     else stops.push({ s: p.s, items: [p] })
   }
   for (const stop of stops) {
     if (stop.items.length < 2) continue
-    // Geteilt mit dem Editor (src/einblendung.ts) — die natürliche Ordnung ist
+    // Geteilt mit dem Editor (src/card-timing.ts) — die natürliche Ordnung ist
     // hier die Strecke, im Studio die Aufnahmezeit.
-    stop.items = reihenfolgeImHalt(stop.items, (p) => p.s)
+    stop.items = orderInStop(stop.items, (p) => p.s)
   }
   return stops
 }

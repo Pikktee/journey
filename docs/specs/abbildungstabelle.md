@@ -150,7 +150,7 @@ für eine Sache, und nichts wird rot.
 
 **B — ENTSCHIEDEN am 2026-08-20: `AxisStop`.** `Halt` heißt zweimal etwas anderes. Das Glossar entscheidet „`stop` ist der Ort,
 `hold` die Dauer". Beim Bauen kam ein dritter Fall dazu: `Halt` in
-[filmachse.ts](../../src/filmachse.ts) ist das Halt-INTERVALL der Achse, und `Stop` ist
+[filmachse.ts](../../src/film-axis.ts) ist das Halt-INTERVALL der Achse, und `Stop` ist
 für den gruppierten Foto-Halt aus `stopps.ts` schon vergeben. Vorschlag: `AxisStop`.
 `main.ts` importiert beide Module, ein gemeinsamer Name ginge nicht.
 

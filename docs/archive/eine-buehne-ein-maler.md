@@ -3,9 +3,9 @@ stand: 2026-08-17
 status: 'abgearbeitet: der Editor malt, Blitz und Letterbox-Balken sind zurückgebaut, die Karte fährt mit der Leiste'
 betrifft:
   - Studio-Editor (src/studio/editor.ts, studio.html)
-  - Player (src/kartenmaler.ts, src/kartenschicht.ts)
-  - geteilte Zahlen (src/einblendung.ts)
-  - Wächter (test/einblendung-css.test.ts)
+  - Player (src/card-painter.ts, src/card-layer.ts)
+  - geteilte Zahlen (src/card-timing.ts)
+  - Wächter (test/card-painter-css.test.ts)
 archiviert_aus: concepts
 ---
 
@@ -88,7 +88,7 @@ drei betreffen den AUFRUFER, keine davon den Zeichner.
 ## 3. Etappe 1: der Editor auf den Maler — **gebaut am 2026-08-17**
 
 1. **Ein zweiter Maß-Satz.** `KARTEN_MASSE` in
-   [kartenmaler.ts](../../src/kartenmaler.ts) trägt die drei Lagen der
+   [kartenmaler.ts](../../src/card-painter.ts) trägt die drei Lagen der
    Player-Bühne, `EDITOR_MASSE` daneben die kleine Karte auf dem Leuchttisch.
    Welcher gilt, sagt `kartenSatz(buehne)` — und dieselbe Funktion liefert auch
    Lage, Maßstabsgrenzen und die Flugweite. Die ist damit dort angekommen, wo

@@ -6,7 +6,7 @@
 // während der Film weiterläuft. Ohne eine Achse, die die Halte kennt, wäre
 // „3 Sekunden nach dem Anker" beim Rendern nicht auffindbar.
 //
-// Das hier ist der SERVER-Spiegel von `baueFilmachse` in src/filmachse.ts.
+// Das hier ist der SERVER-Spiegel von `baueFilmachse` in src/film-axis.ts.
 // Beide müssen dasselbe rechnen, sonst startet ein Klip im fertigen Film woanders
 // als im Editor gezeigt — genau die Sorte Drift, an der schon die
 // Gehabschnitts-Erkennung einmal hing. Deshalb: dieselbe Gruppierung (120
@@ -22,14 +22,7 @@
 // zwei Schritten, über den Adapter `tS`/`mM`.
 
 import type { CameraMomentKind } from '../schema/edits.js'
-import {
-  STOP_FADE_OUT_S,
-  NEAR_M,
-  RAMPE_M,
-  mediumHoldS,
-  momentHoldS,
-  tempoMs,
-} from './film-tempo.js'
+import { STOP_FADE_OUT_S, NEAR_M, RAMP_M, mediumHoldS, momentHoldS, tempoMs } from './film-tempo.js'
 import type { TimeSeries } from './time.js'
 
 /** Ein Halt auf der Achse: wann er beginnt (Aufnahmezeit) und was er im Film kostet. */
@@ -51,7 +44,7 @@ export interface FilmAxis {
   mM: number[]
   sM: number[]
   filmS: number[]
-  gesamtS: number
+  totalS: number
 }
 
 /** Meter zwischen zwei Punkten (lokale Plattkarte — auf Segmentlänge genau genug). */
@@ -91,7 +84,7 @@ function interpoliere(xs: readonly number[], ys: readonly number[], x: number): 
 
 /**
  * Weganteil der Rampe nach dem Zeitanteil `u`, von Tempo `v0` auf `v1` —
- * Spiegel von `rampenWeg` in src/filmachse.ts.
+ * Spiegel von `rampenWeg` in src/film-axis.ts.
  *
  * Die Geschwindigkeit folgt `v0 + (v1 − v0) · smoothstep(u)`: sanft an, in der
  * Mitte am stärksten, sanft ins neue Tempo. Daraus die zwei Zahlen, die die
@@ -124,19 +117,19 @@ interface Rampenknoten {
  * Film-Achse aus der (bereits getrimmten) Zeitreihe und den Halten.
  *
  * Fahrzeit kommt aus Strecke ÷ modusabhängigem Tempo — dieselbe Rechnung, mit
- * der die Engine fährt (filmtempo.ts) —, dazu die Rampen. Sie liegen an JEDEM
+ * der die Engine fährt (film-tempo.ts) —, dazu die Rampen. Sie liegen an JEDEM
  * Tempowechsel: am Start, an jedem Halt (Sonderfall „von oder auf null") und an
  * jeder Modus-Grenze, dort ganz im schnelleren Abschnitt. `null`, wenn zu wenig
  * Material für eine Abbildung da ist; der Aufrufer fällt dann auf die alte
  * Aufnahmezeit-Verankerung zurück, statt zu raten.
  *
  * `rampeM` ist nur für das Verhaltens-Fixture offen: Es beschreibt die FORM der
- * Rampe mit runden Längen, die Dosierung steht als `RAMPE_M` in filmtempo.ts.
+ * Rampe mit runden Längen, die Dosierung steht als `RAMP_M` in film-tempo.ts.
  */
 export function buildFilmAxis(
   reihe: TimeSeries,
   halte: readonly AxisStop[],
-  rampeM: number = RAMPE_M,
+  rampeM: number = RAMP_M,
 ): FilmAxis | null {
   // — Der Zeit→Strecke-Adapter und die Tempo-Stufen über der Strecke —
   const tS: number[] = []
@@ -311,9 +304,9 @@ export function buildFilmAxis(
   }
   reise(gesamtM)
 
-  const gesamtS = filmS[filmS.length - 1] as number
-  if (!(gesamtS > 0)) return null
-  return { tS, mM, sM, filmS, gesamtS }
+  const totalS = filmS[filmS.length - 1] as number
+  if (!(totalS > 0)) return null
+  return { tS, mM, sM, filmS, totalS }
 }
 
 /** Filmsekunde zu einer Aufnahmezeit — zwei Schritte: Zeit → Strecke → Film. */
@@ -380,7 +373,7 @@ export function projectOntoTimeSeries(
 
 /**
  * Aufnahmen zu Halten gruppieren — Spiegel von `baueStopps`
- * (src/studio/stopps.ts) und `gruppiereStopps` (src/geo.ts).
+ * (src/studio/stops.ts) und `gruppiereStopps` (src/geo.ts).
  *
  * Gemessen wird zum ANFANG des Halts, nicht zum Vorgänger: sonst könnte eine
  * Perlenkette knapp benachbarter Aufnahmen zu einem beliebig langen Stopp

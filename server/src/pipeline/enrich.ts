@@ -448,7 +448,7 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
    * braucht sie jeder Zweig — einmal gebaut, von allen gelesen.
    *
    * Ihre Halte sind die Aufnahmen (Standzeit + Ausblendung) und die Momente;
-   * exakt dieselben, mit denen der Player seine Achse baut (src/filmachse.ts).
+   * exakt dieselben, mit denen der Player seine Achse baut (src/film-axis.ts).
    * `null` nur bei einer degenerierten Tour ohne Zeitreihe — dann bleibt es
    * überall beim reinen `f`, also beim Verhalten von vorher.
    */
@@ -607,7 +607,7 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
           filmBisS = filmVon + spur.durationFilmS
           f1 = fBeiFilm(filmBisS)
         } else if (spur.type === 'music') {
-          filmBisS = tBis !== undefined ? filmTimeAtRecordingTime(achse, tBis) : achse.gesamtS
+          filmBisS = tBis !== undefined ? filmTimeAtRecordingTime(achse, tBis) : achse.totalS
           f1 = tBis !== undefined ? positionAtTime(reihe, tBis).f : 1
         } else {
           filmBisS = filmVon
@@ -621,7 +621,7 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
           filmBisS = achse
             ? tBis !== undefined
               ? filmTimeAtRecordingTime(achse, tBis)
-              : achse.gesamtS
+              : achse.totalS
             : undefined
         } else {
           // SFX: One-Shot exakt bei f0. Liegt `ab` außerhalb des (getrimmten)
@@ -762,7 +762,7 @@ export async function enrichTour(eingabe: EnrichmentInput): Promise<TourJson> {
         )
         return spur ? { trackSignature: spur } : {}
       })(),
-      ...(achse ? { filmS: Math.round(achse.gesamtS * 10) / 10 } : {}),
+      ...(achse ? { filmS: Math.round(achse.totalS * 10) / 10 } : {}),
       ...(showFinale ? { finale: true } : {}),
     },
   }

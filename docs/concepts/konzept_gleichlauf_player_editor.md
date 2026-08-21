@@ -299,7 +299,7 @@ kamen erst nach der Paketierung dazu:
 - Das **Ken-Burns-Zeitmodell** ist mit E15 angeglichen und in Etappe 4 gelandet statt in der
   Szene-Schicht — dort fiel es ohnehin an, weil die Karte auch rückwärts erscheinen soll.
   `balkenAnteil`, `klipDauerS`, `kartenZeiten` und `videoStandS` sind dabei gleich
-  mitgezogen und stehen in [einblendung.ts](../../src/einblendung.ts).
+  mitgezogen und stehen in [einblendung.ts](../../src/card-timing.ts).
 
 Was ausdrücklich **nicht** folgt: ein gemeinsamer Abspieler. Der Player kennt Spuren mit
 `f0`/`f1` aus dem Tour-JSON, der Editor Klips aus dem Overlay; die beiden Datenmodelle
@@ -315,8 +315,8 @@ Fünf Schichten, von unten. Nur die oberste ist an 3D gebunden.
 | Schicht | Modul | Heute | Künftig |
 |---|---|---|---|
 | **Ton** | [audiotracks.ts](../../src/audiotracks.ts) | ✅ geteilt | unverändert — die Vorlage für alles andere |
-| **Zeit** | `src/filmachse.ts` *(neu)* | 3 Kopien | 1 Web-Modul + 1 Server-Spiegel (erzwungen), Fixture statt Regex |
-| **Szene** | `src/einblendung.ts` *(neu)* | Kern teils geteilt, Zahlen doppelt | 6 reine Funktionen (§9) |
+| **Zeit** | `src/film-axis.ts` *(neu)* | 3 Kopien | 1 Web-Modul + 1 Server-Spiegel (erzwungen), Fixture statt Regex |
+| **Szene** | `src/card-timing.ts` *(neu)* | Kern teils geteilt, Zahlen doppelt | 6 reine Funktionen (§9) |
 | **Stimmung** | `sunPosition` + `paramsAt` | `sunPosition` ist rein; `paramsAt` **nicht exportiert** | geteilte *Rechnung*, getrennte *Anwendung* |
 | **Wetter** | [weather.ts](../../src/weather.ts) | nur Player | dasselbe Modul auf beiden Bühnen |
 
@@ -371,7 +371,7 @@ mehr, sondern eine **Form in der Kurve** — es gibt kein zweites Modell zum Nac
 Nebeneffekte, alle in die richtige Richtung: `mult` wird ein Faktor auf die Filmzeit, `nudge`
 wird 1/24 Filmsekunde, Scrubben wird filmlinear und damit positionstreu.
 
-**C. Eine geteilte Filmachse (E3).** `src/filmachse.ts`, importiert von Player und Studio. Der
+**C. Eine geteilte Filmachse (E3).** `src/film-axis.ts`, importiert von Player und Studio. Der
 gemeinsame Kern ist ~60 Zeilen und domänenfrei: *(Abschnittslängen, Modus je Abschnitt, Halte
 als Position + Breite) → Stützstellenkurve + Halt-Intervalle + Interpolation in beide
 Richtungen*. `interpoliere` ist zwischen Studio und Server heute schon **byte-identisch**,
@@ -462,7 +462,7 @@ die Optik, aber nicht ihr Zeitmodell.
 `klipDauerS`, `standzeitS` (samt exportiertem `HOLD_HIDE`), `klemmeSeitenverhaeltnis`,
 `balkenAnteil`, dazu `kartenZeiten` und `videoStandS` aus E15, und zuletzt
 `ausschnittDauerS` und `reihenfolgeImHalt`. Der CSS-Paar-Wächter steht in
-[test/einblendung-css.test.ts](../../test/einblendung-css.test.ts).
+[test/card-painter-css.test.ts](../../test/card-painter-css.test.ts).
 
 Zwei Befunde aus dem Abschluss, die die Tabelle nicht vorhersah:
 
@@ -486,7 +486,7 @@ Blenden-Versatz), weil beide Seiten ihren Fortschritt über dieselben Funktionen
 stehen in verschiedenen EINHEITEN da (`0.5s` gegen `500ms`), ein Textvergleich fände hier
 neun Unterschiede und keinen echten.
 
-Geteilt wird ein DOM-freies `src/einblendung.ts` mit sechs reinen Funktionen — jede mit einem
+Geteilt wird ein DOM-freies `src/card-timing.ts` mit sechs reinen Funktionen — jede mit einem
 konkreten Anlass von heute:
 
 | Funktion | Anlass |
@@ -676,7 +676,7 @@ ist der Rückfall auf `f × route.total` dauerhaft, nicht übergangsweise.
 *Fertig, wenn:* Der Median-Fehler aus §4.3 fällt unter 0,05 s — geprüft **je Ankerklasse**
 (Audio, Kamera-Keyframes, Momente, Wetter), nicht nur als Gesamtzahl.
 
-**Etappe 3 — Die geteilte Achse.** `src/filmachse.ts` als domänenfreier Kern; das Studio
+**Etappe 3 — Die geteilte Achse.** `src/film-axis.ts` als domänenfreier Kern; das Studio
 benutzt ihn statt der eigenen Kopie; der Player rechnet seine Filmachse, **noch ohne sie
 anzutreiben**; der Server prüft gegen ein Verhaltens-Fixture statt gegen Regex.
 

@@ -29,12 +29,12 @@ for (const tour of TOUREN) {
   const kontext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const seite = await kontext.newPage()
   await seite.goto(`${BASIS}/tour/${tour}`, { waitUntil: 'domcontentloaded' })
-  await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 45000 })
+  await seite.waitForFunction(() => window.__maptale?.tour, null, { timeout: 45000 })
   await seite.evaluate(() => document.getElementById('btn-start').click())
 
   // — Regie-Mitschnitt: was bekommt onTick? —
   await seite.evaluate(() => {
-    const t = window.__j.tour
+    const t = window.__maptale.tour
     const echt = t.ui.onTick
     window.__regie = []
     t.ui.onTick = (frac) => {
@@ -45,9 +45,9 @@ for (const tour of TOUREN) {
 
   // — Den ersten Foto-Halt suchen und kurz davor einsteigen —
   const halt = await seite.evaluate(() => {
-    const a = window.__j.filmachse
-    const h = a.halte.find((x) => x.stopp)
-    return h ? { von: h.filmVon, bis: h.filmBis, gesamt: a.gesamtS } : null
+    const a = window.__maptale.filmAxis
+    const h = a.stops.find((x) => x.stop)
+    return h ? { von: h.filmVon, bis: h.filmBis, gesamt: a.totalS } : null
   })
   if (!halt) {
     console.log(`✗ ${tour}: kein Foto-Halt in der Achse`)
@@ -57,13 +57,13 @@ for (const tour of TOUREN) {
   }
 
   await seite.evaluate((h) => {
-    window.__j.tour.seek(Math.max(0, h.von - 1.2) / h.gesamt)
-    window.__j.tour.setPlaying(true)
+    window.__maptale.tour.seek(Math.max(0, h.von - 1.2) / h.gesamt)
+    window.__maptale.tour.setPlaying(true)
   }, halt)
 
   // Pro Frame mitschreiben: Kopfposition, Balken, Filmsekunde, Streckenmeter
   const proben = await seite.evaluate(async (h) => {
-    const t = window.__j.tour
+    const t = window.__maptale.tour
     const kopf = document.getElementById('progress-head')
     const balken = document.getElementById('prog-rect')
     const bis = performance.now() + (h.bis - h.von + 2.4) * 1000
@@ -103,7 +103,7 @@ for (const tour of TOUREN) {
 
   // — Scrub in die MITTE des Halts —
   const mitte = await seite.evaluate(async (h) => {
-    const t = window.__j.tour
+    const t = window.__maptale.tour
     t.beginScrub((h.von + h.bis) / 2 / h.gesamt)
     t.scrub((h.von + h.bis) / 2 / h.gesamt)
     // Die Karte legt der nächste Kopfschritt hin — sie ist eine Funktion der
@@ -113,7 +113,7 @@ for (const tour of TOUREN) {
     return {
       filmS: t.filmS,
       ziel: (h.von + h.bis) / 2,
-      imHalt: !!t.halt,
+      imHalt: !!t.stop,
       karteSichtbar: parseFloat(getComputedStyle(karte).opacity) > 0.01,
       kartenZeit: getComputedStyle(karte).getPropertyValue('--karte-zeit').trim(),
     }

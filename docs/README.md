@@ -131,7 +131,7 @@ stand: 2026-08-17
 status: Entwurf, nichts gebaut
 betrifft:
   - src/ui.ts
-  - src/exportfilm.ts
+  - src/film-export.ts
 systemteile: [Player]
 ---
 

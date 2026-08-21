@@ -312,7 +312,7 @@ eine zu kurze Datei.
 
 **Arbeitsteilung im Code.** [src/studio/edit-model.ts](edit-model.ts) (Overlay
 immutabel fortschreiben, Track-Projektion), [src/studio/timeline.ts](timeline.ts)
-(Skalen, Bänder, Marken, Dauerschätzung), [src/studio/stopps.ts](stopps.ts)
+(Skalen, Bänder, Marken, Dauerschätzung), [src/studio/stops.ts](stops.ts)
 (Halt-Gruppierung) und [src/studio/audio-clip.ts](audio-clip.ts) (Ton-Klips auf der
 Filmachse: auflösen, verschieben, trimmen) sind **DOM-frei und unter Vitest getestet**;
 [src/studio/editor.ts](editor.ts) enthält nur DOM- und MapLibre-Verdrahtung.
@@ -415,7 +415,7 @@ STRECKE.** `buildTimelineAxis` ([timeline.ts](timeline.ts)) baut seit Paket D de
 [Gleichlauf-Konzepts](../../docs/concepts/konzept_gleichlauf_player_editor.md) keine eigene
 Kurve mehr, sondern zwei Dinge: den **Zeit→Strecke-Adapter** (`AxisCurve`: je Stützpunkt
 seine Aufnahmezeit und sein Meterstand) und darüber die geteilte Achse
-([src/filmachse.ts](../filmachse.ts), dieselbe, die der Player rechnet). `recordingTimeAtFilmTime` geht
+([src/film-axis.ts](../film-axis.ts), dieselbe, die der Player rechnet). `recordingTimeAtFilmTime` geht
 seither in zwei Schritten — Film → Strecke → Zeit —, `filmTimeAtRecordingTime` umgekehrt; die Signaturen
 sind dieselben geblieben. Grund ist E12: Der Player braucht Filmsekunde → Streckenposition, und
 das kann eine über der Aufnahmezeit parametrisierte Achse nicht liefern. Seit Etappe 4 legt
@@ -683,7 +683,7 @@ startet, hört, was dort im Film liefe). Die Rechnung dahinter ist seit Paket D 
 `musikVersatzS` steht in [audiotracks.ts](../audiotracks.ts) und bekommt die Filmzeit seit
 Klipbeginn herein (`sinceClipStartS` über die Spielkurve) — der Player ruft dieselbe Funktion
 über seine Filmachse, und beide Bühnen greifen an derselben Filmsekunde auf dieselbe
-Datei-Position zu (Wächter in [test/filmachse.test.ts](../../test/filmachse.test.ts)); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts) — seit E10 in
+Datei-Position zu (Wächter in [test/film-axis.test.ts](../../test/film-axis.test.ts)); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts) — seit E10 in
 FILMSEKUNDEN, der Abspieler rechnet seine Marken dafür über `filmAt(plan.kurve, …)` um; die
 Schwelle, ab der ein Schritt als Sprung gilt, ist eine Frame-Zeit und hinge im Achsen-Anteil
 an der Länge der Tour. Das ändert Player und Editor in einem Zug, damit im
@@ -723,7 +723,7 @@ zieht, und der Behelf für genau das, was ein MALER von Natur aus tut. **Seit de
 gibt es den Maler auch hier** (s. den nächsten Absatz), und die `--fe-*`-Choreografie ist weg.
 Das Video wird weiter auf `trim.vonS + imS` gesetzt und läuft nur
 bei Tempo 1 selbst; WANN dabei gesucht wird, entscheidet die mit dem Player geteilte
-`videoNachfuehrung` ([einblendung.ts](../einblendung.ts), Regeln in der Wurzel-CLAUDE.md).
+`videoNachfuehrung` ([einblendung.ts](../card-timing.ts), Regeln in der Wurzel-CLAUDE.md).
 Die Toleranz im Lauf ist 0,5 s und im Stand 0,04 s, und ein begonnener Suchlauf wird
 abgewartet: Ein Sprung je Frame ruckelte sichtbar, und auf einem langsamen Gerät kam gar
 keiner mehr an. **Beide
@@ -731,7 +731,7 @@ Trim-Kanten** stehen im `dataset` des Elements, weil die ausgelieferte Datei der
 Master ist und der Schnitt erst in der Pipeline entsteht.
 
 **Und die Karte MALT seit dem 2026-08-17 derselbe Zeichner wie im Player und im Film** —
-`maleKarte` in [src/kartenmaler.ts](../kartenmaler.ts), eingehängt über
+`maleKarte` in [src/card-painter.ts](../card-painter.ts), eingehängt über
 `createKartenSchicht({ buehne: 'editor' })` („Eine Bühne, ein Maler" Etappe 1,
 [docs/concepts/eine-buehne-ein-maler.md](../../docs/archive/eine-buehne-ein-maler.md)). Damit
 ist die Begründung aus §6A des Gleichlauf-Konzepts abgelaufen: Sie richtete sich gegen ein
@@ -770,7 +770,7 @@ Fünf Dinge, die man dabei kippt:
   Verlöre die Szenen-Bahn ihre Titel, wäre die Karte die einzige Quelle.
 
 Die vier geteilten Rechnungen bleiben, wo sie waren: `kartenZeiten`, `balkenAnteil`,
-`klipDauerS` und `videoStandS` in [src/einblendung.ts](../einblendung.ts) — dort auch die
+`klipDauerS` und `videoStandS` in [src/card-timing.ts](../card-timing.ts) — dort auch die
 geteilten ZAHLEN (`KARTE`) und die benannten Bühnen-Varianten (`KARTE_BUEHNE`).
 
 **Das Video KLINGT — und duckt dabei die Musik.** Es lief lange mit hartem `muted = true`, und

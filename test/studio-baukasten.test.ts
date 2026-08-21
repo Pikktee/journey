@@ -3,15 +3,15 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { STUDIO_PEGEL_VORGABE } from '../src/audiotracks.js'
-import { HOLD_AUSBLEND, HOLD_HIDE } from '../src/einblendung.js'
+import { STUDIO_GAIN_DEFAULT } from '../src/audiotracks.js'
+import { HOLD_FADE_OUT_S, HOLD_HIDE } from '../src/card-timing.js'
 import {
-  MODUS_TEMPO,
+  TRAVEL_MODE_TEMPO,
   MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S,
-  RAMPE_M,
-  rampenVersatzS,
+  RAMP_M,
+  rampOffsetS,
   tempoMs,
-} from '../src/filmachse.js'
+} from '../src/film-axis.js'
 import {
   effectiveMedia,
   recordUndo,
@@ -73,7 +73,7 @@ import {
   STOP_FADE_OUT_S,
   STOP_ENGINE_S,
   stopAtFilmS,
-  holdS,
+  photoHoldS,
   stopInnerAt,
   clampFilmS,
   clampBoundary,
@@ -100,7 +100,7 @@ import {
   stepFilmS,
   chooseFilmStep,
   videoFilmS,
-  videoStandS,
+  videoPositionS,
   VIDEO_TRIM_MIN_S,
 } from '../src/studio/timeline'
 
@@ -221,7 +221,7 @@ describe('Kamera-Momente', () => {
   })
 
   it('Default-Dauern SIND die der Engine, keine Kopie davon', () => {
-    // Seit Paket D liest `tour.ts` dieselbe Tabelle (src/filmachse.ts) — der
+    // Seit Paket D liest `tour.ts` dieselbe Tabelle (src/film-axis.ts) — der
     // Wächter vergleicht deshalb keine Zeichenkette mehr, sondern die Identität.
     expect(MOMENT_DEFAULT_S).toBe(ENGINE_MOMENT_DEFAULT_S)
   })
@@ -405,16 +405,16 @@ describe('Fortbewegungs-Modi', () => {
   // Touren konnten diese Modi deshalb nie bekommen. tour.ts lädt MapLibre und
   // ist im Node-Test nicht importierbar, also über den Quelltext.
   it('decken sich mit der Tempo-Tabelle der Engine', () => {
-    // `MODUS_TEMPO` steht seit Paket D in src/filmachse.ts und wird von der
+    // `TRAVEL_MODE_TEMPO` steht seit Paket D in src/film-axis.ts und wird von der
     // Engine, vom Studio und (als erzwungener Spiegel) vom Server gelesen —
     // kein Quelltext-Vergleich mehr nötig.
-    expect(Object.keys(MODUS_TEMPO).slice().sort()).toEqual([...TRAVEL_MODES].slice().sort())
+    expect(Object.keys(TRAVEL_MODE_TEMPO).slice().sort()).toEqual([...TRAVEL_MODES].slice().sort())
   })
 
   it('Tempo-Faktoren der Dauerschätzung stimmen mit der Engine überein', () => {
     // Eine 12 km lange Fahrt je Modus: die geschätzte Dauer muss exakt
     // Länge / (120 · Faktor) sein — prüft Faktor UND Basistempo.
-    for (const [modus, faktor] of Object.entries(MODUS_TEMPO)) {
+    for (const [modus, faktor] of Object.entries(TRAVEL_MODE_TEMPO)) {
       const strecke: TrackPoint[] = [
         [9, 47, 0, 0],
         [9 + 12000 / (111_320 * Math.cos((47 * Math.PI) / 180)), 47, 0, 3600],
@@ -428,12 +428,12 @@ describe('Fortbewegungs-Modi', () => {
   })
 
   // Die Haltezeiten sind seit Paket A KEINE Kopie mehr, sondern derselbe Wert:
-  // `einblendung.ts` ist DOM- und importfrei, das Studio liest ihn direkt. Der
+  // `card-timing.ts` ist DOM- und importfrei, das Studio liest ihn direkt. Der
   // Wächter prüft deshalb keine Zeichenkette mehr, sondern die Identität — er
   // fällt erst, wenn jemand die Werte wieder auseinanderschreibt.
   it('Haltezeiten SIND HOLD_HIDE/HOLD_AUSBLEND, keine Kopie davon', () => {
     expect(STOP_ENGINE_S).toBe(HOLD_HIDE)
-    expect(STOP_FADE_OUT_S).toBe(HOLD_AUSBLEND)
+    expect(STOP_FADE_OUT_S).toBe(HOLD_FADE_OUT_S)
   })
 
   it('haben in der Engine auch eine Kamera-Skala', () => {
@@ -568,7 +568,7 @@ describe('Wetter-Grenzen', () => {
     const quelle = readFileSync(new URL('../server/src/schema/edits.ts', import.meta.url), 'utf8')
     const treffer = quelle.match(/STUDIO_GAIN = ([0-9.]+)/)
     expect(treffer, 'STUDIO_GAIN in server/src/schema/edits.ts nicht gefunden').not.toBeNull()
-    expect(Number(treffer?.[1])).toBe(STUDIO_PEGEL_VORGABE)
+    expect(Number(treffer?.[1])).toBe(STUDIO_GAIN_DEFAULT)
   })
 
   // Und der Server muss ihn UNBEDINGT schreiben: `gain` weglassen hieße im
@@ -813,8 +813,8 @@ describe('Zeitleiste', () => {
     // Je Foto Haltedauer + 0,8 s Ausblendung
     expect(estimateAnimationDuration([], [5.2, 12])).toBeCloseTo(5.2 + 12 + 1.6, 6)
     // Default-Haltedauer entspricht HOLD_HIDE der Engine, nicht dem UI-Label „5 s"
-    expect(holdS()).toBe(5.2)
-    expect(holdS({ holdS: 20 })).toBe(20)
+    expect(photoHoldS()).toBe(5.2)
+    expect(photoHoldS({ holdS: 20 })).toBe(20)
   })
 
   describe('Filmzeit-Achse', () => {
@@ -833,14 +833,14 @@ describe('Zeitleiste', () => {
     // eine 120-m-Rampe genau eine Filmsekunde. Hier sind es drei: aus dem Stand
     // los, vor dem Halt bremsen, danach wieder anfahren — am Tour-Ende wird
     // nicht gebremst. Der Halt liegt dadurch bei 52 statt 50 Filmsekunden.
-    const R = RAMPE_M / tempoMs('bike')
+    const R = RAMP_M / tempoMs('bike')
     /**
      * Was eine MODUS-Rampe die ganze Tour kostet: ihre Dauer minus die Reise,
      * die sie ersetzt. Sie liegt ganz im SCHNELLEREN Abschnitt, ersetzt dort
-     * also `RAMPE_M` Meter — und kostet damit Zeit, statt welche zu sparen.
+     * also `RAMP_M` Meter — und kostet damit Zeit, statt welche zu sparen.
      */
     const modusRampeS = (v0: number, v1: number): number =>
-      (2 * RAMPE_M) / (v0 + v1) - RAMPE_M / Math.max(v0, v1)
+      (2 * RAMP_M) / (v0 + v1) - RAMP_M / Math.max(v0, v1)
 
     it('Halte bekommen ihre Standzeit als Achsenbreite', () => {
       expect(gesamt).toBeCloseTo(120 + 3 * R, 1) // 100 s Fahrt + 20 s Halt + 3 Rampen
@@ -1238,8 +1238,8 @@ describe('Zeitleiste', () => {
       expect(kurve.totalS).toBeCloseTo(
         12 +
           12000 / tempoMs('walk') +
-          (3 * RAMPE_M) / tempoMs('walk') +
-          rampenVersatzS(tempoMs('walk'), tempoMs('bike')),
+          (3 * RAMP_M) / tempoMs('walk') +
+          rampOffsetS(tempoMs('walk'), tempoMs('bike')),
         1,
       )
       expect(
@@ -1497,8 +1497,8 @@ describe('Zeitleiste', () => {
         const bis =
           2880 / tempoMs('walk') +
           3120 / tempoMs('bike') +
-          RAMPE_M / tempoMs('walk') +
-          RAMPE_M / tempoMs('bike') +
+          RAMP_M / tempoMs('walk') +
+          RAMP_M / tempoMs('bike') +
           modusRampeS(tempoMs('walk'), tempoMs('bike'))
         expect(halt.filmVon).toBeCloseTo(bis, 6) // rechts der Kante
         expect(halt.filmBis).toBeCloseTo(bis + 20, 6)
@@ -1510,7 +1510,7 @@ describe('Zeitleiste', () => {
         // dahinter, nicht mehr auf dem angepeilten Pixel.
         // Alles bis zum Halt ist jetzt Fußweg: 6000 m plus Anfahrt und Bremsen.
         expect(achseVon(f.edits).stops![0]!.filmVon).toBeCloseTo(
-          6000 / tempoMs('walk') + (2 * RAMPE_M) / tempoMs('walk'),
+          6000 / tempoMs('walk') + (2 * RAMP_M) / tempoMs('walk'),
           6,
         )
 
@@ -1675,7 +1675,7 @@ describe('Zeitleiste', () => {
     })
 
     it('ein Zug, der nichts ändert, ist auch kein Schritt', () => {
-      // `reiheVergeben` schriebe auch für eine unveränderte Reihenfolge ein
+      // `assignOrder` schriebe auch für eine unveränderte Reihenfolge ein
       // neues Overlay — und das wäre ein Undo-Schritt, den man später einmal
       // umsonst rückgängig macht. Der Editor schreibt deshalb gar nicht erst.
       const e = start()
@@ -1830,26 +1830,26 @@ describe('clampMediaTrim (Drift-Wächter gegen video.ts)', () => {
 describe('videoStandS: der Klip ist länger als das Material', () => {
   it('klemmt am Materialende statt über die Dauer hinaus zu zielen', () => {
     // Mitten im Video: unverändert die Kopfposition
-    expect(videoStandS(0, 34, 12).zielS).toBeCloseTo(12, 6)
-    expect(videoStandS(0, 34, 12).ausgelaufen).toBe(false)
+    expect(videoPositionS(0, 34, 12).targetS).toBeCloseTo(12, 6)
+    expect(videoPositionS(0, 34, 12).atEnd).toBe(false)
     // In der Ausblendung (Klip = 34 + HALT_AUSBLEND_S): das Material ist zu Ende
-    const inDerAusblendung = videoStandS(0, 34, 34 + STOP_FADE_OUT_S)
-    expect(inDerAusblendung.zielS).toBeLessThan(34)
-    expect(inDerAusblendung.zielS).toBeCloseTo(33.96, 6)
-    expect(inDerAusblendung.ausgelaufen).toBe(true)
+    const inDerAusblendung = videoPositionS(0, 34, 34 + STOP_FADE_OUT_S)
+    expect(inDerAusblendung.targetS).toBeLessThan(34)
+    expect(inDerAusblendung.targetS).toBeCloseTo(33.96, 6)
+    expect(inDerAusblendung.atEnd).toBe(true)
   })
 
   it('rechnet den Schnitt mit: das Ende ist bisS, nicht das Dateiende', () => {
     // Ausschnitt 6–20 s einer 34-s-Datei → der Klip ist 14 s lang
-    expect(videoStandS(6, 20, 0).zielS).toBeCloseTo(6, 6)
-    expect(videoStandS(6, 20, 13).zielS).toBeCloseTo(19, 6)
-    expect(videoStandS(6, 20, 14).ausgelaufen).toBe(true)
-    expect(videoStandS(6, 20, 14).zielS).toBeCloseTo(19.96, 6)
+    expect(videoPositionS(6, 20, 0).targetS).toBeCloseTo(6, 6)
+    expect(videoPositionS(6, 20, 13).targetS).toBeCloseTo(19, 6)
+    expect(videoPositionS(6, 20, 14).atEnd).toBe(true)
+    expect(videoPositionS(6, 20, 14).targetS).toBeCloseTo(19.96, 6)
   })
 
   it('bleibt im Material, wenn der Klip kürzer ist als das Video', () => {
     // Ohne bekannte `dauerS` ist der Klip die Foto-Standzeit lang
-    expect(videoStandS(0, 34, STOP_ENGINE_S).ausgelaufen).toBe(false)
+    expect(videoPositionS(0, 34, STOP_ENGINE_S).atEnd).toBe(false)
   })
 })
 

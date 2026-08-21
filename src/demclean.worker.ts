@@ -1,9 +1,9 @@
 // Worker der DEM-Bereinigung: PNG rein, PNG raus, Main-Thread bleibt frei.
 //
 // Er trägt bewusst NUR das Dekodieren/Kodieren; die Rechnung steht in
-// demclean-rechnung.ts, weil sie auch im Rückfall ohne Worker laufen muss.
+// dem-clean-math.ts, weil sie auch im Rückfall ohne Worker laufen muss.
 
-import { bereinigeHoehen, KACHEL } from './demclean-rechnung.js'
+import { cleanElevations, TILE } from './dem-clean-math.js'
 
 interface Auftrag {
   id: number
@@ -14,7 +14,7 @@ self.addEventListener('message', async (ev: MessageEvent<Auftrag>) => {
   const { id, buf } = ev.data
   try {
     const bmp = await createImageBitmap(new Blob([buf], { type: 'image/png' }))
-    const cv = new OffscreenCanvas(KACHEL, KACHEL)
+    const cv = new OffscreenCanvas(TILE, TILE)
     const ctx = cv.getContext('2d', { willReadFrequently: true })
     if (!ctx) {
       self.postMessage({ id, data: null })
@@ -22,8 +22,8 @@ self.addEventListener('message', async (ev: MessageEvent<Auftrag>) => {
     }
     ctx.drawImage(bmp, 0, 0)
     bmp.close?.()
-    const img = ctx.getImageData(0, 0, KACHEL, KACHEL)
-    if (!bereinigeHoehen(img.data)) {
+    const img = ctx.getImageData(0, 0, TILE, TILE)
+    if (!cleanElevations(img.data)) {
       self.postMessage({ id, data: null })
       return
     }

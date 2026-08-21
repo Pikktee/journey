@@ -8,7 +8,7 @@
 // Vision-Ableitung aus den Bildern selbst ist bewusst NICHT Teil davon (später).
 import { readExifDate, type ExifZeitpunkt } from './exif.js'
 import type { Route, LngLat } from './geo.js'
-import type { Ankerpunkt, TourZeit, Wegpunkt } from './tours.js'
+import type { AnchorPoint, TourTime, Waypoint } from './tours.js'
 
 const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive'
 
@@ -16,20 +16,20 @@ const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive'
 export type WetterModus = 'off' | 'clouds' | 'rain' | 'snow' | 'fog' | 'storm'
 
 /** Ein Wetterzustand: Modus plus stufenlose Stärke k (0..1). */
-export interface Wetterlage {
+export interface WeatherCondition {
   mode: WetterModus
   k: number
 }
 
 /** Stützstelle der Timeline: Wetterlage ab Streckenmeter s. */
-export interface WetterEintrag extends Wetterlage {
+export interface WeatherEntry extends WeatherCondition {
   s: number
   /** Kam der Zeitpunkt aus einem echten Aufnahmezeitstempel (statt Pseudo-Zeit)? */
   exif: boolean
 }
 
 /** Die vier Stundenwerte, die wir bei Open-Meteo abfragen. */
-export interface Stundenwerte {
+export interface HourlyValues {
   weather_code: number[]
   cloud_cover?: number[]
   precipitation?: number[]
@@ -49,7 +49,7 @@ export function wmoToWeather({
   cloud: number
   precip: number
   snowfall: number
-}): Wetterlage {
+}): WeatherCondition {
   const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x))
   if (code >= 95) return { mode: 'storm', k: clamp(0.5 + precip / 8, 0.4, 1) }
   if (snowfall > 0.05 || (code >= 71 && code <= 77) || code === 85 || code === 86) {
@@ -66,20 +66,20 @@ export function wmoToWeather({
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
 /** Ein Foto, wie das Auto-Wetter es braucht: Anker, Streckenmeter, Zeitquellen. */
-export interface WetterFoto {
+export interface WeatherAnchor {
   s: number
-  anchor: Ankerpunkt
+  anchor: AnchorPoint
   src: string
   /** Aufgezeichnete Touren liefern den Zeitstempel direkt mit (kein EXIF-Fetch nötig) */
   takenAt?: string
 }
 
 /** Eingangsgrößen — `pointAt` wird hereingereicht, damit das Modul geo-frei bleibt. */
-export interface WetterEingang {
-  photos: WetterFoto[]
+export interface WeatherInput {
+  photos: WeatherAnchor[]
   route: Route
-  time: TourZeit
-  pointAt: (route: Route, s: number) => Wegpunkt
+  time: TourTime
+  pointAt: (route: Route, s: number) => Waypoint
 }
 
 interface Stuetzstelle {
@@ -87,8 +87,8 @@ interface Stuetzstelle {
   lnglat: LngLat
   dt: ExifZeitpunkt
   exif: boolean
-  hourly?: Stundenwerte
-  wx?: Wetterlage
+  hourly?: HourlyValues
+  wx?: WeatherCondition
 }
 
 // Stützstellen der Tour: Foto-Anker (dort gibt es einen echten Zeitpunkt) plus
@@ -98,7 +98,7 @@ async function buildAnchors({
   route,
   time,
   pointAt,
-}: WetterEingang): Promise<Stuetzstelle[]> {
+}: WeatherInput): Promise<Stuetzstelle[]> {
   const t0 = Date.parse(time.start)
   const t1 = Date.parse(time.end)
   const pseudo = (s: number) => new Date(t0 + (s / route.total) * (t1 - t0))
@@ -160,7 +160,7 @@ export async function buildWeatherTimeline({
   route,
   time,
   pointAt,
-}: WetterEingang): Promise<WetterEintrag[]> {
+}: WeatherInput): Promise<WeatherEntry[]> {
   const anchors = await buildAnchors({ photos, route, time, pointAt })
   const byDay = new Map<string, Stuetzstelle[]>()
   for (const a of anchors) {
@@ -179,7 +179,7 @@ export async function buildWeatherTimeline({
     })
     const res = await fetch(`${ARCHIVE_URL}?${params}`)
     if (!res.ok) throw new Error(`Open-Meteo ${res.status}`)
-    const data = (await res.json()) as { hourly?: Stundenwerte } | Array<{ hourly?: Stundenwerte }>
+    const data = (await res.json()) as { hourly?: HourlyValues } | Array<{ hourly?: HourlyValues }>
     const sets = Array.isArray(data) ? data : [data]
     list.forEach((a, i) => {
       const hourly = sets[i]?.hourly ?? sets[0]?.hourly
@@ -195,7 +195,7 @@ export async function buildWeatherTimeline({
   // benachbarten Ankern wird s linear über die Zeit interpoliert und für jede
   // volle Stunde ein Eintrag aus den Stundenwerten des zeitlich näheren Ankers
   // erzeugt (die Orte liegen nah beieinander — die Stunde ist der Hebel).
-  const entries: WetterEintrag[] = []
+  const entries: WeatherEntry[] = []
   const minutes = (dt: ExifZeitpunkt) => dt.hh * 60 + dt.mm
   for (let i = 0; i < anchors.length; i++) {
     const a = anchors[i]!
@@ -222,7 +222,7 @@ export async function buildWeatherTimeline({
 }
 
 // Stundenwerte → Modus/Stärke an einer vollen Stunde (Index geklemmt)
-function wxAtHour(hourly: Stundenwerte, hh: number): Wetterlage {
+function wxAtHour(hourly: HourlyValues, hh: number): WeatherCondition {
   const hi = Math.min(hh, hourly.weather_code.length - 1)
   return wmoToWeather({
     code: hourly.weather_code[hi] ?? 0,

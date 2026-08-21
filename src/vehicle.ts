@@ -17,7 +17,7 @@ const MODE_SOUND: Partial<Record<Modus, string>> = {
   ferry: 'eng-boat',
 }
 
-export interface Fahrzeugton {
+export interface VehicleSound {
   /** Aktiven Modus setzen (aus ui.onModeChange). Unbekannte/motorlose Modi ⇒ Stille. */
   setMode(modeKey: string): void
   setGate(fn: () => boolean): void
@@ -32,7 +32,7 @@ export interface Fahrzeugton {
 export function createVehicle(
   base = '/audio',
   { volume = 0.2 }: { volume?: number } = {},
-): Fahrzeugton {
+): VehicleSound {
   const loops: Record<string, SeamlessLoop> = {} // Sound-Name → SeamlessLoop (lazy: erst beim ersten Gebrauch geladen)
   const level: Record<string, number> = {} // Sound-Name → aktuelle Lautstärke (für den Crossfade)
   let curSnd: string | null = null // gewünschter Sound aus dem aktiven Modus (null = Stille)

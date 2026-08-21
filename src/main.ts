@@ -1,67 +1,67 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './style.css'
-import type { Map as MapLibreKarte, Marker } from 'maplibre-gl'
-import { TOURS, type Ankerpunkt, type TourAudio, type TourZeit, type Wegpunkt } from './tours.js'
-import { loadRemoteTour, ladeServerTouren, createTimeAt, type RemoteTourCfg } from './remote.js'
+import type { Map as MapLibreMap, Marker } from 'maplibre-gl'
+import { TOURS, type AnchorPoint, type TourAudio, type TourTime, type Waypoint } from './tours.js'
+import { loadRemoteTour, loadServerTours, createTimeAt, type RemoteTourCfg } from './remote.js'
 import { profilPfad, tourAusPfad, tourPfad } from './routen.js'
-import { buildRoute, dist, gruppiereStopps, nearestS, pointAt, type Route } from './geo.js'
-import { klipDauerS, standzeitS } from './einblendung.js'
+import { buildRoute, dist, groupStops, nearestS, pointAt, type Route } from './geo.js'
+import { clipDurationS, holdS } from './card-timing.js'
 import {
-  baueFilmachse,
-  filmBeiStrecke,
-  haltBeiFilm,
-  interpoliere,
-  modusMischung,
-  momentHaltS,
-  streckeBeiFilm,
-  type Filmachse,
-  type Streckenhalt,
-} from './filmachse.js'
-import { baueSBeiF } from './streckenanker.js'
-import { kennzahlen, kuerzeBeschreibung, zeigeRoute } from './tourtexte.js'
+  buildFilmAxis,
+  filmTimeAtDistance,
+  stopAtFilmTime,
+  interpolate,
+  travelModeMix,
+  momentHoldS,
+  distanceAtFilmTime,
+  type FilmAxis,
+  type DistanceStop,
+} from './film-axis.js'
+import { buildSAtF } from './route-anchors.js'
+import { stats, truncateDescription, showRoute } from './tour-texts.js'
 import {
   createMap,
   addRouteLayers,
   createRider,
   setRiderIcon,
   addSpotLayers,
-  KARTE_EXTRA_QUELLEN,
+  MAP_EXTRA_SOURCES,
 } from './map.js'
 import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
-import { createAtmosphere, type Atmosphaere } from './atmosphere.js'
-import { createWeather, type Wetteroverlay } from './weather.js'
-import { himmelBei, WETTER_HIMMEL, type SzenenWetter } from './wetterhimmel.js'
-import { createMusic, type Hintergrundmusik } from './music.js'
-import { createAudioTracks, KURATIERTER_PEGEL, type AudioSpuren } from './audiotracks.js'
-import { createVehicle, type Fahrzeugton } from './vehicle.js'
+import { createAtmosphere, type Atmosphere } from './atmosphere.js'
+import { createWeather, type WeatherOverlay } from './weather.js'
+import { skyAt, WEATHER_SKY, type SceneWeather } from './weather-sky.js'
+import { createMusic, type BackgroundMusic } from './music.js'
+import { createAudioTracks, CURATED_GAIN, type AudioTracks } from './audiotracks.js'
+import { createVehicle, type VehicleSound } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
 import { UI, $, type PlayerMedium } from './ui.js'
 import {
   Tour,
-  mischeSkala,
-  skalaFuer,
-  type Filmspur,
-  type KameraMoment,
-  type ModusGrenze,
-  type Spielhalt,
+  mixScale,
+  scaleFor,
+  type FilmTrack,
+  type CameraMoment,
+  type TravelModeBoundary,
+  type EngineStop,
 } from './tour.js'
-import type { Filmuhr } from './filmuhr.js'
-import type { PinStopp, PinSteuerung } from './photopins.js'
-import { betreteVollbild, verlasseVollbild, vollbildErwuenscht } from './vollbild.js'
+import type { FilmClock } from './film-clock.js'
+import type { PinStop, PinControl } from './photopins.js'
+import { enterFullscreen, exitFullscreen, fullscreenWanted } from './fullscreen.js'
 import {
   EXPORT_INTRO_S,
-  istEingebettet,
-  EXPORT_NACHRICHT,
-  clipDauerS,
+  isEmbedded,
+  EXPORT_MESSAGE,
+  exportClipDurationS,
   exportPixelRatio,
   exportViewport,
-  frameAnzahl,
-  leseExportFormat,
-  verdichteAbschnitte,
-  type ExportMeldung,
-} from './exportformat.js'
+  frameCount,
+  parseExportFormat,
+  mergeSegments,
+  type ExportMessage,
+} from './film-export-channel.js'
 
 /**
  * Was der Verdrahter aus einer Tour liest — das SUBSET, in dem sich die
@@ -69,10 +69,10 @@ import {
  * `RemoteTourCfg` (src/remote.ts) treffen. Bewusst keine dritte „Wahrheit"
  * fürs Tour-Format: Was hier fehlt, fasst diese Datei nicht an.
  */
-interface SpielerFoto {
+interface PlayerPhoto {
   src: string
   title: string
-  anchor: Ankerpunkt
+  anchor: AnchorPoint
   /** Aufgezeichnete Touren bringen den Zeitstempel mit (Auto-Wetter spart das EXIF) */
   takenAt?: string
   type?: 'photo' | 'video'
@@ -82,11 +82,11 @@ interface SpielerFoto {
   display?: { holdS?: number; kenBurns?: boolean }
 }
 
-interface SpielerSegment {
+interface PlayerSegment {
   /** Freie Zeichenkette: Server-Segmente sind nicht auf `Modus` eingeschränkt */
   mode: string
   label?: string
-  pts: Wegpunkt[]
+  pts: Waypoint[]
   /**
    * Streckenanteil je Punkt, vom Server auf der ROHEN Geometrie gemessen (E11).
    * Kuratierte TOURS haben ihn NIE — sie sind eine Datei mit Wegpunkten, keine
@@ -95,7 +95,7 @@ interface SpielerSegment {
   f?: number[]
 }
 
-interface SpielerTour {
+interface PlayerTour {
   kicker: string
   titleHtml: string
   stops: string[]
@@ -106,84 +106,84 @@ interface SpielerTour {
   finaleTitle: string
   showFinale?: boolean
   /** Ohne `time` bleibt die Tag/Nacht-Regie (und damit die Atmosphäre) aus */
-  time?: TourZeit
-  segments: SpielerSegment[]
-  photos: SpielerFoto[]
+  time?: TourTime
+  segments: PlayerSegment[]
+  photos: PlayerPhoto[]
   /** Kuratierte Wetter-Timeline (km entlang der Route) — schlägt das Auto-Wetter */
   weather?: Array<{ km: number; mode: string; k: number }>
   /** Dasselbe aus dem Tour-JSON, aber f-verankert (remote.ts) — geht vor */
   weatherF?: Array<{ f: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
   /** `filmS` (E10) geht `f` vor — s. Kamera-Folger unten */
-  camera?: Array<{ f: number; preset: string; scale?: number; filmS?: number }>
+  camera?: Array<{ f: number; preset: string; scale?: number; filmTime?: number }>
   /** `filmS` bleibt hier ungelesen: Ein Moment IST ein Halt (s. unten) */
-  moments?: Array<{ f: number; kind: string; durationS?: number; filmS?: number }>
+  moments?: Array<{ f: number; kind: string; durationS?: number; filmTime?: number }>
   audio?: TourAudio[]
   /** Master über `audio`; fehlt = KURATIERTER_PEGEL (s. TourConfig.audioPegel) */
-  audioPegel?: number
+  audioGain?: number
 }
 
 /** Ein Foto mit seiner Verankerung an der Route (`s` aus nearestS). */
-type VerankertesFoto = SpielerFoto & PlayerMedium
+type AnchoredPhoto = PlayerPhoto & PlayerMedium
 
 /** Wetter-Stützstelle in Streckenmetern — kuratiert (cfg.weather) oder automatisch. */
-interface WetterStuetze {
+interface WeatherSample {
   s: number
   mode: string
   k: number
 }
 
 /**
- * Debug-Handles am Fenster (`window.__j`). Sie sind kein API-Vertrag, sondern
+ * Debug-Handles am Fenster (`window.__maptale`). Sie sind kein API-Vertrag, sondern
  * der Zugriff auf die laufenden Teile in der Konsole — deshalb ist alles
  * optional, was erst im Laufe des Bootens entsteht.
  */
 interface PlayerDebug {
-  map?: MapLibreKarte
+  map?: MapLibreMap
   route?: Route
-  tourAudio?: AudioSpuren | null
-  vehicle?: Fahrzeugton
+  tourAudio?: AudioTracks | null
+  vehicle?: VehicleSound
   tour?: Tour
   /** Filmuhr der Engine samt Zählern (verworfene Zeit, Pausen, längstes Frame) */
-  uhr?: Filmuhr
+  clock?: FilmClock
   /**
    * Woher die f→s-Übersetzung kommt: `tabelle` (Wegpunkt-`f` aus dem Tour-JSON)
    * oder `rueckfall` (`f × route.total`). Bei kuratierten Touren ist der
    * Rückfall der Normalfall — bei einer aufgezeichneten ein Datenfehler, der
    * sich sonst als „alles wie früher" tarnt.
    */
-  anchor?: 'tabelle' | 'rueckfall'
+  anchors?: 'table' | 'fallback'
   /**
    * Die Filmachse dieser Tour (Strecke → Filmzeit). Sie treibt den Player noch
    * nicht an (Etappe 4), der Ton hängt aber schon an ihr — und zum Nachmessen
    * braucht es beides: die Achse und die Auswertung `filmS(s)`.
    */
-  filmachse?: Filmachse
-  filmS?: (s: number) => number
+  filmAxis?: FilmAxis
+  filmTime?: (s: number) => number
   rider?: Marker
-  weather?: Wetteroverlay
-  music?: Hintergrundmusik | null
-  atmo?: Atmosphaere
-  pins?: PinSteuerung
+  weather?: WeatherOverlay
+  music?: BackgroundMusic | null
+  atmo?: Atmosphere
+  pins?: PinControl
   /** 'dem' sobald die echten Höhen greifen, 'fallback' wenn der Fetch scheiterte */
   eleReady?: Promise<string>
-  wxTimeline?: WetterStuetze[]
+  wxTimeline?: WeatherSample[]
 }
 
 declare global {
   interface Window {
-    __j: PlayerDebug
+    __maptale: PlayerDebug
     /** Brücke der Android-App (PlayerScreen.kt, @JavascriptInterface) */
     MaptaleApp?: { verlassen?: () => void }
   }
 }
 
 // Das Objekt entsteht VOR dem ersten Eintrag. Vorher wurde es erst beim
-// Karten-Aufbau angelegt — `window.__j.anchor = …` lief davor und warf
+// Karten-Aufbau angelegt — `window.__maptale.anchor = …` lief davor und warf
 // `Cannot set properties of undefined`, was das ganze Modul abbrach; und selbst
-// ohne den Fehler hätte das spätere `window.__j = { … }` alles Frühere wieder
+// ohne den Fehler hätte das spätere `window.__maptale = { … }` alles Frühere wieder
 // weggeworfen. Deshalb wird ab hier nur noch ERGÄNZT.
-window.__j = {}
+window.__maptale = {}
 
 // — Tour-Auswahl über den Pfad `/tour/<kennung>` — statische Registry oder
 // aufgezeichnete Tour vom Backend (Kennungen mit `t_`, remote.ts). Top-Level-
@@ -196,26 +196,26 @@ window.__j = {}
 // der Android-App bauen sie noch). Umgeschrieben wird sie weiter unten, sobald
 // feststeht, welche Tour tatsächlich läuft.
 const params = new URLSearchParams(location.search)
-const ausPfad = tourAusPfad(location.pathname)
-const tourParam = ausPfad ?? params.get('tour') ?? 'kohphangan'
+const fromPath = tourAusPfad(location.pathname)
+const tourParam = fromPath ?? params.get('tour') ?? 'kohphangan'
 
 // — App-Modus (?app=1): der Player läuft in der WebView der Android-App —
 // Dort sind Verweise auf die Landing-Seite sinnlos (es gibt keine „Startseite",
 // aus der man käme) und die Tour-Auswahl überflüssig — gewählt wird in der
 // Tourliste der App bzw. im Studio. body.app blendet beides aus (style.css).
-const appModus = params.get('app') === '1'
-if (appModus) document.body.classList.add('app')
+const appMode = params.get('app') === '1'
+if (appMode) document.body.classList.add('app')
 
 // Video-Export: Query oder schon gesetztes `body.export`. Klasse und Viewport
 // stehen VOR createMap, damit preserveDrawingBuffer und die Zeichenfläche greifen,
 // bevor MapLibre misst. Format aus der Query, Vorgabe Quer 720p.
-const exportModus = params.get('export') === '1' || document.body.classList.contains('export')
-const exportFormat = leseExportFormat(location.search)
-if (exportModus) {
+const exportMode = params.get('export') === '1' || document.body.classList.contains('export')
+const exportFormat = parseExportFormat(location.search)
+if (exportMode) {
   document.body.classList.add('export')
   const vp = exportViewport(exportFormat)
-  document.documentElement.style.setProperty('--export-b', `${vp.breite}px`)
-  document.documentElement.style.setProperty('--export-h', `${vp.hoehe}px`)
+  document.documentElement.style.setProperty('--film-export-w', `${vp.width}px`)
+  document.documentElement.style.setProperty('--film-export-h', `${vp.height}px`)
 }
 
 // — Verfügbare Viewport-Höhe als CSS-Variable —
@@ -230,33 +230,33 @@ if (exportModus) {
 // hochkant) meldet sie dort `orientation: landscape` UND `max-height: 500px`
 // als zutreffend. Das kompakte Querformat-Layout schlug deshalb im Hochformat
 // zu (Bild neben Text, Steuerung in einer engen Zeile). innerWidth/innerHeight
-// stimmen dagegen — also entscheidet JS, und das CSS hängt an body.kompakt-quer.
-const KOMPAKT_HOEHE = 560 // darüber ist auch quer genug Platz für das Normal-Layout
-const setzeViewportHoehe = () => {
+// stimmen dagegen — also entscheidet JS, und das CSS hängt an body.compact-landscape.
+const COMPACT_HEIGHT = 560 // darüber ist auch quer genug Platz für das Normal-Layout
+const setViewportHeight = () => {
   const h = window.visualViewport?.height || window.innerHeight
   if (h > 0) document.documentElement.style.setProperty('--vh-app', `${Math.round(h)}px`)
-  const quer = window.innerWidth > window.innerHeight && window.innerHeight <= KOMPAKT_HOEHE
-  document.body.classList.toggle('kompakt-quer', quer)
+  const landscape = window.innerWidth > window.innerHeight && window.innerHeight <= COMPACT_HEIGHT
+  document.body.classList.toggle('compact-landscape', landscape)
 }
-setzeViewportHoehe()
-window.addEventListener('resize', setzeViewportHoehe)
-window.addEventListener('orientationchange', setzeViewportHoehe)
-window.visualViewport?.addEventListener('resize', setzeViewportHoehe)
+setViewportHeight()
+window.addEventListener('resize', setViewportHeight)
+window.addEventListener('orientationchange', setViewportHeight)
+window.visualViewport?.addEventListener('resize', setViewportHeight)
 // Der Wechsel ins Vollbild und zurück ändert die Höhe, ohne dass zwingend ein
 // `resize` käme (der ResizeObserver unten fängt es zwar auch, aber das hier ist
 // das direkte Signal).
-document.addEventListener('fullscreenchange', setzeViewportHoehe)
-document.addEventListener('webkitfullscreenchange', setzeViewportHoehe)
+document.addEventListener('fullscreenchange', setViewportHeight)
+document.addEventListener('webkitfullscreenchange', setViewportHeight)
 // Sicherheitsnetz: ein ResizeObserver meldet Größenänderungen auch dort, wo kein
 // resize-Event ankommt (WebViews, eingebettete Ansichten) — sonst bliebe nach
 // einer Drehung das Layout des vorherigen Formats stehen.
-new ResizeObserver(setzeViewportHoehe).observe(document.documentElement)
+new ResizeObserver(setViewportHeight).observe(document.documentElement)
 let remoteCfg: RemoteTourCfg | null = null
-let remoteFehler: string | null = null // Meldung fürs Toast, sobald die UI steht (Fallback lief)
+let remoteError: string | null = null // Meldung fürs Toast, sobald die UI steht (Fallback lief)
 if (tourParam.startsWith('srv:')) {
   remoteCfg = await loadRemoteTour(tourParam.slice('srv:'.length)).catch((err: unknown) => {
-    remoteFehler = err instanceof Error ? err.message : String(err)
-    console.error('Remote-Tour nicht ladbar:', remoteFehler)
+    remoteError = err instanceof Error ? err.message : String(err)
+    console.error('Remote-Tour nicht ladbar:', remoteError)
     return null
   })
 }
@@ -269,8 +269,8 @@ const tourId = remoteCfg ? tourParam : Object.hasOwn(TOURS, tourParam) ? tourPar
 // Wörterbuch; `TOURS` selbst bleibt das Literal (die Typen der Touren hängen
 // daran). Der zweite Fallback ist unerreichbar — tourId kommt aus genau dieser
 // Tabelle —, steht aber, damit der Typ ohne `!` auskommt.
-const cfg: SpielerTour =
-  remoteCfg ?? (TOURS as Record<string, SpielerTour>)[tourId] ?? TOURS.kohphangan
+const cfg: PlayerTour =
+  remoteCfg ?? (TOURS as Record<string, PlayerTour>)[tourId] ?? TOURS.kohphangan
 
 // Wer über die Alt-Adresse `?tour=…` kam, bekommt die Adresszeile auf die
 // heutige Form gezogen — wie die Profilseite mit `?id=…`. Erst HIER, nicht
@@ -278,7 +278,7 @@ const cfg: SpielerTour =
 // Zeile, die auf eine Tour zeigt, die gar nicht läuft. Der Rest der Query
 // (`?app=1`, `?dev=1`, …) bleibt unangetastet, und `replaceState` legt
 // keinen Eintrag in die Verlaufsliste — der Weg zurück bleibt, wo er war.
-if (!ausPfad && params.has('tour')) {
+if (!fromPath && params.has('tour')) {
   const rest = new URLSearchParams(location.search)
   rest.delete('tour')
   const query = rest.toString()
@@ -300,7 +300,7 @@ if (!ausPfad && params.has('tour')) {
 const reverse = params.get('reverse') === '1'
 // Die f-Liste muss MITGEDREHT werden: Sie ist parallel zu `pts`, und rückwärts
 // läuft sie danach absteigend (baueSBeiF spiegelt die Tabelle dafür selbst).
-const segsSrc: SpielerSegment[] = reverse
+const segsSrc: PlayerSegment[] = reverse
   ? cfg.segments
       .slice()
       .reverse()
@@ -312,36 +312,36 @@ const segsSrc: SpielerSegment[] = reverse
   : cfg.segments
 
 // Segmente zu einer Wegpunktliste verbinden (Nahtpunkte dedupen)
-const waypoints: Wegpunkt[] = []
+const waypoints: Waypoint[] = []
 // Parallel dazu das `f` je Wegpunkt — dieselbe `slice(1)`-Regel, sonst trägt ab
 // dem zweiten Segment jeder Wegpunkt das f seines Nachbarn. Fehlt EINEM Segment
 // die Liste (oder hat sie eine andere Länge als seine Punkte), gibt es keine
 // Tabelle: eine halbe wäre schlimmer als keine.
-const wegpunktF: number[] = []
-let fVollstaendig = true
+const waypointF: number[] = []
+let fComplete = true
 for (const seg of segsSrc) {
-  const erster = waypoints.length === 0
-  waypoints.push(...(erster ? seg.pts : seg.pts.slice(1)))
-  if (seg.f?.length === seg.pts.length) wegpunktF.push(...(erster ? seg.f : seg.f.slice(1)))
-  else fVollstaendig = false
+  const first = waypoints.length === 0
+  waypoints.push(...(first ? seg.pts : seg.pts.slice(1)))
+  if (seg.f?.length === seg.pts.length) waypointF.push(...(first ? seg.f : seg.f.slice(1)))
+  else fComplete = false
 }
 const route = buildRoute(waypoints)
 
 // Die eine Übersetzung, durch die JEDER f-Anker dieser Tour geht (§8D). Danach
 // rechnet der Player nur noch in Metern — es gibt bewusst keine Tabelle zurück.
-const sBeiF = baueSBeiF(fVollstaendig ? wegpunktF : null, route.wpS, route.total)
-window.__j.anchor = sBeiF.quelle
+const sAtF = buildSAtF(fComplete ? waypointF : null, route.wpS, route.total)
+window.__maptale.anchors = sAtF.source
 // Für die zwei Verbraucher, die (noch) in Anteilen rechnen: audiotracks.ts
 // vergleicht `f0 <= frac < f1` gegen `s / route.total` und ist mit dem Studio
 // GETEILT (Etappe 4b stellt beide zugleich auf Filmsekunden um), createTimeAt
 // interpoliert seine Stützstellen in f. Beide bekommen deshalb keinen Meter,
 // sondern ihre Anker in der Parametrisierung des Players — dieselbe Korrektur,
 // nur am Ende wieder durch `total` geteilt.
-const fracBeiF = (f: number) => sBeiF(f) / route.total
+const fracAtF = (f: number) => sAtF(f) / route.total
 
 // Streckenmeter des Segment-Anfangs; ein Segment ohne Punkte gibt es in gültigen
 // Daten nicht (der Fallback vermeidet nur die Ausnahme im Verdrahter).
-const segmentStart = (r: Route, seg: SpielerSegment) => {
+const segmentStart = (r: Route, seg: PlayerSegment) => {
   const p0 = seg.pts[0]
   return p0 ? nearestS(r, p0) : 0
 }
@@ -350,9 +350,9 @@ const segmentStart = (r: Route, seg: SpielerSegment) => {
 // die VORWÄRTS-Grenzen an der Streckenmitte spiegeln — nearestS auf reversierte
 // Segment-Nähte ist mehrdeutig (Inseln wie Fjäderholmarna liegen nah an der
 // Stadtstrecke → die Fähre würde über die halbe Route „auslaufen").
-let modes: ModusGrenze[]
+let modes: TravelModeBoundary[]
 if (reverse) {
-  const fwdWp: Wegpunkt[] = []
+  const fwdWp: Waypoint[] = []
   for (const seg of cfg.segments) fwdWp.push(...(fwdWp.length ? seg.pts.slice(1) : seg.pts))
   const fwdRoute = buildRoute(fwdWp)
   const T = fwdRoute.total
@@ -361,8 +361,8 @@ if (reverse) {
     mode: seg.mode,
     label: seg.label ?? seg.mode,
   }))
-  const erst = fwd[0]
-  if (erst) erst.s = 0
+  const firstAt = fwd[0]
+  if (firstAt) firstAt.s = 0
   const bounds = fwd.map((m) => m.s).concat([T]) // [0, s1, …, T] — Segment-Intervalle
   const scale = route.total / T // reversierte Route ist minimal anders lang
   modes = fwd
@@ -375,15 +375,15 @@ if (reverse) {
     label: seg.label ?? seg.mode,
   }))
 }
-const ersteGrenze = modes[0]
-if (ersteGrenze) ersteGrenze.s = 0
-const startModus = ersteGrenze?.mode ?? 'bike'
-const photos: VerankertesFoto[] = cfg.photos
+const firstBoundary = modes[0]
+if (firstBoundary) firstBoundary.s = 0
+const startMode = firstBoundary?.mode ?? 'bike'
+const photos: AnchoredPhoto[] = cfg.photos
   .map((p) => ({ ...p, s: nearestS(route, p.anchor) }))
   .sort((a, b) => a.s - b.s)
 // Fotos mit nahe beieinanderliegenden Ankern zu einem Stopp gruppieren —
 // dort werden sie nacheinander gezeigt (ein Halt, mehrere Bilder)
-const stops = gruppiereStopps(photos)
+const stops = groupStops(photos)
 // Kamera-Momente (Kreativbaukasten): Punkt-Ereignisse, f → Streckenmeter s.
 // Die Engine hält dort an und führt eine Kamerabewegung aus (src/tour.ts).
 //
@@ -393,8 +393,8 @@ const stops = gruppiereStopps(photos)
 // Ort auf der Strecke ist er nicht nur wegen der Kamerabewegung, sondern weil
 // genau das seine Filmsekunde überhaupt erst erzeugt. Das Feld im JSON ist die
 // Auskunft, WANN er im Film liegt, kein Eingang für den Player.
-const moments: KameraMoment[] = (cfg.moments ?? [])
-  .map((m) => ({ s: sBeiF(m.f), art: m.kind as KameraMoment['art'], dauerS: m.durationS }))
+const moments: CameraMoment[] = (cfg.moments ?? [])
+  .map((m) => ({ s: sAtF(m.f), kind: m.kind as CameraMoment['kind'], durationS: m.durationS }))
   .sort((a, b) => a.s - b.s)
 // — Die Filmachse: Strecke → Filmzeit (Etappe 3) —
 //
@@ -408,18 +408,18 @@ const moments: KameraMoment[] = (cfg.moments ?? [])
 // die Dehnung verteilt sich ungleichmäßig — die Filmdauer wäre allein durch die
 // Glättung zu lang (Konzept §8C, Falle 2). Dieselbe Sorte Tabelle wie bei den
 // f-Ankern, nur mit den rohen Metern statt `f` auf der einen Seite.
-const rohKum: number[] = [0]
+const rawCum: number[] = [0]
 for (let i = 1; i < waypoints.length; i++) {
-  rohKum.push(
-    (rohKum[i - 1] as number) + dist(waypoints[i - 1] as Wegpunkt, waypoints[i] as Wegpunkt),
+  rawCum.push(
+    (rawCum[i - 1] as number) + dist(waypoints[i - 1] as Waypoint, waypoints[i] as Waypoint),
   )
 }
-const rohGesamt = rohKum[rohKum.length - 1] ?? 0
+const rawTotal = rawCum[rawCum.length - 1] ?? 0
 /** Wegstand auf der GEBAUTEN Route → roher Wegstand (die Achse rechnet in diesen). */
-const rohBeiS = (s: number) => interpoliere(route.wpS, rohKum, s)
+const rawAtRoute = (s: number) => interpolate(route.wpS, rawCum, s)
 
-/** Roher Wegstand → Wegstand auf der GEBAUTEN Route (der Rückweg von `rohBeiS`). */
-const sBeiRoh = (roh: number) => interpoliere(rohKum, route.wpS, roh)
+/** Roher Wegstand → Wegstand auf der GEBAUTEN Route (der Rückweg von `rawAtRoute`). */
+const routeAtRaw = (raw: number) => interpolate(rawCum, route.wpS, raw)
 
 /**
  * Die Halte der Achse: Foto-/Video-Ketten und Kamera-Momente. Ein Halt kostet
@@ -438,42 +438,39 @@ const sBeiRoh = (roh: number) => interpoliere(rohKum, route.wpS, roh)
  * nichts mehr; es gilt, was das Tour-JSON sagt, und ohne Angabe die
  * Foto-Annahme, die auch das Studio trifft.
  */
-const achsenHalte: Array<Streckenhalt & Omit<Spielhalt, 'filmVon' | 'filmBis'>> = [
-  ...stops.map((halt) => {
+const axisStops: Array<DistanceStop & Omit<EngineStop, 'filmVon' | 'filmBis'>> = [
+  ...stops.map((stop) => {
     let from = 0
-    const stuecke = halt.items.map((m) => {
-      const standS = standzeitS({
-        ...m,
-        ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
-      })
-      const stueck = { abS: from, standS }
-      from += klipDauerS(standS)
-      return stueck
+    const pieces = stop.items.map((m) => {
+      const stopHoldS = holdS(m)
+      const piece = { atS: from, holdS: stopHoldS }
+      from += clipDurationS(stopHoldS)
+      return piece
     })
-    return { meterM: rohBeiS(halt.s), breiteS: from, stopp: halt, moment: null, stuecke }
+    return { meterM: rawAtRoute(stop.s), breiteS: from, stop: stop, moment: null, pieces }
   }),
   ...moments.map((m) => ({
-    meterM: rohBeiS(m.s),
-    breiteS: momentHaltS(m),
-    stopp: null,
+    meterM: rawAtRoute(m.s),
+    breiteS: momentHoldS(m),
+    stop: null,
     moment: m,
-    stuecke: [],
+    pieces: [],
   })),
 ]
-const achsenGrenzen = modes.map((m) => ({ abM: rohBeiS(m.s), mode: m.mode }))
-const filmachse = baueFilmachse(achsenGrenzen, rohGesamt, achsenHalte)
+const axisBoundaries = modes.map((m) => ({ fromM: rawAtRoute(m.s), mode: m.mode }))
+const filmAxis = buildFilmAxis(axisBoundaries, rawTotal, axisStops)
 /**
  * Fortbewegung an einem ROHEN Meterstand — aus der ACHSE, nicht aus `modes`.
  * Die Achse zieht einen Tempowechsel dicht an einem Halt auf den Halt; die
  * rohen Grenzen wissen davon nichts.
  */
-const modusBeiRoh = (m: number): string => {
-  let mode = filmachse.modi[0]?.mode ?? 'bike'
-  for (const g of filmachse.modi) if (g.abM <= m) mode = g.mode
+const modeAtRaw = (m: number): string => {
+  let mode = filmAxis.modes[0]?.mode ?? 'bike'
+  for (const g of filmAxis.modes) if (g.fromM <= m) mode = g.mode
   return mode
 }
 /** Filmsekunde an einem Wegstand der gebauten Route. */
-const filmBeiS = (s: number) => filmBeiStrecke(filmachse, rohBeiS(s))
+const filmTimeAtS = (s: number) => filmTimeAtDistance(filmAxis, rawAtRoute(s))
 /**
  * Die Achse, wie die Engine sie liest (E2) — in den Metern der GEBAUTEN Route.
  *
@@ -482,28 +479,28 @@ const filmBeiS = (s: number) => filmBeiStrecke(filmachse, rohBeiS(s))
  * Catmull-Rom-Glättung 2,2–3,0 % zu lang), die Engine fährt auf der gebauten
  * Route. Nur diese Datei kennt beide Meterstände.
  */
-const filmspur: Filmspur = {
-  gesamtS: filmachse.gesamtS,
-  sBeiFilm: (f) => sBeiRoh(streckeBeiFilm(filmachse, f)),
-  filmBeiS,
-  haltBeiFilm: (f) => haltBeiFilm(filmachse, f),
-  modusBeiS: (s) => {
-    const m = modusMischung(filmachse, rohBeiS(s), modusBeiRoh)
-    return m.anteil >= 0.5 ? m.nachMode : m.vonMode
+const filmTrack: FilmTrack = {
+  totalS: filmAxis.totalS,
+  sAtFilmTime: (f) => routeAtRaw(distanceAtFilmTime(filmAxis, f)),
+  filmTimeAtS,
+  stopAtFilmTime: (f) => stopAtFilmTime(filmAxis, f),
+  travelModeAtS: (s) => {
+    const m = travelModeMix(filmAxis, rawAtRoute(s), modeAtRaw)
+    return m.fraction >= 0.5 ? m.toMode : m.fromMode
   },
-  // Die Kameradistanz folgt DERSELBEN Rampe wie das Tempo: `modusMischung`
+  // Die Kameradistanz folgt DERSELBEN Rampe wie das Tempo: `travelModeMix`
   // liefert die zwei Modi und den Anteil dazwischen, `mischeSkala` macht daraus
   // die Distanz. Hier und nicht in der Engine, weil nur diese Datei beide
   // Meterstände kennt (Roh für die Achse, Route für die Kamera).
-  skalaBeiS: (s) => {
-    const m = modusMischung(filmachse, rohBeiS(s), (x) => modusBeiRoh(x))
-    return m.vonMode === m.nachMode
-      ? skalaFuer(m.vonMode)
-      : mischeSkala(skalaFuer(m.vonMode), skalaFuer(m.nachMode), m.anteil)
+  scaleAtS: (s) => {
+    const m = travelModeMix(filmAxis, rawAtRoute(s), (x) => modeAtRaw(x))
+    return m.fromMode === m.toMode
+      ? scaleFor(m.fromMode)
+      : mixScale(scaleFor(m.fromMode), scaleFor(m.toMode), m.fraction)
   },
 }
-window.__j.filmachse = filmachse
-window.__j.filmS = filmBeiS
+window.__maptale.filmAxis = filmAxis
+window.__maptale.filmTime = filmTimeAtS
 
 // — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
 // Musik-Bereiche + SFX-One-Shots, in FILMSEKUNDEN verankert (E10). Statische
@@ -518,17 +515,17 @@ window.__j.filmS = filmBeiS
 // Streckenanteil auf die Halt-Kante, und aus `f` ist er nicht wieder
 // herauszuholen (Konzept §5.1). Kuratierte Touren tragen die Felder nie — für
 // sie ist der Rückfall der Normalzustand, nicht ein Übergang.
-const audioSpuren = cfg.audio?.map((a) => ({
+const audioTracks = cfg.audio?.map((a) => ({
   ...a,
-  filmVonS: a.filmS ?? filmBeiS(sBeiF(a.f0)),
-  filmBisS: a.filmToS ?? filmBeiS(sBeiF(a.f1)),
+  filmFromS: a.filmS ?? filmTimeAtS(sAtF(a.f0)),
+  filmToS: a.filmToS ?? filmTimeAtS(sAtF(a.f1)),
 }))
-const tourAudio = audioSpuren?.length
-  ? createAudioTracks(audioSpuren, { volume: cfg.audioPegel ?? KURATIERTER_PEGEL })
+const tourAudio = audioTracks?.length
+  ? createAudioTracks(audioTracks, { volume: cfg.audioGain ?? CURATED_GAIN })
   : null
 // Bringt die Tour eigene Musik mit, ersetzt sie den Ambient-Loop komplett —
 // sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
-const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
+const hasOwnMusic = !!cfg.audio?.some((a) => a.type === 'music')
 
 const start = pointAt(route, 0)
 
@@ -544,20 +541,20 @@ setText('final-photos', String(photos.length))
 // Die Stationszeile nur, wenn sie etwas beiträgt: Bei aufgezeichneten Touren
 // kommen Titel UND Stationen aus denselben zwei geocodierten Endpunkten, sie
 // wiederholte dort wortgleich den Titel („Runde bei Völklingen" über
-// „Völklingen"). src/tourtexte.ts entscheidet, diese Datei zeigt nur.
-const routeSichtbar = zeigeRoute(cfg.stops, cfg.titleHtml)
+// „Völklingen"). src/tour-texts.ts entscheidet, diese Datei zeigt nur.
+const routeVisible = showRoute(cfg.stops, cfg.titleHtml)
 setText('intro-route', cfg.stops.join('  →  '))
-$('intro-route').hidden = !routeSichtbar
+$('intro-route').hidden = !routeVisible
 
 // Die Beschreibung aus dem Studio. Sie war to hierher nie angekommen: Der
 // Antwort-Typ trug sie, `baueCfg` ließ sie fallen.
-const beschreibung = kuerzeBeschreibung(cfg.description)
-if (beschreibung) setText('intro-desc', beschreibung)
-$('intro-desc').hidden = !beschreibung
+const description = truncateDescription(cfg.description)
+if (description) setText('intro-desc', description)
+$('intro-desc').hidden = !description
 
 // — Die Kennzahlen des Startscreens —
 // Eine Null ist keine Angabe: „0 hm" stand neben „0.1 km" wie ein Defekt.
-// Welche Chips es gibt und wie sie heißen, entscheidet src/tourtexte.ts; hier
+// Welche Chips es gibt und wie sie heißen, entscheidet src/tour-texts.ts; hier
 // werden sie nur gesetzt und ein- oder ausgehängt. Die FILMDAUER kommt aus der
 // Achse und ist damit keine Schätzung, sondern die Länge, die der Film hat.
 //
@@ -565,32 +562,32 @@ $('intro-desc').hidden = !beschreibung
 // lange, bevor die erste Kachel da ist, und zeigte bis dahin „– km". Nach dem
 // Eintreffen der DEM-Höhen ruft `setGain` sie ein zweites Mal (die Höhenmeter
 // ändern sich dann noch).
-function setzeKennzahlen(hoehenmeter: number): void {
-  const werte = kennzahlen({
-    filmDauerS: filmachse.gesamtS,
+function setStats(elevationGain: number): void {
+  const values = stats({
+    filmDurationS: filmAxis.totalS,
     km: route.total / 1000,
-    hoehenmeter,
-    fotos: photos.length,
+    elevationGain,
+    photos: photos.length,
   })
-  const chip = (kind: string) => werte.find((w) => w.art === kind)
-  const setze = (id: string, textId: string, wert: { text: string } | undefined) => {
-    if (wert) $(textId).textContent = wert.text
-    $(id).hidden = !wert
+  const chip = (kind: string) => values.find((w) => w.kind === kind)
+  const put = (id: string, textId: string, value: { text: string } | undefined) => {
+    if (value) $(textId).textContent = value.text
+    $(id).hidden = !value
   }
-  setze('chip-dauer', 'chip-dauer-text', chip('dauer'))
-  setze('chip-distance', 'chip-distance', chip('km'))
-  setze('chip-gain', 'chip-gain', chip('hm'))
-  setze('chip-photos', 'chip-photos', chip('fotos'))
+  put('chip-duration', 'chip-duration-text', chip('dauer'))
+  put('chip-distance', 'chip-distance', chip('km'))
+  put('chip-gain', 'chip-gain', chip('hm'))
+  put('chip-photos', 'chip-photos', chip('fotos'))
 }
-setzeKennzahlen(route.gain)
+setStats(route.gain)
 
 // — Die Herkunft: von wem und wann —
 // Sie ersetzt das Datum, das früher als Kicker über dem Titel stand: Ein
 // Aufnahmedatum ist eine Randnotiz und bekam dort die kräftigste Farbe der
 // Seite. Das Datum kommt aus der Aufnahmezeit der Tour, nicht aus einem
 // eigenen Feld — es ist dieselbe Angabe.
-const autor = cfg.author
-const aufnahmeDatum = (() => {
+const author = cfg.author
+const recordedOn = (() => {
   if (!cfg.time?.start) return ''
   const ms = Date.parse(cfg.time.start)
   if (!Number.isFinite(ms)) return ''
@@ -610,26 +607,30 @@ const aufnahmeDatum = (() => {
     }).format(ms)
   }
 })()
-if (autor?.displayName) {
-  setText('intro-autor-name', autor.displayName)
-  setText('intro-autor-datum', aufnahmeDatum)
-  $('intro-autor-datum').hidden = !aufnahmeDatum
-  ;($('intro-autor').querySelector('.intro-autor-punkt') as HTMLElement).hidden = !aufnahmeDatum
+if (author?.displayName) {
+  setText('intro-author-name', author.displayName)
+  setText('intro-author-date', recordedOn)
+  $('intro-author-date').hidden = !recordedOn
+  ;($('intro-author').querySelector('.intro-author-dot') as HTMLElement).hidden = !recordedOn
   const avatar = $('intro-avatar')
-  if (autor.avatarUrl) avatar.style.backgroundImage = `url("${autor.avatarUrl}")`
+  if (author.avatarUrl) avatar.style.backgroundImage = `url("${author.avatarUrl}")`
   // Ohne Bild die Initiale, wie überall sonst im Produkt.
-  else avatar.textContent = [...autor.displayName.trim()][0]?.toUpperCase() ?? ''
+  else avatar.textContent = [...author.displayName.trim()][0]?.toUpperCase() ?? ''
   // Verlinkt wird nur, wenn es eine Profilseite gibt UND der Sprung dorthin
   // einen Rückweg hat: In der App-WebView führt die Tourliste zurück, ein
   // Profil im selben Fenster hätte nur ein Schließkreuz.
-  const ziel = autor.handle ? profilPfad(autor.handle) : autor.id ? `/profil?id=${autor.id}` : null
-  const link = $('intro-autor-link') as HTMLAnchorElement
-  if (ziel && !appModus) link.href = ziel
+  const target = author.handle
+    ? profilPfad(author.handle)
+    : author.id
+      ? `/profil?id=${author.id}`
+      : null
+  const link = $('intro-author-link') as HTMLAnchorElement
+  if (target && !appMode) link.href = target
   else {
     link.removeAttribute('href')
     link.setAttribute('aria-disabled', 'true')
   }
-  $('intro-autor').hidden = false
+  $('intro-author').hidden = false
 }
 
 // — Der Weg zurück führt DORTHIN, WO MAN HERKAM —
@@ -639,34 +640,34 @@ if (autor?.displayName) {
 // bleiben. Ohne Referrer (direkt geöffneter Link) bleibt es bei der Startseite.
 // Die Wörter sind die der Navigation, nicht die der Pfade: /galerie heißt für
 // Besucher überall „Entdecken".
-const HERKUNFT: Record<string, string> = {
+const ORIGINS: Record<string, string> = {
   '/app': 'Studio',
   '/galerie': 'Entdecken',
   '/profil': 'Profil',
 }
-if (!appModus) {
+if (!appMode) {
   // Wer den Player verlässt, verlässt auch das Vollbild — sonst stünde die
   // Galerie ohne Adressleiste da. Die Browser räumen das bei einer Navigation
   // zwar selbst ab; hier steht es, weil es zur Geste gehört und nicht zur
   // Hoffnung. Der Listener hängt unabhängig davon, ob es einen Referrer gibt.
-  document.querySelector('.zurueck')?.addEventListener('click', () => verlasseVollbild())
-  let her: URL | null = null
+  document.querySelector('.exit-pill')?.addEventListener('click', () => exitFullscreen())
+  let origin: URL | null = null
   try {
     const r = new URL(document.referrer)
     // Nur echte Zwischenseiten übernehmen; die Landing „/" ist selbst die
     // Startseite und bleibt beim Default-Knopf.
     if (r.origin === location.origin && r.pathname !== location.pathname && r.pathname !== '/')
-      her = r
+      origin = r
   } catch {}
-  if (her) {
-    const wort = HERKUNFT[her.pathname] ?? 'Zurück'
-    const zurueck = document.querySelector<HTMLAnchorElement>('.zurueck')
-    if (zurueck) {
-      zurueck.href = her.href
-      zurueck.setAttribute('aria-label', `Zurück zu: ${wort}`)
-      const wortEl = zurueck.querySelector('.zurueck-wort')
-      if (wortEl) wortEl.textContent = wort
-      zurueck.addEventListener('click', (e) => {
+  if (origin) {
+    const word = ORIGINS[origin.pathname] ?? 'Zurück'
+    const exitPill = document.querySelector<HTMLAnchorElement>('.exit-pill')
+    if (exitPill) {
+      exitPill.href = origin.href
+      exitPill.setAttribute('aria-label', `Zurück zu: ${word}`)
+      const wordEl = exitPill.querySelector('.exit-pill-word')
+      if (wordEl) wordEl.textContent = word
+      exitPill.addEventListener('click', (e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || history.length < 2) return
         e.preventDefault()
         history.back()
@@ -680,9 +681,9 @@ const map = createMap(
   [start[0], start[1]],
   // 1,5× auf 720p = 1080p-Framebuffer, unter dem 5-MP-Deckel. 1080p bleibt 1×
   // (Konzept §8.7: kein zusätzlicher 2×-Hochzug).
-  exportModus ? { preserveDrawingBuffer: true, pixelRatio: exportPixelRatio(exportFormat) } : {},
+  exportMode ? { preserveDrawingBuffer: true, pixelRatio: exportPixelRatio(exportFormat) } : {},
 )
-Object.assign(window.__j, { map, route, tourAudio })
+Object.assign(window.__maptale, { map, route, tourAudio })
 
 // Boot-Screen sanft ausblenden, sobald die Karte da ist. 'idle' gibt das
 // schönste Timing (Kacheln gerendert); 'load' und ein absoluter Timeout sind
@@ -705,20 +706,20 @@ map.on('error', (e) => console.error('map error:', e.error?.message ?? e))
 
 map.on('load', () => {
   const syncTrace = addRouteLayers(map, route)
-  const rider = createRider(map, [start[0], start[1]], startModus)
+  const rider = createRider(map, [start[0], start[1]], startMode)
 
-  const ui = new UI(stops, route, filmspur)
+  const ui = new UI(stops, route, filmTrack)
   // Die Uhrzeit auf der Foto-Karte gilt in der Zone der TOUR, nicht in der des
   // Betrachters (s. `UI.zeitzone`).
-  ui.zeitzone = cfg.time?.zone ?? null
+  ui.timeZone = cfg.time?.zone ?? null
   {
-    const von = Date.parse(cfg.time?.start ?? '')
+    const from = Date.parse(cfg.time?.start ?? '')
     const to = Date.parse(cfg.time?.end ?? '')
-    ui.zeitfenster = Number.isFinite(von) && Number.isFinite(to) ? [von, to] : null
+    ui.timeWindow = Number.isFinite(from) && Number.isFinite(to) ? [from, to] : null
   }
   /** Zählerstand der verworfenen Frames beim letzten Nachziehen (s. updateTrace). */
-  let gesehenVerworfen = 0
-  let kamFolger: ((filmS: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
+  let seenDropped = 0
+  let camFollower: ((filmTime: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
   ui.updateTrace = (s, pos) => {
     syncTrace(s, [pos[0], pos[1]])
     rider.setLngLat([pos[0], pos[1]])
@@ -731,7 +732,7 @@ map.on('load', () => {
     // ANKUNFT (lower_bound). Genau die Sekunden, um die es hier geht, wären
     // damit unerreichbar — die Ankunft ist der Wert, den `f` schon hat.
     tourAudio?.setFilmS(tour.filmS, tour.playing && !tour.scrubbing)
-    kamFolger?.(tour.filmS)
+    camFollower?.(tour.filmS)
     // Hat die Filmuhr Zeit VERWORFEN, lief der Ton auf der Wanduhr weiter und
     // der Film nicht — dann ist die Datei um genau diese Sekunden zu weit.
     // Der Notdeckel (1,0 s) greift bei gedrosseltem `rAF` ohne
@@ -740,9 +741,9 @@ map.on('load', () => {
     // 29,4 s in zwei Frames — danach steht dieselbe Stelle der Tour an einer
     // ganz anderen Stelle des Stücks. Genau dann neu ausrichten; im Normalfall
     // zählt der Vergleich zweier Zahlen und sonst nichts.
-    if (tour.uhr.verworfenFrames !== gesehenVerworfen) {
-      gesehenVerworfen = tour.uhr.verworfenFrames
-      nachSprung()
+    if (tour.clock.droppedFrames !== seenDropped) {
+      seenDropped = tour.clock.droppedFrames
+      afterJump()
     }
   }
 
@@ -756,13 +757,13 @@ map.on('load', () => {
    * Geste: Während des Scrubs klingt die Musik (das Gate zählt Scrubben als
    * Wiedergabe), und ein Seek je Frame wäre ein Stottern statt einer Position.
    */
-  const nachSprung = () => tourAudio?.richteAus(tour.filmS)
+  const afterJump = () => tourAudio?.richteAus(tour.filmS)
 
   // Fahrzeug-Motorloop (dezent): folgt dem aktiven Segment-Modus, läuft nur während
   // der eigentlichen Fahrt (Gate unten). Moduswechsel blendet den Motor weich über.
   const vehicle = createVehicle('/audio')
-  vehicle.setMode(startModus)
-  window.__j.vehicle = vehicle
+  vehicle.setMode(startMode)
+  window.__maptale.vehicle = vehicle
   ui.onModeChange = (mode) => {
     setRiderIcon(rider, mode)
     vehicle.setMode(mode)
@@ -773,19 +774,19 @@ map.on('load', () => {
     // Das Finale zeigt die Höhenmeter auch dann, wenn es keine gab — dort ist es
     // eine Bilanz der gefahrenen Tour und keine Ankündigung.
     $('final-gain').textContent = `${Math.round(hm)} hm`
-    setzeKennzahlen(hm)
+    setStats(hm)
   }
   $('final-km').textContent = km
   setGain(route.gain)
 
   // Echte DEM-Höhen nachladen: korrigiert Höhenprofil, Telemetrie und
   // Höhenmeter — die Wegpunkt-Höhen sind nur der Startwert.
-  const modeAtS = (s: number): ModusGrenze | undefined => {
+  const modeAtS = (s: number): TravelModeBoundary | undefined => {
     let cur = modes[0]
     for (const m of modes) if (m.s <= s + 1) cur = m
     return cur
   }
-  window.__j.eleReady = sampleElevations(route.coords)
+  window.__maptale.eleReady = sampleElevations(route.coords)
     .then((eles) => {
       const sm = smoothValues(eles, 9)
       route.coords.forEach((c, i) => (c[2] = sm[i] ?? c[2]))
@@ -797,9 +798,9 @@ map.on('load', () => {
       let gain = 0
       const cs = route.coords
       for (let i = 1; i < cs.length; i++) {
-        const vor = cs[i - 1]
-        const jetzt = cs[i]
-        if (vor && jetzt && jetzt[2] > vor[2]) gain += jetzt[2] - vor[2]
+        const ahead = cs[i - 1]
+        const now = cs[i]
+        if (ahead && now && now[2] > ahead[2]) gain += now[2] - ahead[2]
       }
       route.gain = gain
       setGain(gain)
@@ -815,20 +816,20 @@ map.on('load', () => {
   map.touchPitch.disable()
 
   const tour = new Tour(map, route, stops, ui, {
-    film: filmspur,
+    film: filmTrack,
     modes,
     showFinale: cfg.showFinale === true,
   })
-  // `uhr` ist die Filmuhr der Engine: Ihre Zähler (verworfene Sekunden,
+  // `clock` ist die Filmuhr der Engine: Ihre Zähler (verworfene Sekunden,
   // Pausen, längstes Frame) sind der Blick darauf, was auf einem langsamen
   // Gerät tatsächlich passiert — sichtbar in der Konsole statt still.
-  // `kartenStand` ist der Abnahme-Griff der Foto-Leinwand: Was auf ihr steht,
+  // `cardState` ist der Abnahme-Griff der Foto-Leinwand: Was auf ihr steht,
   // liegt sonst nirgends im DOM (s. scripts/messungen/kartenleinwand.mjs).
-  Object.assign(window.__j, {
+  Object.assign(window.__maptale, {
     tour,
     rider,
-    uhr: tour.uhr,
-    kartenStand: () => ui.kartenStand(),
+    clock: tour.clock,
+    cardState: () => ui.cardFrame(),
   })
   // Export: Intro-Orbit stehen lassen. stelleExportFrame(ride) würde Anfang und
   // Ende abschneiden. Der Encoder snappt das erste Intro-Frame selbst.
@@ -843,25 +844,25 @@ map.on('load', () => {
   // Feuert NUR bei Preset-Änderung — setPreset klemmt glide, nie pro Frame rufen.
   // Ein manueller Klick auf einen Preset-Button schaltet den Folger dauerhaft aus
   // (bis Reload): der Nutzer hat das letzte Wort über die Kameradistanz.
-  let kamManuell = false
+  let camManual = false
   if (cfg.camera?.length) {
     const keyframes = cfg.camera
       .map((k) => ({
-        filmS: k.filmS ?? filmBeiS(sBeiF(k.f)),
+        filmTime: k.filmTime ?? filmTimeAtS(sAtF(k.f)),
         preset: k.preset,
         ...(k.scale !== undefined ? { scale: k.scale } : {}),
       }))
-      .sort((a, b) => a.filmS - b.filmS)
+      .sort((a, b) => a.filmTime - b.filmTime)
     // Vor dem ersten Keyframe gilt der Player-Default — der ist beim Boot der
     // aktive Button (statisch „mittel"). Auch nach Rückwärts-Scrub/Restart.
     const defaultPreset =
       document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mid'
-    let kamAktiv: string | null = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
-    kamFolger = (filmS) => {
-      if (exportModus || kamManuell) return
+    let camActive: string | null = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
+    camFollower = (filmTime) => {
+      if (exportMode || camManual) return
       // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
-      let k: { filmS: number; preset: string; scale?: number } | null = null
-      for (const kf of keyframes) if (kf.filmS <= filmS) k = kf
+      let k: { filmTime: number; preset: string; scale?: number } | null = null
+      for (const kf of keyframes) if (kf.filmTime <= filmTime) k = kf
       // `default` ist ein echter Keyframe-Wert und bedeutet dasselbe wie „vor
       // dem ersten Keyframe": zurück auf die Einstellung des Zuschauers. Ohne
       // diese Zeile fiele er in setPreset auf „mid" (PRESETS['default']
@@ -870,7 +871,7 @@ map.on('load', () => {
         ? k.preset === 'default'
           ? defaultPreset
           : k.preset
-        : kamAktiv === null
+        : camActive === null
           ? null
           : defaultPreset
       // Eine Feinjustierung gehört zu einem gewählten Abstand — auf „default"
@@ -879,9 +880,9 @@ map.on('load', () => {
       if (preset === null) return
       // Kennung aus Preset+Skala: eine reine Feinjustierung (gleiches Preset,
       // andere Skala) muss ebenfalls neu angewendet werden.
-      const kennung = `${preset}:${scale}`
-      if (kennung === kamAktiv) return
-      kamAktiv = kennung
+      const slug = `${preset}:${scale}`
+      if (slug === camActive) return
+      camActive = slug
       tour.setPreset(preset, scale)
       // Button-Zustand nachziehen (gleiches Muster wie der Klick-Handler unten)
       document.querySelector('.preset-btn.active')?.classList.remove('active')
@@ -918,31 +919,33 @@ map.on('load', () => {
   // verstummten beim Loslassen). Beim Ziehen WÄHREND der Wiedergabe ändert sich
   // nichts: Dort ist `playing` ohnehin wahr.
   const sceneAnimating = () =>
-    tour.uhr.laeuft && (tour.playing || tour.phase === 'intro' || tour.phase === 'finale')
+    tour.clock.running && (tour.playing || tour.phase === 'intro' || tour.phase === 'finale')
   weather.setGate(sceneAnimating)
-  window.__j.weather = weather
+  window.__maptale.weather = weather
 
   // Motorloop nur während der eigentlichen Fahrt: nicht im Foto-Stopp, Intro/Finale,
   // beim Scrubben oder in Pause (dort geht der Motor weich aus wie an einer Ampel).
-  vehicle.setGate(() => tour.uhr.laeuft && tour.playing && !tour.scrubbing && tour.phase === 'ride')
+  vehicle.setGate(
+    () => tour.clock.running && tour.playing && !tour.scrubbing && tour.phase === 'ride',
+  )
   const WEATHER_KEY = 'maptale:weather'
   const WEATHER_INT_KEY = 'maptale:weather-int'
   // Wetter-Stärke: drei UI-Stufen auf einer stufenlosen Skala (die API nimmt jedes
   // 0..1 — ein späteres Echtwetter kann feiner dosieren). Default Mittel.
-  const WEATHER_INT: Record<string, number> = { leicht: 0.4, mittel: 0.7, stark: 1 }
+  const WEATHER_INT: Record<string, number> = { light: 0.4, medium: 0.7, strong: 1 }
   let weatherInt = 'mid'
-  const stufenStaerke = () => WEATHER_INT[weatherInt] ?? 0.7
+  const levelStrength = () => WEATHER_INT[weatherInt] ?? 0.7
   // Himmel je Wetter-Modus: Wolkendeckung als SPANNE über die Stärke — die
   // Atmosphäre formt daraus die Wolken selbst (locker → aufgerissen →
   // geschlossen). „Wolkig" spannt den ganzen Bogen: Leicht = einzelne Wolken
   // (Sonne frei), Mittel = aufgerissener Himmel, Stark = geschlossene Decke.
   //
-  // Die Tabelle steht seit §10 in [wetterhimmel.ts](wetterhimmel.ts) und ist
+  // Die Tabelle steht seit §10 in [weather-sky.ts](weather-sky.ts) und ist
   // mit dem Editor GETEILT: Dort wird aus denselben drei Zahlen ein flacher
   // Schleier über der Karte, hier gehen sie an Atmosphäre und Grading. Was
   // sich nicht teilen ließ, sind die Partikel — die sind Zustand, und der
   // Editor braucht eine Funktion (Konzept §10).
-  const skyFor = (m: string, k: number) => himmelBei(m as SzenenWetter, k)
+  const skyFor = (m: string, k: number) => skyAt(m as SceneWeather, k)
   let atmoWeather: (() => void) | null = null // () => atmo.setWeather(skyFor(...)), gesetzt sobald atmo existiert
   let groundSnow: (() => void) | null = null // () => dayNight.setSnow(...), gesetzt sobald die Tag/Nacht-Regie existiert
   const weatherBtn = $('btn-weather')
@@ -972,10 +975,10 @@ map.on('load', () => {
   // Default-Modus; jede manuelle Wahl im Menü überschreibt ihn (und wird gemerkt).
   // Die Timeline lädt asynchron; bis dahin (und bei Fetch-Fehlern) bleibt es bei
   // „Kein Wetter". k ist im Auto-Modus stufenlos (dafür ist setIntensity gebaut).
-  let weatherK = stufenStaerke() // wirksame Stärke (UI-Stufe bzw. Auto-Wert)
+  let weatherK = levelStrength() // wirksame Stärke (UI-Stufe bzw. Auto-Wert)
   let weatherAuto = false
-  let wxTimeline: WetterStuetze[] | null = null // sobald geladen
-  let wxSegment: WetterStuetze | null = null // zuletzt angewandter Timeline-Eintrag (gegen Dauer-Reapply)
+  let wxTimeline: WeatherSample[] | null = null // sobald geladen
+  let wxSegment: WeatherSample | null = null // zuletzt angewandter Timeline-Eintrag (gegen Dauer-Reapply)
 
   const applyWx = (m: string, k: number) => {
     weatherK = k
@@ -987,7 +990,7 @@ map.on('load', () => {
   const applyAutoNow = () => {
     const e = weatherAt(wxTimeline, tour.s)
     if (!e) {
-      applyWx('off', stufenStaerke())
+      applyWx('off', levelStrength())
       return
     }
     if (wxSegment === e) return
@@ -1000,7 +1003,7 @@ map.on('load', () => {
       wxSegment = null
       applyAutoNow()
     } else {
-      applyWx(m, stufenStaerke())
+      applyWx(m, levelStrength())
     }
     syncWeatherUI(weatherAuto ? 'auto' : weather.mode)
     if (persist) {
@@ -1031,8 +1034,8 @@ map.on('load', () => {
   // Menü bleibt offen (man will die Wirkung direkt vergleichen)
   weatherMenu.querySelectorAll<HTMLElement>('[data-wlevel]').forEach((el) => {
     el.addEventListener('click', () => {
-      const stufe = el.dataset.wlevel
-      weatherInt = stufe && WEATHER_INT[stufe] ? stufe : 'mid'
+      const level = el.dataset.wlevel
+      weatherInt = level && WEATHER_INT[level] ? level : 'mid'
       // Im Auto-Modus bleibt Auto aktiv (die Stärke kommt dort aus den Wetterdaten,
       // die Stufe greift erst wieder bei manueller Wahl)
       applyWeather(weatherAuto ? 'auto' : weather.mode)
@@ -1043,12 +1046,12 @@ map.on('load', () => {
     weatherMenu.hidden ? openWeather() : closeWeather()
   })
   document.addEventListener('click', (e) => {
-    const ziel = e.target
+    const target = e.target
     if (
       !weatherMenu.hidden &&
-      ziel instanceof Node &&
-      !weatherMenu.contains(ziel) &&
-      ziel !== weatherBtn
+      target instanceof Node &&
+      !weatherMenu.contains(target) &&
+      target !== weatherBtn
     )
       closeWeather()
   })
@@ -1059,23 +1062,23 @@ map.on('load', () => {
     if (savedI && WEATHER_INT[savedI]) weatherInt = savedI
     const savedW = localStorage.getItem(WEATHER_KEY)
     if (savedW == null || savedW === 'auto') applyWeather('auto', false)
-    else if (savedW in WETTER_HIMMEL && savedW !== 'off') applyWeather(savedW, false)
+    else if (savedW in WEATHER_SKY && savedW !== 'off') applyWeather(savedW, false)
     else syncWeatherUI('off')
   } catch {
     syncWeatherUI('off')
   }
 
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
-  const spotPunkte: PinStopp[] = stops.map((st) => {
+  const spotPoints: PinStop[] = stops.map((st) => {
     const pos = pointAt(route, st.s)
     // Für den Pin-Kopf (?pins3d=foto) reicht die Kachel-Fassung: Die Scheibe
     // ist gut hundert Pixel groß, das Foto in Anzeigegröße wäre reine Last.
-    const kopf = st.items[0]
-    return { lnglat: [pos[0], pos[1]], s: st.s, ele: pos[2], src: kopf?.thumb ?? kopf?.src }
+    const head = st.items[0]
+    return { lnglat: [pos[0], pos[1]], s: st.s, ele: pos[2], src: head?.thumb ?? head?.src }
   })
-  const syncSpots = addSpotLayers(map, spotPunkte, [start[0], start[1]], (s) => {
+  const syncSpots = addSpotLayers(map, spotPoints, [start[0], start[1]], (s) => {
     tour.jumpToPhoto(s) // Wegpunkt-Klick öffnet das Foto direkt
-    nachSprung()
+    afterJump()
   })
 
   // Foto-Stopps stehen als 3D-PINS über dem Gelände (photopins.ts) — das ist der
@@ -1090,17 +1093,17 @@ map.on('load', () => {
     for (const l of ['spots-circle', 'spots-num']) map.setLayoutProperty(l, 'visibility', 'none')
     // Der Sync-Callback steht sofort, der Renderer kommt lazy nach (Three.js gehört
     // nicht ins Basis-Bundle) — bis dahin läuft er ins Leere.
-    let pins: PinSteuerung | null = null
+    let pins: PinControl | null = null
     ui.registerSpots((s) => pins?.sync(s))
     import('./photopins.js').then(({ installPhotoPins }) => {
-      pins = installPhotoPins(map, spotPunkte, {
+      pins = installPhotoPins(map, spotPoints, {
         onSelect: (s) => {
           tour.jumpToPhoto(s)
-          nachSprung()
+          afterJump()
         },
-        variante: pinsParam === 'foto' ? 'foto' : 'nummer',
+        variant: pinsParam === 'foto' ? 'foto' : 'nummer',
       })
-      window.__j.pins = pins
+      window.__maptale.pins = pins
       pins.sync(tour.s ?? 0)
     })
   }
@@ -1111,10 +1114,10 @@ map.on('load', () => {
   // Browser nimmt das die Adressleiste weg, die im Querformat am meisten kostet.
   // Kann der Browser es nicht (altes iOS), passiert nichts weiter — die Tour
   // startet in jedem Fall. In der App-WebView ist ohnehin schon Vollbild, und am
-  // Schreibtisch ist es unerwünscht (s. `vollbildErwuenscht`).
+  // Schreibtisch ist es unerwünscht (s. `fullscreenWanted`).
   $('btn-start').addEventListener('click', () => {
     tour.begin()
-    if (!appModus && vollbildErwuenscht()) betreteVollbild()
+    if (!appMode && fullscreenWanted()) enterFullscreen()
   })
   $('btn-play').addEventListener('click', () => tour.setPlaying(!tour.playing))
   $('btn-replay').addEventListener('click', () => tour.restart())
@@ -1137,13 +1140,13 @@ map.on('load', () => {
    * Wanduhrsekunde, die Datei kennt nur die eine. Mit dieser Regel braucht sie
    * keinen Ausgleich mehr — sie klingt dort nicht.
    */
-  const tempoEins = () => tour.mult === 1 && tour.dir > 0
+  const speedOne = () => tour.mult === 1 && tour.dir > 0
 
-  const music = hatEigeneMusik ? null : createMusic('/audio/ambient.mp3')
+  const music = hasOwnMusic ? null : createMusic('/audio/ambient.mp3')
   music?.setGate(
-    () => tour.uhr.laeuft && tempoEins() && tour.phase !== 'intro' && tour.phase !== 'finale',
+    () => tour.clock.running && speedOne() && tour.phase !== 'intro' && tour.phase !== 'finale',
   )
-  window.__j.music = music
+  window.__maptale.music = music
 
   // Tour-Audio-Gate: Musik läuft während Fahrt und Halt. Pause stoppt sie
   // sofort und hält die Abspielposition (audiotracks.ts); Bereichsgrenzen und
@@ -1161,8 +1164,8 @@ map.on('load', () => {
   // Wiedergabe — und beim Ziehen während der Wiedergabe trägt `playing`.
   tourAudio?.setGate(
     () =>
-      tour.uhr.laeuft &&
-      tempoEins() &&
+      tour.clock.running &&
+      speedOne() &&
       tour.phase !== 'intro' &&
       tour.phase !== 'finale' &&
       tour.playing,
@@ -1170,9 +1173,9 @@ map.on('load', () => {
 
   // Video mit Ton → laufende Musikspur crossfaden (Ambient und Tour-Musik).
   // Pegel 0..1 aus der Video-Hülle; Stärke am Plateau: VIDEO_DUCK in audiotracks.ts.
-  ui.onVideoTon = (huelle) => {
-    music?.setDucking(huelle)
-    tourAudio?.setDucking(huelle)
+  ui.onVideoAudio = (envelope) => {
+    music?.setDucking(envelope)
+    tourAudio?.setDucking(envelope)
   }
 
   // — Optionen (Endnutzer): Ton (Master) · Musik · Wetter-Effekte —
@@ -1194,11 +1197,11 @@ map.on('load', () => {
     /* Storage evtl. gesperrt */
   }
   // Im Export ist NICHTS hörbar: Der Ton der Datei wird offline aus `filmS`
-  // gemischt (exportfilm.ts). Was hier klänge, wäre der Live-Graph — er liefe
+  // gemischt (film-export.ts). Was hier klänge, wäre der Live-Graph — er liefe
   // auf der Wanduhr, während das Bild in Filmzeit entsteht, gehörte also zu
   // keiner Stelle des Films. Der Master deckt Motor, Musik und die Tour-Spuren
   // ab; der Wetter-Ton hängt am 800-ms-Tick darunter.
-  if (exportModus) audioOn = false
+  if (exportMode) audioOn = false
   // Master wirkt auf Motor + Musik sofort; der Wetter-Ton hängt zusätzlich am 800-ms-Tick.
   // Tour-Audio: der Musik-Schalter steuert die Musik-Spuren, SFX hängen nur am Master.
   const applyAudio = () => {
@@ -1282,7 +1285,7 @@ map.on('load', () => {
   setDev(devOn)
   let devSeq = ''
   window.addEventListener('keydown', (e) => {
-    if (istTextfeld(e.target)) return
+    if (isTextField(e.target)) return
     devSeq = (devSeq + e.key).slice(-3).toLowerCase()
     if (devSeq === 'dev') {
       setDev(!devOn)
@@ -1293,7 +1296,7 @@ map.on('load', () => {
   const speedBtn = $('btn-speed')
   // Tempo-Label aus dem Tour-Zustand: Faktor + Richtung (−4× = 4× rückwärts).
   // Wird pro Stats-Tick aufgerufen, bleibt also auch nach JKL-Shuttle aktuell.
-  let letztesTempo = 1
+  let lastSpeed = 1
   ui.onSpeed = (mult, dir) => {
     const txt = `${dir < 0 ? '−' : ''}${mult}×`
     if (speedBtn.textContent !== txt) speedBtn.textContent = txt
@@ -1301,10 +1304,10 @@ map.on('load', () => {
     // steht deshalb dort, wo er beim Umschalten war — dieselbe Lage wie nach
     // einem Sprung. `onSpeed` läuft im 10-Hz-Takt der Telemetrie, ausgerichtet
     // wird nur an der Kante.
-    const tempo = dir * mult
-    if (tempo !== letztesTempo) {
-      letztesTempo = tempo
-      if (tempo === 1) nachSprung()
+    const speed = dir * mult
+    if (speed !== lastSpeed) {
+      lastSpeed = speed
+      if (speed === 1) afterJump()
     }
   }
   speedBtn.addEventListener('click', () => {
@@ -1314,7 +1317,7 @@ map.on('load', () => {
 
   for (const btn of document.querySelectorAll<HTMLElement>('.preset-btn')) {
     btn.addEventListener('click', () => {
-      kamManuell = true // manueller Eingriff: Kamera-Folger dauerhaft aus (to Reload)
+      camManual = true // manueller Eingriff: Kamera-Folger dauerhaft aus (to Reload)
       document.querySelector('.preset-btn.active')?.classList.remove('active')
       btn.classList.add('active')
       tour.setPreset(btn.dataset.preset ?? 'mid')
@@ -1325,23 +1328,23 @@ map.on('load', () => {
   // Aufgezeichnete Touren (M2) bringen timeline-Stützstellen mit — die Pseudo-
   // Uhr folgt dann dem echten Tempo (Pausen serverseitig komprimiert) statt
   // linear über die Strecke zu laufen; statische Touren bleiben linear.
-  const zeit = cfg.time
-  if (zeit) {
-    const t0 = Date.parse(zeit.start)
-    const t1 = Date.parse(zeit.end)
+  const time = cfg.time
+  if (time) {
+    const t0 = Date.parse(time.start)
+    const t1 = Date.parse(time.end)
     // Auch die Pseudo-Zeit hängt an f: Ihre Stützstellen laufen durch dieselbe
     // Übersetzung, damit die Sonne dort steht, wo die Aufnahme sie gesehen hat.
     // `createTimeAt` bekommt sie in der Parametrisierung des Players, weil es
     // gegen `tour.s / route.total` befragt wird.
     const timeAt = createTimeAt(
-      cfg.timeline?.map((e) => ({ f: fracBeiF(e.f), t: e.t })),
+      cfg.timeline?.map((e) => ({ f: fracAtF(e.f), t: e.t })),
       t0,
       t1,
     )
     const fmt = new Intl.DateTimeFormat('de-DE', {
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: zeit.zone,
+      timeZone: time.zone,
     })
     const teleTime = $('tele-time')
     $('tele-time-wrap').hidden = false
@@ -1369,7 +1372,7 @@ map.on('load', () => {
       tour.setSun(sun) // Kamera-Himmel-Momente (skyLift/Yaw) folgen ohne Drossel-Lag
       atmo.render(pose)
     }
-    window.__j.atmo = atmo
+    window.__maptale.atmo = atmo
     // Wetter-Himmel jetzt an die Atmosphäre koppeln + den ggf. wiederhergestellten
     // Modus nachziehen (der Restore lief, bevor die Atmosphäre existierte).
     // Gleiches Pause-Gate wie das Partikel-Overlay: Wolken-Drift steht in der Pause.
@@ -1383,7 +1386,7 @@ map.on('load', () => {
       // (atmo.setSun/tour.setSun laufen NICHT mehr hier — die Drossel machte den
       // Sonnenstand beim Scrubben pfadabhängig; beide werden pro Frame in onPose gesetzt.)
       (p) => {
-        window.__j.pins?.applyDayNight(p) // 3D-Pins (?pins3d=1) nachts zurücknehmen
+        window.__maptale.pins?.applyDayNight(p) // 3D-Pins (?pins3d=1) nachts zurücknehmen
         atmo.setSky(p.hor, p.sky, p.fog) // Dunst an Horizont/Himmel/Fog der Tageszeit koppeln
       },
     )
@@ -1399,18 +1402,18 @@ map.on('load', () => {
     // Kuratierte Wetter-Timeline der Tour (cfg.weather, km entlang der Route) hat
     // Vorrang vor dem Auto-Wetter — nötig, weil das ERA5-Archiv für manche Orte nie
     // ein Gewitter codiert (z.B. Koh Pha-ngan). Sonst echtes historisches Wetter.
-    const kuratiert: WetterStuetze[] | null = cfg.weatherF
-      ? cfg.weatherF.map((w) => ({ s: sBeiF(w.f), mode: w.mode, k: w.k }))
+    const curated: WeatherSample[] | null = cfg.weatherF
+      ? cfg.weatherF.map((w) => ({ s: sAtF(w.f), mode: w.mode, k: w.k }))
       : cfg.weather
         ? cfg.weather.map((w) => ({ s: w.km * 1000, mode: w.mode, k: w.k }))
         : null
-    const wxSource: Promise<WetterStuetze[]> = kuratiert
-      ? Promise.resolve(kuratiert.slice().sort((a, b) => a.s - b.s))
-      : buildWeatherTimeline({ photos, route, time: zeit, pointAt })
+    const wxSource: Promise<WeatherSample[]> = curated
+      ? Promise.resolve(curated.slice().sort((a, b) => a.s - b.s))
+      : buildWeatherTimeline({ photos, route, time: time, pointAt })
     wxSource
       .then((tl) => {
         wxTimeline = tl
-        window.__j.wxTimeline = tl
+        window.__maptale.wxTimeline = tl
         if (weatherAuto) {
           wxSegment = null
           applyAutoNow()
@@ -1440,7 +1443,7 @@ map.on('load', () => {
   // Tap ohne Bewegung auf einem Dot = Sprung kurz vor dessen Foto-Stopp.
   const progress = $('progress')
   /** Filmanteil unter dem Zeiger — die Leiste ist seit Etappe 5 die Zeitachse. */
-  const filmAnteilAt = (e: PointerEvent) => {
+  const filmFractionAt = (e: PointerEvent) => {
     const rect = progress.getBoundingClientRect()
     return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
   }
@@ -1449,36 +1452,36 @@ map.on('load', () => {
   let scrubDownX = 0
   progress.addEventListener('pointerdown', (e) => {
     scrubMoved = false
-    const ziel = e.target
+    const target = e.target
     scrubDot =
-      ziel instanceof HTMLElement && ziel.classList.contains('photo-dot')
-        ? Number(ziel.dataset.s)
+      target instanceof HTMLElement && target.classList.contains('photo-dot')
+        ? Number(target.dataset.s)
         : null
     scrubDownX = e.clientX
     progress.setPointerCapture(e.pointerId)
     document.body.classList.add('scrubbing') // Scrub-Cursor, auch über den Dots
-    tour.beginScrub(filmAnteilAt(e))
+    tour.beginScrub(filmFractionAt(e))
   })
   progress.addEventListener('pointermove', (e) => {
     if (!tour.scrubbing) return
     if (!scrubMoved && Math.abs(e.clientX - scrubDownX) < 4) return // Tipp-Zittern ist kein Scrub
     scrubMoved = true
-    tour.scrub(filmAnteilAt(e))
+    tour.scrub(filmFractionAt(e))
   })
   progress.addEventListener('pointerup', (e) => {
     document.body.classList.remove('scrubbing')
     if (!tour.scrubbing) return
     if (!scrubMoved && scrubDot != null)
       tour.jumpToPhoto(scrubDot) // Dot-Tap: Foto sofort
-    else tour.endScrub(filmAnteilAt(e))
-    nachSprung()
+    else tour.endScrub(filmFractionAt(e))
+    afterJump()
   })
   progress.addEventListener('pointercancel', () => {
     document.body.classList.remove('scrubbing')
     // abgebrochene Gesten liefern keine brauchbaren Koordinaten mehr
     if (tour.scrubbing) {
-      tour.endScrub(tour.filmS / filmspur.gesamtS)
-      nachSprung()
+      tour.endScrub(tour.filmS / filmTrack.totalS)
+      afterJump()
     }
   })
 
@@ -1489,7 +1492,7 @@ map.on('load', () => {
       // Tastatur-Aktivierung (Enter/Leertaste erzeugt click mit detail 0)
       if (e.detail === 0) {
         tour.jumpToPhoto(Number(dot.dataset.s))
-        nachSprung()
+        afterJump()
       }
     })
   }
@@ -1512,36 +1515,36 @@ map.on('load', () => {
   // Der Ton geht an beiden Schlüssen weich aus statt abrupt: Der Kopf steht am
   // Tour-Ende oft mitten in einem Musik-Bereich, und dort ist ein zugehendes Gate
   // sonst dasselbe wie die Pause-Taste — sofortiger Stopp mit gehaltener Position.
-  const tonVerklingen = () => {
+  const audioFadeOut = () => {
     tourAudio?.verklinge()
     music?.verklinge()
   }
   tour.onToMenu = () => {
     setClean(false)
-    tonVerklingen()
+    audioFadeOut()
   }
-  tour.onFinale = tonVerklingen
+  tour.onFinale = audioFadeOut
 
   // — Auto-Rückzug der Bedienelemente (jede Zeigerart) —
   // Wie in einem Videoplayer: während der FAHRT zieht sich die UI nach kurzer Ruhe
   // zurück und ist bei der nächsten Regung — Mausbewegung, Tipp, Tastendruck —
   // sofort wieder da. Deshalb braucht es keinen Knopf zum Ein-/Ausblenden: er war
   // ein Griff für etwas, das ohne Zutun passiert (und selbst ein Element im Bild).
-  const RUHE_MS = 3200
+  const IDLE_MS = 3200
   // `:hover` nur dort befragen, wo es einen echten Zeiger gibt: auf Touch bleibt die
   // Pseudoklasse nach einem Tipp am getippten Element HÄNGEN — die Steuerleiste zöge
   // sich nach dem ersten Tipp auf Play dann nie mehr zurück.
-  const hatZeiger = window.matchMedia('(hover: hover)').matches
-  let ruheTimer = 0
-  const planeRueckzug = () => {
-    window.clearTimeout(ruheTimer)
-    ruheTimer = window.setTimeout(() => {
+  const hasPointer = window.matchMedia('(hover: hover)').matches
+  let idleTimer = 0
+  const scheduleIdle = () => {
+    window.clearTimeout(idleTimer)
+    idleTimer = window.setTimeout(() => {
       // Bei Pause, Intro und Finale gehören die Bedienelemente auf den Schirm —
       // dann später erneut prüfen statt den Rückzug zu vergessen. Ebenso,
       // solange die Maus auf der Steuerleiste liegt: was man gerade anvisiert
       // (Timeline, Tempo, Optionen), darf nicht unter dem Zeiger wegblenden.
-      // Ebenso, solange das Kartendaten-Popup offen steht (body.info-offen,
-      // karteninfo.ts): der Text blendete sonst weg, während man ihn liest.
+      // Ebenso, solange das Kartendaten-Popup offen steht (body.attribution-open,
+      // map-attribution.ts): der Text blendete sonst weg, während man ihn liest.
       //
       // **Der HALT zählt seit E17 dazu.** Vorher stand hier `phase === 'ride'`,
       // die Leiste blieb also für die ganze Standzeit oben — unter der alten
@@ -1549,17 +1552,18 @@ map.on('load', () => {
       // Normalfall: Sie deckte die Bildunterschrift samt „Weiter" zu. Das ist
       // dieselbe Lehre wie bei E13 — ein Halt ist ein Zustand der Kurve, kein
       // anderer Betriebsmodus: Was zählt, ist, ob der FILM läuft.
-      const ruht =
+      const idle =
         tour.playing && (tour.phase === 'ride' || tour.phase === 'photo' || tour.phase === 'moment')
-      const festgehalten =
-        (hatZeiger && dockEl.matches(':hover')) || document.body.classList.contains('info-offen')
-      if (ruht && !festgehalten) setClean(true)
-      else planeRueckzug()
-    }, RUHE_MS)
+      const captured =
+        (hasPointer && dockEl.matches(':hover')) ||
+        document.body.classList.contains('attribution-open')
+      if (idle && !captured) setClean(true)
+      else scheduleIdle()
+    }, IDLE_MS)
   }
-  const weckeUi = () => {
+  const wakeUi = () => {
     if (document.body.classList.contains('ui-clean')) setClean(false)
-    planeRueckzug()
+    scheduleIdle()
   }
   // Nur ECHTE Zeigerbewegung weckt: Browser schicken pointermove auch ohne
   // Handbewegung, wenn sich der Inhalt unter dem stehenden Zeiger ändert — und das
@@ -1573,13 +1577,13 @@ map.on('load', () => {
       if (Math.abs(e.clientX - zx) + Math.abs(e.clientY - zy) < 6) return
       zx = e.clientX
       zy = e.clientY
-      weckeUi()
+      wakeUi()
     },
     { passive: true },
   )
-  document.addEventListener('pointerdown', weckeUi, { passive: true })
-  document.addEventListener('keydown', weckeUi, { passive: true })
-  planeRueckzug()
+  document.addEventListener('pointerdown', wakeUi, { passive: true })
+  document.addEventListener('keydown', wakeUi, { passive: true })
+  scheduleIdle()
 
   // Kein Menü-Knopf mehr in der Steuerleiste: der Weg hinaus steht dauerhaft oben
   // links und führt dorthin, wo man herkam. Zum Startscreen DIESER Tour führt
@@ -1588,7 +1592,7 @@ map.on('load', () => {
   // Player verlassen (nur im App-Modus sichtbar): die Android-App stellt dafür
   // eine Brücke bereit (PlayerScreen.kt, @JavascriptInterface). Fehlt sie — etwa
   // weil jemand ?app=1 im normalen Browser aufruft —, bleibt der History-Rückweg.
-  $('btn-app-zurueck').addEventListener('click', () => {
+  $('btn-app-back').addEventListener('click', () => {
     if (window.MaptaleApp?.verlassen) window.MaptaleApp.verlassen()
     else history.back()
   })
@@ -1607,37 +1611,37 @@ map.on('load', () => {
   // Konnte eine Server-Tour nicht geladen werden (gelöscht, noch in
   // Verarbeitung, Server weg), läuft die Standard-Tour — das dem Nutzer
   // sichtbar sagen, nicht nur der Konsole.
-  if (remoteFehler) toast(remoteFehler)
+  if (remoteError) toast(remoteError)
 
   // — Bildraten-Protokoll (?app=1 oder ?fps=1) —
   // Android-WebView: zeigt die HTML-Seite direkt an, leitet console.log/info/
   // console-Ausgaben aber ins Logcat (Tag „MaptalePlayer"). So lässt sich die
   // Framerate auch auf dem Gerät ohne Remote-Debugging prüfen:
   //   adb logcat -s MaptalePlayer | grep fps
-  if (appModus || params.get('fps') === '1') {
-    let bilder = 0
-    let fenster = performance.now()
-    const zaehle = () => {
-      bilder++
-      const jetzt = performance.now()
-      if (jetzt - fenster >= 3000) {
-        const fps = (bilder * 1000) / (jetzt - fenster)
+  if (appMode || params.get('fps') === '1') {
+    let images = 0
+    let viewport = performance.now()
+    const count = () => {
+      images++
+      const now = performance.now()
+      if (now - viewport >= 3000) {
+        const fps = (images * 1000) / (now - viewport)
         console.info(
           `[maptale] fps ${fps.toFixed(1)} · ${innerWidth}×${innerHeight} @${devicePixelRatio} · Phase ${tour.phase}`,
         )
-        bilder = 0
-        fenster = jetzt
+        images = 0
+        viewport = now
       }
-      requestAnimationFrame(zaehle)
+      requestAnimationFrame(count)
     }
-    requestAnimationFrame(zaehle)
+    requestAnimationFrame(count)
   }
 
   // Tastatursteuerung des Players (wie in Videoschnitt-Software)
   window.addEventListener('keydown', (e) => {
-    if (exportModus) return
+    if (exportMode) return
     // In Textfeldern (z. B. Google-Key-Dialog) nichts abfangen
-    if (istTextfeld(e.target)) return
+    if (isTextField(e.target)) return
     if (tour.phase === 'intro') return // vor dem Start hat der Player keine Tasten
 
     switch (e.code) {
@@ -1651,12 +1655,12 @@ map.on('load', () => {
       case 'ArrowRight': // ein Bild vor (Shift: 12 Bilder)
         e.preventDefault()
         tour.nudge(e.shiftKey ? 12 : 1)
-        nachSprung()
+        afterJump()
         break
       case 'ArrowLeft': // ein Bild zurück
         e.preventDefault()
         tour.nudge(e.shiftKey ? -12 : -1)
-        nachSprung()
+        afterJump()
         break
       case 'KeyL': // JKL: vorwärts (nochmal = schneller)
         e.preventDefault()
@@ -1676,135 +1680,137 @@ map.on('load', () => {
   })
 
   // Video-Export: ganze Tour, Intro/Fahrt/Finale, Ton aus filmS.
-  if (exportModus) {
+  if (exportMode) {
     void (async () => {
       const {
-        baueExportStand,
-        fuehreExportAus,
-        istEigeneBereiteTour,
-        motorQuelle,
-        MOTOR_GAIN,
-        wetterQuelle,
-        tonKlipsAusSpuren,
-      } = await import('./exportfilm.js')
+        buildExportStatus,
+        runFilmExport,
+        isOwnReadyTour,
+        engineLoopSource,
+        ENGINE_GAIN,
+        weatherLoopSource,
+        audioClipsFromTracks,
+      } = await import('./film-export.js')
       // Im Rahmen (Studio-Blatt) gibt es kein Stand-Schild: Der Balken steht
       // eine Ebene höher, und zwei Fortschrittsanzeigen übereinander wären
       // eine zu viel.
-      const imRahmen = istEingebettet(location.search) && window.parent !== window
-      const stand = imRahmen ? undefined : baueExportStand()
-      const melde = imRahmen
-        ? (m: ExportMeldung, uebergabe?: Transferable[]): void => {
-            window.parent.postMessage(m, location.origin, uebergabe ?? [])
+      const inFrame = isEmbedded(location.search) && window.parent !== window
+      const status = inFrame ? undefined : buildExportStatus()
+      const report = inFrame
+        ? (m: ExportMessage, handover?: Transferable[]): void => {
+            window.parent.postMessage(m, location.origin, handover ?? [])
           }
         : undefined
-      const liste = await ladeServerTouren()
-      if (!remoteCfg || !istEigeneBereiteTour(tourParam, liste)) {
-        const satz = 'Export nur für eigene, fertige Touren.'
-        if (stand) stand.textContent = satz
-        melde?.({ typ: EXPORT_NACHRICHT, stand: 'fehler', text: satz })
+      const list = await loadServerTours()
+      if (!remoteCfg || !isOwnReadyTour(tourParam, list)) {
+        const set = 'Export nur für eigene, fertige Touren.'
+        if (status) status.textContent = set
+        report?.({ type: EXPORT_MESSAGE, status: 'fehler', text: set })
         return
       }
       applyWeather('auto', false)
       const to = Date.now() + 8000
       while (!wxTimeline && Date.now() < to) await new Promise((r) => window.setTimeout(r, 200))
 
-      const fahrtS = tour.film.gesamtS
+      const rideS = tour.film.totalS
       const introS = EXPORT_INTRO_S
-      const clipS = clipDauerS(fahrtS, tour.showFinale)
+      const clipS = exportClipDurationS(rideS, tour.showFinale)
       // Dieselbe Bildrate wie der Encoder: Die Ton-Abschnitte werden über
       // dieselben Bilder verdichtet, mit denen das Bild entsteht.
-      const n = frameAnzahl(clipS, exportFormat.fps)
+      const n = frameCount(clipS, exportFormat.fps)
       const dt = 1 / exportFormat.fps
-      const master = cfg.audioPegel ?? KURATIERTER_PEGEL
-      const ausSpuren = tonKlipsAusSpuren(audioSpuren ?? [], introS, fahrtS, master)
-      if (!hatEigeneMusik) {
-        ausSpuren.klips.push({
+      const master = cfg.audioGain ?? CURATED_GAIN
+      const fromTracks = audioClipsFromTracks(audioTracks ?? [], introS, rideS, master)
+      if (!hasOwnMusic) {
+        fromTracks.clips.push({
           src: '/audio/ambient.mp3',
-          vonClipS: introS,
-          bisClipS: introS + fahrtS,
-          dateiVonS: 0,
+          fromClipS: introS,
+          toClipS: introS + rideS,
+          fileFromS: 0,
           loop: true,
           gain: 0.16,
         })
       }
-      const motorAbs = verdichteAbschnitte(n, dt, (i) => {
+      const engineAbs = mergeSegments(n, dt, (i) => {
         const t = i * dt
-        if (t < introS || t >= introS + fahrtS) return null
-        const filmS = Math.min(fahrtS, t - introS)
-        if (tour.film.haltBeiFilm(filmS)) return null
-        const s = tour.film.sBeiFilm(filmS)
-        const src = motorQuelle(tour.film.modusBeiS(s))
-        return src ? { src, gain: MOTOR_GAIN } : null
+        if (t < introS || t >= introS + rideS) return null
+        const filmTime = Math.min(rideS, t - introS)
+        if (tour.film.stopAtFilmTime(filmTime)) return null
+        const s = tour.film.sAtFilmTime(filmTime)
+        const src = engineLoopSource(tour.film.travelModeAtS(s))
+        return src ? { src, gain: ENGINE_GAIN } : null
       })
-      const wetterAbs = verdichteAbschnitte(n, dt, (i) => {
+      const weatherAbs = mergeSegments(n, dt, (i) => {
         const t = i * dt
-        if (t >= introS + fahrtS) return null
-        const filmS = t < introS ? 0 : Math.min(fahrtS, t - introS)
-        const s = tour.film.sBeiFilm(filmS)
+        if (t >= introS + rideS) return null
+        const filmTime = t < introS ? 0 : Math.min(rideS, t - introS)
+        const s = tour.film.sAtFilmTime(filmTime)
         const e = weatherAt(wxTimeline, s)
         if (!e) return null
-        return wetterQuelle(e.mode, e.k)
+        return weatherLoopSource(e.mode, e.k)
       })
-      const klips = [
-        ...ausSpuren.klips,
+      const clips = [
+        ...fromTracks.clips,
         // Motor und Wetter kommen als Abschnitte aus der Achse; die Nähte
         // blenden, wie sie es im Player tun (vehicle.ts ~0,7 s, wetter.ts
         // koppelt an die Intensität). Hart geschnitten knackt jede Kante.
-        ...motorAbs.map((a) => ({
+        ...engineAbs.map((a) => ({
           src: a.src,
-          vonClipS: a.vonClipS,
-          bisClipS: a.bisClipS,
-          dateiVonS: 0,
+          fromClipS: a.fromClipS,
+          toClipS: a.toClipS,
+          fileFromS: 0,
           loop: true,
           gain: a.gain,
-          blendeS: 0.35,
+          fadeS: 0.35,
         })),
-        ...wetterAbs.map((a) => ({
+        ...weatherAbs.map((a) => ({
           src: a.src,
-          vonClipS: a.vonClipS,
-          bisClipS: a.bisClipS,
-          dateiVonS: 0,
+          fromClipS: a.fromClipS,
+          toClipS: a.toClipS,
+          fileFromS: 0,
           loop: true,
           gain: a.gain,
-          blendeS: 0.6,
+          fadeS: 0.6,
         })),
       ]
 
-      await fuehreExportAus({
+      await runFilmExport({
         map,
         tour,
-        titel: remoteCfg.brandTitle || cfg.kicker,
+        title: remoteCfg.brandTitle || cfg.kicker,
         format: exportFormat,
-        ...(stand ? { stand } : {}),
-        ...(melde ? { melde } : {}),
-        extraQuellen: KARTE_EXTRA_QUELLEN,
-        reiter: rider,
-        ...(window.__j.eleReady ? { hoehenBereit: window.__j.eleReady } : {}),
-        ton: { klips, schuesse: ausSpuren.schuesse },
-        vorbereitenOverlays: () => {
+        ...(status ? { status: status } : {}),
+        ...(report ? { report: report } : {}),
+        extraSources: MAP_EXTRA_SOURCES,
+        tab: rider,
+        ...(window.__maptale.eleReady ? { elevationReady: window.__maptale.eleReady } : {}),
+        audio: { clips: clips, oneShots: fromTracks.oneShots },
+        prepareOverlays: () => {
           // Die Gates fragen sonst `tour.uhr.laeuft`/`playing` — im Export läuft
           // die Wanduhr nicht, gemeint ist aber „der Film läuft".
           weather.setGate(() => true)
-          window.__j.atmo?.setGate(() => true)
+          window.__maptale.atmo?.setGate(() => true)
           // Und beide auf FILMzeit: sonst bekämen Partikel, Böen, Wolkendrift
           // und die Wetter-Blende pro Filmbild die 0,3–2 s Wandzeit, die das
           // Warten auf die Kacheln gekostet hat (Konzept §8, „Zeit").
           weather.externerTakt(true)
           weather.setSoundEnabled(false) // der Mix kommt offline aus filmS
-          window.__j.atmo?.setzeTakt(1 / exportFormat.fps)
+          window.__maptale.atmo?.setzeTakt(1 / exportFormat.fps)
           window.dispatchEvent(new Event('resize'))
         },
-        taktOverlays: (dt) => weather.schritt(dt),
-        nachKamera: () => {
+        stepOverlays: (dt) => weather.schritt(dt),
+        afterCamera: () => {
           if (wxTimeline) applyAutoNow()
         },
-        kartenBereit: () => ui.kartenBereit(),
+        cardReady: () => ui.cardReady(),
       })
     })()
   }
 })
 
 /** Tastendrücke in Eingabefeldern gehören dem Feld, nicht dem Player. */
-function istTextfeld(ziel: EventTarget | null): boolean {
-  return ziel instanceof HTMLElement && (ziel.tagName === 'INPUT' || ziel.tagName === 'TEXTAREA')
+function isTextField(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+  )
 }

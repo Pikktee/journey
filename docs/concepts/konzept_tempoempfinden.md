@@ -2,7 +2,7 @@
 stand: 2026-08-14
 status: teilweise behoben, ein Rest offen
 betrifft:
-  - src/filmachse.ts
+  - src/film-axis.ts
   - src/tour.ts
   - src/geo.ts
 icon: tempo

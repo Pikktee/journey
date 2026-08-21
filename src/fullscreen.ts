@@ -20,7 +20,7 @@
  * - **Der Aufruf braucht eine Nutzergeste.** Beim Laden ruft ihn niemand
  *   erfolgreich; der Ort ist der Start-Knopf, an dem ohnehin getippt wird.
  * - **Können und Wollen sind zwei Fragen.** Der Schreibtisch KANN Vollbild und
- *   soll es trotzdem nicht bekommen (`vollbildErwuenscht`).
+ *   soll es trotzdem nicht bekommen (`fullscreenWanted`).
  * - **Die Viewport-Höhe muss mitgehen.** Der Wechsel ändert `innerHeight`, und
  *   daran hängt `--vh-app` (die Foto-Karte bemisst sich daran). `main.ts` hört
  *   deshalb zusätzlich auf `fullscreenchange`.
@@ -28,13 +28,13 @@
 
 /** Ältere Safari-Fassungen kennen die Namen nur mit `webkit`-Präfix. */
 type WebkitElement = HTMLElement & { webkitRequestFullscreen?: () => unknown }
-type WebkitDokument = Document & {
+type WebkitDocument = Document & {
   webkitFullscreenEnabled?: boolean
   webkitFullscreenElement?: Element | null
   webkitExitFullscreen?: () => unknown
 }
 
-const dok = () => document as WebkitDokument
+const doc = () => document as WebkitDocument
 
 /**
  * LOHNT sich Vollbild hier — unabhängig davon, ob es ginge?
@@ -54,19 +54,19 @@ const dok = () => document as WebkitDokument
  * Nicht an der BREITE festgemacht: Ein schmales Browserfenster am Schreibtisch
  * ist kein Telefon, und ein Tablet quer ist breiter als mancher Laptop.
  */
-export function vollbildErwuenscht(): boolean {
+export function fullscreenWanted(): boolean {
   return window.matchMedia?.('(hover: none) and (pointer: coarse)').matches ?? false
 }
 
 /** Kann dieses Dokument überhaupt ins Vollbild? */
-export function vollbildMoeglich(): boolean {
-  const d = dok()
+export function fullscreenAvailable(): boolean {
+  const d = doc()
   return Boolean(d.fullscreenEnabled ?? d.webkitFullscreenEnabled)
 }
 
 /** Steht gerade etwas im Vollbild? */
-export function imVollbild(): boolean {
-  const d = dok()
+export function isFullscreen(): boolean {
+  const d = doc()
   return Boolean(d.fullscreenElement ?? d.webkitFullscreenElement)
 }
 
@@ -74,8 +74,8 @@ export function imVollbild(): boolean {
  * Ins Vollbild, wenn es geht. Muss aus einer Nutzergeste heraus laufen.
  * Schlägt es fehl, sieht die Seite aus wie zuvor — es gibt keine Meldung.
  */
-export function betreteVollbild(): void {
-  if (!vollbildMoeglich() || imVollbild()) return
+export function enterFullscreen(): void {
+  if (!fullscreenAvailable() || isFullscreen()) return
   const el = document.documentElement as WebkitElement
   try {
     // Das Promise wird abgefangen, nicht ausgewertet: Ob es geklappt hat, sieht
@@ -91,9 +91,9 @@ export function betreteVollbild(): void {
  * Zurück aus dem Vollbild. Beim Verlassen der Seite tun das die Browser von
  * selbst; der ausdrückliche Aufruf ist der Fall, in dem man im Dokument bleibt.
  */
-export function verlasseVollbild(): void {
-  if (!imVollbild()) return
-  const d = dok()
+export function exitFullscreen(): void {
+  if (!isFullscreen()) return
+  const d = doc()
   try {
     const p = d.exitFullscreen ? d.exitFullscreen() : d.webkitExitFullscreen?.()
     void Promise.resolve(p).catch(() => {})

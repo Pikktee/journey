@@ -251,7 +251,7 @@ Der Player läuft clientseitig ab einem `map.on('load')`-Callback in [src/main.t
 der die Module verdrahtet. Der zentrale Datenfluss:
 
 **Route als Bogenlängen-Parameter.** [src/geo.ts](src/geo.ts) `buildRoute()` nimmt Wegpunkte,
-**verdichtet sie zuerst linear auf höchstens `STUETZ_MAX_M` = 25 m**, glättet sie dann
+**verdichtet sie zuerst linear auf höchstens `VERTEX_MAX_M` = 25 m**, glättet sie dann
 (Catmull-Rom) und resampled sie auf ~14 m Schritte. Das Vorverdichten ist keine Kosmetik: Die
 Glättung BEULT über weite Stützpunkte aus, und der Überschuss sitzt in den KURVEN. Solange die
 Engine ihre Position selbst integrierte, war das nur eine etwas zu lange Route; seit sie aus
@@ -267,7 +267,7 @@ alles antreibt, ist `s` — die Position entlang der Route in Metern.** `pointAt
 Kurswinkel. Fotos und Modus-Wechsel werden über `s` verankert.
 
 **Und JEDER `f`-Anker wird beim Laden EINMAL nach `s` übersetzt** — danach rechnet der Player
-nur in Metern ([src/streckenanker.ts](src/streckenanker.ts), Gleichlauf-Konzept §8D). Der
+nur in Metern ([src/route-anchors.ts](src/route-anchors.ts), Gleichlauf-Konzept §8D). Der
 Server misst `f` auf der ROHEN Zeitreihe, die gebaute Route ist durch Catmull-Rom und das
 14-m-Raster 2,2–3,0 % länger, und die Dehnung verteilt sich UNGLEICHMÄSSIG: `f × route.total`
 lag deshalb im Median 0,8 Filmsekunden und in der Spitze 9 s neben der gemeinten Stelle. Die
@@ -275,11 +275,11 @@ Tabelle dagegen ist exakt — je Wegpunkt sein `f` (`segments[].f` aus dem Tour-
 `s` (`route.wpS`), dazwischen linear. Vier Dinge, die man dabei kippt: **Es reicht nicht, die
 Formel `f * route.total` zu ersetzen** — die stand fast nur bei den Momenten; die größeren
 Verbraucher rechnen UMGEKEHRT (`tourAudio.setFrac(s / route.total)` gegen rohe `f0`/`f1`,
-`kamFolger` gegen `k.f`, `createTimeAt(frac)`, Wetter über `f`) und tauchen bei einer Suche
+`camFollower` gegen `k.f`, `createTimeAt(frac)`, Wetter über `f`) und tauchen bei einer Suche
 nach der Formel gar nicht auf. **Die Verkettung wirft je Folgesegment den ersten Punkt weg**
 (`slice(1)`) — die `f`-Liste muss das mitmachen, sonst trägt ab dem zweiten Segment jeder
 Wegpunkt das `f` seines Nachbarn. **`?reverse=1` dreht Segmente UND Punkte um**, `f` läuft
-danach absteigend; `baueSBeiF` spiegelt die Tabelle, statt sie zu verwerfen. Und **kuratierte
+danach absteigend; `buildSAtF` spiegelt die Tabelle, statt sie zu verwerfen. Und **kuratierte
 `TOURS` bekommen nie ein Wegpunkt-`f`** — sie sind eine Datei mit Wegpunkten, keine
 Aufzeichnung: Für sie ist der Rückfall auf `f × route.total` dauerhaft, nicht übergangsweise
 (für aufgezeichnete gilt er bis zu ihrem nächsten Render). Messwerkzeug samt seiner drei
@@ -299,22 +299,22 @@ liegende Fotos (< 120 m in `s`) werden zu einem **Stopp** mit mehreren `items` g
 stecken bleiben — die Kamera hat eine explizite Flughöhe über Grund plus Blickpunkt. Jede
 Kameragröße läuft durch einen `Smooth`-Filter (exponentielle Glättung mit `tau`), wodurch
 Phasenwechsel automatisch zu weichen Schwenks werden. Phasen: `intro` (Orbit) → Fahrt →
-Foto-Orbit → Finale. Pro Modus skalieren `MODUS_TEMPO` ([src/filmachse.ts](src/filmachse.ts))
+Foto-Orbit → Finale. Pro Modus skalieren `TRAVEL_MODE_TEMPO` ([src/film-axis.ts](src/film-axis.ts))
 und `MODE_SCALE` ([src/tour.ts](src/tour.ts)) Tempo und Kameradistanz;
 `PRESETS` (nah/mittel/weit) sind die vom Nutzer wählbaren Einstellungsgrößen. Die Engine ruft
 pro Frame `ui.updateTrace(s, pos)` und optional `ui.onTick(frac)` auf.
 
 **Aus der Strecke wird Filmzeit — an genau EINER Stelle**
-([src/filmachse.ts](src/filmachse.ts), Gleichlauf-Konzept §8C, E3/E12). Das Modul ist DOM- und
+([src/film-axis.ts](src/film-axis.ts), Gleichlauf-Konzept §8C, E3/E12). Das Modul ist DOM- und
 importfrei und wird von **Player und Studio gemeinsam** benutzt: Tempo je Modus
-(`MODUS_TEMPO`/`tempoMs` — früher `MODE_SPEED`+`baseSpeed` in `tour.ts`), Moment-Standzeiten,
-die lower_bound-Interpolation, das Einweben der Halte und die RAMPEN (`RAMPE_M`, s. unten). Vorher stand das Tempo-Modell an
+(`TRAVEL_MODE_TEMPO`/`tempoMs` — früher `MODE_SPEED`+`baseSpeed` in `tour.ts`), Moment-Standzeiten,
+die lower_bound-Interpolation, das Einweben der Halte und die RAMPEN (`RAMP_M`, s. unten). Vorher stand das Tempo-Modell an
 DREI Stellen, gekoppelt über Tests, die den Quelltext von `tour.ts` nach Zeichenketten
 absuchten — einer prüfte, ob ein Kommentar dasteht. Jetzt sind es zwei: hier und der
 erzwungene Server-Spiegel ([film-tempo.ts](server/src/pipeline/film-tempo.ts) +
 [film-axis.ts](server/src/pipeline/film-axis.ts), eigener `rootDir`), und beide rechnen
-dasselbe **Verhaltens-Fixture** durch ([test/fixtures/filmachse.json](test/fixtures/filmachse.json),
-Web-Hälfte in [test/filmachse.test.ts](test/filmachse.test.ts), Server-Hälfte in
+dasselbe **Verhaltens-Fixture** durch ([test/fixtures/film-axis.json](test/fixtures/film-axis.json),
+Web-Hälfte in [test/film-axis.test.ts](test/film-axis.test.ts), Server-Hälfte in
 [server/test/film-tempo.test.ts](server/test/film-tempo.test.ts)).
 
 **Parametrisiert wird über die STRECKE, nicht über die Aufnahmezeit.** Das ist keine Wahl: Der
@@ -332,9 +332,9 @@ sie wechselt nur ihren Ort (über der Zeit waren die Plateaus die realen Pausen,
 Strecke sind es die Halte). Und das Modul gehört nach `src/`, **nicht** nach `src/studio/`: Ein
 Import Player→Studio zöge die Editor-Typenwelt in den Player-Chunk.
 
-**Die Achse TREIBT den Player an** (`window.__j.filmachse`, `window.__j.filmS`) — s. den
+**Die Achse TREIBT den Player an** (`window.__maptale.filmAxis`, `window.__maptale.filmTime`) — s. den
 eigenen Abschnitt unten. Sie trägt daneben den TON: Beim Eintritt in einen Musik-Bereich UND am Ende jedes
-Sprungs setzt `musikVersatzS` ([src/audiotracks.ts](src/audiotracks.ts)) die Datei auf die
+Sprungs setzt `musicOffsetS` ([src/audiotracks.ts](src/audiotracks.ts)) die Datei auf die
 Stelle, die dort im Film liefe. Vorher stand da hart `currentTime = startS`: Wer mitten
 hineinsprang, hörte das Stück von vorn; wer INNERHALB eines Bereichs scrubbte, hörte es
 weiterlaufen — die Datei stand danach bis zum Bereichsende woanders als der Film. Die Funktion
@@ -342,8 +342,8 @@ kam aus `src/studio/playback.ts` (ein Umzug, kein Nachbau); nachgezogen wird am 
 Geste und nicht pro Frame, weil während des Scrubs Musik klingt und ein Seek je Frame ein
 Stottern wäre.
 
-**Und die Ereignisse werden NACH FILMZEIT ausgelöst** (E10, Etappe 4b): `istAktiv` und
-`sfxSollFeuern` in [src/audiotracks.ts](src/audiotracks.ts) vergleichen Filmsekunden, der
+**Und die Ereignisse werden NACH FILMZEIT ausgelöst** (E10, Etappe 4b): `isActive` und
+`sfxShouldFire` in [src/audiotracks.ts](src/audiotracks.ts) vergleichen Filmsekunden, der
 Kamera-Folger in [main.ts](src/main.ts) ebenso. Der Grund ist der HALT: Dort läuft der Film,
 während die Strecke steht — ein Musik-Klip, der ganz in einer Standzeit liegt, hat
 `f0 === f1` und wäre unter jeder `frac`-Prüfung stumm, welche Zahl auch immer im JSON
@@ -390,15 +390,15 @@ eine Beobachtung für die Messskripte. Fünf Dinge, die man dabei kippt:
   bekannte Videolängen (`loadedmetadata` bei Altbestand) ändern deshalb nichts; es gilt, was
   das Tour-JSON sagt, und ohne Angabe die Foto-Annahme, die auch das Studio trifft.
 - **Die Achse rechnet in ROHEN Metern, die Engine fährt auf der gebauten Route.** Die
-  Übersetzung in beide Richtungen steht in [main.ts](src/main.ts) (`rohBeiS`/`sBeiRoh`) und
+  Übersetzung in beide Richtungen steht in [main.ts](src/main.ts) (`rawAtRoute`/`routeAtRaw`) und
   nirgends sonst — nur diese Datei kennt beide Meterstände.
 - **Der Anteil, den `seek`/`scrub` bekommen, ist der des FILMS** (Etappe 5), weil die
   Fortschrittsleiste ihn so zeichnet — s. den Abschnitt „Die Leiste ist die Zeitachse" unten.
 - **Die Foto-Karte ist eine FUNKTION der Filmzeit** (E15, s. den eigenen Abschnitt unten) —
   kein getriggerter Auftritt mehr.
 
-**Die Rampe ist eine feste Form über eine feste STRECKE** (E14, `RAMPE_M` = 120 m in
-[filmachse.ts](src/filmachse.ts)), keine nachgebaute Exponentialkurve — und sie gilt für
+**Die Rampe ist eine feste Form über eine feste STRECKE** (E14, `RAMP_M` = 120 m in
+[film-axis.ts](src/film-axis.ts)), keine nachgebaute Exponentialkurve — und sie gilt für
 **JEDEN Tempowechsel**, nicht nur für Halte. Über eine Rampenstrecke `L` von `v0` auf `v1`
 folgt das Tempo `v0 + (v1 − v0) · smoothstep(u)`: sanft an, in der Mitte am stärksten, sanft
 ins neue Tempo. Daraus die zwei Zahlen, die alles tragen: die Dauer **`T = 2L / (v0 + v1)`**
@@ -426,13 +426,13 @@ einer Modus-Grenze sprang das Tempo dann von einem Frame zum nächsten (Stockhol
 Faktor 6,25), während die Kamera weiter geglättet folgte — erst schnell und nah, dann schnell
 und weit. Die alte Engine hatte das nicht: Ihr Tiefpass lag auf JEDER Tempoänderung.
 
-**`MODUS_TEMPO` und `RAMPE_M` sind GESTALTERISCHE Zahlen** — sie sagen, wie sich eine
+**`TRAVEL_MODE_TEMPO` und `RAMP_M` sind GESTALTERISCHE Zahlen** — sie sagen, wie sich eine
 Fortbewegung im Film anfühlen soll, nicht wie schnell man wirklich ist. `walk` steht seit dem
 Abfahren auf 0,5 (vorher 0,4, zu träge). Wer eine davon ändert, ändert die Dauer JEDER
 bestehenden Tour: `scripts/messungen/filmdauer.ts` ist der Beleg, und der Spiegel in
 `server/src/pipeline/filmtempo.ts` muss mit.
 
-**Die KAMERADISTANZ folgt derselben Rampe** (`Filmspur.skalaBeiS`, aus `modusMischung`) —
+**Die KAMERADISTANZ folgt derselben Rampe** (`FilmTrack.scaleAtS`, aus `travelModeMix`) —
 und zwar am TEMPO geführt, nicht an der Strecke: Die Rampe ist eine Form über der Zeit, nach
 halber Rampenzeit sind aus dem Stand erst 3/16 ihrer Strecke gefahren. Vorher zog ein eigener
 Tiefpass die Distanz nach (τ = 2,2 s, also rund 6 s bis sie steht), während die Rampe in unter
@@ -442,7 +442,7 @@ muss ausdrücklich mitgehen*. Gemessen als **Bildschirm-Tempo** (Fahrtempo ÷ Ka
 `scripts/messungen/bildschirmtempo.mjs`): Die Modi sind darauf abgestimmt und liegen alle bei
 0,167–0,202 /s; die Spitze über den ganzen Film fiel von 0,888 auf 0,230 /s.
 
-**Und die Fortbewegung, die Marker und Motorton lesen, kommt aus der ACHSE** (`filmachse.modi`),
+**Und die Fortbewegung, die Marker und Motorton lesen, kommt aus der ACHSE** (`filmAxis.modes`),
 nicht aus den rohen Modus-Grenzen: Die Achse zieht einen Tempowechsel dicht an einem Halt auf
 den Halt, die rohen Grenzen wissen davon nichts — ein Fußgänger-Marker liefe sonst für die
 Meter dazwischen mit Fährtempo über die Karte.
@@ -456,9 +456,9 @@ er zurück, lösten `anker + versatzFilmS` in Studio und Render verschieden auf.
 gleich (`cycleSpeed`/`shuttle` im Player, J/L im Editor). Das erledigt eine Lücke statt sie zu
 flicken: Die Musik lief im Schnelllauf weiter und driftete, weil `shuttle` keinen Ausgleich
 auslöste — bei 8× vergehen acht Filmsekunden je Wanduhrsekunde. Beim Zurückschalten auf 1×
-richtet [main.ts](src/main.ts) den Ton einmal aus (`nachSprung`), wie nach jedem Sprung.
+richtet [main.ts](src/main.ts) den Ton einmal aus (`afterJump`), wie nach jedem Sprung.
 
-**Die Engine hat genau EINE Uhr, und sie ist ungedeckelt** ([src/filmuhr.ts](src/filmuhr.ts)).
+**Die Engine hat genau EINE Uhr, und sie ist ungedeckelt** ([src/film-clock.ts](src/film-clock.ts)).
 Vorher klemmte `tick()` die Frame-Zeit bei 50 ms — ein langsames Gerät bekam dadurch keine
 ausgelassenen Bilder, sondern eine langsamere Tour: bei 6× Drosselung lief die Bilduhr auf
 81,3 % der Echtzeit, bei 12× auf 46,1 %, während der Ton in Echtzeit weiterlief. Ein Film mit
@@ -470,7 +470,7 @@ ein gedeckeltes `dtKamera` ließe sie dauerhaft hinterherhängen (~65 % der verg
 Deckel — die Android-WebView sagt es zusätzlich ausdrücklich
 (`maptale:hintergrund`/`maptale:vordergrund` aus `PlayerScreen.kt`), weil dort nicht zugesichert
 ist, dass `visibilitychange` durchkommt. Und was der Notdeckel (1,0 s, ein Netz für Umgebungen
-ohne dieses Ereignis) doch kappt, ist **zählbar** statt unsichtbar: `window.__j.uhr`.
+ohne dieses Ereignis) doch kappt, ist **zählbar** statt unsichtbar: `window.__maptale.uhr`.
 
 **Was nicht an der Filmuhr hängt, muss ausdrücklich mitgehen** — sonst ist es nicht eine Uhr,
 sondern wieder zwei. Die Ton-Schleifen haben eigene Timer (`audiotracks.ts`, `music.ts`,
@@ -485,7 +485,7 @@ Hintergrund und Messwerte: [scripts/messungen/README.md](scripts/messungen/READM
 Konzept §8A und Falle 3.
 
 **Der Video-Export ist ein TAKTGEBER, kein zweiter Renderer**
-([src/exportfilm.ts](src/exportfilm.ts), Konzept
+([src/film-export.ts](src/film-export.ts), Konzept
 [konzept_video_export.md](docs/concepts/konzept_video_export.md) §6 „Ein Takt"). `Tour.exportTakt`
 hängt `tick` von der Wanduhr ab, der Encoder ruft `Tour.exportSchritt(1/fps)` — und das ist
 DIESELBE `schritt`-Funktion. Die Bildrate (24/30/50/60, Vorgabe 30) ist dabei eine reine
@@ -501,14 +501,14 @@ fallen. Deshalb `weather.externerTakt`/`weather.schritt` und `atmo.setzeTakt`. W
 Schleife anlegt (Partikel, Blende, Zähler), gibt ihr einen Schritt von außen.
 **Gerendert wird IM Studio-Tab**, in einem gleich-origin `iframe` mit der Export-Seite
 ([src/studio/export-sheet.ts](src/studio/export-sheet.ts), Meldungen per `postMessage`, Kanal in
-[exportformat.ts](src/exportformat.ts)). Ein zweiter Tab wäre ein verdeckter Tab, und Chrome
+[film-export-channel.ts](src/film-export-channel.ts)). Ein zweiter Tab wäre ein verdeckter Tab, und Chrome
 drosselt dessen `requestAnimationFrame`: gemessen 0,15 statt 15 Bilder je Sekunde. Der Rahmen
 muss dabei GEZEICHNET werden — `display: none` liefert kein WebGL-Bild —, also ist er sichtbar
-und zugleich die Vorschau. Von der Frame-Zeit sind 98 % das Warten auf Kacheln (`window.__j.exportMess`);
+und zugleich die Vorschau. Von der Frame-Zeit sind 98 % das Warten auf Kacheln (`window.__maptale.exportMess`);
 Engine, Komposition und Encode zusammen 1,2 ms. Wer die Auflösung senkt, spart fast nichts.
 
 **Fortbewegungs-Modi** sind `walk | bike | moped | jeep | tram | ferry`. Die Liste muss an vier
-Stellen deckungsgleich bleiben: `MODUS_TEMPO` ([src/filmachse.ts](src/filmachse.ts)) samt
+Stellen deckungsgleich bleiben: `TRAVEL_MODE_TEMPO` ([src/film-axis.ts](src/film-axis.ts)) samt
 `MODE_SCALE` ([src/tour.ts](src/tour.ts)),
 `MODE_ICONS` ([src/map.ts](src/map.ts)), `MODE_SOUND` ([src/vehicle.ts](src/vehicle.ts), nur
 die drei mit Motorgeräusch: moped/jeep/ferry — die Tram fährt lautlos) und `TRAVEL_MODES` ([server/src/schema/upload.ts](server/src/schema/upload.ts), von
@@ -547,7 +547,7 @@ und am Foto-Orbit ein Sendemast. Voll dargestellt wird nur ein FENSTER um die ak
 Position (nächster Stopp, zuletzt besuchter, am Desktop der zweite kommende), alles andere
 bleibt ein flacher Bodenpunkt: am Pixel 9 kostete das Querformat mit vier Pins doppelt so
 viel CPU wie das Hochformat mit einem (7 % Bildrate → mit Detailstufe unter der Messschwelle).
-Rechenregeln DOM-frei und getestet in [src/pinmodell.ts](src/pinmodell.ts); Machbarkeit,
+Rechenregeln DOM-frei und getestet in [src/pin-model.ts](src/pin-model.ts); Machbarkeit,
 Messwerte und Fallen (Mercator-y-Flip cullt Bodenflächen!) in
 [docs/architecture/foto-pins-3d.md](docs/architecture/foto-pins-3d.md).
 
@@ -568,7 +568,7 @@ deckte Bildunterschrift und „Weiter" zu (gemessen 93 px bei 1280 × 800). Dies
 E13 — ein Halt ist ein Zustand der Kurve, kein anderer Betriebsmodus.
 
 **Die Bedienung liegt ÜBER dem Bild** (E17): `.photo-layer` (12) und `.finale` (13) unter
-`.dock` (20), `.karten-info` (22), `.zurueck` (31) und dem Startscreen (30). Vorher war es
+`.dock` (20), `.map-attribution` (22), `.exit-pill` (31) und dem Startscreen (30). Vorher war es
 umgekehrt (25 gegen 20), und das trug nur, solange `beginScrub` die Karte wegräumte — seit sie
 liegen bleibt, muss die Leiste erreichbar sein, WÄHREND sie liegt. Das ist die Ordnung jedes
 Videoplayers: Das Bild ist der Inhalt, die Steuerung liegt darauf. Gehalten von
@@ -577,7 +577,7 @@ auseinander, wer die eine anfasst, sieht die andere nicht.
 
 **Und die Foto-Karte ist eine FUNKTION der Filmzeit** (E15, `Tour.synchronisiereKarte` →
 `UI.synchronisiereKarte`), keine Wanduhr-Animation mehr. Jede Aufnahme eines Halts ist ein
-KLIP von Standzeit + Ausblendung (`klipDauerS` in [einblendung.ts](src/einblendung.ts));
+KLIP von Standzeit + Ausblendung (`clipDurationS` in [card-timing.ts](src/card-timing.ts));
 steht `filmS` darin, liegt ihre Karte auf der Bühne — mit dem Auftritt, dem „Entwickeln", dem
 Ken-Burns-Stand und dem Video-Frame genau dieser Filmsekunde. Technisch **malt sie seit dem
 2026-08-17 ein Maler auf eine LEINWAND** (s. den nächsten Abschnitt); bis dahin standen die
@@ -591,16 +591,16 @@ Die Karte erscheint auch rückwärts und animiert rückwärts; **Ken Burns ist p
 die Karte weg); und die **1-Sekunden-Abweichung aus §6C** des Gleichlauf-Konzepts ist weg — die
 Drift-Dauer ist beidseits die Klip-Länge (`holdS + 0.8`), nicht mehr `holdS + 1.8` im Player.
 Vier Regeln daneben: Ein **Video kann nicht rückwärts spielen**, dort wird geseekt
-(`videoStandS`, geteilt); es läuft nur bei Tempo genau 1 und schweigt sonst; **ab 2×
+(`videoPositionS`, geteilt); es läuft nur bei Tempo genau 1 und schweigt sonst; **ab 2×
 Schnelllauf bleibt die Karte ganz aus** (E16, „dort will man die Strecke überfliegen"); und
 `swapPhoto` ist ersatzlos entfallen — jede Aufnahme hat ihren eigenen Klip und damit ihren
-eigenen Auf- und Abgang. Was geteilt wird, sind die RECHNUNGEN (`kartenZeiten`,
-`balkenAnteil`, `klipDauerS`, `videoStandS` in [einblendung.ts](src/einblendung.ts)) und die
+eigenen Auf- und Abgang. Was geteilt wird, sind die RECHNUNGEN (`cardTimings`,
+`barFraction`, `clipDurationS`, `videoPositionS` in [card-timing.ts](src/card-timing.ts)) und die
 Filmzeit — **nicht die Mechanik**: Ein gemeinsames DOM-Bauteil ist ausdrücklich nicht gewollt
 (Konzept §6A), der Player streamt einen Film voraus, der Editor springt in einer Datei umher.
 
-**Wann ein Video GESUCHT wird, entscheidet eine geteilte Rechnung** (`videoNachfuehrung` in
-[einblendung.ts](src/einblendung.ts), benutzt von Player und Editor). Vorher stand an beiden
+**Wann ein Video GESUCHT wird, entscheidet eine geteilte Rechnung** (`videoSeekDecision` in
+[card-timing.ts](src/card-timing.ts), benutzt von Player und Editor). Vorher stand an beiden
 Bühnen dieselbe Bedingung direkt am Element: „weicht `currentTime` um mehr als 0,34 s ab, dann
 springen", in jedem Frame gefragt. Auf dem Telefon war das ein SUCHSTURM. Über Mobilfunk
 braucht ein Video rund eine Sekunde bis zum ersten Bild, die Filmzeit läuft dabei weiter, und
@@ -625,8 +625,8 @@ Einzelbild in der Datei. Den Anfang entschärft `_weckeVideo` in [ui.ts](src/ui.
 Halt holt schon während der Anfahrt den KOPF seiner Datei (`preload="metadata"`, nicht die
 ganze Datei, die konkurrierte mit den Kacheln).
 
-**Und die Karte des PLAYERS liegt auf einer Leinwand** ([kartenmaler.ts](src/kartenmaler.ts),
-DOM-frei; eingehängt von [kartenschicht.ts](src/kartenschicht.ts) als `#karte` auf z-index 12).
+**Und die Karte des PLAYERS liegt auf einer Leinwand** ([card-painter.ts](src/card-painter.ts),
+DOM-frei; eingehängt von [card-layer.ts](src/card-layer.ts) als `#karte` auf z-index 12).
 Damit gibt es sie nur noch ZWEIMAL statt dreimal: Der Video-Export holt sie mit
 `zeichneOverlay(ctx, 'karte', …)`, derselben Zeile wie für Wetter und Atmosphäre, und sein
 eigener Nachbau ist weg. Der hatte Ken Burns in der GEGENRICHTUNG laufen, kein „Entwickeln",
@@ -640,8 +640,8 @@ Sieben Dinge, die man dabei kippt:
   hat und ein eingefrorener Puffer nicht trägt (er bräuchte `preserveDrawingBuffer` im
   Normalbetrieb, und das Wetter läuft im Halt weiter). Klickfläche, Ton-Knopf, „Weiter ▸" und
   das „Angehalten"-Abzeichen liegen DARÜBER (z 14) — Knöpfe haben im Film nichts zu suchen.
-- **Die Klickflächen sind MITGEFÜHRT.** `maleKarte` gibt seine Rechtecke zurück
-  (`KartenMasse`), die Schicht legt die DOM-Elemente pro Frame darauf. Ein statischer Kasten
+- **Die Klickflächen sind MITGEFÜHRT.** `paintCard` gibt seine Rechtecke zurück
+  (`CardRects`), die Schicht legt die DOM-Elemente pro Frame darauf. Ein statischer Kasten
   wäre falsch, sobald die Karte springt, weil die Bedienung erscheint oder verschwindet.
 - **Eine Leinwand zeichnet sich nicht von selbst neu.** Eine Custom Property tat es; hier hängt
   jede Änderung am nächsten Kopfschritt, und im ANGEHALTENEN Halt läuft keiner. Der Rückzug der
@@ -656,7 +656,7 @@ Sieben Dinge, die man dabei kippt:
   Briefmarkenrahmen mit Fußnotenschrift — ein gemeinsamer Zeichner allein macht zwei Bühnen
   nicht deckungsgleich. Nicht mit skalieren nur drei Mindest-Schriftgrößen (Telefon) und der
   Boden des Bildradius. Die LAGE (`breit`/`schmal`/`quer`) leitet der Maler selbst aus Breite
-  und Höhe ab, an denselben Schwellen, an denen vorher `body.kompakt-quer` und
+  und Höhe ab, an denselben Schwellen, an denen vorher `body.compact-landscape` und
   `@media (max-width: 700px)` hingen.
 - **Das „Entwickeln" ist eine Überblendung zweier gepufferter Fassungen, nicht `ctx.filter` pro
   Frame.** Der ist je nach Browser nicht beschleunigt. Es ist eine NÄHERUNG (gemessen: max 24
@@ -681,12 +681,12 @@ daneben, die man beim nächsten Anfassen leicht kippt:
   durch die Halte bewegte sich damit ausgerechnet das, was bleibt. Eine rahmenlose Fassung
   („nur das Bild") war die schönere EINZELkarte und ist genau daran gescheitert.
 - **Titel links, Angaben rechts, eine Zeile — mit Rückfall.** Passen beide nicht mit dem
-  doppelten `lueckeX` dazwischen nebeneinander, bekommt jede ihre eigene Zeile
-  (`angabenPasstNicht`). Die Karte ist so breit wie ihr Bild: Bei einer Hochkant-Aufnahme sind
+  doppelten `gapX` dazwischen nebeneinander, bekommt jede ihre eigene Zeile
+  (`factsDoNotFit`). Die Karte ist so breit wie ihr Bild: Bei einer Hochkant-Aufnahme sind
   das keine 200 px, dort blieben dem Titel 64 von 158 gebrauchten Pixeln. Deshalb kennt die
-  Geometrie den INHALT (`KartenInhalt`) und wird im Bedarfsfall zweimal gerechnet — sie ist
+  Geometrie den INHALT (`CardContent`) und wird im Bedarfsfall zweimal gerechnet — sie ist
   reine Rechnung, der zweite Durchgang kostet nichts.
-- **Die Angaben haben keinen Rahmen mehr und stehen zweistufig** (`teileAngaben`): Ziffern
+- **Die Angaben haben keinen Rahmen mehr und stehen zweistufig** (`splitFacts`): Ziffern
   dunkler und in 500, „Uhr" und „km" zurückgenommen. Ein Kasten sagt „hier steht eine Marke",
   und das ist eine Uhrzeit nicht. Der Kilometerstand bleibt auf JEDER Bühne, auch im Editor,
   obwohl der Zeitleisten-Kopf dieselbe Zahl trägt: Die Karte soll überall dieselbe sein, sonst
@@ -702,7 +702,7 @@ daneben, die man beim nächsten Anfassen leicht kippt:
   Beschreibungen waren im Median 84 Zeichen lang und die längste 239 — der Median
   füllte die Standzeit vollständig aus, wer las, sah das Bild nicht. Dazu kam,
   dass das Studio nie ein Feld dafür hatte: Nur `tours.ts` konnte sie setzen.
-  Entfallen sind deshalb `KartenText.unter`, die Unterschrift-Geometrie samt
+  Entfallen sind deshalb `CardText.unter`, die Unterschrift-Geometrie samt
   ihren Maßsatz-Feldern, `#photo-sub` und die 28 Beschreibungen der kuratierten
   Touren. Der Player trägt seither `title`, `1/2` und die Angaben als
   `figcaption.sr-only`, sonst nichts.
@@ -718,8 +718,8 @@ daneben, die man beim nächsten Anfassen leicht kippt:
   Uhrzeit in den Player gewandert (`UI.zeitfenster`, sonst zeigte ein mtime-Fallback eine
   Uhrzeit von vorgestern); und der Kilometerstand steht mit KOMMA, wie im Editor.
   Bestandstouren tragen die alten Texte, bis sie neu gerendert werden.
-- **Der Rand ist schmaler, der Fuß bleibt der eine breite Rand** (Editor: `polster` 22 → 12,
-  `balken` 7 → 5, Balken-Rest 0,3 → 0,16; `textUnten` Editor 22 → 24 und Player 15 → 18).
+- **Der Rand ist schmaler, der Fuß bleibt der eine breite Rand** (Editor: `padding` 22 → 12,
+  `balken` 7 → 5, Balken-Rest 0,3 → 0,16; `textBottom` Editor 22 → 24 und Player 15 → 18).
   Gemessen wird am MALER und nicht am Entwurf — dort galt eine andere Geometrie, und eine 6
   sah dort richtig aus, ergab hier aber 13,5 px unten gegen 25 oben, also eine Karte, die unten
   abgeschnitten aussah. Jetzt sind es 27,5 zu 25 (Editor) und 24,8 zu 22,4 (Player). Gleich
@@ -732,7 +732,7 @@ daneben, die man beim nächsten Anfassen leicht kippt:
   ohne die stand dort eine leere Papierfläche, und beide Fehler der Karte hingen an ihr —
   erst lief die Angaben-Zeile links aus der Karte (die Geometrie lieferte die rechte Kante,
   der Maler las sie als linke), nach dem Umbau auf die Fußzeile dieselbe Zeile nach rechts
-  hinaus, weil `malBeschriftung` seinen `lage === 'quer'`-Zweig behielt. **`text.angaben.x`
+  hinaus, weil `paintCaption` seinen `lage === 'quer'`-Zweig behielt. **`text.angaben.x`
   ist in JEDER Lage die RECHTE Kante der Zeile**; ein Sonderfall daneben ist genau der
   Fehler, den man zweimal baut. Der Preis der Fußzeile ist gemessen und klein: Bild 501 × 334
   statt 549 × 366 auf dem Pixel 9 quer (−17 % Fläche, Titel dafür 18,9 statt 14 px). Und die
@@ -740,21 +740,21 @@ daneben, die man beim nächsten Anfassen leicht kippt:
   und Angaben nicht nebeneinander, wird die Karte um eine Zeile höher — ohne das blieben bei
   einer Hochkant-Aufnahme quer 2 px Luft zum Bühnenrand. Jetzt trägt das BILD die Zeile.
 
-Die geteilten ZAHLEN bleiben in `KARTE`/`KARTE_BUEHNE` ([einblendung.ts](src/einblendung.ts));
+Die geteilten ZAHLEN bleiben in `CARD`/`CARD_STAGE` ([card-timing.ts](src/card-timing.ts));
 die GEOMETRIE ist ausdrücklich nicht geteilt und steht als benannter Bühnen-Satz im Maler:
-`KARTEN_MASSE` für den Player (drei Lagen, abgeleitet), `EDITOR_MASSE` für den Editor.
+`CARD_METRICS` für den Player (drei Lagen, abgeleitet), `EDITOR_METRICS` für den Editor.
 Gemessen wurde mit
 [scripts/messungen/kartenleinwand.mjs](scripts/messungen/kartenleinwand.mjs): Bühne gegen Film
 bei gleichem Format max 0 von 255, Frame-Zeit im Halt unverändert (14,4 → 14,0 ms).
 
 **Und seit dem 2026-08-17 malt derselbe Maler auch im STUDIO** — die dritte Bühne, „Eine
 Bühne, ein Maler" Etappe 1 ([docs/archive/eine-buehne-ein-maler.md](docs/archive/eine-buehne-ein-maler.md)).
-Der Editor rief `createKartenSchicht` mit dem Satz `editor` und verlor dabei 150 Zeilen CSS:
+Der Editor rief `createCardLayer` mit dem Satz `editor` und verlor dabei 150 Zeilen CSS:
 fünf Keyframes, die `--fe-*`-Choreografie, einen eigenen Reduce-Block. Was ihn leicht macht,
 ist, dass seine Karte **keine Knöpfe** hat — der aufwendigste Teil der Player-Migration, die
 mitgeführten Klickflächen, entfällt dort ganz. Vier Dinge, die man dabei kippt:
 
-- **Die Lage wird GESETZT, nicht abgeleitet.** `kartenLage` fragt Breite und Höhe, und für ein
+- **Die Lage wird GESETZT, nicht abgeleitet.** `cardLayout` fragt Breite und Höhe, und für ein
   Vollbild ist das richtig; eine Editor-Fläche von 700 × 500 fiele damit in `quer` und bekäme
   das Layout „Bild links, Text rechts" eines liegenden Telefons. Sie gehört zum Bühnen-Satz.
 - **`chrome: 306` ist ein ANTEIL, keine Reserve in Pixeln.** Die Bildhöhe ist
@@ -784,8 +784,8 @@ ankündigte; teuer waren sie genau dort, wo etwas liegt: unten die Steuerleiste,
 hinaus. `body.cinema` bleibt und schaltet nur noch den `backdrop-filter` des Schleiers.
 
 **An seine Stelle tritt der SCHLEIER — und der hängt seither an der FILMZEIT.** Der Halt wird
-dadurch markiert, dass die Umgebung zurücktritt. `kartenschicht.ts` schreibt pro Frame
-`--schleier-sicht`, die Deckkraft der Karte; damit kommt er über den Flug hoch und geht mit dem
+dadurch markiert, dass die Umgebung zurücktritt. `card-layer.ts` schreibt pro Frame
+`--scrim-opacity`, die Deckkraft der Karte; damit kommt er über den Flug hoch und geht mit dem
 Abgang wieder weg, rückwärts wie vorwärts und beim Scrubben. Als 0,8-s-Transition an einer
 Klasse blieb er beim Scrubben hinter der Karte zurück und kam rückwärts gar nicht mit — die
 letzte Stelle der Karte, an der noch eine Wanduhr lief. Drei Dinge, die man dabei kippt: Es ist
@@ -796,9 +796,9 @@ der dauernd stünde, wäre auf einem schwachen Gerät der teuerste Posten der Se
 **Transition muss WEG, nicht kürzer werden** — sie liefe sonst über die Werte, die die Filmzeit
 setzt.
 
-**Die Karte FÄHRT mit der Steuerleiste, sie springt nicht.** `KartenBuehne.bedienung` ist ein
+**Die Karte FÄHRT mit der Steuerleiste, sie springt nicht.** `CardStage.controls` ist ein
 Anteil 0..1 und kein Schalter; die Schicht führt ihn über 0,5 s mit `ease` — **Dauer und Kurve
-der Leiste selbst** (`.dock`, `.zurueck`, `.next-stop` in style.css). Damit ist es eine Geste:
+der Leiste selbst** (`.dock`, `.exit-pill`, `.next-stop` in style.css). Damit ist es eine Geste:
 Die Leiste kommt, die Karte macht ihr Platz. Drei Dinge, die man dabei kippt: Die Geometrie muss
 über dem Anteil **monoton** sein (der Maler mischt linear zwischen `chrome` und
 `chromeBedienung`, die Kurve gehört der Schicht — eine Kante darin wäre ein Ruckeln); die
@@ -806,7 +806,7 @@ Schleife zeichnet **nur, wenn es im laufenden Bild noch niemand getan hat** (lä
 ruft er ohnehin jeden Frame `male()`, steht er, ist sie die einzige, die zeichnet — Falle 2 zum
 dritten Mal); und **eine neu erscheinende Karte fährt nicht mit**, sie beginnt bei dem Anteil,
 der gilt. Bei stehender Leiste ist die Karte außerdem kleiner geworden und sitzt höher
-(`chromeBedienung` 335 → 380, `hubBedienung` 48 → 64): Auf 1080p blieben vorher 31 px zwischen
+(`chromeBedienung` 335 → 380, `liftControls` 48 → 64): Auf 1080p blieben vorher 31 px zwischen
 Kartenkante und Leiste bei 94 px oben, jetzt sind es 76 unten und 75 oben.
 
 **Und die Karte hängt am HALT, nicht an einer Phasen-Flanke.** `update` räumte sie nur, wenn
@@ -830,7 +830,7 @@ den die Studio-Zeitleiste am 2026-08-05 verlassen hat). Vier Dinge, die man dabe
   kann, ist **`onTick`** — er treibt die Tag/Nacht-Regie an und rechnet
   `pointAt(route, frac × total)`: mit dem Filmanteil wanderte die Sonne im Halt weiter,
   während der Film steht.
-- **Die Halt-Fläche ist Anzeige, nicht Griff** (`.halt-flaeche`, `pointer-events: none`).
+- **Die Halt-Fläche ist Anzeige, nicht Griff** (`.stop-span`, `pointer-events: none`).
   Wäre sie der Griff, spränge ein Tipp in ihrer Mitte auf die ANKUNFT des Halts — also genau
   dorthin, wohin vorher jede Eingabe fiel. Der Griff bleibt der Punkt und sitzt am Beginn.
 - **Das Höhenprofil wird filmäquidistant abgetastet**, Halte sind darin Plateaus; `yAt` nimmt
@@ -847,7 +847,7 @@ neue Filmsekunde zu stellen (eine Lücke von E15, gehört zur Feinplatzierung).
 (2026-08-18, Entwurf: [player-startscreen.html](docs/archive/mockups/player-startscreen.html)).
 Vorher stand über dem Titel das Aufnahmedatum in der Akzentfarbe, die Beschreibung aus dem
 Studio kam nirgends an, und der Knopf trug einen Amber-Verlauf, den es sonst nirgends im
-Produkt gab. Die Rechenteile stehen DOM-frei in [src/tourtexte.ts](src/tourtexte.ts), damit
+Produkt gab. Die Rechenteile stehen DOM-frei in [src/tour-texts.ts](src/tour-texts.ts), damit
 Player, Studio und Tests dieselbe Antwort bekommen. Sechs Regeln, die man beim nächsten
 Anfassen leicht kippt:
 
@@ -864,10 +864,10 @@ Anfassen leicht kippt:
   frisch eingesetzt ([server/src/routes/tours.ts](server/src/routes/tours.ts)) — eingebacken
   wäre er nach dem nächsten Namenswechsel falsch. Verlinkt sind nur Avatar und Name, nicht das
   Datum; im App-Modus gar nicht, weil ein Profilsprung im WebView keinen Rückweg hat.
-- **Die Beschreibung wird BEGRENZT statt geklemmt** (150 Zeichen, `BESCHREIBUNG_MAX`). Am
+- **Die Beschreibung wird BEGRENZT statt geklemmt** (150 Zeichen, `DESCRIPTION_MAX`). Am
   Startscreen zu klemmen hieße raten, wo ein Satz endet, und zwar bei jeder Bildschirmbreite
   anders. Unter 150 bleibt der Text auch in der Vorschaukarte geteilter Links ungekürzt.
-- **Die Filmdauer kommt aus der Achse** (`filmachse.gesamtS`) und ist damit keine Schätzung.
+- **Die Filmdauer kommt aus der Achse** (`filmAxis.totalS`) und ist damit keine Schätzung.
   Sie steht als erster Chip und nicht im Knopf: Der Knopf ist eine Handlung, und im
   Video-Export gibt es ihn nicht — die Kennzahlenzeile dagegen zeichnet er mit.
 - **Eine Null ist keine Angabe.** „0 hm" stand neben „0.1 km" wie ein Defekt; Chips ohne Wert
@@ -877,11 +877,11 @@ Anfassen leicht kippt:
 - **Die Kennzahlen hängen NICHT am Kartenladen.** Sie standen im `load`-Handler und zeigten
   bis zur ersten Kachel „– km", obwohl Route und Achse längst gebaut sind.
 
-Der Export zieht überall mit ([exportfilm.ts](src/exportfilm.ts) `zeichneIntroTafel`): Er
+Der Export zieht überall mit ([film-export.ts](src/film-export.ts) `drawIntroPanel`): Er
 liest die Inhalte per `textContent` aus denselben Elementen und überspringt seit dem Umbau
 ausgehängte (`hidden`) — sonst stünde im Film, was der Player gerade weglässt.
 
-**Oben links steht genau EIN Element: der Weg hinaus** — die Pille `.zurueck`, fest positioniert
+**Oben links steht genau EIN Element: der Weg hinaus** — die Pille `.exit-pill`, fest positioniert
 über dem Intro. Sie steht die ganze Fahrt über da (nicht nur im Startscreen), trägt das Wort der
 Herkunft (Studio · Entdecken · Profil aus dem Referrer, sonst „Startseite") und geht per
 `history.back()`, damit Scrollposition und Zustand der Liste erhalten bleiben. Der frühere
@@ -896,7 +896,7 @@ bleibt die Pille aus — dort führt `.app-exit` in der Steuerleiste in die Tour
 Die einzige `h1` des Players ist seither der Intro-Titel.
 
 **Der Start-Knopf ist zugleich die Nutzergeste fürs VOLLBILD**
-([src/vollbild.ts](src/vollbild.ts)). Im mobilen Browser frisst die Adressleiste
+([src/fullscreen.ts](src/fullscreen.ts)). Im mobilen Browser frisst die Adressleiste
 den Streifen, der im Querformat am meisten kostet; die Fullscreen API nimmt sie
 weg, auf Android samt Systemleiste. Fünf Regeln, die man beim nächsten Anfassen
 kippt: Gefragt wird nach der FÄHIGKEIT und nie nach dem Gerät (`fullscreenEnabled`
@@ -905,12 +905,12 @@ jedes Element; altes iOS fällt still durch, und ein `iframe` ohne
 `allow="fullscreen"` ebenso, was für den Export-Rahmen die richtige Antwort ist).
 **Nichts hängt am Erfolg**: Der Aufruf kann trotz Nutzergeste ablehnen, und eine
 unbehandelte Ablehnung risse den Start-Handler ab — dann startete die Tour nicht,
-WEIL das Vollbild nicht klappte (`test/vollbild.test.ts` hält beide Wege).
+WEIL das Vollbild nicht klappte (`test/fullscreen.test.ts` hält beide Wege).
 `--vh-app` muss mitgehen, deshalb hört [main.ts](src/main.ts) zusätzlich auf
 `fullscreenchange`. **Können und Wollen sind zwei Fragen**: Am Schreibtisch hat
 das Fenster die Größe, die jemand ihm gegeben hat, und die Adressleiste kostet
 daran fast nichts — dort wäre die Übernahme des Schirms eine Anmaßung.
-`vollbildErwuenscht()` fragt deshalb `(hover: none) and (pointer: coarse)`, also
+`fullscreenWanted()` fragt deshalb `(hover: none) and (pointer: coarse)`, also
 „Finger und keine Maus": Ein Notebook mit Berührungsbildschirm hat ein Trackpad,
 meldet `hover: hover` und fällt heraus; Tablets fallen hinein. Nicht an der
 BREITE festgemacht, denn ein schmales Browserfenster ist kein Telefon. Und **in
@@ -926,7 +926,7 @@ Karten-Attribution läuft seit dem Kartendaten-Popup ebenfalls in Outfit. Die kl
 Etiketten („NÄCHSTER HALT", „DISTANZ", „KM 12.3") waren die alte Sprache; Label sind jetzt
 Satzschrift.
 
-**Die Pflicht-Attribution ist ein ⓘ-Knopf mit Popup** ([src/karteninfo.ts](src/karteninfo.ts)),
+**Die Pflicht-Attribution ist ein ⓘ-Knopf mit Popup** ([src/map-attribution.ts](src/map-attribution.ts)),
 nicht MapLibres compact-Control (`attributionControl: false`): eine Glaskarte, die pro Quelle
 nennt, WAS man ihr ansieht (Satellitenbild · Gelände · Routen · Wetter). Zwei Punkte, die man
 leicht „aufräumt": Der Inhalt wird aus den `attribution`-Feldern der Stil-Quellen gebaut — eine
@@ -1177,7 +1177,7 @@ automatisch, sobald unter `android/` gearbeitet wird.
   `docs/archive/` ist Historie: nicht als Implementierungsquelle nutzen (widerspricht
   oft dem Ist-Stand). Im Viewer ist das Archiv kein eigener Bereich, sondern hängt
   unter dem Bereich, aus dem ein Dokument kam.
-- `window.__j` bündelt Debug-Handles des Players (`map`, `route`, `tour`, `rider`, `eleReady`
+- `window.__maptale` bündelt Debug-Handles des Players (`map`, `route`, `tour`, `rider`, `eleReady`
   u.a.); das Studio hat analog `window.__studio` mit den Accessoren `karte()` und `zustand()`.
 - Externe Datenquellen brauchen sichtbare Attribution (Esri/Maxar, AWS Terrain) — auch in
   späteren Video-Exporten einbrennen. Siehe [README.md](README.md).

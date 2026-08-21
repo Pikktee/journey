@@ -15,7 +15,7 @@
 // Tropfen — dass es regnet und wie stark, sagt der Schleier.
 
 /** Die Wetterlagen der Szene. Spiegel von `WEATHER_MODES` (studio/edit-model.ts). */
-export type SzenenWetter = 'off' | 'clouds' | 'fog' | 'rain' | 'snow' | 'storm'
+export type SceneWeather = 'off' | 'clouds' | 'fog' | 'rain' | 'snow' | 'storm'
 
 /**
  * Himmel je Wetterlage: `c0`/`c1` spannen die Wolkendeckung über die Stärke,
@@ -25,8 +25,8 @@ export type SzenenWetter = 'off' | 'clouds' | 'fog' | 'rain' | 'snow' | 'storm'
  * leichter Regen fällt nicht aus heiterem Himmel. `clouds` beginnt dagegen bei
  * 0,28 — eine leichte Bewölkung lässt die Sonne stehen.
  */
-export const WETTER_HIMMEL: Record<
-  SzenenWetter,
+export const WEATHER_SKY: Record<
+  SceneWeather,
   { c0: number; c1: number; dark: number; fog: number }
 > = {
   off: { c0: 0, c1: 0, dark: 0, fog: 0 },
@@ -44,11 +44,8 @@ export const WETTER_HIMMEL: Record<
  * darunter — beim stufenlosen Echtwetter — bleibt die Deckung am unteren Ende
  * der Spanne, statt unter sie zu fallen.
  */
-export function himmelBei(
-  modus: SzenenWetter,
-  k: number,
-): { cover: number; dark: number; fog: number } {
-  const b = WETTER_HIMMEL[modus] ?? WETTER_HIMMEL.off
+export function skyAt(mode: SceneWeather, k: number): { cover: number; dark: number; fog: number } {
+  const b = WEATHER_SKY[mode] ?? WEATHER_SKY.off
   const t = Math.max(0, Math.min(1, (k - 0.4) / 0.6))
   return {
     cover: b.c0 + (b.c1 - b.c0) * t,
@@ -79,27 +76,27 @@ export function himmelBei(
  * HELLT AUF** (dazu die weiße Decke am Boden), **Gewitter VERDUNKELT** (der
  * Himmel steht tief).
  */
-const CHARAKTER: Record<
-  SzenenWetter,
+const CHARACTER: Record<
+  SceneWeather,
   {
-    wasch: [number, number, number]
-    waschMax: number
-    schatten: [number, number, number]
-    schattenMax: number
+    wash: [number, number, number]
+    washMax: number
+    shadow: [number, number, number]
+    shadowMax: number
   }
 > = {
-  off: { wasch: [0, 0, 0], waschMax: 0, schatten: [0, 0, 0], schattenMax: 0 },
+  off: { wash: [0, 0, 0], washMax: 0, shadow: [0, 0, 0], shadowMax: 0 },
   // Dünn: die Dämpfung macht das Grading, hier nur ein Hauch Grau.
-  clouds: { wasch: [152, 160, 172], waschMax: 0.1, schatten: [18, 22, 32], schattenMax: 0.04 },
+  clouds: { wash: [152, 160, 172], washMax: 0.1, shadow: [18, 22, 32], shadowMax: 0.04 },
   // Die einzige Lage, die auch als Fläche dicht sein muss — Nebel ist das,
   // was die Sicht wirklich nimmt, und das kann kein Sättigungswert allein.
-  fog: { wasch: [232, 237, 244], waschMax: 0.42, schatten: [30, 34, 42], schattenMax: 0.03 },
+  fog: { wash: [232, 237, 244], washMax: 0.42, shadow: [30, 34, 42], shadowMax: 0.03 },
   // Der kühle Blaustich des Regens; dunkel wird es über die Helligkeit.
-  rain: { wasch: [108, 128, 158], waschMax: 0.16, schatten: [12, 16, 24], schattenMax: 0.08 },
+  rain: { wash: [108, 128, 158], washMax: 0.16, shadow: [12, 16, 24], shadowMax: 0.08 },
   // Hell — den Rest macht die Schneedecke im Grading, nicht der Schleier.
-  snow: { wasch: [226, 232, 242], waschMax: 0.22, schatten: [26, 30, 40], schattenMax: 0.02 },
+  snow: { wash: [226, 232, 242], washMax: 0.22, shadow: [26, 30, 40], shadowMax: 0.02 },
   // Beim Gewitter trägt die Helligkeit die Last; der Schleier gibt den Ton.
-  storm: { wasch: [72, 92, 126], waschMax: 0.26, schatten: [8, 11, 18], schattenMax: 0.16 },
+  storm: { wash: [72, 92, 126], washMax: 0.26, shadow: [8, 11, 18], shadowMax: 0.16 },
 }
 
 /**
@@ -117,52 +114,52 @@ const CHARAKTER: Record<
  * die Wolkendecke das Szenenlicht ab. Hier läuft es über dieselben
  * Paint-Werte, auf denen schon die Tageszeit und die Schneedecke liegen.
  */
-export interface Wettergrading {
+export interface WeatherGrading {
   /** Faktor auf `raster-brightness-max` (1 = unverändert) */
-  helligkeit: number
+  brightness: number
   /** Abzug auf `raster-saturation` (0 = unverändert, negativ entsättigt) */
-  saettigung: number
+  saturation: number
 }
 
-const BILD: Record<SzenenWetter, Wettergrading> = {
-  off: { helligkeit: 1, saettigung: 0 },
+const IMAGE: Record<SceneWeather, WeatherGrading> = {
+  off: { brightness: 1, saturation: 0 },
   // Bedeckt: spürbar weniger Licht, die Farben werden flau.
-  clouds: { helligkeit: 0.84, saettigung: -0.28 },
+  clouds: { brightness: 0.84, saturation: -0.28 },
   // Nebel nimmt die Farbe fast ganz und hellt dabei auf (Streulicht).
-  fog: { helligkeit: 1.04, saettigung: -0.62 },
+  fog: { brightness: 1.04, saturation: -0.62 },
   // Regen: nass und dunkel, deutlich entsättigt. Der Abstand zu `clouds` ist
   // dabei Absicht und getestet — „bewölkt" und „es regnet" müssen sich auf
   // einen Blick unterscheiden, sonst sagt die Wetter-Bahn mehr als die Karte.
-  rain: { helligkeit: 0.7, saettigung: -0.48 },
+  rain: { brightness: 0.7, saturation: -0.48 },
   // Schnee hellt auf; die weiße Decke selbst kommt aus `schnee` (Grading).
-  snow: { helligkeit: 1.06, saettigung: -0.32 },
+  snow: { brightness: 1.06, saturation: -0.32 },
   // Gewitter: der Himmel steht auf dem Boden. Nicht tiefer — darunter ist die
   // Karte nicht mehr zu bearbeiten, und ein Gewitter ist kein Stromausfall.
-  storm: { helligkeit: 0.56, saettigung: -0.62 },
+  storm: { brightness: 0.56, saturation: -0.62 },
 }
 
 /**
  * Grading-Anteil einer Lage bei Stärke `k`. Beide Werte laufen von „keine
  * Wirkung" (Stärke 0) linear auf ihr Maximum bei voller Stärke.
  */
-export function bildwirkung(modus: SzenenWetter, k = 0.7): Wettergrading {
-  const b = BILD[modus]
+export function grading(mode: SceneWeather, k = 0.7): WeatherGrading {
+  const b = IMAGE[mode]
   const t = Math.max(0, Math.min(1, k))
   return {
-    helligkeit: 1 + (b.helligkeit - 1) * t,
-    saettigung: b.saettigung * t,
+    brightness: 1 + (b.brightness - 1) * t,
+    saturation: b.saturation * t,
   }
 }
 
-export interface Schleier {
+export interface Scrim {
   /** Farbschleier als CSS-Farbe, Deckkraft eingerechnet — '' heißt: keiner */
-  wasch: string
+  wash: string
   /** Abdunklung darüber, ebenfalls fertig — '' heißt: keine */
-  schatten: string
+  shadow: string
   /** Nebelanteil 0..1 — der Aufrufer legt ihn als weichen Verlauf darüber */
-  nebel: number
+  fogColor: number
   /** Schneedecke 0..1 für das Raster-Grading (daynight.ts `rastergrading`) */
-  schnee: number
+  snow: number
 }
 
 /**
@@ -174,28 +171,28 @@ export interface Schleier {
  * Gewitter satt. Die Obergrenzen sind bewusst niedrig — der Schleier soll die
  * Karte färben, nicht sie zudecken; man arbeitet darunter.
  */
-export function schleierFuer(modus: SzenenWetter, k = 0.7): Schleier {
-  if (modus === 'off') return { wasch: '', schatten: '', nebel: 0, schnee: 0 }
-  const c = CHARAKTER[modus]
-  const h = himmelBei(modus, k)
-  const voll = himmelBei(modus, 1)
+export function scrimFor(mode: SceneWeather, k = 0.7): Scrim {
+  if (mode === 'off') return { wash: '', shadow: '', fogColor: 0, snow: 0 }
+  const c = CHARACTER[mode]
+  const h = skyAt(mode, k)
+  const full = skyAt(mode, 1)
   // Die STÄRKE skaliert relativ: Bei voller Stärke gilt genau `waschMax`, bei
   // geringerer entsprechend weniger — so bleibt die Lage erkennbar sie selbst
   // (ein leichter Nebel ist immer noch dichter als ein starker Wolkenhimmel),
   // und die Stärke aus der Wetter-Bahn wirkt trotzdem. Ein absoluter Faktor auf
   // `cover` täte beides nicht: Er nivelliert die Lagen gegeneinander.
-  const anteil = (jetzt: number, max: number): number => (max > 0 ? Math.min(1, jetzt / max) : 0)
-  const waschA = c.waschMax * anteil(h.cover, voll.cover)
-  const schattenA = c.schattenMax * anteil(h.dark, voll.dark)
-  const [wr, wg, wb] = c.wasch
-  const [sr, sg, sb] = c.schatten
+  const fraction = (now: number, max: number): number => (max > 0 ? Math.min(1, now / max) : 0)
+  const washA = c.washMax * fraction(h.cover, full.cover)
+  const shadowA = c.shadowMax * fraction(h.dark, full.dark)
+  const [wr, wg, wb] = c.wash
+  const [sr, sg, sb] = c.shadow
   return {
-    wasch: `rgba(${wr}, ${wg}, ${wb}, ${waschA.toFixed(3)})`,
-    schatten: `rgba(${sr}, ${sg}, ${sb}, ${schattenA.toFixed(3)})`,
-    nebel: h.fog,
+    wash: `rgba(${wr}, ${wg}, ${wb}, ${washA.toFixed(3)})`,
+    shadow: `rgba(${sr}, ${sg}, ${sb}, ${shadowA.toFixed(3)})`,
+    fogColor: h.fog,
     // Nur Schnee legt sich auf den BODEN. Dieselbe Kopplung wie im Player
     // (`dayNight.setSnow`), damit eine Winterfahrt im Editor eine weiße
     // Landschaft zeigt und nicht bloß einen grauen Schleier darüber.
-    schnee: modus === 'snow' ? Math.min(1, 0.35 + 0.65 * k) : 0,
+    snow: mode === 'snow' ? Math.min(1, 0.35 + 0.65 * k) : 0,
   }
 }

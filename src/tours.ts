@@ -17,26 +17,26 @@
 export type Modus = 'walk' | 'bike' | 'moped' | 'jeep' | 'tram' | 'ferry'
 
 /** Wegpunkt [lng, lat, ele] — Höhe in Metern (elevation.ts überschreibt sie später). */
-export type Wegpunkt = [number, number, number]
+export type Waypoint = [number, number, number]
 
 /** Ankerkoordinate eines Fotos [lng, lat] — ohne Höhe (nearestS sucht auf der Route). */
-export type Ankerpunkt = [number, number]
+export type AnchorPoint = [number, number]
 
 export interface TourSegment {
   mode: Modus
   /** Anzeigename in der Telemetrie; ohne Angabe zeigt main.ts den Modus-Schlüssel. */
   label?: string
-  pts: Wegpunkt[]
+  pts: Waypoint[]
 }
 
-export interface TourFoto {
+export interface TourPhoto {
   src: string
   title: string
-  anchor: Ankerpunkt
+  anchor: AnchorPoint
 }
 
 /** Pseudo-Zeit der Tour: Streckenanteil ↦ linear interpolierte Uhrzeit. */
-export interface TourZeit {
+export interface TourTime {
   start: string
   end: string
   /** IANA-Zone — Auto-Wetter fragt Open-Meteo in genau dieser Zone ab. */
@@ -44,7 +44,7 @@ export interface TourZeit {
 }
 
 /** Kuratierte Wetter-Timeline (km entlang der Route); schlägt das Auto-Wetter. */
-export interface TourWetter {
+export interface TourWeather {
   km: number
   mode: string
   k: number
@@ -80,7 +80,7 @@ export interface TourConfig {
   stops: string[]
   /**
    * Der Satz unter dem Titel im Startscreen (max. 150 Zeichen, s.
-   * src/tourtexte.ts). Die kuratierten Touren tragen ihn nicht: Ihre Einladung
+   * src/tour-texts.ts). Die kuratierten Touren tragen ihn nicht: Ihre Einladung
    * ist der Titel selbst. Aufgezeichnete bekommen ihn aus dem Studio.
    */
   description?: string | null
@@ -88,12 +88,12 @@ export interface TourConfig {
   showFinale?: boolean
   finaleTitle: string
   /** Ohne `time` bleibt die Tag/Nacht-Regie aus (main.ts prüft das Feld). */
-  time?: TourZeit
+  time?: TourTime
   /** m: Geoid über WGS84-Ellipsoid in der Region (nur für den Google-3D-Testmodus) */
   geoid?: number
   segments: TourSegment[]
-  photos: TourFoto[]
-  weather?: TourWetter[]
+  photos: TourPhoto[]
+  weather?: TourWeather[]
   audio?: TourAudio[]
   /**
    * Master-Faktor über alle `audio`-Spuren (audiotracks.ts). Fehlt er, gilt der

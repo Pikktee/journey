@@ -9,7 +9,7 @@ import maplibregl, {
 } from 'maplibre-gl'
 import { indexAt, type Route } from './geo.js'
 import { registerDemClean } from './demclean.js'
-import { createKartenInfo, type Datenquelle } from './karteninfo.js'
+import { createMapAttribution, type MapSource } from './map-attribution.js'
 import type { Modus } from './tours.js'
 
 /**
@@ -17,16 +17,16 @@ import type { Modus } from './tours.js'
  * die Lizenzbedingung des Auto-Wetters. Dieselbe Liste hängt am ⓘ-Popup und
  * geht in den Video-Einbrand (Etappe 0).
  */
-export const KARTE_EXTRA_QUELLEN: readonly Datenquelle[] = [
+export const MAP_EXTRA_SOURCES: readonly MapSource[] = [
   {
-    rolle: 'Routen',
+    role: 'Routen',
     html: 'Routing © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende · ODbL',
   },
-  { rolle: 'Wetter', html: '<a href="https://open-meteo.com/">Open-Meteo</a> · CC BY 4.0' },
+  { role: 'Wetter', html: '<a href="https://open-meteo.com/">Open-Meteo</a> · CC BY 4.0' },
 ]
 
 /** Optionen nur für den Export-Lauf: fester Viewport, Canvas bleibt lesbar. */
-export interface KartenOptionen {
+export interface MapOptions {
   preserveDrawingBuffer?: boolean
   /** Fehlt: `targetPixelRatio()`. Export setzt 1, sonst zieht 1080p auf 2×. */
   pixelRatio?: number
@@ -104,7 +104,7 @@ export function overlayPixelRatio() {
 }
 
 /**
- * Auflösung der KARTEN-Leinwand (Foto-Karte, src/kartenmaler.ts) — die eine
+ * Auflösung der KARTEN-Leinwand (Foto-Karte, src/card-painter.ts) — die eine
  * Overlay-Schicht, die nicht nur Verläufe trägt, sondern TEXT.
  *
  * Bei Partikeln sieht man den `COARSE`-Rückfall auf 1,0 kaum, bei einer
@@ -114,14 +114,14 @@ export function overlayPixelRatio() {
  * Repaint, und der Maler bekommt die 72–90 % der Frame-Zeit geschenkt, die sonst
  * der Karte gehören (docs/concepts/konzept_kartenleinwand.md §5A).
  */
-export function kartenPixelRatio() {
+export function mapPixelRatio() {
   return targetPixelRatio()
 }
 
 export function createMap(
   container: HTMLElement | string,
   center: LngLatLike,
-  optionen: KartenOptionen = {},
+  optionen: MapOptions = {},
 ): MapLibreMap {
   const festesPixelRatio = optionen.pixelRatio != null
   const map = new maplibregl.Map({
@@ -163,7 +163,7 @@ export function createMap(
     // Mehr Zoomstufen im Tile-Cache halten: bei schnellen Zooms (Preset-Wechsel,
     // Foto-Sprünge) sind Eltern-/Kind-Tiles dann oft noch da statt neu zu laden
     maxTileCacheZoomLevels: 7,
-    // Eigenes Attributions-Control (karteninfo.ts): ⓘ-Knopf mit Popup statt
+    // Eigenes Attributions-Control (map-attribution.ts): ⓘ-Knopf mit Popup statt
     // MapLibres grauem Kleingedruckt-Balken. Der Inhalt kommt aus den
     // `attribution`-Feldern der Quellen unten — die bleiben die Quelle der Wahrheit.
     attributionControl: false,
@@ -228,7 +228,7 @@ export function createMap(
   // (Einzelbild vor/zurück), nicht das Verschieben/Zoomen der Karte.
   map.keyboard.disable()
   // Pflicht-Attribution (Esri/OSM/Mapzen/Open-Meteo) hinter dem ⓘ-Knopf unten
-  // rechts — siehe karteninfo.ts. Open-Meteo (Auto-Wetter, autoweather.ts) hat
+  // rechts — siehe map-attribution.ts. Open-Meteo (Auto-Wetter, autoweather.ts) hat
   // keine Kachelquelle im Stil und wird hier ergänzt; die Nennung ist
   // Lizenzbedingung (CC BY 4.0) und muss auch in spätere Video-Exporte.
   // OpenStreetMap steht hier als FESTER Eintrag und nicht mehr als Kachelquelle:
@@ -236,7 +236,7 @@ export function createMap(
   // abgeleitetes Werk — die ODbL verlangt die Nennung unabhängig davon, ob gerade
   // OSM-Kacheln geladen werden. Seit die Gebäude-Ebene (OpenFreeMap) entfallen ist,
   // gäbe es sonst gar keine OSM-Nennung mehr.
-  createKartenInfo(map, KARTE_EXTRA_QUELLEN)
+  createMapAttribution(map, MAP_EXTRA_SOURCES)
   // Pixelbudget beim Fenster-Resize neu einregeln: Aufziehen von klein → 4K-Vollbild
   // würde sonst die Zeichenfläche über die Füllraten-Klippe treiben (pixelRatio bleibt
   // bei MapLibre über Resizes konstant). Gedrosselt + Schwellwert, damit das Ziehen am
@@ -364,7 +364,7 @@ export function addRouteLayers(map: MapLibreMap, route: Route): (s: number, pos:
 // Nummerierte Foto-Wegpunkte als GL-Layer (Circle + Symbol): im Gegensatz zu
 // DOM-Markern laufen sie der Kamera nicht einen Frame hinterher und sitzen
 // dadurch pixelfest auf der Karte. Klick springt zur Szene.
-export interface FotoWegpunkt {
+export interface MediaWaypoint {
   /** Streckenmeter des Halts */
   s: number
   lnglat: LngLat2D
@@ -373,7 +373,7 @@ export interface FotoWegpunkt {
 /** Zeichnet Start- und Foto-Punkte ein und liefert den Fortschritts-Updater. */
 export function addSpotLayers(
   map: MapLibreMap,
-  spots: FotoWegpunkt[],
+  spots: MediaWaypoint[],
   startLngLat: LngLat2D,
   onSelect: (s: number) => void,
 ): (s: number) => void {

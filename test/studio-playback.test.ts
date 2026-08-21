@@ -5,7 +5,7 @@
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { musikVersatzS } from '../src/audiotracks'
+import { musicOffsetS } from '../src/audiotracks'
 import {
   createPlayback,
   clipsAt,
@@ -29,7 +29,7 @@ const versatz = (
   dauerS?: number,
   einstiegS?: number,
   loop?: boolean,
-): number => musikVersatzS(sinceClipStartS(anteil, klipVon, curve), dauerS, einstiegS, loop)
+): number => musicOffsetS(sinceClipStartS(anteil, klipVon, curve), dauerS, einstiegS, loop)
 
 /** Tour, die bei 1× in 100 Sekunden durchläuft (lineare Kurve). */
 const LINEAR_100: FilmCurve = { fractions: [0, 1], filmS: [0, 100], totalS: 100 }
@@ -193,14 +193,14 @@ describe('Drift-Wächter: geteilte Klang-Regel', () => {
   it('das Studio benutzt die Auslöse-Regel des Players, keine eigene', () => {
     // Eine zweite, leicht andere Regel hieße: im Studio klingt es anders als im
     // fertigen Film — genau der Unterschied, den man hier prüfen will.
-    expect(modul).toMatch(/import \{[^}]*\bsfxSollFeuern\b[^}]*\} from '\.\.\/audiotracks\.js'/)
+    expect(modul).toMatch(/import \{[^}]*\bsfxShouldFire\b[^}]*\} from '\.\.\/audiotracks\.js'/)
   })
 
   it('das Studio duckt die Musik mit der Kurve des Players', () => {
-    // Der Video-Ton im Editor senkt die Filmmusik — mit `videoMusikDuck` aus
+    // Der Video-Ton im Editor senkt die Filmmusik — mit `musicDuck` aus
     // demselben Modul, nicht mit einem eigenen Faktor: Sonst stünde die Musik
     // im Schnitt anders unter der Szene als im Film.
-    expect(modul).toMatch(/import \{[^}]*\bvideoMusikDuck\b[^}]*\} from '\.\.\/audiotracks\.js'/)
+    expect(modul).toMatch(/import \{[^}]*\bmusicDuck\b[^}]*\} from '\.\.\/audiotracks\.js'/)
   })
 
   // Der zweite Wächter dieser Gruppe verglich die handgeschriebene

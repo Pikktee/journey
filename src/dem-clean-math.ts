@@ -39,7 +39,7 @@ function encode(data: Uint8ClampedArray, i: number, e: number) {
  * bevor der teure Median-Zweig überhaupt anläuft, weshalb genau dieses Minimum
  * der heiße Pfad war.
  */
-function minFenster(quelle: Float32Array, hilf: Float32Array, ziel: Float32Array) {
+function minWindow(src: Float32Array, aux: Float32Array, dst: Float32Array) {
   for (let y = 0; y < SIZE; y++) {
     const z = y * SIZE
     for (let x = 0; x < SIZE; x++) {
@@ -47,10 +47,10 @@ function minFenster(quelle: Float32Array, hilf: Float32Array, ziel: Float32Array
       const x1 = x + R > SIZE - 1 ? SIZE - 1 : x + R
       let m = Infinity
       for (let xx = x0; xx <= x1; xx++) {
-        const v = quelle[z + xx]!
+        const v = src[z + xx]!
         if (v < m) m = v
       }
-      hilf[z + x] = m
+      aux[z + x] = m
     }
   }
   for (let y = 0; y < SIZE; y++) {
@@ -59,10 +59,10 @@ function minFenster(quelle: Float32Array, hilf: Float32Array, ziel: Float32Array
     for (let x = 0; x < SIZE; x++) {
       let m = Infinity
       for (let yy = y0; yy <= y1; yy++) {
-        const v = hilf[yy * SIZE + x]!
+        const v = aux[yy * SIZE + x]!
         if (v < m) m = v
       }
-      ziel[y * SIZE + x] = m
+      dst[y * SIZE + x] = m
     }
   }
 }
@@ -71,14 +71,14 @@ function minFenster(quelle: Float32Array, hilf: Float32Array, ziel: Float32Array
  * Bereinigt die Pixel EINER Kachel. Gibt `false` zurück, wenn nichts geändert
  * wurde: Dann behält der Aufrufer die Originalbytes, statt neu zu kodieren.
  */
-export function bereinigeHoehen(d: Uint8ClampedArray): boolean {
+export function cleanElevations(d: Uint8ClampedArray): boolean {
   // Alle Puffer sind exakt SIZE×SIZE groß und jede Schleife unten läuft über
   // geklemmte Indizes; die `!` stehen deshalb für „nachweislich im Bereich".
   const orig = new Float32Array(SIZE * SIZE)
   for (let p = 0, i = 0; p < orig.length; p++, i += 4) orig[p] = decode(d[i]!, d[i + 1]!, d[i + 2]!)
 
   const cur = orig.slice()
-  const hilf = new Float32Array(SIZE * SIZE)
+  const aux = new Float32Array(SIZE * SIZE)
   const mins = new Float32Array(SIZE * SIZE)
   let total = 0
   for (let pass = 0; pass < MAX_PASSES; pass++) {
@@ -86,7 +86,7 @@ export function bereinigeHoehen(d: Uint8ClampedArray): boolean {
     // des Vor-Durchlaufs, sonst schirmen die Fleck-Pixel ihre Nachbarn
     // gegenseitig ab.
     const snap = cur.slice()
-    minFenster(snap, hilf, mins)
+    minWindow(snap, aux, mins)
     let changed = 0
     for (let y = 0; y < SIZE; y++) {
       const y0 = y - R < 0 ? 0 : y - R
@@ -119,4 +119,4 @@ export function bereinigeHoehen(d: Uint8ClampedArray): boolean {
 }
 
 /** Kachelgröße in Pixeln; der Worker und der Rückfall brauchen sie beide. */
-export const KACHEL = SIZE
+export const TILE = SIZE

@@ -1,26 +1,26 @@
 // Wie lang ist der Film je Tour — und was ändert eine gestalterische Zahl daran?
 //
-// Die Filmdauer ist keine technische Größe: Sie hängt an `MODUS_TEMPO`, an
-// `RAMPE_M` und daran, wo die Achse überhaupt Rampen setzt. Wer eine dieser
+// Die Filmdauer ist keine technische Größe: Sie hängt an `TRAVEL_MODE_TEMPO`, an
+// `RAMP_M` und daran, wo die Achse überhaupt Rampen setzt. Wer eine dieser
 // Zahlen anfasst, ändert JEDE bestehende Tour — auf dem Papier, nicht im
 // Material. Dieses Skript ist der Beleg dafür: dieselbe Achse, die Player und
 // Studio rechnen, über die vier lokalen Fixtur-Touren.
 //
-// Zwei Tempo-Stände nebeneinander, weil `MODUS_TEMPO` ein gewöhnliches Objekt
+// Zwei Tempo-Stände nebeneinander, weil `TRAVEL_MODE_TEMPO` ein gewöhnliches Objekt
 // ist und sich für eine Messung umstellen lässt. Das ist hier Absicht und
 // nirgends sonst erlaubt.
 //
 // Aufruf: npx tsx scripts/messungen/filmdauer.ts
 import { readFileSync, readdirSync } from 'node:fs'
-import { buildRoute, nearestS, gruppiereStopps, dist } from '../../src/geo.js'
+import { buildRoute, nearestS, groupStops, dist } from '../../src/geo.js'
 import {
-  MODUS_TEMPO,
-  baueFilmachse,
-  interpoliere,
-  momentHaltS,
-  type Streckenhalt,
-} from '../../src/filmachse.js'
-import { HOLD_AUSBLEND, standzeitS } from '../../src/einblendung.js'
+  TRAVEL_MODE_TEMPO,
+  buildFilmAxis,
+  interpolate,
+  momentHoldS,
+  type DistanceStop,
+} from '../../src/film-axis.js'
+import { HOLD_FADE_OUT_S, holdS } from '../../src/card-timing.js'
 
 const WURZEL = process.env['MAPTALE_DATEN_DIR']
   ? `${process.env['MAPTALE_DATEN_DIR']}/tours`
@@ -30,7 +30,7 @@ interface Tourbau {
   id: string
   grenzen: Array<{ abM: number; mode: string }>
   gesamtM: number
-  halte: Streckenhalt[]
+  halte: DistanceStop[]
 }
 
 const touren: Tourbau[] = []
@@ -62,49 +62,49 @@ for (const id of readdirSync(WURZEL)) {
   const rohKum: number[] = [0]
   for (let i = 1; i < wegpunkte.length; i++)
     rohKum.push((rohKum[i - 1] as number) + dist(wegpunkte[i - 1] as never, wegpunkte[i] as never))
-  const rohBeiS = (x: number): number => interpoliere(route.wpS, rohKum, x)
+  const rohBeiS = (x: number): number => interpolate(route.wpS, rohKum, x)
   const medien = ((tour.media ?? []) as Array<{ anchor?: number[] }>).filter((m) =>
     Array.isArray(m.anchor),
   )
   const verankert = medien.map((m) => ({ ...m, s: nearestS(route, m.anchor as never) }))
-  const stopps = gruppiereStopps(verankert as never) as Array<{
+  const stopps = groupStops(verankert as never) as Array<{
     s: number
     items: Array<Record<string, unknown>>
   }>
-  const halte: Streckenhalt[] = [
+  const halte: DistanceStop[] = [
     ...stopps.map((h) => ({
       meterM: rohBeiS(h.s),
       breiteS: h.items.reduce(
         (summe, it) =>
           summe +
-          standzeitS({
+          holdS({
             ...it,
-            ...(it['durationS'] !== undefined ? { dauerS: it['durationS'] as number } : {}),
+            ...(it['durationS'] !== undefined ? { durationS: it['durationS'] as number } : {}),
           }) +
-          HOLD_AUSBLEND,
+          HOLD_FADE_OUT_S,
         0,
       ),
     })),
     ...((tour.moments ?? []) as Array<{ f: number; art: string; dauerS?: number }>).map((mo) => ({
       meterM: rohGesamt * mo.f,
-      breiteS: momentHaltS(mo),
+      breiteS: momentHoldS(mo),
     })),
   ]
   touren.push({ id, grenzen, gesamtM: rohGesamt, halte })
 }
 
-const dauer = (t: Tourbau): number => baueFilmachse(t.grenzen, t.gesamtM, t.halte).gesamtS
+const dauer = (t: Tourbau): number => buildFilmAxis(t.grenzen, t.gesamtM, t.halte).totalS
 const mmss = (s: number): string =>
   `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 
 const walkVorher = 0.4
-const walkJetzt = MODUS_TEMPO.walk
+const walkJetzt = TRAVEL_MODE_TEMPO.walk
 
 console.log(`Tour                walk ${walkVorher}      walk ${walkJetzt}      Differenz`)
 for (const t of touren) {
-  MODUS_TEMPO.walk = walkVorher
+  TRAVEL_MODE_TEMPO.walk = walkVorher
   const a = dauer(t)
-  MODUS_TEMPO.walk = walkJetzt
+  TRAVEL_MODE_TEMPO.walk = walkJetzt
   const b = dauer(t)
   console.log(
     `${t.id.padEnd(18)} ${a.toFixed(1).padStart(7)} s (${mmss(a)})  ${b.toFixed(1).padStart(7)} s (${mmss(b)})  ` +

@@ -2,7 +2,7 @@
 // und adaptiert das Server-JSON (`maptale/tour@2`) auf die cfg-Form der
 // statischen TOURS-Registry — der restliche Player merkt keinen Unterschied.
 
-import { STUDIO_PEGEL_VORGABE } from './audiotracks.js'
+import { STUDIO_GAIN_DEFAULT } from './audiotracks.js'
 import type { TourAudio } from './tours.js'
 
 /** Ein Medium der Tour — für den Player ein „Foto" mit optionalem Video-Typ (M4). */
@@ -84,7 +84,7 @@ export interface TourJsonAntwort {
     loop?: boolean
     startS?: number
     filmS?: number
-    filmBisS?: number
+    filmToS?: number
   }>
   stats: { km: number; gainM: number }
 }
@@ -97,7 +97,7 @@ export interface RemoteTourCfg {
   kicker: string
   titleHtml: string
   stops: string[]
-  /** Der Satz unter dem Titel — aus dem Studio, gekürzt in src/tourtexte.ts. */
+  /** Der Satz unter dem Titel — aus dem Studio, gekürzt in src/tour-texts.ts. */
   description?: string | null
   /** Aufnehmer der Tour; fehlt bei Konten ohne Anzeigenamen */
   author?: NonNullable<TourJsonAntwort['author']>
@@ -149,7 +149,7 @@ export interface RemoteTourCfg {
   stats: { km: number; gainM: number }
 }
 
-export class RemoteTourFehler extends Error {
+export class RemoteTourError extends Error {
   constructor(
     message: string,
     /** Verarbeitungsstatus des Servers, falls die Tour noch nicht abspielbar ist */
@@ -166,13 +166,13 @@ export class RemoteTourFehler extends Error {
  *
  * **Alles f-Verankerte geht ROH durch.** Wetter, Kamera-Keyframes, Momente und
  * Ton-Bereiche behalten ihr `f`; main.ts übersetzt es EINMAL beim Laden über
- * die Wegpunkt-Tabelle nach Streckenmetern (src/streckenanker.ts) und rechnet
+ * die Wegpunkt-Tabelle nach Streckenmetern (src/route-anchors.ts) und rechnet
  * danach nur noch in Metern. Der Adapter rechnete früher `km = f · Gesamt-km`
  * — das war der Rückfall `f × total` in Verkleidung.
  */
-export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
+export function adaptTour(tour: TourJsonAntwort): RemoteTourCfg {
   if (tour.schema !== 'maptale/tour@2') {
-    throw new RemoteTourFehler(
+    throw new RemoteTourError(
       tour.status === 'processing'
         ? 'Die Tour wird noch verarbeitet. Gleich noch einmal versuchen.'
         : `Tour nicht abspielbar (Status: ${tour.status ?? 'unbekannt'}${tour.error ? `, ${tour.error}` : ''})`,
@@ -267,9 +267,9 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
       // Die Spur wegzuwerfen wäre die teurere Reaktion: Sie klänge dann gar nicht.
       cfg.audio = spuren.map((a) => ({
         ...a,
-        gain: a.gain ?? STUDIO_PEGEL_VORGABE,
+        gain: a.gain ?? STUDIO_GAIN_DEFAULT,
         ...(Number.isFinite(a.filmS) ? { filmS: a.filmS } : {}),
-        ...(Number.isFinite(a.filmBisS) ? { filmBisS: a.filmBisS } : {}),
+        ...(Number.isFinite(a.filmToS) ? { filmToS: a.filmToS } : {}),
       }))
       // Der Pegel einer aufgezeichneten Tour ist ABSOLUT: `gain` kommt aus dem
       // Regler im Studio und wird dort ohne Master vorgehört. Deshalb hier 1
@@ -325,16 +325,16 @@ export function createTimeAt(
 export async function loadRemoteTour(id: string, basisUrl = ''): Promise<RemoteTourCfg> {
   const antwort = await fetch(`${basisUrl}/api/tours/${encodeURIComponent(id)}`)
   if (!antwort.ok) {
-    throw new RemoteTourFehler(`Tour „${id}" nicht gefunden (HTTP ${antwort.status})`)
+    throw new RemoteTourError(`Tour „${id}" nicht gefunden (HTTP ${antwort.status})`)
   }
-  return adaptiereTour((await antwort.json()) as TourJsonAntwort)
+  return adaptTour((await antwort.json()) as TourJsonAntwort)
 }
 
 /**
  * Eigene Server-Touren für den Tour-Picker (nur mit gültiger Anmeldung —
  * anonym liefert die Liste 401 und der Picker bleibt statisch).
  */
-export async function ladeServerTouren(
+export async function loadServerTours(
   basisUrl = '',
 ): Promise<Array<{ id: string; title: string | null; status: string }>> {
   try {

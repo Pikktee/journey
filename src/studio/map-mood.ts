@@ -9,7 +9,7 @@
 //
 // Beim Stehen und beim Scrubben muss jedes Bild eine FUNKTION der Kopfposition
 // sein — vorwärts, rückwärts und nach einem Sprung. Das können das GRADING des
-// Satellitenbilds (`paramsAt`) und der SCHLEIER aus `wetterhimmel.ts`; ein
+// Satellitenbilds (`paramsAt`) und der SCHLEIER aus `weather-sky.ts`; ein
 // Partikelsystem kann es nicht, denn es ist Zustand: Jeder Tropfen wird aus
 // dem vorigen Bild fortgeschrieben.
 //
@@ -33,15 +33,10 @@
 // wenn sich ein gerundeter Wert tatsächlich unterscheidet — sonst kostet jedes
 // Scrub-Frame vier `setPaintProperty`-Aufrufe für dasselbe Bild.
 
-import { paramsAt, rastergrading, type Rastergrading } from '../daynight.js'
+import { paramsAt, rasterGrading, type RasterGrading } from '../daynight.js'
 import { sunPosition } from '../sun.js'
-import { createWeather, type Wetteroverlay } from '../weather.js'
-import {
-  bildwirkung,
-  schleierFuer,
-  type SzenenWetter,
-  type Wettergrading,
-} from '../wetterhimmel.js'
+import { createWeather, type WeatherOverlay } from '../weather.js'
+import { grading, scrimFor, type SceneWeather, type WeatherGrading } from '../weather-sky.js'
 // Bewusst der Studio-Typ und nicht der aus `autoweather.ts`: Was hier ankommt,
 // sind die Grenzen aus dem Edit-Overlay bzw. dem Auto-Wetter des Servers, und
 // die tragen genau diese Liste (`WEATHER_MODES`, gewacht gegen das Server-Schema).
@@ -49,7 +44,7 @@ import type { WeatherMode } from './edit-model.js'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 
 /** Neutral: kein Grading. Der Zustand, in den „Tag/Nacht aus" zurückfällt. */
-const NEUTRAL: Rastergrading = { brightnessMax: 1, brightnessMin: 0, saturation: 0, contrast: 0 }
+const NEUTRAL: RasterGrading = { brightnessMax: 1, brightnessMin: 0, saturation: 0, contrast: 0 }
 
 export interface WeatherState {
   mode: WeatherMode
@@ -95,7 +90,7 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
   let dayNight = false
   let weatherOn = false
   // Zuletzt GESETZTE Werte — der Vergleich hält die Paint-Aufrufe draußen.
-  let set: Rastergrading | null = null
+  let set: RasterGrading | null = null
   let lastScrim = ''
   // Letzter bekannter Stand, damit ein Schalter sofort greift statt erst beim
   // nächsten Kopfschritt: Wer „Wetter an" drückt und nichts sieht, drückt noch
@@ -124,9 +119,9 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
    * die Auskunft, was für Wetter dort ist. Dieselbe Regel wie beim Video im
    * Editor, das ebenfalls nur bei Tempo 1 läuft und sonst schweigt.
    */
-  let partikel: Wetteroverlay | null = null
+  let partikel: WeatherOverlay | null = null
   let running = false
-  const getParticles = (): Wetteroverlay => {
+  const getParticles = (): WeatherOverlay => {
     if (!partikel) {
       partikel = createWeather(stage)
       // Das Overlay fragt selbst, ob es zeichnen darf — so bringt es seine
@@ -148,7 +143,7 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
     return scrimEl
   }
 
-  const grade = (g: Rastergrading): void => {
+  const grade = (g: RasterGrading): void => {
     if (
       set &&
       set.brightnessMax === g.brightnessMax &&
@@ -178,19 +173,19 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
    * heller statt dunkler, weil ein helles Grau über einer dunklen Landschaft
    * aufhellt.
    */
-  const weatherImage = (w: WeatherState | null): { snow: number; image: Wettergrading } => {
-    const travelMode: SzenenWetter = (weatherOn && w ? w.mode : 'off') as SzenenWetter
-    const s = schleierFuer(travelMode, w?.intensity ?? 0.7)
+  const weatherImage = (w: WeatherState | null): { snow: number; image: WeatherGrading } => {
+    const travelMode: SceneWeather = (weatherOn && w ? w.mode : 'off') as SceneWeather
+    const s = scrimFor(travelMode, w?.intensity ?? 0.7)
     // Zwei Farbflächen übereinander plus, bei Nebel, ein weicher Verlauf von
     // den Rändern her — dieselbe Reihenfolge wie im Player (`wash` über `dark`).
     const fog =
-      s.nebel > 0
-        ? `, radial-gradient(120% 100% at 50% 50%, rgba(226,232,240,${(0.1 * s.nebel).toFixed(3)}) 0%, rgba(226,232,240,${(0.42 * s.nebel).toFixed(3)}) 100%)`
+      s.fogColor > 0
+        ? `, radial-gradient(120% 100% at 50% 50%, rgba(226,232,240,${(0.1 * s.fogColor).toFixed(3)}) 0%, rgba(226,232,240,${(0.42 * s.fogColor).toFixed(3)}) 100%)`
         : ''
     const image =
       travelMode === 'off'
         ? ''
-        : `linear-gradient(${s.wasch}, ${s.wasch}), linear-gradient(${s.schatten}, ${s.schatten})${fog}`
+        : `linear-gradient(${s.wash}, ${s.wash}), linear-gradient(${s.shadow}, ${s.shadow})${fog}`
     if (image !== lastScrim) {
       // Erst bauen, wenn wirklich etwas zu zeigen ist — wer das Wetter nie
       // einschaltet, bekommt auch kein Element in den DOM.
@@ -210,17 +205,17 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
       if (o.mode !== travelMode) o.setMode(travelMode)
       if (travelMode !== 'off') o.setIntensity(w?.intensity ?? 0.7)
     }
-    return { snow: s.schnee, image: bildwirkung(travelMode, w?.intensity ?? 0.7) }
+    return { snow: s.snow, image: grading(travelMode, w?.intensity ?? 0.7) }
   }
 
   /** Wetter auf ein fertiges Grading legen — Licht mal Faktor, Farbe minus Abzug. */
-  const withWeather = (g: Rastergrading, b: Wettergrading): Rastergrading => ({
-    brightnessMax: +Math.max(0, Math.min(1, g.brightnessMax * b.helligkeit)).toFixed(3),
+  const withWeather = (g: RasterGrading, b: WeatherGrading): RasterGrading => ({
+    brightnessMax: +Math.max(0, Math.min(1, g.brightnessMax * b.brightness)).toFixed(3),
     brightnessMin: g.brightnessMin,
     // Die Sättigung ist bei MapLibre auf [-1, 1] geklemmt; ohne die Klemme
     // fiele eine schon nächtlich entsättigte Karte unter -1 und der Wert würde
     // still verworfen.
-    saturation: +Math.max(-1, Math.min(1, g.saturation + b.saettigung)).toFixed(3),
+    saturation: +Math.max(-1, Math.min(1, g.saturation + b.saturation)).toFixed(3),
     contrast: g.contrast,
   })
 
@@ -233,13 +228,13 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
       // die Jahreszeit noch den Breitengrad, und auf der Karte sähe man den
       // Unterschied sofort (Mitternachtssonne gegen Polarnacht).
       const sun = sunPosition(new Date(state.timeIso), state.location[1], state.location[0])
-      grade(withWeather(rastergrading(paramsAt(sun.altitude), snow), image))
+      grade(withWeather(rasterGrading(paramsAt(sun.altitude), snow), image))
     } else {
       // Ohne Tageszeit-Regie trotzdem Schneedecke und Wetter-Grading: Beide
       // gehören zum WETTER, nicht zum Licht. Volles Tageslicht als Grundlage —
       // genau das, was „Tageszeit aus" bedeutet.
       const DAY = { br: 1, sat: 0, con: 0, li: 0.4, sky: '', hor: '', fog: '', lc: '' }
-      grade(withWeather(rastergrading(DAY, snow), image))
+      grade(withWeather(rasterGrading(DAY, snow), image))
     }
   }
 

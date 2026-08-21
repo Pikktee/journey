@@ -2,7 +2,7 @@
  * Video-Export: Formate, Clip-Zeit und Dateiname.
  *
  * DOM-frei. Player und Studio lesen dieselben Zahlen, der Encoder liegt in
- * exportfilm.ts. Tempo-Wahl und Share-Achse gehören nicht hierher.
+ * film-export.ts. Tempo-Wahl und Share-Achse gehören nicht hierher.
  */
 
 /**
@@ -18,8 +18,8 @@
  * Warten auf Kacheln, und das fällt je BILD an. 60 fps kostet also grob das
  * Doppelte von 30.
  */
-export const EXPORT_FPS_WAHL = [24, 30, 50, 60] as const
-export type ExportFps = (typeof EXPORT_FPS_WAHL)[number]
+export const EXPORT_FPS_CHOICES = [24, 30, 50, 60] as const
+export type ExportFps = (typeof EXPORT_FPS_CHOICES)[number]
 /** Vorgabe und zugleich der Wert, bei dem der Dateiname nichts dazusagt. */
 export const EXPORT_FPS = 30
 /** Relive-Muster: Quellen stehen im Abspann, nicht dauerhaft im Bild. */
@@ -33,21 +33,21 @@ export const EXPORT_INTRO_S = 6
 /** Finale-Orbit, nur wenn die Tour einen Endscreen hat. */
 export const EXPORT_FINALE_S = 6
 
-export type ExportLage = 'quer' | 'hoch'
-export type ExportGroesse = 720 | 1080
+export type ExportOrientation = 'landscape' | 'portrait'
+export type ExportSize = 720 | 1080
 
 export interface ExportFormat {
-  lage: ExportLage
-  groesse: ExportGroesse
+  orientation: ExportOrientation
+  size: ExportSize
   fps: ExportFps
 }
 
-export const EXPORT_VORGABE: ExportFormat = { lage: 'quer', groesse: 720, fps: EXPORT_FPS }
+export const EXPORT_DEFAULT: ExportFormat = { orientation: 'landscape', size: 720, fps: EXPORT_FPS }
 
 /** Wie lange die Startscreen-Tafel in die Fahrt hinein ausblendet (Player: 1,2 s). */
-export const EXPORT_INTRO_BLENDE_S = 1.2
+export const EXPORT_INTRO_FADE_S = 1.2
 /** Einblendung der „Ziel erreicht"-Tafel (Player: 0,9 s). */
-export const EXPORT_FINALE_BLENDE_S = 0.9
+export const EXPORT_FINALE_FADE_S = 0.9
 
 export type ExportPhase = 'intro' | 'fahrt' | 'finale'
 
@@ -56,62 +56,62 @@ export type ExportPhase = 'intro' | 'fahrt' | 'finale'
  * sie in die anfahrende Kamera hinein aus — genau wie der Klick auf „Tour
  * starten" im Player.
  */
-export function introTafelSicht(
+export function introPanelOpacity(
   clipS: number,
   introS = EXPORT_INTRO_S,
-  blendeS = EXPORT_INTRO_BLENDE_S,
+  fadeS = EXPORT_INTRO_FADE_S,
 ): number {
   if (clipS < introS) return 1
-  if (blendeS <= 0) return 0
-  return Math.max(0, 1 - (clipS - introS) / blendeS)
+  if (fadeS <= 0) return 0
+  return Math.max(0, 1 - (clipS - introS) / fadeS)
 }
 
 /** Deckkraft der Finale-Tafel aus der Zeit SEIT dem Phasenwechsel. */
-export function finaleTafelSicht(seitS: number, blendeS = EXPORT_FINALE_BLENDE_S): number {
-  if (!(seitS >= 0)) return 0
-  if (blendeS <= 0) return 1
-  return Math.min(1, seitS / blendeS)
+export function finalePanelOpacity(sinceS: number, fadeS = EXPORT_FINALE_FADE_S): number {
+  if (!(sinceS >= 0)) return 0
+  if (fadeS <= 0) return 1
+  return Math.min(1, sinceS / fadeS)
 }
 
 export interface ExportViewport {
-  breite: number
-  hoehe: number
+  width: number
+  height: number
 }
 
-const GROESSEN = new Set<ExportGroesse>([720, 1080])
+const SIZES = new Set<ExportSize>([720, 1080])
 
-export function istExportLage(v: string): v is ExportLage {
-  return v === 'quer' || v === 'hoch'
+export function isExportOrientation(v: string): v is ExportOrientation {
+  return v === 'landscape' || v === 'portrait'
 }
 
-export function istExportGroesse(v: number): v is ExportGroesse {
-  return GROESSEN.has(v as ExportGroesse)
+export function isExportSize(v: number): v is ExportSize {
+  return SIZES.has(v as ExportSize)
 }
 
-export function istExportFps(v: number): v is ExportFps {
-  return (EXPORT_FPS_WAHL as readonly number[]).includes(v)
+export function isExportFps(v: number): v is ExportFps {
+  return (EXPORT_FPS_CHOICES as readonly number[]).includes(v)
 }
 
-export function leseExportFormat(search: string): ExportFormat {
+export function parseExportFormat(search: string): ExportFormat {
   const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
-  const lageRoh = q.get('lage') ?? ''
-  const groesseRoh = Number.parseInt(q.get('groesse') ?? '', 10)
-  const fpsRoh = Number.parseInt(q.get('fps') ?? '', 10)
+  const orientationRaw = q.get('orientation') ?? ''
+  const sizeRaw = Number.parseInt(q.get('size') ?? '', 10)
+  const fpsRaw = Number.parseInt(q.get('fps') ?? '', 10)
   return {
-    lage: istExportLage(lageRoh) ? lageRoh : EXPORT_VORGABE.lage,
-    groesse: istExportGroesse(groesseRoh) ? groesseRoh : EXPORT_VORGABE.groesse,
-    fps: istExportFps(fpsRoh) ? fpsRoh : EXPORT_VORGABE.fps,
+    orientation: isExportOrientation(orientationRaw) ? orientationRaw : EXPORT_DEFAULT.orientation,
+    size: isExportSize(sizeRaw) ? sizeRaw : EXPORT_DEFAULT.size,
+    fps: isExportFps(fpsRaw) ? fpsRaw : EXPORT_DEFAULT.fps,
   }
 }
 
 /** Query für den Player-Dev-Weg und das Studio-Blatt. Immer vollständig. */
-export function exportQuery(format: ExportFormat, eingebettet = false): string {
+export function exportQuery(format: ExportFormat, embedded = false): string {
   const q = new URLSearchParams()
   q.set('export', '1')
-  q.set('lage', format.lage)
-  q.set('groesse', String(format.groesse))
+  q.set('orientation', format.orientation)
+  q.set('size', String(format.size))
   q.set('fps', String(format.fps))
-  if (eingebettet) q.set('rahmen', '1')
+  if (embedded) q.set('embedded', '1')
   return `?${q}`
 }
 
@@ -126,13 +126,13 @@ export function exportQuery(format: ExportFormat, eingebettet = false): string {
  * hidden` liefern keinen WebGL-Inhalt, deshalb steht er sichtbar als kleine
  * Vorschau über dem Balken statt versteckt hinter ihm.
  */
-export const EXPORT_NACHRICHT = 'maptale:export'
+export const EXPORT_MESSAGE = 'maptale:export'
 
-export type ExportStand = 'start' | 'laeuft' | 'pause' | 'fertig' | 'fehler'
+export type ExportProgress = 'start' | 'laeuft' | 'pause' | 'fertig' | 'fehler'
 
-export interface ExportMeldung {
-  typ: typeof EXPORT_NACHRICHT
-  stand: ExportStand
+export interface ExportMessage {
+  type: typeof EXPORT_MESSAGE
+  status: ExportProgress
   /** Schon fertige Bilder. */
   frame?: number
   frames?: number
@@ -140,13 +140,13 @@ export interface ExportMeldung {
   clipS?: number
   /** Satz für die Oberfläche (Fehlergrund, „Ton mischen …"). */
   text?: string
-  dateiname?: string
-  daten?: ArrayBuffer
+  fileName?: string
+  data?: ArrayBuffer
 }
 
-export function istEingebettet(search: string): boolean {
+export function isEmbedded(search: string): boolean {
   const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
-  return q.get('rahmen') === '1'
+  return q.get('embedded') === '1'
 }
 
 /**
@@ -155,25 +155,27 @@ export function istEingebettet(search: string): boolean {
  * um ein Vielfaches, und eine Restzeit, die zwischen „2 Minuten" und „20
  * Minuten" springt, ist keine Auskunft.
  */
-export function restzeitS(fertig: number, gesamt: number, verstrichenS: number): number | null {
-  if (fertig < 12 || verstrichenS <= 0 || gesamt <= fertig) return null
-  return ((gesamt - fertig) * verstrichenS) / fertig
+export function remainingS(done: number, total: number, elapsedS: number): number | null {
+  if (done < 12 || elapsedS <= 0 || total <= done) return null
+  return ((total - done) * elapsedS) / done
 }
 
 /** „noch etwa 4 Minuten", „noch keine Minute". Für den Balken, nicht für Logs. */
-export function restzeitText(sekunden: number | null): string {
-  if (sekunden == null) return 'Restzeit wird geschätzt'
-  if (sekunden < 60) return 'noch keine Minute'
-  const min = Math.round(sekunden / 60)
+export function remainingText(seconds: number | null): string {
+  if (seconds == null) return 'Restzeit wird geschätzt'
+  if (seconds < 60) return 'noch keine Minute'
+  const min = Math.round(seconds / 60)
   if (min < 60) return `noch etwa ${min} Minute${min === 1 ? '' : 'n'}`
-  const std = Math.round(sekunden / 3600)
-  return `noch etwa ${std} Stunde${std === 1 ? '' : 'n'}`
+  const hrs = Math.round(seconds / 3600)
+  return `noch etwa ${hrs} Stunde${hrs === 1 ? '' : 'n'}`
 }
 
 export function exportViewport(format: ExportFormat): ExportViewport {
-  const kurz = format.groesse
-  const lang = format.groesse === 720 ? 1280 : 1920
-  return format.lage === 'hoch' ? { breite: kurz, hoehe: lang } : { breite: lang, hoehe: kurz }
+  const short = format.size
+  const long = format.size === 720 ? 1280 : 1920
+  return format.orientation === 'portrait'
+    ? { width: short, height: long }
+    : { width: long, height: short }
 }
 
 /**
@@ -181,7 +183,7 @@ export function exportViewport(format: ExportFormat): ExportViewport {
  * zusätzlich mit 2× hochziehen (Konzept-Falle 7).
  */
 export function exportPixelRatio(format: ExportFormat): number {
-  return format.groesse === 720 ? 1.5 : 1
+  return format.size === 720 ? 1.5 : 1
 }
 
 /**
@@ -190,42 +192,42 @@ export function exportPixelRatio(format: ExportFormat): number {
  * Engine (`Tour.exportSchritt`). Eine zweite Phasenrechnung daneben war genau
  * die Sorte Zweitkopie, die still auseinanderläuft.
  */
-export function clipDauerS(fahrtS: number, hatFinale: boolean): number {
-  if (!(fahrtS > 0)) return 0
-  return EXPORT_INTRO_S + fahrtS + (hatFinale ? EXPORT_FINALE_S : 0)
+export function exportClipDurationS(rideS: number, hasFinale: boolean): number {
+  if (!(rideS > 0)) return 0
+  return EXPORT_INTRO_S + rideS + (hasFinale ? EXPORT_FINALE_S : 0)
 }
 
-export function frameAnzahl(dauerS: number, fps: number): number {
-  return Math.max(1, Math.round(dauerS * fps))
+export function frameCount(durationS: number, fps: number): number {
+  return Math.max(1, Math.round(durationS * fps))
 }
 
 /** Clip-Zeit des Frames: `i / fps`, geklemmt auf die Filmdauer. */
-export function filmSBeiFrame(i: number, fps: number, gesamtS: number): number {
-  return Math.min(gesamtS, i / fps)
+export function filmTimeAtFrame(i: number, fps: number, totalS: number): number {
+  return Math.min(totalS, i / fps)
 }
 
 /** Filmzeit als „m:ss", ab einer Stunde „h:mm:ss". */
-export function formatiereClipzeit(sekunden: number): string {
-  const s = Math.max(0, Math.round(sekunden))
+export function formatClipTime(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
   const mm = Math.floor(s / 60)
   const ss = String(s % 60).padStart(2, '0')
   if (mm < 60) return `${mm}:${ss}`
   return `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}:${ss}`
 }
 
-export function fortschrittText(clipS: number, i: number, n: number): string {
-  return `${formatiereClipzeit(clipS)} · Frame ${i} von ${n}`
+export function progressText(clipS: number, i: number, n: number): string {
+  return `${formatClipTime(clipS)} · Frame ${i} von ${n}`
 }
 
 /** Stand-Text, solange der Tab verdeckt ist. `fertig` = schon encodete Frames. */
-export function pauseText(clipS: number, fertig: number, n: number): string {
-  if (fertig <= 0) return `Pausiert. Tab wieder öffnen · ${formatiereClipzeit(clipS)}`
-  return `Pausiert. Tab wieder öffnen · ${fortschrittText(clipS, fertig, n)}`
+export function pausedText(clipS: number, done: number, n: number): string {
+  if (done <= 0) return `Pausiert. Tab wieder öffnen · ${formatClipTime(clipS)}`
+  return `Pausiert. Tab wieder öffnen · ${progressText(clipS, done, n)}`
 }
 
-function titelSlug(titel: string): string {
+function titleSlug(title: string): string {
   return (
-    titel
+    title
       .toLowerCase()
       .replace(/ß/g, 'ss')
       .normalize('NFD')
@@ -241,32 +243,32 @@ function titelSlug(titel: string): string {
  * Regelfall behält seinen gewohnten Namen, und zwei Fassungen derselben Tour
  * überschreiben einander trotzdem nicht.
  */
-export function dateiname(titel: string, format: ExportFormat = EXPORT_VORGABE): string {
-  const takt = format.fps === EXPORT_FPS ? '' : `-${format.fps}fps`
-  return `maptale-${titelSlug(titel)}-${format.lage}-${format.groesse}${takt}.mp4`
+export function fileName(title: string, format: ExportFormat = EXPORT_DEFAULT): string {
+  const rate = format.fps === EXPORT_FPS ? '' : `-${format.fps}fps`
+  return `maptale-${titleSlug(title)}-${format.orientation}-${format.size}${rate}.mp4`
 }
 
 /**
  * Deckkraft der Pflicht-Attribution. 0 während der Fahrt, 1 in den letzten
  * `EXPORT_ATTRIBUTION_S` Sekunden, mit kurzem Fade.
  */
-export function attributionSicht(
+export function attributionOpacity(
   filmS: number,
   clipS: number,
-  dauerS = EXPORT_ATTRIBUTION_S,
+  durationS = EXPORT_ATTRIBUTION_S,
   fadeS = EXPORT_ATTRIBUTION_FADE_S,
 ): number {
-  if (!(clipS > 0) || dauerS <= 0) return 0
-  const von = Math.max(0, clipS - dauerS)
-  if (filmS < von) return 0
+  if (!(clipS > 0) || durationS <= 0) return 0
+  const from = Math.max(0, clipS - durationS)
+  if (filmS < from) return 0
   if (fadeS <= 0) return 1
-  return Math.min(1, (filmS - von) / fadeS)
+  return Math.min(1, (filmS - from) / fadeS)
 }
 
-export interface LoopAbschnitt {
+export interface LoopSegment {
   src: string
-  vonClipS: number
-  bisClipS: number
+  fromClipS: number
+  toClipS: number
   gain: number
 }
 
@@ -274,36 +276,36 @@ export interface LoopAbschnitt {
  * Aufeinanderfolgende Frames mit derselben Quelle zu Abschnitten ziehen.
  * `srcBei(i)` liefert die Spur des Frames `i`, oder null für Stille.
  */
-export function verdichteAbschnitte(
+export function mergeSegments(
   n: number,
   dt: number,
-  srcBei: (i: number) => { src: string; gain: number } | null,
-): LoopAbschnitt[] {
-  const aus: LoopAbschnitt[] = []
-  let offen: LoopAbschnitt | null = null
+  srcAt: (i: number) => { src: string; gain: number } | null,
+): LoopSegment[] {
+  const out: LoopSegment[] = []
+  let open: LoopSegment | null = null
   for (let i = 0; i < n; i++) {
-    const jetzt = srcBei(i)
+    const now = srcAt(i)
     const t = i * dt
-    if (!jetzt) {
-      if (offen) {
-        offen.bisClipS = t
-        aus.push(offen)
-        offen = null
+    if (!now) {
+      if (open) {
+        open.toClipS = t
+        out.push(open)
+        open = null
       }
       continue
     }
-    if (offen && offen.src === jetzt.src && Math.abs(offen.gain - jetzt.gain) < 0.02) {
+    if (open && open.src === now.src && Math.abs(open.gain - now.gain) < 0.02) {
       continue
     }
-    if (offen) {
-      offen.bisClipS = t
-      aus.push(offen)
+    if (open) {
+      open.toClipS = t
+      out.push(open)
     }
-    offen = { src: jetzt.src, vonClipS: t, bisClipS: (i + 1) * dt, gain: jetzt.gain }
+    open = { src: now.src, fromClipS: t, toClipS: (i + 1) * dt, gain: now.gain }
   }
-  if (offen) {
-    offen.bisClipS = n * dt
-    aus.push(offen)
+  if (open) {
+    open.toClipS = n * dt
+    out.push(open)
   }
-  return aus
+  return out
 }

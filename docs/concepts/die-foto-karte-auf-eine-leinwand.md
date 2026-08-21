@@ -2,10 +2,10 @@
 stand: 2026-08-17
 status: abgearbeitet: Karte auf der Leinwand, Tafeln herausgelöst
 betrifft:
-  - Player (src/kartenmaler.ts, src/kartenschicht.ts, src/ui.ts, erlebnis.html)
+  - Player (src/card-painter.ts, src/card-layer.ts, src/ui.ts, erlebnis.html)
   - Studio-Editor (src/studio/playback.ts, studio.html)
-  - Video-Export (src/exportfilm.ts)
-  - geteilte Zahlen (src/einblendung.ts)
+  - Video-Export (src/film-export.ts)
+  - geteilte Zahlen (src/card-timing.ts)
 ---
 
 # Die Foto-Karte auf eine Leinwand
@@ -190,7 +190,7 @@ Grund, und „ein bisschen mehr Struktur" ist keiner.
    holt sich das DOM, sondern der Player hört auf, DOM dafür zu benutzen. Dann
    greift der Export sie so, wie er heute Atmosphäre und Wetter greift — mit
    einem `drawImage`, ohne eine Zeile über Ken Burns zu wissen.
-2. **Ein Maler, zwei Aufrufer.** `src/kartenmaler.ts` zeichnet die Karte auf
+2. **Ein Maler, zwei Aufrufer.** `src/card-painter.ts` zeichnet die Karte auf
    einen beliebigen 2D-Kontext, aus Filmsekunde und Halt. Der Player ruft ihn
    pro Frame auf seine Schicht; der Export braucht ihn gar nicht — er nimmt das
    Ergebnis. Ein Aufrufer wäre schöner, zwei sind ehrlich: die Export-Seite
@@ -206,7 +206,7 @@ Grund, und „ein bisschen mehr Struktur" ist keiner.
    Umbau eine Zugänglichkeits-Regression, und die wäre den Gewinn nicht wert.
 5. **Die geteilten ZAHLEN bleiben, wo sie sind.** `kartenZeiten`,
    `balkenAnteil`, `klipDauerS`, `videoStandS`, `klemmeSeitenverhaeltnis` in
-   [einblendung.ts](../../src/einblendung.ts) sind schon geteilt und bleiben die
+   [einblendung.ts](../../src/card-timing.ts) sind schon geteilt und bleiben die
    Quelle. Der Maler benutzt sie, er ersetzt sie nicht.
 6. **Der Editor behält seine Mechanik.** Er bleibt DOM. Das ist kein Versehen,
    sondern §6A des Gleichlauf-Konzepts: Der Player streamt einen Film voraus,
@@ -216,7 +216,7 @@ Grund, und „ein bisschen mehr Struktur" ist keiner.
 7. **Aber jede Abweichung wird ERKLÄRT.** Aus §2.2 folgt die Regel, die dieses
    Konzept über den Export hinaus trägt: Was auf zwei Bühnen gleich aussehen
    soll, kommt aus einer Zahl in
-   [einblendung.ts](../../src/einblendung.ts); was verschieden sein DARF, steht
+   [einblendung.ts](../../src/card-timing.ts); was verschieden sein DARF, steht
    dort als benannte Bühnen-Variante mit ihrem Grund. Ein Wert, der auf zwei
    Bühnen zufällig anders ist, gilt danach als Fehler und nicht als Geschmack.
    Kandidaten für benannte Varianten: die Flugweite (bildschirmfüllend gegen
@@ -239,7 +239,7 @@ Was schwieriger wird als in CSS:
 
 - **Textumbruch, Kürzen und `clamp()`.** Canvas kann kein
   `text-overflow: ellipsis`. Der Umbruch steht mit `brichAttribution` in
-  [exportfilm.ts](../../src/exportfilm.ts) schon da und gehört mit in den Maler;
+  [exportfilm.ts](../../src/film-export.ts) schon da und gehört mit in den Maler;
   das KÜRZEN steht dort noch nicht, das ist neu. Dazu kommt, was heute
   unsichtbar in CSS steckt: Der Titel läuft auf der Bühne auf
   `clamp(22px, 2.3vw, 32px)` (im Editor auf `clamp(18px, 2.2vw, 28px)`, s.
@@ -336,7 +336,7 @@ Der Maler rechnet deshalb aus einer **Bezugshöhe**. Festgelegt (Etappe 2):
 
 **`BEZUGSHOEHE` = 900 CSS-Pixel, `mass = klemme(hoehe / 900, 0.7, 2.6)`.** Jede
 feste Länge im Maler ist ein Wert BEI Bezugshöhe, multipliziert mit `mass`
-([kartenmaler.ts](../../src/kartenmaler.ts), `KARTEN_MASSE`).
+([kartenmaler.ts](../../src/card-painter.ts), `KARTEN_MASSE`).
 
 **Warum 900 und nicht 1080.** Die Zahl ist nicht frei: Sie ist die Höhe, bei der
 der Maler genau das ergibt, was heute im Browser steht. Die CSS-Fassung mischt
@@ -510,7 +510,7 @@ Abgangs-Geometrie, Ruhewinkel, Dauern.
 
 Das Muster gibt es im Repo schon zweimal: der Drift-Wächter zwischen DESIGN.md
 und `basis.css` ([test/basis-css.test.ts](../../test/basis-css.test.ts)) und
-[test/einblendung-css.test.ts](../../test/einblendung-css.test.ts). Der zweite
+[test/card-painter-css.test.ts](../../test/card-painter-css.test.ts). Der zweite
 ist der Vorfahre dieses Tests — er prüft heute nur einen Teil (die ZEITEN, und
 das ausdrücklich) und hat die acht Abweichungen aus §2.2 durchgelassen.
 
@@ -520,8 +520,8 @@ zugleich.
 
 **Gebaut als:** `KARTE` (geteilte Werte), `KARTE_BUEHNE` (benannte Varianten,
 heute nur die Flugweite) und `KARTE_EXPORT_ABWEICHUNGEN` in
-[einblendung.ts](../../src/einblendung.ts); der Wächter in
-[test/einblendung-css.test.ts](../../test/einblendung-css.test.ts) liest
+[einblendung.ts](../../src/card-timing.ts); der Wächter in
+[test/card-painter-css.test.ts](../../test/card-painter-css.test.ts) liest
 `src/style.css` und `studio.html` dagegen. Der Export bekam KEINEN Maler und
 keine Korrektur, er ist der dritte Vergleichspunkt: Geprüft wird, dass er die
 zwei Zahlen teilt, die er heute schon rechnet (Auftritts-Blende, Ausblend-
@@ -550,12 +550,12 @@ sie gedacht war.
 
 `kartenmaler.ts` plus die Schicht im Player, Export-Nachbau raus.
 
-**Gebaut als:** [src/kartenmaler.ts](../../src/kartenmaler.ts) (DOM-frei, aus
+**Gebaut als:** [src/card-painter.ts](../../src/card-painter.ts) (DOM-frei, aus
 Filmsekunde und Halt, Werte aus `KARTE`) und
-[src/kartenschicht.ts](../../src/kartenschicht.ts) (die Leinwand `#karte` auf
+[src/card-layer.ts](../../src/card-layer.ts) (die Leinwand `#karte` auf
 z-index 12, ihr einziger Aufrufer). `ui.ts` füllt nur noch Werte, `style.css`
 ist um die Karten-Animationen leichter, und `zeichneFotoKarte` in
-[exportfilm.ts](../../src/exportfilm.ts) ist einer Zeile gewichen:
+[exportfilm.ts](../../src/film-export.ts) ist einer Zeile gewichen:
 `zeichneOverlay(ctx, 'karte', …)` — dieselbe wie für Wetter und Atmosphäre.
 `KARTE_EXPORT_ABWEICHUNGEN` ist leer.
 
@@ -739,9 +739,9 @@ Der Plan ist durch. Zwei Dinge bleiben trotzdem gültig, und beide betreffen
 Leute, die dieses Dokument nicht suchen, sondern in den Code stolpern:
 
 1. **Nicht anfassen, ohne in die Tabelle zu sehen.** `KARTE` und `KARTE_BUEHNE`
-   in [einblendung.ts](../../src/einblendung.ts) sind die geteilten Zahlen von
+   in [einblendung.ts](../../src/card-timing.ts) sind die geteilten Zahlen von
    Player und Editor; die Geometrie der Player-Bühne steht in `KARTEN_MASSE`
-   ([kartenmaler.ts](../../src/kartenmaler.ts)) und ist ausdrücklich NICHT
+   ([kartenmaler.ts](../../src/card-painter.ts)) und ist ausdrücklich NICHT
    geteilt. Wer eine Zahl im Maler ändert, ändert sie für Bildschirm UND Film.
    Ein Wert, der auf zwei Bühnen zufällig anders ist, gilt als Fehler und nicht
    als Geschmack (§3.7) — acht Werte sind genau so entstanden.

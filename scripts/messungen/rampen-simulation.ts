@@ -9,10 +9,10 @@
 // integriert `s` seit E2 nicht mehr selbst, und die Rampen sind seit E14 eine
 // feste Form in der Achse. Es bleibt trotzdem stehen, weil es die
 // KALIBRIER-GRUNDLAGE ist: An seinen 64,3 Rampen-Sekunden über die vier
-// Fixtur-Touren ist `RAMPE_M` (src/filmachse.ts) ausgerichtet. Die Gegenrechnung
+// Fixtur-Touren ist `RAMP_M` (src/film-axis.ts) ausgerichtet. Die Gegenrechnung
 // steht in rampen-kalibrierung.ts, der heutige Stand in durchlauf-gegen-achse.mjs.
 import { readFileSync, readdirSync } from 'node:fs'
-import { buildRoute, nearestS, gruppiereStopps } from '../../src/geo.js'
+import { buildRoute, nearestS, groupStops } from '../../src/geo.js'
 
 // Die gerenderten Touren der LOKALEN Instanz. Über MAPTALE_DATEN_DIR
 // umlenkbar, falls eine isolierte Instanz gemessen werden soll.
@@ -75,7 +75,7 @@ for (const id of readdirSync(WURZEL)) {
 
   const medien = (tour.media ?? []).filter((m: any) => Array.isArray(m.anchor))
   const verankert = medien.map((m: any) => ({ ...m, s: nearestS(route, m.anchor) }))
-  const stopps = gruppiereStopps(verankert as any).sort((a: any, b: any) => a.s - b.s)
+  const stopps = groupStops(verankert as any).sort((a: any, b: any) => a.s - b.s)
 
   let filmHalt = 0
   for (const st of stopps)

@@ -4,11 +4,11 @@
 // Remote-Touren hängen an exakt diesem Verhalten.
 
 import { describe, expect, it } from 'vitest'
-import { bearingAt, buildRoute, dist, gruppiereStopps, nearestS, pointAt } from '../src/geo.js'
-import type { Wegpunkt } from '../src/tours.js'
+import { bearingAt, buildRoute, dist, groupStops, nearestS, pointAt } from '../src/geo.js'
+import type { Waypoint } from '../src/tours.js'
 
 // Gerade West→Ost auf 46° Breite, sanft steigend — 5 Wegpunkte à ~770 m
-const wegpunkte: Wegpunkt[] = [
+const wegpunkte: Waypoint[] = [
   [8.0, 46.0, 500],
   [8.01, 46.0, 520],
   [8.02, 46.0, 540],
@@ -133,19 +133,14 @@ describe('gruppiereStopps', () => {
   const foto = (id: string, s: number, extra: { order?: number } = {}) => ({ id, s, ...extra })
 
   it('fasst Aufnahmen unter 120 m zu einem Halt zusammen', () => {
-    const stopps = gruppiereStopps([foto('a', 1000), foto('b', 1119), foto('c', 5000)])
+    const stopps = groupStops([foto('a', 1000), foto('b', 1119), foto('c', 5000)])
     expect(stopps.map((x) => x.items.map((m) => m.id))).toEqual([['a', 'b'], ['c']])
     // Der Halt liegt am ERSTEN Foto, nicht in der Mitte
     expect(stopps[0]!.s).toBe(1000)
   })
 
   it('misst zum Anfang des Halts — eine Kette verschmilzt nicht endlos', () => {
-    const stopps = gruppiereStopps([
-      foto('a', 1000),
-      foto('b', 1100),
-      foto('c', 1200),
-      foto('d', 1300),
-    ])
+    const stopps = groupStops([foto('a', 1000), foto('b', 1100), foto('c', 1200), foto('d', 1300)])
     expect(stopps.map((x) => x.items.map((m) => m.id))).toEqual([
       ['a', 'b'],
       ['c', 'd'],
@@ -153,21 +148,21 @@ describe('gruppiereStopps', () => {
   })
 
   it('ordnet innerhalb eines Halts nach `order`, sonst nach Streckenmetern', () => {
-    const mitReihe = gruppiereStopps([
+    const mitReihe = groupStops([
       foto('a', 1000, { order: 2 }),
       foto('b', 1050, { order: 0 }),
       foto('c', 1100, { order: 1 }),
     ])
     expect(mitReihe[0]!.items.map((m) => m.id)).toEqual(['b', 'c', 'a'])
-    const ohne = gruppiereStopps([foto('a', 1000), foto('b', 1050)])
+    const ohne = groupStops([foto('a', 1000), foto('b', 1050)])
     expect(ohne[0]!.items.map((m) => m.id)).toEqual(['a', 'b'])
     // Teilweise gesetzt: wer keine hat, kommt dahinter
-    const teils = gruppiereStopps([foto('a', 1000), foto('b', 1050, { order: 0 })])
+    const teils = groupStops([foto('a', 1000), foto('b', 1050, { order: 0 })])
     expect(teils[0]!.items.map((m) => m.id)).toEqual(['b', 'a'])
   })
 
   it('kommt mit leerer Liste und Einzelfotos zurecht', () => {
-    expect(gruppiereStopps([])).toEqual([])
-    expect(gruppiereStopps([foto('a', 500)])).toHaveLength(1)
+    expect(groupStops([])).toEqual([])
+    expect(groupStops([foto('a', 500)])).toHaveLength(1)
   })
 })

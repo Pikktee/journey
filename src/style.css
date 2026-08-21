@@ -96,7 +96,7 @@ button:focus-visible {
 /* Fern-Unschärfe (atmosphere.js): progressiv maskierter backdrop-blur unter der
    Horizontlinie — nimmt der Ferne die Schärfe (Distanz-Unschärfe) und kaschiert
    die Esri-LOD-Kante. Liegt über der Karte, unter #atmosphere und aller UI. */
-#farblur {
+#color-blur {
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -150,7 +150,7 @@ button:focus-visible {
    Er war nur während der Fahrt zu sehen (im Startscreen blendete er aus, weil
    Ort und Route dort formatfüllend stehen) und wiederholte dann genau das, was
    der Halt-Chip rechts und die Telemetrie unten ohnehin sagen. Die obere linke
-   Ecke gehört jetzt allein dem Weg zurück (.zurueck). */
+   Ecke gehört jetzt allein dem Weg zurück (.exit-pill). */
 
 /* — Nächster Halt — */
 
@@ -296,7 +296,7 @@ button:focus-visible {
 /* Die Herkunft: Avatar + Name als ein Griff, das Datum daneben als Text.
    Kein zweiter Weg aus dem Player heraus im App-Modus — dort führt die Liste
    der App zurück, ein Profilsprung im WebView hätte keinen Rückweg. */
-.intro-autor {
+.intro-author {
   margin-top: -4px;
   margin-bottom: 18px;
   display: flex;
@@ -308,7 +308,7 @@ button:focus-visible {
   color: var(--text-gedaempft);
 }
 
-.intro-autor-person {
+.intro-author-person {
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -319,13 +319,13 @@ button:focus-visible {
   transition: color 0.2s ease;
 }
 
-.intro-autor-person:hover {
+.intro-author-person:hover {
   color: var(--akzent);
 }
 
 /* Ohne Handle ist der Name kein Link — dann darf er auch nicht wie einer
    aussehen (der Player setzt dafür `aria-disabled`). */
-.intro-autor-person[aria-disabled='true'] {
+.intro-author-person[aria-disabled='true'] {
   pointer-events: none;
 }
 
@@ -342,7 +342,7 @@ button:focus-visible {
   flex: none;
 }
 
-.intro-autor-punkt {
+.intro-author-dot {
   opacity: 0.45;
 }
 
@@ -387,13 +387,13 @@ button:focus-visible {
    Frage, die man VOR dem Klick hat, und steht deshalb als erste in der Reihe.
    Im Knopf wäre sie kürzer, aber im Video-Export gibt es keinen Knopf — die
    Kennzahlenzeile dagegen zeichnet er mit. */
-.chip-dauer {
+.chip-duration {
   border-color: color-mix(in srgb, var(--akzent) 42%, transparent);
   background: color-mix(in srgb, var(--akzent) 10%, transparent);
   color: var(--text);
 }
 
-.chip-dauer svg {
+.chip-duration svg {
   width: 14px;
   height: 14px;
   color: var(--akzent);
@@ -431,7 +431,7 @@ button:focus-visible {
    `fixed` und über dem Intro (z 30), damit derselbe Knopf im Startscreen wie
    während der Fahrt an genau derselben Stelle steht — kein zweites Element,
    das beim Start durch ein anderes ersetzt wird. Unter den Dialogen (45+). */
-.zurueck {
+.exit-pill {
   position: fixed;
   top: max(clamp(20px, 3.4vh, 36px), env(safe-area-inset-top));
   left: max(clamp(20px, 3.4vw, 44px), env(safe-area-inset-left));
@@ -450,20 +450,20 @@ button:focus-visible {
   transition: color 0.22s ease, border-color 0.22s ease, background 0.22s ease,
     opacity 0.5s ease, transform 0.5s ease;
 }
-.zurueck:hover {
+.exit-pill:hover {
   color: var(--text);
   border-color: color-mix(in srgb, var(--akzent) 50%, transparent);
   background: rgba(8, 11, 16, 0.62);
 }
-.zurueck .zurueck-chevron {
+.exit-pill .exit-pill-chevron {
   font-size: 18px;
   line-height: 0;
   margin-top: -1px;
   opacity: 0.85;
   transition: transform 0.22s ease;
 }
-.zurueck:hover .zurueck-chevron { transform: translateX(-3px); }
-.zurueck .zurueck-wort {
+.exit-pill:hover .exit-pill-chevron { transform: translateX(-3px); }
+.exit-pill .exit-pill-word {
   font-family: var(--font-ui);
   font-size: 13.5px;
   font-weight: 500;
@@ -505,10 +505,10 @@ button:focus-visible {
    bleibt, muss die Leiste erreichbar sein, WÄHREND sie liegt. Der Auto-Rückzug
    (body.ui-clean) ändert daran nichts: Er blendet die Leiste aus, und wenn sie
    auf Regung wiederkommt, liegt sie oben. */
-/* Die LEINWAND der Foto-Karte (src/kartenschicht.ts hängt sie ein) — an der
+/* Die LEINWAND der Foto-Karte (src/card-layer.ts hängt sie ein) — an der
    Stelle, an der bis Etappe 2 die DOM-Karte lag. Der Export komponiert sie
    ebenda: nach Wetter und Reiter, vor der Attribution. */
-.karten-leinwand {
+.card-canvas {
   position: fixed;
   inset: 0;
   /* `inset: 0` allein spannt eine Leinwand NICHT auf: Ein `canvas` ist ein
@@ -540,7 +540,7 @@ button:focus-visible {
    spielt nur, was er lädt), sichtbar sein müssen sie nicht: Gezeichnet werden
    sie auf die Leinwand. `visibility: hidden` und nicht `display: none` — ein
    `display: none` Video liefert in manchen Browsern keine Frames. */
-.photo-quellen {
+.photo-sources {
   position: absolute;
   top: 0;
   left: 0;
@@ -551,8 +551,8 @@ button:focus-visible {
   pointer-events: none;
 }
 
-.photo-quellen img,
-.photo-quellen video {
+.photo-sources img,
+.photo-sources video {
   width: 1px;
   height: 1px;
 }
@@ -588,13 +588,13 @@ button:focus-visible {
      Karte erkennbar, die Trennung übernimmt der Blur. */
   background: rgba(6, 10, 16, 0.3);
   /* Die Deckkraft kommt aus der FILMZEIT und nicht mehr aus einer Transition:
-     `kartenschicht.ts` schreibt `--schleier-sicht` pro Frame, und das ist die
+     `card-layer.ts` schreibt `--scrim-opacity` pro Frame, und das ist die
      Deckkraft der Karte. Damit kommt der Schleier über den Flug hoch und geht
      mit dem Abgang wieder weg — rückwärts wie vorwärts und beim Scrubben. Als
      0,8-s-Transition an einer Klasse blieb er beim Scrubben hinter der Karte
      zurück und kam rückwärts gar nicht mit; seit der Kamerablitz zurückgebaut
      ist, ist er das Einzige, was den Halt markiert. */
-  opacity: var(--schleier-sicht, 0);
+  opacity: var(--scrim-opacity, 0);
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(0px);
 }
@@ -613,7 +613,7 @@ body.cinema .photo-backdrop {
 }
 
 /* Die Klickfläche der Karte: „Klick: anhalten / weiterlaufen".
-   Lage und Größe setzt `kartenschicht.ts` pro Frame aus den Rechtecken des
+   Lage und Größe setzt `card-layer.ts` pro Frame aus den Rechtecken des
    Malers — mitgeführt und kein statischer Kasten, weil die Karte springt,
    sobald die Bedienung erscheint oder verschwindet (Konzept, Falle 5). */
 .photo-card {
@@ -625,11 +625,11 @@ body.cinema .photo-backdrop {
 }
 
 /* Der Bildbereich — trägt Ton-Knopf und „Angehalten"-Abzeichen, sonst nichts.
-   `--karten-mass` ist der Maßstab der Bühne (kartenschicht.ts); die beiden
+   `--card-scale` ist der Maßstab der Bühne (card-layer.ts); die beiden
    Kinder skalieren damit, sonst wären sie im 4K-Film Briefmarken. */
-.photo-bild {
+.photo-image {
   position: absolute;
-  --karten-mass: 1;
+  --card-scale: 1;
   opacity: 0;
   pointer-events: none;
 }
@@ -637,12 +637,12 @@ body.cinema .photo-backdrop {
 /* Ton-Umschalter im Video (Opt-in wegen der Autoplay-Policy) */
 .photo-sound {
   position: absolute;
-  top: calc(10px * var(--karten-mass));
-  right: calc(10px * var(--karten-mass));
+  top: calc(10px * var(--card-scale));
+  right: calc(10px * var(--card-scale));
   display: grid;
   place-items: center;
-  width: calc(40px * var(--karten-mass));
-  height: calc(40px * var(--karten-mass));
+  width: calc(40px * var(--card-scale));
+  height: calc(40px * var(--card-scale));
   border: none;
   border-radius: 50%;
   background: rgba(10, 8, 5, 0.55);
@@ -659,8 +659,8 @@ body.cinema .photo-backdrop {
   transform: scale(0.94);
 }
 .photo-sound svg {
-  width: calc(20px * var(--karten-mass));
-  height: calc(20px * var(--karten-mass));
+  width: calc(20px * var(--card-scale));
+  height: calc(20px * var(--card-scale));
 }
 .photo-sound[aria-pressed='true'] {
   background: color-mix(in srgb, var(--akzent) 90%, transparent);
@@ -672,16 +672,16 @@ body.cinema .photo-backdrop {
 .photo-held {
   position: absolute;
   left: 50%;
-  top: calc(18px * var(--karten-mass));
+  top: calc(18px * var(--card-scale));
   transform: translate(-50%, -8px);
   max-width: calc(100% - 18px);
-  padding: calc(8px * var(--karten-mass)) calc(16px * var(--karten-mass));
+  padding: calc(8px * var(--card-scale)) calc(16px * var(--card-scale));
   border-radius: var(--radius-full);
   background: rgba(8, 10, 14, 0.72);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--text);
-  font-size: calc(12px * var(--karten-mass));
+  font-size: calc(12px * var(--card-scale));
   font-weight: 500;
   letter-spacing: -0.005em;
   text-align: center;
@@ -692,7 +692,7 @@ body.cinema .photo-backdrop {
 
 /* Die Klasse sitzt weiter auf der Klickfläche (ui.ts, `setPlaying`) — das
    Abzeichen ist ihr Geschwister, nicht ihr Kind. */
-.photo-card.held ~ .photo-bild .photo-held {
+.photo-card.held ~ .photo-image .photo-held {
   opacity: 1;
   transform: translate(-50%, 0);
 }
@@ -1090,7 +1090,7 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
    anfassbar: Wäre sie der Griff, spränge ein Tipp in ihrer Mitte auf die Ankunft
    des Halts; so zieht ein Scrub quer hindurch und landet auf der Filmsekunde,
    die er getroffen hat. Unter dem Punkt (z-index 3) und über der Profilfläche. */
-.halt-flaeche {
+.stop-span {
   position: absolute;
   /* Anteilig und nicht in Pixeln: die Leiste ist am Desktop 44 px hoch, auf dem
      Telefon 54 und im Querformat wieder anders — ein fester Wert ergäbe drei
@@ -1214,7 +1214,7 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
    der Kaskade jede normale Deklaration — ohne `!important` gewann `opacity: 1`
    der beendeten Einblendung, und der Weg zurück stand als einziges Element im
    Bild, während sich alles andere zurückzog. */
-body.ui-clean .zurueck {
+body.ui-clean .exit-pill {
   opacity: 0 !important;
   transform: translateY(-12px);
   pointer-events: none;
@@ -1519,7 +1519,7 @@ body:not(.dev) .dev-only {
    wäre eine Sackgasse. Statt dessen steht in der Steuerleiste ein sichtbarer
    Weg zurück in die Tourliste (.app-exit): im Vollbild-Player wäre sonst die
    System-Geste der einzige Ausweg, und den findet nur, wer ihn kennt. */
-body.app .zurueck {
+body.app .exit-pill {
   display: none;
 }
 
@@ -1536,8 +1536,8 @@ body.app .app-exit {
 html:has(body.export),
 body.export {
   position: relative;
-  width: var(--export-b, 1280px);
-  height: var(--export-h, 720px);
+  width: var(--film-export-w, 1280px);
+  height: var(--film-export-h, 720px);
   overflow: hidden;
 }
 
@@ -1545,8 +1545,8 @@ body.export #map {
   inset: auto;
   top: 0;
   left: 0;
-  width: var(--export-b, 1280px);
-  height: var(--export-h, 720px);
+  width: var(--film-export-w, 1280px);
+  height: var(--film-export-h, 720px);
 }
 
 /* Die Karten-Leinwand steht hier bei den Overlays und NICHT bei den
@@ -1554,8 +1554,8 @@ body.export #map {
    demselben `drawImage` wie Wetter und Atmosphäre. */
 body.export #atmosphere,
 body.export #weather,
-body.export #karte,
-body.export #farblur {
+body.export #card,
+body.export #color-blur {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1568,12 +1568,12 @@ body.export #farblur {
    Die Bedienung der Karte (`.photo-layer`) ebenso — Knöpfe gehören nicht in
    eine Datei. */
 body.export .photo-backdrop,
-body.export .zurueck,
+body.export .exit-pill,
 body.export .intro,
 body.export .dock,
 body.export .photo-layer,
 body.export .finale,
-body.export .karten-info,
+body.export .map-attribution,
 body.export .next-stop,
 body.export .vignette,
 body.export .grain,
@@ -1583,7 +1583,7 @@ body.export .rider {
   display: none !important;
 }
 
-.export-stand {
+.film-export-status {
   display: none;
   position: fixed;
   top: 16px;
@@ -1600,7 +1600,7 @@ body.export .rider {
   pointer-events: none;
 }
 
-body.export .export-stand {
+body.export .film-export-status {
   display: block;
 }
 
@@ -1619,7 +1619,7 @@ body.export .export-stand {
   }
   /* Die Foto-Karte steht hier NICHT mehr. Sie ist eine Leinwand, und eine
      Leinwand erbt von einem Reduce-Block nichts — der Maler bekommt die
-     Einstellung als Schalter (`buehne.ruhig`, kartenschicht.ts) und lässt Ken
+     Einstellung als Schalter (`stage.calm`, card-layer.ts) und lässt Ken
      Burns, Flug und Blitz dann weg. Und zwar ausdrücklich nur am Bildschirm:
      Im Export ist der Schalter aus, sonst hätte die Einstellung des rendernden
      Rechners Einfluss auf die ausgelieferte Datei (Konzept, Falle 2). */
@@ -1629,23 +1629,23 @@ body.export .export-stand {
   }
 }
 
-/* — Kartendaten-Popup (karteninfo.ts) —
+/* — Kartendaten-Popup (map-attribution.ts) —
    Die Pflicht-Attribution ist ein runder ⓘ-Knopf; das Popup darüber ist eine
    Karte im Glas-Look des Players. Es liegt ABSOLUT über dem Knopf (nicht als
    Geschwister im Fluss), damit sich die Bildecke beim Öffnen nicht verschiebt. */
 
-/* Am BODY verankert, nicht in MapLibres Control-Ecke (siehe karteninfo.ts):
+/* Am BODY verankert, nicht in MapLibres Control-Ecke (siehe map-attribution.ts):
    z-index 22 liegt über der Steuerleiste (20) und dem Bild (Foto-Karte 12,
    Finale 13, s. E17) und unter dem Startscreen (30) — dort gehört die Bühne
    der Szene. */
-.karten-info {
+.map-attribution {
   position: fixed;
   right: clamp(10px, env(safe-area-inset-right), 24px);
   bottom: 10px;
   z-index: 22;
 }
 
-.karten-info-knopf {
+.map-attribution-button {
   display: grid;
   place-items: center;
   width: 30px;
@@ -1664,14 +1664,14 @@ body.export .export-stand {
     border-color 0.18s ease;
 }
 
-.karten-info-knopf:hover,
-.karten-info-knopf[aria-expanded='true'] {
+.map-attribution-button:hover,
+.map-attribution-button[aria-expanded='true'] {
   color: var(--text);
   background: rgba(12, 15, 20, 0.78);
   border-color: rgba(255, 255, 255, 0.22);
 }
 
-.karten-info-popup {
+.map-attribution-popup {
   position: absolute;
   right: 0;
   bottom: calc(100% + 9px);
@@ -1694,12 +1694,12 @@ body.export .export-stand {
     transform 0.19s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
 
-.karten-info-popup.offen {
+.map-attribution-popup.open {
   opacity: 1;
   transform: none;
 }
 
-.ki-titel {
+.attribution-title {
   margin: 0 0 9px;
   font-size: 12.5px;
   font-weight: 600;
@@ -1707,36 +1707,36 @@ body.export .export-stand {
 }
 
 /* Feine Linie zwischen den Quellen statt Kästchen — Rolle über Rechtezeile */
-.ki-zeile + .ki-zeile {
+.attribution-row + .attribution-row {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.ki-rolle,
-.ki-quelle {
+.attribution-role,
+.attribution-source {
   display: block;
 }
 
-.ki-rolle {
+.attribution-role {
   font-size: 10.5px;
   color: rgba(242, 237, 227, 0.5);
 }
 
-.ki-quelle {
+.attribution-source {
   margin-top: 1px;
   font-size: 12px;
   line-height: 1.35;
   color: var(--text-gedaempft);
 }
 
-.karten-info-popup a {
+.map-attribution-popup a {
   color: var(--text);
   text-decoration: none;
   border-bottom: 1px solid color-mix(in srgb, var(--akzent) 50%, transparent);
 }
 
-.karten-info-popup a:hover {
+.map-attribution-popup a:hover {
   color: var(--akzent);
   border-bottom-color: var(--akzent);
 }
@@ -1747,13 +1747,13 @@ body.export .export-stand {
    Steuerleiste gehoben. */
 
 @media (max-width: 700px) {
-  .zurueck {
+  .exit-pill {
     top: max(14px, env(safe-area-inset-top));
     left: max(14px, env(safe-area-inset-left));
     padding: 7px 13px 7px 10px;
   }
 
-  .zurueck .zurueck-wort {
+  .exit-pill .exit-pill-word {
     font-size: 12.5px;
   }
 
@@ -1832,7 +1832,7 @@ body.export .export-stand {
   }
 
   /* Die Foto-Karte hat hier keine Media Query mehr: Ihre schmale Lage leitet
-     der Maler aus Breite und Höhe selbst ab (`kartenLage`, Schwelle 700 px —
+     der Maler aus Breite und Höhe selbst ab (`cardLayout`, Schwelle 700 px —
      dieselbe wie diese Query). Ein Aufruf-Schalter oder ein zweiter Satz
      CSS-Werte daneben wäre eine zweite Wahrheit über dieselbe Geometrie. */
 
@@ -1928,11 +1928,11 @@ body.export .export-stand {
   }
 
   /* Attribution bleibt Pflicht und sichtbar: über die Steuerleiste heben */
-  .karten-info {
+  .map-attribution {
     bottom: calc(var(--dock-h, 0px) + 12px);
   }
 
-  body.ui-clean .karten-info {
+  body.ui-clean .map-attribution {
     bottom: 10px;
   }
 }
@@ -1955,12 +1955,12 @@ body.export .export-stand {
      zweispaltig, sonst liegt „Tour starten" unterhalb der Bildkante.
    Bewusst nur an Höhe + Ausrichtung geknüpft (kein max-width): die knappe
    Höhe ist die echte Beschränkung, nicht die Geräteklasse. */
-/* Angehängt an body.kompakt-quer (gesetzt in main.js aus innerWidth/innerHeight)
+/* Angehängt an body.compact-landscape (gesetzt in main.js aus innerWidth/innerHeight)
  statt an `(max-height: 500px) and (orientation: landscape)`: Beide Media
  Features sind in der Android-WebView der App FALSCH — bei 375×843 meldet sie
  `orientation: landscape` und `max-height: 500px` als zutreffend, wodurch
  dieses kompakte Layout im Hochformat zuschlug. */
-body.kompakt-quer .next-stop {
+body.compact-landscape .next-stop {
   top: max(10px, env(safe-area-inset-top));
   right: clamp(16px, env(safe-area-inset-right), 24px);
   max-width: 40vw;
@@ -1971,25 +1971,25 @@ body.kompakt-quer .next-stop {
   -webkit-backdrop-filter: blur(10px) saturate(1.3);
 }
 
-body.kompakt-quer .next-stop-kicker {
+body.compact-landscape .next-stop-kicker {
   font-size: 8.5px;
   margin-bottom: 1px;
 }
 
-body.kompakt-quer .next-stop-value {
+body.compact-landscape .next-stop-value {
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-body.kompakt-quer .next-stop-km {
+body.compact-landscape .next-stop-km {
   display: block;
   margin: 1px 0 0;
   font-size: 9px;
 }
 
-body.kompakt-quer /* — Steuerstreifen: eine Zeile über die volle Breite — */
+body.compact-landscape /* — Steuerstreifen: eine Zeile über die volle Breite — */
 .dock {
   left: clamp(8px, env(safe-area-inset-left), 28px);
   right: clamp(8px, env(safe-area-inset-right), 28px);
@@ -2008,17 +2008,17 @@ body.kompakt-quer /* — Steuerstreifen: eine Zeile über die volle Breite — *
   transform: translateY(80px);
 }
 
-body.kompakt-quer .dock.up {
+body.compact-landscape .dock.up {
   transform: translateY(0);
 }
 
-body.kompakt-quer .dock-cluster:first-child {
+body.compact-landscape .dock-cluster:first-child {
   order: 1;
   flex: none;
   gap: 6px;
 }
 
-body.kompakt-quer /* Timeline nimmt den Rest der Zeile — der Streifen bleibt dadurch einzeilig */
+body.compact-landscape /* Timeline nimmt den Rest der Zeile — der Streifen bleibt dadurch einzeilig */
 .progress {
   order: 2;
   flex: 1 1 120px;
@@ -2026,31 +2026,31 @@ body.kompakt-quer /* Timeline nimmt den Rest der Zeile — der Streifen bleibt d
   height: 32px;
 }
 
-body.kompakt-quer .telemetry {
+body.compact-landscape .telemetry {
   order: 3;
   flex: none;
   margin-left: 0;
   gap: 12px;
 }
 
-body.kompakt-quer .icon-btn {
+body.compact-landscape .icon-btn {
   width: 40px;
   height: 40px;
   border-radius: 11px;
 }
 
-body.kompakt-quer .play-btn {
+body.compact-landscape .play-btn {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-karte);
 }
 
-body.kompakt-quer .play-btn svg {
+body.compact-landscape .play-btn svg {
   width: 20px;
   height: 20px;
 }
 
-body.kompakt-quer .speed-btn {
+body.compact-landscape .speed-btn {
   width: 40px;
   font-size: 10.5px;
 }
@@ -2060,35 +2060,35 @@ body.kompakt-quer .speed-btn {
    nicht über nth-child: die Reihenfolge der Felder hat sich schon einmal
    verschoben (das Feld „Unterwegs mit" ist entfallen), und ein Index zeigt
    danach still auf das falsche Feld. */
-body.kompakt-quer #tele-ele-wrap,
-body.kompakt-quer #tele-time-wrap {
+body.compact-landscape #tele-ele-wrap,
+body.compact-landscape #tele-time-wrap {
   display: none;
 }
 
-body.kompakt-quer .tele {
+body.compact-landscape .tele {
   flex-direction: row;
   align-items: baseline;
   gap: 6px;
   min-width: 0;
 }
 
-body.kompakt-quer .tele-label {
+body.compact-landscape .tele-label {
   font-size: 8.5px;
 }
 
-body.kompakt-quer .tele-value {
+body.compact-landscape .tele-value {
   font-size: 12px;
   white-space: nowrap;
 }
 
 /* — Foto-Karte quer — steht hier nicht mehr.
    Die Lage „Bild links, Text rechts" leitet der Maler aus Breite und Höhe ab
-   (`kartenLage`: breite > hoehe && hoehe <= 560 — dieselbe Schwelle, an der
-   main.ts `body.kompakt-quer` setzt). Die Maße dieser Lage stehen als eigener
-   Satz in `KARTEN_MASSE.quer`. */
+   (`cardLayout`: width > height && height <= 560 — dieselbe Schwelle, an der
+   main.ts `body.compact-landscape` setzt). Die Maße dieser Lage stehen als eigener
+   Satz in `CARD_METRICS.landscape`. */
 
-body.kompakt-quer /* — Intro zweispaltig: Titel links,
-body.kompakt-quer Aktionen rechts — */
+body.compact-landscape /* — Intro zweispaltig: Titel links,
+body.compact-landscape Aktionen rechts — */
 .intro-inner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2099,41 +2099,41 @@ body.kompakt-quer Aktionen rechts — */
   text-align: left;
 }
 
-body.kompakt-quer .intro-kicker {
+body.compact-landscape .intro-kicker {
   grid-area: 1 / 1;
   font-size: 11.5px;
   letter-spacing: 0.01em;
 }
 
-body.kompakt-quer .intro-title {
+body.compact-landscape .intro-title {
   grid-area: 2 / 1;
   margin: 4px 0 0;
   font-size: clamp(30px, 5.4vw, 54px);
 }
 
-body.kompakt-quer .intro-rule {
+body.compact-landscape .intro-rule {
   display: none; /* die Spaltenkante trennt bereits */
 }
 
-body.kompakt-quer .intro-route {
+body.compact-landscape .intro-route {
   grid-area: 3 / 1;
   margin-top: 6px;
   font-size: 10.5px;
   letter-spacing: 0.02em;
 }
 
-body.kompakt-quer .intro-meta {
+body.compact-landscape .intro-meta {
   grid-area: 1 / 2;
   margin-top: 0;
   justify-content: flex-start;
 }
 
-body.kompakt-quer .chip {
+body.compact-landscape .chip {
   font-size: 9px;
   padding: 6px 10px;
 }
 
-body.kompakt-quer .btn-start {
+body.compact-landscape .btn-start {
   grid-area: 2 / 2;
   justify-self: start;
   margin-top: 0;
@@ -2164,36 +2164,36 @@ body.kompakt-quer .btn-start {
 
    Der Streifen bleibt dort ungekürzt, wo ein Element wirklich über die ganze
    Kante läuft — die Steuerleiste unten. */
-body.kompakt-quer .zurueck {
+body.compact-landscape .exit-pill {
   top: max(10px, env(safe-area-inset-top));
   left: clamp(16px, env(safe-area-inset-left), 24px);
   height: 30px;
   padding: 0 14px 0 10px;
 }
 
-body.kompakt-quer .zurueck .zurueck-wort {
+body.compact-landscape .exit-pill .exit-pill-word {
   font-size: 12px;
 }
 
-body.kompakt-quer .finale-card {
+body.compact-landscape .finale-card {
   width: min(94vw, 460px);
   padding: 18px 20px 16px;
 }
 
-body.kompakt-quer .finale-stats {
+body.compact-landscape .finale-stats {
   gap: 18px;
   margin: 14px 0 16px;
 }
 
 /* Attribution über den Steuerstreifen heben (Pflicht: Esri/AWS) */
-body.kompakt-quer .karten-info {
+body.compact-landscape .map-attribution {
   bottom: calc(var(--dock-h, 56px) + 10px);
 }
 
 /* Zieht sich der Steuerstreifen zurück, sinkt die Attribution mit — sonst
-   schwebte sie frei im Bild. `body.kompakt-quer body.ui-clean` (zwei body!)
+   schwebte sie frei im Bild. `body.compact-landscape body.ui-clean` (zwei body!)
    konnte nie greifen: dieselbe Klasse liegt auf DEMSELBEN Element. */
-body.kompakt-quer.ui-clean .karten-info {
+body.compact-landscape.ui-clean .map-attribution {
   bottom: 10px;
 }
 

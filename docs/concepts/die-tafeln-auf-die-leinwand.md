@@ -3,8 +3,8 @@ stand: 2026-08-17
 status: Entwurf, nichts gebaut
 betrifft:
   - Player (erlebnis.html, src/style.css, src/ui.ts)
-  - Video-Export (src/exportfilm.ts, src/exportformat.ts)
-  - Leinwand-Werkzeug (src/kartenmaler.ts, src/kartenschicht.ts)
+  - Video-Export (src/film-export.ts, src/film-export-channel.ts)
+  - Leinwand-Werkzeug (src/card-painter.ts, src/card-layer.ts)
 icon: leinwand
 ---
 
@@ -19,9 +19,9 @@ Das ist der herausgelöste Rest von
 als Etappe 3 stand. Herausgelöst, weil er ein anderes Ziel hat, und das ist
 mehr als eine Terminfrage, s. §1.
 
-Was von dort mitkommt, ist das Werkzeug: `src/kartenmaler.ts` bringt Bezugshöhe
+Was von dort mitkommt, ist das Werkzeug: `src/card-painter.ts` bringt Bezugshöhe
 und `mass`, die CSS-Kurven, Textumbruch mit Kürzen und die Puffer-Mechanik schon
-mit, `src/kartenschicht.ts` das Muster „Bild auf die Leinwand, Bedienung als
+mit, `src/card-layer.ts` das Muster „Bild auf die Leinwand, Bedienung als
 mitgeführtes DOM darüber". Nichts davon muss ein zweites Mal entstehen.
 
 ---
@@ -63,7 +63,7 @@ im DOM, mit CSS in [style.css](../../src/style.css):
 | Auftritt | `.reveal` mit gestaffelten `--d`-Verzögerungen | Klasse `.in` auf der Karte |
 | Grund | Bühne mit Knöpfen | Bühne mit Knöpfen |
 
-**Im Film** ([exportfilm.ts](../../src/exportfilm.ts)) sind es zwei Funktionen,
+**Im Film** ([exportfilm.ts](../../src/film-export.ts)) sind es zwei Funktionen,
 `zeichneIntroTafel` und `zeichneFinaleTafel`, zusammen ~130 Zeilen. Sie sind
 sauberer als der Karten-Nachbau war (der Kommentar erklärt die Absicht, die Maße
 sind auf 720p ausgemessen und skalieren über ein `e`), aber sie tragen dieselben
@@ -81,7 +81,7 @@ drei Erbfehler:
    danebenliegt. `measureText` steht daneben zur Verfügung.
 
 **Geteilt ist heute nur die ZEIT**, und die hält: `introTafelSicht` und
-`finaleTafelSicht` in [exportformat.ts](../../src/exportformat.ts) sind DOM-frei
+`finaleTafelSicht` in [exportformat.ts](../../src/film-export-channel.ts) sind DOM-frei
 und getestet. Sie bleiben, wo sie sind.
 
 ---

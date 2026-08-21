@@ -7,17 +7,17 @@
 
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { STUDIO_PEGEL_VORGABE, videoLautstaerke, videoTonHuelle } from '../audiotracks.js'
+import { STUDIO_GAIN_DEFAULT, videoVolume, videoVolumeEnvelope } from '../audiotracks.js'
 import {
-  ausschnittDauerS,
-  klemmeSeitenverhaeltnis,
-  VIDEO_HAT_FRAME,
-  videoNachfuehrung,
-} from '../einblendung.js'
-import type { KartenMedium, KartenQuelle, KartenText } from '../kartenmaler.js'
-import { createKartenSchicht, type KartenSchicht } from '../kartenschicht.js'
+  trimmedDurationS,
+  clampAspectRatio,
+  VIDEO_HAS_FRAME,
+  videoSeekDecision,
+} from '../card-timing.js'
+import type { CardMedium, CardSource, CardText } from '../card-painter.js'
+import { createCardLayer, type CardLayer } from '../card-layer.js'
 import { pfad, tourPfad } from '../routen.js'
-import { BESCHREIBUNG_MAX } from '../tourtexte.js'
+import { DESCRIPTION_MAX } from '../tour-texts.js'
 import { wireTooltips } from './tooltip.js'
 import * as api from './api.js'
 import { openExportSheet, closeExportSheet } from './export-sheet.js'
@@ -86,7 +86,7 @@ import {
   formatSeconds,
   STOP_FADE_OUT_S,
   stopAtFilmS,
-  holdS,
+  photoHoldS,
   stopInnerAt,
   clampFilmS,
   clampBoundary,
@@ -104,7 +104,7 @@ import {
   snapToStop,
   stepFilmS,
   clockDiffToOffset,
-  videoStandS,
+  videoPositionS,
   recordingTimeAtFilmTime,
   type TimelineAxis,
   type AxisStop,
@@ -136,7 +136,7 @@ import {
   type AudioClipPatch,
 } from './audio-clip.js'
 import { createMapMood, type MapMood } from './map-mood.js'
-import { baueStopps, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
+import { buildStops, metersWithoutCluster, assignOrder, stopOf, type Stop } from './stops.js'
 import { describeCapture, readCapture, readExif, type ExifCapture } from './exif.js'
 import {
   distanceFunction,
@@ -304,7 +304,7 @@ interface MarkerEntry {
   mk: maplibregl.Marker
   el: HTMLElement
   /** Aktueller Halt — die Zieh-Handler lesen ihn HIER, nicht aus ihrer Closure. */
-  stop: Stopp
+  stop: Stop
 }
 let runner: maplibregl.Marker | null = null
 let preview: { audio: HTMLAudioElement; file: string } | null = null
@@ -466,7 +466,7 @@ function close(): void {
   // Die Leinwand hängt an der Bühne und bringt zwei Beobachter (Resize) mit —
   // ohne diesen Aufruf blieben sie auf einem Container liegen, den die nächste
   // Tour neu bespielt.
-  cardLayer?.zerstoere()
+  cardLayer?.destroy()
   cardLayer = null
   z = null
   lastState = null
@@ -764,7 +764,7 @@ function drawMarker(): void {
   // sonst als drei fast deckungsgleiche Kreise übereinander und man sähe nur
   // einen. Das Bild selbst zeigt, was dort wartet — auf einem Satellitenbild
   // wäre ein Punkt nur ein weiterer heller Fleck.
-  for (const stop of baueStopps(mediaDisplay(), z.track, cumDistances)) {
+  for (const stop of buildStops(mediaDisplay(), z.track, cumDistances)) {
     const lead = stop.items[0]
     if (!lead?.anchor) continue
     const key = stop.items.map((m) => m.id).join(' ')
@@ -802,7 +802,7 @@ function drawMarker(): void {
 }
 
 /** Kartenpunkt eines Halts aufbauen (einmalig — danach nur noch fortgeschrieben). */
-function buildMarkerEntry(stop: Stopp, _key: string): MarkerEntry | null {
+function buildMarkerEntry(stop: Stop, _key: string): MarkerEntry | null {
   const lead = stop.items[0]
   if (!map || !lead?.anchor) return null
   const count = stop.items.length
@@ -863,7 +863,7 @@ function buildMarkerEntry(stop: Stopp, _key: string): MarkerEntry | null {
       .filter((m) => m.anchor && !m.removed && !ownIds.has(m.id))
       .map((m) => metersToOffset(cumDistances, z!.track, offsetFrom(m)))
     const raw = projectOntoTrack(z.track, target.lng, target.lat)
-    const safeMeters = meterOhneCluster(
+    const safeMeters = metersWithoutCluster(
       metersToOffset(cumDistances, z.track, raw.point[3]),
       foreignMeters,
     )
@@ -1380,8 +1380,8 @@ function countDescription(): void {
   const counter = $('editor-description-counter') as HTMLElement | null
   if (!field || !counter) return
   const length = field.value.trim().length
-  counter.textContent = `${length} / ${BESCHREIBUNG_MAX}`
-  counter.classList.toggle('knapp', length > BESCHREIBUNG_MAX)
+  counter.textContent = `${length} / ${DESCRIPTION_MAX}`
+  counter.classList.toggle('knapp', length > DESCRIPTION_MAX)
 }
 
 function hasUnsaved(state: State): boolean {
@@ -1786,7 +1786,7 @@ function dragOffTray(e: PointerEvent, m: MediaView): void {
     const foreignMeters = mediaDisplay()
       .filter((x) => x.anchor && !x.removed && x.id !== m.id)
       .map((x) => metersToOffset(cumDistances, z!.track, offsetFrom(x)))
-    const safeMeters = meterOhneCluster(
+    const safeMeters = metersWithoutCluster(
       metersToOffset(cumDistances, z.track, raw[3]),
       foreignMeters,
     )
@@ -2596,7 +2596,7 @@ function buildAudioFields(index: number, a: AudioEntry): HTMLElement {
           min: 0,
           max: 100,
           step: 5,
-          value: Math.round((a.volume ?? STUDIO_PEGEL_VORGABE) * 100),
+          value: Math.round((a.volume ?? STUDIO_GAIN_DEFAULT) * 100),
         },
         (v) => `${v} %`,
         (v) => {
@@ -2676,7 +2676,7 @@ function buildMediumFields(m: MediaView): HTMLElement {
   // seit der Klip-Kette auf der Leiste — umschalten heißt dort einen Klip
   // anklicken, umordnen ihn schieben. Eine zweite Miniaturenreihe im Inspector
   // wäre ein zweiter Weg zur selben Sache, nur ohne Zeitbezug.
-  const stop = z ? stoppVon(baueStopps(mediaDisplay(), z.track, cumDistances), m.id) : undefined
+  const stop = z ? stopOf(buildStops(mediaDisplay(), z.track, cumDistances), m.id) : undefined
 
   const imageShell = document.createElement('div')
   imageShell.className = 'inspector-image-wrap'
@@ -2697,7 +2697,7 @@ function buildMediumFields(m: MediaView): HTMLElement {
 
   // Der Nutzertext wird beim Rendern zur ÜBERSCHRIFT des Foto-Stopps — deshalb
   // hier „Titel", nicht „Bildunterschrift". Die Uhrzeit steht seit dem
-  // 2026-08-18 NEBEN dem Titel und nicht darunter (src/kartenmaler.ts).
+  // 2026-08-18 NEBEN dem Titel und nicht darunter (src/card-painter.ts).
   const title = document.createElement('input')
   title.type = 'text'
   title.value = m.caption
@@ -2909,7 +2909,7 @@ function showLarge(id: string): void {
 function largeList(): MediaView[] {
   if (!z) return []
   const all = mediaDisplay().filter((m) => !m.removed)
-  const stops = baueStopps(all, z.track, cumDistances)
+  const stops = buildStops(all, z.track, cumDistances)
   const seen = new Set<string>()
   const list: MediaView[] = []
   for (const s of stops) {
@@ -3250,7 +3250,7 @@ function startPreview(a: AudioEntry): void {
   const audio = new Audio(audioUrl(a, z.tourId))
   // Mit der eingestellten Lautstärke des Eintrags — 0.8 ist der Standard, den
   // auch der Regler anzeigt; der Zug am Regler passt sie live an (beiLive).
-  audio.volume = a.volume ?? STUDIO_PEGEL_VORGABE
+  audio.volume = a.volume ?? STUDIO_GAIN_DEFAULT
   audio.addEventListener('ended', () => {
     stopPreview()
     renderInspector()
@@ -4033,7 +4033,7 @@ function axisStops(media: MediaView[], moments: readonly CameraMoment[]): AxisSt
   // Halt-Breite = Standzeit aller Aufnahmen des Stopps.
   // `indizes` trägt den Weg zurück zum Stopp: die Achse sortiert nach Zeit und
   // lässt Halte ohne Breite weg, ihr Index ist also nicht der der Stopp-Liste.
-  const stops: AxisStop[] = baueStopps(media, z.track, cumDistances).map((s, i) => {
+  const stops: AxisStop[] = buildStops(media, z.track, cumDistances).map((s, i) => {
     // Ein Halt ist die KETTE seiner Aufnahmen, kein Block: nur so lässt sich
     // sagen, welche davon gerade steht. Videos zählen mit ihrer echten Länge
     // (`durationS` aus der Editor-Route), Fotos mit ihrer Standzeit.
@@ -4780,7 +4780,7 @@ function dragHold(e: PointerEvent, id: string): void {
   // Eigene Klasse: `.dragging` allein trägt auch der Klip-Zug, und dort wäre eine
   // Standzeit-Blase über dem verschobenen Bild eine Angabe zur falschen Frage.
   clip?.classList.add('dragging', 'dragging-duration')
-  const startDuration = holdS(m.display)
+  const startDuration = photoHoldS(m.display)
   const scale = pxPerFilmS > 0 ? pxPerFilmS : 1
   const startX = e.clientX
   // Erst ab der Schwelle wird aus dem Drücken ein Zug — und die Rechnung setzt
@@ -4995,7 +4995,7 @@ function dragClip(e: PointerEvent, id: string): void {
   stopsPlay()
   const total = axis.curve.totalS
   const zz = z
-  const stops = baueStopps(all, zz.track, cumDistances)
+  const stops = buildStops(all, zz.track, cumDistances)
   const ownStop = axis.stops?.[ownClip.stopIndex] ?? null
   const clip = clipEls.get(id)
   const fieldEl = document.getElementById('scale-field')
@@ -5019,7 +5019,7 @@ function dragClip(e: PointerEvent, id: string): void {
   let moved = false
   let target:
     | { kind: 'order'; slot: number }
-    | { kind: 'location'; offsetS: number; dock: Stopp | null }
+    | { kind: 'location'; offsetS: number; dock: Stop | null }
     | null = null
 
   const move = (ev: PointerEvent): void => {
@@ -5050,7 +5050,7 @@ function dragClip(e: PointerEvent, id: string): void {
     // — Ort — über einem fremden Halt andocken, sonst freie Zeit
     const treffer = stopInnerAt(axis, cursorFilm)
     const foreign = treffer && !treffer.items?.some((s) => s.id === id) ? treffer : null
-    const dock = foreign?.items?.[0] ? (stoppVon(stops, foreign.items[0].id) ?? null) : null
+    const dock = foreign?.items?.[0] ? (stopOf(stops, foreign.items[0].id) ?? null) : null
     const free = dragTargetTime(dragAxis, startS, fraction - startFraction, total)
     const offsetS = dock ? dock.offsetS : Math.max(scale.fromS, Math.min(scale.toS, free))
     target = { kind: 'location', offsetS, dock }
@@ -5096,10 +5096,10 @@ function dragClip(e: PointerEvent, id: string): void {
       const chain = (ownStop?.items ?? []).map((s) => s.id)
       const follow = moveToSlot(chain, id, target.slot)
       // Zurück auf den eigenen Platz gelegt heißt: nichts ist geschehen.
-      // `reiheVergeben` schriebe trotzdem ein neues Overlay — und der
+      // `assignOrder` schriebe trotzdem ein neues Overlay — und der
       // Referenzvergleich in renderAlles machte daraus einen leeren
       // Undo-Schritt, den man später einmal umsonst rückgängig macht.
-      if (follow.join(' ') !== chain.join(' ')) z.edits = reiheVergeben(z.edits, follow)
+      if (follow.join(' ') !== chain.join(' ')) z.edits = assignOrder(z.edits, follow)
       renderAll()
       return
     }
@@ -5109,7 +5109,7 @@ function dragClip(e: PointerEvent, id: string): void {
       const anchor = target.dock.items[0]?.anchor
       if (!anchor) return
       const next = withMediaEdit(z.edits, id, { anchor: anchor })
-      z.edits = reiheVergeben(next, [...target.dock.items.map((x) => x.id), id])
+      z.edits = assignOrder(next, [...target.dock.items.map((x) => x.id), id])
       renderAll()
       return
     }
@@ -5121,7 +5121,7 @@ function dragClip(e: PointerEvent, id: string): void {
     const foreignMeters = all
       .filter((x) => x.anchor && !x.removed && x.id !== id)
       .map((x) => metersToOffset(cumDistances, zz.track, offsetFrom(x)))
-    const safeMeters = meterOhneCluster(
+    const safeMeters = metersWithoutCluster(
       metersToOffset(cumDistances, zz.track, raw[3]),
       foreignMeters,
     )
@@ -5592,12 +5592,12 @@ function buildCardLayer(): void {
   const stage = document.querySelector<HTMLElement>('.card-stage')
   if (!stage || cardLayer) return
   // Der Schleier ist das `::after` DIESER Bühne — beschriftet wird deshalb sie
-  // selbst (`--schleier-sicht`), ein Pseudo-Element nimmt keine Inline-Stile.
-  cardLayer = createKartenSchicht({
+  // selbst (`--scrim-opacity`), ein Pseudo-Element nimmt keine Inline-Stile.
+  cardLayer = createCardLayer({
     container: stage,
-    buehne: 'editor',
+    stage: 'editor',
     id: 'foto-karte',
-    schleier: stage,
+    scrim: stage,
   })
 }
 
@@ -6619,7 +6619,7 @@ let mapFollows = true
 /** Welche Aufnahme gerade auf der Karte liegt — Wechsel baut die Karte neu. */
 let shown: string | null = null
 /**
- * Gemessenes Seitenverhältnis je Medium (geklemmt, s. `klemmeSeitenverhaeltnis`).
+ * Gemessenes Seitenverhältnis je Medium (geklemmt, s. `clampAspectRatio`).
  *
  * Der Rahmen der Foto-Karte entsteht bei jedem Auftritt neu; ohne dieses
  * Gedächtnis stünde er bis zum `load` des Bildes auf der Vorgabe 3:2 und
@@ -6632,10 +6632,10 @@ const aspectRatios = new Map<string, number>()
  * Player, nur mit dem Bühnen-Satz `editor` und ohne Bedienung: Diese Karte hat
  * keine Knöpfe, sie ist eine Vorschau.
  */
-let cardLayer: KartenSchicht | null = null
+let cardLayer: CardLayer | null = null
 /** Was der Maler über die liegende Aufnahme wissen muss (`showPhoto` füllt beides). */
-let cardMedium: KartenMedium = { art: 'foto', ar: null }
-let cardText: KartenText = { titel: '', kmText: '', zaehlerText: '' }
+let cardMedium: CardMedium = { kind: 'photo', ar: null }
+let cardText: CardText = { title: '', kmText: '', counterText: '' }
 /** Hat das liegende Video schon je einen Frame geliefert? (s. `cardSource`) */
 let videoHadFrame = false
 /** Wanduhr-Marke des letzten begonnenen Suchlaufs (`performance.now()`). */
@@ -6661,7 +6661,7 @@ function getPlaybackPlan(): PlaybackPlan | null {
     // nicht klingen — sonst hörte man etwas, das im Film nicht vorkommt.
     if (!a || audioWouldBeDropped(a, z.edits, start, axis)) continue
     const url = audioUrl(a, z.tourId)
-    const volume = a.volume ?? STUDIO_PEGEL_VORGABE
+    const volume = a.volume ?? STUDIO_GAIN_DEFAULT
     const from = filmToFraction(axis, k.filmVon)
     // Ein Klip MIT Ausdehnung läuft als Bereich (auch ein Effekt — der Player
     // tut seit Etappe 4 dasselbe); einer ohne bleibt die Überfahr-Marke.
@@ -6941,7 +6941,7 @@ function blink(el: Element | null, className: string, ms: number): void {
  * auf Papier. Sie steht genau so lange, wie im Inspector als Standzeit gewählt.
  *
  * „Dieselbe" ist seit „Eine Bühne, ein Maler" wörtlich zu nehmen: Gemalt wird
- * sie von `src/kartenmaler.ts`, demselben Zeichner, der die Karte des Players
+ * sie von `src/card-painter.ts`, demselben Zeichner, der die Karte des Players
  * und die des Films macht. Hier entsteht nur noch, was der Maler nicht selbst
  * beschaffen kann — die ZEICHENQUELLE (ein `img` oder `video` im Dokument,
  * unsichtbar) und der TEXT.
@@ -6959,12 +6959,12 @@ function showPhoto(id: string): void {
   // wird es je Medium, weil `showPhoto` beim Scrubben oft läuft und der Rahmen
   // sonst bei jedem Auftritt kurz auf 3:2 stünde.
   cardMedium = {
-    art: m.type === 'video' ? 'video' : 'foto',
+    kind: m.type === 'video' ? 'video' : 'photo',
     ar: aspectRatios.get(m.id) ?? null,
-    ...(m.display?.kenBurns === false ? { keinKenBurns: true } : {}),
+    ...(m.display?.kenBurns === false ? { noKenBurns: true } : {}),
   }
   const rememberAspectRatio = (b: number, h: number): void => {
-    const ar = klemmeSeitenverhaeltnis(b, h)
+    const ar = clampAspectRatio(b, h)
     if (ar === null) return
     aspectRatios.set(m.id, ar)
     if (shown === m.id) cardMedium = { ...cardMedium, ar }
@@ -7059,12 +7059,12 @@ function showPhoto(id: string): void {
       )
     : null
   cardText = {
-    titel: m.caption || '',
+    title: m.caption || '',
     // Uhrzeit UND Kilometerstand stehen rechts auf der Titelzeile. Ohne Titel
     // bleiben sie an derselben Stelle stehen. „4,1 km" und nicht „km 4,1" —
     // der Player schreibt die Einheit seit jeher hinter die Zahl.
     kmText: `${clockTimeShort(m.takenAt)} Uhr${meters !== null ? ` · ${kmText(meters)} km` : ''}`,
-    zaehlerText: '',
+    counterText: '',
   }
   document.querySelector('.card-stage')?.classList.add('photo-on')
 }
@@ -7083,19 +7083,19 @@ function showPhoto(id: string): void {
  * `readyState` fällt bei jedem Suchlauf wieder unter `VIDEO_HAT_FRAME` zurück,
  * und ohne diesen Merker wechselte die Karte dort auf ein leeres Bildfeld.
  */
-function cardSource(): { source: KartenQuelle | null; ready: boolean } {
+function cardSource(): { source: CardSource | null; ready: boolean } {
   const sources = document.getElementById('photo-sources')
   const video = sources?.querySelector('video')
   if (video) {
-    const hasFrame = video.readyState >= VIDEO_HAT_FRAME
+    const hasFrame = video.readyState >= VIDEO_HAS_FRAME
     if (hasFrame) videoHadFrame = true
     if (video.videoWidth > 0 && (hasFrame || videoHadFrame)) {
       return {
         source: {
-          bild: video,
-          breite: video.videoWidth,
-          hoehe: video.videoHeight,
-          kennung: video.src,
+          image: video,
+          width: video.videoWidth,
+          height: video.videoHeight,
+          key: video.src,
         },
         ready: hasFrame && !video.seeking,
       }
@@ -7106,10 +7106,10 @@ function cardSource(): { source: KartenQuelle | null; ready: boolean } {
   if (image && image.complete && image.naturalWidth > 0) {
     return {
       source: {
-        bild: image,
-        breite: image.naturalWidth,
-        hoehe: image.naturalHeight,
-        kennung: image.src,
+        image: image,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        key: image.src,
       },
       ready: true,
     }
@@ -7167,13 +7167,13 @@ function syncPhoto(): void {
  */
 function syncImage(imS: number, durationS: number, tempo: number): void {
   const { source, ready } = cardSource()
-  cardLayer?.male({
-    imS,
-    dauerS: durationS,
+  cardLayer?.paint({
+    inS: imS,
+    durationS: durationS,
     medium: cardMedium,
     text: cardText,
-    quelle: source,
-    bereit: ready,
+    source: source,
+    ready: ready,
   })
 
   const video = document.getElementById('photo-sources')?.querySelector('video')
@@ -7184,23 +7184,23 @@ function syncImage(imS: number, durationS: number, tempo: number): void {
   // ist der Klip die Foto-Standzeit lang und damit meist länger als das Video.
   const fileEndS = video.duration > 0 && Number.isFinite(video.duration) ? video.duration : Infinity
   const endS = Math.min(Number(video.dataset['toS'] ?? 0) || Infinity, fileEndS)
-  const { zielS, ausgelaufen } = videoStandS(fromS, endS, imS)
-  const running = tempo === 1 && !ausgelaufen
+  const { targetS, atEnd } = videoPositionS(fromS, endS, imS)
+  const running = tempo === 1 && !atEnd
   // Wann gesucht werden DARF, entscheidet die geteilte Nachführung
-  // (`videoNachfuehrung` in einblendung.ts) — dieselbe Rechnung wie im Player.
+  // (`videoSeekDecision` in card-timing.ts) — dieselbe Rechnung wie im Player.
   // Ohne ihre Rückfragen (laufender Suchlauf, Pufferstand, Wanduhr-Ruhe) wurde
   // in jedem Frame neu gesucht und keiner der Suchläufe kam je an.
-  const after = videoNachfuehrung({
-    zielS,
-    istS: video.currentTime,
-    laeuft: running,
+  const after = videoSeekDecision({
+    targetS,
+    isS: video.currentTime,
+    playing: running,
     paused: video.paused,
     seeking: video.seeking,
     readyState: video.readyState,
-    seitSuchlaufS: (performance.now() - lastSeek) / 1000,
+    sinceSeekS: (performance.now() - lastSeek) / 1000,
   })
-  if (after.suchen) setVideoTime(video, zielS)
-  if (after.starten) {
+  if (after.seek) setVideoTime(video, targetS)
+  if (after.play) {
     void video.play().catch(() => {
       // Unmuted-Autoplay ohne frische Geste wird geblockt (wie im Player,
       // src/ui.ts): stumm erzwingen, damit das Bild überhaupt läuft — sonst
@@ -7209,16 +7209,16 @@ function syncImage(imS: number, durationS: number, tempo: number): void {
       void video.play().catch(() => {})
     })
   }
-  if (after.anhalten) video.pause()
+  if (after.pause) video.pause()
 
   // Ton-Hülle über den AUSSCHNITT (nicht die Datei): Ein- und Ausblende liegen
   // an den Schnittkanten. Die Rechnung teilt sich der Editor mit dem Player
-  // (`ausschnittDauerS`) — verschieden ist nur, was ankommt: dort die
+  // (`trimmedDurationS`) — verschieden ist nur, was ankommt: dort die
   // geschnittene Fassung ohne linke Kante, hier der ungeschnittene Master.
   // Im Schnelllauf/rückwärts steht das Video und schweigt, also Hülle 0.
-  const viewportS = ausschnittDauerS(video.duration, fromS, endS)
-  const shell = running && !video.muted ? videoTonHuelle(imS, viewportS) : 0
-  const loud = videoLautstaerke(shell)
+  const viewportS = trimmedDurationS(video.duration, fromS, endS)
+  const shell = running && !video.muted ? videoVolumeEnvelope(imS, viewportS) : 0
+  const loud = videoVolume(shell)
   // Nur bei Bedarf setzen — die Funktion läuft in jedem Kopf-Frame, und manche
   // Browser feuern `volumechange` sonst im Kreis.
   if (Math.abs(video.volume - loud) > 0.004) video.volume = loud
@@ -7239,7 +7239,7 @@ function setVideoTime(video: HTMLVideoElement, second: number): void {
 
 function hidePhoto(): void {
   shown = null
-  cardLayer?.raeume()
+  cardLayer?.clear()
   document.querySelector('.card-stage')?.classList.remove('photo-on')
   const sources = document.getElementById('photo-sources')
   // Ein laufendes Video würde sonst unsichtbar weiterspielen

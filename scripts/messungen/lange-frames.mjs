@@ -26,7 +26,7 @@ seite.on('console', (m) => {
   if (m.type() === 'error') console.log('[konsole]', m.text().slice(0, 200))
 })
 await seite.goto(URL_, { waitUntil: 'domcontentloaded' })
-await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 60000 })
+await seite.waitForFunction(() => window.__maptale?.tour, null, { timeout: 60000 })
 await seite.evaluate(() => document.getElementById('btn-start')?.click())
 await seite.waitForTimeout(3000)
 
@@ -63,7 +63,7 @@ const r = await seite.evaluate(async (dauer) => {
     ueber33: d.filter((x) => x > 33).length,
     ueber50: d.filter((x) => x > 50).length,
     ueber100: d.filter((x) => x > 100).length,
-    uhr: { ...window.__j.uhr },
+    clock: { ...window.__maptale.clock },
     loaf: loaf.map((e) => ({
       dur: Math.round(e.duration),
       block: Math.round(e.blockingDuration),
@@ -88,7 +88,7 @@ console.log(
   `>33ms: ${r.ueber33} (${((r.ueber33 / r.frames) * 100).toFixed(2)} %) · >50ms: ${r.ueber50} · >100ms: ${r.ueber100}`,
 )
 console.log(
-  `Uhr: verworfen ${r.uhr.verworfenS?.toFixed?.(2)} s in ${r.uhr.verworfenFrames} Frames · längstes Frame ${(r.uhr.laengstesFrameS * 1000).toFixed(0)} ms`,
+  `Uhr: verworfen ${r.clock.droppedS?.toFixed?.(2)} s in ${r.clock.droppedFrames} Frames · längstes Frame ${(r.clock.longestFrameS * 1000).toFixed(0)} ms`,
 )
 const lang = r.loaf.filter((e) => e.dur >= 30).sort((a, b) => b.dur - a.dur)
 console.log(`\nLoAF-Einträge gesamt ${r.loaf.length}, davon >=30 ms: ${lang.length}`)

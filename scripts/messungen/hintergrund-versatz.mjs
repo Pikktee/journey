@@ -18,7 +18,7 @@
 // Ereignis noch hält es rAF an (s. Falle 5 in README.md).
 const { chromium } = await import(process.env['PLAYWRIGHT'] ?? 'playwright')
 
-const TOUR = 't_cGuHmm3vMa4ggQ'
+const TOUR = process.env['TOUR'] ?? 't_cGuHmm3vMa4ggQ'
 const BASIS = process.env['MAPTALE_WEB'] ?? 'http://maptale.localhost:5123'
 const HINTERGRUND_MS = 6000
 
@@ -40,18 +40,21 @@ async function lauf(altesGate) {
     window.Audio.prototype = E.prototype
   })
   await seite.goto(`${BASIS}/tour/${TOUR}`, { waitUntil: 'domcontentloaded' })
-  await seite.waitForFunction(() => window.__j?.tour, null, { timeout: 60000 })
+  await seite.waitForFunction(() => window.__maptale?.tour, null, { timeout: 60000 })
   await seite.evaluate(() => document.getElementById('btn-start').click())
   await seite.waitForTimeout(4000)
 
   if (altesGate) {
     await seite.evaluate(() => {
-      Object.defineProperty(window.__j.tour.uhr, 'laeuft', { get: () => true, configurable: true })
+      Object.defineProperty(window.__maptale.tour.clock, 'running', {
+        get: () => true,
+        configurable: true,
+      })
     })
   }
 
   const ergebnis = await seite.evaluate(async (msImHintergrund) => {
-    const t = window.__j.tour
+    const t = window.__maptale.tour
     const warte = (ms) => new Promise((r) => setTimeout(r, ms))
     const tonEl = () => (window.__toene ?? []).find((e) => e.currentSrc)
     const ton = tonEl()
@@ -84,7 +87,7 @@ async function lauf(altesGate) {
     Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true })
     document.dispatchEvent(new Event('visibilitychange'))
     window.requestAnimationFrame = echtesRaf
-    echtesRaf(window.__j.tour.tick.bind(window.__j.tour)) // Kette wieder anwerfen
+    echtesRaf(window.__maptale.tour.tick.bind(window.__maptale.tour)) // Kette wieder anwerfen
     await warte(500)
 
     const nachher = {
@@ -97,11 +100,11 @@ async function lauf(altesGate) {
       mitten,
       nachher,
       angefragteFrames: frames,
-      uhr: {
-        pausen: t.uhr.pausen,
-        pausiertS: t.uhr.pausiertS,
-        selbstweiter: t.uhr.selbstweiter,
-        verworfenS: t.uhr.verworfenS,
+      clock: {
+        pauses: t.clock.pauses,
+        pausedS: t.clock.pausedS,
+        selfResumes: t.clock.selfResumes,
+        droppedS: t.clock.droppedS,
       },
     }
   }, HINTERGRUND_MS)
@@ -113,7 +116,9 @@ for (const altesGate of [true, false]) {
   const e = await lauf(altesGate)
   const dS = e.mitten.s - e.vorher.s
   const dTon = e.vorher.ton !== null ? e.mitten.ton - e.vorher.ton : null
-  console.log(`\n— ${altesGate ? 'altes Gate (uhr.laeuft überschrieben)' : 'wie ausgeliefert'} —`)
+  console.log(
+    `\n— ${altesGate ? 'altes Gate (clock.running überschrieben)' : 'wie ausgeliefert'} —`,
+  )
   console.log(`  Tonquelle:              ${e.vorher.quelle ?? '(keine)'}`)
   console.log(`  Bild im Hintergrund:    ${dS.toFixed(1)} m`)
   console.log(
@@ -121,7 +126,7 @@ for (const altesGate of [true, false]) {
   )
   console.log(`  rAF-Anfragen (gekappt): ${e.angefragteFrames}`)
   console.log(
-    `  Uhr: pausen=${e.uhr.pausen} pausiertS=${e.uhr.pausiertS.toFixed(2)} selbstweiter=${e.uhr.selbstweiter}`,
+    `  Uhr: pausen=${e.clock.pauses} pausedS=${e.clock.pausedS.toFixed(2)} selfResumes=${e.clock.selfResumes}`,
   )
   console.log(
     `  nach der Rückkehr:      Ton läuft: ${e.nachher.tonLaeuft}, Bild +${(e.nachher.s - e.mitten.s).toFixed(1)} m`,

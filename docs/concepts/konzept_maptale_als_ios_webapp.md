@@ -20,7 +20,7 @@ für Android gibt und für iOS auf absehbare Zeit nicht.
 
 **Nicht** Gegenstand dieses Konzepts ist das Vollbild im gewöhnlichen mobilen
 Browser. Das ist eine eigene, kleinere Sache und seit dem 2026-08-19 gebaut
-([src/vollbild.ts](../../src/vollbild.ts)): Der Start-Knopf einer Tour ruft die
+([src/fullscreen.ts](../../src/fullscreen.ts)): Der Start-Knopf einer Tour ruft die
 Fullscreen API, die auf Android und auf neuem iOS greift und sonst still
 durchfällt. Die beiden Vorhaben wurden im Gespräch mehrfach verwechselt, deshalb
 steht die Trennung hier oben.

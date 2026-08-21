@@ -14,17 +14,17 @@
 // Halt-Intervall — und kein getriggerter Phasenwechsel. Rückwärts fährt
 // dadurch über dieselbe Kurve, Halte inklusive, genau wie der Editor
 // (src/studio/playback.ts) es seit Monaten tut.
-import maplibregl, { type Map as MapLibreKarte } from 'maplibre-gl'
-import { klipDauerS } from './einblendung.js'
-import { Filmuhr, verbindeSichtbarkeit } from './filmuhr.js'
+import maplibregl, { type Map as MapLibreMap } from 'maplibre-gl'
+import { clipDurationS } from './card-timing.js'
+import { FilmClock, connectVisibility } from './film-clock.js'
 import { pointAt, bearingAt, dist, bearing, angleDelta, destination, type Route } from './geo.js'
 import { EXAGGERATION, type LngLat2D } from './map.js'
-import type { Wegpunkt } from './tours.js'
-import type { Sonnenstand } from './sun.js'
-import type { PlayerStopp, UI } from './ui.js'
+import type { Waypoint } from './tours.js'
+import type { SunPosition } from './sun.js'
+import type { PlayerStop, UI } from './ui.js'
 
 /** Kameraabstand hinter dem Fahrer und Flughöhe über Grund, beides in Metern. */
-export interface Kameradistanz {
+export interface CameraDistance {
   behind: number
   hover: number
 }
@@ -35,31 +35,31 @@ export const PRESETS = {
   near: { behind: 280, hover: 160 },
   mid: { behind: 720, hover: 410 },
   far: { behind: 1900, hover: 1300 },
-} satisfies Record<string, Kameradistanz>
+} satisfies Record<string, CameraDistance>
 
 /**
  * Die Namen kommen aus dem DOM (`data-preset`) und aus Tour-Keyframes des
  * Servers — beides freie Zeichenketten. Unbekanntes fällt auf „mid", genau
  * wie der Bestand es mit `PRESETS[p] ?? PRESETS.mid` tat.
  */
-const distanzFuer = (name: string): Kameradistanz =>
-  (PRESETS as Record<string, Kameradistanz | undefined>)[name] ?? PRESETS.mid
+const distanceFor = (name: string): CameraDistance =>
+  (PRESETS as Record<string, CameraDistance | undefined>)[name] ?? PRESETS.mid
 
 // Standzeit und Ausblendung gehören der Foto-Karte, nicht der Engine — sie
-// stehen in einer Datei, die auch das Studio importieren kann (einblendung.ts).
+// stehen in einer Datei, die auch das Studio importieren kann (card-timing.ts).
 // Vorher standen sie hier und die vierte Fundstelle (ui.ts) war eine rohe 5.2,
 // die kein Wächter sah.
 
 /** Ein Kamera-Moment aus dem Kreativbaukasten, verankert an Streckenmeter `s`. */
-export interface KameraMoment {
+export interface CameraMoment {
   s: number
   /** `orbit` | `ascend` | `linger` — roh vom Server, unbekanntes hält still */
-  art: string
-  dauerS?: number | undefined
+  kind: string
+  durationS?: number | undefined
 }
 
 /** Eine Modus-Grenze: ab Streckenmeter `s` gilt `mode`. */
-export interface ModusGrenze {
+export interface TravelModeBoundary {
   s: number
   mode: string
   label?: string | undefined
@@ -74,13 +74,13 @@ export interface ModusGrenze {
  * Breite in der Achse gibt (src/main.ts), damit die Karte nicht nach einem
  * anderen Maß weiterschaltet als die Achse gebaut ist.
  */
-export interface Spielhalt {
+export interface EngineStop {
   filmVon: number
   filmBis: number
-  stopp: PlayerStopp | null
-  moment: KameraMoment | null
+  stop: PlayerStop | null
+  moment: CameraMoment | null
   /** Je Aufnahme: Filmsekunde ab Haltbeginn und ihre STANDzeit (ohne Ausblendung) */
-  stuecke: ReadonlyArray<{ abS: number; standS: number }>
+  pieces: ReadonlyArray<{ atS: number; holdS: number }>
 }
 
 /**
@@ -88,12 +88,12 @@ export interface Spielhalt {
  * GEBAUTEN Route, nicht in den rohen der Achse. Die Übersetzung macht der
  * Verdrahter (src/main.ts), der beide Meterstände kennt.
  */
-export interface Filmspur {
+export interface FilmTrack {
   /** Gesamtdauer des Films in Sekunden */
-  gesamtS: number
+  totalS: number
   /**
    * Kameradistanz an einem Streckenmeter — sie folgt DERSELBEN Rampe wie das
-   * Tempo (src/main.ts, aus `modusMischung`).
+   * Tempo (src/main.ts, aus `travelModeMix`).
    *
    * Vorher zog ein eigener Tiefpass sie nach (τ = 2,2 s, also ~6 s bis sie
    * steht), während die Rampe in unter einer Sekunde fertig ist: Dazwischen
@@ -101,13 +101,13 @@ export interface Filmspur {
    * geführt bleibt das Bildschirm-Tempo stetig — die Modi sind längst so
    * abgestimmt, dass Tempo ÷ Kameradistanz überall gleich ist (0,167–0,202/s).
    */
-  skalaBeiS: (s: number) => Kameradistanz
+  scaleAtS: (s: number) => CameraDistance
   /** Streckenmeter zu einer Filmsekunde — die Richtung, für die es die Achse gibt */
-  sBeiFilm: (filmS: number) => number
+  sAtFilmTime: (filmS: number) => number
   /** Filmsekunde an einem Streckenmeter (im Halt: seine Ankunft) */
-  filmBeiS: (s: number) => number
+  filmTimeAtS: (s: number) => number
   /** Der Halt, in dem diese Filmsekunde steht — `null` heißt Fahrt */
-  haltBeiFilm: (filmS: number) => Spielhalt | null
+  stopAtFilmTime: (filmS: number) => EngineStop | null
   /**
    * Die Fortbewegung an einem Streckenmeter, wie die ACHSE sie sieht.
    *
@@ -116,21 +116,21 @@ export interface Filmspur {
    * der Marker die rohen Grenzen, liefe für die letzten Meter ein Fußgänger mit
    * Fährtempo über die Karte.
    */
-  modusBeiS: (s: number) => string
+  travelModeAtS: (s: number) => string
 }
 
 /** Kamerapose eines Frames — das Atmosphäre-Overlay hängt sich daran. */
-export interface KameraPose {
+export interface CameraPose {
   cg: LngLat2D
   alt: number
   lt: LngLat2D
   ltAlt: number
 }
 
-export interface TourOptionen {
+export interface TourOptions {
   /** Die Filmachse — ohne sie hat die Engine keine Position (E2) */
-  film: Filmspur
-  modes?: ModusGrenze[]
+  film: FilmTrack
+  modes?: TravelModeBoundary[]
   /** true = Endscreen; sonst zurück zum Startscreen */
   showFinale?: boolean
   /** Optional: UI-Aufräumen beim Rücksprung ins Menü (Kino-Modus aus) */
@@ -147,7 +147,7 @@ export interface TourOptionen {
 }
 
 /** Kamerastand als Signatur (Vergleich für den bedingten Resume-Fade) */
-interface Kamerastand {
+interface CameraState {
   lng: number
   lat: number
   zoom: number
@@ -156,9 +156,9 @@ interface Kamerastand {
 }
 
 /** Die ideale Fahrt-Pose an einem Streckenmeter, ohne etwas zu setzen. */
-interface Fahrtpose {
+interface RidePose {
   course: number
-  sc: Kameradistanz
+  sc: CameraDistance
   k: number
   cg: LngLat2D
   alt: number
@@ -178,7 +178,7 @@ type Phase = 'intro' | 'ride' | 'photo' | 'moment' | 'finale'
 
 // Kamera-Momente (Kreativbaukasten): Ein Moment hält den Film an wie eine
 // Aufnahme — seine Standzeit gehört deshalb zum Tempo-Modell und steht seit
-// Paket D in filmachse.ts, geteilt mit Studio und Server-Spiegel.
+// Paket D in film-axis.ts, geteilt mit Studio und Server-Spiegel.
 const MOMENT_ORBIT_SPEED = 38 // Grad/s beim Umkreisen (6 s ≈ 228°, elegante Dreivierteldrehung)
 const MOMENT_ASCEND_LIFT = 2.4 // Faktor, um den die Kamera-Flughöhe beim Aufstieg wächst
 
@@ -213,7 +213,7 @@ class Smooth {
 // Kameradistanz je Fortbewegungsmodus: schnelle Modi fahren deutlich schneller
 // UND die Kamera zoomt weiter heraus — die Spreizung macht den Moduswechsel
 // körperlich spürbar. Das TEMPO (früher `MODE_SPEED` und `baseSpeed` hier) steht
-// seit Paket D in filmachse.ts: dieselbe Tabelle, die die Filmachse rechnet, und
+// seit Paket D in film-axis.ts: dieselbe Tabelle, die die Filmachse rechnet, und
 // dieselbe, die das Studio liest.
 // hover > behind bei walk: in Städten schaut die Kamera dadurch etwas steiler
 // über die Dächer, statt hinter Häuserzeilen zu hängen
@@ -230,41 +230,41 @@ const MODE_SCALE = {
 // src/remote.ts) — der Fallback des Bestands („?? MODE_SCALE.bike") ist deshalb
 // kein Zierrat, sondern der Umgang mit einem unbekannten Modus. Das TEMPO fragt
 // die Engine gar nicht mehr: Es steckt in der Achse, die ihr `s` liefert.
-export const skalaFuer = (mode: string): Kameradistanz =>
-  (MODE_SCALE as Record<string, Kameradistanz | undefined>)[mode] ?? MODE_SCALE.bike
+export const scaleFor = (mode: string): CameraDistance =>
+  (MODE_SCALE as Record<string, CameraDistance | undefined>)[mode] ?? MODE_SCALE.bike
 
 /** Zwei Kameradistanzen mischen — der Übergang an einer Modus-Grenze. */
-export const mischeSkala = (a: Kameradistanz, b: Kameradistanz, t: number): Kameradistanz => ({
+export const mixScale = (a: CameraDistance, b: CameraDistance, t: number): CameraDistance => ({
   behind: a.behind + (b.behind - a.behind) * t,
   hover: a.hover + (b.hover - a.hover) * t,
 })
 
 export class Tour {
-  map: MapLibreKarte
+  map: MapLibreMap
   route: Route
-  stops: PlayerStopp[]
+  stops: PlayerStop[]
   ui: UI
-  film: Filmspur
-  modes: ModusGrenze[]
+  film: FilmTrack
+  modes: TravelModeBoundary[]
   showFinale: boolean
   onToMenu: (() => void) | null
   onFinale: (() => void) | null
   /** Atmosphäre-/Flare-Overlay hängt sich hier ein (main.ts) */
-  onPose?: (pose: KameraPose) => void
+  onPose?: (pose: CameraPose) => void
   /**
    * Der Encoder stept die Kamera selbst. Solange das gilt, darf `tick` sie
    * nicht auf der Wanduhr weiterdrehen: sonst kämpfen Intro-Orbit und Grab.
    */
-  exportTakt = false
+  exportTick = false
   /**
    * Untergrenze der Kameraskala im Export (0 = aus).
    *
    * Die EINZIGE Größe, die der Film anders rechnet als der Player, und sie hat
-   * einen Grund außerhalb der Engine: `MODUS_TEMPO.walk` zieht die Kamera so
+   * einen Grund außerhalb der Engine: `TRAVEL_MODE_TEMPO.walk` zieht die Kamera so
    * nah heran, dass Esris World Imagery zur Fläche wird. Am Bildschirm fällt
    * das kaum auf, in einer Datei bleibt es stehen (Konzept-Falle 9).
    */
-  exportSkalaMin = 0
+  exportScaleMin = 0
 
   scaleSm: Smooth
   hoverSm: Smooth
@@ -288,14 +288,14 @@ export class Tour {
   speed: number
   mult: number
   dir: number
-  preset: Kameradistanz
+  preset: CameraDistance
   /** Der Halt, in dem die Filmzeit gerade steht (null = Fahrt) */
-  halt: Spielhalt | null = null
+  stop: EngineStop | null = null
   itemIdx: number
   /** Liegt gerade eine Foto-Karte auf der Bühne? */
   photoShown: boolean
   /** Der Halt, dessen Karte gerade läuft (null außerhalb der Foto-Phase) */
-  shownStop: PlayerStopp | null = null
+  shownStop: PlayerStop | null = null
   glide: number
   course: number
   tuck: Smooth
@@ -304,7 +304,7 @@ export class Tour {
   sunAlt = 0
   sunAz = 0
 
-  mid: Wegpunkt
+  mid: Waypoint
   diag: number
   ovR: number
   ovA: number
@@ -313,18 +313,18 @@ export class Tour {
   alt: Smooth
   lt: { lng: Smooth; lat: Smooth }
   ltAlt: Smooth
-  camSnap: Kamerastand | null = null
+  camSnap: CameraState | null = null
 
   /**
-   * Die eine Uhr der Engine (src/filmuhr.ts). Sie speist ALLES, was Zeit
+   * Die eine Uhr der Engine (src/film-clock.ts). Sie speist ALLES, was Zeit
    * misst — Fortbewegung, Standzeiten, Kamera-Glättung —, und zwar mit echter,
-   * ungedeckelter Frame-Zeit. Ihre Zähler hängen zum Nachsehen an `window.__j`.
+   * ungedeckelter Frame-Zeit. Ihre Zähler hängen zum Nachsehen an `window.__maptale`.
    */
-  uhr: Filmuhr
+  clock: FilmClock
   uiClock: number
   private _tick: (now: number) => void
 
-  constructor(map: MapLibreKarte, route: Route, stops: PlayerStopp[], ui: UI, opts: TourOptionen) {
+  constructor(map: MapLibreMap, route: Route, stops: PlayerStop[], ui: UI, opts: TourOptions) {
     this.map = map
     this.route = route
     this.stops = stops // [{ s, items: [Foto, …] }] aufsteigend nach s
@@ -336,7 +336,7 @@ export class Tour {
     this.showFinale = opts.showFinale === true
     this.onToMenu = opts.onToMenu ?? null
     this.onFinale = opts.onFinale ?? null
-    const sc0 = skalaFuer(this.modes[0]!.mode)
+    const sc0 = scaleFor(this.modes[0]!.mode)
     this.scaleSm = new Smooth(sc0.behind)
     this.hoverSm = new Smooth(sc0.hover)
 
@@ -384,7 +384,7 @@ export class Tour {
 
     this.applyCamera()
     this.updateMapLock() // Intro-Orbit: Karte gesperrt, kein Greifhand-Cursor
-    this.uhr = new Filmuhr()
+    this.clock = new FilmClock()
     // Was NICHT an der Filmuhr hängt, muss beim Anhalten ausdrücklich mit: Ein
     // laufendes Video zählt an der Wanduhr des Browsers weiter, auch wenn kein
     // Frame mehr kommt — und käme aus dem Hintergrund an einer anderen Stelle
@@ -395,10 +395,10 @@ export class Tour {
     // Anhalten muss aus dem EREIGNIS kommen: Die Karten-Sync hängt an
     // `requestAnimationFrame`, und genau das läuft im Hintergrund nicht mehr.
     // Zurück holt sie das Video von selbst — der nächste Kopfschritt reicht.
-    this.uhr.beiWechsel = (laeuft) => {
-      if (!laeuft) this.ui.haltVideoAn()
+    this.clock.onChange = (running) => {
+      if (!running) this.ui.pauseVideo()
     }
-    verbindeSichtbarkeit(this.uhr)
+    connectVisibility(this.clock)
     this.uiClock = 0
     this._tick = this.tick.bind(this)
     requestAnimationFrame(this._tick)
@@ -432,7 +432,7 @@ export class Tour {
   // sichtbar sind, ohne den ganzen Nachtteil in Dauerschräglage zu zwingen), heller
   // Tag gar nicht. Wird von der Tag/Nacht-Regie (main.ts) gespeist; die Smooths in
   // update() ziehen weich nach.
-  setSun(sun: Sonnenstand): void {
+  setSun(sun: SunPosition): void {
     this.sunAlt = sun.altitude
     this.sunAz = sun.azimuth
     const gh = _ss(14, 1, sun.altitude) // 0 bei 14°, 1 bei ≤1° (Sonne nähert sich Horizont)
@@ -516,7 +516,7 @@ export class Tour {
   }
 
   // Kamerastand als Signatur (Vergleich für den bedingten Resume-Fade)
-  _camNow(): Kamerastand {
+  _camNow(): CameraState {
     const c = this.map.getCenter()
     return {
       lng: c.lng,
@@ -540,11 +540,11 @@ export class Tour {
     )
   }
 
-  setPreset(p: string, skala = 1): void {
-    const base = distanzFuer(p)
+  setPreset(p: string, scale = 1): void {
+    const base = distanceFor(p)
     // Stufenlose Feinjustierung (Kreativbaukasten): skaliert Abstand UND Höhe
     // gemeinsam — näher/weiter über die drei Presets hinaus. 1 = unverändert.
-    this.preset = skala === 1 ? base : { behind: base.behind * skala, hover: base.hover * skala }
+    this.preset = scale === 1 ? base : { behind: base.behind * scale, hover: base.hover * scale }
     // Zügig ausfahren: der Wechsel soll sich wie ein Schnitt anfühlen, nicht
     // wie eine Kamerafahrt (Tile-Nachladen fangen Fade + größerer Cache ab)
     this.glide = Math.min(this.glide, 0.6)
@@ -565,15 +565,15 @@ export class Tour {
    * Einzelbild und der laufende Film gehen alle hier durch. Sonst gäbe es
    * wieder Zustände, in denen `s` und `filmS` verschiedene Dinge behaupten.
    */
-  setzeFilm(filmS: number): void {
-    this.filmS = Math.max(0, Math.min(this.film.gesamtS, filmS))
-    this.s = this.film.sBeiFilm(this.filmS)
+  setFilmTime(filmS: number): void {
+    this.filmS = Math.max(0, Math.min(this.film.totalS, filmS))
+    this.s = this.film.sAtFilmTime(this.filmS)
     // Auch beim Scrubben: „Im Halt" ist ein ZUSTAND der Kurve und kein
     // ausgelöstes Ereignis (E13). Bis E15 war der Halt hier beim Scrubben
     // ausdrücklich null — die Karte hätte sonst geflackert, weil sie an einer
     // eigenen Uhr hing. Jetzt hängt sie an dieser Filmsekunde, und wer durch
     // einen Halt zieht, soll sehen, was dort steht.
-    this.halt = this.film.haltBeiFilm(this.filmS)
+    this.stop = this.film.stopAtFilmTime(this.filmS)
   }
 
   /**
@@ -593,7 +593,7 @@ export class Tour {
     // Aufruf, und sie ist seit E15 eine Funktion der Filmzeit. Weggenommen
     // blitzte sie bei jedem Sprung weg und baute sich mit vollem Auftritt neu
     // auf — auch wenn man im selben Halt landet.
-    this.setzeFilm(Math.max(0, Math.min(1, filmFrac)) * this.film.gesamtS)
+    this.setFilmTime(Math.max(0, Math.min(1, filmFrac)) * this.film.totalS)
     const s = this.s
     this.speed = 0
     this.dir = 1
@@ -635,7 +635,7 @@ export class Tour {
   }
 
   scrub(filmFrac: number): void {
-    this.setzeFilm(Math.max(0, Math.min(1, filmFrac)) * this.film.gesamtS)
+    this.setFilmTime(Math.max(0, Math.min(1, filmFrac)) * this.film.totalS)
     this.glide = Math.min(this.glide, 0.5) // Kamera zieht straff nach statt zu schweben
     this.emitStats() // Kopf und Telemetrie sofort, nicht erst beim 10-Hz-Takt
   }
@@ -666,8 +666,8 @@ export class Tour {
    * was eine eigene Uhr hat (das Video) — die Karte selbst folgt trotzdem, weil
    * ihr Stand aus `filmS` kommt und nicht aus einer Uhr.
    */
-  private get anzeigeTempo(): number {
-    if (this.scrubbing || !this.playing || !this.uhr.laeuft) return 0
+  private get displaySpeed(): number {
+    if (this.scrubbing || !this.playing || !this.clock.running) return 0
     return this.dir * this.mult
   }
 
@@ -690,32 +690,32 @@ export class Tour {
    * überfliegen, nicht an jedem Halt ein Bild aufblitzen sehen (E16, dieselbe
    * Regel wie im Editor).
    */
-  private synchronisiereKarte(halt: Spielhalt | null): void {
-    const items = halt?.stopp?.items
-    const tempo = this.anzeigeTempo
-    if (!halt || !items?.length || Math.abs(tempo) > 1) return this.raeumeKarte()
-    const imHalt = this.filmS - halt.filmVon
+  private syncCard(stop: EngineStop | null): void {
+    const items = stop?.stop?.items
+    const speed = this.displaySpeed
+    if (!stop || !items?.length || Math.abs(speed) > 1) return this.clearCard()
+    const inStop = this.filmS - stop.filmVon
     let idx = 0
     for (let i = items.length - 1; i >= 0; i--) {
-      if (imHalt >= (halt.stuecke[i]?.abS ?? 0)) {
+      if (inStop >= (stop.pieces[i]?.atS ?? 0)) {
         idx = i
         break
       }
     }
-    const stueck = halt.stuecke[idx]
-    if (!stueck) return this.raeumeKarte()
-    if (this.shownStop !== halt.stopp || this.itemIdx !== idx || !this.photoShown) {
-      this.shownStop = halt.stopp
+    const piece = stop.pieces[idx]
+    if (!piece) return this.clearCard()
+    if (this.shownStop !== stop.stop || this.itemIdx !== idx || !this.photoShown) {
+      this.shownStop = stop.stop
       this.itemIdx = idx
       this.photoShown = true
-      this.ui.zeigeKarte(items[idx]!, idx, items.length)
+      this.ui.showCard(items[idx]!, idx, items.length)
     }
-    this.ui.synchronisiereKarte(imHalt - stueck.abS, klipDauerS(stueck.standS), tempo)
+    this.ui.syncCard(inStop - piece.atS, clipDurationS(piece.holdS), speed)
   }
 
   /** Die Karte wegnehmen — außerhalb jedes Halts und beim Verlassen der Tour. */
-  private raeumeKarte(): void {
-    if (this.photoShown) this.ui.verbergeKarte()
+  private clearCard(): void {
+    if (this.photoShown) this.ui.hideCard()
     this.photoShown = false
     this.shownStop = null
   }
@@ -728,13 +728,13 @@ export class Tour {
   // Zurück ins Hauptmenü: Intro-Overlay + Übersichts-Orbit, Tour-UI einziehen.
   // Kein harter Schnitt — die Kamera zieht majestätisch zur Übersicht auf.
   toMenu(): void {
-    this.raeumeKarte()
+    this.clearCard()
     this.ui.hideFinale()
     this.phase = 'intro'
     this.playing = false
     this.scrubbing = false
     this.speed = 0
-    this.setzeFilm(0)
+    this.setFilmTime(0)
     this.glide = 2.2 // toMenu räumt die Karte schon oben weg
     // Orbit dort weiterdrehen, wo die Kamera gerade steht (kein Sprung)
     this.orbitA = bearing([this.mid[0], this.mid[1]], [this.cg.lng.v, this.cg.lat.v])
@@ -752,15 +752,15 @@ export class Tour {
     const idx = this.stops.findIndex((st) => Math.abs(st.s - s) < 1)
     // Kein bekannter Halt: 600 m davor einsteigen. `seek` nimmt seit Etappe 5
     // einen FILManteil — der Ort muss also erst durch die Achse.
-    if (idx === -1) return this.seek(this.film.filmBeiS(Math.max(0, s - 600)) / this.film.gesamtS)
+    if (idx === -1) return this.seek(this.film.filmTimeAtS(Math.max(0, s - 600)) / this.film.totalS)
     const st = this.stops[idx]!
-    this.raeumeKarte()
+    this.clearCard()
     if (this.phase === 'finale') this.ui.hideFinale()
     this.scrubbing = false
     this.ui.blink(() => {
       const p = pointAt(this.route, st.s)
       const b = bearingAt(this.route, st.s)
-      const sc = this.film.skalaBeiS(st.s)
+      const sc = this.film.scaleAtS(st.s)
       this.scaleSm.set(sc.behind)
       this.hoverSm.set(sc.hover)
       this.tuck.set(1)
@@ -775,7 +775,7 @@ export class Tour {
       this.course = b
       this.speed = 0
       this.dir = 1
-      this.setzeFilm(this.film.filmBeiS(st.s))
+      this.setFilmTime(this.film.filmTimeAtS(st.s))
       this.phase = 'photo'
       this.ui.syncDots(st.s)
       this.ui.updateTrace(st.s, p)
@@ -783,17 +783,17 @@ export class Tour {
       this.applyCamera()
       // Die Karte legt der nächste Kopfschritt hin — sie ist eine Funktion der
       // Filmzeit, und die steht jetzt auf der Ankunft des Halts.
-      this.synchronisiereKarte(this.halt)
+      this.syncCard(this.stop)
     })
   }
 
   restart(): void {
-    this.raeumeKarte()
+    this.clearCard()
     this.ui.hideFinale()
     this.ui.blink(() => {
       this.speed = 0
       this.dir = 1
-      this.setzeFilm(0)
+      this.setFilmTime(0)
       this.phase = 'ride'
       this.glide = 1
       this.course = bearingAt(this.route, 0)
@@ -839,11 +839,11 @@ export class Tour {
     // nächsten Bild sitzt sie auf ideal und die Taste schneidet knackig.
     const wasSettled = this.settled && this.phase === 'ride'
     this.phase = 'ride'
-    this.raeumeKarte()
+    this.clearCard()
     this.dir = 1
     this.speed = 0
     this.setPlaying(false)
-    this.setzeFilm(this.filmS + frames / 24)
+    this.setFilmTime(this.filmS + frames / 24)
     if (wasSettled) {
       this._snapRideCamera() // eingeschwungen ⇒ harter Einzelbild-Schnitt, kein Sprung
       this.settled = true
@@ -865,13 +865,13 @@ export class Tour {
   _ridePose(
     s: number,
     course = bearingAt(this.route, s),
-    opt?: { sc?: Kameradistanz; k?: number; gelaendeDeckel?: boolean },
-  ): Fahrtpose {
+    opt?: { sc?: CameraDistance; k?: number; terrainCap?: boolean },
+  ): RidePose {
     const { route, preset } = this
     const rider = pointAt(route, s)
     const backDir = this.yawedBackDir(course) // Golden Hour: zur Sonne eindrehen (Pause/Scrub konsistent)
     const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
-    const sc = opt?.sc ?? this.film.skalaBeiS(s)
+    const sc = opt?.sc ?? this.film.scaleAtS(s)
     const behind = preset.behind * sc.behind
     const hover = preset.hover * sc.hover
     let k = opt?.k ?? 1
@@ -884,7 +884,7 @@ export class Tour {
     }
     const cgPos = destination([rider[0], rider[1]], behind * k, backDir)
     const alt =
-      opt?.gelaendeDeckel === false
+      opt?.terrainCap === false
         ? riderG + hover * k
         : Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110)
     return {
@@ -902,9 +902,9 @@ export class Tour {
   // `course` mitgeben: den geglätteten Kurs halten (Export). Fehlt er, gilt der
   // Rohkurs der Stelle, wie Seek und Einzelbild ihn wollen.
   _snapRideCamera(course?: number): void {
-    const kurs = course ?? bearingAt(this.route, this.s)
-    const p = this._ridePose(this.s, kurs)
-    this.course = kurs
+    const heading = course ?? bearingAt(this.route, this.s)
+    const p = this._ridePose(this.s, heading)
+    this.course = heading
     this.scaleSm.set(p.sc.behind)
     this.hoverSm.set(p.sc.hover)
     this.tuck.set(p.k)
@@ -928,7 +928,7 @@ export class Tour {
    * ruft jetzt dieselbe Schleife wie der Player, mit `dt = 1/30`.
    */
   exportSchritt(dt: number): void {
-    this.schritt(Math.max(1e-4, dt))
+    this.step(Math.max(1e-4, dt))
   }
 
   // Kurzer, zeitbasierter Kameraschwenk auf die ideale Fahrt-Pose der aktuellen
@@ -989,18 +989,18 @@ export class Tour {
   // — pro Frame —
 
   tick(now: number): void {
-    // Echte Frame-Zeit, ungedeckelt (src/filmuhr.ts). Ein langsames Gerät lässt
+    // Echte Frame-Zeit, ungedeckelt (src/film-clock.ts). Ein langsames Gerät lässt
     // das Bild springen statt nachlaufen — und die Kamera rechnet auf DEMSELBEN
     // `dt`: ein eigener Deckel für sie ließe sie dauerhaft hinterherhängen.
-    const dt = this.uhr.frame(now)
+    const dt = this.clock.frame(now)
     // Im Export taktet der Encoder (`exportSchritt`). Die Wanduhr darf die
     // Kamera dann nicht zusätzlich weiterdrehen.
-    if (!this.exportTakt) this.schritt(dt)
+    if (!this.exportTick) this.step(dt)
     requestAnimationFrame(this._tick)
   }
 
   /** Ein Bild der Engine aus gegebener Filmzeit. Von `tick` und vom Encoder. */
-  schritt(dt: number): void {
+  step(dt: number): void {
     if (this.phase === 'intro') {
       // Ruhiger, langsamer Orbit: das Intro ist Bühne, nicht Bewegungsschau — die
       // langsame Drift liegt hinter dem abgedunkelten/verwischten Titel-Scrim (style.css)
@@ -1058,7 +1058,7 @@ export class Tour {
     // Im Export jedes Bild: an `emitStats` hängen Marker-Icon und Modus-Kante,
     // und 0,1 s Verzug wären dort drei Frames mit dem falschen Fortbewegungsmittel.
     this.uiClock += dt
-    if (this.uiClock > 0.1 || this.exportTakt) {
+    if (this.uiClock > 0.1 || this.exportTick) {
       this.uiClock = 0
       this.emitStats()
     }
@@ -1066,11 +1066,11 @@ export class Tour {
 
   /**
    * Aktueller Fortbewegungsmodus bei Streckenmeter s — aus der ACHSE, nicht aus
-   * den rohen Grenzen (s. `Filmspur.modusBeiS`). Das Label kommt weiter aus den
+   * den rohen Grenzen (s. `FilmTrack.modusBeiS`). Das Label kommt weiter aus den
    * Grenzen, es ist reine Beschriftung.
    */
-  modeAt(s: number): ModusGrenze {
-    const mode = this.film.modusBeiS(s)
+  modeAt(s: number): TravelModeBoundary {
+    const mode = this.film.travelModeAtS(s)
     for (const m of this.modes) if (m.mode === mode) return m
     return { s: 0, mode }
   }
@@ -1086,65 +1086,65 @@ export class Tour {
     // Filmzeit, `dir` ihr Vorzeichen, und ALLES Weitere — Position, Halt,
     // Phase, Foto-Karte — ist eine Funktion von `filmS`. Rückwärts läuft
     // dieselbe Kurve rückwärts, Halte und Rampen inklusive (E13).
-    const vorher = this.filmS
-    const sVorher = this.s
+    const before = this.filmS
+    const sBefore = this.s
     if (!this.scrubbing && this.playing) {
-      this.setzeFilm(this.filmS + this.dir * this.mult * dt)
+      this.setFilmTime(this.filmS + this.dir * this.mult * dt)
       if (this.dir < 0 && this.filmS <= 0) {
         this.dir = 1
         this.setPlaying(false)
       } // am Anfang angekommen
     }
     // Beobachtetes Streckentempo (m/s) — Messwert, kein Antrieb.
-    if (dt > 0) this.speed = Math.abs(this.s - sVorher) / dt
-    const halt = this.halt
-    const warPhase = this.phase
+    if (dt > 0) this.speed = Math.abs(this.s - sBefore) / dt
+    const stop = this.stop
+    const wasPhase = this.phase
 
-    if (halt?.moment) {
+    if (stop?.moment) {
       // Kamera-Moment: Die Fahrt STEHT (das sagt die Kurve), die Kamera führt
       // eine Bewegung aus. Ein Ausroll-Warten gibt es nicht mehr — die Rampe
       // vor dem Halt hat die Fahrt bereits sauber zum Stehen gebracht.
       this.phase = 'moment'
-      this.raeumeKarte()
-      const m = halt.moment
+      this.clearCard()
+      const m = stop.moment
       const p = pointAt(route, this.s)
-      const imHalt = this.filmS - halt.filmVon
-      if (warPhase !== 'moment') {
+      const inStop = this.filmS - stop.filmVon
+      if (wasPhase !== 'moment') {
         // Orbit-Azimut nahtlos aus der aktuellen Kameralage übernehmen
         this.orbitA = bearing([p[0], p[1]], [this.cg.lng.v, this.cg.lat.v])
         this.glide = 2.2 // weicher Eingang in die Kamerabewegung
       }
-      if (m.art === 'umkreisen') {
+      if (m.kind === 'umkreisen') {
         // Über die FILMzeit gedreht, nicht über die Frame-Zeit: rückwärts dreht
         // der Orbit dadurch zurück, statt weiterzulaufen.
-        this.orbitA += MOMENT_ORBIT_SPEED * (this.filmS - vorher)
+        this.orbitA += MOMENT_ORBIT_SPEED * (this.filmS - before)
         this.updateOrbitCamera(
           dt,
           p,
           this.preset.behind * this.scaleSm.v,
           this.preset.hover * this.hoverSm.v,
         )
-      } else if (m.art === 'aufstieg') {
+      } else if (m.kind === 'aufstieg') {
         // Kamera-Bodenpunkt halten, Flughöhe + Blick über die Dauer anheben
-        const t = Math.min(1, imHalt / Math.max(0.001, halt.filmBis - halt.filmVon))
+        const t = Math.min(1, inStop / Math.max(0.001, stop.filmBis - stop.filmVon))
         const ease = t * t * (3 - 2 * t)
         const riderG = this.groundAlt([p[0], p[1]], p[2])
-        const zielAlt =
+        const targetAlt =
           riderG + this.preset.hover * this.hoverSm.v * (1 + (MOMENT_ASCEND_LIFT - 1) * ease)
-        this.smoothTowards(dt, [this.cg.lng.v, this.cg.lat.v], zielAlt, p)
+        this.smoothTowards(dt, [this.cg.lng.v, this.cg.lat.v], targetAlt, p)
       } // innehalten: kein Kamera-Update → Pose bleibt exakt eingefroren
       this.applyCamera()
       this.ui.updateTrace(this.s, p)
       return
     }
 
-    if (halt?.stopp) {
+    if (stop?.stop) {
       // Aufnahme-Halt: Route UND Kamera stehen komplett still — kein Orbit,
       // kein Nachschwingen. Der Einfrier-Moment liegt unter dem Kamerablitz.
       // Dass die Standzeit unter dem „Angehalten"-Abzeichen NICHT weiterläuft,
       // fällt jetzt von selbst an: Steht die Filmuhr, steht der Halt.
       this.phase = 'photo'
-      this.synchronisiereKarte(halt)
+      this.syncCard(stop)
       this.ui.updateTrace(this.s, pointAt(route, this.s))
       return
     }
@@ -1163,8 +1163,8 @@ export class Tour {
     //
     // `raeumeKarte` ist idempotent; außerhalb eines Halts kostet der Aufruf
     // einen Boolean-Vergleich je Frame.
-    this.raeumeKarte()
-    if (warPhase === 'photo' || warPhase === 'moment') {
+    this.clearCard()
+    if (wasPhase === 'photo' || wasPhase === 'moment') {
       // Halt verlassen — in beide Richtungen derselbe Weg zurück in die Fahrt.
       // Die Flanke trägt nur noch, was WIRKLICH eine ist: das weiche Anziehen
       // der Kamera.
@@ -1174,12 +1174,12 @@ export class Tour {
       this.phase = 'ride'
     }
 
-    if (this.filmS >= this.film.gesamtS && this.dir > 0 && !this.scrubbing && this.playing) {
+    if (this.filmS >= this.film.totalS && this.dir > 0 && !this.scrubbing && this.playing) {
       // Ohne Endscreen: wieder der Startscreen — kein „Ziel erreicht" ohne Ziel.
       // Im Export nicht: Der Encoder weiß selbst, wann der Film aus ist, und
       // ein Rücksprung ins Menü brächte den Startscreen ins letzte Bild.
       if (!this.showFinale) {
-        if (!this.exportTakt) this.toMenu()
+        if (!this.exportTick) this.toMenu()
       } else if (this.phase !== 'finale') {
         this.phase = 'finale'
         this.glide = 2.2
@@ -1205,9 +1205,9 @@ export class Tour {
       // Sie wird GESETZT, nicht gefiltert: Der Übergang steckt schon in der
       // Achse (dieselbe Rampe wie das Tempo), ein zweiter Tiefpass darüber
       // hinkte ihm nach und machte aus dem Wechsel einen Tempo-Ausreißer.
-      const sc = this.film.skalaBeiS(this.s)
-      this.scaleSm.set(Math.max(sc.behind, this.exportSkalaMin))
-      this.hoverSm.set(Math.max(sc.hover, this.exportSkalaMin))
+      const sc = this.film.scaleAtS(this.s)
+      this.scaleSm.set(Math.max(sc.behind, this.exportScaleMin))
+      this.hoverSm.set(Math.max(sc.hover, this.exportScaleMin))
       const behind = preset.behind * this.scaleSm.v
       const hover = preset.hover * this.hoverSm.v
       // Steht eine Felswand hinter dem Fahrer, die Kamera nicht darüber heben
@@ -1222,7 +1222,7 @@ export class Tour {
       this.tuck.to(k, dt, 1.4 * this.glide)
       const kk = this.tuck.v
       const cgPos = destination([rider[0], rider[1]], behind * kk, backDir)
-      const cg: Wegpunkt = [cgPos[0], cgPos[1], rider[2]]
+      const cg: Waypoint = [cgPos[0], cgPos[1], rider[2]]
       const alt = Math.max(riderG + hover * kk, this.groundAlt(cgPos, rider[2]) + 110)
       // Himmel-Moment: Blickwinkel abflachen → Kamera kippt zum Horizont
       this.smoothTowards(
@@ -1252,7 +1252,7 @@ export class Tour {
     this.ui.updateTrace(this.s, pointAt(route, this.s))
   }
 
-  updateOrbitCamera(dt: number, point: Wegpunkt, radius: number, height: number): void {
+  updateOrbitCamera(dt: number, point: Waypoint, radius: number, height: number): void {
     const cg = destination([point[0], point[1]], radius, this.orbitA)
     const ground = this.groundAlt([point[0], point[1]], point[2])
     this.smoothTowards(dt, cg, ground + height, point)
@@ -1261,9 +1261,9 @@ export class Tour {
 
   smoothTowards(
     dt: number,
-    cgTarget: LngLat2D | Wegpunkt,
+    cgTarget: LngLat2D | Waypoint,
     altTarget: number,
-    lookTarget: Wegpunkt,
+    lookTarget: Waypoint,
     ltAltTarget?: number,
   ): void {
     // Kameraposition träge (ruhige Fahrt), Blickpunkt straff (Fahrer zentriert)
@@ -1291,7 +1291,7 @@ export class Tour {
       this.ltAlt.v,
     )
     this.map.jumpTo(opts)
-    const pose: KameraPose = {
+    const pose: CameraPose = {
       cg: [this.cg.lng.v, this.cg.lat.v],
       alt: this.alt.v,
       lt: [this.lt.lng.v, this.lt.lat.v],
@@ -1317,7 +1317,7 @@ export class Tour {
       // Der Anteil, den die LEISTE zeichnet — aus `this.filmS` und nie aus `s`
       // zurückgerechnet: Im Halt steht `s`, der Rückweg über die Achse lieferte
       // dort die ganze Standzeit lang die Ankunft, und der Kopf stünde still.
-      filmFrac: this.film.gesamtS > 0 ? this.filmS / this.film.gesamtS : 0,
+      filmFrac: this.film.totalS > 0 ? this.filmS / this.film.totalS : 0,
       modeKey: mo.mode,
       next: next ? { title: next.items[0]!.title, km: (next.s - this.s) / 1000 } : null,
     })

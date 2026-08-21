@@ -2,7 +2,7 @@
 stand: 2026-08-17
 status: Etappe 1 gebaut und auf Player-Technik zurückgeführt, nächste Etappe ist der Auftrag
 betrifft:
-  - Web-Player (src/exportfilm.ts, src/exportformat.ts, src/tour.ts, src/main.ts)
+  - Web-Player (src/film-export.ts, src/film-export-channel.ts, src/tour.ts, src/main.ts)
   - Studio-UI (src/studio/export-sheet.ts)
   - später API-Auftrag wie der ZIP-Export
   - Android nur als Auslöser
@@ -107,7 +107,7 @@ die MP4 nach dem Rendern nicht.
    Startscreen, Finale-Tafel. Alles andere ist Player-Code (§6 „Ein Takt").
 6. **Pflicht-Attribution kurz am Ende**, nicht dauerhaft im Bild. Wortlaut aus
    denselben `attribution`-Feldern der Stil-Quellen
-   ([src/karteninfo.ts](../../src/karteninfo.ts)), ohne Rollen-Präfix.
+   ([src/map-attribution.ts](../../src/map-attribution.ts)), ohne Rollen-Präfix.
    Letzte 2 s, kurzer Fade, unten links. Relive-Muster.
 7. **Autor, nicht Besucher.** Knopf im Studio (Bibliothek und Editor). Der
    öffentliche Player bleibt ein Player. Fremde bekommen den Link.
@@ -295,7 +295,7 @@ nicht grabben — die einzigen Stellen, an denen der Export wirklich nachbaut.
 Der INHALT kommt deshalb aus denselben Elementen, die der Player füllt
 (`#intro-title`, `#chip-distance`, `#final-km`, …): Wer dort eine Zeile ändert,
 ändert sie im Film mit. Die Blenden stehen DOM-frei in
-[exportformat.ts](../../src/exportformat.ts) (`introTafelSicht`,
+[exportformat.ts](../../src/film-export-channel.ts) (`introTafelSicht`,
 `finaleTafelSicht`) und tragen die Player-Zeiten (1,2 s bzw. 0,9 s).
 
 **Das war die letzte echte Driftquelle**, und sie war nicht theoretisch: Der Ken
@@ -307,7 +307,7 @@ Karte liegt im Player auf einer Leinwand, der Export holt sie mit demselben
 Startscreen und „Ziel erreicht" baut der Export noch selbst nach
 ([die-tafeln-auf-die-leinwand.md](die-tafeln-auf-die-leinwand.md)).
 
-Kein html2canvas. Zahlen in [src/einblendung.ts](../../src/einblendung.ts).
+Kein html2canvas. Zahlen in [src/card-timing.ts](../../src/card-timing.ts).
 Der Export zeichnet Bild, Ken-Burns-Stand dieser Filmsekunde, Unterschrift.
 Video im Halt: `videoStandS`. Rückwärts gibt es nicht.
 
@@ -320,9 +320,9 @@ Etappe 1 kommt der Mix aus denselben Quellen wie der Player.
 
 ### Wo der Code sitzt
 
-[src/exportfilm.ts](../../src/exportfilm.ts) (Encoder, Komposition, mediabunny
+[src/film-export.ts](../../src/film-export.ts) (Encoder, Komposition, mediabunny
 per dynamischem Import). Zahlen und Formate in
-[src/exportformat.ts](../../src/exportformat.ts), vom Studio ohne Encoder
+[src/film-export-channel.ts](../../src/film-export-channel.ts), vom Studio ohne Encoder
 gelesen. Player im Export-Modus: `Tour.stelleExportFrame` mit Intro/Fahrt/Finale,
 Viewport aus dem Format (`body.export`). Studio-Blatt öffnet denselben Tab.
 Kein Import Studio → Player-Chunk über die Editor-Typenwelt.

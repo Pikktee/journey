@@ -3,7 +3,7 @@
 // und die Fenster der Gebäude. Alles wird über der Sonnenhöhe geblendet —
 // die Uhrzeit selbst spielt keine Rolle, nur wo die Sonne steht.
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import { sunPosition, type Sonnenstand } from './sun.js'
+import { sunPosition, type SunPosition } from './sun.js'
 import type { LngLat } from './geo.js'
 
 /**
@@ -23,7 +23,7 @@ interface Keyframe {
 }
 
 /** Interpolierte Keyframe-Werte an einer Sonnenhöhe — ohne die Höhe selbst. */
-export type Lichtstimmung = Omit<Keyframe, 'a'>
+export type LightMood = Omit<Keyframe, 'a'>
 
 // Keyframes über der Sonnenhöhe (Grad): tiefe Nacht → nautische/blaue Dämmerung →
 // Sonnenauf-/-untergang → goldene Stunde → Tag. br/sat/con graden das Satellitenbild
@@ -139,7 +139,7 @@ const mixHex = (a: string, b: string, t: number): string => {
  * des Satellitenbilds. Licht (`setLight`) und Himmel (`setSky`) tragen dort
  * nicht — das eine braucht Gelände, das andere einen Horizont.
  */
-export function paramsAt(alt: number): Lichtstimmung {
+export function paramsAt(alt: number): LightMood {
   // KEYS ist nicht leer und die Suche unten bleibt innerhalb der Liste — die
   // `!` sind Bereichs-Nachweise, keine Hoffnungen.
   const erster = KEYS[0]!
@@ -164,7 +164,7 @@ export function paramsAt(alt: number): Lichtstimmung {
 }
 
 /** Die vier Raster-Paint-Werte, mit denen ein Satellitenbild gegradet wird. */
-export interface Rastergrading {
+export interface RasterGrading {
   brightnessMax: number
   brightnessMin: number
   saturation: number
@@ -183,7 +183,7 @@ export interface Rastergrading {
  * weißlich, was sich als geschlossene Schneedecke liest. Tagesabhängig
  * skaliert — nachts reflektiert Schnee zwar, glüht aber nicht.
  */
-export function rastergrading(p: Lichtstimmung, schnee = 0): Rastergrading {
+export function rasterGrading(p: LightMood, schnee = 0): RasterGrading {
   const dayNorm = Math.min(Math.max((p.br - 0.19) / (1 - 0.19), 0), 1)
   return {
     brightnessMax: +p.br.toFixed(3),
@@ -205,7 +205,7 @@ export function rastergrading(p: Lichtstimmung, schnee = 0): Rastergrading {
  * Die Regie ist eine Funktion mit einem Anhang: pro Frame aufgerufen, dazu
  * `setSnow` für die Wetter-Kopplung (main.ts applyWeather).
  */
-export interface TagNachtRegie {
+export interface DayNightDirector {
   (date: Date, lnglat: LngLat): void
   /** Schneedecke aufs Satellitenbild, 0..1 */
   setSnow(amt: number): void
@@ -213,8 +213,8 @@ export interface TagNachtRegie {
 
 export function createDayNight(
   map: MapLibreMap,
-  onParams?: (p: Lichtstimmung, sun: Sonnenstand) => void,
-): TagNachtRegie {
+  onParams?: (p: LightMood, sun: SunPosition) => void,
+): DayNightDirector {
   let lastAlt = Infinity
   let lastApply = 0
   let night = false
@@ -239,7 +239,7 @@ export function createDayNight(
     onParams?.(p, sun)
     // Grading des Satellitenbilds — dieselbe Rechnung wie im Editor
     // (`rastergrading`), nur auf einem anders benannten Layer.
-    const g = rastergrading(p, snowAmt)
+    const g = rasterGrading(p, snowAmt)
     map.setPaintProperty('satellite', 'raster-brightness-max', g.brightnessMax)
     map.setPaintProperty('satellite', 'raster-brightness-min', g.brightnessMin)
     map.setPaintProperty('satellite', 'raster-saturation', g.saturation)
@@ -269,7 +269,7 @@ export function createDayNight(
       // bitidentische Pixel): MapLibres Fog-Matrix legt die Near-Plane auf
       // cameraToSeaLevelDistance — bei Pitch ~86 und hoher Kamera beginnt die
       // Fog-Tiefe erst JENSEITS des gerenderten Horizonts. Die sichtbare
-      // Luftperspektive kommt komplett aus atmosphere.ts (drawHaze + #farblur);
+      // Luftperspektive kommt komplett aus atmosphere.ts (drawHaze + #color-blur);
       // der Wert hier bleibt nur für flachere Default-Kamera-Posen gesetzt.
       'fog-ground-blend': 0.45,
       'atmosphere-blend': 0,
@@ -277,7 +277,7 @@ export function createDayNight(
     // Fenster an/aus mit Hysterese, damit es in der Dämmerung nicht flackert
     const wantNight = night ? sun.altitude < -2 : sun.altitude < -4
     if (wantNight !== night) night = wantNight
-  }) as TagNachtRegie
+  }) as DayNightDirector
   // Wetter-Kopplung (main.ts applyWeather): Schneedecke aufs Satellitenbild.
   // Weiche Überblendung über die Paint-Transition; Drossel zurücksetzen, damit
   // der Wechsel sofort greift statt erst beim nächsten Sonnenstands-Schritt.

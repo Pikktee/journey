@@ -3,8 +3,8 @@
 // bei Schema-Drift zuerst etwas, deshalb eigene Tests.
 
 import { describe, expect, it } from 'vitest'
-import { STUDIO_PEGEL_VORGABE } from '../src/audiotracks.js'
-import { adaptiereTour, createTimeAt, RemoteTourFehler, type TourJsonAntwort } from '../src/remote'
+import { STUDIO_GAIN_DEFAULT } from '../src/audiotracks.js'
+import { adaptTour, createTimeAt, RemoteTourError, type TourJsonAntwort } from '../src/remote'
 
 function beispielTour(): TourJsonAntwort {
   return {
@@ -49,7 +49,7 @@ function beispielTour(): TourJsonAntwort {
 
 describe('adaptiereTour', () => {
   it('mappt das Server-JSON auf die cfg-Form (media → photos)', () => {
-    const cfg = adaptiereTour(beispielTour())
+    const cfg = adaptTour(beispielTour())
     expect(cfg.brandTitle).toBe('Lauterbrunnen → Grindelwald')
     expect(cfg.showFinale).toBe(false)
     expect(cfg.photos).toHaveLength(1)
@@ -62,16 +62,16 @@ describe('adaptiereTour', () => {
   })
 
   it('reicht showFinale nur bei true durch', () => {
-    const aus = adaptiereTour(beispielTour())
+    const aus = adaptTour(beispielTour())
     expect(aus.showFinale).toBe(false)
     const an = beispielTour()
     an.showFinale = true
-    expect(adaptiereTour(an).showFinale).toBe(true)
+    expect(adaptTour(an).showFinale).toBe(true)
   })
 
   // Bis E11 rechnete der Adapter hier `km = f · Gesamt-km`, und main.ts machte
   // daraus wieder Meter — zusammen war das der Rückfall `f × total`. Die
-  // Übersetzung liegt jetzt an EINER Stelle (src/streckenanker.ts), also geht
+  // Übersetzung liegt jetzt an EINER Stelle (src/route-anchors.ts), also geht
   // das f roh durch.
   it('reicht Wetter-Keyframes roh durch (f-verankert)', () => {
     const tour = beispielTour()
@@ -79,7 +79,7 @@ describe('adaptiereTour', () => {
       { f: 0, mode: 'clouds', k: 0.5 },
       { f: 0.5, mode: 'rain', k: 0.8, source: 'photo' },
     ]
-    const cfg = adaptiereTour(tour)
+    const cfg = adaptTour(tour)
     expect(cfg.weatherF).toEqual([
       { f: 0, mode: 'clouds', k: 0.5 },
       { f: 0.5, mode: 'rain', k: 0.8 },
@@ -92,13 +92,13 @@ describe('adaptiereTour', () => {
       { f: Number.NaN, mode: 'rain', k: 1 },
       { f: 0.5, mode: 'clouds', k: 0.5 },
     ]
-    expect(adaptiereTour(tour).weatherF).toEqual([{ f: 0.5, mode: 'clouds', k: 0.5 }])
+    expect(adaptTour(tour).weatherF).toEqual([{ f: 0.5, mode: 'clouds', k: 0.5 }])
   })
 
   it('reicht das f je Wegpunkt durch (E11)', () => {
     const tour = beispielTour()
     tour.segments[0]!.f = [0, 0.4]
-    expect(adaptiereTour(tour).segments[0]?.f).toEqual([0, 0.4])
+    expect(adaptTour(tour).segments[0]?.f).toEqual([0, 0.4])
   })
 
   it('reicht Videos mit Poster und Dauer durch (M4)', () => {
@@ -114,7 +114,7 @@ describe('adaptiereTour', () => {
       anchor: [7.938, 46.5812],
       takenAt: '2026-07-04T10:14:03+02:00',
     })
-    const cfg = adaptiereTour(tour)
+    const cfg = adaptTour(tour)
     expect(cfg.photos).toHaveLength(2)
     const video = cfg.photos.find((p) => p.type === 'video')
     expect(video?.src).toBe('/api/media/t_abc123/m2.web.mp4')
@@ -137,7 +137,7 @@ describe('adaptiereTour', () => {
       placement: 'unplaced',
       takenAt: '2026-07-04T11:00:00+02:00',
     })
-    const cfg = adaptiereTour(tour)
+    const cfg = adaptTour(tour)
     // nur das platzierte m1 landet im Player; m2 hat keinen Track-Anker
     expect(cfg.photos).toHaveLength(1)
     expect(cfg.photos[0]?.src).toBe('/api/media/t_abc123/m1.jpg')
@@ -146,12 +146,12 @@ describe('adaptiereTour', () => {
   it('reicht Anzeige-Optionen der Medien durch (display, Kreativbaukasten)', () => {
     const tour = beispielTour()
     tour.media[0]!.display = { holdS: 8, kenBurns: false }
-    const cfg = adaptiereTour(tour)
+    const cfg = adaptTour(tour)
     expect(cfg.photos[0]?.display).toEqual({ holdS: 8, kenBurns: false })
   })
 
   it('lässt Fotos ohne display schlank (kein undefined-Feld)', () => {
-    const cfg = adaptiereTour(beispielTour())
+    const cfg = adaptTour(beispielTour())
     const foto = cfg.photos[0]
     expect(foto && 'display' in foto).toBe(false)
   })
@@ -166,7 +166,7 @@ describe('adaptiereTour', () => {
       { type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0.1, f1: 0.9, gain: 0.8 },
       { type: 'sfx', src: '/api/media/t_abc123/knall.mp3', f0: 0.5, f1: 0.5 },
     ]
-    const cfg = adaptiereTour(tour)
+    const cfg = adaptTour(tour)
     expect(cfg.camera).toEqual(tour.camera)
     // Audio geht roh durch — mit EINER Ergänzung: fehlendes `gain` wird auf die
     // Studio-Vorgabe gesetzt. Bestandstouren wurden ohne das Feld gerendert und
@@ -178,7 +178,7 @@ describe('adaptiereTour', () => {
         src: '/api/media/t_abc123/knall.mp3',
         f0: 0.5,
         f1: 0.5,
-        gain: STUDIO_PEGEL_VORGABE,
+        gain: STUDIO_GAIN_DEFAULT,
       },
     ])
     // Und der Master steht dann auf 1: `gain` ist bei aufgezeichneten Touren
@@ -193,7 +193,7 @@ describe('adaptiereTour', () => {
       { f: 0.4, preset: 'mid' },
     ]
     tour.audio = [{ type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0, f1: Number.NaN }]
-    const cfg = adaptiereTour(tour)
+    const cfg = adaptTour(tour)
     expect(cfg.camera).toEqual([{ f: 0.4, preset: 'mid' }])
     // ALLE Audio-Einträge kaputt → Feld bleibt ganz weg („nur bei Länge setzen")
     expect(cfg.audio).toBeUndefined()
@@ -206,7 +206,7 @@ describe('adaptiereTour', () => {
       { type: 'music', src: '/api/media/t_abc123/ok.mp3', f0: 0.2, f1: 0.8, gain: 0.5 },
       { type: 'sfx', src: '/api/media/t_abc123/ohne-gain.mp3', f0: 0.5, f1: 0.5 },
     ]
-    const cfg = adaptiereTour(tour)
+    const cfg = adaptTour(tour)
     expect(cfg.audio).toEqual([
       { type: 'music', src: '/api/media/t_abc123/ok.mp3', f0: 0.2, f1: 0.8, gain: 0.5 },
       {
@@ -214,21 +214,21 @@ describe('adaptiereTour', () => {
         src: '/api/media/t_abc123/ohne-gain.mp3',
         f0: 0.5,
         f1: 0.5,
-        gain: STUDIO_PEGEL_VORGABE,
+        gain: STUDIO_GAIN_DEFAULT,
       },
     ])
   })
 
   it('lässt camera/audio weg, wenn der Server sie nicht liefert', () => {
-    const cfg = adaptiereTour(beispielTour())
+    const cfg = adaptTour(beispielTour())
     expect(cfg.camera).toBeUndefined()
     expect(cfg.audio).toBeUndefined()
   })
 
   it('wirft bei laufender Verarbeitung einen sprechenden Fehler', () => {
     const inArbeit = { id: 't_abc123', status: 'processing' } as unknown as TourJsonAntwort
-    expect(() => adaptiereTour(inArbeit)).toThrow(RemoteTourFehler)
-    expect(() => adaptiereTour(inArbeit)).toThrow(/verarbeitet/)
+    expect(() => adaptTour(inArbeit)).toThrow(RemoteTourError)
+    expect(() => adaptTour(inArbeit)).toThrow(/verarbeitet/)
   })
 
   it('wirft bei fehlgeschlagener Verarbeitung mit Server-Fehlertext', () => {
@@ -237,7 +237,7 @@ describe('adaptiereTour', () => {
       status: 'fehler',
       error: 'ffmpeg explodiert',
     } as unknown as TourJsonAntwort
-    expect(() => adaptiereTour(kaputt)).toThrow(/ffmpeg explodiert/)
+    expect(() => adaptTour(kaputt)).toThrow(/ffmpeg explodiert/)
   })
 })
 

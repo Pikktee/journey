@@ -20,7 +20,7 @@ import {
   waveformPosition,
   type AudioClip,
 } from '../src/studio/audio-clip'
-import { RAMPE_M, tempoMs } from '../src/filmachse'
+import { RAMP_M, tempoMs } from '../src/film-axis'
 import { buildTimelineAxis, type TimelineAxis } from '../src/studio/timeline'
 
 const START = '2026-07-04T08:00:00.000Z'
@@ -39,7 +39,7 @@ function track(punkte = 31): TrackPoint[] {
 /**
  * Achse ohne Halte: 30 Schritte à 2 Filmsekunden = 60 s Film, 1800 s Aufnahme —
  * dazu die Anfahrt aus dem Stand, die seit E14 in der Achse liegt (120 m zu Fuß
- * = 2,5 Filmsekunden, `RAMPE`).
+ * = 2,5 Filmsekunden, `RAMP_M`).
  */
 function achseOhneHalt(): TimelineAxis {
   return buildTimelineAxis([{ mode: 'walk', active: true, pts: track() }], [], {
@@ -63,7 +63,7 @@ function achseMitHalt(): TimelineAxis {
 const klipVon = (klips: readonly AudioClip[], index = 0): AudioClip => klips[index] as AudioClip
 
 /** Zuschlag einer Anfahr-/Ausrollrampe zu Fuß (s). */
-const RAMPE = RAMPE_M / tempoMs('walk')
+const RAMPE = RAMP_M / tempoMs('walk')
 /** Filmsekunden für die ersten 300 Aufnahmesekunden (480 m zu Fuß). */
 const BIS_300 = 480 / tempoMs('walk')
 

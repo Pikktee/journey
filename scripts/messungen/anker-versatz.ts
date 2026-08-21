@@ -4,7 +4,7 @@
 // die Dehnung verteilt sich ungleichmäßig. Wo sie ungleichmäßig verlängert,
 // landet ein Ton-Anker neben seiner gemeinten Stelle.
 //
-// Seit Etappe 2 gibt es die Wegpunkt-Tabelle (src/streckenanker.ts): je
+// Seit Etappe 2 gibt es die Wegpunkt-Tabelle (src/route-anchors.ts): je
 // Wegpunkt sein `f` (Server, E11) und sein `s` (route.wpS). Dieses Skript hält
 // beide Wege gegen dieselbe Wahrheit — **je Ankerklasse**, denn genau das ist
 // das Abnahmekriterium: Audio, Kamera, Momente, Wetter, Timeline.
@@ -27,8 +27,8 @@
 //     Rückhalt, aber sie ersetzt keinen echten Anker.
 import { readFileSync, readdirSync } from 'node:fs'
 import { buildRoute, dist, type Route } from '../../src/geo.js'
-import { baueSBeiF } from '../../src/streckenanker.js'
-import type { Wegpunkt } from '../../src/tours.js'
+import { buildSAtF } from '../../src/route-anchors.js'
+import type { Waypoint } from '../../src/tours.js'
 
 // Die gerenderten Touren der LOKALEN Instanz. Über MAPTALE_DATEN_DIR
 // umlenkbar, falls eine isolierte Instanz gemessen werden soll.
@@ -75,7 +75,7 @@ function nearestSGenau(route: Route, p: [number, number], sVon: number, sBis: nu
   let best = von
   let bestD = Infinity
   for (let i = von; i <= bis; i++) {
-    const d = dist(route.coords[i] as Wegpunkt, p)
+    const d = dist(route.coords[i] as Waypoint, p)
     if (d < bestD) {
       bestD = d
       best = i
@@ -122,14 +122,14 @@ function nearestSGenau(route: Route, p: [number, number], sVon: number, sBis: nu
  * Zugeordnet wird **der Reihe nach**, nicht über eine Koordinaten-Tabelle: Eine
  * Route, die dieselbe Straße zweimal befährt (Koh Pha-ngan), hat Koordinaten
  * doppelt — eine Tabelle gäbe dem ersten Vorbeigang das Maß des zweiten, die
- * Liste liefe nicht mehr monoton, und `baueSBeiF` verwürfe sie stumm zugunsten
+ * Liste liefe nicht mehr monoton, und `buildSAtF` verwürfe sie stumm zugunsten
  * des Rückfalls. Gemessen hätte man dann zweimal denselben alten Weg.
  *
  * Gibt `null` zurück, sobald die Reihe nicht aufgeht — dann hat die Pipeline
  * Punkte VERSCHOBEN (der Pausen-Kollaps zieht sie auf den Schwerpunkt) und die
  * ausgelieferten sind keine Rohpunkte mehr.
  */
-function rohMassStab(pfad: string, waypoints: readonly Wegpunkt[]): number[] | null {
+function rohMassStab(pfad: string, waypoints: readonly Waypoint[]): number[] | null {
   let manifest: { segments?: Array<{ pts: number[][] }> }
   try {
     manifest = JSON.parse(readFileSync(pfad, 'utf8'))
@@ -192,14 +192,14 @@ for (const id of readdirSync(WURZEL)) {
   if (!segmente?.length) continue
 
   // Genau wie main.ts: Segmente verketten (Nahtpunkt dedupen), f parallel dazu.
-  const waypoints: Wegpunkt[] = []
+  const waypoints: Waypoint[] = []
   const wegpunktF: number[] = []
   const wegpunktModus: string[] = []
   let ausJson = true
   for (const seg of segmente) {
     const erster = waypoints.length === 0
     const pts = erster ? seg.pts : seg.pts.slice(1)
-    waypoints.push(...(pts as Wegpunkt[]))
+    waypoints.push(...(pts as Waypoint[]))
     for (const _ of pts) wegpunktModus.push(seg.mode)
     if (seg.f?.length === seg.pts.length) wegpunktF.push(...(erster ? seg.f : seg.f.slice(1)))
     else ausJson = false
@@ -219,13 +219,13 @@ for (const id of readdirSync(WURZEL)) {
     } else {
       quelle = 'ausgeliefert'
       let m = 0
-      const kum = waypoints.map((p, i) => (i ? (m += dist(waypoints[i - 1] as Wegpunkt, p)) : 0))
+      const kum = waypoints.map((p, i) => (i ? (m += dist(waypoints[i - 1] as Waypoint, p)) : 0))
       for (const k of kum) wegpunktF.push(m > 0 ? k / m : 0)
     }
   }
 
   const route = buildRoute(waypoints)
-  const sBeiF = baueSBeiF(wegpunktF, route.wpS, route.total)
+  const sBeiF = buildSAtF(wegpunktF, route.wpS, route.total)
   const sAltBeiF = (f: number) => Math.max(0, Math.min(1, f)) * route.total
 
   /** Erster Wegpunkt mit `f` >= ziel — die obere Kante des Abschnitts. */
@@ -242,8 +242,8 @@ for (const id of readdirSync(WURZEL)) {
   const wahrBeiF = (f: number): number => {
     const ziel = Math.max(0, Math.min(1, f))
     const hi = oberKante(ziel)
-    const a = waypoints[hi - 1] as Wegpunkt
-    const b = waypoints[hi] as Wegpunkt
+    const a = waypoints[hi - 1] as Waypoint
+    const b = waypoints[hi] as Waypoint
     const spanne = (wegpunktF[hi] as number) - (wegpunktF[hi - 1] as number)
     const t = spanne > 0 ? (ziel - (wegpunktF[hi - 1] as number)) / spanne : 0
     const ort: [number, number] = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]

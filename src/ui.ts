@@ -1,16 +1,16 @@
 // DOM-Schicht: Overlays, Steuerleiste, Höhenprofil, Telemetrie. Keine Map-Logik.
-import { pointAt, type Route, type Stopp, type StoppFoto } from './geo.js'
-import type { Wegpunkt } from './tours.js'
-import { gerampterPegel, videoLautstaerke, videoTonHuelle } from './audiotracks.js'
+import { pointAt, type Route, type Stop, type StopItem } from './geo.js'
+import type { Waypoint } from './tours.js'
+import { rampedVolume, videoVolume, videoVolumeEnvelope } from './audiotracks.js'
 import {
-  ausschnittDauerS,
-  klemmeSeitenverhaeltnis,
-  VIDEO_HAT_FRAME,
-  videoNachfuehrung,
-  videoStandS,
-} from './einblendung.js'
-import { createKartenSchicht, type KartenSchicht } from './kartenschicht.js'
-import type { KartenMedium, KartenQuelle, KartenText } from './kartenmaler.js'
+  trimmedDurationS,
+  clampAspectRatio,
+  VIDEO_HAS_FRAME,
+  videoSeekDecision,
+  videoPositionS,
+} from './card-timing.js'
+import { createCardLayer, type CardLayer } from './card-layer.js'
+import type { CardMedium, CardSource, CardText } from './card-painter.js'
 
 /**
  * Ein Medium, wie die Anzeige es braucht — Foto ODER Video (M4). Bewusst das
@@ -18,7 +18,7 @@ import type { KartenMedium, KartenQuelle, KartenText } from './kartenmaler.js'
  * `RemoteMedium` (src/remote.ts) bzw. `TourFoto` (src/tours.ts); `s` kommt aus
  * der Verankerung in main.ts (nearestS).
  */
-export interface PlayerMedium extends StoppFoto {
+export interface PlayerMedium extends StopItem {
   src: string
   title: string
   /** fehlt bei den statischen Touren — dort ist alles ein Foto */
@@ -39,7 +39,7 @@ export interface PlayerMedium extends StoppFoto {
 }
 
 /** Ein Halt: Streckenmeter des ersten Mediums plus alles, was dort gezeigt wird. */
-export type PlayerStopp = Stopp<PlayerMedium>
+export type PlayerStop = Stop<PlayerMedium>
 
 /**
  * Was die Engine pro Telemetrie-Takt (10 Hz) meldet.
@@ -50,7 +50,7 @@ export type PlayerStopp = Stopp<PlayerMedium>
  * Filmzeit, ohne Strecke zu kosten — dort laufen die beiden auseinander, und
  * genau dort entstehen die Fehler. Deshalb gibt es kein Feld, das beides heißt.
  */
-export interface Telemetrie {
+export interface Telemetry {
   km: number
   ele: number
   /** Streckenanteil 0..1 — alles, was den ORT meint */
@@ -65,19 +65,19 @@ export interface Telemetrie {
 /**
  * Was die Leiste von der Filmachse braucht.
  *
- * Bewusst ein eigenes, schmales Gegenstück zu `Filmspur` (src/tour.ts) statt
+ * Bewusst ein eigenes, schmales Gegenstück zu `FilmTrack` (src/tour.ts) statt
  * eines Imports: `tour.ts` importiert aus dieser Datei, und die Anzeige braucht
  * von der Achse nur die drei Rechnungen, mit denen sie ihre x-Achse aufspannt.
  */
-export interface Filmleiste {
+export interface ProgressBar {
   /** Gesamtdauer des Films in Sekunden */
-  gesamtS: number
+  totalS: number
   /** Streckenmeter zu einer Filmsekunde — spannt Profil und Halt-Flächen auf */
-  sBeiFilm: (filmS: number) => number
+  sAtFilmTime: (filmS: number) => number
   /** Filmsekunde an einem Streckenmeter (im Halt: seine Ankunft) */
-  filmBeiS: (s: number) => number
+  filmTimeAtS: (s: number) => number
   /** Der Halt, in dem diese Filmsekunde steht — `null` heißt Fahrt */
-  haltBeiFilm: (filmS: number) => { filmVon: number; filmBis: number } | null
+  stopAtFilmTime: (filmS: number) => { filmVon: number; filmBis: number } | null
 }
 
 /**
@@ -91,9 +91,9 @@ export const $ = <T extends Element = HTMLElement>(id: string): T => {
   return el as unknown as T
 }
 
-export const pflicht = <T extends Element>(wurzel: Element, wahl: string): T => {
-  const el = wurzel.querySelector(wahl)
-  if (!el) throw new Error(`Player-DOM: ${wahl} fehlt (erlebnis.html)`)
+export const requireElement = <T extends Element>(root: Element, choice: string): T => {
+  const el = root.querySelector(choice)
+  if (!el) throw new Error(`Player-DOM: ${choice} fehlt (erlebnis.html)`)
   return el as T
 }
 
@@ -103,21 +103,21 @@ const PROFILE_SAMPLES = 140
 const VB_H = 30 // viewBox-Höhe des Profil-SVGs
 
 export class UI {
-  stops: PlayerStopp[]
+  stops: PlayerStop[]
   route: Route
   total: number
   /** Die Filmachse, wie die Anzeige sie liest — die Leiste ist filmlinear */
-  film: Filmleiste
+  film: ProgressBar
   spotSync: ((s: number) => void) | null
   els: {
     intro: HTMLElement
     dock: HTMLElement
     layer: HTMLElement
     card: HTMLElement
-    bild: HTMLElement
+    image: HTMLElement
     img: HTMLImageElement
     video: HTMLVideoElement
-    standbild: HTMLImageElement
+    poster: HTMLImageElement
     sound: HTMLButtonElement
     pTitle: HTMLElement
     pChip: HTMLElement
@@ -140,7 +140,7 @@ export class UI {
   profileY: number[] = []
 
   /** Vom Verdrahter (main.ts) gesetzt — Fahrer-Marker und Spur pro Frame. */
-  updateTrace!: (s: number, pos: Wegpunkt) => void
+  updateTrace!: (s: number, pos: Waypoint) => void
   /** Moduswechsel: Marker-Icon + Motorloop (main.ts) */
   onModeChange?: (mode: string) => void
   /** 10-Hz-Takt, z. B. Tag/Nacht-Regie */
@@ -148,7 +148,7 @@ export class UI {
   /** Tempo-Anzeige (Faktor + Richtung) */
   onSpeed?: (mult: number, dir: number) => void
   /** Video-Ton-Hülle 0..1 → Musik-Ducking */
-  onVideoTon: ((huelle: number) => void) | null
+  onVideoAudio: ((envelope: number) => void) | null
   /** Video am Stopp durchgelaufen → weiter wie nach abgelaufenem Foto-HOLD */
   onMediaEnded?: () => void
 
@@ -156,25 +156,25 @@ export class UI {
   private _preloaded: Set<number>
   private _preloadImgs: HTMLImageElement[]
   /** Vorab geholte Video-Köpfe (s. `_weckeVideo`). */
-  private _geweckteVideos: HTMLVideoElement[]
+  private _wokenVideos: HTMLVideoElement[]
   private _soundOn: boolean
-  private _videoTonGemeldet: number
+  private _videoAudioReported: number
   /** Die Leinwand der Foto-Karte — der eine Aufrufer des Malers. */
-  private karten: KartenSchicht
+  private cardLayer: CardLayer
   /** Was auf der Karte liegt: Medium und Beschriftung, DOM-frei als Werte. */
-  private _kartenMedium: KartenMedium
-  private _kartenText: KartenText
-  private _standbildGen: number
+  private _cardMedium: CardMedium
+  private _cardText: CardText
+  private _posterGen: number
   /** Hat das laufende Video schon je einen Frame geliefert? (s. `_kartenQuelle`) */
-  private _videoHatteFrame: boolean
+  private _videoHadFrame: boolean
   /** Wanduhr-Marke des letzten begonnenen Suchlaufs (`performance.now()`). */
-  private _letzterSuchlauf: number
+  private _lastSeekAt: number
   /** Geführter Pegel des Video-Tons 0..1 (s. `gerampterPegel`). */
-  private _videoHuelle: number
+  private _videoEnvelope: number
   /** Wanduhr-Marke des letzten Pegel-Schritts (`performance.now()`). */
-  private _videoPegelZeit: number
+  private _videoVolumeAt: number
   /** Läuft diese Seite als Export-Takt? (`body.export`) */
-  private _imExport: boolean
+  private _inExport: boolean
   private _mode?: string
 
   /**
@@ -182,7 +182,7 @@ export class UI {
    * rechnete `Intl` in die Zone des BETRACHTERS um, und eine Tour in Thailand
    * zeigte in Frankfurt eine andere Uhrzeit als im Studio.
    */
-  zeitzone: string | null = null
+  timeZone: string | null = null
 
   /**
    * Zeitspanne der Tour (`cfg.time`) in ms — die Uhrzeit erscheint NUR, wenn die
@@ -191,9 +191,9 @@ export class UI {
    * Dateizeit zurück, und die kann Tage neben der Tour liegen. „14:32 Uhr" wäre
    * dann eine Angabe, die nichts mit der Aufnahme zu tun hat.
    */
-  zeitfenster: [number, number] | null = null
+  timeWindow: [number, number] | null = null
 
-  constructor(stops: PlayerStopp[], route: Route, film: Filmleiste) {
+  constructor(stops: PlayerStop[], route: Route, film: ProgressBar) {
     this.stops = stops // [{ s, items: [Foto, …] }]
     this.route = route
     this.total = route.total
@@ -205,10 +205,10 @@ export class UI {
       dock: $('dock'),
       layer: $('photo-layer'),
       card,
-      bild: $('photo-bild'),
+      image: $('photo-image'),
       img: $<HTMLImageElement>('photo-img'),
       video: $<HTMLVideoElement>('photo-video'),
-      standbild: $<HTMLImageElement>('photo-video-standbild'),
+      poster: $<HTMLImageElement>('photo-video-still'),
       sound: $<HTMLButtonElement>('photo-sound'),
       pTitle: $('photo-title'),
       pChip: $('photo-chip'),
@@ -233,7 +233,7 @@ export class UI {
     this._lastSyncS = -1
     this._preloaded = new Set()
     this._preloadImgs = [] // Referenzen halten, sonst darf der Browser abbrechen
-    this._geweckteVideos = []
+    this._wokenVideos = []
 
     // Video-Stopps (M4): Die Ton-Wahl bleibt für die Session gemerkt. Ende des
     // Videos → onMediaEnded stößt denselben Weiter-Pfad an wie ein abgelaufenes
@@ -244,30 +244,30 @@ export class UI {
     // Wo Unmuted-Play doch scheitert, schaltet der Fallback in setPhotoContent
     // stumm und spielt weiter, statt gar nichts zu zeigen.
     this._soundOn = true
-    this._videoTonGemeldet = -1 // gerundeter Hüllen-Pegel; -1 = noch nie gemeldet
-    this._kartenMedium = { art: 'foto', ar: null }
-    this._kartenText = { titel: '', kmText: '', zaehlerText: '' }
+    this._videoAudioReported = -1 // gerundeter Hüllen-Pegel; -1 = noch nie gemeldet
+    this._cardMedium = { kind: 'photo', ar: null }
+    this._cardText = { title: '', kmText: '', counterText: '' }
     // Die Leinwand hängt am body wie Wetter und Atmosphäre; ihren Platz in der
-    // Schichtung bestimmt das CSS (`.karten-leinwand`, z-index 12).
-    this.karten = createKartenSchicht({
+    // Schichtung bestimmt das CSS (`.card-canvas`, z-index 12).
+    this.cardLayer = createCardLayer({
       container: document.body,
-      bedienung: { karte: this.els.card, bild: this.els.bild },
+      controls: { card: this.els.card, image: this.els.image },
       // Der Schleier liegt unter der Leinwand und bekommt seine Deckkraft aus
       // der Filmzeit — er ist das, was den Halt seit dem Rückbau des
       // Kamerablitzes markiert.
-      schleier: document.getElementById('photo-backdrop'),
-      imExport: document.body.classList.contains('export'),
+      scrim: document.getElementById('photo-backdrop'),
+      inExport: document.body.classList.contains('export'),
     })
-    this.onVideoTon = null // (huelle: 0..1) → Musik-Ducking in main.ts
-    this._standbildGen = 0 // verwirft veraltete Poster-Rückrufe nach Stopp/Wechsel
-    this._videoHatteFrame = false
-    this._letzterSuchlauf = -Infinity
-    this._videoHuelle = 0
-    this._videoPegelZeit = 0
-    this._imExport = document.body.classList.contains('export')
+    this.onVideoAudio = null // (huelle: 0..1) → Musik-Ducking in main.ts
+    this._posterGen = 0 // verwirft veraltete Poster-Rückrufe nach Stopp/Wechsel
+    this._videoHadFrame = false
+    this._lastSeekAt = -Infinity
+    this._videoEnvelope = 0
+    this._videoVolumeAt = 0
+    this._inExport = document.body.classList.contains('export')
     try {
-      const gemerkt = sessionStorage.getItem('maptale:video-sound')
-      if (gemerkt !== null) this._soundOn = gemerkt === '1'
+      const remembered = sessionStorage.getItem('maptale:video-sound')
+      if (remembered !== null) this._soundOn = remembered === '1'
     } catch {
       /* Storage kann in restriktiven Kontexten fehlen */
     }
@@ -293,31 +293,31 @@ export class UI {
    * Musik-Ducking melden — nur an der Kante des gerundeten Pegels.
    * Die Hülle steuert beides: Video-Lautstärke UND das Absenken der Musik.
    */
-  private _meldeVideoTon(huelle: number): void {
-    const gerundet = Math.round(huelle * 100) / 100
-    if (gerundet === this._videoTonGemeldet) return
-    this._videoTonGemeldet = gerundet
-    this.onVideoTon?.(gerundet)
+  private _reportVideoAudio(envelope: number): void {
+    const rounded = Math.round(envelope * 100) / 100
+    if (rounded === this._videoAudioReported) return
+    this._videoAudioReported = rounded
+    this.onVideoAudio?.(rounded)
   }
 
   _syncSoundBtn(): void {
     const { sound } = this.els
     sound.setAttribute('aria-pressed', this._soundOn ? 'true' : 'false')
-    pflicht<HTMLElement>(sound, '.ico-muted').hidden = this._soundOn
-    pflicht<HTMLElement>(sound, '.ico-sound').hidden = !this._soundOn
+    requireElement<HTMLElement>(sound, '.ico-muted').hidden = this._soundOn
+    requireElement<HTMLElement>(sound, '.ico-sound').hidden = !this._soundOn
   }
 
   // Laufendes Video anhalten und die Ressource freigeben (Stopp-Wechsel/Ausblenden)
   _stopVideo(): void {
-    this._standbildGen++ // ausstehende Poster-Rückrufe verwerfen
-    const { video: v, standbild } = this.els
-    standbild.hidden = true
-    standbild.removeAttribute('src')
-    this._videoHatteFrame = false
-    this._letzterSuchlauf = -Infinity
-    this._videoHuelle = 0
-    this._videoPegelZeit = 0
-    this._meldeVideoTon(0)
+    this._posterGen++ // ausstehende Poster-Rückrufe verwerfen
+    const { video: v, poster } = this.els
+    poster.hidden = true
+    poster.removeAttribute('src')
+    this._videoHadFrame = false
+    this._lastSeekAt = -Infinity
+    this._videoEnvelope = 0
+    this._videoVolumeAt = 0
+    this._reportVideoAudio(0)
     if (!v.getAttribute('src')) return
     v.pause()
     v.removeAttribute('src')
@@ -328,7 +328,7 @@ export class UI {
   // Fotos gestaffelt vorladen: immer nur den nächsten und übernächsten Stopp —
   // alle auf einmal (bis ~14 MB) würden beim Start mit den Karten-Tiles um
   // die Bandbreite konkurrieren
-  preloadStop(i: number, mitVideo = false): void {
+  preloadStop(i: number, withVideo = false): void {
     const st = this.stops[i]
     if (!st || this._preloaded.has(i)) return
     this._preloaded.add(i)
@@ -341,7 +341,7 @@ export class UI {
         img.src = url
         this._preloadImgs.push(img)
       }
-      if (mitVideo && p.type === 'video' && p.src) this._weckeVideo(p.src)
+      if (withVideo && p.type === 'video' && p.src) this._wakeVideo(p.src)
     }
   }
 
@@ -361,15 +361,15 @@ export class UI {
    * abbricht; mehr als vier sind es nie, sonst hingen an einer Tour mit vielen
    * Videos beliebig viele Puffer.
    */
-  private _weckeVideo(src: string): void {
+  private _wakeVideo(src: string): void {
     const v = document.createElement('video')
     v.preload = 'metadata'
     v.muted = true
     v.playsInline = true
     v.src = src
-    this._geweckteVideos.push(v)
-    while (this._geweckteVideos.length > 4) {
-      const alt = this._geweckteVideos.shift()
+    this._wokenVideos.push(v)
+    while (this._wokenVideos.length > 4) {
+      const alt = this._wokenVideos.shift()
       if (!alt) break
       alt.removeAttribute('src')
       alt.load()
@@ -391,7 +391,7 @@ export class UI {
     let minE = Infinity
     let maxE = -Infinity
     for (let i = 0; i < PROFILE_SAMPLES; i++) {
-      const s = this.film.sBeiFilm((this.film.gesamtS * i) / (PROFILE_SAMPLES - 1))
+      const s = this.film.sAtFilmTime((this.film.totalS * i) / (PROFILE_SAMPLES - 1))
       const ele = pointAt(this.route, s)[2]
       ys.push(ele)
       minE = Math.min(minE, ele)
@@ -435,16 +435,16 @@ export class UI {
    */
   buildDots(): void {
     for (const st of this.stops) {
-      const von = this.film.filmBeiS(st.s)
-      const halt = this.film.haltBeiFilm(von)
-      const filmFrac = von / this.film.gesamtS
-      const breite = halt ? (halt.filmBis - halt.filmVon) / this.film.gesamtS : 0
-      if (breite > 0) {
-        const flaeche = document.createElement('div')
-        flaeche.className = 'halt-flaeche'
-        flaeche.style.left = `${filmFrac * 100}%`
-        flaeche.style.width = `${breite * 100}%`
-        this.els.dots.appendChild(flaeche)
+      const from = this.film.filmTimeAtS(st.s)
+      const stop = this.film.stopAtFilmTime(from)
+      const filmFrac = from / this.film.totalS
+      const width = stop ? (stop.filmBis - stop.filmVon) / this.film.totalS : 0
+      if (width > 0) {
+        const span = document.createElement('div')
+        span.className = 'stop-span'
+        span.style.left = `${filmFrac * 100}%`
+        span.style.width = `${width * 100}%`
+        this.els.dots.appendChild(span)
       }
       const dot = document.createElement('button')
       dot.className = 'photo-dot'
@@ -461,7 +461,7 @@ export class UI {
    * Alle Timeline-Punkte. Ausdrücklich nur die Knöpfe: Im selben Container
    * liegen seit Etappe 5 auch die Halt-Flächen, und die tragen kein `dataset.s`.
    */
-  private get punkte(): NodeListOf<HTMLElement> {
+  private get dotEls(): NodeListOf<HTMLElement> {
     return this.els.dots.querySelectorAll<HTMLElement>('.photo-dot')
   }
 
@@ -472,7 +472,7 @@ export class UI {
   // Nach dem Eintreffen echter DEM-Höhen: Profil und Dot-Positionen neu aufbauen
   rebuildProfile(): void {
     this.buildProfile()
-    for (const dot of this.punkte) {
+    for (const dot of this.dotEls) {
       dot.style.top = `${this.yAt(Number(dot.dataset.filmFrac))}%`
     }
   }
@@ -480,7 +480,7 @@ export class UI {
   syncDots(s: number): void {
     this._lastSyncS = s
     let nextFound = false
-    for (const dot of this.punkte) {
+    for (const dot of this.dotEls) {
       // „Besucht" erst, wenn der Playhead den Punkt tatsächlich erreicht hat
       // (kleiner 25-m-Vorlauf, damit der Zustand exakt mit dem Einblenden der
       // Foto-Karte kippt) — NICHT mehr 200 m davor. So ist die Timeline ehrlich:
@@ -540,38 +540,38 @@ export class UI {
    * Nutzer hat nichts angehalten, er hat den Tab gewechselt. Das Video braucht
    * den Griff trotzdem, und zwar aus dem Ereignis heraus: Es hängt an der
    * Wanduhr des Browsers, die Sync dagegen an `requestAnimationFrame` — und
-   * genau das läuft im Hintergrund nicht mehr (src/filmuhr.ts). Beim
+   * genau das läuft im Hintergrund nicht mehr (src/film-clock.ts). Beim
    * Zurückkommen holt der nächste Kopfschritt das Video von selbst wieder.
    */
-  haltVideoAn(): void {
+  pauseVideo(): void {
     const v = this.els.video
     if (!v.paused) v.pause()
-    this._meldeVideoTon(0)
+    this._reportVideoAudio(0)
   }
 
   setPhotoContent(photo: PlayerMedium, idx: number, count: number): void {
-    const { img, video, standbild, sound, pTitle, pChip, pCount } = this.els
-    const istVideo = photo.type === 'video'
+    const { img, video, poster, sound, pTitle, pChip, pCount } = this.els
+    const isVideo = photo.type === 'video'
     // Anzeige-Optionen aus dem Studio (Kreativbaukasten): Ken-Burns abschaltbar.
     // Die Drift-DAUER kommt nicht von hier, sondern aus der Filmzeit (die
     // Klip-Länge). Sie stand hier einmal auf `holdS + 1.8` gegen die 0,8 des
     // Editors — die 1-Sekunden-Abweichung aus §6C des Gleichlauf-Konzepts.
-    this._kartenMedium = {
-      art: istVideo ? 'video' : 'foto',
+    this._cardMedium = {
+      kind: isVideo ? 'video' : 'photo',
       // Das Seitenverhältnis des VORIGEN Mediums bleibt stehen, bis das neue
       // vermessen ist: Ein Zwischen-Reset auf 3:2 ließe den Rahmen zucken.
-      ar: this._kartenMedium.ar,
-      ...(photo.display?.kenBurns === false ? { keinKenBurns: true } : {}),
+      ar: this._cardMedium.ar,
+      ...(photo.display?.kenBurns === false ? { noKenBurns: true } : {}),
     }
-    const merkeSeitenverhaeltnis = (el: HTMLImageElement | HTMLVideoElement) => {
-      const bild = el instanceof HTMLImageElement
-      const b = bild ? el.naturalWidth : el.videoWidth
-      const h = bild ? el.naturalHeight : el.videoHeight
-      const ar = klemmeSeitenverhaeltnis(b, h)
+    const rememberAspectRatio = (el: HTMLImageElement | HTMLVideoElement) => {
+      const image = el instanceof HTMLImageElement
+      const b = image ? el.naturalWidth : el.videoWidth
+      const h = image ? el.naturalHeight : el.videoHeight
+      const ar = clampAspectRatio(b, h)
       if (ar === null) return
-      this._kartenMedium = { ...this._kartenMedium, ar }
+      this._cardMedium = { ...this._cardMedium, ar }
     }
-    if (istVideo) {
+    if (isVideo) {
       this._stopVideo() // ein evtl. noch laufendes Video sauber ablösen
       img.hidden = true
       video.hidden = false
@@ -586,24 +586,24 @@ export class UI {
       // einen Frame hat (`_kartenQuelle`), und die alte 1,5-s-Frist nahm auf dem
       // Telefon genau das Bild weg, das über das Laden hinweghalf. Danach stand
       // die Karte schwarz, bis das Video lief.
-      const gen = this._standbildGen
+      const gen = this._posterGen
       if (photo.poster) {
-        standbild.hidden = false
-        standbild.src = photo.poster
-        if (standbild.complete && standbild.naturalWidth) merkeSeitenverhaeltnis(standbild)
+        poster.hidden = false
+        poster.src = photo.poster
+        if (poster.complete && poster.naturalWidth) rememberAspectRatio(poster)
         else {
-          standbild.addEventListener(
+          poster.addEventListener(
             'load',
             () => {
-              if (gen === this._standbildGen) merkeSeitenverhaeltnis(standbild)
+              if (gen === this._posterGen) rememberAspectRatio(poster)
             },
             { once: true },
           )
         }
       } else {
-        standbild.hidden = true
+        poster.hidden = true
       }
-      video.addEventListener('loadedmetadata', () => merkeSeitenverhaeltnis(video), { once: true })
+      video.addEventListener('loadedmetadata', () => rememberAspectRatio(video), { once: true })
       video.src = photo.src
       // Kein `play()` hier: Ob das Video läuft, sagt die FILMZEIT — der nächste
       // Kopfschritt startet es (synchronisiereKarte). Ein Start von hier aus
@@ -616,8 +616,8 @@ export class UI {
       img.src = photo.src
       img.alt = photo.title
       // Aus dem Cache ist das Bild sofort vollständig — dann feuert onload nicht mehr
-      if (img.complete) merkeSeitenverhaeltnis(img)
-      else img.addEventListener('load', () => merkeSeitenverhaeltnis(img), { once: true })
+      if (img.complete) rememberAspectRatio(img)
+      else img.addEventListener('load', () => rememberAspectRatio(img), { once: true })
     }
     // Die Beschriftung geht ZWEIMAL heraus, und das ist Absicht: als Werte an
     // den Maler (er liest kein `textContent` — genau das war der Weg, auf dem
@@ -634,30 +634,30 @@ export class UI {
     // Unterzeile bleibt echten Bildunterschriften vorbehalten (die
     // kuratierten Touren haben sie).
     const km = `${(photo.s / 1000).toFixed(1).replace('.', ',')} km`
-    const uhr = this._uhrzeit(photo.takenAt)
-    const kmText = uhr ? `${uhr} · ${km}` : km
+    const clock = this._clockTime(photo.takenAt)
+    const kmText = clock ? `${clock} · ${km}` : km
     // Nur die Zählung, ohne das Wort „Foto"/„Video": Was man sieht, muss die
     // Karte nicht auch noch benennen. Was man NICHT sieht, ist, dass dieser Halt
     // mehrere Aufnahmen hat — das bleibt.
-    const zaehlerText = count < 2 ? '' : `${idx + 1}/${count}`
-    this._kartenText = { titel: photo.title, kmText, zaehlerText }
+    const counterText = count < 2 ? '' : `${idx + 1}/${count}`
+    this._cardText = { title: photo.title, kmText, counterText: counterText }
     pTitle.textContent = photo.title
     pChip.textContent = kmText
-    pCount.hidden = !zaehlerText
-    pCount.textContent = zaehlerText
+    pCount.hidden = !counterText
+    pCount.textContent = counterText
   }
 
   /** „09:09 Uhr" in der Zone der Tour; leer, wenn die Aufnahmezeit fehlt. */
-  private _uhrzeit(iso?: string): string {
+  private _clockTime(iso?: string): string {
     if (!iso) return ''
     const ms = Date.parse(iso)
     if (!Number.isFinite(ms)) return ''
-    if (this.zeitfenster && (ms < this.zeitfenster[0] || ms > this.zeitfenster[1])) return ''
+    if (this.timeWindow && (ms < this.timeWindow[0] || ms > this.timeWindow[1])) return ''
     try {
       const f = new Intl.DateTimeFormat('de-DE', {
         hour: '2-digit',
         minute: '2-digit',
-        ...(this.zeitzone ? { timeZone: this.zeitzone } : {}),
+        ...(this.timeZone ? { timeZone: this.timeZone } : {}),
       })
       return `${f.format(new Date(iso))} Uhr`
     } catch {
@@ -682,50 +682,50 @@ export class UI {
    * Suchläufe, Mobilfunk-Nachpuffern) war das ein Flackern zwischen zwei
    * Bildern. Das Poster überbrückt nur den Anfang, nicht jede Störung.
    */
-  private _kartenQuelle(): { quelle: KartenQuelle | null; bereit: boolean } {
-    const { img, video, standbild } = this.els
+  private _cardSource(): { source: CardSource | null; ready: boolean } {
+    const { img, video, poster } = this.els
     if (!video.hidden && video.getAttribute('src')) {
-      const hatFrame = video.readyState >= VIDEO_HAT_FRAME
-      if (hatFrame) this._videoHatteFrame = true
-      if (video.videoWidth > 0 && (hatFrame || this._videoHatteFrame)) {
+      const hasFrame = video.readyState >= VIDEO_HAS_FRAME
+      if (hasFrame) this._videoHadFrame = true
+      if (video.videoWidth > 0 && (hasFrame || this._videoHadFrame)) {
         return {
-          quelle: {
-            bild: video,
-            breite: video.videoWidth,
-            hoehe: video.videoHeight,
-            kennung: video.src,
+          source: {
+            image: video,
+            width: video.videoWidth,
+            height: video.videoHeight,
+            key: video.src,
           },
-          bereit: hatFrame && !video.seeking,
+          ready: hasFrame && !video.seeking,
         }
       }
       // Noch kein Frame: das Poster hält die Stelle. Es ist ein anderes Bild als
       // das Video, aber ein richtiges — ein leerer Rahmen wäre die schlechtere
       // Auskunft, und im Film wäre er ein schwarzes Feld.
-      if (!standbild.hidden && standbild.complete && standbild.naturalWidth > 0) {
+      if (!poster.hidden && poster.complete && poster.naturalWidth > 0) {
         return {
-          quelle: {
-            bild: standbild,
-            breite: standbild.naturalWidth,
-            hoehe: standbild.naturalHeight,
-            kennung: standbild.src,
+          source: {
+            image: poster,
+            width: poster.naturalWidth,
+            height: poster.naturalHeight,
+            key: poster.src,
           },
-          bereit: true,
+          ready: true,
         }
       }
-      return { quelle: null, bereit: false }
+      return { source: null, ready: false }
     }
     if (!img.hidden && img.complete && img.naturalWidth > 0) {
       return {
-        quelle: { bild: img, breite: img.naturalWidth, hoehe: img.naturalHeight, kennung: img.src },
-        bereit: true,
+        source: { image: img, width: img.naturalWidth, height: img.naturalHeight, key: img.src },
+        ready: true,
       }
     }
-    return { quelle: null, bereit: false }
+    return { source: null, ready: false }
   }
 
   /** Stand der letzten Zeichnung — der Video-Export fragt danach (Konzept §5). */
-  kartenBereit(): boolean {
-    return this.karten.bereit()
+  cardReady(): boolean {
+    return this.cardLayer.ready()
   }
 
   /**
@@ -736,8 +736,8 @@ export class UI {
    * Mal mit den Film-Einstellungen zu malen
    * (scripts/messungen/kartenleinwand.mjs).
    */
-  kartenStand(): unknown {
-    return this.karten.stand()
+  cardFrame(): unknown {
+    return this.cardLayer.frame()
   }
 
   /**
@@ -748,7 +748,7 @@ export class UI {
    * Deshalb gibt es hier auch keine erzwungenen Reflows mehr: Es gibt nichts
    * „neu zu starten", der Stand kommt aus dem Delay.
    */
-  zeigeKarte(photo: PlayerMedium, idx: number, count: number): void {
+  showCard(photo: PlayerMedium, idx: number, count: number): void {
     const { layer } = this.els
     this.setPhotoContent(photo, idx, count)
     layer.classList.add('show')
@@ -771,47 +771,47 @@ export class UI {
    * geschrieben und die Video-Zeit nur bei merklicher Abweichung nachgezogen
    * (ein Seek je Frame ruckelt sichtbar).
    */
-  synchronisiereKarte(imS: number, dauerS: number, tempo: number): void {
+  syncCard(inS: number, durationS: number, speed: number): void {
     const { video } = this.els
-    const { quelle, bereit } = this._kartenQuelle()
-    this.karten.male({
-      imS,
-      dauerS,
-      medium: this._kartenMedium,
-      text: this._kartenText,
-      quelle,
-      bereit,
+    const { source, ready } = this._cardSource()
+    this.cardLayer.paint({
+      inS: inS,
+      durationS: durationS,
+      medium: this._cardMedium,
+      text: this._cardText,
+      source: source,
+      ready: ready,
     })
 
     if (video.hidden || !video.getAttribute('src')) {
-      this._meldeVideoTon(0)
+      this._reportVideoAudio(0)
       return
     }
     // Der Player liefert die GESCHNITTENE Datei aus — der Ausschnitt beginnt
     // bei 0. Kennt sie ihre Länge noch nicht, steht das Ende offen; die Klemme
     // greift dann erst mit `loadedmetadata`.
-    const endeS = video.duration > 0 && Number.isFinite(video.duration) ? video.duration : Infinity
-    const { zielS, ausgelaufen } = videoStandS(0, endeS, imS)
+    const toS = video.duration > 0 && Number.isFinite(video.duration) ? video.duration : Infinity
+    const { targetS, atEnd } = videoPositionS(0, toS, inS)
     // Ein Video kann nicht rückwärts spielen: Im Schnelllauf und rückwärts
     // steht es auf dem Frame der Kopfposition und schweigt — wie im Editor.
-    const laeuft = tempo === 1 && !ausgelaufen
+    const playing = speed === 1 && !atEnd
     // Die Entscheidung ist DOM-frei und mit dem Editor geteilt
-    // (`videoNachfuehrung` in einblendung.ts): Wann gesucht werden DARF, hängt
+    // (`videoSeekDecision` in card-timing.ts): Wann gesucht werden DARF, hängt
     // an einem laufenden Suchlauf, am Pufferstand und an der Wanduhr — ohne
     // diese drei Rückfragen wurde auf dem Telefon in jedem Frame neu gesucht
     // und keiner der Suchläufe kam je an.
-    const nach = videoNachfuehrung({
-      zielS,
-      istS: video.currentTime,
-      laeuft,
+    const decision = videoSeekDecision({
+      targetS,
+      isS: video.currentTime,
+      playing: playing,
       paused: video.paused,
       seeking: video.seeking,
       readyState: video.readyState,
-      seitSuchlaufS: (performance.now() - this._letzterSuchlauf) / 1000,
-      bildgenau: this._imExport,
+      sinceSeekS: (performance.now() - this._lastSeekAt) / 1000,
+      frameExact: this._inExport,
     })
-    if (nach.suchen) this._setzeVideoZeit(zielS)
-    if (nach.starten) {
+    if (decision.seek) this._setVideoTime(targetS)
+    if (decision.play) {
       video.play().catch(() => {
         // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt → stumm
         // erzwingen, damit das Bild überhaupt läuft; sonst stünde am
@@ -823,52 +823,52 @@ export class UI {
         video.play().catch(() => {})
       })
     }
-    if (nach.anhalten) video.pause()
+    if (decision.pause) video.pause()
 
     // Ton-Hülle über den Ausschnitt: Ein- und Ausblende liegen an den
     // Schnittkanten, und sie steuert zugleich das Ducking der Musik.
-    // Geteilt mit dem Editor (`ausschnittDauerS`): Der Player liefert die
+    // Geteilt mit dem Editor (`trimmedDurationS`): Der Player liefert die
     // geschnittene Fassung aus, sein linker Schnitt ist also 0.
-    const ausschnittS = ausschnittDauerS(dauerS, 0, endeS)
+    const trimS = trimmedDurationS(durationS, 0, toS)
     // Die Hülle wird von ZWEI Uhren geführt, und es gilt die kleinere: der
     // Filmzeit (dort liegen die Schnittkanten) und der Wiedergabeposition der
     // Datei. Die zweite ist der Knacks-Schutz — läuft das Video verspätet an,
     // steht die Filmzeit schon mitten im Klip, und der Ton setzte bisher mit
     // voller Lautstärke ein. Wer sucht oder noch keinen Frame hat, klingt gar
     // nicht: Dort gibt es nichts zu hören, was leiser werden könnte.
-    const hoerbar = laeuft && !video.muted && !video.seeking && video.readyState >= VIDEO_HAT_FRAME
-    const ziel = hoerbar
-      ? Math.min(videoTonHuelle(imS, ausschnittS), videoTonHuelle(video.currentTime, ausschnittS))
+    const audible = playing && !video.muted && !video.seeking && video.readyState >= VIDEO_HAS_FRAME
+    const target = audible
+      ? Math.min(videoVolumeEnvelope(inS, trimS), videoVolumeEnvelope(video.currentTime, trimS))
       : 0
     // Und über beidem die Rampe — sie deckelt jeden Sprung, den ein Anlauf, ein
     // Suchlauf oder ein Tempowechsel sonst hart in den Pegel schriebe. Im Export
     // gibt es keine Wanduhr, die sie führen könnte (ein Filmbild kostet dort
     // 0,3–2 s), also steht dort der Zielwert.
-    const jetzt = performance.now()
-    const dtS = (jetzt - this._videoPegelZeit) / 1000
-    this._videoPegelZeit = jetzt
-    this._videoHuelle = this._imExport ? ziel : gerampterPegel(this._videoHuelle, ziel, dtS)
-    const laut = videoLautstaerke(this._videoHuelle)
+    const now = performance.now()
+    const dtS = (now - this._videoVolumeAt) / 1000
+    this._videoVolumeAt = now
+    this._videoEnvelope = this._inExport ? target : rampedVolume(this._videoEnvelope, target, dtS)
+    const loud = videoVolume(this._videoEnvelope)
     // Nur bei Bedarf setzen — sonst feuert mancher Browser volumechange im Kreis
-    if (Math.abs(video.volume - laut) > 0.004) video.volume = laut
-    this._meldeVideoTon(this._videoHuelle)
+    if (Math.abs(video.volume - loud) > 0.004) video.volume = loud
+    this._reportVideoAudio(this._videoEnvelope)
   }
 
-  private _setzeVideoZeit(sekunde: number): void {
-    // Die Marke wird VOR dem Sprung gesetzt: `videoNachfuehrung` misst damit die
+  private _setVideoTime(second: number): void {
+    // Die Marke wird VOR dem Sprung gesetzt: `videoSeekDecision` misst damit die
     // Ruhe zwischen zwei Suchläufen, und die beginnt mit dem Anstoß, nicht mit
     // dem Eintreffen. Auch ein fehlgeschlagener Sprung zählt — sonst versuchte
     // es der nächste Frame sofort wieder.
-    this._letzterSuchlauf = performance.now()
+    this._lastSeekAt = performance.now()
     try {
-      this.els.video.currentTime = Math.max(0, sekunde)
+      this.els.video.currentTime = Math.max(0, second)
     } catch {
       /* Seek vor dem Puffern kann fehlschlagen — der nächste Kopfschritt holt es nach */
     }
   }
 
   /** Die Karte wegnehmen — außerhalb jedes Halts und beim Verlassen der Tour. */
-  verbergeKarte(): void {
+  hideCard(): void {
     const { layer, card } = this.els
     this._stopVideo() // Video anhalten + Ressource freigeben (+ Ducking aus)
     this.els.video.hidden = true
@@ -877,7 +877,7 @@ export class UI {
     layer.classList.remove('show')
     layer.setAttribute('aria-hidden', 'true')
     document.body.classList.remove('cinema')
-    this.karten.raeume()
+    this.cardLayer.clear()
   }
 
   showFinale(): void {
@@ -897,7 +897,7 @@ export class UI {
     setTimeout(() => this.els.blink.classList.remove('on'), 650)
   }
 
-  stats({ km, ele, frac, filmFrac, next, modeKey }: Telemetrie): void {
+  stats({ km, ele, frac, filmFrac, next, modeKey }: Telemetry): void {
     this.els.teleKm.textContent = `${km.toFixed(1)} km`
     this.els.teleEle.textContent = `${fmtDE.format(ele)} m`
     // Der Modus wird nicht mehr angezeigt, aber weiter verfolgt: an der Kante

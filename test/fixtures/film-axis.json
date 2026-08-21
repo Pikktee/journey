@@ -1,10 +1,10 @@
 {
-  "hinweis": [
+  "note": [
     "Verhaltens-Fixture der Filmachse — die Klammer um die ZWEI Stellen, an denen das",
-    "Tempo-Modell steht: src/filmachse.ts (Player + Studio) und server/src/pipeline/",
-    "filmtempo.ts + filmachse.ts (der Server kann die Web-Datei nicht importieren,",
-    "eigener rootDir). Beide Seiten rechnen diese Fälle durch: test/filmachse.test.ts",
-    "und server/test/filmtempo.test.ts.",
+    "Tempo-Modell steht: src/film-axis.ts (Player + Studio) und server/src/pipeline/",
+    "film-tempo.ts + film-axis.ts (der Server kann die Web-Datei nicht importieren,",
+    "eigener rootDir). Beide Seiten rechnen diese Fälle durch: test/film-axis.test.ts",
+    "und server/test/film-tempo.test.ts.",
     "",
     "Vorher hielten Tests die beiden Seiten zusammen, indem sie den QUELLTEXT von",
     "src/tour.ts nach Zeichenketten absuchten — einer prüfte, ob ein Kommentar",
@@ -21,10 +21,10 @@
     "in den Fällen nicht vor — sie haben in der Strecken-Achse ohnehin keine",
     "Breite (Konzept §8C, E12).",
     "",
-    "Jeder Fall nennt seine Rampenlänge SELBST (`rampeM`). Die ersten fünf setzen",
+    "Jeder Fall nennt seine Rampenlänge SELBST (`rampM`). Die ersten fünf setzen",
     "sie auf 0 und beschreiben damit die reine Reise-Achse; die Rampen-Fälle",
     "danach wählen runde Längen, damit ihre Werte von Hand nachrechenbar bleiben.",
-    "Die im Produkt gültige Länge steht als `RAMPE_M` in src/filmachse.ts und ist",
+    "Die im Produkt gültige Länge steht als `RAMP_M` in src/film-axis.ts und ist",
     "dort kalibriert — sie gehört nicht ins Fixture: Das hier beschreibt die FORM",
     "der Rampe, nicht ihre Dosierung.",
     "",
@@ -55,27 +55,27 @@
     "tram": 150,
     "ferry": 300
   },
-  "standzeit": {
-    "fotoS": 5.2,
-    "ausblendS": 0.8,
+  "hold": {
+    "photoS": 5.2,
+    "fadeOutS": 0.8,
     "momentS": { "orbit": 6, "ascend": 5, "linger": 4 }
   },
-  "haltAbstandM": 120,
-  "faelle": [
+  "stopSpacingM": 120,
+  "cases": [
     {
       "name": "Ein Modus: Strecke ÷ Tempo, sonst nichts",
-      "rampeM": 0,
-      "abschnitte": [{ "abM": 0, "mode": "walk" }],
-      "gesamtM": 960,
-      "halte": [],
-      "gesamtS": 16,
-      "filmBeiStrecke": [
+      "rampM": 0,
+      "segments": [{ "fromM": 0, "mode": "walk" }],
+      "totalM": 960,
+      "stops": [],
+      "totalS": 16,
+      "filmTimeAtDistance": [
         [0, 0],
         [240, 4],
         [480, 8],
         [960, 16]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [0, 0],
         [8, 480],
         [16, 960]
@@ -83,38 +83,38 @@
     },
     {
       "name": "Modus-Wechsel: die Fähre staucht ihren Abschnitt",
-      "rampeM": 0,
-      "abschnitte": [
-        { "abM": 0, "mode": "walk" },
-        { "abM": 480, "mode": "ferry" }
+      "rampM": 0,
+      "segments": [
+        { "fromM": 0, "mode": "walk" },
+        { "fromM": 480, "mode": "ferry" }
       ],
-      "gesamtM": 1080,
-      "halte": [],
-      "gesamtS": 10,
-      "filmBeiStrecke": [
+      "totalM": 1080,
+      "stops": [],
+      "totalS": 10,
+      "filmTimeAtDistance": [
         [240, 4],
         [480, 8],
         [780, 9],
         [1080, 10]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [8, 480],
         [9, 780]
       ]
     },
     {
       "name": "Ein Halt: Filmzeit läuft, die Strecke steht",
-      "rampeM": 0,
-      "abschnitte": [{ "abM": 0, "mode": "walk" }],
-      "gesamtM": 960,
-      "halte": [{ "meterM": 480, "breiteS": 6 }],
-      "gesamtS": 22,
-      "filmBeiStrecke": [
+      "rampM": 0,
+      "segments": [{ "fromM": 0, "mode": "walk" }],
+      "totalM": 960,
+      "stops": [{ "meterM": 480, "breiteS": 6 }],
+      "totalS": 22,
+      "filmTimeAtDistance": [
         [240, 4],
         [480, 8],
         [960, 22]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [8, 480],
         [11, 480],
         [14, 480],
@@ -123,21 +123,21 @@
     },
     {
       "name": "Zwei Halte: der zweite kennt die Breite des ersten",
-      "rampeM": 0,
-      "abschnitte": [{ "abM": 0, "mode": "walk" }],
-      "gesamtM": 960,
-      "halte": [
+      "rampM": 0,
+      "segments": [{ "fromM": 0, "mode": "walk" }],
+      "totalM": 960,
+      "stops": [
         { "meterM": 240, "breiteS": 6 },
         { "meterM": 720, "breiteS": 4 }
       ],
-      "gesamtS": 26,
-      "filmBeiStrecke": [
+      "totalS": 26,
+      "filmTimeAtDistance": [
         [240, 4],
         [480, 14],
         [720, 18],
         [960, 26]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [4, 240],
         [10, 240],
         [18, 720],
@@ -147,19 +147,19 @@
     },
     {
       "name": "Halt genau am Modus-Wechsel",
-      "rampeM": 0,
-      "abschnitte": [
-        { "abM": 0, "mode": "walk" },
-        { "abM": 480, "mode": "ferry" }
+      "rampM": 0,
+      "segments": [
+        { "fromM": 0, "mode": "walk" },
+        { "fromM": 480, "mode": "ferry" }
       ],
-      "gesamtM": 1080,
-      "halte": [{ "meterM": 480, "breiteS": 5.2 }],
-      "gesamtS": 15.2,
-      "filmBeiStrecke": [
+      "totalM": 1080,
+      "stops": [{ "meterM": 480, "breiteS": 5.2 }],
+      "totalS": 15.2,
+      "filmTimeAtDistance": [
         [480, 8],
         [1080, 15.2]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [8, 480],
         [13.2, 480],
         [14.2, 780]
@@ -167,18 +167,18 @@
     },
     {
       "name": "Rampe: der Start kostet genau eine Reisezeit seiner Strecke",
-      "rampeM": 240,
-      "abschnitte": [{ "abM": 0, "mode": "walk" }],
-      "gesamtM": 960,
-      "halte": [],
-      "gesamtS": 20,
-      "filmBeiStrecke": [
+      "rampM": 240,
+      "segments": [{ "fromM": 0, "mode": "walk" }],
+      "totalM": 960,
+      "stops": [],
+      "totalS": 20,
+      "filmTimeAtDistance": [
         [0, 0],
         [45, 4],
         [240, 8],
         [960, 20]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [4, 45],
         [8, 240],
         [20, 960]
@@ -186,19 +186,19 @@
     },
     {
       "name": "Rampe: vor dem Halt wird gebremst, danach wieder angefahren",
-      "rampeM": 240,
-      "abschnitte": [{ "abM": 0, "mode": "walk" }],
-      "gesamtM": 960,
-      "halte": [{ "meterM": 480, "breiteS": 6 }],
-      "gesamtS": 34,
-      "filmBeiStrecke": [
+      "rampM": 240,
+      "segments": [{ "fromM": 0, "mode": "walk" }],
+      "totalM": 960,
+      "stops": [{ "meterM": 480, "breiteS": 6 }],
+      "totalS": 34,
+      "filmTimeAtDistance": [
         [240, 8],
         [435, 12],
         [480, 16],
         [720, 30],
         [960, 34]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [12, 435],
         [16, 480],
         [22, 480],
@@ -208,20 +208,20 @@
     },
     {
       "name": "Rampe: enge Halte teilen sich die Lücke hälftig",
-      "rampeM": 240,
-      "abschnitte": [{ "abM": 0, "mode": "walk" }],
-      "gesamtM": 960,
-      "halte": [
+      "rampM": 240,
+      "segments": [{ "fromM": 0, "mode": "walk" }],
+      "totalM": 960,
+      "stops": [
         { "meterM": 240, "breiteS": 6 },
         { "meterM": 480, "breiteS": 6 }
       ],
-      "gesamtS": 40,
-      "filmBeiStrecke": [
+      "totalS": 40,
+      "filmTimeAtDistance": [
         [240, 8],
         [480, 22],
         [960, 40]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [8, 240],
         [14, 240],
         [22, 480],
@@ -231,15 +231,15 @@
     },
     {
       "name": "Rampe: die Modus-Rampe liegt ganz im SCHNELLEREN Abschnitt",
-      "rampeM": 360,
-      "abschnitte": [
-        { "abM": 0, "mode": "walk" },
-        { "abM": 1200, "mode": "ferry" }
+      "rampM": 360,
+      "segments": [
+        { "fromM": 0, "mode": "walk" },
+        { "fromM": 1200, "mode": "ferry" }
       ],
-      "gesamtM": 2400,
-      "halte": [],
-      "gesamtS": 30.8,
-      "filmBeiStrecke": [
+      "totalM": 2400,
+      "stops": [],
+      "totalS": 30.8,
+      "filmTimeAtDistance": [
         [0, 0],
         [67.5, 6],
         [360, 12],
@@ -248,7 +248,7 @@
         [1560, 28],
         [2400, 30.8]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [6, 67.5],
         [12, 360],
         [26, 1200],
@@ -259,23 +259,23 @@
     },
     {
       "name": "Rampe: zwei dichte Modus-Grenzen teilen sich die Lücke hälftig",
-      "rampeM": 360,
-      "abschnitte": [
-        { "abM": 0, "mode": "walk" },
-        { "abM": 600, "mode": "ferry" },
-        { "abM": 780, "mode": "walk" }
+      "rampM": 360,
+      "segments": [
+        { "fromM": 0, "mode": "walk" },
+        { "fromM": 600, "mode": "ferry" },
+        { "fromM": 780, "mode": "walk" }
       ],
-      "gesamtM": 1380,
-      "halte": [],
-      "gesamtS": 27,
-      "filmBeiStrecke": [
+      "totalM": 1380,
+      "stops": [],
+      "totalS": 27,
+      "filmTimeAtDistance": [
         [360, 12],
         [600, 16],
         [690, 16.5],
         [780, 17],
         [1380, 27]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [12, 360],
         [16, 600],
         [16.5, 690],
@@ -285,21 +285,21 @@
     },
     {
       "name": "Rampe: ein Tempowechsel in der Rampenzone eines Halts wandert auf den Halt",
-      "rampeM": 360,
-      "abschnitte": [
-        { "abM": 0, "mode": "walk" },
-        { "abM": 600, "mode": "ferry" }
+      "rampM": 360,
+      "segments": [
+        { "fromM": 0, "mode": "walk" },
+        { "fromM": 600, "mode": "ferry" }
       ],
-      "gesamtM": 1230,
-      "halte": [{ "meterM": 870, "breiteS": 6 }],
-      "gesamtS": 34.9,
-      "filmBeiStrecke": [
+      "totalM": 1230,
+      "stops": [{ "meterM": 870, "breiteS": 6 }],
+      "totalS": 34.9,
+      "filmTimeAtDistance": [
         [360, 12],
         [510, 14.5],
         [870, 26.5],
         [1230, 34.9]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [12, 360],
         [14.5, 510],
         [26.5, 870],
@@ -309,16 +309,16 @@
     },
     {
       "name": "Rampe: dieselbe Strecke kostet auf der Fähre weniger",
-      "rampeM": 300,
-      "abschnitte": [{ "abM": 0, "mode": "ferry" }],
-      "gesamtM": 3000,
-      "halte": [],
-      "gesamtS": 11,
-      "filmBeiStrecke": [
+      "rampM": 300,
+      "segments": [{ "fromM": 0, "mode": "ferry" }],
+      "totalM": 3000,
+      "stops": [],
+      "totalS": 11,
+      "filmTimeAtDistance": [
         [300, 2],
         [3000, 11]
       ],
-      "streckeBeiFilm": [
+      "distanceAtFilmTime": [
         [2, 300],
         [11, 3000]
       ]

@@ -19,13 +19,13 @@
 /**
  * Übersetzt einen Streckenanteil `f` (0..1, wie der Server ihn misst) in Streckenmeter.
  *
- * `quelle` sagt, WELCHE der beiden Rechnungen dahintersteht — die Tabelle oder
+ * `source` sagt, WELCHE der beiden Rechnungen dahintersteht — die Tabelle oder
  * der Rückfall. Bei einer kuratierten Tour ist der Rückfall der Normalfall; bei
  * einer aufgezeichneten wäre er ein Datenfehler, der sich als „alles wie
- * früher" tarnt. Deshalb steht er in `window.__j.anker` zum Nachsehen, wie die
- * verworfene Zeit der Filmuhr (src/filmuhr.ts).
+ * früher" tarnt. Deshalb steht er in `window.__maptale.anker` zum Nachsehen, wie die
+ * verworfene Zeit der Filmuhr (src/film-clock.ts).
  */
-export type SBeiF = ((f: number) => number) & { quelle: 'tabelle' | 'rueckfall' }
+export type SAtF = ((f: number) => number) & { source: 'table' | 'fallback' }
 
 /**
  * Baut die Übersetzung aus der Wegpunkt-Tabelle. `wegpunktF` und `wegpunktS`
@@ -41,24 +41,24 @@ export type SBeiF = ((f: number) => number) & { quelle: 'tabelle' | 'rueckfall' 
  * weiter steigt. Die Tabelle wird dann gespiegelt statt verworfen — der Anker
  * gehört auch rückwärts an seinen physischen Ort.
  */
-export function baueSBeiF(
-  wegpunktF: readonly number[] | null | undefined,
-  wegpunktS: readonly number[],
+export function buildSAtF(
+  waypointF: readonly number[] | null | undefined,
+  waypointS: readonly number[],
   total: number,
-): SBeiF {
-  const klemme = (f: number) => (Number.isFinite(f) ? Math.max(0, Math.min(1, f)) : 0)
-  const rueckfall: SBeiF = Object.assign((f: number) => klemme(f) * total, {
-    quelle: 'rueckfall' as const,
+): SAtF {
+  const clamp = (f: number) => (Number.isFinite(f) ? Math.max(0, Math.min(1, f)) : 0)
+  const fallback: SAtF = Object.assign((f: number) => clamp(f) * total, {
+    source: 'fallback' as const,
   })
 
-  if (!wegpunktF || wegpunktF.length < 2 || wegpunktF.length !== wegpunktS.length) return rueckfall
-  if (!(total > 0)) return rueckfall
-  if (!wegpunktF.every(Number.isFinite) || !wegpunktS.every(Number.isFinite)) return rueckfall
+  if (!waypointF || waypointF.length < 2 || waypointF.length !== waypointS.length) return fallback
+  if (!(total > 0)) return fallback
+  if (!waypointF.every(Number.isFinite) || !waypointS.every(Number.isFinite)) return fallback
 
   // Rückwärts gelesene Tabelle spiegeln, danach ist `fs` nicht-fallend.
-  const abwaerts = (wegpunktF[wegpunktF.length - 1] as number) < (wegpunktF[0] as number)
-  const fs = abwaerts ? [...wegpunktF].reverse() : [...wegpunktF]
-  const ss = abwaerts ? [...wegpunktS].reverse() : [...wegpunktS]
+  const descending = (waypointF[waypointF.length - 1] as number) < (waypointF[0] as number)
+  const fs = descending ? [...waypointF].reverse() : [...waypointF]
+  const ss = descending ? [...waypointS].reverse() : [...waypointS]
 
   // Streng steigende Stützstellen: Nahtpunkte kommen doppelt vor (dieselbe
   // Stelle in zwei Segmenten), und eine Aufzeichnung im Stand liefert viele
@@ -71,35 +71,35 @@ export function baueSBeiF(
   for (let i = 0; i < fs.length; i++) {
     const f = fs[i] as number
     if (kf.length && f <= (kf[kf.length - 1] as number)) {
-      if (f < (kf[kf.length - 1] as number)) return rueckfall // nicht monoton → unbrauchbar
+      if (f < (kf[kf.length - 1] as number)) return fallback // nicht monoton → unbrauchbar
       ks[ks.length - 1] = ss[i] as number
       continue
     }
     kf.push(f)
     ks.push(ss[i] as number)
   }
-  if (kf.length < 2) return rueckfall
+  if (kf.length < 2) return fallback
 
   return Object.assign(
     (f: number) => {
-      const ziel = klemme(f)
-      if (ziel <= (kf[0] as number)) return ks[0] as number
-      if (ziel >= (kf[kf.length - 1] as number)) return ks[ks.length - 1] as number
+      const target = clamp(f)
+      if (target <= (kf[0] as number)) return ks[0] as number
+      if (target >= (kf[kf.length - 1] as number)) return ks[ks.length - 1] as number
       // Binärsuche: erste Stützstelle mit kf[hi] >= ziel
       let lo = 0
       let hi = kf.length - 1
       while (lo < hi) {
-        const mitte = (lo + hi) >> 1
-        if ((kf[mitte] as number) < ziel) lo = mitte + 1
-        else hi = mitte
+        const mid = (lo + hi) >> 1
+        if ((kf[mid] as number) < target) lo = mid + 1
+        else hi = mid
       }
       const f1 = kf[hi] as number
       const f0 = kf[hi - 1] as number
       const s1 = ks[hi] as number
       const s0 = ks[hi - 1] as number
-      const spanne = f1 - f0
-      return spanne <= 0 ? s1 : s0 + ((ziel - f0) / spanne) * (s1 - s0)
+      const span = f1 - f0
+      return span <= 0 ? s1 : s0 + ((target - f0) / span) * (s1 - s0)
     },
-    { quelle: 'tabelle' as const },
+    { source: 'table' as const },
   )
 }

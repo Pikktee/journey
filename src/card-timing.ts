@@ -28,7 +28,7 @@
 export const HOLD_HIDE = 5.2
 
 /** Sekunden Ausblend-Animation nach der Anzeige, bevor es weitergeht. */
-export const HOLD_AUSBLEND = 0.8
+export const HOLD_FADE_OUT_S = 0.8
 
 /**
  * Standzeit EINER Aufnahme im Halt (ohne Ausblendung) — die Filmzeit, die sie
@@ -42,13 +42,13 @@ export const HOLD_AUSBLEND = 0.8
  * Der Editor legt für seinen Video-SCHNITT noch eine Klemme darum
  * (`mediumHoldS` in src/studio/timeline.ts); die Regel darunter ist diese.
  */
-export function standzeitS(m: {
+export function holdS(m: {
   type?: 'photo' | 'video'
   /** Länge des Videos in Sekunden */
-  dauerS?: number
+  durationS?: number
   display?: { holdS?: number }
 }): number {
-  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return m.dauerS
+  if (m.type === 'video' && m.durationS !== undefined && m.durationS > 0) return m.durationS
   return m.display?.holdS ?? HOLD_HIDE
 }
 
@@ -62,8 +62,8 @@ export function standzeitS(m: {
  * mit `holdS + 1.8` für den Ken-Burns-Zug — die eine Sekunde aus §6C des
  * Gleichlauf-Konzepts.
  */
-export function klipDauerS(standS: number): number {
-  return standS + HOLD_AUSBLEND
+export function clipDurationS(holdSecs: number): number {
+  return holdSecs + HOLD_FADE_OUT_S
 }
 
 /**
@@ -73,21 +73,21 @@ export function klipDauerS(standS: number): number {
  * Eine Animation kennt nur „seit dem Start" und stünde beim Scrubben und nach
  * jeder Pause neben der Wahrheit.
  */
-export function balkenAnteil(imS: number, dauerS: number): number {
-  if (!(dauerS > 0)) return 0
-  return Math.max(0, Math.min(1, imS / dauerS))
+export function barFraction(inS: number, durationS: number): number {
+  if (!(durationS > 0)) return 0
+  return Math.max(0, Math.min(1, inS / durationS))
 }
 
 /** Die vier Zeiten der pausierten Karten-Animationen (Sekunden). */
-export interface KartenZeiten {
+export interface CardTimings {
   /** Negatives Delay der Auftritts-Animationen — der Stand IM Klip. */
-  zeitS: number
+  timeS: number
   /** Dauer des Ken-Burns-Zugs: die volle Klip-Länge. */
-  kbDauerS: number
+  kenBurnsDurationS: number
   /** Delay des Abgangs; positiv, solange er noch aussteht. */
-  ausZeitS: number
+  exitTimeS: number
   /** Dauer des Abgangs. */
-  ausDauerS: number
+  exitDurationS: number
 }
 
 /**
@@ -102,17 +102,22 @@ export interface KartenZeiten {
  * Der Abgang liegt in den letzten `HOLD_AUSBLEND` des Klips, also genau in der
  * Spanne, um die der Klip länger ist als die Standzeit.
  */
-export function kartenZeiten(imS: number, dauerS: number): KartenZeiten {
-  const klipS = Math.max(0.1, dauerS)
-  const ausDauerS = Math.min(HOLD_AUSBLEND, klipS)
-  return { zeitS: -imS, kbDauerS: klipS, ausZeitS: klipS - ausDauerS - imS, ausDauerS }
+export function cardTimings(inS: number, durationS: number): CardTimings {
+  const clipS = Math.max(0.1, durationS)
+  const exitDurationS = Math.min(HOLD_FADE_OUT_S, clipS)
+  return {
+    timeS: -inS,
+    kenBurnsDurationS: clipS,
+    exitTimeS: clipS - exitDurationS - inS,
+    exitDurationS,
+  }
 }
 
 /**
  * Ein Video steht nicht auf dem letzten Frame, sondern kurz davor — sonst
  * klemmt der Browser `currentTime` still.
  */
-const VIDEO_ENDE_S = 0.04
+const VIDEO_END_S = 0.04
 
 /**
  * Die Stelle IM Video, die zum Stand `imS` des Klips gehört — geklemmt an die
@@ -129,14 +134,14 @@ const VIDEO_ENDE_S = 0.04
  * Der Player liefert geschnittene Dateien aus (`vonS` = 0), der Editor den
  * ungeschnittenen Master mit beiden Kanten — die Rechnung ist dieselbe.
  */
-export function videoStandS(
-  vonS: number,
-  endeS: number,
-  imS: number,
-): { zielS: number; ausgelaufen: boolean } {
-  const letzterFrameS = Math.max(vonS, endeS - VIDEO_ENDE_S)
-  const roh = vonS + Math.max(0, imS)
-  return { zielS: Math.min(roh, letzterFrameS), ausgelaufen: roh >= letzterFrameS }
+export function videoPositionS(
+  fromS: number,
+  toS: number,
+  inS: number,
+): { targetS: number; atEnd: boolean } {
+  const lastFrameS = Math.max(fromS, toS - VIDEO_END_S)
+  const raw = fromS + Math.max(0, inS)
+  return { targetS: Math.min(raw, lastFrameS), atEnd: raw >= lastFrameS }
 }
 
 /**
@@ -145,32 +150,32 @@ export function videoStandS(
  * darüber sagt, was an der Stelle entschieden wird.
  */
 /** Maße und Dauer stehen, ein Frame noch nicht (`HAVE_METADATA`). */
-export const VIDEO_HAT_MASSE = 1
+export const VIDEO_HAS_METADATA = 1
 /** Für die aktuelle Stelle liegt ein Frame vor (`HAVE_CURRENT_DATA`). */
-export const VIDEO_HAT_FRAME = 2
+export const VIDEO_HAS_FRAME = 2
 /** Es ist genug gepuffert, um weiterzulaufen (`HAVE_FUTURE_DATA`). */
-export const VIDEO_LAEUFT_WEITER = 3
+export const VIDEO_HAS_FUTURE_DATA = 3
 
 /** Abweichung, ab der im LAUF nachgesucht wird. */
-export const VIDEO_DRIFT_LAUF_S = 0.5
+export const VIDEO_DRIFT_PLAYING_S = 0.5
 /** Abweichung, ab der im STAND nachgesucht wird (Scrubben, Pause, Rückwärts). */
-export const VIDEO_DRIFT_STAND_S = 0.04
+export const VIDEO_DRIFT_PAUSED_S = 0.04
 /** Wanduhr-Ruhe zwischen zwei Suchläufen im Lauf. */
-export const VIDEO_SUCH_PAUSE_S = 0.5
+export const VIDEO_SEEK_COOLDOWN_S = 0.5
 
 /** Was ein Video-Element über sich sagt — alles, was die Nachführung braucht. */
-export interface VideoLage {
-  /** Die Stelle, an der der FILM steht (aus `videoStandS`). */
-  zielS: number
+export interface VideoState {
+  /** Die Stelle, an der der FILM steht (aus `videoPositionS`). */
+  targetS: number
   /** Die Stelle, an der das VIDEO steht (`currentTime`). */
-  istS: number
+  isS: number
   /** Filmzeit läuft vorwärts in Tempo 1 und der Ausschnitt ist nicht ausgelaufen. */
-  laeuft: boolean
+  playing: boolean
   paused: boolean
   seeking: boolean
   readyState: number
   /** Wanduhr-Sekunden seit dem letzten BEGONNENEN Suchlauf. */
-  seitSuchlaufS: number
+  sinceSeekS: number
   /**
    * Der Video-Export braucht EXAKT den Frame dieser Filmsekunde.
    *
@@ -179,14 +184,14 @@ export interface VideoLage {
    * landete als falsches Einzelbild in der Datei. Also läuft es gar nicht: Es
    * steht und wird auf die Stelle gesucht, wie beim Scrubben.
    */
-  bildgenau?: boolean
+  frameExact?: boolean
 }
 
 /** Die drei Handgriffe am Video-Element, die aus einer Lage folgen. */
-export interface VideoNachfuehrung {
-  suchen: boolean
-  starten: boolean
-  anhalten: boolean
+export interface VideoSeekDecision {
+  seek: boolean
+  play: boolean
+  pause: boolean
 }
 
 /**
@@ -218,21 +223,21 @@ export interface VideoNachfuehrung {
  *   (Scrubben) IST die gesuchte Stelle das, was man sehen will — dort gilt nur
  *   die erste Regel, damit der Finger führt und nicht der Suchlauf.
  */
-export function videoNachfuehrung(lage: VideoLage): VideoNachfuehrung {
+export function videoSeekDecision(state: VideoState): VideoSeekDecision {
   // „Läuft" heißt: Das Video trägt seine eigene Uhr. Im Export tut es das nicht,
   // dort wird jedes Bild gesucht.
-  const eigeneUhr = lage.laeuft && lage.bildgenau !== true
-  const drift = Math.abs(lage.istS - lage.zielS)
-  const schwelle = eigeneUhr ? VIDEO_DRIFT_LAUF_S : VIDEO_DRIFT_STAND_S
-  const darfSuchen =
-    !lage.seeking &&
-    (eigeneUhr
-      ? lage.readyState >= VIDEO_LAEUFT_WEITER && lage.seitSuchlaufS >= VIDEO_SUCH_PAUSE_S
-      : lage.readyState >= VIDEO_HAT_MASSE)
+  const ownClock = state.playing && state.frameExact !== true
+  const drift = Math.abs(state.isS - state.targetS)
+  const threshold = ownClock ? VIDEO_DRIFT_PLAYING_S : VIDEO_DRIFT_PAUSED_S
+  const maySeek =
+    !state.seeking &&
+    (ownClock
+      ? state.readyState >= VIDEO_HAS_FUTURE_DATA && state.sinceSeekS >= VIDEO_SEEK_COOLDOWN_S
+      : state.readyState >= VIDEO_HAS_METADATA)
   return {
-    suchen: darfSuchen && drift > schwelle,
-    starten: eigeneUhr && lage.paused,
-    anhalten: !eigeneUhr && !lage.paused,
+    seek: maySeek && drift > threshold,
+    play: ownClock && state.paused,
+    pause: !ownClock && !state.paused,
   }
 }
 
@@ -257,9 +262,9 @@ export const AR_MAX = 1.85
  * — der Aufrufer lässt dann das bisherige Verhältnis stehen, statt auf einen
  * Vorgabewert zurückzuspringen: Ein Zwischen-Reset ließe den Rahmen zucken.
  */
-export function klemmeSeitenverhaeltnis(breite: number, hoehe: number): number | null {
-  if (!(breite > 0) || !(hoehe > 0)) return null
-  return Math.max(AR_MIN, Math.min(AR_MAX, breite / hoehe))
+export function clampAspectRatio(width: number, height: number): number | null {
+  if (!(width > 0) || !(height > 0)) return null
+  return Math.max(AR_MIN, Math.min(AR_MAX, width / height))
 }
 
 /**
@@ -275,11 +280,11 @@ export function klemmeSeitenverhaeltnis(breite: number, hoehe: number): number |
  * niemanden, der es meldet.
  *
  * Ohne rechten Schnitt (`endeS` unendlich oder fehlend) gilt das Dateiende.
- * Dieselbe Kantenlage wie `videoStandS` — die beiden gehören zusammen.
+ * Dieselbe Kantenlage wie `videoPositionS` — die beiden gehören zusammen.
  */
-export function ausschnittDauerS(dateiDauerS: number, vonS = 0, endeS?: number): number {
-  const ende = endeS !== undefined && Number.isFinite(endeS) ? endeS : dateiDauerS
-  return Math.max(0, (Number.isFinite(ende) ? ende : 0) - Math.max(0, vonS))
+export function trimmedDurationS(fileDurationS: number, fromS = 0, toS?: number): number {
+  const end = toS !== undefined && Number.isFinite(toS) ? toS : fileDurationS
+  return Math.max(0, (Number.isFinite(end) ? end : 0) - Math.max(0, fromS))
 }
 
 /**
@@ -287,7 +292,7 @@ export function ausschnittDauerS(dateiDauerS: number, vonS = 0, endeS?: number):
  * sollen.
  *
  * Bis hierher standen sie dreimal da: im Player (`src/style.css`), im Editor
- * (`studio.html`) und im Video-Export (`src/exportfilm.ts`, Canvas). Die Zeiten
+ * (`studio.html`) und im Video-Export (`src/film-export.ts`, Canvas). Die Zeiten
  * waren geteilt und blieben deckungsgleich; die WERTE waren es nicht und liefen
  * an acht Stellen auseinander — Ken-Burns-Ende, Entwickeln-Ende, Ruhewinkel,
  * Kamerablitz, Schleier und zwei Rückfalldauern. Keine dieser Abweichungen war eine
@@ -297,16 +302,16 @@ export function ausschnittDauerS(dateiDauerS: number, vonS = 0, endeS?: number):
  *
  * Die Regel dazu: **Was auf zwei Bühnen gleich aussehen soll, kommt aus einer
  * Zahl hier; was verschieden sein darf, steht als benannte Bühnen-Variante
- * daneben (`KARTE_BUEHNE`) — mit ihrem Grund.** Ein Wert, der auf zwei Bühnen
+ * daneben (`CARD_STAGE`) — mit ihrem Grund.** Ein Wert, der auf zwei Bühnen
  * zufällig anders ist, gilt danach als Fehler und nicht als Geschmack.
  *
  * Bewacht von test/einblendung-css.test.ts. Seit Etappe 2 steht die Player-Optik
- * nicht mehr in `style.css`, sondern im Maler (src/kartenmaler.ts): Der Wächter
+ * nicht mehr in `style.css`, sondern im Maler (src/card-painter.ts): Der Wächter
  * vergleicht deshalb die RECHNUNG des Malers gegen `studio.html` statt CSS gegen
  * CSS. Die Tabelle hat den Wechsel überlebt, der Lesecode für die eine Seite
  * nicht — genau wie in Etappe 1 vorgemerkt.
  */
-export const KARTE = {
+export const CARD = {
   /**
    * Ken Burns: Anfangs- und Endgröße des Bildes im Rahmen. Es zoomt HERAUS.
    *
@@ -317,8 +322,8 @@ export const KARTE = {
    * seit jeher auf genau diese Größe. Wer den Player als Vorbild nimmt, weil er
    * die Hauptbühne ist, zementiert den Ausreißer.
    */
-  kenBurnsVon: 1.12,
-  kenBurnsBis: 1.02,
+  kenBurnsFrom: 1.12,
+  kenBurnsTo: 1.02,
 
   /**
    * Größe der stehenden Karte: wenn Ken Burns für das Medium abgeschaltet ist
@@ -329,7 +334,7 @@ export const KARTE = {
    * (= 1.0) im Player, `scale(1.04)` im Editor, und in beiden
    * Reduced-Motion-Blöcken `scale(1.02)`. Die dritte war die richtige.
    */
-  ruheSkala: 1.02,
+  restScale: 1.02,
 
   /**
    * Rückfalldauer des Ken-Burns-Zugs, falls niemand eine Klip-Länge nennt.
@@ -345,7 +350,7 @@ export const KARTE = {
    * Leinwand liegt. Der Wert bleibt: Er ist die Klip-Länge, und die prüft der
    * Wächter gegen `klipDauerS(HOLD_HIDE)`.
    */
-  kbDauerRueckfallS: HOLD_HIDE + HOLD_AUSBLEND,
+  kenBurnsFallbackDurationS: HOLD_HIDE + HOLD_FADE_OUT_S,
 
   /**
    * „Entwickeln": die Filterblende, mit der das Foto wie ein Sofortbild kommt.
@@ -355,36 +360,36 @@ export const KARTE = {
    * Grundzustand des Bildes. Der Editor endete auf `filter: none` und zeigte
    * dasselbe Foto dadurch dauerhaft eine Spur flacher.
    */
-  entwickelnDauerS: 1.6,
-  entwickelnVon: { brightness: 1.45, contrast: 0.82, saturate: 0.55 },
-  entwickelnBis: { brightness: 1, contrast: 1.02, saturate: 1.05 },
+  developDurationS: 1.6,
+  developFrom: { brightness: 1.45, contrast: 0.82, saturate: 0.55 },
+  developTo: { brightness: 1, contrast: 1.02, saturate: 1.05 },
 
   /**
    * Auftritt: Blende und Flug laufen gleichzeitig mit verschiedenen Kurven,
    * die Blende setzt `blendeVersatzS` später ein.
    */
-  blendeDauerS: 0.5,
-  blendeVersatzS: 0.04,
-  flugDauerS: 0.95,
-  flugKurve: 'cubic-bezier(0.19, 1.16, 0.32, 1)',
+  fadeDurationS: 0.5,
+  fadeOffsetS: 0.04,
+  flightDurationS: 0.95,
+  flightCurve: 'cubic-bezier(0.19, 1.16, 0.32, 1)',
 
   /**
    * Geometrie des Auftritts — ohne die Flugweite, die eine Bühnen-Variante ist
-   * (s. `KARTE_BUEHNE`).
+   * (s. `CARD_STAGE`).
    *
    * Die Winkel waren es NICHT: 1.4° gegen 1.6° Startdrehung, 10° gegen 9°
    * Kippung, −0.4° gegen −0.5° Ruhelage. Drei Paare, bei denen sich nicht sagen
    * ließ, welche Zahl gemeint war.
    */
-  flugSkala: 0.9,
-  flugDrehungGrad: 1.4,
-  flugKippungGrad: 10,
-  ruheDrehungGrad: -0.4,
+  flightScale: 0.9,
+  flightRotationDeg: 1.4,
+  flightTiltDeg: 10,
+  restRotationDeg: -0.4,
 
   /** Abgang: die Karte hebt ab, schrumpft leicht und dreht sich weg. */
-  abgangHubPx: -22,
-  abgangSkala: 0.96,
-  abgangDrehungGrad: -1.4,
+  exitLiftPx: -22,
+  exitScale: 0.96,
+  exitRotationDeg: -1.4,
 
   /**
    * Der Kamerablitz ist ZURÜCKGEBAUT (2026-08-17, „Eine Bühne, ein Maler"
@@ -423,20 +428,20 @@ export const KARTE = {
    *
    * Seine DECKKRAFT hängt seit dem Rückbau des Blitzes an der FILMZEIT und nicht
    * mehr an einer Wanduhr-Transition: Sie ist die der Karte (`phasen.sicht`),
-   * geschrieben pro Frame als `--schleier-sicht`. Damit kommt er über den Flug
+   * geschrieben pro Frame als `--scrim-opacity`. Damit kommt er über den Flug
    * hoch und geht mit dem Abgang wieder weg — rückwärts wie vorwärts und beim
    * Scrubben. Das ist dieselbe Regel wie überall sonst im Film; sie fehlte hier
    * als letzte. Die Klasse (`body.cinema` / `.foto-an`) schaltet nur noch den
    * FILTER: Ein bildschirmfüllender `backdrop-filter`, der dauernd stünde, wäre
    * auf schwachen Geräten der teuerste Posten der Seite.
    */
-  schleierFarbe: 'rgba(6, 10, 16, 0.3)',
-  schleierBlurPx: 14,
-  schleierSaturate: 0.85,
-  schleierBrightness: 0.96,
+  scrimColor: 'rgba(6, 10, 16, 0.3)',
+  scrimBlurPx: 14,
+  scrimSaturate: 0.85,
+  scrimBrightness: 0.96,
 
   /** Eckenradius des Bildrahmens innerhalb der Karte. */
-  rahmenRadiusPx: 5,
+  frameRadiusPx: 5,
 } as const
 
 /**
@@ -446,7 +451,7 @@ export const KARTE = {
  * dass es sie gibt: Ohne sie wäre die nächste Vereinheitlichung eine
  * Verschlechterung, weil niemand mehr sähe, dass hier eine Entscheidung steht.
  */
-export const KARTE_BUEHNE = {
+export const CARD_STAGE = {
   /**
    * Flugweite des Auftritts.
    *
@@ -455,7 +460,7 @@ export const KARTE_BUEHNE = {
    * wie auf einem Leuchttisch — dieselben 70 px wären dort mehr als eine halbe
    * Kartenhöhe.
    */
-  flugHubPx: { player: 70, editor: 48 },
+  flightLiftPx: { player: 70, editor: 48 },
 } as const
 
 /**
@@ -475,10 +480,10 @@ export const KARTE_BUEHNE = {
  * für jeden Eintrag eine Spur im Code und einen Sollzustand. Wer dem Export
  * wieder eigene Optik gibt, trägt sie hier ein oder hat einen roten Test.
  */
-export const KARTE_EXPORT_ABWEICHUNGEN: readonly {
-  was: string
-  spur: string
-  soll: string
+export const CARD_EXPORT_DEVIATIONS: readonly {
+  what: string
+  trace: string
+  should: string
 }[] = []
 
 /**
@@ -492,8 +497,8 @@ export const KARTE_EXPORT_ABWEICHUNGEN: readonly {
  * Zweitschlüssel ein Argument und keine feste Regel: Was geteilt wird, ist der
  * VORRANG, nicht die Messung.
  *
- * Vorher stand die Rechnung zweimal da — in `gruppiereStopps` ([geo.ts](geo.ts))
- * und in `sortiereItems` ([studio/stopps.ts](studio/stopps.ts)) —, gekoppelt
+ * Vorher stand die Rechnung zweimal da — in `groupStops` ([geo.ts](geo.ts))
+ * und in `sortItems` ([studio/stops.ts](studio/stops.ts)) —, gekoppelt
  * durch einen Wächter, der den Quelltext des Players nach
  * `a.reihe ?? Number.POSITIVE_INFINITY` absuchte. Ein Regex auf einen Rumpf
  * hält keine Regel zusammen: Er hätte jede Umformulierung als Bruch gemeldet
@@ -504,13 +509,13 @@ export const KARTE_EXPORT_ABWEICHUNGEN: readonly {
  * den Anfang gestellt hat. Stabil bei Gleichstand, und die Eingabe bleibt
  * unangetastet.
  */
-export function reihenfolgeImHalt<T extends { order?: number }>(
+export function orderInStop<T extends { order?: number }>(
   items: readonly T[],
-  natuerlich: (x: T) => number,
+  natural: (x: T) => number,
 ): T[] {
   return [...items].sort((a, b) => {
     const ra = a.order ?? Number.POSITIVE_INFINITY
     const rb = b.order ?? Number.POSITIVE_INFINITY
-    return ra === rb ? natuerlich(a) - natuerlich(b) : ra - rb
+    return ra === rb ? natural(a) - natural(b) : ra - rb
   })
 }

@@ -139,9 +139,9 @@
        einzige Ausweg aus dem Player, deshalb darf er nicht mit dem Intro
        verschwinden. Im Kino-Modus zieht er sich mit der übrigen UI zurück und
        kommt bei der nächsten Regung wieder. -->
-  <a class="zurueck reveal" id="zurueck" style="--d: 0.05s" href="/" aria-label="Zurück zur Startseite">
-    <span class="zurueck-chevron" aria-hidden="true">‹</span>
-    <span class="zurueck-wort">Startseite</span>
+  <a class="exit-pill reveal" id="exit-pill" style="--d: 0.05s" href="/" aria-label="Zurück zur Startseite">
+    <span class="exit-pill-chevron" aria-hidden="true">‹</span>
+    <span class="exit-pill-word">Startseite</span>
   </a>
 
   <!-- Kein Marken-/Titelblock oben links mehr: Ort und Route stehen formatfüllend
@@ -165,13 +165,13 @@
       <!-- Die Herkunft: wer die Tour aufgenommen hat und wann. Avatar und Name
            führen auf `/@handle`, das Datum bleibt Text — es ist keine Adresse.
            Kuratierte Touren haben keinen Aufnehmer, dort bleibt die Zeile aus. -->
-      <div class="intro-autor reveal" style="--d: 0.52s" id="intro-autor" hidden>
-        <a class="intro-autor-person" id="intro-autor-link" href="#">
+      <div class="intro-author reveal" style="--d: 0.52s" id="intro-author" hidden>
+        <a class="intro-author-person" id="intro-author-link" href="#">
           <span class="intro-avatar" id="intro-avatar"></span>
-          <span class="intro-autor-name" id="intro-autor-name"></span>
+          <span class="intro-author-name" id="intro-author-name"></span>
         </a>
-        <span class="intro-autor-punkt" aria-hidden="true">·</span>
-        <span class="intro-autor-datum" id="intro-autor-datum"></span>
+        <span class="intro-author-dot" aria-hidden="true">·</span>
+        <span class="intro-author-date" id="intro-author-date"></span>
       </div>
       <div class="intro-route reveal" style="--d: 0.55s" id="intro-route">
         Lauterbrunnen&ensp;→&ensp;Wengen&ensp;→&ensp;Kleine Scheidegg&ensp;→&ensp;Grindelwald
@@ -181,9 +181,9 @@
            nirgends abgeschnitten werden muss. -->
       <p class="intro-desc reveal" style="--d: 0.62s" id="intro-desc" hidden></p>
       <div class="intro-meta reveal" style="--d: 0.7s" id="intro-meta">
-        <span class="chip chip-dauer" id="chip-dauer" hidden>
+        <span class="chip chip-duration" id="chip-duration" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-          <span id="chip-dauer-text">–</span>
+          <span id="chip-duration-text">–</span>
         </span>
         <span class="chip" id="chip-distance">– km</span>
         <span class="chip" id="chip-gain" hidden>– hm</span>
@@ -218,12 +218,12 @@
        versteckt die mit `display: none`, und ein so versteckter `<video>` ist in
        manchen Browsern kein zuverlässiger Frame-Lieferant. Gezeichnet werden sie
        ohnehin auf die Leinwand, sichtbar sein müssen sie nie. -->
-  <div class="photo-quellen" aria-hidden="true">
+  <div class="photo-sources" aria-hidden="true">
     <img id="photo-img" alt="" decoding="async" />
     <!-- Video-Stopp (M4): Ton standardmäßig an; muted-Attr. nur bis JS greift.
          Das Standbild überbrückt, bis das Video seinen ersten Frame liefert —
          der Maler nimmt es genau so lange (`_kartenQuelle` in ui.ts). -->
-    <img id="photo-video-standbild" class="video-standbild" alt="" decoding="async" hidden />
+    <img id="photo-video-still" class="video-still" alt="" decoding="async" hidden />
     <video id="photo-video" playsinline muted preload="auto" hidden></video>
   </div>
   <div class="photo-backdrop" id="photo-backdrop" aria-hidden="true"></div>
@@ -235,7 +235,7 @@
         <div id="photo-chip">0.0 km</div>
       </figcaption>
     </figure>
-    <div class="photo-bild" id="photo-bild">
+    <div class="photo-image" id="photo-image">
       <button class="photo-sound" id="photo-sound" hidden aria-pressed="true" aria-label="Video-Ton ein/aus" title="Ton ein/aus">
         <svg class="ico-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
         <svg class="ico-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>
@@ -297,11 +297,11 @@
       <!-- Nur im App-Modus (body.app): sichtbarer Weg zurück in die Tourliste der
            App. Im Vollbild-Player ist die System-Geste sonst der einzige Ausweg —
            das findet niemand, der sie nicht kennt. -->
-      <button class="icon-btn app-exit" id="btn-app-zurueck" title="Player verlassen" aria-label="Player verlassen">
+      <button class="icon-btn app-exit" id="btn-app-back" title="Player verlassen" aria-label="Player verlassen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.5 7.5 12l6.5 6.5"/></svg>
       </button>
       <!-- Kein „Zum Hauptmenü"-Knopf mehr: der Weg hinaus steht dauerhaft oben
-           links (.zurueck) und führt dorthin, wo man herkam. Ein zweiter Ausgang
+           links (.exit-pill) und führt dorthin, wo man herkam. Ein zweiter Ausgang
            in der Steuerleiste, der nur zum Startscreen DIESER Tour führte, war
            daneben ein Griff zu viel. -->
       <button class="play-btn" id="btn-play" title="Abspielen / Pause" aria-label="Abspielen / Pause">
