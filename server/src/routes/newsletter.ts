@@ -44,7 +44,7 @@ export function registerNewsletterRoutes(app: FastifyInstance): void {
     // Der Zustand wird auch dann geschrieben, wenn er schon „aus" war: Die
     // zweite Zeile in der Historie ist der Beleg, dass jemand es noch einmal
     // versucht hat.
-    if (app.auth.benutzerNachId(userId)) app.newsletter.setze(userId, false, 'unsubscribe_link')
+    if (app.auth.userById(userId)) app.newsletter.setze(userId, false, 'unsubscribe_link')
     return true
   }
 

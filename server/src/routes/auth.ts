@@ -57,7 +57,7 @@ const avatarUrl = (userId: string, datei: string): string =>
 
 /** Das eigene Profil, wie es `/auth/me` und der Profil-PATCH ausliefern. */
 function alsProfilAntwort(app: FastifyInstance, userId: string) {
-  const profil = app.auth.profil(userId)
+  const profil = app.auth.profile(userId)
   return {
     handle: profil?.handle ?? null,
     displayName: profil?.displayName ?? null,
@@ -90,9 +90,9 @@ const passwortSchema = { type: 'string', minLength: 8, maxLength: 1024 } as cons
  * abgelaufener Einladung raten.
  */
 const CODE_FEHLER: Record<InvitationError, string> = {
-  unbekannt: 'Diesen Einladungscode gibt es nicht. Bitte prüfe die Schreibweise.',
-  verbraucht: 'Dieser Einladungscode wurde bereits eingelöst.',
-  abgelaufen: 'Dieser Einladungscode ist abgelaufen.',
+  unknown: 'Diesen Einladungscode gibt es nicht. Bitte prüfe die Schreibweise.',
+  used: 'Dieser Einladungscode wurde bereits eingelöst.',
+  expired: 'Dieser Einladungscode ist abgelaufen.',
 }
 
 export function registerAuthRoutes(app: FastifyInstance): void {
@@ -111,16 +111,16 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     request?: import('fastify').FastifyRequest,
     /** Nur beim Player-Tausch: die Sitzung gehört zu diesem App-Token. */
     tokenId?: string | null,
-  ): { id: string; ablauf: Date } => {
+  ): { id: string; expiresAt: Date } => {
     // Gerät und grober Ort wandern in die Sitzung, damit die Kontoeinstellungen
-    // sie später wiedererkennbar auflisten können (s. AuthService.geraete).
+    // sie später wiedererkennbar auflisten können (s. AuthService.devices).
     //
     // Eine vorhandene Sitzung desselben App-Tokens wird WIEDERVERWENDET statt
     // ergänzt: Die App tauscht vor jedem Abspielen, und jeder Tausch legte
     // sonst eine weitere Zeile an.
     const session =
-      (tokenId ? app.auth.sitzungZuToken(tokenId) : null) ??
-      app.auth.erzeugeSession(userId, {
+      (tokenId ? app.auth.sessionForToken(tokenId) : null) ??
+      app.auth.createSession(userId, {
         userAgent: request?.headers['user-agent'] ?? null,
         ip: request?.ip ?? null,
         tokenId: tokenId ?? null,
@@ -129,7 +129,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       path: '/',
       sameSite: 'lax' as const,
       secure: konfig.hinterTls,
-      expires: session.ablauf,
+      expires: session.expiresAt,
     }
     reply.setCookie(SESSION_COOKIE, session.id, { ...cookieBasis, httpOnly: true })
     // Lesbar für studio.html: Boot-Splash überspringen, solange die Sitzung steht.
@@ -179,7 +179,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       // Sitzung hängt dort am Token statt neben ihm.
       const antwort: { user: typeof benutzer; apiToken?: string } = { user: benutzer }
       if (request.body.tokenLabel) {
-        antwort.apiToken = app.auth.erzeugeToken(benutzer.id, request.body.tokenLabel)
+        antwort.apiToken = app.auth.createToken(benutzer.id, request.body.tokenLabel)
       } else {
         setzeSessionCookie(reply, benutzer.id, request)
       }
@@ -238,30 +238,30 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
         return reply.code(400).send({ error: 'Diese E-Mail-Adresse stimmt nicht.' })
 
-      const codePflicht = app.einladungen.pflicht()
+      const codePflicht = app.einladungen.required()
       const code = request.body.code?.trim() ?? ''
       if (codePflicht) {
         if (!code)
           return reply
             .code(403)
             .send({ error: 'Für ein neues Konto brauchst du einen Einladungscode.' })
-        const grund = app.einladungen.pruefe(code)
+        const grund = app.einladungen.check(code)
         if (grund) return reply.code(403).send({ error: CODE_FEHLER[grund] })
       }
-      if (app.auth.emailVergeben(email))
+      if (app.auth.emailTaken(email))
         return reply.code(409).send({ error: 'Für diese E-Mail gibt es schon ein Konto.' })
 
       const name = request.body.name?.trim() || nameFromEmail(email)
-      const benutzer = await app.auth.legeBenutzerAn(email, request.body.password, name, false)
-      if (codePflicht && !app.einladungen.loeseEin(code, benutzer.id)) {
-        app.auth.loescheBenutzer(benutzer.id)
-        return reply.code(403).send({ error: CODE_FEHLER.verbraucht })
+      const benutzer = await app.auth.createUser(email, request.body.password, name, false)
+      if (codePflicht && !app.einladungen.redeem(code, benutzer.id)) {
+        app.auth.deleteUser(benutzer.id)
+        return reply.code(403).send({ error: CODE_FEHLER.used })
       }
       // Nur ein ausdrückliches `true` zählt — und nur als PROTOKOLLIERTE
       // Einwilligung, nicht als stille Spalte: `setze` schreibt Zustand,
       // Zeitpunkt, Quelle und Textfassung in einem Zug.
       if (request.body.newsletter === true) app.newsletter.setze(benutzer.id, true, 'signup')
-      const token = app.auth.erzeugeMailToken(benutzer.id, 'verify')
+      const token = app.auth.createMailToken(benutzer.id, 'verify')
       const link = `${konfig.basisUrl}${WEB_PATHS.login}#verify=${token}`
       // Die Bestätigungsmail bleibt WERBEFREI: kein Satz über den Newsletter,
       // keine List-Unsubscribe-Kopfzeile. Ein „Übrigens, unser Newsletter …"
@@ -315,8 +315,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       }
       // Ohne Einladungspflicht ist jeder Code müßig — die Antwort ist trotzdem
       // „geht", damit ein Formular, das noch fragt, niemanden aussperrt.
-      if (!app.einladungen.pflicht()) return { ok: true, required: false }
-      const grund = app.einladungen.pruefe(request.body.code)
+      if (!app.einladungen.required()) return { ok: true, required: false }
+      const grund = app.einladungen.check(request.body.code)
       if (grund) return reply.code(403).send({ error: CODE_FEHLER[grund] })
       return { ok: true, required: true }
     },
@@ -336,10 +336,10 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const userId = app.auth.loeseMailToken(request.body.token, 'verify')
+      const userId = app.auth.resolveMailToken(request.body.token, 'verify')
       if (!userId)
         return reply.code(400).send({ error: 'Dieser Bestätigungslink gilt nicht mehr.' })
-      app.auth.verifiziereEmail(userId)
+      app.auth.verifyEmail(userId)
       setzeSessionCookie(reply, userId, request)
       return { ok: true }
     },
@@ -366,14 +366,14 @@ export function registerAuthRoutes(app: FastifyInstance): void {
           .code(429)
           .send({ error: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
       }
-      const userId = app.auth.benutzerIdFuerEmail(email)
+      const userId = app.auth.userIdForEmail(email)
       if (userId) {
-        const token = app.auth.erzeugeMailToken(userId, 'reset')
+        const token = app.auth.createMailToken(userId, 'reset')
         const link = `${konfig.basisUrl}${WEB_PATHS.login}#reset=${token}`
         // Der Name des KONTOS, nicht der Adress-Anfang: Die Mail geht ohnehin
         // nur an die eigene Adresse, und „Hallo mira.wolf," liest sich wie ein
         // Datenbankfeld.
-        const name = app.auth.benutzerNachId(userId)?.name || 'du'
+        const name = app.auth.userById(userId)?.name || 'du'
         const { betreff, text, html } = app.mailvorlagen.rendere(
           'reset',
           { name },
@@ -404,12 +404,12 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const userId = app.auth.loeseMailToken(request.body.token, 'reset')
+      const userId = app.auth.resolveMailToken(request.body.token, 'reset')
       if (!userId)
         return reply
           .code(400)
           .send({ error: 'Dieser Link gilt nicht mehr. Fordere einen neuen an.' })
-      await app.auth.setzePasswort(userId, request.body.password)
+      await app.auth.setPassword(userId, request.body.password)
       setzeSessionCookie(reply, userId, request)
       return { ok: true }
     },
@@ -436,12 +436,12 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
     const session = setzeSessionCookie(reply, benutzer.id, request, request.appTokenId)
-    return { sessionId: session.id, expiresAt: session.ablauf.toISOString() }
+    return { sessionId: session.id, expiresAt: session.expiresAt.toISOString() }
   })
 
   app.post('/api/auth/logout', async (request, reply) => {
     const sessionId = request.cookies[SESSION_COOKIE]
-    if (sessionId) app.auth.beendeSession(sessionId)
+    if (sessionId) app.auth.endSession(sessionId)
     loescheSessionCookies(reply)
     return { ok: true }
   })
@@ -477,7 +477,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         return reply.code(403).send({ error: 'Das aktuelle Passwort stimmt nicht.' })
       }
       const sessionId = request.cookies[SESSION_COOKIE]
-      await app.auth.setzePasswort(benutzer.id, request.body.new, sessionId)
+      await app.auth.setPassword(benutzer.id, request.body.new, sessionId)
       // Ohne Sitzung (App-Token) gibt es keine zu behalten — dann bekommt der
       // Aufrufer hier eine frische, statt abgemeldet dazustehen.
       if (!sessionId) setzeSessionCookie(reply, benutzer.id, request)
@@ -488,7 +488,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // — E-Mail-Adresse ändern: anstoßen —
   //
   // Die Mail geht an die NEUE Adresse, und erst der Klick dort macht sie gültig
-  // (der Token trägt sie bis dahin, s. AuthService.loeseMailTokenMitNutzlast).
+  // (der Token trägt sie bis dahin, s. AuthService.resolveMailTokenWithPayload).
   // Sonst genügte ein Tippfehler, um sich selbst auszusperren. Das Passwort
   // steht dabei aus demselben Grund wie oben.
   //
@@ -525,8 +525,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (email === benutzer.email) {
         return reply.code(400).send({ error: 'Das ist bereits deine Adresse.' })
       }
-      if (!app.auth.emailVergeben(email)) {
-        const token = app.auth.erzeugeMailToken(benutzer.id, 'email', email)
+      if (!app.auth.emailTaken(email)) {
+        const token = app.auth.createMailToken(benutzer.id, 'email', email)
         const link = `${konfig.basisUrl}${WEB_PATHS.account}#email=${token}`
         const { betreff, text, html } = app.mailvorlagen.rendere(
           'email-change',
@@ -562,13 +562,13 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const eingeloest = app.auth.loeseMailTokenMitNutzlast(request.body.token, 'email')
+      const eingeloest = app.auth.resolveMailTokenWithPayload(request.body.token, 'email')
       if (!eingeloest?.payload) {
         return reply
           .code(400)
           .send({ error: 'Dieser Link gilt nicht mehr. Stoße den Wechsel erneut an.' })
       }
-      if (!app.auth.uebernimmEigeneEmail(eingeloest.userId, eingeloest.payload)) {
+      if (!app.auth.applyEmailChange(eingeloest.userId, eingeloest.payload)) {
         // Zwischen Absenden und Klick können Tage liegen — in denen sich jemand
         // anderes mit genau dieser Adresse registriert haben kann.
         return reply
@@ -581,7 +581,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
   // — Angemeldete Geräte —
   //
-  // Sitzungen UND App-Tokens (s. AuthService.geraete). `current` markiert die
+  // Sitzungen UND App-Tokens (s. AuthService.devices). `current` markiert die
   // Sitzung, aus der gefragt wird: Sie trägt in der Oberfläche keinen
   // Abmelden-Knopf — wer sich selbst hier abmeldet, hat nichts gewonnen, außer
   // sich noch einmal anmelden zu dürfen.
@@ -591,7 +591,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const eigene = request.cookies[SESSION_COOKIE]
     return {
       devices: app.auth
-        .geraete(benutzer.id)
+        .devices(benutzer.id)
         .map((g) => ({ ...g, current: g.id === `session:${eigene}` })),
     }
   })
@@ -599,7 +599,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.delete<{ Params: { id: string } }>('/api/auth/me/devices/:id', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    if (!app.auth.meldeGeraetAb(benutzer.id, request.params.id)) {
+    if (!app.auth.signOutDevice(benutzer.id, request.params.id)) {
       return reply.code(404).send({ error: 'Dieses Gerät ist nicht (mehr) angemeldet.' })
     }
     // Auch die eigene Sitzung darf fallen (etwa vom Telefon aus) — dann müssen
@@ -642,7 +642,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       return {
         ok: true,
         newsletter: request.body.enabled,
-        sendingPaused: !app.auth.istVerifiziert(benutzer.id),
+        sendingPaused: !app.auth.isVerified(benutzer.id),
       }
     },
   )
@@ -676,7 +676,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         request.body.enabled ? 1 : 0,
         benutzer.id,
       )
-      const profil = app.auth.profil(benutzer.id)
+      const profil = app.auth.profile(benutzer.id)
       return {
         ok: true,
         searchIndexing: request.body.enabled,
@@ -717,7 +717,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       .all(benutzer.id) as Array<{ id: string }>) {
       await app.deps.archive.loescheTour(id).catch(() => undefined)
     }
-    app.auth.loescheBenutzer(benutzer.id)
+    app.auth.deleteUser(benutzer.id)
     loescheSessionCookies(reply)
     return { ok: true }
   })
@@ -733,10 +733,10 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     // an zwei Schaltern und einem Riegel; die Seite soll das nicht nachrechnen.
     const registrierung = {
       open: konfig.registrierungOffen,
-      invitationRequired: app.einladungen.pflicht(),
+      invitationRequired: app.einladungen.required(),
       waitlist: waitlistOffered(
-        app.warteliste.offen(),
-        app.einladungen.pflicht(),
+        app.warteliste.open(),
+        app.einladungen.required(),
         konfig.registrierungOffen,
       ),
     }
@@ -761,7 +761,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     )
     return {
       user: request.benutzer,
-      verified: app.auth.istVerifiziert(request.benutzer.id),
+      verified: app.auth.isVerified(request.benutzer.id),
       quota,
       registration: registrierung,
       // Eine Spalte, kein Aufruf: Der Schalter der Kontoeinstellungen soll
@@ -813,7 +813,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (!benutzer) return
       const { handle, banner: titelbild, ...rest } = request.body
       if (handle !== undefined) {
-        const fehler = app.auth.setzeHandle(benutzer.id, handle)
+        const fehler = app.auth.setHandle(benutzer.id, handle)
         if (fehler)
           return reply
             .code(fehler === 'taken' ? 409 : 400)
@@ -827,12 +827,12 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         // Der Wechsel auf einen Vorschlag räumt ein vorher hochgeladenes Bild
         // weg — sonst bliebe es als Waise im Storage liegen, unerreichbar und
         // trotzdem auf der Platte.
-        const alt = app.auth.profil(benutzer.id)?.banner ?? null
-        app.auth.setzeTitelbild(benutzer.id, wert || null)
+        const alt = app.auth.profile(benutzer.id)?.banner ?? null
+        app.auth.setBanner(benutzer.id, wert || null)
         if (alt?.includes('/'))
           await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
       }
-      app.auth.setzeProfil(benutzer.id, rest)
+      app.auth.setProfile(benutzer.id, rest)
       return alsProfilAntwort(app, benutzer.id)
     },
   )
@@ -845,7 +845,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.put('/api/auth/me/avatar', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    const alt = app.auth.profil(benutzer.id)?.avatar ?? null
+    const alt = app.auth.profile(benutzer.id)?.avatar ?? null
     const datei = `avatar/${Date.now()}.jpg`
     await benutzerStorage.schreibeStream(
       benutzer.id,
@@ -853,7 +853,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       request.body as Readable,
       MAX_AVATAR_BYTES,
     )
-    app.auth.setzeAvatar(benutzer.id, datei)
+    app.auth.setAvatar(benutzer.id, datei)
     // Erst nach dem erfolgreichen Schreiben aufräumen — bricht der Upload ab,
     // bleibt das bisherige Bild bestehen.
     if (alt && alt !== datei) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
@@ -863,9 +863,9 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.delete('/api/auth/me/avatar', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    const alt = app.auth.profil(benutzer.id)?.avatar
+    const alt = app.auth.profile(benutzer.id)?.avatar
     if (alt) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
-    app.auth.setzeAvatar(benutzer.id, null)
+    app.auth.setAvatar(benutzer.id, null)
     return { ok: true }
   })
 
@@ -882,7 +882,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.put('/api/auth/me/banner', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    const alt = app.auth.profil(benutzer.id)?.banner ?? null
+    const alt = app.auth.profile(benutzer.id)?.banner ?? null
     const datei = `banner/${Date.now()}.jpg`
     await benutzerStorage.schreibeStream(
       benutzer.id,
@@ -890,7 +890,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       request.body as Readable,
       MAX_TITELBILD_BYTES,
     )
-    app.auth.setzeTitelbild(benutzer.id, datei)
+    app.auth.setBanner(benutzer.id, datei)
     // Nur eigene Dateien aufräumen — ein Vorschlag liegt im Build und gehört
     // allen (er hat keinen Schrägstrich, s. profilfelder.ts).
     if (alt?.includes('/') && alt !== datei)
@@ -901,15 +901,15 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.delete('/api/auth/me/banner', async (request, reply) => {
     const benutzer = requireUser(request, reply)
     if (!benutzer) return
-    const alt = app.auth.profil(benutzer.id)?.banner
+    const alt = app.auth.profile(benutzer.id)?.banner
     if (alt?.includes('/')) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
-    app.auth.setzeTitelbild(benutzer.id, null)
+    app.auth.setBanner(benutzer.id, null)
     return { ok: true }
   })
 
   // — Titelbild ausliefern (öffentlich, wie der Avatar) —
   app.get<{ Params: { id: string } }>('/api/users/:id/banner', async (request, reply) => {
-    const titelbild = app.auth.profil(request.params.id)?.banner
+    const titelbild = app.auth.profile(request.params.id)?.banner
     // Ein Vorschlag wird hier NICHT ausgeliefert: Er liegt als statische Datei
     // im Build und geht nie durch die API.
     if (!titelbild?.includes('/')) return reply.code(404).send({ error: 'Kein Titelbild' })
@@ -929,7 +929,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // öffentlichen Touren in der Galerie und muss dort für jeden ladbar sein. Der
   // Dateiname wechselt bei jedem Upload, deshalb darf lange gecacht werden.
   app.get<{ Params: { id: string } }>('/api/users/:id/avatar', async (request, reply) => {
-    const profil = app.auth.profil(request.params.id)
+    const profil = app.auth.profile(request.params.id)
     if (!profil?.avatar) return reply.code(404).send({ error: 'Kein Profilbild' })
     const info = await benutzerStorage.info(request.params.id, profil.avatar)
     if (!info) return reply.code(404).send({ error: 'Kein Profilbild' })

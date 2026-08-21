@@ -206,7 +206,7 @@ export async function createTour(
   // M9: Hochladen erst nach E-Mail-Bestätigung — bremst Wegwerf-Accounts und
   // die daran hängenden Speicher-/Vision-Kosten. Gilt für den Cloud-Import
   // genauso: Er IST ein Upload, nur ohne Handgriff.
-  if (!app.auth.istVerifiziert(benutzerId)) {
+  if (!app.auth.isVerified(benutzerId)) {
     return { ok: false, code: 403, error: 'Bitte bestätige zuerst deine E-Mail-Adresse' }
   }
 

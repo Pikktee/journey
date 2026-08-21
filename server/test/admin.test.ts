@@ -174,7 +174,7 @@ describe('Konten verwalten', () => {
   it('ändert Name, Adresse, Rolle und Bestätigung', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    const ziel = u.app.auth.alleBenutzer().find((b) => b.email === 'test@example.com')!
+    const ziel = u.app.auth.allUsers().find((b) => b.email === 'test@example.com')!
     const antwort = await u.app.inject({
       method: 'PATCH',
       url: `/api/admin/users/${ziel.id}`,
@@ -195,7 +195,7 @@ describe('Konten verwalten', () => {
   it('setzt ein Passwort zurück und wirft dabei die Sitzungen des Kontos ab', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    const ziel = u.app.auth.alleBenutzer().find((b) => b.email === 'test@example.com')!
+    const ziel = u.app.auth.allUsers().find((b) => b.email === 'test@example.com')!
     const antwort = await u.app.inject({
       method: 'PATCH',
       url: `/api/admin/users/${ziel.id}`,
@@ -239,7 +239,7 @@ describe('Konten verwalten', () => {
     const tourId = (tour.json() as { id: string }).id
     expect(await u.storage.gesamtGroesse(tourId)).toBeGreaterThan(0)
 
-    const ziel = u.app.auth.alleBenutzer().find((b) => b.email === 'test@example.com')!
+    const ziel = u.app.auth.allUsers().find((b) => b.email === 'test@example.com')!
     const antwort = await u.app.inject({
       method: 'DELETE',
       url: `/api/admin/users/${ziel.id}`,
@@ -247,7 +247,7 @@ describe('Konten verwalten', () => {
     })
     expect(antwort.statusCode).toBe(200)
     expect(await u.storage.gesamtGroesse(tourId)).toBe(0)
-    expect(u.app.auth.benutzerNachId(ziel.id)).toBeNull()
+    expect(u.app.auth.userById(ziel.id)).toBeNull()
   })
 
   it('antwortet für unbekannte IDs mit 404', async () => {
@@ -292,7 +292,7 @@ describe('Selbstschutz der Verwaltung', () => {
       cookies: admin.cookies,
     })
     expect(weg.statusCode).toBe(409)
-    expect(u.app.auth.anzahlAdmins()).toBe(1)
+    expect(u.app.auth.adminCount()).toBe(1)
   })
 
   it('lässt die eigene Admin-Rolle auch dann nicht ablegen, wenn es weitere Admins gibt', async () => {
@@ -342,11 +342,11 @@ describe('Selbstschutz der Verwaltung', () => {
 
   it('hebt konfigurierte Adressen beim Start auf die Admin-Rolle', async () => {
     const u = await baueTestApp()
-    expect(u.app.auth.hebeAdmins(['test@example.com'])).toBe(1)
-    expect(u.app.auth.benutzerNachId(u.app.auth.alleBenutzer()[0]!.id)?.role).toBe('admin')
+    expect(u.app.auth.promoteAdmins(['test@example.com'])).toBe(1)
+    expect(u.app.auth.userById(u.app.auth.allUsers()[0]!.id)?.role).toBe('admin')
     // Zweiter Lauf ändert nichts mehr (idempotent)
-    expect(u.app.auth.hebeAdmins(['test@example.com'])).toBe(0)
-    expect(u.app.auth.hebeAdmins([])).toBe(0)
+    expect(u.app.auth.promoteAdmins(['test@example.com'])).toBe(0)
+    expect(u.app.auth.promoteAdmins([])).toBe(0)
   })
 })
 
@@ -421,7 +421,7 @@ describe('Registrierung mit Einladung', () => {
     expect(ohne.statusCode).toBe(403)
     expect(ohne.json()).toMatchObject({ error: expect.stringContaining('Einladungscode') })
     // Kein halb angelegtes Konto zurücklassen
-    expect(u.app.auth.alleBenutzer().some((b) => b.email === 'neu@example.com')).toBe(false)
+    expect(u.app.auth.allUsers().some((b) => b.email === 'neu@example.com')).toBe(false)
   })
 
   it('lässt einen gültigen Code durch und verbraucht ihn dabei', async () => {

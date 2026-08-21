@@ -137,7 +137,7 @@ export function registerMediaRoutes(app: FastifyInstance): void {
       const benutzer = requireUser(request, reply)
       if (!benutzer) return
       // Nachreichen ist ein Upload: dieselbe Verifikations-Schwelle wie beim Anlegen
-      if (!app.auth.istVerifiziert(benutzer.id)) {
+      if (!app.auth.isVerified(benutzer.id)) {
         return reply.code(403).send({ error: 'Bitte bestätige zuerst deine E-Mail-Adresse' })
       }
       const tour = loadTour(app, request.params.id)

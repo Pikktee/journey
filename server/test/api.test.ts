@@ -694,7 +694,7 @@ describe('Sichtbarkeit', () => {
   it('fremde Benutzer können fremde Touren nicht ändern oder löschen', async () => {
     const u = await baueTestApp()
     const id = await createTour(u)
-    await u.app.auth.legeBenutzerAn('andere@example.com', 'geheim456', 'Andere')
+    await u.app.auth.createUser('andere@example.com', 'geheim456', 'Andere')
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
@@ -737,7 +737,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
   it('vergibt Tour-Nummern PRO Benutzer (kein Cross-Tenant-Leck)', async () => {
     const u = await baueTestApp(['A', 'B', 'A', 'B'])
     await createTour(u)
-    await u.app.auth.legeBenutzerAn('zweite@example.com', 'geheim456', 'Zweite')
+    await u.app.auth.createUser('zweite@example.com', 'geheim456', 'Zweite')
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
@@ -892,7 +892,7 @@ describe('Medien-Auslieferung', () => {
 
 describe('Edit-Overlay + Editor (M7)', () => {
   async function fremdeCookies(u: TestUmgebung): Promise<{ maptale_session: string }> {
-    await u.app.auth.legeBenutzerAn('fremd@example.com', 'geheim456', 'Fremd')
+    await u.app.auth.createUser('fremd@example.com', 'geheim456', 'Fremd')
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',

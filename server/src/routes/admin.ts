@@ -6,7 +6,7 @@
 //
 //   1. Wer in der Konfiguration als Admin steht (`adminEmails`), lässt sich
 //      weder herabstufen noch löschen. Sonst wäre die Änderung ohnehin nur bis
-//      zum nächsten Start gültig (s. AuthService.hebeAdmins) — ein stiller
+//      zum nächsten Start gültig (s. AuthService.promoteAdmins) — ein stiller
 //      Rückfall ist schlimmer als ein ehrliches „geht nicht".
 //   2. Das eigene Konto lässt sich nicht herabstufen oder löschen. Wer gehen
 //      will, nimmt „Konto löschen" im Studio; dort steht die Warnung dazu.
@@ -160,7 +160,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
   // Zählung, die driften kann.
   app.get('/api/admin/users', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
-    const zeilen = app.auth.alleBenutzer()
+    const zeilen = app.auth.allUsers()
     const benutzer = []
     for (const z of zeilen) {
       benutzer.push({
@@ -203,7 +203,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       if (!EMAIL_FORM.test(email))
         return reply.code(400).send({ error: 'Ungültige E-Mail-Adresse' })
       try {
-        const benutzer = await app.auth.legeBenutzerAn(
+        const benutzer = await app.auth.createUser(
           email,
           request.body.password,
           request.body.name.trim(),
@@ -242,7 +242,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const admin = requireAdmin(request, reply)
       if (!admin) return
-      const ziel = app.auth.benutzerNachId(request.params.id)
+      const ziel = app.auth.userById(request.params.id)
       if (!ziel) return reply.code(404).send({ error: 'Unbekanntes Konto' })
 
       const entzug = request.body.role === 'user' && ziel.role === 'admin'
@@ -254,7 +254,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       if (entzug && ziel.id === admin.id) {
         return reply.code(409).send({ error: 'Die eigene Admin-Rolle lässt sich nicht ablegen' })
       }
-      if (entzug && app.auth.anzahlAdmins() <= 1) {
+      if (entzug && app.auth.adminCount() <= 1) {
         return reply.code(409).send({ error: 'Es muss mindestens einen Administrator geben' })
       }
       if (
@@ -266,7 +266,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
 
       const { password: passwort, ...felder } = request.body
       try {
-        app.auth.aendereKonto(ziel.id, felder)
+        app.auth.updateAccount(ziel.id, felder)
       } catch (fehler) {
         if (fehler instanceof EmailTakenError)
           return reply.code(409).send({ error: fehler.message })
@@ -274,8 +274,8 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       }
       // Ein neu gesetztes Passwort wirft alle Sitzungen und Token des Kontos
       // ab (setzePasswort) — genau richtig, wenn ein Admin es zurücksetzt.
-      if (passwort) await app.auth.setzePasswort(ziel.id, passwort)
-      return { user: app.auth.benutzerNachId(ziel.id) }
+      if (passwort) await app.auth.setPassword(ziel.id, passwort)
+      return { user: app.auth.userById(ziel.id) }
     },
   )
 
@@ -286,7 +286,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
   app.delete<{ Params: { id: string } }>('/api/admin/users/:id', async (request, reply) => {
     const admin = requireAdmin(request, reply)
     if (!admin) return
-    const ziel = app.auth.benutzerNachId(request.params.id)
+    const ziel = app.auth.userById(request.params.id)
     if (!ziel) return reply.code(404).send({ error: 'Unbekanntes Konto' })
     if (ziel.id === admin.id)
       return reply.code(409).send({ error: 'Das eigene Konto lässt sich hier nicht löschen' })
@@ -295,12 +295,12 @@ export function registerAdminRoutes(app: FastifyInstance): void {
         .code(409)
         .send({ error: 'Diese Adresse ist in der Konfiguration als Admin gesetzt' })
     }
-    if (ziel.role === 'admin' && app.auth.anzahlAdmins() <= 1) {
+    if (ziel.role === 'admin' && app.auth.adminCount() <= 1) {
       return reply.code(409).send({ error: 'Es muss mindestens einen Administrator geben' })
     }
     for (const tourId of app.auth.tourIds(ziel.id)) await storage.loescheTour(tourId)
     await benutzerStorage.loescheTour(ziel.id).catch(() => undefined)
-    app.auth.loescheBenutzer(ziel.id)
+    app.auth.deleteUser(ziel.id)
     return { ok: true }
   })
 
@@ -309,8 +309,8 @@ export function registerAdminRoutes(app: FastifyInstance): void {
   app.get('/api/admin/invitations', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
     return {
-      invitations: app.einladungen.alle(),
-      invitationRequired: app.einladungen.pflicht(),
+      invitations: app.einladungen.all(),
+      invitationRequired: app.einladungen.required(),
       registrationOpen: konfig.registrierungOffen,
       baseUrl: konfig.basisUrl,
     }
@@ -335,7 +335,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       const admin = requireAdmin(request, reply)
       if (!admin) return
       const tage = request.body?.validDays ?? DEFAULT_VALID_DAYS
-      const einladung = app.einladungen.erstelle(admin.id, request.body?.note ?? null, tage || null)
+      const einladung = app.einladungen.create(admin.id, request.body?.note ?? null, tage || null)
       return reply.code(201).send({ invitation: einladung })
     },
   )
@@ -344,7 +344,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     '/api/admin/invitations/:code',
     async (request, reply) => {
       if (!requireAdmin(request, reply)) return
-      if (!app.einladungen.widerrufe(request.params.code)) {
+      if (!app.einladungen.revoke(request.params.code)) {
         return reply.code(404).send({ error: 'Unbekannter Code' })
       }
       return { ok: true }
@@ -371,12 +371,11 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       if (!requireAdmin(request, reply)) return
       if (request.body.invitationRequired !== undefined)
-        app.einladungen.setzePflicht(request.body.invitationRequired)
-      if (request.body.waitlistOpen !== undefined)
-        app.warteliste.setzeOffen(request.body.waitlistOpen)
+        app.einladungen.setRequired(request.body.invitationRequired)
+      if (request.body.waitlistOpen !== undefined) app.warteliste.setOpen(request.body.waitlistOpen)
       return {
-        invitationRequired: app.einladungen.pflicht(),
-        waitlistOpen: app.warteliste.offen(),
+        invitationRequired: app.einladungen.required(),
+        waitlistOpen: app.warteliste.open(),
       }
     },
   )

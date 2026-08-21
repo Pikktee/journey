@@ -21,10 +21,10 @@ async function legeProfilAn(
   opts: { handle: string; name?: string; bio?: string; oeffentlich?: boolean; suche?: boolean },
 ): Promise<string> {
   const id = (
-    await u.app.auth.legeBenutzerAn(`${opts.handle}@example.com`, 'geheim123', opts.name ?? 'Wer')
+    await u.app.auth.createUser(`${opts.handle}@example.com`, 'geheim123', opts.name ?? 'Wer')
   ).id
-  u.app.auth.setzeHandle(id, opts.handle)
-  u.app.auth.setzeProfil(id, {
+  u.app.auth.setHandle(id, opts.handle)
+  u.app.auth.setProfile(id, {
     // Nur übergeben, was gesetzt werden soll: `setzeProfil` deutet einen
     // leeren Wert als „Feld leeren" und verträgt kein null.
     ...(opts.name ? { displayName: opts.name } : {}),
@@ -340,8 +340,8 @@ describe('Schalter „In Suchmaschinen erscheinen"', () => {
 
   it('lässt sich setzen und wirkt sofort auf die Seite', async () => {
     const u = await baueTestApp()
-    u.app.auth.setzeHandle(u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id, 'testerin')
-    u.app.auth.setzeProfil(u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id, {
+    u.app.auth.setHandle(u.app.auth.userFromSession(u.cookies.maptale_session)!.id, 'testerin')
+    u.app.auth.setProfile(u.app.auth.userFromSession(u.cookies.maptale_session)!.id, {
       visibility: 'public',
     })
     const setzen = await u.app.inject({

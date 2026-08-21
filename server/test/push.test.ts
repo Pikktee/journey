@@ -36,7 +36,7 @@ const DIENSTKONTO = (() => {
 
 /** Die Kennung des angemeldeten Testkontos — wie in export.test.ts. */
 const benutzerId = (u: TestUmgebung): string =>
-  u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+  u.app.auth.userFromSession(u.cookies.maptale_session)!.id
 
 /** App mit Push UND einem Tracker-Anbieter — der Weg, den ein Import nimmt. */
 async function baueMitPush(): Promise<{
@@ -121,7 +121,7 @@ describe('Geräte an- und abmelden', () => {
     // Touren — der Token benennt eine Installation, kein Konto.
     const { u } = await baueMitPush()
     await registriere(u)
-    await u.app.auth.legeBenutzerAn('zweite@example.com', 'geheim123', 'Zweite')
+    await u.app.auth.createUser('zweite@example.com', 'geheim123', 'Zweite')
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',

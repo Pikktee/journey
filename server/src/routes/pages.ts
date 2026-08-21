@@ -70,8 +70,8 @@ export function registerPageRoutes(app: FastifyInstance): void {
     reply.header('cache-control', 'no-cache')
 
     const handle = decodeURIComponent(roh)
-    const userId = HANDLE_PATTERN.test(handle) ? app.auth.benutzerIdFuerHandle(handle) : null
-    const profil = userId ? app.auth.profil(userId) : null
+    const userId = HANDLE_PATTERN.test(handle) ? app.auth.userIdForHandle(handle) : null
+    const profil = userId ? app.auth.profile(userId) : null
     // Unbekannt: 404 mit der Seite, die clientseitig „nicht gefunden" zeigt.
     // Kein Soft-404 (Status 200 auf eine Seite ohne Inhalt) — das belügt
     // Browser wie Suchmaschinen.

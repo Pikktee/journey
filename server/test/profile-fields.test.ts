@@ -193,7 +193,7 @@ describe('Kennzahlen', () => {
     legeFertigeTourAn(u, 't_oeff2', 6.6, 140)
     legeFertigeTourAn(u, 't_privat', 999, 9999, 'private')
     legeFertigeTourAn(u, 't_link', 888, 8888, 'unlisted')
-    expect(u.app.auth.kennzahlen(nutzerId(u))).toEqual({ tours: 2, km: 19, elevationGain: 440 })
+    expect(u.app.auth.profileStats(nutzerId(u))).toEqual({ tours: 2, km: 19, elevationGain: 440 })
   })
 
   it('zählt eine Tour ohne Statistik mit, aber mit null Kilometern', async () => {
@@ -204,12 +204,12 @@ describe('Kennzahlen', () => {
          VALUES ('t_ohne', ?, 1, 'ready', 'public', '2026-01-01', '2026-01-01')`,
       )
       .run(nutzerId(u))
-    expect(u.app.auth.kennzahlen(nutzerId(u))).toEqual({ tours: 1, km: 0, elevationGain: 0 })
+    expect(u.app.auth.profileStats(nutzerId(u))).toEqual({ tours: 1, km: 0, elevationGain: 0 })
   })
 
   it('steht ohne Touren auf null', async () => {
     const u = await baueTestApp()
-    expect(u.app.auth.kennzahlen(nutzerId(u))).toEqual({ tours: 0, km: 0, elevationGain: 0 })
+    expect(u.app.auth.profileStats(nutzerId(u))).toEqual({ tours: 0, km: 0, elevationGain: 0 })
   })
 
   it('erscheint in der öffentlichen Profilantwort', async () => {

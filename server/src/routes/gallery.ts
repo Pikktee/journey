@@ -106,12 +106,12 @@ export function registerGalleryRoutes(app: FastifyInstance): void {
   // Stelle wären eine Stolperstelle ohne Gewinn.
   app.get<{ Params: { id: string } }>('/api/users/:id/profile', async (request, reply) => {
     const wen = request.params.id
-    const userId = wen.startsWith('u_') ? wen : app.auth.benutzerIdFuerHandle(wen)
+    const userId = wen.startsWith('u_') ? wen : app.auth.userIdForHandle(wen)
     const person = userId
       ? (db.prepare('SELECT id, created_at FROM users WHERE id = ?').get(userId) as
           { id: string; created_at: string } | undefined)
       : undefined
-    const profil = person ? app.auth.profil(person.id) : null
+    const profil = person ? app.auth.profile(person.id) : null
     // Der Besitzer sieht sein eigenes Profil auch, solange es privat ist —
     // sonst führte der Weg zum Sichtbarkeits-Schalter durch eine 404-Seite.
     // Für alle anderen gilt 404 statt 403: Ein nicht freigegebenes Profil
@@ -144,7 +144,7 @@ export function registerGalleryRoutes(app: FastifyInstance): void {
       bannerUrl: bannerUrl(person.id, profil.banner),
       /** Monatsgenau — auf den Tag genau wäre es eine Angabe über die Person, die niemand braucht. */
       memberSince: person.created_at,
-      stats: app.auth.kennzahlen(person.id),
+      stats: app.auth.profileStats(person.id),
       /**
        * Nur für den Besitzer und nur, wenn sein Profil privat steht: Die Seite
        * zeigt dann statt des Teilen-Knopfes, dass hier gerade niemand sonst

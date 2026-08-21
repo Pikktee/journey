@@ -60,7 +60,7 @@ describe('Passwort ändern', () => {
       cookies: { maptale_session: andere },
     })
     expect((fremde.json() as { user: unknown }).user).toBeNull()
-    expect(u.app.auth.benutzerAusToken(u.apiToken)).toBeNull()
+    expect(u.app.auth.userFromToken(u.apiToken)).toBeNull()
   })
 })
 
@@ -78,7 +78,7 @@ describe('E-Mail-Adresse wechseln', () => {
 
     // Vor dem Klick: noch nichts geändert.
     expect(await u.app.auth.login('test@example.com', 'geheim123')).not.toBeNull()
-    expect(u.app.auth.benutzerIdFuerEmail('neu@example.com')).toBeNull()
+    expect(u.app.auth.userIdForEmail('neu@example.com')).toBeNull()
 
     const einloesen = await u.app.inject({
       method: 'POST',
@@ -89,8 +89,8 @@ describe('E-Mail-Adresse wechseln', () => {
     expect(await u.app.auth.login('neu@example.com', 'geheim123')).not.toBeNull()
     expect(await u.app.auth.login('test@example.com', 'geheim123')).toBeNull()
     // Der Klick im neuen Postfach IST die Bestätigung — kein zweiter Lauf.
-    const id = u.app.auth.benutzerIdFuerEmail('neu@example.com')
-    expect(u.app.auth.istVerifiziert(id ?? '')).toBe(true)
+    const id = u.app.auth.userIdForEmail('neu@example.com')
+    expect(u.app.auth.isVerified(id ?? '')).toBe(true)
   })
 
   it('ist einmal einlösbar', async () => {
@@ -113,7 +113,7 @@ describe('E-Mail-Adresse wechseln', () => {
 
   it('verrät nicht, ob die Adresse schon vergeben ist — antwortet gleich, schickt aber nichts', async () => {
     const u = await baueTestApp()
-    await u.app.auth.legeBenutzerAn('besetzt@example.com', 'geheim123', 'Andere')
+    await u.app.auth.createUser('besetzt@example.com', 'geheim123', 'Andere')
     const vorher = u.mail.nachrichten.length
     const antwort = await u.app.inject({
       method: 'POST',
@@ -144,7 +144,7 @@ describe('E-Mail-Adresse wechseln', () => {
       cookies: u.cookies,
       payload: { email: 'neu@example.com', password: 'geheim123' },
     })
-    await u.app.auth.legeBenutzerAn('neu@example.com', 'geheim123', 'Schneller')
+    await u.app.auth.createUser('neu@example.com', 'geheim123', 'Schneller')
     const einloesen = await u.app.inject({
       method: 'POST',
       url: '/api/auth/confirm-email',
@@ -266,15 +266,15 @@ describe('Angemeldete Geräte', () => {
 
   it('lässt niemanden fremde Geräte abmelden', async () => {
     const u = await baueTestApp()
-    const fremd = await u.app.auth.legeBenutzerAn('fremd@example.com', 'geheim123', 'Fremde')
-    const fremdeSitzung = u.app.auth.erzeugeSession(fremd.id)
+    const fremd = await u.app.auth.createUser('fremd@example.com', 'geheim123', 'Fremde')
+    const fremdeSitzung = u.app.auth.createSession(fremd.id)
     const antwort = await u.app.inject({
       method: 'DELETE',
       url: `/api/auth/me/devices/session:${fremdeSitzung.id}`,
       cookies: u.cookies,
     })
     expect(antwort.statusCode).toBe(404)
-    expect(u.app.auth.benutzerAusSession(fremdeSitzung.id)).not.toBeNull()
+    expect(u.app.auth.userFromSession(fremdeSitzung.id)).not.toBeNull()
   })
 })
 
@@ -292,7 +292,7 @@ describe('Speicher', () => {
 
   it('schlüsselt auf, und die Teile ergeben die Summe', async () => {
     const u = await baueTestApp()
-    const user = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const user = u.app.auth.userIdForEmail('test@example.com') ?? ''
     // Eine Tour von Hand: die Aufteilung liest den Storage, nicht die Pipeline.
     u.app.deps.db
       .prepare(

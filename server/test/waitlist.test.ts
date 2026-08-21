@@ -41,10 +41,10 @@ describe('Warteliste — eintragen und bestätigen', () => {
     const token = await trageEin(u, 'anna@example.com', 'Radtouren in den Alpen')
 
     expect(u.mail.nachrichten.at(-1)?.an).toBe('anna@example.com')
-    expect(u.app.warteliste.alle()[0]?.state).toBe('unconfirmed')
+    expect(u.app.warteliste.all()[0]?.state).toBe('unconfirmed')
 
     expect(await bestaetige(u, token)).toBe(200)
-    const eintrag = u.app.warteliste.alle()[0]
+    const eintrag = u.app.warteliste.all()[0]
     expect(eintrag?.state).toBe('pending')
     expect(eintrag?.note).toBe('Radtouren in den Alpen')
   })
@@ -67,7 +67,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
     expect(antwort.statusCode).toBe(200)
     expect(antwort.json()).toEqual({ ok: true })
     expect(u.mail.nachrichten.length).toBe(vorher)
-    expect(u.app.warteliste.alle()).toHaveLength(0)
+    expect(u.app.warteliste.all()).toHaveLength(0)
   })
 
   it('schickt einem bereits Bestätigten keine zweite Mail, antwortet aber gleich', async () => {
@@ -83,7 +83,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
     })
     expect(antwort.statusCode).toBe(200)
     expect(u.mail.nachrichten.length).toBe(vorher)
-    expect(u.app.warteliste.alle()).toHaveLength(1)
+    expect(u.app.warteliste.all()).toHaveLength(1)
   })
 
   it('erneuert den Token bei einem zweiten Anlauf und behält die erste Notiz', async () => {
@@ -93,7 +93,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
     expect(neu).not.toBe(alt)
     expect(await bestaetige(u, alt)).toBe(400)
     expect(await bestaetige(u, neu)).toBe(200)
-    expect(u.app.warteliste.alle()[0]?.note).toBe('Radtouren')
+    expect(u.app.warteliste.all()[0]?.note).toBe('Radtouren')
   })
 
   it('weist einen unbekannten Token ab', async () => {
@@ -103,7 +103,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
 
   it('bleibt zu, solange die Warteliste nicht angeboten wird', async () => {
     const u = await baueTestApp()
-    u.app.warteliste.setzeOffen(false)
+    u.app.warteliste.setOpen(false)
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/auth/waitlist',
@@ -114,7 +114,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
 
   it('steht nicht vor der Tür, wenn sich ohnehin jeder anmelden kann', async () => {
     const u = await baueTestApp()
-    u.app.einladungen.setzePflicht(false)
+    u.app.einladungen.setRequired(false)
     const antwort = await u.app.inject({
       method: 'POST',
       url: '/api/auth/waitlist',
@@ -157,7 +157,7 @@ describe('Warteliste — austragen', () => {
       payload: { token },
     })
     expect(antwort.statusCode).toBe(200)
-    expect(u.app.warteliste.alle()).toHaveLength(0)
+    expect(u.app.warteliste.all()).toHaveLength(0)
   })
 
   // Die Adresse steht als Notiz an der Einladung. Bleibt die stehen, ist
@@ -168,7 +168,7 @@ describe('Warteliste — austragen', () => {
     const admin = await legeAdminAn(u)
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
-    const id = u.app.warteliste.alle()[0]?.id as string
+    const id = u.app.warteliste.all()[0]?.id as string
     await u.app.inject({
       method: 'POST',
       url: `/api/admin/waitlist/${id}/invite`,
@@ -186,8 +186,8 @@ describe('Warteliste — austragen', () => {
       url: '/api/auth/waitlist/leave',
       payload: { token: austragToken },
     })
-    expect(u.app.warteliste.alle()).toHaveLength(0)
-    expect(u.app.einladungen.alle()).toHaveLength(0)
+    expect(u.app.warteliste.all()).toHaveLength(0)
+    expect(u.app.einladungen.all()).toHaveLength(0)
   })
 
   it('lässt eine bereits eingelöste Einladung stehen', async () => {
@@ -195,7 +195,7 @@ describe('Warteliste — austragen', () => {
     const admin = await legeAdminAn(u)
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
-    const id = u.app.warteliste.alle()[0]?.id as string
+    const id = u.app.warteliste.all()[0]?.id as string
     const einladen = await u.app.inject({
       method: 'POST',
       url: `/api/admin/waitlist/${id}/invite`,
@@ -222,8 +222,8 @@ describe('Warteliste — austragen', () => {
       url: '/api/auth/waitlist/leave',
       payload: { token: austragToken },
     })
-    expect(u.app.warteliste.alle()).toHaveLength(0)
-    expect(u.app.einladungen.alle()).toHaveLength(1)
+    expect(u.app.warteliste.all()).toHaveLength(0)
+    expect(u.app.einladungen.all()).toHaveLength(1)
   })
 
   it('sagt auch bei einem toten Token „ok" — das Ziel ist erreicht', async () => {
@@ -243,7 +243,7 @@ describe('Warteliste — freischalten', () => {
     const admin = await legeAdminAn(u)
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
-    const id = u.app.warteliste.alle()[0]?.id as string
+    const id = u.app.warteliste.all()[0]?.id as string
 
     const antwort = await u.app.inject({
       method: 'POST',
@@ -261,11 +261,11 @@ describe('Warteliste — freischalten', () => {
     expect(mail.text).toContain('#warteliste-austragen=')
 
     // Der Eintrag zeigt den Faden zur Einladung, die Einladung die Adresse
-    expect(u.app.warteliste.alle()[0]).toMatchObject({
+    expect(u.app.warteliste.all()[0]).toMatchObject({
       state: 'invited',
       invitedCode: invitation.code,
     })
-    expect(u.app.einladungen.alle()[0]?.note).toBe('anna@example.com')
+    expect(u.app.einladungen.all()[0]?.note).toBe('anna@example.com')
 
     // Der Code aus der Mail trägt tatsächlich durch die Registrierung
     const registrierung = await u.app.inject({
@@ -280,7 +280,7 @@ describe('Warteliste — freischalten', () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
     await trageEin(u, 'anna@example.com')
-    const id = u.app.warteliste.alle()[0]?.id as string
+    const id = u.app.warteliste.all()[0]?.id as string
     const vorher = u.mail.nachrichten.length
 
     const antwort = await u.app.inject({
@@ -291,7 +291,7 @@ describe('Warteliste — freischalten', () => {
     })
     expect(antwort.statusCode).toBe(409)
     expect(u.mail.nachrichten.length).toBe(vorher)
-    expect(u.app.einladungen.alle()).toHaveLength(0)
+    expect(u.app.einladungen.all()).toHaveLength(0)
   })
 
   it('lädt niemanden zweimal ein', async () => {
@@ -299,7 +299,7 @@ describe('Warteliste — freischalten', () => {
     const admin = await legeAdminAn(u)
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
-    const id = u.app.warteliste.alle()[0]?.id as string
+    const id = u.app.warteliste.all()[0]?.id as string
     // Kein `ReturnType<typeof inject>`: `inject` ist überladen und liefert ohne
     // Callback die thenable `Chain` — der Rückgabetyp der Signatur passt nicht
     // auf das Promise, das hier tatsächlich herauskommt.
@@ -315,7 +315,7 @@ describe('Warteliste — freischalten', () => {
 
     expect(await einladen()).toBe(200)
     expect(await einladen()).toBe(409)
-    expect(u.app.einladungen.alle()).toHaveLength(1)
+    expect(u.app.einladungen.all()).toHaveLength(1)
   })
 
   it('nimmt den Code zurück, wenn die Mail nicht rausgeht', async () => {
@@ -323,7 +323,7 @@ describe('Warteliste — freischalten', () => {
     const admin = await legeAdminAn(u)
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
-    const id = u.app.warteliste.alle()[0]?.id as string
+    const id = u.app.warteliste.all()[0]?.id as string
     // Die Methode DER INSTANZ ersetzen, nicht app.deps.mail: Die Routen halten
     // den Versand seit dem Registrieren in ihrer Closure.
     u.mail.sende = async (n) => {
@@ -337,8 +337,8 @@ describe('Warteliste — freischalten', () => {
       payload: {},
     })
     expect(antwort.statusCode).toBe(502)
-    expect(u.app.einladungen.alle()).toHaveLength(0)
-    expect(u.app.warteliste.alle()[0]?.state).toBe('pending')
+    expect(u.app.einladungen.all()).toHaveLength(0)
+    expect(u.app.warteliste.all()[0]?.state).toBe('pending')
   })
 
   it('hält Nicht-Admins von der Liste fern', async () => {
@@ -355,7 +355,7 @@ describe('Warteliste — freischalten', () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
     await trageEin(u, 'anna@example.com')
-    const id = u.app.warteliste.alle()[0]?.id as string
+    const id = u.app.warteliste.all()[0]?.id as string
 
     const antwort = await u.app.inject({
       method: 'DELETE',
@@ -363,7 +363,7 @@ describe('Warteliste — freischalten', () => {
       cookies: admin.cookies,
     })
     expect(antwort.statusCode).toBe(200)
-    expect(u.app.warteliste.alle()).toHaveLength(0)
+    expect(u.app.warteliste.all()).toHaveLength(0)
   })
 
   it('legt beide Schalter über dieselbe Route um', async () => {
@@ -376,7 +376,7 @@ describe('Warteliste — freischalten', () => {
       payload: { waitlistOpen: false },
     })
     expect(antwort.json()).toEqual({ invitationRequired: true, waitlistOpen: false })
-    expect(u.app.warteliste.offen()).toBe(false)
+    expect(u.app.warteliste.open()).toBe(false)
   })
 })
 
@@ -394,8 +394,8 @@ describe('Warteliste — Fristen', () => {
       .prepare('UPDATE waitlist SET joined_at = ? WHERE email = ?')
       .run(zwanzigTage, 'alt@example.com')
 
-    expect(u.app.warteliste.raeumeAuf()).toBe(1)
-    expect(u.app.warteliste.alle().map((e) => e.email)).toEqual([
+    expect(u.app.warteliste.purgeExpired()).toBe(1)
+    expect(u.app.warteliste.all().map((e) => e.email)).toEqual([
       'frisch@example.com',
       'geduldig@example.com',
     ])
@@ -405,13 +405,13 @@ describe('Warteliste — Fristen', () => {
     const u = await baueTestApp()
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
-    const id = u.app.warteliste.alle()[0]?.id as string
-    u.app.warteliste.markiereEingeladen(id, 'ABCD-2345')
+    const id = u.app.warteliste.all()[0]?.id as string
+    u.app.warteliste.markInvited(id, 'ABCD-2345')
 
     const langeHer = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString()
     u.app.deps.db.prepare('UPDATE waitlist SET invited_at = ? WHERE id = ?').run(langeHer, id)
 
-    expect(u.app.warteliste.raeumeAuf()).toBe(1)
-    expect(u.app.warteliste.alle()).toHaveLength(0)
+    expect(u.app.warteliste.purgeExpired()).toBe(1)
+    expect(u.app.warteliste.all()).toHaveLength(0)
   })
 })

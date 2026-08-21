@@ -28,7 +28,7 @@ describe('Einwilligung bei der Registrierung', () => {
     oeffneRegistrierung(u)
     await registriere(u, { email: 'neu@example.com', newsletter: true })
 
-    const id = u.app.auth.benutzerIdFuerEmail('neu@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('neu@example.com') ?? ''
     expect(u.app.newsletter.stand(id)).toBe(true)
     const verlauf = u.app.newsletter.verlauf(id)
     expect(verlauf).toHaveLength(1)
@@ -45,7 +45,7 @@ describe('Einwilligung bei der Registrierung', () => {
     await registriere(u, { email: 'nein@example.com', newsletter: false })
 
     for (const adresse of ['ohne@example.com', 'nein@example.com']) {
-      const id = u.app.auth.benutzerIdFuerEmail(adresse) ?? ''
+      const id = u.app.auth.userIdForEmail(adresse) ?? ''
       expect(u.app.newsletter.stand(id)).toBe(false)
       // Kein Eintrag heißt kein Protokoll: Eine Zeile „aus" für jemanden, der
       // nie gefragt wurde, wäre eine erfundene Willenserklärung.
@@ -78,7 +78,7 @@ describe('Der Riegel: unbestätigte Adresse', () => {
     const u = await baueTestApp()
     oeffneRegistrierung(u)
     await registriere(u, { email: 'neu@example.com', newsletter: true })
-    const id = u.app.auth.benutzerIdFuerEmail('neu@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('neu@example.com') ?? ''
 
     expect(u.app.newsletter.stand(id)).toBe(true)
     expect(u.app.newsletter.empfaenger().map((e) => e.id)).not.toContain(id)
@@ -92,11 +92,11 @@ describe('Der Riegel: unbestätigte Adresse', () => {
 
   it('lässt den Versand ruhen, sobald die Bestätigung wieder fällt (Adresswechsel durch die Verwaltung)', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
     expect(u.app.newsletter.empfaenger().map((e) => e.id)).toContain(id)
 
-    u.app.auth.aendereKonto(id, { email: 'andere@example.com', verified: false })
+    u.app.auth.updateAccount(id, { email: 'andere@example.com', verified: false })
     expect(u.app.newsletter.empfaenger()).toHaveLength(0)
     // Der Wunsch bleibt bestehen — er ruht nur.
     expect(u.app.newsletter.stand(id)).toBe(true)
@@ -124,7 +124,7 @@ describe('Der Schalter im Konto', () => {
       cookies: u.cookies,
       payload: { enabled: false },
     })
-    const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     expect(u.app.newsletter.stand(id)).toBe(false)
     // Jüngste zuerst: aus, dann an.
     expect(u.app.newsletter.verlauf(id).map((e) => e.state)).toEqual(['off', 'on'])
@@ -145,7 +145,7 @@ describe('Der Schalter im Konto', () => {
 describe('Abmelden ohne Anmeldung', () => {
   it('trägt über den signierten Token aus — ohne Sitzung, ohne Passwort', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
 
     const antwort = await u.app.inject({
@@ -160,7 +160,7 @@ describe('Abmelden ohne Anmeldung', () => {
 
   it('nimmt den Ein-Klick-Widerruf der Mail-Programme entgegen (RFC 8058)', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
 
     const token = unsubscribeToken(id, u.app.deps.konfig.cookieSecret)
@@ -176,7 +176,7 @@ describe('Abmelden ohne Anmeldung', () => {
 
   it('weist einen gefälschten Token ab, statt irgendjemanden auszutragen', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
 
     const echt = unsubscribeToken(id, u.app.deps.konfig.cookieSecret)
@@ -192,9 +192,9 @@ describe('Abmelden ohne Anmeldung', () => {
 
   it('bleibt freundlich, wenn das Konto längst weg ist — das Ziel ist erreicht', async () => {
     const u = await baueTestApp()
-    const weg = await u.app.auth.legeBenutzerAn('weg@example.com', 'geheim123', 'Weg')
+    const weg = await u.app.auth.createUser('weg@example.com', 'geheim123', 'Weg')
     const token = unsubscribeToken(weg.id, u.app.deps.konfig.cookieSecret)
-    u.app.auth.loescheBenutzer(weg.id)
+    u.app.auth.deleteUser(weg.id)
 
     const antwort = await u.app.inject({
       method: 'POST',
@@ -208,7 +208,7 @@ describe('Abmelden ohne Anmeldung', () => {
 describe('Aufbewahrung', () => {
   it('räumt überholte Protokollzeilen nach drei Jahren weg, behält aber die jüngste', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
     u.app.newsletter.setze(id, false, 'account')
     // Beide auf „vor vier Jahren" zurückdatieren — die Uhr lässt sich im Test
@@ -229,7 +229,7 @@ describe('Aufbewahrung', () => {
 
   it('fasst frische Zeilen nicht an', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerIdFuerEmail('test@example.com') ?? ''
+    const id = u.app.auth.userIdForEmail('test@example.com') ?? ''
     u.app.newsletter.setze(id, true, 'account')
     u.app.newsletter.setze(id, false, 'account')
     expect(u.app.newsletter.raeumeAuf()).toBe(0)

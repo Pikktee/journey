@@ -60,7 +60,7 @@ function ladeAudioHoch(
 }
 
 async function fremdeCookies(u: TestUmgebung): Promise<{ maptale_session: string }> {
-  await u.app.auth.legeBenutzerAn('fremd@example.com', 'geheim456', 'Fremd')
+  await u.app.auth.createUser('fremd@example.com', 'geheim456', 'Fremd')
   const login = await u.app.inject({
     method: 'POST',
     url: '/api/auth/login',

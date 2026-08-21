@@ -41,11 +41,11 @@ export interface AccountUpdate {
 export class EmailTakenError extends Error {
   constructor() {
     super('Diese E-Mail ist bereits registriert')
-    this.name = 'EmailVergebenFehler'
+    this.name = 'EmailTakenError'
   }
 }
 
-const alsRolle = (wert: unknown): Role => (wert === 'admin' ? 'admin' : 'user')
+const asRole = (value: unknown): Role => (value === 'admin' ? 'admin' : 'user')
 
 /**
  * Das öffentliche Profil — bewusst getrennt vom Konto.
@@ -82,7 +82,7 @@ export interface ProfileUpdate {
 }
 
 /** Leerer oder nur aus Leerraum bestehender Text heißt: Feld leeren. */
-const leerAlsNull = (wert: string): string | null => wert.trim() || null
+const emptyAsNull = (value: string): string | null => value.trim() || null
 
 export type MailPurpose = 'verify' | 'reset' | 'email'
 
@@ -119,11 +119,11 @@ export interface Device {
   lastSeenAt: string | null
 }
 
-const SESSION_DAUER_MS = 30 * 24 * 60 * 60 * 1000 // 30 Tage
+const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000 // 30 Tage
 /** Wie lange ein aufgegebener Handle für seinen früheren Besitzer gesperrt bleibt. */
-const HANDLE_SPERRE_MS = 90 * 24 * 60 * 60 * 1000
+const HANDLE_LOCK_MS = 90 * 24 * 60 * 60 * 1000
 // Lebensdauer der Einmal-Token: E-Mail-Bestätigung großzügig, Passwort-Reset kurz.
-const MAIL_TOKEN_DAUER_MS: Record<MailPurpose, number> = {
+const MAIL_TOKEN_DURATION_MS: Record<MailPurpose, number> = {
   verify: 24 * 60 * 60 * 1000, // 24 h
   reset: 60 * 60 * 1000, // 1 h
   // Der Wechsel der Adresse liegt dazwischen: Er ist nicht so dringlich wie ein
@@ -137,7 +137,7 @@ const MAIL_TOKEN_DAUER_MS: Record<MailPurpose, number> = {
  * wird. Ein UPDATE pro Anfrage wäre ein Schreibvorgang für jedes geladene Bild;
  * für die Frage „zuletzt gestern" genügt eine Auflösung von Minuten.
  */
-const GESEHEN_TAKT_MS = 5 * 60 * 1000
+const LAST_SEEN_INTERVAL_MS = 5 * 60 * 1000
 
 /**
  * `84.119.12.7` → `84.119.x.x`, `2001:db8::1` → `2001:db8:x`.
@@ -147,17 +147,17 @@ const GESEHEN_TAKT_MS = 5 * 60 * 1000
  */
 export function ipPrefix(ip: string | null | undefined): string | null {
   if (!ip) return null
-  const wert = ip.replace(/^::ffff:/, '')
-  if (wert.includes(':')) {
-    const teile = wert.split(':').filter(Boolean).slice(0, 2)
-    return teile.length ? `${teile.join(':')}:x` : null
+  const value = ip.replace(/^::ffff:/, '')
+  if (value.includes(':')) {
+    const parts = value.split(':').filter(Boolean).slice(0, 2)
+    return parts.length ? `${parts.join(':')}:x` : null
   }
-  const teile = wert.split('.')
-  if (teile.length !== 4) return null
-  return `${teile[0]}.${teile[1]}.x.x`
+  const parts = value.split('.')
+  if (parts.length !== 4) return null
+  return `${parts[0]}.${parts[1]}.x.x`
 }
 
-const sha256 = (wert: string): string => createHash('sha256').update(wert).digest('hex')
+const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex')
 
 /**
  * Ein Anzeigename aus der Adresse — die Registrierung fragt nur noch nach
@@ -175,25 +175,25 @@ const sha256 = (wert: string): string => createHash('sha256').update(wert).diges
  * nicht als „Hallo ," in der Bestätigungsmail wieder auftauchen.
  */
 export function nameFromEmail(email: string): string {
-  const lokal = email.split('@')[0] ?? ''
-  const ohneZusatz = lokal.split('+')[0] ?? lokal
-  const worte = ohneZusatz
+  const local = email.split('@')[0] ?? ''
+  const withoutTag = local.split('+')[0] ?? local
+  const words = withoutTag
     .split(/[._-]+/)
-    .filter((wort) => wort.length > 0)
-    .map((wort) => wort.charAt(0).toUpperCase() + wort.slice(1))
+    .filter((word) => word.length > 0)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
   // Die Rückfallkette greift nur bei Adressen, die die Prüfung davor gar nicht
   // durchlassen würde („...@x.de"). Erfunden wird nichts.
-  return (worte.join(' ') || ohneZusatz || lokal || email).slice(0, 80)
+  return (words.join(' ') || withoutTag || local || email).slice(0, 80)
 }
 
 export class AuthService {
   constructor(private readonly db: Db) {}
 
   /** Legt den Seed-Benutzer an, falls die Datenbank noch leer ist (Erststart). */
-  async seedeAdmin(email: string | null, passwort: string | null): Promise<void> {
-    const anzahl = (this.db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n
-    if (anzahl > 0 || !email || !passwort) return
-    await this.legeBenutzerAn(email, passwort, email.split('@')[0] ?? 'admin', true, 'admin')
+  async seedAdmin(email: string | null, password: string | null): Promise<void> {
+    const count = (this.db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n
+    if (count > 0 || !email || !password) return
+    await this.createUser(email, password, email.split('@')[0] ?? 'admin', true, 'admin')
   }
 
   /**
@@ -204,15 +204,15 @@ export class AuthService {
    * angelegt ist. Gibt zurück, wie viele Zeilen tatsächlich gehoben wurden
    * (für die Start-Meldung — im Normalfall 0).
    */
-  hebeAdmins(emails: readonly string[]): number {
+  promoteAdmins(emails: readonly string[]): number {
     if (!emails.length) return 0
-    const platzhalter = emails.map(() => '?').join(', ')
-    const erg = this.db
+    const placeholders = emails.map(() => '?').join(', ')
+    const result = this.db
       .prepare(
-        `UPDATE users SET role = 'admin' WHERE role != 'admin' AND email IN (${platzhalter})`,
+        `UPDATE users SET role = 'admin' WHERE role != 'admin' AND email IN (${placeholders})`,
       )
       .run(...emails.map((e) => e.toLowerCase().trim()))
-    return erg.changes
+    return result.changes
   }
 
   /**
@@ -220,88 +220,89 @@ export class AuthService {
    * (Seed-Admin, Tests, Direktanlage) — die Selbst-Registrierung (M9) setzt es
    * explizit auf false und schaltet erst nach E-Mail-Bestätigung frei.
    */
-  async legeBenutzerAn(
+  async createUser(
     email: string,
-    passwort: string,
+    password: string,
     name: string,
-    verifiziert = true,
-    rolle: Role = 'user',
+    verified = true,
+    role: Role = 'user',
   ): Promise<User> {
-    const benutzer: User = {
+    const user: User = {
       id: newUserId(),
       email: email.toLowerCase().trim(),
       name,
-      role: rolle,
+      role: role,
     }
-    const pwHash = await hashPassword(passwort)
+    const pwHash = await hashPassword(password)
     // Jedes Konto bekommt sofort eine Adresse — ein Profil ohne Handle wäre
     // nicht verlinkbar, und ein nachgereichter Handle hieße, dass die halbe
     // Anwendung mit „vielleicht keiner" rechnen müsste.
-    const handle = findFreeHandle(handleFromEmail(benutzer.email), (h) => !this.handleFrei(h, null))
+    const handle = findFreeHandle(
+      handleFromEmail(user.email),
+      (h) => !this.handleAvailable(h, null),
+    )
     try {
       this.db
         .prepare(
           'INSERT INTO users (id, email, pw_hash, name, created_at, email_verified, role, handle) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .run(
-          benutzer.id,
-          benutzer.email,
+          user.id,
+          user.email,
           pwHash,
-          benutzer.name,
+          user.name,
           new Date().toISOString(),
-          verifiziert ? 1 : 0,
-          rolle,
+          verified ? 1 : 0,
+          role,
           handle,
         )
-    } catch (fehler) {
+    } catch (error) {
       // Die UNIQUE-Verletzung ist der einzige erwartbare Fall — als eigener
       // Fehlertyp, damit die Route 409 statt 500 antworten kann.
-      if (String(fehler).includes('UNIQUE')) throw new EmailTakenError()
-      throw fehler
+      if (String(error).includes('UNIQUE')) throw new EmailTakenError()
+      throw error
     }
-    return benutzer
+    return user
   }
 
   /** Existiert bereits ein Benutzer mit dieser E-Mail? (Registrierungs-Vorabprüfung) */
-  emailVergeben(email: string): boolean {
+  emailTaken(email: string): boolean {
     return !!this.db.prepare('SELECT 1 FROM users WHERE email = ?').get(email.toLowerCase().trim())
   }
 
-  istVerifiziert(userId: string): boolean {
-    const zeile = this.db.prepare('SELECT email_verified FROM users WHERE id = ?').get(userId) as
+  isVerified(userId: string): boolean {
+    const row = this.db.prepare('SELECT email_verified FROM users WHERE id = ?').get(userId) as
       { email_verified: number } | undefined
-    return !!zeile?.email_verified
+    return !!row?.email_verified
   }
 
   /** E-Mail + Passwort prüfen; null bei Fehlschlag (bewusst ohne Grund-Detail). */
-  async login(email: string, passwort: string): Promise<User | null> {
-    const zeile = this.db
+  async login(email: string, password: string): Promise<User | null> {
+    const row = this.db
       .prepare('SELECT id, email, pw_hash, name, role FROM users WHERE email = ?')
       .get(email.toLowerCase().trim()) as
       { id: string; email: string; pw_hash: string; name: string; role: string } | undefined
-    if (!zeile) {
+    if (!row) {
       // Dummy-Prüfung gegen Timing-Unterschied „Benutzer existiert (nicht)"
       await checkPassword(
         '$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-        passwort,
+        password,
       )
       return null
     }
-    const ok = await checkPassword(zeile.pw_hash, passwort)
-    return ok
-      ? { id: zeile.id, email: zeile.email, name: zeile.name, role: alsRolle(zeile.role) }
-      : null
+    const ok = await checkPassword(row.pw_hash, password)
+    return ok ? { id: row.id, email: row.email, name: row.name, role: asRole(row.role) } : null
   }
 
   // — Sessions (Web) —
 
-  erzeugeSession(
+  createSession(
     userId: string,
-    kennzeichen: SessionFingerprint = {},
-  ): { id: string; ablauf: Date } {
+    fingerprint: SessionFingerprint = {},
+  ): { id: string; expiresAt: Date } {
     const id = newSessionId()
-    const jetzt = Date.now()
-    const ablauf = new Date(jetzt + SESSION_DAUER_MS)
+    const now = Date.now()
+    const expiresAt = new Date(now + SESSION_DURATION_MS)
     this.db
       .prepare(
         `INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, ip_prefix, last_seen_at, token_id)
@@ -310,14 +311,14 @@ export class AuthService {
       .run(
         id,
         userId,
-        new Date(jetzt).toISOString(),
-        ablauf.toISOString(),
-        kennzeichen.userAgent?.slice(0, 300) ?? null,
-        ipPrefix(kennzeichen.ip),
-        new Date(jetzt).toISOString(),
-        kennzeichen.tokenId ?? null,
+        new Date(now).toISOString(),
+        expiresAt.toISOString(),
+        fingerprint.userAgent?.slice(0, 300) ?? null,
+        ipPrefix(fingerprint.ip),
+        new Date(now).toISOString(),
+        fingerprint.tokenId ?? null,
       )
-    return { id, ablauf }
+    return { id, expiresAt }
   }
 
   /**
@@ -332,18 +333,18 @@ export class AuthService {
    * können mehrere dastehen, und die zuletzt ausgestellte hat die längste
    * Restlaufzeit.
    */
-  sitzungZuToken(tokenId: string): { id: string; ablauf: Date } | null {
-    const zeile = this.db
+  sessionForToken(tokenId: string): { id: string; expiresAt: Date } | null {
+    const row = this.db
       .prepare(
         `SELECT id, expires_at FROM sessions
          WHERE token_id = ? AND expires_at > ? ORDER BY created_at DESC LIMIT 1`,
       )
       .get(tokenId, new Date().toISOString()) as { id: string; expires_at: string } | undefined
-    return zeile ? { id: zeile.id, ablauf: new Date(zeile.expires_at) } : null
+    return row ? { id: row.id, expiresAt: new Date(row.expires_at) } : null
   }
 
-  benutzerAusSession(sessionId: string): User | null {
-    const zeile = this.db
+  userFromSession(sessionId: string): User | null {
+    const row = this.db
       .prepare(
         `SELECT u.id, u.email, u.name, u.role, s.expires_at, s.last_seen_at FROM sessions s
          JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
@@ -358,23 +359,23 @@ export class AuthService {
           last_seen_at: string | null
         }
       | undefined
-    if (!zeile) return null
-    if (Date.parse(zeile.expires_at) < Date.now()) {
-      this.beendeSession(sessionId)
+    if (!row) return null
+    if (Date.parse(row.expires_at) < Date.now()) {
+      this.endSession(sessionId)
       return null
     }
     // Gedrosselt: „zuletzt gerade eben" braucht keine Auflösung von
     // Millisekunden, ein Schreibvorgang je Anfrage aber sehr wohl eine Platte.
-    const zuletzt = zeile.last_seen_at ? Date.parse(zeile.last_seen_at) : 0
-    if (Date.now() - zuletzt > GESEHEN_TAKT_MS) {
+    const lastSeen = row.last_seen_at ? Date.parse(row.last_seen_at) : 0
+    if (Date.now() - lastSeen > LAST_SEEN_INTERVAL_MS) {
       this.db
         .prepare('UPDATE sessions SET last_seen_at = ? WHERE id = ?')
         .run(new Date().toISOString(), sessionId)
     }
-    return { id: zeile.id, email: zeile.email, name: zeile.name, role: alsRolle(zeile.role) }
+    return { id: row.id, email: row.email, name: row.name, role: asRole(row.role) }
   }
 
-  beendeSession(sessionId: string): void {
+  endSession(sessionId: string): void {
     this.db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId)
   }
 
@@ -397,14 +398,14 @@ export class AuthService {
    * Wer ein fremdes Gerät sucht, fand eine Handvoll „Unbekanntes Gerät", die
    * alle ihm selbst gehörten.
    */
-  geraete(userId: string): Device[] {
-    const jetzt = new Date().toISOString()
-    const sitzungen = this.db
+  devices(userId: string): Device[] {
+    const now = new Date().toISOString()
+    const sessions = this.db
       .prepare(
         `SELECT id, created_at, user_agent, ip_prefix, last_seen_at FROM sessions
          WHERE user_id = ? AND expires_at > ? AND token_id IS NULL ORDER BY created_at DESC`,
       )
-      .all(userId, jetzt) as Array<{
+      .all(userId, now) as Array<{
       id: string
       created_at: string
       user_agent: string | null
@@ -422,7 +423,7 @@ export class AuthService {
       last_used_at: string | null
     }>
     return [
-      ...sitzungen.map((s) => ({
+      ...sessions.map((s) => ({
         id: `session:${s.id}`,
         kind: 'session' as const,
         label: s.user_agent,
@@ -446,19 +447,19 @@ export class AuthService {
    * Prüfung davor: Sonst wäre zwischen „gehört mir?" und dem DELETE eine Lücke,
    * und eine fremde ID ließe sich mit genügend Versuchen finden.
    */
-  meldeGeraetAb(userId: string, geraetId: string): boolean {
-    const [art, id] = [
-      geraetId.slice(0, geraetId.indexOf(':')),
-      geraetId.slice(geraetId.indexOf(':') + 1),
+  signOutDevice(userId: string, deviceId: string): boolean {
+    const [kind, id] = [
+      deviceId.slice(0, deviceId.indexOf(':')),
+      deviceId.slice(deviceId.indexOf(':') + 1),
     ]
     if (!id) return false
-    if (art === 'session') {
+    if (kind === 'session') {
       return (
         this.db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').run(id, userId)
           .changes > 0
       )
     }
-    if (art === 'app') {
+    if (kind === 'app') {
       return (
         this.db.prepare('DELETE FROM tokens WHERE id = ? AND user_id = ?').run(id, userId).changes >
         0
@@ -470,12 +471,12 @@ export class AuthService {
   // — API-Tokens (App) —
 
   /** Erzeugt ein Token; der Klartext wird NUR hier zurückgegeben. */
-  erzeugeToken(userId: string, label: string): string {
-    const klartext = newTokenSecret()
+  createToken(userId: string, label: string): string {
+    const plaintext = newTokenSecret()
     this.db
       .prepare('INSERT INTO tokens (id, hash, user_id, label, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(newSessionId(), sha256(klartext), userId, label, new Date().toISOString())
-    return klartext
+      .run(newSessionId(), sha256(plaintext), userId, label, new Date().toISOString())
+    return plaintext
   }
 
   /**
@@ -486,9 +487,9 @@ export class AuthService {
    * Kontoeinstellungen die Meldungen dorthin mit beendet. Die App kann das
    * nicht selbst aufräumen — sie ist in diesem Moment gerade ausgesperrt worden.
    */
-  anmeldungAusToken(klartext: string): { benutzer: User; tokenId: string } | null {
-    const hash = sha256(klartext)
-    const zeile = this.db
+  resolveToken(plaintext: string): { user: User; tokenId: string } | null {
+    const hash = sha256(plaintext)
+    const row = this.db
       .prepare(
         `SELECT u.id, u.email, u.name, u.role, t.id AS token_id, t.hash FROM tokens t
          JOIN users u ON u.id = t.user_id WHERE t.hash = ?`,
@@ -496,28 +497,28 @@ export class AuthService {
       .get(hash) as
       | { id: string; email: string; name: string; role: string; token_id: string; hash: string }
       | undefined
-    if (!zeile) return null
+    if (!row) return null
     // Vergleich in konstanter Zeit (Hash-Lookup wäre theoretisch genug, kostet nichts)
-    if (!timingSafeEqual(Buffer.from(zeile.hash), Buffer.from(hash))) return null
+    if (!timingSafeEqual(Buffer.from(row.hash), Buffer.from(hash))) return null
     this.db
       .prepare('UPDATE tokens SET last_used_at = ? WHERE id = ?')
-      .run(new Date().toISOString(), zeile.token_id)
+      .run(new Date().toISOString(), row.token_id)
     return {
-      benutzer: {
-        id: zeile.id,
-        email: zeile.email,
-        name: zeile.name,
-        role: alsRolle(zeile.role),
+      user: {
+        id: row.id,
+        email: row.email,
+        name: row.name,
+        role: asRole(row.role),
       },
-      tokenId: zeile.token_id,
+      tokenId: row.token_id,
     }
   }
 
-  benutzerAusToken(klartext: string): User | null {
-    return this.anmeldungAusToken(klartext)?.benutzer ?? null
+  userFromToken(plaintext: string): User | null {
+    return this.resolveToken(plaintext)?.user ?? null
   }
 
-  widerrufeTokens(userId: string): void {
+  revokeTokens(userId: string): void {
     this.db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId)
   }
 
@@ -528,12 +529,12 @@ export class AuthService {
    * Klartext wandert direkt in die Mail. Frühere offene Token desselben Zwecks
    * werden verworfen (ein angefordertes Reset entwertet das vorige).
    */
-  erzeugeMailToken(userId: string, zweck: MailPurpose, nutzlast: string | null = null): string {
+  createMailToken(userId: string, purpose: MailPurpose, payload: string | null = null): string {
     this.db
       .prepare('DELETE FROM mail_tokens WHERE user_id = ? AND purpose = ? AND used_at IS NULL')
-      .run(userId, zweck)
-    const klartext = newTokenSecret()
-    const jetzt = Date.now()
+      .run(userId, purpose)
+    const plaintext = newTokenSecret()
+    const now = Date.now()
     this.db
       .prepare(
         'INSERT INTO mail_tokens (id, user_id, purpose, hash, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -541,13 +542,13 @@ export class AuthService {
       .run(
         newSessionId(),
         userId,
-        zweck,
-        sha256(klartext),
-        nutzlast,
-        new Date(jetzt).toISOString(),
-        new Date(jetzt + MAIL_TOKEN_DAUER_MS[zweck]).toISOString(),
+        purpose,
+        sha256(plaintext),
+        payload,
+        new Date(now).toISOString(),
+        new Date(now + MAIL_TOKEN_DURATION_MS[purpose]).toISOString(),
       )
-    return klartext
+    return plaintext
   }
 
   /**
@@ -555,8 +556,8 @@ export class AuthService {
    * ihn als verbraucht und gibt die user_id zurück (null bei ungültig/abgelaufen/
    * schon benutzt). Bewusst atomar in einer Transaktion gegen Doppel-Einlösung.
    */
-  loeseMailToken(klartext: string, zweck: MailPurpose): string | null {
-    return this.loeseMailTokenMitNutzlast(klartext, zweck)?.userId ?? null
+  resolveMailToken(plaintext: string, purpose: MailPurpose): string | null {
+    return this.resolveMailTokenWithPayload(plaintext, purpose)?.userId ?? null
   }
 
   /**
@@ -566,17 +567,17 @@ export class AuthService {
    * `users` stehen — bis dahin wohnt sie im Token. Stünde sie vorher dort,
    * gehörte das Konto ab dem Absenden einer Adresse, die niemand bestätigt hat.
    */
-  loeseMailTokenMitNutzlast(
-    klartext: string,
-    zweck: MailPurpose,
+  resolveMailTokenWithPayload(
+    plaintext: string,
+    purpose: MailPurpose,
   ): { userId: string; payload: string | null } | null {
-    const hash = sha256(klartext)
+    const hash = sha256(plaintext)
     return this.db.transaction(() => {
-      const zeile = this.db
+      const row = this.db
         .prepare(
           'SELECT id, user_id, payload, expires_at, used_at FROM mail_tokens WHERE hash = ? AND purpose = ?',
         )
-        .get(hash, zweck) as
+        .get(hash, purpose) as
         | {
             id: string
             user_id: string
@@ -585,24 +586,24 @@ export class AuthService {
             used_at: string | null
           }
         | undefined
-      if (!zeile || zeile.used_at || Date.parse(zeile.expires_at) < Date.now()) return null
+      if (!row || row.used_at || Date.parse(row.expires_at) < Date.now()) return null
       this.db
         .prepare('UPDATE mail_tokens SET used_at = ? WHERE id = ?')
-        .run(new Date().toISOString(), zeile.id)
-      return { userId: zeile.user_id, payload: zeile.payload }
+        .run(new Date().toISOString(), row.id)
+      return { userId: row.user_id, payload: row.payload }
     })()
   }
 
-  verifiziereEmail(userId: string): void {
+  verifyEmail(userId: string): void {
     this.db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(userId)
   }
 
   /** E-Mail → user_id (für den Reset-Anstoß); null, ohne die Existenz zu verraten. */
-  benutzerIdFuerEmail(email: string): string | null {
-    const zeile = this.db
+  userIdForEmail(email: string): string | null {
+    const row = this.db
       .prepare('SELECT id FROM users WHERE email = ?')
       .get(email.toLowerCase().trim()) as { id: string } | undefined
-    return zeile?.id ?? null
+    return row?.id ?? null
   }
 
   /**
@@ -615,13 +616,11 @@ export class AuthService {
    * gerade steht. Die App-Tokens fallen in BEIDEN Fällen: Wer sein Passwort
    * wechselt, weil er sich Sorgen macht, meint auch das Telefon.
    */
-  async setzePasswort(userId: string, passwort: string, behalteSession?: string): Promise<void> {
-    const pwHash = await hashPassword(passwort)
+  async setPassword(userId: string, password: string, keepSession?: string): Promise<void> {
+    const pwHash = await hashPassword(password)
     this.db.prepare('UPDATE users SET pw_hash = ? WHERE id = ?').run(pwHash, userId)
-    if (behalteSession) {
-      this.db
-        .prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?')
-        .run(userId, behalteSession)
+    if (keepSession) {
+      this.db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(userId, keepSession)
     } else {
       this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
     }
@@ -639,15 +638,15 @@ export class AuthService {
    * Gibt `false` zurück, wenn die Adresse inzwischen jemand anderem gehört —
    * zwischen dem Absenden und dem Klick können Tage liegen.
    */
-  uebernimmEigeneEmail(userId: string, email: string): boolean {
+  applyEmailChange(userId: string, email: string): boolean {
     try {
-      const erg = this.db
+      const result = this.db
         .prepare('UPDATE users SET email = ?, email_verified = 1 WHERE id = ?')
         .run(email.toLowerCase().trim(), userId)
-      return erg.changes > 0
-    } catch (fehler) {
-      if (String(fehler).includes('UNIQUE')) return false
-      throw fehler
+      return result.changes > 0
+    } catch (error) {
+      if (String(error).includes('UNIQUE')) return false
+      throw error
     }
   }
 
@@ -659,7 +658,7 @@ export class AuthService {
    * abgelaufen ist, muss in DEM Moment weg sein, in dem jemand nach dem Namen
    * fragt — nicht erst beim nächsten Neustart.
    */
-  private raeumeHandleReservierungen(): void {
+  private purgeHandleReservations(): void {
     this.db
       .prepare('DELETE FROM reserved_handles WHERE free_from <= ?')
       .run(new Date().toISOString())
@@ -670,16 +669,16 @@ export class AuthService {
    * einen selbst aufgegebenen zurücknehmen — die 90-Tage-Sperre richtet sich
    * gegen ÜBERNAHME durch andere, nicht gegen den früheren Besitzer.
    */
-  handleFrei(handle: string, fuerUserId: string | null): boolean {
-    this.raeumeHandleReservierungen()
-    const belegtVon = this.db
+  handleAvailable(handle: string, forUserId: string | null): boolean {
+    this.purgeHandleReservations()
+    const takenBy = this.db
       .prepare('SELECT id FROM users WHERE handle = ? COLLATE NOCASE')
       .get(handle) as { id: string } | undefined
-    if (belegtVon && belegtVon.id !== fuerUserId) return false
-    const gesperrtFuer = this.db
+    if (takenBy && takenBy.id !== forUserId) return false
+    const reservedFor = this.db
       .prepare('SELECT user_id FROM reserved_handles WHERE handle = ? COLLATE NOCASE')
       .get(handle) as { user_id: string } | undefined
-    return !gesperrtFuer || gesperrtFuer.user_id === fuerUserId
+    return !reservedFor || reservedFor.user_id === forUserId
   }
 
   /**
@@ -687,64 +686,64 @@ export class AuthService {
    * gibt es sie: Ein Link auf `@altname` soll die 90 Tage über weiter bei
    * derselben Person landen.
    */
-  benutzerIdFuerHandle(handle: string): string | null {
-    this.raeumeHandleReservierungen()
-    const zeile = this.db
+  userIdForHandle(handle: string): string | null {
+    this.purgeHandleReservations()
+    const row = this.db
       .prepare('SELECT id FROM users WHERE handle = ? COLLATE NOCASE')
       .get(handle) as { id: string } | undefined
-    if (zeile) return zeile.id
-    const alt = this.db
+    if (row) return row.id
+    const previous = this.db
       .prepare('SELECT user_id FROM reserved_handles WHERE handle = ? COLLATE NOCASE')
       .get(handle) as { user_id: string } | undefined
-    return alt?.user_id ?? null
+    return previous?.user_id ?? null
   }
 
   /**
    * Handle setzen. Gibt den Grund zurück, warum nicht — `null` heißt erledigt.
    *
-   * Der bisherige Handle wandert dabei für 90 Tage in `handles_reserviert`:
+   * Der bisherige Handle wandert dabei für 90 Tage in `reserved_handles`:
    * Alte Links leiten weiter, und niemand sonst kann die Adresse übernehmen und
    * die Links miterben. Derselbe Handle noch einmal ist ein No-op, kein Fehler —
    * sonst müsste jedes Formular vorher vergleichen.
    */
-  setzeHandle(userId: string, wunsch: string): HandleError | null {
-    const handle = wunsch.trim().toLowerCase()
-    const formfehler = validateHandleForm(handle)
-    if (formfehler) return formfehler
-    const alt = this.handleVon(userId)
-    if (alt && alt.toLowerCase() === handle) return null
-    if (!this.handleFrei(handle, userId)) return 'taken'
+  setHandle(userId: string, wanted: string): HandleError | null {
+    const handle = wanted.trim().toLowerCase()
+    const formError = validateHandleForm(handle)
+    if (formError) return formError
+    const previous = this.handleOf(userId)
+    if (previous && previous.toLowerCase() === handle) return null
+    if (!this.handleAvailable(handle, userId)) return 'taken'
 
-    const jetzt = new Date()
-    const freiAb = new Date(jetzt.getTime() + HANDLE_SPERRE_MS).toISOString()
+    const now = new Date()
+    const freeFrom = new Date(now.getTime() + HANDLE_LOCK_MS).toISOString()
     this.db.transaction(() => {
-      if (alt) {
+      if (previous) {
         this.db
           .prepare(
             'INSERT OR REPLACE INTO reserved_handles (handle, user_id, free_from) VALUES (?, ?, ?)',
           )
-          .run(alt, userId, freiAb)
+          .run(previous, userId, freeFrom)
       }
       // Die eigene alte Reservierung geht weg — sonst zeigte der Handle
       // gleichzeitig auf den Benutzer und auf sich selbst als „aufgegeben".
       this.db.prepare('DELETE FROM reserved_handles WHERE handle = ? COLLATE NOCASE').run(handle)
       this.db
         .prepare('UPDATE users SET handle = ?, handle_changed_at = ? WHERE id = ?')
-        .run(handle, jetzt.toISOString(), userId)
+        .run(handle, now.toISOString(), userId)
     })()
     return null
   }
 
   /** Der aktuelle Handle eines Kontos; null nur bei unbekannter ID. */
-  handleVon(userId: string): string | null {
-    const zeile = this.db.prepare('SELECT handle FROM users WHERE id = ?').get(userId) as
+  handleOf(userId: string): string | null {
+    const row = this.db.prepare('SELECT handle FROM users WHERE id = ?').get(userId) as
       { handle: string | null } | undefined
-    return zeile?.handle ?? null
+    return row?.handle ?? null
   }
 
   /** Öffentliches Profil eines Benutzers; null, wenn es ihn nicht gibt. */
-  profil(userId: string): Profile | null {
-    const zeile = this.db
+  profile(userId: string): Profile | null {
+    const row = this.db
       .prepare(
         `SELECT handle, display_name, bio, location, website, instagram, avatar, banner, profile_visibility
          FROM users WHERE id = ?`,
@@ -762,17 +761,17 @@ export class AuthService {
           profile_visibility: string
         }
       | undefined
-    if (!zeile) return null
+    if (!row) return null
     return {
-      handle: zeile.handle,
-      displayName: zeile.display_name,
-      bio: zeile.bio,
-      location: zeile.location,
-      website: zeile.website,
-      instagram: zeile.instagram,
-      avatar: zeile.avatar,
-      banner: zeile.banner,
-      visibility: zeile.profile_visibility === 'public' ? 'public' : 'private',
+      handle: row.handle,
+      displayName: row.display_name,
+      bio: row.bio,
+      location: row.location,
+      website: row.website,
+      instagram: row.instagram,
+      avatar: row.avatar,
+      banner: row.banner,
+      visibility: row.profile_visibility === 'public' ? 'public' : 'private',
     }
   }
 
@@ -785,48 +784,50 @@ export class AuthService {
    * Anzeigename bliebe stehen. (Die Spaltennamen stammen aus dem Code, nicht
    * aus der Anfrage.)
    */
-  setzeProfil(userId: string, aenderung: ProfileUpdate): void {
-    const zuweisungen: string[] = []
-    const werte: Array<string | null> = []
-    if (aenderung.displayName !== undefined) {
-      zuweisungen.push('display_name = ?')
-      werte.push(leerAlsNull(aenderung.displayName))
+  setProfile(userId: string, update: ProfileUpdate): void {
+    const assignments: string[] = []
+    const values: Array<string | null> = []
+    if (update.displayName !== undefined) {
+      assignments.push('display_name = ?')
+      values.push(emptyAsNull(update.displayName))
     }
-    if (aenderung.bio !== undefined) {
-      zuweisungen.push('bio = ?')
-      werte.push(leerAlsNull(aenderung.bio))
+    if (update.bio !== undefined) {
+      assignments.push('bio = ?')
+      values.push(emptyAsNull(update.bio))
     }
-    if (aenderung.location !== undefined) {
-      zuweisungen.push('location = ?')
-      werte.push(leerAlsNull(aenderung.location))
+    if (update.location !== undefined) {
+      assignments.push('location = ?')
+      values.push(emptyAsNull(update.location))
     }
     // Website und Instagram werden auf die nackte Form gebracht; was keine
-    // Adresse ist, wird zu NULL statt geraten (s. profilfelder.ts). Ein leeres
+    // Adresse ist, wird zu NULL statt geraten (s. profile-fields.ts). Ein leeres
     // Feld heißt hier wie überall „löschen".
-    if (aenderung.website !== undefined) {
-      zuweisungen.push('website = ?')
-      werte.push(normalizeWebsite(aenderung.website))
+    if (update.website !== undefined) {
+      assignments.push('website = ?')
+      values.push(normalizeWebsite(update.website))
     }
-    if (aenderung.instagram !== undefined) {
-      zuweisungen.push('instagram = ?')
-      werte.push(normalizeInstagram(aenderung.instagram))
+    if (update.instagram !== undefined) {
+      assignments.push('instagram = ?')
+      values.push(normalizeInstagram(update.instagram))
     }
-    if (aenderung.visibility !== undefined) {
-      zuweisungen.push('profile_visibility = ?')
-      werte.push(aenderung.visibility)
+    if (update.visibility !== undefined) {
+      assignments.push('profile_visibility = ?')
+      values.push(update.visibility)
     }
-    if (zuweisungen.length === 0) return
-    this.db.prepare(`UPDATE users SET ${zuweisungen.join(', ')} WHERE id = ?`).run(...werte, userId)
+    if (assignments.length === 0) return
+    this.db
+      .prepare(`UPDATE users SET ${assignments.join(', ')} WHERE id = ?`)
+      .run(...values, userId)
   }
 
   /** Avatar-Dateiname vermerken (die Datei selbst legt der Aufrufer ab). */
-  setzeAvatar(userId: string, datei: string | null): void {
+  setAvatar(userId: string, datei: string | null): void {
     this.db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(datei, userId)
   }
 
   /** Titelbild vermerken — Name eines Vorschlags ODER Pfad im Benutzer-Storage. */
-  setzeTitelbild(userId: string, wert: string | null): void {
-    this.db.prepare('UPDATE users SET banner = ? WHERE id = ?').run(wert, userId)
+  setBanner(userId: string, value: string | null): void {
+    this.db.prepare('UPDATE users SET banner = ? WHERE id = ?').run(value, userId)
   }
 
   /**
@@ -842,8 +843,8 @@ export class AuthService {
    * und so bleibt es eine Abfrage. Touren ohne Statistik zählen als Tour, aber
    * mit 0 km — `SUM` überspringt NULL von selbst.
    */
-  kennzahlen(userId: string): { tours: number; km: number; elevationGain: number } {
-    const zeile = this.db
+  profileStats(userId: string): { tours: number; km: number; elevationGain: number } {
+    const row = this.db
       .prepare(
         `SELECT COUNT(*) AS tours,
                 COALESCE(SUM(json_extract(stats_json, '$.km')), 0) AS km,
@@ -852,7 +853,7 @@ export class AuthService {
          WHERE owner_id = ? AND visibility = 'public' AND status = 'ready'`,
       )
       .get(userId) as { tours: number; km: number; elevationGain: number }
-    return { tours: zeile.tours, km: zeile.km, elevationGain: Math.round(zeile.elevationGain) }
+    return { tours: row.tours, km: row.km, elevationGain: Math.round(row.elevationGain) }
   }
 
   // — Benutzerverwaltung (Admin) —
@@ -866,8 +867,8 @@ export class AuthService {
    * Speicher steht bewusst NICHT hier — er liegt im Storage, nicht in der DB,
    * und wird von der Route nachgereicht.
    */
-  alleBenutzer(): UserRow[] {
-    const zeilen = this.db
+  allUsers(): UserRow[] {
+    const rows = this.db
       .prepare(
         `SELECT id, email, name, role, email_verified, created_at, display_name,
                 (SELECT COUNT(*) FROM tours WHERE tours.owner_id = users.id) AS tours
@@ -883,11 +884,11 @@ export class AuthService {
       display_name: string | null
       tours: number
     }>
-    return zeilen.map((z) => ({
+    return rows.map((z) => ({
       id: z.id,
       email: z.email,
       name: z.name,
-      role: alsRolle(z.role),
+      role: asRole(z.role),
       verified: !!z.email_verified,
       createdAt: z.created_at,
       displayName: z.display_name,
@@ -896,12 +897,12 @@ export class AuthService {
   }
 
   /** Ein Konto der Verwaltung; null, wenn es die ID nicht gibt. */
-  benutzerNachId(userId: string): UserRow | null {
-    return this.alleBenutzer().find((b) => b.id === userId) ?? null
+  userById(userId: string): UserRow | null {
+    return this.allUsers().find((b) => b.id === userId) ?? null
   }
 
   /** Wie viele Konten haben die Admin-Rolle? (Schutz vor dem letzten Abgang.) */
-  anzahlAdmins(): number {
+  adminCount(): number {
     return (
       this.db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`).get() as {
         n: number
@@ -911,40 +912,40 @@ export class AuthService {
 
   /**
    * Kontofelder ändern. Nur übergebene Felder werden angefasst — dieselbe
-   * Bauweise wie `setzeProfil`, aus demselben Grund (COALESCE könnte „leeren"
+   * Bauweise wie `setProfile`, aus demselben Grund (COALESCE könnte „leeren"
    * nicht von „nicht angefasst" unterscheiden).
    *
    * Eine geänderte E-Mail gilt als unbestätigt weiter: `verifiziert` wird
    * NICHT automatisch zurückgesetzt, weil ein Admin die Adresse gerade
    * bewusst korrigiert hat — er kann den Haken selbst setzen.
    */
-  aendereKonto(userId: string, aenderung: AccountUpdate): void {
-    const zuweisungen: string[] = []
-    const werte: Array<string | number> = []
-    if (aenderung.email !== undefined) {
-      zuweisungen.push('email = ?')
-      werte.push(aenderung.email.toLowerCase().trim())
+  updateAccount(userId: string, update: AccountUpdate): void {
+    const assignments: string[] = []
+    const values: Array<string | number> = []
+    if (update.email !== undefined) {
+      assignments.push('email = ?')
+      values.push(update.email.toLowerCase().trim())
     }
-    if (aenderung.name !== undefined) {
-      zuweisungen.push('name = ?')
-      werte.push(aenderung.name.trim())
+    if (update.name !== undefined) {
+      assignments.push('name = ?')
+      values.push(update.name.trim())
     }
-    if (aenderung.role !== undefined) {
-      zuweisungen.push('role = ?')
-      werte.push(aenderung.role)
+    if (update.role !== undefined) {
+      assignments.push('role = ?')
+      values.push(update.role)
     }
-    if (aenderung.verified !== undefined) {
-      zuweisungen.push('email_verified = ?')
-      werte.push(aenderung.verified ? 1 : 0)
+    if (update.verified !== undefined) {
+      assignments.push('email_verified = ?')
+      values.push(update.verified ? 1 : 0)
     }
-    if (!zuweisungen.length) return
+    if (!assignments.length) return
     try {
       this.db
-        .prepare(`UPDATE users SET ${zuweisungen.join(', ')} WHERE id = ?`)
-        .run(...werte, userId)
-    } catch (fehler) {
-      if (String(fehler).includes('UNIQUE')) throw new EmailTakenError()
-      throw fehler
+        .prepare(`UPDATE users SET ${assignments.join(', ')} WHERE id = ?`)
+        .run(...values, userId)
+    } catch (error) {
+      if (String(error).includes('UNIQUE')) throw new EmailTakenError()
+      throw error
     }
   }
 
@@ -962,7 +963,7 @@ export class AuthService {
    * Touren via ON DELETE CASCADE). Die Storage-Dateien räumt der Aufrufer davor
    * ab (er kennt den Storage) — hier fällt nur die DB-Seite.
    */
-  loescheBenutzer(userId: string): void {
+  deleteUser(userId: string): void {
     this.db.prepare('DELETE FROM users WHERE id = ?').run(userId)
   }
 }

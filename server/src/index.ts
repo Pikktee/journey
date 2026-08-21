@@ -71,10 +71,10 @@ const app = buildApp({
   push,
   mail,
 })
-await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)
+await app.auth.seedAdmin(konfig.adminEmail, konfig.adminPasswort)
 // Boot-Garantie: Die konfigurierten Adressen sind Admin — auch wenn das Konto
 // erst nach dem letzten Start entstanden ist. Damit sperrt sich niemand aus.
-const gehoben = app.auth.hebeAdmins(konfig.adminEmails)
+const gehoben = app.auth.promoteAdmins(konfig.adminEmails)
 if (gehoben > 0) app.log.info(`${gehoben} Konto/Konten auf die Admin-Rolle gehoben`)
 
 // Abgelaufene Wartelisten-Einträge löschen: einmal beim Start und danach
@@ -83,7 +83,7 @@ if (gehoben > 0) app.log.info(`${gehoben} Konto/Konten auf die Admin-Rolle gehob
 // Dazu die überholten Newsletter-Protokollzeilen: Der Nachweis muss drei Jahre
 // tragen, danach ist er Sammeln ohne Zweck (s. NewsletterService.raeumeAuf).
 const raeumeWarteliste = (): void => {
-  const weg = app.warteliste.raeumeAuf()
+  const weg = app.warteliste.purgeExpired()
   if (weg > 0) app.log.info(`${weg} abgelaufene Wartelisten-Einträge gelöscht`)
   const alteEinwilligungen = app.newsletter.raeumeAuf()
   if (alteEinwilligungen > 0)

@@ -299,7 +299,7 @@ eigenen Touren hat. `User.role` hängt an jeder aufgelösten Sitzung und kommt �
 `/auth/me` bis in die Oberfläche.
 
 **Wer Admin ist, entscheidet zuerst die Konfiguration.** `MAPTALE_ADMINS` (Default:
-Henriks beide Adressen) wird bei JEDEM Start auf die Admin-Rolle gehoben — `hebeAdmins` in
+Henriks beide Adressen) wird bei JEDEM Start auf die Admin-Rolle gehoben — `promoteAdmins` in
 [auth.ts](src/auth/auth.ts). Das ist bewusst eine Boot-Garantie und keine einmalige
 Migration: So kann sich niemand aussperren, und ein Konto, das es beim Umstellen noch gar nicht
 gab, wird Admin, sobald es angelegt ist. Die Kehrseite: Diese Konten lassen sich in der
@@ -346,8 +346,8 @@ das beheben lässt. Der Link aus der Verwaltung (`/registrieren#einladung=CODE`)
 sofort und überspringt Schritt 1; wie `#verify=`/`#reset=` wirkt er nur beim Laden der Seite,
 nicht bei einem Hash-Wechsel in einem offenen Tab.
 
-**Wer keinen Code hat, kommt auf die Warteliste** ([server/src/auth/warteliste.ts](src/auth/waitlist.ts),
-[routes/warteliste.ts](src/routes/waitlist.ts)) — die Kehrseite der Einladungspflicht:
+**Wer keinen Code hat, kommt auf die Warteliste** ([server/src/auth/waitlist.ts](src/auth/waitlist.ts),
+[routes/waitlist.ts](src/routes/waitlist.ts)) — die Kehrseite der Einladungspflicht:
 Adresse hinterlassen, der Betreiber lädt gezielt nach. Vier Dinge tragen das, und jedes davon
 lässt sich „vereinfachen", bis es rechtlich kippt:
 **Double-Opt-in** — ein Eintrag zählt erst nach dem Klick in der Bestätigungsmail; ohne ihn
@@ -355,13 +355,13 @@ trüge jeder fremde Adressen ein, und der Einwilligungs-Nachweis (Art. 7 Abs. 1 
 Zeitpunkt UND IP beider Schritte in der Zeile) fehlte. Eingeladen wird **nur, wer bestätigt
 hat** (409 sonst, doppelt geprüft via `inviteDisabled`).
 **Ein Token für beide Wege** — bestätigen und austragen. Gespeichert ist nur sein Hash, deshalb
-bekommt die Einladungsmail einen FRISCHEN (`erneuereToken`): Es gilt immer der Link aus der
+bekommt die Einladungsmail einen FRISCHEN (`renewToken`): Es gilt immer der Link aus der
 jüngsten Mail. Das Austragen läuft nie auf den bloßen Link-Aufruf, sondern über einen Knopf —
 Mail-Scanner öffnen Links vorab, und eine Löschung durch einen Scanner wollte niemand.
 **Die öffentlichen Routen antworten immer gleich** (`{ok:true}`), egal ob die Adresse neu ist,
 schon wartet oder längst ein Konto hat — sonst wären sie eine Auskunft darüber, wer bei Maptale
 angemeldet ist. Die Oberfläche zeigt darum denselben Satz.
-**Fristen statt Sammlung**: `raeumeAuf` (beim Start und täglich) löscht Unbestätigtes nach 14
+**Fristen statt Sammlung**: `purgeExpired` (beim Start und täglich) löscht Unbestätigtes nach 14
 Tagen, Wartende nach einem Jahr, Eingeladene 90 Tage nach dem Code.
 Ob das Formular überhaupt vor der Tür steht, entscheidet `waitlistOffered` aus DREI Werten
 (eigener Schalter, Einladungspflicht, Env-Riegel) — bei offener Registrierung wäre „trag dich

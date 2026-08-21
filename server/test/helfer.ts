@@ -168,7 +168,7 @@ export async function baueTestApp(
       url.endsWith('erlebnis.html') ? TEST_PLAYER_HTML : TEST_PROFIL_HTML,
     ),
   })
-  await app.auth.legeBenutzerAn('test@example.com', 'geheim123', 'Testerin')
+  await app.auth.createUser('test@example.com', 'geheim123', 'Testerin')
 
   // ZWEI Anmeldungen, weil es zwei Sorten Client gibt und sie sich seit
   // 2026-08-10 ausschließen: Der Browser bekommt eine Sitzung, der API-Client
@@ -207,7 +207,7 @@ export async function baueTestApp(
  * Tests, die den offenen Fluss prüfen, machen die Tür hier ausdrücklich auf.
  */
 export function oeffneRegistrierung(u: TestUmgebung): void {
-  u.app.einladungen.setzePflicht(false)
+  u.app.einladungen.setRequired(false)
 }
 
 /** Zweiter Benutzer mit Admin-Rolle, samt Session-Cookie für inject(). */
@@ -216,7 +216,7 @@ export async function legeAdminAn(
   email = 'chefin@example.com',
   password = 'adminadmin',
 ): Promise<{ id: string; cookies: { maptale_session: string } }> {
-  const user = await u.app.auth.legeBenutzerAn(email, password, 'Chefin', true, 'admin')
+  const user = await u.app.auth.createUser(email, password, 'Chefin', true, 'admin')
   const login = await u.app.inject({
     method: 'POST',
     url: '/api/auth/login',

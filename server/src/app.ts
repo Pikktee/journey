@@ -143,7 +143,7 @@ declare module 'fastify' {
      * Mit WELCHEM App-Token diese Anfrage kam (null bei Sitzungs-Cookie).
      *
      * Nur die Push-Registrierung liest das: Ihr Gerät soll mit genau diesem
-     * Zugang stehen und fallen (s. `AuthService.anmeldungAusToken`).
+     * Zugang stehen und fallen (s. `AuthService.resolveToken`).
      */
     appTokenId: string | null
   }
@@ -194,13 +194,13 @@ export function buildApp(deps: AppDependencies): FastifyInstance {
   app.addHook('preHandler', async (request) => {
     const auth = request.headers.authorization
     if (auth?.startsWith('Bearer ')) {
-      const anmeldung = app.auth.anmeldungAusToken(auth.slice('Bearer '.length).trim())
-      request.benutzer = anmeldung?.benutzer ?? null
+      const anmeldung = app.auth.resolveToken(auth.slice('Bearer '.length).trim())
+      request.benutzer = anmeldung?.user ?? null
       request.appTokenId = anmeldung?.tokenId ?? null
       return
     }
     const sessionId = request.cookies[SESSION_COOKIE]
-    if (sessionId) request.benutzer = app.auth.benutzerAusSession(sessionId)
+    if (sessionId) request.benutzer = app.auth.userFromSession(sessionId)
   })
 
   app.setErrorHandler(

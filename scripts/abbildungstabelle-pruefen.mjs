@@ -106,7 +106,7 @@ const welt = (f) => {
  * Client-Vertrags-Wächter, und dieselbe Stelle, an der die Prüfung still zu
  * wenig tut, wenn jemand sie vergisst.
  */
-const GEBAUTE_WELLEN = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+const GEBAUTE_WELLEN = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'])
 const BEDINGUNG =
   /bis welle|nach welle|geh(oe|ö)rt nach|pr(ue|ü)fen|grenzfall|offen|vorerst|zun(ae|ä)chst|sp(ae|ä)ter|solange|sobald/i
 const aufgeschoben = zeilen.filter(

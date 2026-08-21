@@ -66,8 +66,8 @@ describe('Vergabe', () => {
 
   it('zählt hoch, wenn der Name schon vergeben ist', async () => {
     const u = await baueTestApp()
-    const zweiter = await u.app.auth.legeBenutzerAn('test@anders.example', 'geheim123', 'Zweite')
-    expect(u.app.auth.handleVon(zweiter.id)).toBe('test2')
+    const zweiter = await u.app.auth.createUser('test@anders.example', 'geheim123', 'Zweite')
+    expect(u.app.auth.handleOf(zweiter.id)).toBe('test2')
   })
 })
 
@@ -108,7 +108,7 @@ describe('Handle ändern', () => {
 
   it('lehnt einen fremden Handle mit 409 ab', async () => {
     const u = await baueTestApp()
-    await u.app.auth.legeBenutzerAn('anna@example.com', 'geheim123', 'Anna')
+    await u.app.auth.createUser('anna@example.com', 'geheim123', 'Anna')
     const antwort = await patch(u, { handle: 'anna' })
     expect(antwort.statusCode).toBe(409)
     expect(await meinHandle(u)).toBe('test')
@@ -118,7 +118,7 @@ describe('Handle ändern', () => {
     // Sonst wäre die 409-Antwort eine Lüge über den Zustand: Bio geschrieben,
     // Adresse nicht.
     const u = await baueTestApp()
-    await u.app.auth.legeBenutzerAn('anna@example.com', 'geheim123', 'Anna')
+    await u.app.auth.createUser('anna@example.com', 'geheim123', 'Anna')
     await patch(u, { handle: 'anna', bio: 'Neue Bio' })
     const me = (
       await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
@@ -133,10 +133,10 @@ describe('90-Tage-Sperre', () => {
   it('hält den aufgegebenen Handle für andere fest', async () => {
     const u = await baueTestApp()
     await patch(u, { handle: 'henrik' })
-    const anna = await u.app.auth.legeBenutzerAn('anna@example.com', 'geheim123', 'Anna')
+    const anna = await u.app.auth.createUser('anna@example.com', 'geheim123', 'Anna')
     // Anna kann Henriks alte Adresse nicht übernehmen — sonst erbte sie alle
     // Links, die noch auf ihn zeigen.
-    expect(u.app.auth.setzeHandle(anna.id, 'test')).toBe('taken')
+    expect(u.app.auth.setHandle(anna.id, 'test')).toBe('taken')
   })
 
   it('lässt den früheren Besitzer zurück', async () => {
@@ -151,8 +151,8 @@ describe('90-Tage-Sperre', () => {
     u.app.deps.db
       .prepare('UPDATE reserved_handles SET free_from = ?')
       .run('2020-01-01T00:00:00.000Z')
-    const anna = await u.app.auth.legeBenutzerAn('anna@example.com', 'geheim123', 'Anna')
-    expect(u.app.auth.setzeHandle(anna.id, 'test')).toBeNull()
+    const anna = await u.app.auth.createUser('anna@example.com', 'geheim123', 'Anna')
+    expect(u.app.auth.setHandle(anna.id, 'test')).toBeNull()
   })
 })
 

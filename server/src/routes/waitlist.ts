@@ -42,7 +42,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
 
   /** Steht das Formular vor der Tür überhaupt? */
   const angeboten = (): boolean =>
-    waitlistOffered(app.warteliste.offen(), app.einladungen.pflicht(), konfig.registrierungOffen)
+    waitlistOffered(app.warteliste.open(), app.einladungen.required(), konfig.registrierungOffen)
 
   const bestaetigungsLink = (token: string): string =>
     `${konfig.basisUrl}${WEB_PATHS.register}#warteliste=${token}`
@@ -80,12 +80,8 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       // Wer schon ein Konto hat, gehört nicht auf die Warteliste — er soll sich
       // anmelden. Auch das bleibt unbeantwortet: Die Route sagt nicht, welche
       // Adressen registriert sind.
-      if (!app.auth.emailVergeben(email)) {
-        const { token } = app.warteliste.trageEin(
-          email,
-          request.body.note ?? null,
-          request.ip || null,
-        )
+      if (!app.auth.emailTaken(email)) {
+        const { token } = app.warteliste.join(email, request.body.note ?? null, request.ip || null)
         if (token) {
           const { betreff, text, html } = app.mailvorlagen.rendere(
             'waitlist',
@@ -122,7 +118,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
           .code(429)
           .send({ error: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
-      const eintrag = app.warteliste.bestaetige(request.body.token, request.ip || null)
+      const eintrag = app.warteliste.confirm(request.body.token, request.ip || null)
       if (!eintrag) return reply.code(400).send({ error: 'Dieser Link gilt nicht mehr.' })
       return { ok: true, email: eintrag.email }
     },
@@ -154,11 +150,11 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       // wartet: Sie trägt die Adresse als Notiz, und „wir löschen sie sofort"
       // wäre sonst nur halb wahr. Eine EINGELÖSTE Einladung bleibt stehen —
       // dann gibt es ein Konto, und sie ist dessen Herkunftsnachweis.
-      const eintrag = app.warteliste.nachToken(request.body.token)
-      if (eintrag?.invitedCode && app.einladungen.pruefe(eintrag.invitedCode) !== 'verbraucht') {
-        app.einladungen.widerrufe(eintrag.invitedCode)
+      const eintrag = app.warteliste.byToken(request.body.token)
+      if (eintrag?.invitedCode && app.einladungen.check(eintrag.invitedCode) !== 'used') {
+        app.einladungen.revoke(eintrag.invitedCode)
       }
-      app.warteliste.trageAus(request.body.token)
+      app.warteliste.leave(request.body.token)
       return { ok: true }
     },
   )
@@ -168,8 +164,8 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
   app.get('/api/admin/waitlist', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
     return {
-      entries: app.warteliste.alle(),
-      waitlistOpen: app.warteliste.offen(),
+      entries: app.warteliste.all(),
+      waitlistOpen: app.warteliste.open(),
       /** Ob das Formular gerade wirklich vor der Tür steht — der Schalter allein sagt das nicht. */
       offered: angeboten(),
     }
@@ -194,7 +190,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const admin = requireAdmin(request, reply)
       if (!admin) return
-      const eintrag = app.warteliste.nachId(request.params.id)
+      const eintrag = app.warteliste.byId(request.params.id)
       if (!eintrag) return reply.code(404).send({ error: 'Unbekannter Eintrag' })
       if (eintrag.state === 'unconfirmed') {
         return reply.code(409).send({ error: 'Diese Adresse ist noch nicht bestätigt' })
@@ -202,18 +198,18 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       if (eintrag.state === 'invited') {
         return reply.code(409).send({ error: 'Diese Adresse wurde bereits eingeladen' })
       }
-      if (app.auth.emailVergeben(eintrag.email)) {
+      if (app.auth.emailTaken(eintrag.email)) {
         return reply.code(409).send({ error: 'Zu dieser Adresse gibt es bereits ein Konto' })
       }
 
       const tage = request.body?.validDays ?? DEFAULT_VALID_DAYS
       // Die Adresse als Notiz: In der Einladungsliste steht später sonst ein
       // Code ohne Empfänger.
-      const einladung = app.einladungen.erstelle(admin.id, eintrag.email, tage || null)
+      const einladung = app.einladungen.create(admin.id, eintrag.email, tage || null)
       // Frischer Token für den Austragen-Link: Den aus der Bestätigungsmail
       // kennt der Server nur als Hash. Die jüngste Mail trägt damit immer den
       // gültigen Weg hinaus — die ältere wird still stumpf.
-      const austragToken = app.warteliste.erneuereToken(eintrag.id)
+      const austragToken = app.warteliste.renewToken(eintrag.id)
       const { betreff, text, html } = app.mailvorlagen.rendere(
         'waitlist-invitation',
         { code: einladung.code, leaveLink: austragenLink(austragToken) },
@@ -225,18 +221,18 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       try {
         await mail.sende({ an: eintrag.email, betreff, text, html })
       } catch (fehler) {
-        app.einladungen.widerrufe(einladung.code)
+        app.einladungen.revoke(einladung.code)
         app.log.error({ fehler }, 'Warteliste-Einladungsmail konnte nicht versendet werden')
         return reply.code(502).send({ error: 'Die Einladung konnte nicht versendet werden' })
       }
-      app.warteliste.markiereEingeladen(eintrag.id, einladung.code)
-      return { entry: app.warteliste.nachId(eintrag.id), invitation: einladung }
+      app.warteliste.markInvited(eintrag.id, einladung.code)
+      return { entry: app.warteliste.byId(eintrag.id), invitation: einladung }
     },
   )
 
   app.delete<{ Params: { id: string } }>('/api/admin/waitlist/:id', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
-    if (!app.warteliste.loesche(request.params.id)) {
+    if (!app.warteliste.remove(request.params.id)) {
       return reply.code(404).send({ error: 'Unbekannter Eintrag' })
     }
     return { ok: true }

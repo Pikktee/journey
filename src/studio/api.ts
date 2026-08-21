@@ -152,7 +152,7 @@ export function register(
  * Schritt 1 der Registrierung: Ist dieser Einladungscode gültig?
  *
  * Verbraucht ihn NICHT — das passiert erst beim Anlegen des Kontos. Wirft mit
- * der Begründung des Servers (unbekannt / verbraucht / abgelaufen).
+ * der Begründung des Servers (unknown / used / expired).
  */
 export function checkInvitation(code: string): Promise<{ ok: boolean; required: boolean }> {
   return anfrage('/auth/check-invitation', {

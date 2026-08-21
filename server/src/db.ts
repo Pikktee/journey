@@ -108,7 +108,7 @@ const MIGRATIONEN: Migration[] = [
   // `rolle` ist bewusst ein Textfeld mit zwei Werten und keine eigene Tabelle —
   // es gibt genau zwei Rollen, und ein Rechtesystem für zwei Rollen wäre
   // Beiwerk. Bestandskonten werden 'nutzer'; wer Admin ist, entscheidet beim
-  // Start die Konfiguration (s. AuthService.hebeAdmins).
+  // Start die Konfiguration (s. AuthService.promoteAdmins).
   //
   // Einladungen sind EINMAL einlösbar: eine Einladung gilt einer Person. Der
   // Code steht im Klartext, weil der Admin ihn weitergeben können muss — er ist
@@ -253,7 +253,7 @@ const MIGRATIONEN: Migration[] = [
   // einzige Frage, die hier gestellt wird — war ich das, oder war das jemand
   // anderes?
   //
-  // `zuletzt_gesehen` wird gedrosselt fortgeschrieben (s. AuthService.sieheSession):
+  // `zuletzt_gesehen` wird gedrosselt fortgeschrieben (s. AuthService.userFromSession):
   // ein UPDATE pro Anfrage wäre ein Schreibvorgang für jedes geladene Bild.
   //
   // Der E-Mail-Wechsel braucht einen dritten Token-Zweck UND einen Platz für

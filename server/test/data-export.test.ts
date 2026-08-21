@@ -61,7 +61,7 @@ describe('Auftragsverwaltung', () => {
     // in einer Prüfung im Code — zwischen SELECT und INSERT läge sonst ein
     // Fenster, in dem beide Anfragen dasselbe sehen.
     const u = await baueTestApp()
-    const wer = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+    const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
     const erste = u.app.exporte.fordereAn(wer)
     const zweite = u.app.exporte.fordereAn(wer)
     expect(erste.neu).toBe(true)
@@ -73,7 +73,7 @@ describe('Auftragsverwaltung', () => {
 
   it('lässt nach einem fertigen Auftrag einen neuen zu', async () => {
     const u = await baueTestApp()
-    const wer = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+    const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
     const erste = u.app.exporte.fordereAn(wer)
     u.app.exporte.melde(erste.stand.id, 100, 3)
     expect(u.app.exporte.fordereAn(wer).neu).toBe(true)
@@ -81,7 +81,7 @@ describe('Auftragsverwaltung', () => {
 
   it('setzt die Frist ab der FERTIGSTELLUNG', async () => {
     const u = await baueTestApp()
-    const wer = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+    const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
     const a = u.app.exporte.fordereAn(wer)
     const fertig = u.app.exporte.melde(a.stand.id, 100, 3)
     const spanne = new Date(fertig!.expiresAt!).getTime() - new Date(fertig!.finishedAt!).getTime()
@@ -144,7 +144,7 @@ describe('Konto löschen', () => {
     // Aufräumer die Datei nie wieder, und ein ZIP mit ALLEN Daten des
     // gelöschten Kontos bliebe für immer liegen.
     const u = await baueTestApp()
-    const wer = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+    const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
     const a = u.app.exporte.fordereAn(wer)
     await u.archive.schreibe(a.stand.id, 'maptale-export.zip', Buffer.from('daten'))
     u.app.exporte.melde(a.stand.id, 5, 1)
@@ -186,7 +186,7 @@ describe('Inhalt', () => {
 
   it('sammelt Konto samt Newsletter-Historie', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+    const id = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
     u.app.newsletter.setze(id, true, 'account')
     const konto = collectAccount(u.app.deps.db, id)!
     expect(konto.email).toBe('test@example.com')
@@ -200,7 +200,7 @@ describe('Inhalt', () => {
 
   it('legt jede Tour mit ihren Medien ab — ohne den Anreicherungs-Cache', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+    const id = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
     await createTour(u, '1', 'Runde bei Lauterbrunnen')
     const entries = await collectEntries(
       { db: u.app.deps.db, storage: u.storage },
@@ -221,7 +221,7 @@ describe('Inhalt', () => {
 
   it('nennt im Begleittext, was drin ist und was nicht', async () => {
     const u = await baueTestApp()
-    const id = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+    const id = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
     const text = buildReadme(
       collectAccount(u.app.deps.db, id)!,
       collectTours(u.app.deps.db, id),
@@ -278,7 +278,7 @@ describe('Routen', () => {
     // Auf den Hintergrundlauf warten — er hängt an keinem await der Route.
     await warteAufFertig(u)
 
-    const stand = u.app.exporte.stand(u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id)!
+    const stand = u.app.exporte.stand(u.app.auth.userFromSession(u.cookies.maptale_session)!.id)!
     expect(stand.status).toBe('done')
     expect(stand.bytes).toBeGreaterThan(0)
 
@@ -335,7 +335,7 @@ describe('Größenangabe', () => {
 
 /** Wartet, bis der Hintergrundlauf den Auftrag abgeschlossen hat. */
 async function warteAufFertig(u: TestUmgebung): Promise<void> {
-  const id = u.app.auth.benutzerAusSession(u.cookies.maptale_session)!.id
+  const id = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
   for (let i = 0; i < 100; i++) {
     if (u.app.exporte.stand(id)?.status !== 'running') return
     await new Promise((r) => setTimeout(r, 20))

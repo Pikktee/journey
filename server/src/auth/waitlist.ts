@@ -2,7 +2,7 @@
 //
 // Sie ist die Kehrseite des Einladungs-Schalters: Solange eine Einladung Pflicht
 // ist, steht vor der Tür ein Formular, in das man seine Adresse legt; der
-// Betreiber lädt daraus gezielt nach ([einladungen.ts](./einladungen.ts) erzeugt
+// Betreiber lädt daraus gezielt nach ([invitations.ts](./invitations.ts) erzeugt
 // den Code, diese Datei nur die Schlange davor).
 //
 // Drei Dinge unterscheiden sie von einer simplen Adressliste:
@@ -15,7 +15,7 @@
 //      jeder Mail. Wer die Löschung sonst nur per Mail an den Betreiber bekommt,
 //      hat sein Recht auf Löschung (Art. 17) nur auf dem Papier.
 //   3. **Fristen.** Eine Adresse, die nie bestätigt wurde, ist nach zwei Wochen
-//      wertlos; eine eingeladene nach dem Ablauf ihres Codes. `raeumeAuf` löscht
+//      wertlos; eine eingeladene nach dem Ablauf ihres Codes. `purgeExpired` löscht
 //      beides von selbst — Speicherbegrenzung (Art. 5 Abs. 1 lit. e) ist keine
 //      Aufgabe, an die man sich erinnern sollte.
 
@@ -30,7 +30,7 @@ export const PENDING_RETENTION_DAYS = 365
 /** Nach der Einladung ist der Zweck erfüllt; der Code selbst läuft ohnehin früher ab. */
 export const INVITED_RETENTION_DAYS = 90
 
-const SCHLUESSEL_OFFEN = 'waitlist_open'
+const SETTING_WAITLIST_OPEN = 'waitlist_open'
 
 /**
  * Wird die Warteliste vor der Tür angeboten?
@@ -41,10 +41,10 @@ const SCHLUESSEL_OFFEN = 'waitlist_open'
  * Angebot an DREI Werten und nicht nur am eigenen Schalter.
  */
 export const waitlistOffered = (
-  offen: boolean,
-  einladungPflicht: boolean,
-  registrierungOffen: boolean,
-): boolean => offen && (einladungPflicht || !registrierungOffen)
+  open: boolean,
+  invitationRequired: boolean,
+  registrationOpen: boolean,
+): boolean => open && (invitationRequired || !registrationOpen)
 
 export type WaitlistStatus = 'unconfirmed' | 'pending' | 'invited'
 
@@ -67,7 +67,7 @@ export interface JoinResult {
   token: string | null
 }
 
-interface Zeile {
+interface WaitlistRow {
   id: string
   email: string
   note: string | null
@@ -77,23 +77,23 @@ interface Zeile {
   invited_code: string | null
 }
 
-const sha256 = (wert: string): string => createHash('sha256').update(wert).digest('hex')
+const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex')
 
-const SPALTEN = 'id, email, note, joined_at, confirmed_at, invited_at, invited_code'
+const COLUMNS = 'id, email, note, joined_at, confirmed_at, invited_at, invited_code'
 
-const zuEintrag = (z: Zeile): WaitlistEntry => ({
-  id: z.id,
-  email: z.email,
-  note: z.note,
-  joinedAt: z.joined_at,
-  confirmedAt: z.confirmed_at,
-  invitedAt: z.invited_at,
-  invitedCode: z.invited_code,
-  state: z.invited_at ? 'invited' : z.confirmed_at ? 'pending' : 'unconfirmed',
+const toEntry = (row: WaitlistRow): WaitlistEntry => ({
+  id: row.id,
+  email: row.email,
+  note: row.note,
+  joinedAt: row.joined_at,
+  confirmedAt: row.confirmed_at,
+  invitedAt: row.invited_at,
+  invitedCode: row.invited_code,
+  state: row.invited_at ? 'invited' : row.confirmed_at ? 'pending' : 'unconfirmed',
 })
 
-const vorTagen = (tage: number): string =>
-  new Date(Date.now() - tage * 24 * 60 * 60 * 1000).toISOString()
+const daysAgo = (days: number): string =>
+  new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
 export class WaitlistService {
   constructor(private readonly db: Db) {}
@@ -107,20 +107,20 @@ export class WaitlistService {
    * eine Frage des Betriebs: Wer keine Adressen sammeln will, schaltet sie aus
    * und zeigt vor der Tür nur noch das Codefeld.
    */
-  offen(): boolean {
-    const zeile = this.db
+  open(): boolean {
+    const row = this.db
       .prepare('SELECT value FROM settings WHERE key = ?')
-      .get(SCHLUESSEL_OFFEN) as { value: string } | undefined
-    return zeile ? zeile.value === '1' : true
+      .get(SETTING_WAITLIST_OPEN) as { value: string } | undefined
+    return row ? row.value === '1' : true
   }
 
-  setzeOffen(wert: boolean): void {
+  setOpen(value: boolean): void {
     this.db
       .prepare(
         `INSERT INTO settings (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
       )
-      .run(SCHLUESSEL_OFFEN, wert ? '1' : '0')
+      .run(SETTING_WAITLIST_OPEN, value ? '1' : '0')
   }
 
   // — Eintragen und bestätigen —
@@ -137,17 +137,17 @@ export class WaitlistService {
    * Die Route antwortet in allen Fällen gleich; nur so verrät sie nicht, wer
    * schon auf der Liste steht.
    */
-  trageEin(email: string, notiz: string | null, ip: string | null): JoinResult {
-    const adresse = email.toLowerCase().trim()
-    const vorhanden = this.db
-      .prepare(`SELECT ${SPALTEN} FROM waitlist WHERE email = ?`)
-      .get(adresse) as Zeile | undefined
-    if (vorhanden && (vorhanden.confirmed_at || vorhanden.invited_at)) return { token: null }
+  join(email: string, note: string | null, ip: string | null): JoinResult {
+    const address = email.toLowerCase().trim()
+    const existing = this.db
+      .prepare(`SELECT ${COLUMNS} FROM waitlist WHERE email = ?`)
+      .get(address) as WaitlistRow | undefined
+    if (existing && (existing.confirmed_at || existing.invited_at)) return { token: null }
 
     const token = newTokenSecret()
-    const jetzt = new Date().toISOString()
-    const gestutzt = notiz?.trim() || null
-    if (vorhanden) {
+    const now = new Date().toISOString()
+    const trimmedNote = note?.trim() || null
+    if (existing) {
       // Die Notiz nur ersetzen, wenn diesmal eine kam — ein zweiter Anlauf mit
       // leerem Feld soll den ersten Satz nicht wegwischen.
       this.db
@@ -155,7 +155,7 @@ export class WaitlistService {
           `UPDATE waitlist SET token_hash = ?, joined_at = ?, joined_ip = ?, note = COALESCE(?, note)
            WHERE id = ?`,
         )
-        .run(sha256(token), jetzt, ip, gestutzt, vorhanden.id)
+        .run(sha256(token), now, ip, trimmedNote, existing.id)
       return { token }
     }
     this.db
@@ -163,7 +163,7 @@ export class WaitlistService {
         `INSERT INTO waitlist (id, email, note, token_hash, joined_at, joined_ip)
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      .run(newSessionId(), adresse, gestutzt, sha256(token), jetzt, ip)
+      .run(newSessionId(), address, trimmedNote, sha256(token), now, ip)
     return { token }
   }
 
@@ -174,21 +174,21 @@ export class WaitlistService {
    * Ein bereits bestätigter Eintrag kommt unverändert zurück, statt zu einem
    * „Link ungültig" zu führen, das niemand einordnen könnte.
    */
-  bestaetige(token: string, ip: string | null): WaitlistEntry | null {
-    const zeile = this.db
-      .prepare(`SELECT ${SPALTEN} FROM waitlist WHERE token_hash = ?`)
-      .get(sha256(token)) as Zeile | undefined
-    if (!zeile) return null
-    if (zeile.confirmed_at) return zuEintrag(zeile)
-    const jetzt = new Date().toISOString()
+  confirm(token: string, ip: string | null): WaitlistEntry | null {
+    const row = this.db
+      .prepare(`SELECT ${COLUMNS} FROM waitlist WHERE token_hash = ?`)
+      .get(sha256(token)) as WaitlistRow | undefined
+    if (!row) return null
+    if (row.confirmed_at) return toEntry(row)
+    const now = new Date().toISOString()
     this.db
       .prepare('UPDATE waitlist SET confirmed_at = ?, confirmed_ip = ? WHERE id = ?')
-      .run(jetzt, ip, zeile.id)
-    return zuEintrag({ ...zeile, confirmed_at: jetzt })
+      .run(now, ip, row.id)
+    return toEntry({ ...row, confirmed_at: now })
   }
 
   /** Austragen über den Link aus der Mail — der Weg zur Löschung ohne Konto. */
-  trageAus(token: string): boolean {
+  leave(token: string): boolean {
     return (
       this.db.prepare('DELETE FROM waitlist WHERE token_hash = ?').run(sha256(token)).changes > 0
     )
@@ -202,7 +202,7 @@ export class WaitlistService {
    * Bestätigungsmail lässt sich nicht wieder herstellen. Der alte Link wird
    * damit stumpf; es gilt immer der aus der JÜNGSTEN Mail.
    */
-  erneuereToken(id: string): string {
+  renewToken(id: string): string {
     const token = newTokenSecret()
     this.db.prepare('UPDATE waitlist SET token_hash = ? WHERE id = ?').run(sha256(token), id)
     return token
@@ -217,35 +217,35 @@ export class WaitlistService {
    * nach der EINTRAGUNG, nicht nach der Bestätigung — sonst rutschte nach vorn,
    * wer seine Mail schneller liest.
    */
-  alle(): WaitlistEntry[] {
-    const zeilen = this.db
-      .prepare(`SELECT ${SPALTEN} FROM waitlist ORDER BY joined_at ASC`)
-      .all() as Zeile[]
-    return zeilen.map(zuEintrag)
+  all(): WaitlistEntry[] {
+    const rows = this.db
+      .prepare(`SELECT ${COLUMNS} FROM waitlist ORDER BY joined_at ASC`)
+      .all() as WaitlistRow[]
+    return rows.map(toEntry)
   }
 
-  nachId(id: string): WaitlistEntry | null {
-    const zeile = this.db.prepare(`SELECT ${SPALTEN} FROM waitlist WHERE id = ?`).get(id) as
-      Zeile | undefined
-    return zeile ? zuEintrag(zeile) : null
+  byId(id: string): WaitlistEntry | null {
+    const row = this.db.prepare(`SELECT ${COLUMNS} FROM waitlist WHERE id = ?`).get(id) as
+      WaitlistRow | undefined
+    return row ? toEntry(row) : null
   }
 
   /** Wer hinter einem Mail-Token steckt — für das Aufräumen VOR dem Austragen. */
-  nachToken(token: string): WaitlistEntry | null {
-    const zeile = this.db
-      .prepare(`SELECT ${SPALTEN} FROM waitlist WHERE token_hash = ?`)
-      .get(sha256(token)) as Zeile | undefined
-    return zeile ? zuEintrag(zeile) : null
+  byToken(token: string): WaitlistEntry | null {
+    const row = this.db
+      .prepare(`SELECT ${COLUMNS} FROM waitlist WHERE token_hash = ?`)
+      .get(sha256(token)) as WaitlistRow | undefined
+    return row ? toEntry(row) : null
   }
 
   /** Hält fest, dass für diesen Eintrag ein Code erzeugt und verschickt wurde. */
-  markiereEingeladen(id: string, code: string): void {
+  markInvited(id: string, code: string): void {
     this.db
       .prepare('UPDATE waitlist SET invited_at = ?, invited_code = ? WHERE id = ?')
       .run(new Date().toISOString(), code, id)
   }
 
-  loesche(id: string): boolean {
+  remove(id: string): boolean {
     return this.db.prepare('DELETE FROM waitlist WHERE id = ?').run(id).changes > 0
   }
 
@@ -256,8 +256,8 @@ export class WaitlistService {
    * Betreiber: Eine Liste, die nur wächst, ist eine Datensammlung — keine
    * Warteschlange.
    */
-  raeumeAuf(): number {
-    const erg = this.db
+  purgeExpired(): number {
+    const result = this.db
       .prepare(
         `DELETE FROM waitlist WHERE
            (confirmed_at IS NULL AND joined_at < ?)
@@ -265,10 +265,10 @@ export class WaitlistService {
            OR (invited_at IS NOT NULL AND invited_at < ?)`,
       )
       .run(
-        vorTagen(UNCONFIRMED_RETENTION_DAYS),
-        vorTagen(PENDING_RETENTION_DAYS),
-        vorTagen(INVITED_RETENTION_DAYS),
+        daysAgo(UNCONFIRMED_RETENTION_DAYS),
+        daysAgo(PENDING_RETENTION_DAYS),
+        daysAgo(INVITED_RETENTION_DAYS),
       )
-    return erg.changes
+    return result.changes
   }
 }
