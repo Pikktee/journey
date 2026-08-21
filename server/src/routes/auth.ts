@@ -27,7 +27,7 @@ interface LoginBody {
  * `ProfileUpdate`: Beide können scheitern bzw. brauchen eine eigene Behandlung
  * (Aufräumen der alten Datei) und laufen deshalb an `setzeProfil` vorbei — s. Route.
  */
-type ProfilBody = ProfileUpdate & { handle?: string; banner?: string }
+type ProfileBody = ProfileUpdate & { handle?: string; banner?: string }
 
 /**
  * Ein Profilbild ist ein Vorschaubild, kein Foto-Upload — die App skaliert vor
@@ -42,7 +42,7 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024
  * Banner ist kein Medien-Upload, und die Quota fasst es (wie den Avatar) nicht
  * an.
  */
-const MAX_TITELBILD_BYTES = 8 * 1024 * 1024
+const MAX_BANNER_BYTES = 8 * 1024 * 1024
 
 /**
  * Öffentlicher Pfad eines Avatars.
@@ -52,23 +52,23 @@ const MAX_TITELBILD_BYTES = 8 * 1024 * 1024
  * Cache. Ohne ihn zeigte der Browser nach einem Bildwechsel weiter das alte
  * Bild — bei `immutable` ein Jahr lang.
  */
-const avatarUrl = (userId: string, datei: string): string =>
-  `/api/users/${userId}/avatar?v=${encodeURIComponent(datei)}`
+const avatarUrl = (userId: string, file: string): string =>
+  `/api/users/${userId}/avatar?v=${encodeURIComponent(file)}`
 
 /** Das eigene Profil, wie es `/auth/me` und der Profil-PATCH ausliefern. */
-function alsProfilAntwort(app: FastifyInstance, userId: string) {
-  const profil = app.auth.profile(userId)
+function asProfileResponse(app: FastifyInstance, userId: string) {
+  const profile2 = app.auth.profile(userId)
   return {
-    handle: profil?.handle ?? null,
-    displayName: profil?.displayName ?? null,
-    bio: profil?.bio ?? null,
-    location: profil?.location ?? null,
-    website: profil?.website ?? null,
-    instagram: profil?.instagram ?? null,
-    avatarUrl: profil?.avatar ? avatarUrl(userId, profil.avatar) : null,
-    banner: profil?.banner ?? null,
-    bannerUrl: bannerUrl(userId, profil?.banner ?? null),
-    visibility: profil?.visibility ?? 'private',
+    handle: profile2?.handle ?? null,
+    displayName: profile2?.displayName ?? null,
+    bio: profile2?.bio ?? null,
+    location: profile2?.location ?? null,
+    website: profile2?.website ?? null,
+    instagram: profile2?.instagram ?? null,
+    avatarUrl: profile2?.avatar ? avatarUrl(userId, profile2.avatar) : null,
+    banner: profile2?.banner ?? null,
+    bannerUrl: bannerUrl(userId, profile2?.banner ?? null),
+    visibility: profile2?.visibility ?? 'private',
     // Zweiter, unabhängiger Zustand neben der Sichtbarkeit: „über den Link
     // erreichbar" und „unter dem eigenen Namen auffindbar" sind verschiedene
     // Entscheidungen (s. server/src/routes/pages.ts). Steht hier mit, damit
@@ -82,14 +82,14 @@ function alsProfilAntwort(app: FastifyInstance, userId: string) {
 }
 
 const emailSchema = { type: 'string', maxLength: 254 } as const
-const passwortSchema = { type: 'string', minLength: 8, maxLength: 1024 } as const
+const passwordSchema = { type: 'string', minLength: 8, maxLength: 1024 } as const
 
 /**
  * Warum ein Einladungscode nicht zieht — in Worten, die dem Eingeladenen sagen,
  * was er tun kann. „Ungültig" allein ließe ihn zwischen Tippfehler und
  * abgelaufener Einladung raten.
  */
-const CODE_FEHLER: Record<InvitationError, string> = {
+const CODE_ERRORS: Record<InvitationError, string> = {
   unknown: 'Diesen Einladungscode gibt es nicht. Bitte prüfe die Schreibweise.',
   used: 'Dieser Einladungscode wurde bereits eingelöst.',
   expired: 'Dieser Einladungscode ist abgelaufen.',
@@ -97,15 +97,15 @@ const CODE_FEHLER: Record<InvitationError, string> = {
 
 export function registerAuthRoutes(app: FastifyInstance): void {
   const { config, mail, storage, userStorage, db } = app.deps
-  const loginGebremst = buildRateLimit(10)
-  const registrierGebremst = buildRateLimit(5, 10 * 60_000) // 5 pro 10 min je IP
-  const resetGebremst = buildRateLimit(5, 10 * 60_000)
+  const loginLimited = buildRateLimit(10)
+  const registerLimited = buildRateLimit(5, 10 * 60_000) // 5 pro 10 min je IP
+  const resetLimited = buildRateLimit(5, 10 * 60_000)
   // Großzügiger als die Registrierung: Diese Route wird beim Abtippen eines
   // Codes mehrfach getroffen. Gegen Raten reicht es trotzdem — bei 25^8
   // Möglichkeiten sind zwölf Versuche je zehn Minuten kein Angriffsweg.
-  const codeGebremst = buildRateLimit(12, 10 * 60_000)
+  const codeLimited = buildRateLimit(12, 10 * 60_000)
 
-  const setzeSessionCookie = (
+  const setSessionCookie = (
     reply: import('fastify').FastifyReply,
     userId: string,
     request?: import('fastify').FastifyRequest,
@@ -125,19 +125,19 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         ip: request?.ip ?? null,
         tokenId: tokenId ?? null,
       })
-    const cookieBasis = {
+    const cookieBase = {
       path: '/',
       sameSite: 'lax' as const,
       secure: config.behindTls,
       expires: session.expiresAt,
     }
-    reply.setCookie(SESSION_COOKIE, session.id, { ...cookieBasis, httpOnly: true })
+    reply.setCookie(SESSION_COOKIE, session.id, { ...cookieBase, httpOnly: true })
     // Lesbar für studio.html: Boot-Splash überspringen, solange die Sitzung steht.
-    reply.setCookie(SESSION_NOTICE_COOKIE, '1', { ...cookieBasis, httpOnly: false })
+    reply.setCookie(SESSION_NOTICE_COOKIE, '1', { ...cookieBase, httpOnly: false })
     return session
   }
 
-  const loescheSessionCookies = (reply: import('fastify').FastifyReply): void => {
+  const clearSessionCookies = (reply: import('fastify').FastifyReply): void => {
     reply.clearCookie(SESSION_COOKIE, { path: '/' })
     reply.clearCookie(SESSION_NOTICE_COOKIE, { path: '/' })
   }
@@ -160,13 +160,13 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (loginGebremst(`ip:${request.ip}`, `mail:${request.body.email.toLowerCase().trim()}`)) {
+      if (loginLimited(`ip:${request.ip}`, `mail:${request.body.email.toLowerCase().trim()}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Anmeldeversuche. Bitte warte einen Moment.' })
       }
-      const benutzer = await app.auth.login(request.body.email, request.body.password)
-      if (!benutzer) return reply.code(401).send({ error: 'E-Mail oder Passwort stimmt nicht.' })
+      const user = await app.auth.login(request.body.email, request.body.password)
+      if (!user) return reply.code(401).send({ error: 'E-Mail oder Passwort stimmt nicht.' })
 
       // **Wer ein Token holt, bekommt KEINE Sitzung.** `tokenLabel` heißt „ich
       // bin ein API-Client" — die App schickt danach ein Bearer-Token und hat
@@ -177,13 +177,13 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       // genau dafür da ist, ungenutzte Zugänge zu erkennen. Was die App für den
       // WebView-Player braucht, holt sie über `session-aus-token` — und die
       // Sitzung hängt dort am Token statt neben ihm.
-      const antwort: { user: typeof benutzer; apiToken?: string } = { user: benutzer }
+      const response: { user: typeof user; apiToken?: string } = { user: user }
       if (request.body.tokenLabel) {
-        antwort.apiToken = app.auth.createToken(benutzer.id, request.body.tokenLabel)
+        response.apiToken = app.auth.createToken(user.id, request.body.tokenLabel)
       } else {
-        setzeSessionCookie(reply, benutzer.id, request)
+        setSessionCookie(reply, user.id, request)
       }
-      return antwort
+      return response
     },
   )
 
@@ -218,7 +218,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
           required: ['email', 'password'],
           properties: {
             email: emailSchema,
-            password: passwortSchema,
+            password: passwordSchema,
             name: { type: 'string', minLength: 1, maxLength: 80 },
             code: { type: 'string', maxLength: 40 },
             newsletter: { type: 'boolean' },
@@ -229,7 +229,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       if (!config.registrationOpen)
         return reply.code(403).send({ error: 'Zurzeit sind keine neuen Konten möglich.' })
-      if (registrierGebremst(`ip:${request.ip}`)) {
+      if (registerLimited(`ip:${request.ip}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Registrierungen. Bitte versuche es später erneut.' })
@@ -238,49 +238,49 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
         return reply.code(400).send({ error: 'Diese E-Mail-Adresse stimmt nicht.' })
 
-      const codePflicht = app.invitations.required()
+      const codeRequired = app.invitations.required()
       const code = request.body.code?.trim() ?? ''
-      if (codePflicht) {
+      if (codeRequired) {
         if (!code)
           return reply
             .code(403)
             .send({ error: 'Für ein neues Konto brauchst du einen Einladungscode.' })
-        const grund = app.invitations.check(code)
-        if (grund) return reply.code(403).send({ error: CODE_FEHLER[grund] })
+        const reason = app.invitations.check(code)
+        if (reason) return reply.code(403).send({ error: CODE_ERRORS[reason] })
       }
       if (app.auth.emailTaken(email))
         return reply.code(409).send({ error: 'Für diese E-Mail gibt es schon ein Konto.' })
 
       const name = request.body.name?.trim() || nameFromEmail(email)
-      const benutzer = await app.auth.createUser(email, request.body.password, name, false)
-      if (codePflicht && !app.invitations.redeem(code, benutzer.id)) {
-        app.auth.deleteUser(benutzer.id)
-        return reply.code(403).send({ error: CODE_FEHLER.used })
+      const user = await app.auth.createUser(email, request.body.password, name, false)
+      if (codeRequired && !app.invitations.redeem(code, user.id)) {
+        app.auth.deleteUser(user.id)
+        return reply.code(403).send({ error: CODE_ERRORS.used })
       }
       // Nur ein ausdrückliches `true` zählt — und nur als PROTOKOLLIERTE
       // Einwilligung, nicht als stille Spalte: `setze` schreibt Zustand,
       // Zeitpunkt, Quelle und Textfassung in einem Zug.
-      if (request.body.newsletter === true) app.newsletter.setze(benutzer.id, true, 'signup')
-      const token = app.auth.createMailToken(benutzer.id, 'verify')
+      if (request.body.newsletter === true) app.newsletter.set(user.id, true, 'signup')
+      const token = app.auth.createMailToken(user.id, 'verify')
       const link = `${config.baseUrl}${WEB_PATHS.login}#verify=${token}`
       // Die Bestätigungsmail bleibt WERBEFREI: kein Satz über den Newsletter,
       // keine List-Unsubscribe-Kopfzeile. Ein „Übrigens, unser Newsletter …"
       // machte aus der transaktionalen Mail selbst eine Werbemail — und
       // beworben wird die Einwilligung ohnehin nicht, sie wird bestätigt.
-      const { betreff, text, html } = app.mailTemplates.rendere(
+      const { subject, text, html } = app.mailTemplates.render(
         'verification',
-        { name: benutzer.name },
-        { basisUrl: config.baseUrl, link },
+        { name: user.name },
+        { baseUrl: config.baseUrl, link },
       )
       try {
-        await mail.sende({ an: benutzer.email, betreff, text, html })
-      } catch (fehler) {
-        app.log.error({ fehler }, 'Bestätigungsmail konnte nicht versendet werden')
+        await mail.send({ to2: user.email, subject, text, html })
+      } catch (error) {
+        app.log.error({ error }, 'Bestätigungsmail konnte nicht versendet werden')
       }
       // Direkt einloggen (Cookie) — der Nutzer sieht sofort sein Studio mit dem
       // Hinweis „E-Mail bestätigen", statt nach der Registrierung ausgesperrt zu sein.
-      setzeSessionCookie(reply, benutzer.id, request)
-      return reply.code(201).send({ user: benutzer, verified: false })
+      setSessionCookie(reply, user.id, request)
+      return reply.code(201).send({ user: user, verified: false })
     },
   )
 
@@ -308,7 +308,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       if (!config.registrationOpen)
         return reply.code(403).send({ error: 'Zurzeit sind keine neuen Konten möglich.' })
-      if (codeGebremst(`ip:${request.ip}`)) {
+      if (codeLimited(`ip:${request.ip}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Versuche. Bitte versuche es später erneut.' })
@@ -316,8 +316,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       // Ohne Einladungspflicht ist jeder Code müßig — die Antwort ist trotzdem
       // „geht", damit ein Formular, das noch fragt, niemanden aussperrt.
       if (!app.invitations.required()) return { ok: true, required: false }
-      const grund = app.invitations.check(request.body.code)
-      if (grund) return reply.code(403).send({ error: CODE_FEHLER[grund] })
+      const reason = app.invitations.check(request.body.code)
+      if (reason) return reply.code(403).send({ error: CODE_ERRORS[reason] })
       return { ok: true, required: true }
     },
   )
@@ -340,7 +340,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (!userId)
         return reply.code(400).send({ error: 'Dieser Bestätigungslink gilt nicht mehr.' })
       app.auth.verifyEmail(userId)
-      setzeSessionCookie(reply, userId, request)
+      setSessionCookie(reply, userId, request)
       return { ok: true }
     },
   )
@@ -361,7 +361,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       const email = request.body.email.toLowerCase().trim()
-      if (resetGebremst(`ip:${request.ip}`, `mail:${email}`)) {
+      if (resetLimited(`ip:${request.ip}`, `mail:${email}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
@@ -374,15 +374,15 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         // nur an die eigene Adresse, und „Hallo mira.wolf," liest sich wie ein
         // Datenbankfeld.
         const name = app.auth.userById(userId)?.name || 'du'
-        const { betreff, text, html } = app.mailTemplates.rendere(
+        const { subject, text, html } = app.mailTemplates.render(
           'reset',
           { name },
-          { basisUrl: config.baseUrl, link },
+          { baseUrl: config.baseUrl, link },
         )
         try {
-          await mail.sende({ an: email, betreff, text, html })
-        } catch (fehler) {
-          app.log.error({ fehler }, 'Reset-Mail konnte nicht versendet werden')
+          await mail.send({ to2: email, subject, text, html })
+        } catch (error) {
+          app.log.error({ error }, 'Reset-Mail konnte nicht versendet werden')
         }
       }
       return { ok: true }
@@ -399,7 +399,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
           type: 'object',
           additionalProperties: false,
           required: ['token', 'password'],
-          properties: { token: { type: 'string', maxLength: 200 }, password: passwortSchema },
+          properties: { token: { type: 'string', maxLength: 200 }, password: passwordSchema },
         },
       },
     },
@@ -410,7 +410,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
           .code(400)
           .send({ error: 'Dieser Link gilt nicht mehr. Fordere einen neuen an.' })
       await app.auth.setPassword(userId, request.body.password)
-      setzeSessionCookie(reply, userId, request)
+      setSessionCookie(reply, userId, request)
       return { ok: true }
     },
   )
@@ -433,16 +433,16 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // eine neue Sitzung an — sichtbar als Reihe von „Unbekanntes Gerät", denn
   // OkHttp schickt keinen Browser-User-Agent.
   app.post('/api/auth/session-from-token', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const session = setzeSessionCookie(reply, benutzer.id, request, request.appTokenId)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const session = setSessionCookie(reply, user.id, request, request.appTokenId)
     return { sessionId: session.id, expiresAt: session.expiresAt.toISOString() }
   })
 
   app.post('/api/auth/logout', async (request, reply) => {
     const sessionId = request.cookies[SESSION_COOKIE]
     if (sessionId) app.auth.endSession(sessionId)
-    loescheSessionCookies(reply)
+    clearSessionCookies(reply)
     return { ok: true }
   })
 
@@ -463,24 +463,24 @@ export function registerAuthRoutes(app: FastifyInstance): void {
           type: 'object',
           additionalProperties: false,
           required: ['old', 'new'],
-          properties: { old: { type: 'string', maxLength: 1024 }, new: passwortSchema },
+          properties: { old: { type: 'string', maxLength: 1024 }, new: passwordSchema },
         },
       },
     },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
-      if (loginGebremst(`pw:${benutzer.id}`)) {
+      const user = requireUser(request, reply)
+      if (!user) return
+      if (loginLimited(`pw:${user.id}`)) {
         return reply.code(429).send({ error: 'Zu viele Versuche. Bitte warte einen Moment.' })
       }
-      if (!(await app.auth.login(benutzer.email, request.body.old))) {
+      if (!(await app.auth.login(user.email, request.body.old))) {
         return reply.code(403).send({ error: 'Das aktuelle Passwort stimmt nicht.' })
       }
       const sessionId = request.cookies[SESSION_COOKIE]
-      await app.auth.setPassword(benutzer.id, request.body.new, sessionId)
+      await app.auth.setPassword(user.id, request.body.new, sessionId)
       // Ohne Sitzung (App-Token) gibt es keine zu behalten — dann bekommt der
       // Aufrufer hier eine frische, statt abgemeldet dazustehen.
-      if (!sessionId) setzeSessionCookie(reply, benutzer.id, request)
+      if (!sessionId) setSessionCookie(reply, user.id, request)
       return { ok: true }
     },
   )
@@ -508,9 +508,9 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
-      if (resetGebremst(`mailwechsel:${benutzer.id}`)) {
+      const user = requireUser(request, reply)
+      if (!user) return
+      if (resetLimited(`mailwechsel:${user.id}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
@@ -519,24 +519,24 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
         return reply.code(400).send({ error: 'Diese E-Mail-Adresse stimmt nicht.' })
       }
-      if (!(await app.auth.login(benutzer.email, request.body.password))) {
+      if (!(await app.auth.login(user.email, request.body.password))) {
         return reply.code(403).send({ error: 'Das Passwort stimmt nicht.' })
       }
-      if (email === benutzer.email) {
+      if (email === user.email) {
         return reply.code(400).send({ error: 'Das ist bereits deine Adresse.' })
       }
       if (!app.auth.emailTaken(email)) {
-        const token = app.auth.createMailToken(benutzer.id, 'email', email)
+        const token = app.auth.createMailToken(user.id, 'email', email)
         const link = `${config.baseUrl}${WEB_PATHS.account}#email=${token}`
-        const { betreff, text, html } = app.mailTemplates.rendere(
+        const { subject, text, html } = app.mailTemplates.render(
           'email-change',
-          { name: benutzer.name },
-          { basisUrl: config.baseUrl, link },
+          { name: user.name },
+          { baseUrl: config.baseUrl, link },
         )
         try {
-          await mail.sende({ an: email, betreff, text, html })
-        } catch (fehler) {
-          app.log.error({ fehler }, 'Mail zum Adresswechsel konnte nicht versendet werden')
+          await mail.send({ to2: email, subject, text, html })
+        } catch (error) {
+          app.log.error({ error }, 'Mail zum Adresswechsel konnte nicht versendet werden')
         }
       }
       return { ok: true }
@@ -562,20 +562,20 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const eingeloest = app.auth.resolveMailTokenWithPayload(request.body.token, 'email')
-      if (!eingeloest?.payload) {
+      const redeemed = app.auth.resolveMailTokenWithPayload(request.body.token, 'email')
+      if (!redeemed?.payload) {
         return reply
           .code(400)
           .send({ error: 'Dieser Link gilt nicht mehr. Stoße den Wechsel erneut an.' })
       }
-      if (!app.auth.applyEmailChange(eingeloest.userId, eingeloest.payload)) {
+      if (!app.auth.applyEmailChange(redeemed.userId, redeemed.payload)) {
         // Zwischen Absenden und Klick können Tage liegen — in denen sich jemand
         // anderes mit genau dieser Adresse registriert haben kann.
         return reply
           .code(409)
           .send({ error: 'Diese Adresse gehört inzwischen zu einem anderen Konto.' })
       }
-      return { ok: true, email: eingeloest.payload }
+      return { ok: true, email: redeemed.payload }
     },
   )
 
@@ -586,26 +586,24 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // Abmelden-Knopf — wer sich selbst hier abmeldet, hat nichts gewonnen, außer
   // sich noch einmal anmelden zu dürfen.
   app.get('/api/auth/me/devices', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const eigene = request.cookies[SESSION_COOKIE]
+    const user = requireUser(request, reply)
+    if (!user) return
+    const own = request.cookies[SESSION_COOKIE]
     return {
-      devices: app.auth
-        .devices(benutzer.id)
-        .map((g) => ({ ...g, current: g.id === `session:${eigene}` })),
+      devices: app.auth.devices(user.id).map((g) => ({ ...g, current: g.id === `session:${own}` })),
     }
   })
 
   app.delete<{ Params: { id: string } }>('/api/auth/me/devices/:id', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    if (!app.auth.signOutDevice(benutzer.id, request.params.id)) {
+    const user = requireUser(request, reply)
+    if (!user) return
+    if (!app.auth.signOutDevice(user.id, request.params.id)) {
       return reply.code(404).send({ error: 'Dieses Gerät ist nicht (mehr) angemeldet.' })
     }
     // Auch die eigene Sitzung darf fallen (etwa vom Telefon aus) — dann müssen
     // die Cookies mit weg, sonst hinge der Browser an einer toten Sitzung.
     if (request.params.id === `session:${request.cookies[SESSION_COOKIE]}`)
-      loescheSessionCookies(reply)
+      clearSessionCookies(reply)
     return { ok: true }
   })
 
@@ -636,13 +634,13 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
-      app.newsletter.setze(benutzer.id, request.body.enabled, 'account')
+      const user = requireUser(request, reply)
+      if (!user) return
+      app.newsletter.set(user.id, request.body.enabled, 'account')
       return {
         ok: true,
         newsletter: request.body.enabled,
-        sendingPaused: !app.auth.isVerified(benutzer.id),
+        sendingPaused: !app.auth.isVerified(user.id),
       }
     },
   )
@@ -670,17 +668,17 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
+      const user = requireUser(request, reply)
+      if (!user) return
       db.prepare('UPDATE users SET search_indexing = ? WHERE id = ?').run(
         request.body.enabled ? 1 : 0,
-        benutzer.id,
+        user.id,
       )
-      const profil = app.auth.profile(benutzer.id)
+      const profile2 = app.auth.profile(user.id)
       return {
         ok: true,
         searchIndexing: request.body.enabled,
-        effectPaused: profil?.visibility !== 'public',
+        effectPaused: profile2?.visibility !== 'public',
       }
     },
   )
@@ -690,35 +688,35 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // Eigene Route und nicht Teil von `/auth/me`: Die Aufteilung läuft über ALLE
   // Dateien aller Touren, und `/auth/me` ist der heißeste Aufruf der API.
   app.get('/api/auth/me/storage', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const [stand, aufteilung] = await Promise.all([
-      quotaStatus(db, storage, userStorage, benutzer.id, config.maxStoragePerUser),
-      storageBreakdown(db, storage, userStorage, benutzer.id),
+    const user = requireUser(request, reply)
+    if (!user) return
+    const [state2, breakdown2] = await Promise.all([
+      quotaStatus(db, storage, userStorage, user.id, config.maxStoragePerUser),
+      storageBreakdown(db, storage, userStorage, user.id),
     ])
-    return { ...stand, breakdown: aufteilung }
+    return { ...state2, breakdown: breakdown2 }
   })
 
   // — Konto samt aller Daten löschen (DSGVO) — Storage-Dateien zuerst (die DB
   // kennt sie nicht mehr, sobald der Cascade greift), dann die DB-Zeile.
   app.delete('/api/auth/me', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    for (const tourId of app.auth.tourIds(benutzer.id)) await storage.removeTour(tourId)
+    const user = requireUser(request, reply)
+    if (!user) return
+    for (const tourId of app.auth.tourIds(user.id)) await storage.removeTour(tourId)
     // Auch die Benutzerdateien (Avatar) — sie hängen an keiner Tour und
     // überlebten den Cascade sonst als Waisen auf der Platte.
-    await userStorage.removeTour(benutzer.id).catch(() => undefined)
+    await userStorage.removeTour(user.id).catch(() => undefined)
     // Dasselbe für ein fertiges Export-Archiv: Seine Zeile fällt gleich dem
     // Cascade zum Opfer, und ohne sie findet der stündliche Aufräumer die
     // Datei nie wieder — ein ZIP mit ALLEN Daten des gelöschten Kontos bliebe
     // für immer liegen. Vor dem Löschen der Zeile lesen, sonst ist die ID weg.
     for (const { id } of app.deps.db
       .prepare('SELECT id FROM data_exports WHERE user_id = ?')
-      .all(benutzer.id) as Array<{ id: string }>) {
+      .all(user.id) as Array<{ id: string }>) {
       await app.deps.archive.removeTour(id).catch(() => undefined)
     }
-    app.auth.deleteUser(benutzer.id)
-    loescheSessionCookies(reply)
+    app.auth.deleteUser(user.id)
+    clearSessionCookies(reply)
     return { ok: true }
   })
 
@@ -731,7 +729,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     // einem Einladungscode fragen soll — und genau dort ist niemand angemeldet.
     // Dasselbe gilt für die Warteliste: Ob sie überhaupt angeboten wird, hängt
     // an zwei Schaltern und einem Riegel; die Seite soll das nicht nachrechnen.
-    const registrierung = {
+    const registration2 = {
       open: config.registrationOpen,
       invitationRequired: app.invitations.required(),
       waitlist: waitlistOffered(
@@ -740,7 +738,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         config.registrationOpen,
       ),
     }
-    if (!request.user) return { user: null, registration: registrierung }
+    if (!request.user) return { user: null, registration: registration2 }
     const sessionId = request.cookies[SESSION_COOKIE]
     if (sessionId && request.cookies[SESSION_NOTICE_COOKIE] !== '1') {
       // Ablauf kennen wir hier nicht exakt — Max-Age wie Session-Dauer reicht.
@@ -763,16 +761,16 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       user: request.user,
       verified: app.auth.isVerified(request.user.id),
       quota,
-      registration: registrierung,
+      registration: registration2,
       // Eine Spalte, kein Aufruf: Der Schalter der Kontoeinstellungen soll
       // beim Aufbau schon in der richtigen Lage stehen, und `/auth/me` ist die
       // Antwort, auf die diese Seite ohnehin wartet.
-      newsletter: app.newsletter.stand(request.user.id),
-      profile: alsProfilAntwort(app, request.user.id),
+      newsletter: app.newsletter.stateValue(request.user.id),
+      profile: asProfileResponse(app, request.user.id),
       // Der jüngste Export-Auftrag — keine eigene Route zum Pollen: Die
       // Konto-Seite wartet ohnehin auf diese Antwort, und ein Export dauert
       // Minuten, nicht Sekunden. Wer den Stand sehen will, lädt neu.
-      dataExport: app.dataExport.stand(request.user.id),
+      dataExport: app.dataExport.state2(request.user.id),
     }
   })
 
@@ -782,7 +780,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // scheitern (Form, reserviert, vergeben) und wird deshalb zuerst gesetzt —
   // ein 409 nach halb geschriebenem Profil wäre eine Lüge über den Zustand.
   // Die Prüfung im Browser bleibt reine Bequemlichkeit; entschieden wird hier.
-  app.patch<{ Body: ProfilBody }>(
+  app.patch<{ Body: ProfileBody }>(
     '/api/auth/me/profile',
     {
       schema: {
@@ -809,30 +807,31 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
-      const { handle, banner: titelbild, ...rest } = request.body
+      const user = requireUser(request, reply)
+      if (!user) return
+      const { handle, banner: banner2, ...rest } = request.body
       if (handle !== undefined) {
-        const fehler = app.auth.setHandle(benutzer.id, handle)
-        if (fehler)
+        const error = app.auth.setHandle(user.id, handle)
+        if (error)
           return reply
-            .code(fehler === 'taken' ? 409 : 400)
-            .send({ error: HANDLE_ERROR_TEXTS[fehler] })
+            .code(error === 'taken' ? 409 : 400)
+            .send({ error: HANDLE_ERROR_TEXTS[error] })
       }
-      if (titelbild !== undefined) {
-        const wert = titelbild.trim()
-        if (wert && !isBannerSuggestion(wert)) {
+      if (banner2 !== undefined) {
+        const value = banner2.trim()
+        if (value && !isBannerSuggestion(value)) {
           return reply.code(400).send({ error: 'Dieses Titelbild gibt es nicht.' })
         }
         // Der Wechsel auf einen Vorschlag räumt ein vorher hochgeladenes Bild
         // weg — sonst bliebe es als Waise im Storage liegen, unerreichbar und
         // trotzdem auf der Platte.
-        const alt = app.auth.profile(benutzer.id)?.banner ?? null
-        app.auth.setBanner(benutzer.id, wert || null)
-        if (alt?.includes('/')) await userStorage.remove(benutzer.id, alt).catch(() => undefined)
+        const previous = app.auth.profile(user.id)?.banner ?? null
+        app.auth.setBanner(user.id, value || null)
+        if (previous?.includes('/'))
+          await userStorage.remove(user.id, previous).catch(() => undefined)
       }
-      app.auth.setProfile(benutzer.id, rest)
-      return alsProfilAntwort(app, benutzer.id)
+      app.auth.setProfile(user.id, rest)
+      return asProfileResponse(app, user.id)
     },
   )
 
@@ -842,24 +841,25 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // Wechsel aus dem Browser-Cache weiter das alte Bild liefern. Zählt nicht
   // gegen die Tour-Quota — ein Profilbild ist kein Reise-Inhalt.
   app.put('/api/auth/me/avatar', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const alt = app.auth.profile(benutzer.id)?.avatar ?? null
-    const datei = `avatar/${Date.now()}.jpg`
-    await userStorage.writeStream(benutzer.id, datei, request.body as Readable, MAX_AVATAR_BYTES)
-    app.auth.setAvatar(benutzer.id, datei)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const previous = app.auth.profile(user.id)?.avatar ?? null
+    const file = `avatar/${Date.now()}.jpg`
+    await userStorage.writeStream(user.id, file, request.body as Readable, MAX_AVATAR_BYTES)
+    app.auth.setAvatar(user.id, file)
     // Erst nach dem erfolgreichen Schreiben aufräumen — bricht der Upload ab,
     // bleibt das bisherige Bild bestehen.
-    if (alt && alt !== datei) await userStorage.remove(benutzer.id, alt).catch(() => undefined)
-    return { avatarUrl: avatarUrl(benutzer.id, datei) }
+    if (previous && previous !== file)
+      await userStorage.remove(user.id, previous).catch(() => undefined)
+    return { avatarUrl: avatarUrl(user.id, file) }
   })
 
   app.delete('/api/auth/me/avatar', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const alt = app.auth.profile(benutzer.id)?.avatar
-    if (alt) await userStorage.remove(benutzer.id, alt).catch(() => undefined)
-    app.auth.setAvatar(benutzer.id, null)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const previous = app.auth.profile(user.id)?.avatar
+    if (previous) await userStorage.remove(user.id, previous).catch(() => undefined)
+    app.auth.setAvatar(user.id, null)
     return { ok: true }
   })
 
@@ -874,42 +874,42 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // Mitte). Eine Zuschnitt-Oberfläche wäre ein eigenes Stück Arbeit, und ohne
   // sie ist das Ergebnis bei einem querformatigen Bild dasselbe.
   app.put('/api/auth/me/banner', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const alt = app.auth.profile(benutzer.id)?.banner ?? null
-    const datei = `banner/${Date.now()}.jpg`
-    await userStorage.writeStream(benutzer.id, datei, request.body as Readable, MAX_TITELBILD_BYTES)
-    app.auth.setBanner(benutzer.id, datei)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const previous = app.auth.profile(user.id)?.banner ?? null
+    const file = `banner/${Date.now()}.jpg`
+    await userStorage.writeStream(user.id, file, request.body as Readable, MAX_BANNER_BYTES)
+    app.auth.setBanner(user.id, file)
     // Nur eigene Dateien aufräumen — ein Vorschlag liegt im Build und gehört
     // allen (er hat keinen Schrägstrich, s. profilfelder.ts).
-    if (alt?.includes('/') && alt !== datei)
-      await userStorage.remove(benutzer.id, alt).catch(() => undefined)
-    return { bannerUrl: bannerUrl(benutzer.id, datei) }
+    if (previous?.includes('/') && previous !== file)
+      await userStorage.remove(user.id, previous).catch(() => undefined)
+    return { bannerUrl: bannerUrl(user.id, file) }
   })
 
   app.delete('/api/auth/me/banner', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const alt = app.auth.profile(benutzer.id)?.banner
-    if (alt?.includes('/')) await userStorage.remove(benutzer.id, alt).catch(() => undefined)
-    app.auth.setBanner(benutzer.id, null)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const previous = app.auth.profile(user.id)?.banner
+    if (previous?.includes('/')) await userStorage.remove(user.id, previous).catch(() => undefined)
+    app.auth.setBanner(user.id, null)
     return { ok: true }
   })
 
   // — Titelbild ausliefern (öffentlich, wie der Avatar) —
   app.get<{ Params: { id: string } }>('/api/users/:id/banner', async (request, reply) => {
-    const titelbild = app.auth.profile(request.params.id)?.banner
+    const banner2 = app.auth.profile(request.params.id)?.banner
     // Ein Vorschlag wird hier NICHT ausgeliefert: Er liegt als statische Datei
     // im Build und geht nie durch die API.
-    if (!titelbild?.includes('/')) return reply.code(404).send({ error: 'Kein Titelbild' })
-    const info = await userStorage.info(request.params.id, titelbild)
+    if (!banner2?.includes('/')) return reply.code(404).send({ error: 'Kein Titelbild' })
+    const info = await userStorage.info(request.params.id, banner2)
     if (!info) return reply.code(404).send({ error: 'Kein Titelbild' })
     return reply
       .header('content-type', 'image/jpeg')
       .header('x-content-type-options', 'nosniff')
       .header('cache-control', 'public, max-age=31536000, immutable')
       .header('content-length', String(info.size))
-      .send(userStorage.readStream(request.params.id, titelbild))
+      .send(userStorage.readStream(request.params.id, banner2))
   })
 
   // — Avatar ausliefern (öffentlich) —
@@ -918,15 +918,15 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   // öffentlichen Touren in der Galerie und muss dort für jeden ladbar sein. Der
   // Dateiname wechselt bei jedem Upload, deshalb darf lange gecacht werden.
   app.get<{ Params: { id: string } }>('/api/users/:id/avatar', async (request, reply) => {
-    const profil = app.auth.profile(request.params.id)
-    if (!profil?.avatar) return reply.code(404).send({ error: 'Kein Profilbild' })
-    const info = await userStorage.info(request.params.id, profil.avatar)
+    const profile2 = app.auth.profile(request.params.id)
+    if (!profile2?.avatar) return reply.code(404).send({ error: 'Kein Profilbild' })
+    const info = await userStorage.info(request.params.id, profile2.avatar)
     if (!info) return reply.code(404).send({ error: 'Kein Profilbild' })
     return reply
       .header('content-type', 'image/jpeg')
       .header('x-content-type-options', 'nosniff')
       .header('cache-control', 'public, max-age=31536000, immutable')
       .header('content-length', String(info.size))
-      .send(userStorage.readStream(request.params.id, profil.avatar))
+      .send(userStorage.readStream(request.params.id, profile2.avatar))
   })
 }

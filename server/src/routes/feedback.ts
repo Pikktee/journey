@@ -11,7 +11,7 @@ import { requireAdmin } from '../app.js'
 import { buildRateLimit } from '../rate-limit.js'
 import { MAX_EMAIL, MAX_TEXT, type FeedbackContext, type FeedbackStatus } from '../feedback.js'
 
-const EMAIL_FORM = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 /**
  * Was im Kontext stehen darf — eine feste Liste und kein freies Objekt.
@@ -21,7 +21,7 @@ const EMAIL_FORM = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
  * den ein manipulierter Client beliebige Daten in die Tabelle legt — und die
  * Datenschutzerklärung nennt dann eine Aufzählung, die nicht mehr stimmt.
  */
-const KONTEXT_FELDER = [
+const CONTEXT_FIELDS = [
   'page',
   'version',
   'browser',
@@ -33,21 +33,21 @@ const KONTEXT_FELDER = [
   'androidVersion',
 ] as const
 
-const MAX_KONTEXT_WERT = 300
+const MAX_CONTEXT_VALUE = 300
 
 /** Nimmt nur die bekannten Felder und kürzt jeden Wert. */
-export function cleanContext(roh: unknown): FeedbackContext | null {
-  if (!roh || typeof roh !== 'object' || Array.isArray(roh)) return null
-  const quelle = roh as Record<string, unknown>
-  const sauber: FeedbackContext = {}
-  for (const feld of KONTEXT_FELDER) {
-    const wert = quelle[feld]
-    if (typeof wert === 'string' && wert.trim())
-      sauber[feld] = wert.trim().slice(0, MAX_KONTEXT_WERT)
-    else if (typeof wert === 'number' && Number.isFinite(wert)) sauber[feld] = wert
-    else if (typeof wert === 'boolean') sauber[feld] = wert
+export function cleanContext(raw: unknown): FeedbackContext | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const source2 = raw as Record<string, unknown>
+  const clean: FeedbackContext = {}
+  for (const field of CONTEXT_FIELDS) {
+    const value = source2[field]
+    if (typeof value === 'string' && value.trim())
+      clean[field] = value.trim().slice(0, MAX_CONTEXT_VALUE)
+    else if (typeof value === 'number' && Number.isFinite(value)) clean[field] = value
+    else if (typeof value === 'boolean') clean[field] = value
   }
-  return Object.keys(sauber).length ? sauber : null
+  return Object.keys(clean).length ? clean : null
 }
 
 const STATUS: FeedbackStatus[] = ['open', 'in_progress', 'done']
@@ -55,7 +55,7 @@ const STATUS: FeedbackStatus[] = ['open', 'in_progress', 'done']
 export function registerFeedbackRoutes(app: FastifyInstance): void {
   // Großzügiger als die Warteliste: Wer drei Fehler hintereinander findet, soll
   // sie auch melden dürfen. Eng genug, dass ein Skript die Tabelle nicht füllt.
-  const gebremst = buildRateLimit(10, 10 * 60_000)
+  const limited = buildRateLimit(10, 10 * 60_000)
 
   app.post<{
     Body: { text: string; email?: string; context?: unknown; source?: 'web' | 'app' }
@@ -79,7 +79,7 @@ export function registerFeedbackRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const text = request.body.text.trim()
       if (!text) return reply.code(400).send({ error: 'Bitte schreib kurz, worum es geht.' })
-      if (gebremst(`ip:${request.ip}`)) {
+      if (limited(`ip:${request.ip}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Meldungen. Bitte versuche es später erneut.' })
@@ -87,9 +87,9 @@ export function registerFeedbackRoutes(app: FastifyInstance): void {
       // Eine unbrauchbare Adresse wird verworfen und nicht bemängelt: Sie ist
       // freiwillig, und die Meldung ist auch ohne sie etwas wert.
       const email = request.body.email?.trim()
-      app.feedback.nimmAn({
+      app.feedback.submit({
         text,
-        email: email && EMAIL_FORM.test(email) ? email : null,
+        email: email && EMAIL_PATTERN.test(email) ? email : null,
         userId: request.user?.id ?? null,
         context: cleanContext(request.body.context),
         source: request.body.source ?? 'web',
@@ -106,8 +106,8 @@ export function registerFeedbackRoutes(app: FastifyInstance): void {
       if (!requireAdmin(request, reply)) return
       const status = request.query.status
       return {
-        feedback: app.feedback.liste(status && STATUS.includes(status) ? { status } : undefined),
-        counts: app.feedback.zaehlung(),
+        feedback: app.feedback.list(status && STATUS.includes(status) ? { status } : undefined),
+        counts: app.feedback.counts(),
       }
     },
   )
@@ -131,18 +131,18 @@ export function registerFeedbackRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       if (!requireAdmin(request, reply)) return
-      const aenderung: { status?: FeedbackStatus; note?: string | null } = {}
-      if (request.body.status !== undefined) aenderung.status = request.body.status
-      if (request.body.note !== undefined) aenderung.note = request.body.note
-      const gespeichert = app.feedback.aktualisiere(request.params.id, aenderung)
-      if (!gespeichert) return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
-      return reply.send({ feedback: gespeichert })
+      const change: { status?: FeedbackStatus; note?: string | null } = {}
+      if (request.body.status !== undefined) change.status = request.body.status
+      if (request.body.note !== undefined) change.note = request.body.note
+      const saved = app.feedback.update(request.params.id, change)
+      if (!saved) return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
+      return reply.send({ feedback: saved })
     },
   )
 
   app.delete<{ Params: { id: string } }>('/api/admin/feedback/:id', async (request, reply) => {
     if (!requireAdmin(request, reply)) return
-    if (!app.feedback.loesche(request.params.id)) {
+    if (!app.feedback.remove(request.params.id)) {
       return reply.code(404).send({ error: 'Diese Rückmeldung gibt es nicht.' })
     }
     return reply.send({ ok: true })

@@ -158,9 +158,9 @@ export async function collectEntries(
   const touren = collectTours(deps.db, benutzerId)
 
   const eintraege: ArchiveEntry[] = [
-    { name: 'liesmich.txt', inhalt: buildReadme(konto, touren, erstelltAm) },
-    { name: 'konto.json', inhalt: JSON.stringify(konto, null, 2) },
-    { name: 'touren.json', inhalt: JSON.stringify(touren, null, 2) },
+    { name: 'liesmich.txt', content: buildReadme(konto, touren, erstelltAm) },
+    { name: 'konto.json', content: JSON.stringify(konto, null, 2) },
+    { name: 'touren.json', content: JSON.stringify(touren, null, 2) },
   ]
 
   for (const tour of touren) {
@@ -182,8 +182,8 @@ export async function collectEntries(
             : datei.path
       eintraege.push({
         name: `${ordner}/${ziel}`,
-        inhalt: () => deps.storage.readStream(tour.id, datei.path),
-        gepackt: isCompressed(datei.path),
+        content: () => deps.storage.readStream(tour.id, datei.path),
+        packed: isCompressed(datei.path),
       })
     }
   }
@@ -201,7 +201,7 @@ export async function buildAndStore(
   auftragId: string,
   benutzerId: string,
   erstelltAm: string,
-): Promise<{ bytes: number; dateien: number }> {
+): Promise<{ bytes: number; files: number }> {
   const eintraege = await collectEntries(deps, benutzerId, erstelltAm)
   const strom = buildArchive(eintraege)
   const info = await deps.archive.writeStream(
@@ -210,5 +210,5 @@ export async function buildAndStore(
     strom as Readable,
     deps.maxBytes,
   )
-  return { bytes: info.size, dateien: eintraege.length }
+  return { bytes: info.size, files: eintraege.length }
 }

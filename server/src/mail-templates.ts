@@ -48,9 +48,9 @@ export interface TemplateEntry {
   defaultContent: MailParts
 }
 
-const LINK_INFO = (was: string, example: string): PlaceholderDescription => ({
+const LINK_INFO = (what: string, example: string): PlaceholderDescription => ({
   name: 'link',
-  description: `${was}, steckt im Knopf; im Text nur nötig, wenn du den Knopf leerst`,
+  description: `${what}, steckt im Knopf; im Text nur nötig, wenn du den Knopf leerst`,
   example,
 })
 
@@ -223,20 +223,20 @@ export const TEMPLATES: readonly TemplateEntry[] = [
   },
 ]
 
-const NACH_SCHLUESSEL = new Map(TEMPLATES.map((v) => [v.key, v]))
+const BY_KEY = new Map(TEMPLATES.map((v) => [v.key, v]))
 
-export const isTemplateKey = (wert: string): wert is TemplateKey =>
-  NACH_SCHLUESSEL.has(wert as TemplateKey)
+export const isTemplateKey = (value: string): value is TemplateKey =>
+  BY_KEY.has(value as TemplateKey)
 
-export function getTemplate(schluessel: TemplateKey): TemplateEntry {
-  const eintrag = NACH_SCHLUESSEL.get(schluessel)
-  if (!eintrag) throw new Error(`Unbekannte Mail-Vorlage: ${schluessel}`)
-  return eintrag
+export function getTemplate(key2: TemplateKey): TemplateEntry {
+  const entry = BY_KEY.get(key2)
+  if (!entry) throw new Error(`Unbekannte Mail-Vorlage: ${key2}`)
+  return entry
 }
 
 /** Beispielbelegung für Vorschau und Testmail. */
-export const exampleValues = (eintrag: TemplateEntry): Record<string, string> =>
-  Object.fromEntries(eintrag.placeholders.map((p) => [p.name, p.example]))
+export const exampleValues = (entry: TemplateEntry): Record<string, string> =>
+  Object.fromEntries(entry.placeholders.map((p) => [p.name, p.example]))
 
 /**
  * Was an einer bearbeiteten Vorlage nicht stimmt — leer heißt: geht raus.
@@ -245,47 +245,45 @@ export const exampleValues = (eintrag: TemplateEntry): Record<string, string> =>
  * ist keine Geschmacksfrage, sondern eine Sackgasse für den Empfänger. Deshalb
  * lehnt der Server sie ab, statt sie zu verschicken.
  */
-export function validateParts(eintrag: TemplateEntry, bausteine: MailParts): string[] {
-  const probleme: string[] = []
-  if (!bausteine.subject.trim()) probleme.push('Der Betreff darf nicht leer sein.')
-  if (!bausteine.title.trim()) probleme.push('Die Überschrift darf nicht leer sein.')
-  if (!bausteine.text.trim()) probleme.push('Der Text darf nicht leer sein.')
+export function validateParts(entry: TemplateEntry, blocks2: MailParts): string[] {
+  const issues: string[] = []
+  if (!blocks2.subject.trim()) issues.push('Der Betreff darf nicht leer sein.')
+  if (!blocks2.title.trim()) issues.push('Die Überschrift darf nicht leer sein.')
+  if (!blocks2.text.trim()) issues.push('Der Text darf nicht leer sein.')
 
-  const benutzt = new Set([
-    ...findPlaceholders(bausteine.subject),
-    ...findPlaceholders(bausteine.title),
-    ...findPlaceholders(bausteine.text),
-    ...findPlaceholders(bausteine.footer),
+  const used = new Set([
+    ...findPlaceholders(blocks2.subject),
+    ...findPlaceholders(blocks2.title),
+    ...findPlaceholders(blocks2.text),
+    ...findPlaceholders(blocks2.footer),
   ])
-  const bekannt = new Set(eintrag.placeholders.map((p) => p.name))
-  for (const name of benutzt) {
-    if (!bekannt.has(name))
-      probleme.push(
-        `{{${name}}} gibt es in dieser Mail nicht, es bliebe so stehen, wie es dasteht.`,
-      )
+  const known = new Set(entry.placeholders.map((p) => p.name))
+  for (const name of used) {
+    if (!known.has(name))
+      issues.push(`{{${name}}} gibt es in dieser Mail nicht, es bliebe so stehen, wie es dasteht.`)
   }
 
   // Ein Platzhalter, der den einzigen Weg der Mail trägt, muss ankommen: `link`
   // über den Knopf ODER im Text, alle anderen im Text.
-  for (const p of eintrag.placeholders) {
-    if (benutzt.has(p.name)) continue
-    if (p.name === 'link' && eintrag.hasLink && bausteine.button.trim()) continue
-    probleme.push(
+  for (const p of entry.placeholders) {
+    if (used.has(p.name)) continue
+    if (p.name === 'link' && entry.hasLink && blocks2.button.trim()) continue
+    issues.push(
       p.name === 'link'
         ? 'Ohne Knopf muss {{link}} im Text stehen, sonst kommt der Empfänger nirgendwohin.'
         : `{{${p.name}}} fehlt, diese Angabe geht sonst verloren.`,
     )
   }
-  return probleme
+  return issues
 }
 
 /** Unterscheiden sich zwei Fassungen inhaltlich? Randleerraum zählt nicht. */
 export const differs = (a: MailParts, b: MailParts): boolean =>
   (['subject', 'title', 'text', 'button', 'footer'] as const).some(
-    (feld) => a[feld].trim() !== b[feld].trim(),
+    (field) => a[field].trim() !== b[field].trim(),
   )
 
-interface VorlagenZeile {
+interface TemplateRow {
   key: string
   subject: string
   title: string
@@ -309,38 +307,38 @@ export class MailTemplateService {
   constructor(private readonly db: Db) {}
 
   /** Die wirksamen Bausteine einer Vorlage — Anpassung, sonst Standard. */
-  bausteine(schluessel: TemplateKey): MailParts {
-    const zeile = this.db.prepare('SELECT * FROM mail_templates WHERE key = ?').get(schluessel) as
-      VorlagenZeile | undefined
-    if (!zeile) return getTemplate(schluessel).defaultContent
+  blocks2(key2: TemplateKey): MailParts {
+    const row = this.db.prepare('SELECT * FROM mail_templates WHERE key = ?').get(key2) as
+      TemplateRow | undefined
+    if (!row) return getTemplate(key2).defaultContent
     return {
-      subject: zeile.subject,
-      title: zeile.title,
-      text: zeile.body,
-      button: zeile.button,
-      footer: zeile.footer,
+      subject: row.subject,
+      title: row.title,
+      text: row.body,
+      button: row.button,
+      footer: row.footer,
     }
   }
 
   /** Der ganze Katalog samt Anpassungsstand — die Liste in der Verwaltung. */
-  alle(): MailTemplateStatus[] {
-    const zeilen = this.db
+  all(): MailTemplateStatus[] {
+    const rows = this.db
       .prepare(
         `SELECT v.*, u.email AS bearbeiter FROM mail_templates v
          LEFT JOIN users u ON u.id = v.updated_by`,
       )
-      .all() as Array<VorlagenZeile & { bearbeiter: string | null }>
-    const nach = new Map(zeilen.map((z) => [z.key, z]))
-    return TEMPLATES.map((eintrag) => {
-      const z = nach.get(eintrag.key)
+      .all() as Array<TemplateRow & { editor: string | null }>
+    const target = new Map(rows.map((z) => [z.key, z]))
+    return TEMPLATES.map((entry) => {
+      const z = target.get(entry.key)
       return {
-        ...eintrag,
+        ...entry,
         blocks: z
           ? { subject: z.subject, title: z.title, text: z.body, button: z.button, footer: z.footer }
-          : eintrag.defaultContent,
+          : entry.defaultContent,
         customized: Boolean(z),
         updatedAt: z?.updated_at ?? null,
-        updatedBy: z?.bearbeiter ?? null,
+        updatedBy: z?.editor ?? null,
       }
     })
   }
@@ -354,9 +352,9 @@ export class MailTemplateService {
    * hätte sie in Wahrheit vom Code ABGEHÄNGT — spätere Verbesserungen kämen
    * dort nie an.
    */
-  setze(schluessel: TemplateKey, bausteine: MailParts, benutzerId: string | null): void {
-    if (!differs(bausteine, getTemplate(schluessel).defaultContent)) {
-      this.setzeZurueck(schluessel)
+  set(key2: TemplateKey, blocks2: MailParts, userId: string | null): void {
+    if (!differs(blocks2, getTemplate(key2).defaultContent)) {
+      this.reset(key2)
       return
     }
     this.db
@@ -369,28 +367,24 @@ export class MailTemplateService {
            updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
       )
       .run(
-        schluessel,
-        bausteine.subject.trim(),
-        bausteine.title.trim(),
-        bausteine.text.trim(),
-        bausteine.button.trim(),
-        bausteine.footer.trim(),
+        key2,
+        blocks2.subject.trim(),
+        blocks2.title.trim(),
+        blocks2.text.trim(),
+        blocks2.button.trim(),
+        blocks2.footer.trim(),
         new Date().toISOString(),
-        benutzerId,
+        userId,
       )
   }
 
   /** Zurück auf den Stand im Code; false, wenn nie etwas angepasst war. */
-  setzeZurueck(schluessel: TemplateKey): boolean {
-    return this.db.prepare('DELETE FROM mail_templates WHERE key = ?').run(schluessel).changes > 0
+  reset(key2: TemplateKey): boolean {
+    return this.db.prepare('DELETE FROM mail_templates WHERE key = ?').run(key2).changes > 0
   }
 
   /** Die fertige Mail — der eine Weg, auf dem System-Mails entstehen. */
-  rendere(
-    schluessel: TemplateKey,
-    werte: Record<string, string>,
-    kontext: LayoutContext,
-  ): RenderedMail {
-    return renderMail(this.bausteine(schluessel), werte, kontext)
+  render(key2: TemplateKey, values: Record<string, string>, context: LayoutContext): RenderedMail {
+    return renderMail(this.blocks2(key2), values, context)
   }
 }

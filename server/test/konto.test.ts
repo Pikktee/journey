@@ -74,7 +74,7 @@ describe('E-Mail-Adresse wechseln', () => {
       payload: { email: 'neu@example.com', password: 'geheim123' },
     })
     expect(antwort.statusCode).toBe(200)
-    expect(u.mail.nachrichten.at(-1)?.an).toBe('neu@example.com')
+    expect(u.mail.nachrichten.at(-1)?.to2).toBe('neu@example.com')
 
     // Vor dem Klick: noch nichts geändert.
     expect(await u.app.auth.login('test@example.com', 'geheim123')).not.toBeNull()

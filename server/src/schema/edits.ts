@@ -11,7 +11,7 @@ export const EDITS_SCHEMA_ID = 'maptale/edits@2'
 // Erlaubter Audio-Dateiname (Basisname + Audio-Endung) — geteilt vom
 // Overlay-Schema, den Audio-Routen (PUT/DELETE) und dem Editor-Filter.
 export const AUDIO_FILE_PATTERN = '^[A-Za-z0-9_-]{1,64}\\.(mp3|m4a|ogg|wav)$'
-const AUDIO_DATEI_REGEX = new RegExp(AUDIO_FILE_PATTERN)
+const AUDIO_FILE_REGEX = new RegExp(AUDIO_FILE_PATTERN)
 
 /**
  * Reglerstellung eines Ton-Klips ohne eigenen Wert. Der Studio-Abspieler hört
@@ -24,7 +24,7 @@ export const STUDIO_GAIN = 0.8
 
 /** true, wenn der Dateiname eine zulässige Audio-Datei unter media/ bezeichnet. */
 export function isAudioFile(name: string): boolean {
-  return AUDIO_DATEI_REGEX.test(name)
+  return AUDIO_FILE_REGEX.test(name)
 }
 
 export interface MediaEdit {
@@ -165,8 +165,8 @@ export interface AudioEdit {
  * `loop` verhält sich dadurch exakt wie vorher. Editor, Render, Player und
  * Studio-Abspieler fragen alle hier, sonst driftete der Default auseinander.
  */
-export function loopEnabled(spur: Pick<AudioEdit, 'type' | 'loop'>): boolean {
-  return spur.loop ?? spur.type === 'music'
+export function loopEnabled(track: Pick<AudioEdit, 'type' | 'loop'>): boolean {
+  return track.loop ?? track.type === 'music'
 }
 
 /** Fortbewegung ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
@@ -371,8 +371,9 @@ export const editsJsonSchema = {
  * Liefert die Fehlermeldung oder null.
  */
 export function validateEditsSemantics(edits: EditOverlay): string | null {
-  for (const grenze of edits.travelModes ?? []) {
-    if (!Number.isFinite(Date.parse(grenze.from))) return `Unparsebare Modus-Grenze: ${grenze.from}`
+  for (const boundary of edits.travelModes ?? []) {
+    if (!Number.isFinite(Date.parse(boundary.from)))
+      return `Unparsebare Modus-Grenze: ${boundary.from}`
   }
   // JSON.parse('1e999') liefert Infinity — Ajv-Typ "number" lässt das durch,
   // ein unendlicher Anker würde erst im Player als NaN explodieren. Deshalb
@@ -398,11 +399,11 @@ export function validateEditsSemantics(edits: EditOverlay): string | null {
       }
     }
   }
-  for (const grenze of edits.camera ?? []) {
-    if (!Number.isFinite(Date.parse(grenze.from)))
-      return `Unparsebare Kamera-Grenze: ${grenze.from}`
-    if (grenze.scale !== undefined && !Number.isFinite(grenze.scale))
-      return `Ungültige Kamera-Feinjustierung: ${grenze.from}`
+  for (const boundary of edits.camera ?? []) {
+    if (!Number.isFinite(Date.parse(boundary.from)))
+      return `Unparsebare Kamera-Grenze: ${boundary.from}`
+    if (boundary.scale !== undefined && !Number.isFinite(boundary.scale))
+      return `Ungültige Kamera-Feinjustierung: ${boundary.from}`
   }
   for (const moment of edits.moments ?? []) {
     if (!Number.isFinite(Date.parse(moment.from)))
@@ -410,53 +411,53 @@ export function validateEditsSemantics(edits: EditOverlay): string | null {
     if (moment.durationS !== undefined && !Number.isFinite(moment.durationS))
       return `Ungültige Moment-Dauer: ${moment.from}`
   }
-  for (const spur of edits.audio ?? []) {
-    if (!Number.isFinite(Date.parse(spur.from))) return `Unparsebarer Audio-Start: ${spur.from}`
-    if (spur.to !== undefined) {
+  for (const track of edits.audio ?? []) {
+    if (!Number.isFinite(Date.parse(track.from))) return `Unparsebarer Audio-Start: ${track.from}`
+    if (track.to !== undefined) {
       // Ein SFX ist ein One-Shot ohne Ausdehnung — ein „bis" wäre stille Absicht,
       // die nie wirkt: lieber laut ablehnen als still ignorieren.
-      if (spur.type !== 'music') return `„to" ist nur bei Musik erlaubt (${spur.file})`
-      if (!Number.isFinite(Date.parse(spur.to))) return `Unparsebares Audio-Ende: ${spur.to}`
-      if (Date.parse(spur.to) <= Date.parse(spur.from)) {
-        return `Audio-Ende muss nach dem Audio-Start liegen (${spur.file})`
+      if (track.type !== 'music') return `„to" ist nur bei Musik erlaubt (${track.file})`
+      if (!Number.isFinite(Date.parse(track.to))) return `Unparsebares Audio-Ende: ${track.to}`
+      if (Date.parse(track.to) <= Date.parse(track.from)) {
+        return `Audio-Ende muss nach dem Audio-Start liegen (${track.file})`
       }
     }
     if (
-      spur.volume !== undefined &&
-      !(Number.isFinite(spur.volume) && spur.volume >= 0 && spur.volume <= 1)
+      track.volume !== undefined &&
+      !(Number.isFinite(track.volume) && track.volume >= 0 && track.volume <= 1)
     ) {
-      return `Ungültige Lautstärke (${spur.file})`
+      return `Ungültige Lautstärke (${track.file})`
     }
     // Die neue (Film-)Verankerung. `anker` ist die Stelle der Reise, alles
     // andere hängt an ihr — deshalb wird jedes Feld einzeln auf Endlichkeit
     // geprüft (JSON.parse('1e999') ist Infinity und käme durch Ajv „number").
-    if (spur.anchor !== undefined && !Number.isFinite(Date.parse(spur.anchor))) {
-      return `Unparsebarer Audio-Anker: ${spur.anchor}`
+    if (track.anchor !== undefined && !Number.isFinite(Date.parse(track.anchor))) {
+      return `Unparsebarer Audio-Anker: ${track.anchor}`
     }
-    if (spur.offsetFilmS !== undefined && !Number.isFinite(spur.offsetFilmS)) {
-      return `Ungültiger Audio-Versatz (${spur.file})`
+    if (track.offsetFilmS !== undefined && !Number.isFinite(track.offsetFilmS)) {
+      return `Ungültiger Audio-Versatz (${track.file})`
     }
     if (
-      spur.durationFilmS !== undefined &&
-      !(Number.isFinite(spur.durationFilmS) && spur.durationFilmS > 0)
+      track.durationFilmS !== undefined &&
+      !(Number.isFinite(track.durationFilmS) && track.durationFilmS > 0)
     ) {
-      return `Ungültige Audio-Länge (${spur.file})`
+      return `Ungültige Audio-Länge (${track.file})`
     }
     // Der linke Trim hat den Dateianfang als Anschlag — auch mit Loop, denn vor
     // dem Anfang gibt es nichts zu wiederholen. Die Obergrenze (Dateilänge)
     // kennt nur der Editor; hier steht die Hälfte, die immer gilt.
-    if (spur.startS !== undefined && !(Number.isFinite(spur.startS) && spur.startS >= 0)) {
-      return `Ungültiger Datei-Einstieg (${spur.file})`
+    if (track.startS !== undefined && !(Number.isFinite(track.startS) && track.startS >= 0)) {
+      return `Ungültiger Datei-Einstieg (${track.file})`
     }
   }
-  for (const grenze of edits.weather ?? []) {
-    if (!Number.isFinite(Date.parse(grenze.from)))
-      return `Unparsebare Wetter-Grenze: ${grenze.from}`
+  for (const boundary of edits.weather ?? []) {
+    if (!Number.isFinite(Date.parse(boundary.from)))
+      return `Unparsebare Wetter-Grenze: ${boundary.from}`
     if (
-      grenze.intensity !== undefined &&
-      !(Number.isFinite(grenze.intensity) && grenze.intensity >= 0 && grenze.intensity <= 1)
+      boundary.intensity !== undefined &&
+      !(Number.isFinite(boundary.intensity) && boundary.intensity >= 0 && boundary.intensity <= 1)
     ) {
-      return `Ungültige Wetter-Stärke: ${grenze.from}`
+      return `Ungültige Wetter-Stärke: ${boundary.from}`
     }
   }
   const { start, end } = edits.trim ?? {}

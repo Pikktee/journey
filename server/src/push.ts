@@ -20,11 +20,11 @@ export type Platform = 'android' | 'ios'
 /** Ein registriertes Gerät — der Token ist die Adresse, alles andere Herkunft. */
 export interface PushDevice {
   id: string
-  benutzerId: string
+  userId: string
   platform: Platform
   token: string
-  angelegtAm: string
-  zuletztGesehenAm: string
+  createdAt: string
+  lastSeenAt: string
 }
 
 /**
@@ -46,7 +46,7 @@ export interface PushMessage {
  */
 export interface Delivery {
   token: string
-  abgemeldet: boolean
+  unregistered: boolean
 }
 
 /**
@@ -56,21 +56,21 @@ export interface Delivery {
  */
 export interface PushTransport {
   /** Ohne Dienstkonto ist Push aus — der Dienst fragt das, bevor er Geräte sucht. */
-  readonly einsatzbereit: boolean
-  sende(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]>
+  readonly ready: boolean
+  send(tokens: readonly string[], message: PushMessage): Promise<Delivery[]>
 }
 
 /** Dev-Versand: schreibt ins Log, statt zu senden. Kein Firebase-Projekt nötig. */
 export class ConsolePush implements PushTransport {
-  readonly einsatzbereit = true
-  constructor(private readonly log: (zeile: string) => void = console.log) {}
-  async sende(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]> {
-    this.log(`\n🔔 Push (${nachricht.type}, Tour ${nachricht.tourId}) an ${tokens.length} Gerät(e)`)
-    return tokens.map((token) => ({ token, abgemeldet: false }))
+  readonly ready = true
+  constructor(private readonly log: (row: string) => void = console.log) {}
+  async send(tokens: readonly string[], message: PushMessage): Promise<Delivery[]> {
+    this.log(`\n🔔 Push (${message.type}, Tour ${message.tourId}) an ${tokens.length} Gerät(e)`)
+    return tokens.map((token) => ({ token, unregistered: false }))
   }
 }
 
-interface GeraeteZeile {
+interface DeviceRow {
   id: string
   user_id: string
   platform: Platform
@@ -79,26 +79,26 @@ interface GeraeteZeile {
   last_seen_at: string
 }
 
-function zuGeraet(z: GeraeteZeile): PushDevice {
+function toDevice(z: DeviceRow): PushDevice {
   return {
     id: z.id,
-    benutzerId: z.user_id,
+    userId: z.user_id,
     platform: z.platform,
     token: z.token,
-    angelegtAm: z.created_at,
-    zuletztGesehenAm: z.last_seen_at,
+    createdAt: z.created_at,
+    lastSeenAt: z.last_seen_at,
   }
 }
 
 export class PushService {
   constructor(
     private readonly db: Db,
-    private readonly versand: PushTransport | null,
+    private readonly transport: PushTransport | null,
   ) {}
 
   /** Ohne Versandweg gibt es nichts zu registrieren — die App erfährt das und lässt es. */
-  get einsatzbereit(): boolean {
-    return this.versand?.einsatzbereit === true
+  get ready(): boolean {
+    return this.transport?.ready === true
   }
 
   /**
@@ -111,13 +111,13 @@ export class PushService {
    * Neuinstallation erneut, und beim Erneuern („token refresh") schickt die App
    * ihn ungefragt noch einmal: Beides ist hier ein UPDATE, kein Fehlerfall.
    */
-  registriere(
-    benutzerId: string,
+  register(
+    userId: string,
     token: string,
-    plattform: Platform,
+    platform2: Platform,
     appTokenId: string | null,
   ): PushDevice {
-    const jetzt = new Date().toISOString()
+    const now = new Date().toISOString()
     this.db
       .prepare(
         `INSERT INTO push_devices (id, user_id, token_id, platform, token, created_at, last_seen_at)
@@ -128,9 +128,9 @@ export class PushService {
            platform = excluded.platform,
            last_seen_at = excluded.last_seen_at`,
       )
-      .run(newTourId().replace('t_', 'g_'), benutzerId, appTokenId, plattform, token, jetzt, jetzt)
-    return zuGeraet(
-      this.db.prepare('SELECT * FROM push_devices WHERE token = ?').get(token) as GeraeteZeile,
+      .run(newTourId().replace('t_', 'g_'), userId, appTokenId, platform2, token, now, now)
+    return toDevice(
+      this.db.prepare('SELECT * FROM push_devices WHERE token = ?').get(token) as DeviceRow,
     )
   }
 
@@ -142,21 +142,20 @@ export class PushService {
    * nicht in einer Prüfung davor — sonst läge zwischen „gehört mir?" und dem
    * DELETE eine Lücke.
    */
-  entferne(benutzerId: string, token: string): boolean {
+  remove(userId: string, token: string): boolean {
     return (
-      this.db
-        .prepare('DELETE FROM push_devices WHERE user_id = ? AND token = ?')
-        .run(benutzerId, token).changes > 0
+      this.db.prepare('DELETE FROM push_devices WHERE user_id = ? AND token = ?').run(userId, token)
+        .changes > 0
     )
   }
 
   /** Alle Geräte eines Kontos — für den Versand und für den Datenexport. */
-  geraete(benutzerId: string): PushDevice[] {
+  devices(userId: string): PushDevice[] {
     return (
       this.db
         .prepare('SELECT * FROM push_devices WHERE user_id = ? ORDER BY created_at DESC')
-        .all(benutzerId) as GeraeteZeile[]
-    ).map(zuGeraet)
+        .all(userId) as DeviceRow[]
+    ).map(toDevice)
   }
 
   /**
@@ -169,21 +168,21 @@ export class PushService {
    *
    * Abgelehnte Tokens werden gelöscht, nicht protokolliert (s. `Delivery`).
    */
-  async melde(benutzerId: string, nachricht: PushMessage): Promise<number> {
-    if (!this.versand?.einsatzbereit) return 0
-    const tokens = this.geraete(benutzerId).map((g) => g.token)
+  async notify(userId: string, message: PushMessage): Promise<number> {
+    if (!this.transport?.ready) return 0
+    const tokens = this.devices(userId).map((g) => g.token)
     if (!tokens.length) return 0
-    let zustellungen: Delivery[]
+    let deliveries: Delivery[]
     try {
-      zustellungen = await this.versand.sende(tokens, nachricht)
+      deliveries = await this.transport.send(tokens, message)
     } catch {
       return 0
     }
-    const abgemeldet = zustellungen.filter((z) => z.abgemeldet).map((z) => z.token)
-    if (abgemeldet.length) {
-      const loesche = this.db.prepare('DELETE FROM push_devices WHERE token = ?')
-      this.db.transaction(() => abgemeldet.forEach((t) => loesche.run(t)))()
+    const unregistered = deliveries.filter((z) => z.unregistered).map((z) => z.token)
+    if (unregistered.length) {
+      const del = this.db.prepare('DELETE FROM push_devices WHERE token = ?')
+      this.db.transaction(() => unregistered.forEach((t) => del.run(t)))()
     }
-    return zustellungen.length - abgemeldet.length
+    return deliveries.length - unregistered.length
   }
 }

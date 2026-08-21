@@ -57,7 +57,7 @@ export interface Feedback {
   updatedAt: string | null
 }
 
-type Zeile = {
+type FeedbackRow = {
   id: string
   user_id: string | null
   user_name: string | null
@@ -71,15 +71,15 @@ type Zeile = {
   updated_at: string | null
 }
 
-function zuRueckmeldung(z: Zeile): Feedback {
-  let kontext: FeedbackContext | null = null
+function toFeedback(z: FeedbackRow): Feedback {
+  let context2: FeedbackContext | null = null
   if (z.context) {
     // Kaputtes JSON darf die Liste nicht sprengen: Eine unlesbare Angabe ist
     // dasselbe wie keine — der Text der Meldung bleibt lesbar.
     try {
-      kontext = JSON.parse(z.context) as FeedbackContext
+      context2 = JSON.parse(z.context) as FeedbackContext
     } catch {
-      kontext = null
+      context2 = null
     }
   }
   return {
@@ -88,7 +88,7 @@ function zuRueckmeldung(z: Zeile): Feedback {
     userName: z.user_name,
     email: z.email,
     text: z.text,
-    context: kontext,
+    context: context2,
     source: z.source,
     status: z.status,
     note: z.note,
@@ -97,14 +97,14 @@ function zuRueckmeldung(z: Zeile): Feedback {
   }
 }
 
-const SPALTEN = `r.id, r.user_id, u.name AS user_name, r.email, r.text, r.context,
+const COLUMNS = `r.id, r.user_id, u.name AS user_name, r.email, r.text, r.context,
   r.source, r.status, r.note, r.created_at, r.updated_at`
 
 export class FeedbackService {
   constructor(private db: Db) {}
 
   /** Nimmt eine Meldung an. Kürzt statt abzulehnen — ein 400 ginge hier zulasten des Absenders. */
-  nimmAn(eingang: {
+  submit(incoming: {
     text: string
     email?: string | null
     userId?: string | null
@@ -112,9 +112,9 @@ export class FeedbackService {
     source?: FeedbackSource
   }): Feedback {
     const id = newSessionId()
-    const jetzt = new Date().toISOString()
-    const text = eingang.text.trim().slice(0, MAX_TEXT)
-    const email = eingang.email?.trim().slice(0, MAX_EMAIL) || null
+    const now = new Date().toISOString()
+    const text = incoming.text.trim().slice(0, MAX_TEXT)
+    const email = incoming.email?.trim().slice(0, MAX_EMAIL) || null
     this.db
       .prepare(
         `INSERT INTO feedback (id, user_id, email, text, context, source, status, created_at)
@@ -122,24 +122,24 @@ export class FeedbackService {
       )
       .run(
         id,
-        eingang.userId ?? null,
+        incoming.userId ?? null,
         email,
         text,
-        eingang.context ? JSON.stringify(eingang.context) : null,
-        eingang.source ?? 'web',
-        jetzt,
+        incoming.context ? JSON.stringify(incoming.context) : null,
+        incoming.source ?? 'web',
+        now,
       )
-    return this.eine(id) as Feedback
+    return this.one(id) as Feedback
   }
 
-  eine(id: string): Feedback | null {
+  one(id: string): Feedback | null {
     const z = this.db
       .prepare(
-        `SELECT ${SPALTEN} FROM feedback r
+        `SELECT ${COLUMNS} FROM feedback r
          LEFT JOIN users u ON u.id = r.user_id WHERE r.id = ?`,
       )
-      .get(id) as Zeile | undefined
-    return z ? zuRueckmeldung(z) : null
+      .get(id) as FeedbackRow | undefined
+    return z ? toFeedback(z) : null
   }
 
   /**
@@ -150,52 +150,49 @@ export class FeedbackService {
    * Millisekunde genau ist: Zwei Meldungen aus derselben Millisekunde stünden
    * sonst in beliebiger, zwischen zwei Aufrufen wechselnder Reihenfolge.
    */
-  liste(filter?: { status?: FeedbackStatus }): Feedback[] {
-    const wo = filter?.status ? 'WHERE r.status = ?' : ''
-    const zeilen = this.db
+  list(filter?: { status?: FeedbackStatus }): Feedback[] {
+    const where = filter?.status ? 'WHERE r.status = ?' : ''
+    const rows = this.db
       .prepare(
-        `SELECT ${SPALTEN} FROM feedback r
+        `SELECT ${COLUMNS} FROM feedback r
          LEFT JOIN users u ON u.id = r.user_id
-         ${wo} ORDER BY r.created_at DESC, r.rowid DESC LIMIT 500`,
+         ${where} ORDER BY r.created_at DESC, r.rowid DESC LIMIT 500`,
       )
-      .all(...(filter?.status ? [filter.status] : [])) as Zeile[]
-    return zeilen.map(zuRueckmeldung)
+      .all(...(filter?.status ? [filter.status] : [])) as FeedbackRow[]
+    return rows.map(toFeedback)
   }
 
   /** Zähler je Status — die Verwaltung zeigt sie an den Filtern. */
-  zaehlung(): Record<FeedbackStatus | 'total', number> {
-    const zeilen = this.db
+  counts(): Record<FeedbackStatus | 'total', number> {
+    const rows = this.db
       .prepare(`SELECT status, COUNT(*) AS n FROM feedback GROUP BY status`)
       .all() as Array<{ status: FeedbackStatus; n: number }>
     const z = { open: 0, in_progress: 0, done: 0, total: 0 }
-    for (const zeile of zeilen) {
-      z[zeile.status] = zeile.n
-      z.total += zeile.n
+    for (const row of rows) {
+      z[row.status] = row.n
+      z.total += row.n
     }
     return z
   }
 
   /** Status und/oder Notiz setzen. Gibt `null` zurück, wenn es die Meldung nicht gibt. */
-  aktualisiere(
-    id: string,
-    aenderung: { status?: FeedbackStatus; note?: string | null },
-  ): Feedback | null {
-    if (!this.eine(id)) return null
-    const jetzt = new Date().toISOString()
-    if (aenderung.status !== undefined) {
+  update(id: string, change: { status?: FeedbackStatus; note?: string | null }): Feedback | null {
+    if (!this.one(id)) return null
+    const now = new Date().toISOString()
+    if (change.status !== undefined) {
       this.db
         .prepare(`UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?`)
-        .run(aenderung.status, jetzt, id)
+        .run(change.status, now, id)
     }
-    if (aenderung.note !== undefined) {
+    if (change.note !== undefined) {
       this.db
         .prepare(`UPDATE feedback SET note = ?, updated_at = ? WHERE id = ?`)
-        .run(aenderung.note?.trim() || null, jetzt, id)
+        .run(change.note?.trim() || null, now, id)
     }
-    return this.eine(id)
+    return this.one(id)
   }
 
-  loesche(id: string): boolean {
+  remove(id: string): boolean {
     return this.db.prepare(`DELETE FROM feedback WHERE id = ?`).run(id).changes > 0
   }
 
@@ -203,15 +200,15 @@ export class FeedbackService {
    * Speicherbegrenzung (Art. 5 Abs. 1 lit. e DSGVO): Erledigtes verfällt früher
    * als Offenes. Läuft im täglichen Aufräumlauf mit.
    */
-  raeumeAuf(jetzt = new Date()): number {
-    const grenze = (tage: number): string =>
-      new Date(jetzt.getTime() - tage * 86_400_000).toISOString()
+  purgeExpired(now = new Date()): number {
+    const cutoff = (days: number): string =>
+      new Date(now.getTime() - days * 86_400_000).toISOString()
     const a = this.db
       .prepare(`DELETE FROM feedback WHERE status = 'done' AND created_at < ?`)
-      .run(grenze(DONE_RETENTION_DAYS)).changes
+      .run(cutoff(DONE_RETENTION_DAYS)).changes
     const b = this.db
       .prepare(`DELETE FROM feedback WHERE status <> 'done' AND created_at < ?`)
-      .run(grenze(OPEN_RETENTION_DAYS)).changes
+      .run(cutoff(OPEN_RETENTION_DAYS)).changes
     return a + b
   }
 }

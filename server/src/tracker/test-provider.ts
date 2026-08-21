@@ -47,8 +47,8 @@ export class TestProvider implements TrackerProvider {
     this.configured = opt.konfiguriert ?? true
   }
 
-  authorizationUrl(zustand: string, redirectUri: string): string {
-    return `https://anbieter.test/oauth?state=${encodeURIComponent(zustand)}&redirect_uri=${encodeURIComponent(redirectUri)}`
+  authorizationUrl(state: string, redirectUri: string): string {
+    return `https://anbieter.test/oauth?state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}`
   }
 
   async exchangeCode(code: string): Promise<ProviderTokens> {
@@ -68,10 +68,10 @@ export class TestProvider implements TrackerProvider {
   }
 
   webhook = {
-    isPing: (anfrage: WebhookRequest): boolean => {
+    isPing: (request: WebhookRequest): boolean => {
       if (!this.opt.istPing) return false
       try {
-        const data = JSON.parse(anfrage.rawBody || '{}') as Record<string, unknown>
+        const data = JSON.parse(request.rawBody || '{}') as Record<string, unknown>
         return (
           data['event'] === 'PING' &&
           data['user_id'] === undefined &&
@@ -82,14 +82,14 @@ export class TestProvider implements TrackerProvider {
       }
     },
 
-    verify: (anfrage: WebhookRequest): boolean => {
+    verify: (request: WebhookRequest): boolean => {
       const secret = this.opt.webhookSecret
       if (!secret) return false
-      const passed = anfrage.headers['polar-webhook-signature'] ?? ''
-      return timingSafeEquals(passed, testSignature(anfrage.rawBody, secret))
+      const passed = request.headers['polar-webhook-signature'] ?? ''
+      return timingSafeEquals(passed, testSignature(request.rawBody, secret))
     },
-    parseEvents: (anfrage: WebhookRequest): TrackerEvent[] => {
-      const data = JSON.parse(anfrage.rawBody || '{}') as {
+    parseEvents: (request: WebhookRequest): TrackerEvent[] => {
+      const data = JSON.parse(request.rawBody || '{}') as {
         event?: string
         user_id?: string
         entity_id?: string

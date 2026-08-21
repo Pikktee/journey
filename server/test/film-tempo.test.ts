@@ -139,16 +139,16 @@ describe('Filmtempo', () => {
     // src/studio/editor.ts.
     expect(momentHoldS({ kind: 'orbit' })).toBe(6)
     expect(momentHoldS({ kind: 'linger' })).toBe(4)
-    expect(momentHoldS({ kind: 'ascend', dauerS: 12 })).toBe(12)
+    expect(momentHoldS({ kind: 'ascend', durationS: 12 })).toBe(12)
     expect(momentHoldS({ kind: 'ascend' })).not.toBe(MOMENT_DEFAULT_S.ascend + STOP_FADE_OUT_S)
   })
 
   it('bemisst eine Aufnahme wie die Engine: Video mit seiner Länge, Foto mit der Standzeit', () => {
     expect(mediumHoldS({ type: 'photo' })).toBe(STOP_ENGINE_S)
     expect(mediumHoldS({ type: 'photo', display: { holdS: 9 } })).toBe(9)
-    expect(mediumHoldS({ type: 'video', dauerS: 34.2 })).toBe(34.2)
+    expect(mediumHoldS({ type: 'video', durationS: 34.2 })).toBe(34.2)
     // `display.holdS` ist bei Video wirkungslos — der Player läuft bis zum Ende
-    expect(mediumHoldS({ type: 'video', dauerS: 34.2, display: { holdS: 9 } })).toBe(34.2)
+    expect(mediumHoldS({ type: 'video', durationS: 34.2, display: { holdS: 9 } })).toBe(34.2)
     // Länge unbekannt (unverarbeiteter Altbestand): Foto-Annahme, nichts bricht
     expect(mediumHoldS({ type: 'video' })).toBe(STOP_ENGINE_S)
   })

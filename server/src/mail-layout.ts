@@ -37,36 +37,36 @@ export interface MailParts {
 
 export interface LayoutContext {
   /** Öffentliche Basis-URL für Logo und Fußzeile, ohne Schrägstrich am Ende. */
-  basisUrl: string
+  baseUrl: string
   /** Ziel des Knopfs; ohne Wert wird kein Knopf gezeichnet. */
   link?: string
 }
 
 export interface RenderedMail {
-  betreff: string
+  subject: string
   text: string
   html: string
 }
 
-const FARBEN = {
-  aussen: '#06090E',
-  karte: '#10151d',
-  rand: '#222b37',
-  tief: '#080b11',
+const COLORS = {
+  outer: '#06090E',
+  card: '#10151d',
+  border: '#222b37',
+  deep: '#080b11',
   text: '#F2EDE3',
-  gedaempft: '#a7b1bf',
-  leise: '#67727f',
+  muted: '#a7b1bf',
+  quiet: '#67727f',
   amber: '#F59E0B',
-  koralle: '#FF6F52',
-  aufAmber: '#221302',
+  coral: '#FF6F52',
+  onAmber: '#221302',
 } as const
 
-const SCHRIFT = "'Outfit','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif"
+const FONT = "'Outfit','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif"
 
 /** Platzhalter der Form `{{name}}` durch Werte ersetzen; Unbekanntes bleibt stehen. */
-export function fillPlaceholders(text: string, werte: Record<string, string>): string {
-  return text.replace(/\{\{\s*([a-zA-Z]+)\s*\}\}/g, (treffer, name: string) =>
-    Object.prototype.hasOwnProperty.call(werte, name) ? (werte[name] ?? '') : treffer,
+export function fillPlaceholders(text: string, values: Record<string, string>): string {
+  return text.replace(/\{\{\s*([a-zA-Z]+)\s*\}\}/g, (hits, name: string) =>
+    Object.prototype.hasOwnProperty.call(values, name) ? (values[name] ?? '') : hits,
   )
 }
 
@@ -85,16 +85,16 @@ const escape = (s: string): string =>
  * gehört es ins Attribut. Nachlaufende Satzzeichen gehören zum Satz, nicht zur
  * Adresse; ohne diesen Schnitt hinge der Punkt am Ende im Link.
  */
-function verlinke(html: string): string {
+function linkify(html: string): string {
   return html.replace(/https?:\/\/[^\s<]+/g, (url) => {
-    const schwanz = url.match(/[.,;:!?)\]]+$/)?.[0] ?? ''
-    const ziel = url.slice(0, url.length - schwanz.length)
-    return `<a href="${ziel}" style="color:${FARBEN.amber};text-decoration:underline;word-break:break-all;">${ziel}</a>${schwanz}`
+    const tail = url.match(/[.,;:!?)\]]+$/)?.[0] ?? ''
+    const target = url.slice(0, url.length - tail.length)
+    return `<a href="${target}" style="color:${COLORS.amber};text-decoration:underline;word-break:break-all;">${target}</a>${tail}`
   })
 }
 
 /** Text in Absätze schneiden: Leerzeile trennt, einfacher Umbruch bleibt einer. */
-const absaetze = (text: string): string[] =>
+const paragraphs = (text: string): string[] =>
   text
     .replace(/\r\n/g, '\n')
     .split(/\n\s*\n/)
@@ -107,28 +107,28 @@ const absaetze = (text: string): string[] =>
  * Die Alternative wäre ein eigenes Feld „Code hervorheben" gewesen — ein
  * Formularfeld mehr für eine Entscheidung, die man am Text schon sieht.
  */
-const istCodeAbsatz = (roh: string): boolean => /^\{\{\s*code\s*\}\}$/.test(roh.trim())
+const isCodeParagraph = (raw: string): boolean => /^\{\{\s*code\s*\}\}$/.test(raw.trim())
 
-function absatzHtml(inhalt: string): string {
-  return `<p style="margin:0 0 16px;font-family:${SCHRIFT};font-size:16px;line-height:1.65;color:${FARBEN.text};">${inhalt}</p>`
+function paragraphHtml(content: string): string {
+  return `<p style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:1.65;color:${COLORS.text};">${content}</p>`
 }
 
 function codeBoxHtml(code: string): string {
   return (
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;">` +
-    `<tr><td bgcolor="${FARBEN.tief}" style="background-color:${FARBEN.tief};border:1px solid ${FARBEN.rand};border-radius:12px;padding:14px 22px;` +
-    `font-family:${SCHRIFT};font-size:24px;font-weight:600;letter-spacing:0.12em;color:${FARBEN.amber};white-space:nowrap;">` +
+    `<tr><td bgcolor="${COLORS.deep}" style="background-color:${COLORS.deep};border:1px solid ${COLORS.border};border-radius:12px;padding:14px 22px;` +
+    `font-family:${FONT};font-size:24px;font-weight:600;letter-spacing:0.12em;color:${COLORS.amber};white-space:nowrap;">` +
     `${escape(code)}</td></tr></table>`
   )
 }
 
-function knopfHtml(beschriftung: string, ziel: string): string {
+function buttonHtml(label: string, target: string): string {
   return (
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 24px;">` +
-    `<tr><td align="center" bgcolor="${FARBEN.amber}" style="background-color:${FARBEN.amber};` +
-    `background-image:linear-gradient(100deg,${FARBEN.amber},${FARBEN.koralle});border-radius:999px;">` +
-    `<a href="${escape(ziel)}" style="display:inline-block;padding:14px 30px;font-family:${SCHRIFT};font-size:16px;` +
-    `font-weight:600;color:${FARBEN.aufAmber};text-decoration:none;border-radius:999px;">${escape(beschriftung)}</a>` +
+    `<tr><td align="center" bgcolor="${COLORS.amber}" style="background-color:${COLORS.amber};` +
+    `background-image:linear-gradient(100deg,${COLORS.amber},${COLORS.coral});border-radius:999px;">` +
+    `<a href="${escape(target)}" style="display:inline-block;padding:14px 30px;font-family:${FONT};font-size:16px;` +
+    `font-weight:600;color:${COLORS.onAmber};text-decoration:none;border-radius:999px;">${escape(label)}</a>` +
     `</td></tr></table>`
   )
 }
@@ -141,12 +141,12 @@ function knopfHtml(beschriftung: string, ziel: string): string {
  * `display:none` PLUS eine Reihe unsichtbarer Zeichen dahinter, damit der
  * Client nichts anderes nachzieht.
  */
-function vorschauZeile(text: string): string {
-  const kurz = text.replace(/\s+/g, ' ').trim().slice(0, 140)
-  const fueller = '&#847;&zwnj;&nbsp;'.repeat(30)
+function previewLine(text: string): string {
+  const short = text.replace(/\s+/g, ' ').trim().slice(0, 140)
+  const filler = '&#847;&zwnj;&nbsp;'.repeat(30)
   return (
-    `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${FARBEN.aussen};">` +
-    `${escape(kurz)}${fueller}</div>`
+    `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${COLORS.outer};">` +
+    `${escape(short)}${filler}</div>`
   )
 }
 
@@ -159,61 +159,68 @@ function vorschauZeile(text: string): string {
  * stehen ließ.
  */
 export function renderMail(
-  bausteine: MailParts,
-  werte: Record<string, string>,
-  kontext: LayoutContext,
+  blocks: MailParts,
+  values: Record<string, string>,
+  context: LayoutContext,
 ): RenderedMail {
-  const basis = kontext.basisUrl.replace(/\/+$/, '')
-  const fuelle = (s: string): string => fillPlaceholders(s, werte)
+  const base = context.baseUrl.replace(/\/+$/, '')
+  const fill = (s: string): string => fillPlaceholders(s, values)
 
-  const betreff = fuelle(bausteine.subject).replace(/\s+/g, ' ').trim()
-  const titel = fuelle(bausteine.title).trim()
-  const knopf = bausteine.button.trim()
-  const zeigeKnopf = Boolean(knopf && kontext.link)
+  const subjectText = fill(blocks.subject).replace(/\s+/g, ' ').trim()
+  const heading = fill(blocks.title).trim()
+  const buttonText = blocks.button.trim()
+  const showButton = Boolean(buttonText && context.link)
 
   // — HTML-Körper —
-  const koerper: string[] = []
-  for (const roh of absaetze(bausteine.text)) {
-    if (istCodeAbsatz(roh)) {
-      koerper.push(codeBoxHtml(fuelle(roh)))
+  const bodyParts: string[] = []
+  for (const raw of paragraphs(blocks.text)) {
+    if (isCodeParagraph(raw)) {
+      bodyParts.push(codeBoxHtml(fill(raw)))
       continue
     }
-    koerper.push(absatzHtml(verlinke(escape(fuelle(roh)).replace(/\n/g, '<br />'))))
+    bodyParts.push(paragraphHtml(linkify(escape(fill(raw)).replace(/\n/g, '<br />'))))
   }
-  if (zeigeKnopf) koerper.push(knopfHtml(knopf, kontext.link as string))
+  if (showButton) bodyParts.push(buttonHtml(buttonText, context.link as string))
 
-  const fussBloecke = absaetze(bausteine.footer).map(
-    (roh) =>
-      `<p style="margin:0 0 12px;font-family:${SCHRIFT};font-size:13.5px;line-height:1.6;color:${FARBEN.gedaempft};">` +
-      `${verlinke(escape(fuelle(roh)).replace(/\n/g, '<br />'))}</p>`,
+  const footerBlocks = paragraphs(blocks.footer).map(
+    (raw) =>
+      `<p style="margin:0 0 12px;font-family:${FONT};font-size:13.5px;line-height:1.6;color:${COLORS.muted};">` +
+      `${linkify(escape(fill(raw)).replace(/\n/g, '<br />'))}</p>`,
   )
 
   // — Text-Fassung —
-  const textTeile: string[] = [titel]
-  for (const roh of absaetze(bausteine.text)) textTeile.push(fuelle(roh))
+  const textParts: string[] = [heading]
+  for (const raw of paragraphs(blocks.text)) textParts.push(fill(raw))
   // Der Link steht auf einer EIGENEN Zeile: Mail-Programme, die selbst
   // verlinken, schneiden sonst am nächsten Satzzeichen ab — und ein Token mit
   // angehängtem Punkt löst nichts ein.
-  if (zeigeKnopf) textTeile.push(`${knopf}:\n${kontext.link}`)
-  for (const roh of absaetze(bausteine.footer)) textTeile.push(fuelle(roh))
-  textTeile.push(`Maptale\n${basis}`)
-  const text = textTeile.filter(Boolean).join('\n\n')
+  if (showButton) textParts.push(`${buttonText}:\n${context.link}`)
+  for (const raw of paragraphs(blocks.footer)) textParts.push(fill(raw))
+  textParts.push(`Maptale\n${base}`)
+  const text = textParts.filter(Boolean).join('\n\n')
 
-  const html = huelle(betreff, titel, koerper.join('\n'), fussBloecke.join('\n'), basis, text)
-  return { betreff, text, html }
+  const html = shell(
+    subjectText,
+    heading,
+    bodyParts.join('\n'),
+    footerBlocks.join('\n'),
+    base,
+    text,
+  )
+  return { subject: subjectText, text, html }
 }
 
 /** Das Gerüst um den Inhalt: Logo, Karte, Fußzeile. */
-function huelle(
-  betreff: string,
-  titel: string,
-  koerper: string,
-  fuss: string,
-  basis: string,
-  textFassung: string,
+function shell(
+  subjectText: string,
+  heading: string,
+  bodyParts: string,
+  footerText: string,
+  base: string,
+  textVersion2: string,
 ): string {
-  const trenner = fuss
-    ? `<tr><td style="padding:2px 0 20px;"><div style="height:1px;background-color:${FARBEN.rand};line-height:1px;font-size:1px;">&nbsp;</div></td></tr>`
+  const divider = footerText
+    ? `<tr><td style="padding:2px 0 20px;"><div style="height:1px;background-color:${COLORS.border};line-height:1px;font-size:1px;">&nbsp;</div></td></tr>`
     : ''
   return `<!doctype html>
 <html lang="de">
@@ -223,51 +230,51 @@ function huelle(
 <meta http-equiv="x-ua-compatible" content="ie=edge" />
 <meta name="color-scheme" content="dark" />
 <meta name="supported-color-schemes" content="dark" />
-<title>${escape(betreff)}</title>
+<title>${escape(subjectText)}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
   body { margin: 0; padding: 0; width: 100% !important; }
-  a { color: ${FARBEN.amber}; }
+  a { color: ${COLORS.amber}; }
   @media only screen and (max-width: 620px) {
-    .maptale-karte { padding: 26px 22px !important; }
+    .maptale-card { padding: 26px 22px !important; }
     .maptale-titel { font-size: 24px !important; }
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background-color:${FARBEN.aussen};">
-${vorschauZeile(textFassung)}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${FARBEN.aussen}" style="background-color:${FARBEN.aussen};margin:0;padding:0;">
+<body style="margin:0;padding:0;background-color:${COLORS.outer};">
+${previewLine(textVersion2)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.outer}" style="background-color:${COLORS.outer};margin:0;padding:0;">
   <tr>
     <td align="center" style="padding:34px 16px 44px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
         <tr>
           <td align="center" style="padding:0 0 26px;">
-            <a href="${basis}" style="text-decoration:none;">
-              <img src="${basis}/branding/mail-logo.png" width="152" height="46" alt="Maptale"
-                style="display:block;border:0;width:152px;height:46px;font-family:${SCHRIFT};font-size:22px;font-weight:700;color:${FARBEN.text};text-decoration:none;" />
+            <a href="${base}" style="text-decoration:none;">
+              <img src="${base}/branding/mail-logo.png" width="152" height="46" alt="Maptale"
+                style="display:block;border:0;width:152px;height:46px;font-family:${FONT};font-size:22px;font-weight:700;color:${COLORS.text};text-decoration:none;" />
             </a>
           </td>
         </tr>
         <tr>
-          <td bgcolor="${FARBEN.karte}" class="maptale-karte" style="background-color:${FARBEN.karte};border:1px solid ${FARBEN.rand};border-radius:16px;padding:34px 36px 28px;">
+          <td bgcolor="${COLORS.card}" class="maptale-card" style="background-color:${COLORS.card};border:1px solid ${COLORS.border};border-radius:16px;padding:34px 36px 28px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td>
-                  <h1 class="maptale-titel" style="margin:0 0 18px;font-family:${SCHRIFT};font-size:27px;line-height:1.2;font-weight:600;letter-spacing:-0.02em;color:${FARBEN.text};">${escape(titel)}</h1>
-                  ${koerper}
+                  <h1 class="maptale-titel" style="margin:0 0 18px;font-family:${FONT};font-size:27px;line-height:1.2;font-weight:600;letter-spacing:-0.02em;color:${COLORS.text};">${escape(heading)}</h1>
+                  ${bodyParts}
                 </td>
               </tr>
-              ${trenner}
-              ${fuss ? `<tr><td>${fuss}</td></tr>` : ''}
+              ${divider}
+              ${footerText ? `<tr><td>${footerText}</td></tr>` : ''}
             </table>
           </td>
         </tr>
         <tr>
-          <td align="center" style="padding:24px 12px 0;font-family:${SCHRIFT};font-size:12.5px;line-height:1.7;color:${FARBEN.leise};">
-            <span style="color:${FARBEN.gedaempft};">Maptale</span> · deine Reisen als filmischer 3D-Flug.<br />
-            <a href="${basis}${WEB_PATHS.imprint}" style="color:${FARBEN.leise};text-decoration:underline;">Impressum</a>
+          <td align="center" style="padding:24px 12px 0;font-family:${FONT};font-size:12.5px;line-height:1.7;color:${COLORS.quiet};">
+            <span style="color:${COLORS.muted};">Maptale</span> · deine Reisen als filmischer 3D-Flug.<br />
+            <a href="${base}${WEB_PATHS.imprint}" style="color:${COLORS.quiet};text-decoration:underline;">Impressum</a>
             &nbsp;·&nbsp;
-            <a href="${basis}${WEB_PATHS.privacy}" style="color:${FARBEN.leise};text-decoration:underline;">Datenschutz</a>
+            <a href="${base}${WEB_PATHS.privacy}" style="color:${COLORS.quiet};text-decoration:underline;">Datenschutz</a>
           </td>
         </tr>
       </table>

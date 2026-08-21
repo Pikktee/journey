@@ -10,7 +10,7 @@
 import type { FastifyInstance } from 'fastify'
 import { requireUser } from '../app.js'
 
-const geraetSchema = {
+const deviceSchema = {
   type: 'object',
   required: ['token', 'platform'],
   additionalProperties: false,
@@ -27,17 +27,17 @@ export function registerPushRoutes(app: FastifyInstance): void {
   // — Gerät anmelden (auch zum Erneuern: die Route schreibt um) —
   app.post<{ Body: { token: string; platform: 'android' | 'ios' } }>(
     '/api/push/devices',
-    { schema: { body: geraetSchema } },
+    { schema: { body: deviceSchema } },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
+      const user = requireUser(request, reply)
+      if (!user) return
       // Ohne Dienstkonto gibt es keinen Versandweg. Das ist KEIN Fehler,
       // sondern eine Auskunft: Die App hört auf, es zu versuchen, und bleibt
       // bei ihrem periodischen Abruf — statt einen Token zu hinterlegen, an
       // den nie etwas geht.
-      if (!app.push.einsatzbereit) return reply.code(200).send({ ok: false, push: false })
-      const geraet = app.push.registriere(
-        benutzer.id,
+      if (!app.push.ready) return reply.code(200).send({ ok: false, push: false })
+      const device = app.push.register(
+        user.id,
         request.body.token,
         request.body.platform,
         // Das Gerät hängt am Zugang, mit dem es kam: Wer die App in
@@ -46,7 +46,7 @@ export function registerPushRoutes(app: FastifyInstance): void {
         // wird heute ohnehin nicht registriert.
         request.appTokenId,
       )
-      return { ok: true, push: true, deviceId: geraet.id }
+      return { ok: true, push: true, deviceId: device.id }
     },
   )
 
@@ -68,12 +68,12 @@ export function registerPushRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
+      const user = requireUser(request, reply)
+      if (!user) return
       // Auch ein unbekannter Token antwortet mit `ok` — die App hat dann
       // erreicht, was sie wollte, und ein 404 machte aus dem Abmelden eines
       // längst gelöschten Geräts einen Fehler, den niemand beheben kann.
-      app.push.entferne(benutzer.id, request.body.token)
+      app.push.remove(user.id, request.body.token)
       return { ok: true }
     },
   )

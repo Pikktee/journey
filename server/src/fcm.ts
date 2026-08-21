@@ -30,12 +30,12 @@ export type FetchFunction = (url: string, init?: RequestInit) => Promise<Respons
  * dazwischen abläuft, erzeugt einen 401, der wie ein Konfigurationsfehler
  * aussieht.
  */
-const TOKEN_GILT_MS = 55 * 60 * 1000
+const TOKEN_TTL_MS = 55 * 60 * 1000
 
-interface Dienstkonto {
-  projekt: string
-  klientMail: string
-  privaterSchluessel: string
+interface ServiceAccount {
+  projectId: string
+  clientEmail: string
+  privateKey: string
 }
 
 /**
@@ -45,27 +45,27 @@ interface Dienstkonto {
  * Moment, in dem sie jemand liest. „Unexpected token" aus `JSON.parse` sagt
  * nichts darüber, dass eine Base64-Zeile beim Kopieren abgeschnitten wurde.
  */
-export function parseServiceAccount(json: string): Dienstkonto {
-  let objekt: Record<string, unknown>
+export function parseServiceAccount(json: string): ServiceAccount {
+  let obj: Record<string, unknown>
   try {
-    objekt = JSON.parse(json) as Record<string, unknown>
+    obj = JSON.parse(json) as Record<string, unknown>
   } catch {
     throw new Error(
       'MAPTALE_FCM_SERVICE_ACCOUNT ist kein lesbares JSON (Base64 vollständig kopiert?)',
     )
   }
-  const projekt = typeof objekt.project_id === 'string' ? objekt.project_id : null
-  const klientMail = typeof objekt.client_email === 'string' ? objekt.client_email : null
-  const privaterSchluessel = typeof objekt.private_key === 'string' ? objekt.private_key : null
-  if (!projekt || !klientMail || !privaterSchluessel) {
+  const projectId = typeof obj.project_id === 'string' ? obj.project_id : null
+  const clientEmail = typeof obj.client_email === 'string' ? obj.client_email : null
+  const privateKey = typeof obj.private_key === 'string' ? obj.private_key : null
+  if (!projectId || !clientEmail || !privateKey) {
     throw new Error('MAPTALE_FCM_SERVICE_ACCOUNT fehlt project_id, client_email oder private_key')
   }
-  return { projekt, klientMail, privaterSchluessel }
+  return { projectId, clientEmail, privateKey }
 }
 
 /** Base64url ohne Polsterung — die Kodierung, die JWT vorschreibt. */
-function base64url(daten: string | Buffer): string {
-  return Buffer.from(daten)
+function base64url(data2: string | Buffer): string {
+  return Buffer.from(data2)
     .toString('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
@@ -80,21 +80,21 @@ function base64url(daten: string | Buffer): string {
  * — dann scheitert das Signieren mit einer Meldung über PEM-Kopfzeilen, und
  * niemand sucht die Ursache in einem Backslash.
  */
-function baueJwt(konto: Dienstkonto, jetztSek: number): string {
-  const kopf = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
-  const nutzlast = base64url(
+function buildJwt(account: ServiceAccount, nowSec: number): string {
+  const header = base64url(JSON.stringify({ alg: 'RS256', kind: 'JWT' }))
+  const body2 = base64url(
     JSON.stringify({
-      iss: konto.klientMail,
+      iss: account.clientEmail,
       scope: SCOPE,
       aud: TOKEN_URL,
-      iat: jetztSek,
-      exp: jetztSek + 3600,
+      iat: nowSec,
+      exp: nowSec + 3600,
     }),
   )
-  const signatur = createSign('RSA-SHA256')
-    .update(`${kopf}.${nutzlast}`)
-    .sign(konto.privaterSchluessel.replace(/\\n/g, '\n'))
-  return `${kopf}.${nutzlast}.${base64url(signatur)}`
+  const signature = createSign('RSA-SHA256')
+    .update(`${header}.${body2}`)
+    .sign(account.privateKey.replace(/\\n/g, '\n'))
+  return `${header}.${body2}.${base64url(signature)}`
 }
 
 /**
@@ -118,15 +118,15 @@ function baueJwt(konto: Dienstkonto, jetztSek: number): string {
  * geparst werden kann. Der Status 404 bleibt als Rückfall, falls der Körper
  * fehlt oder unlesbar ist.
  */
-export function isUnregistered(status: number, koerper: string): boolean {
+export function isUnregistered(status: number, payload: string): boolean {
   try {
-    const daten = JSON.parse(koerper) as {
+    const data2 = JSON.parse(payload) as {
       error?: { status?: string; details?: Array<{ errorCode?: string }> }
     }
-    if (daten.error?.details?.some((d) => d.errorCode === 'UNREGISTERED')) return true
+    if (data2.error?.details?.some((d) => d.errorCode === 'UNREGISTERED')) return true
     // Ein ausdrücklich genannter anderer Code ist eine klare Aussage — dann
     // NICHT löschen, auch wenn der Status zufällig 404 ist.
-    if (daten.error?.details?.some((d) => typeof d.errorCode === 'string')) return false
+    if (data2.error?.details?.some((d) => typeof d.errorCode === 'string')) return false
   } catch {
     // Kein oder kaputtes JSON: Es bleibt beim Status.
   }
@@ -134,37 +134,37 @@ export function isUnregistered(status: number, koerper: string): boolean {
 }
 
 export class FcmPush implements PushTransport {
-  readonly einsatzbereit = true
-  private readonly konto: Dienstkonto
-  private zugriff: { token: string; laeuftAbMs: number } | null = null
+  readonly ready = true
+  private readonly account: ServiceAccount
+  private accessToken2: { token: string; expiresAtMs: number } | null = null
 
   constructor(
-    dienstkontoJson: string,
-    private readonly hol: FetchFunction = fetch,
-    private readonly jetzt: () => number = () => Date.now(),
+    serviceAccountJson: string,
+    private readonly fetchJson: FetchFunction = fetch,
+    private readonly now: () => number = () => Date.now(),
   ) {
-    this.konto = parseServiceAccount(dienstkontoJson)
+    this.account = parseServiceAccount(serviceAccountJson)
   }
 
   /** Access-Token, gecacht bis kurz vor Ablauf. */
   private async accessToken(): Promise<string> {
-    const jetzt = this.jetzt()
-    if (this.zugriff && this.zugriff.laeuftAbMs > jetzt) return this.zugriff.token
-    const antwort = await this.hol(TOKEN_URL, {
+    const now = this.now()
+    if (this.accessToken2 && this.accessToken2.expiresAtMs > now) return this.accessToken2.token
+    const response = await this.fetchJson(TOKEN_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: baueJwt(this.konto, Math.floor(jetzt / 1000)),
+        assertion: buildJwt(this.account, Math.floor(now / 1000)),
       }).toString(),
     })
-    if (!antwort.ok) {
-      throw new Error(`FCM-Anmeldung fehlgeschlagen (${antwort.status}): ${await antwort.text()}`)
+    if (!response.ok) {
+      throw new Error(`FCM-Anmeldung fehlgeschlagen (${response.status}): ${await response.text()}`)
     }
-    const daten = (await antwort.json()) as { access_token?: string }
-    if (!daten.access_token) throw new Error('FCM-Anmeldung ohne access_token')
-    this.zugriff = { token: daten.access_token, laeuftAbMs: jetzt + TOKEN_GILT_MS }
-    return daten.access_token
+    const data2 = (await response.json()) as { access_token?: string }
+    if (!data2.access_token) throw new Error('FCM-Anmeldung ohne access_token')
+    this.accessToken2 = { token: data2.access_token, expiresAtMs: now + TOKEN_TTL_MS }
+    return data2.access_token
   }
 
   /**
@@ -178,14 +178,14 @@ export class FcmPush implements PushTransport {
    * Ein einzelner Fehlschlag beendet den Lauf NICHT — sonst bekäme das zweite
    * Gerät nichts mehr, weil beim ersten die App deinstalliert wurde.
    */
-  async sende(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]> {
-    const zugriff = await this.accessToken()
-    const url = `https://fcm.googleapis.com/v1/projects/${this.konto.projekt}/messages:send`
-    const ergebnisse: Delivery[] = []
+  async send(tokens: readonly string[], message: PushMessage): Promise<Delivery[]> {
+    const accessToken2 = await this.accessToken()
+    const url = `https://fcm.googleapis.com/v1/projects/${this.account.projectId}/messages:send`
+    const results: Delivery[] = []
     for (const token of tokens) {
-      const antwort = await this.hol(url, {
+      const response = await this.fetchJson(url, {
         method: 'POST',
-        headers: { authorization: `Bearer ${zugriff}`, 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${accessToken2}`, 'content-type': 'application/json' },
         // NUR `data`, keine `notification`: Die App baut die Meldung selbst.
         // Eine `notification` zeigte Android ohne Zutun der App an — und dann
         // stünde der Text auf dem Sperrbildschirm, obwohl die Nachricht
@@ -206,17 +206,17 @@ export class FcmPush implements PushTransport {
             // abgekündigtes Feld zu bauen hieße, den Umzug später ein zweites
             // Mal zu bezahlen. Was die App schickt, IST eine FID.
             fid: token,
-            data: { type: nachricht.type, tourId: nachricht.tourId, importId: nachricht.importId },
+            data: { type: message.type, tourId: message.tourId, importId: message.importId },
             android: { priority: 'high' },
           },
         }),
       })
-      if (antwort.ok) {
-        ergebnisse.push({ token, abgemeldet: false })
+      if (response.ok) {
+        results.push({ token, unregistered: false })
         continue
       }
-      ergebnisse.push({ token, abgemeldet: isUnregistered(antwort.status, await antwort.text()) })
+      results.push({ token, unregistered: isUnregistered(response.status, await response.text()) })
     }
-    return ergebnisse
+    return results
   }
 }

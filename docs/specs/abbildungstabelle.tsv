@@ -3866,3 +3866,21 @@ verknuepfung	link	property	server/src/tracker/import-run.ts (ImportJob)	10	Nachl
 benutzerId	userId	property	server/src/tracker/tracker.ts (StateEntry)	10	Nachlauf: OAuth-state im Speicher, ueberlebt keinen Neustart
 anbieter	provider	property	server/src/tracker/tracker.ts (StateEntry)	10	Nachlauf: die DB-Spalte provider hiess schon so
 ziel	target	property	server/src/tracker/tracker.ts (StateEntry)	10	Nachlauf
+betreff	subject	property	server/src/mail.ts (MailMessage); server/src/mail-layout.ts (RenderedMail)	10	Nachlauf: die DB-Spalte mail_templates.subject hiess schon so
+an	to	property	server/src/mail.ts (MailMessage)	10	Nachlauf: Empfaenger im Prozess, der SMTP-Header bleibt der SMTP-Header
+kopfzeilen	headers	property	server/src/mail.ts (MailMessage)	10	Nachlauf: die Mail-Kopfzeilen selbst (List-Unsubscribe …) sind unberuehrt
+abgemeldet	unregistered	property	server/src/push.ts (Delivery)	10	Nachlauf: Prozessform, FCMs UNREGISTERED bleibt Zeichen fuer Zeichen
+benutzerId	userId	property	server/src/push.ts (PushDevice)	10	Nachlauf: die DB-Spalte user_id hiess schon so
+angelegtAm	createdAt	property	server/src/push.ts (PushDevice)	10	Nachlauf: nicht zu verwechseln mit dem gleichnamigen Feld im Datenexport
+zuletztGesehenAm	lastSeenAt	property	server/src/push.ts (PushDevice)	10	Nachlauf: s. angelegtAm
+plattform	platform	property	server/src/push.ts (PushDevice)	10	Nachlauf
+klientMail	clientEmail	property	server/src/fcm.ts (ServiceAccount)	10	Nachlauf: das Feld der Google-Datei heisst client_email und bleibt
+privaterSchluessel	privateKey	property	server/src/fcm.ts (ServiceAccount)	10	Nachlauf: die Google-Datei traegt private_key
+projekt	projectId	property	server/src/fcm.ts (ServiceAccount)	10	Nachlauf: die Google-Datei traegt project_id
+beschreibung	description	property	server/src/page-meta.ts (MetaBlock)	10	Nachlauf: og:description entsteht daraus, heisst aber weiterhin so
+bild	image	property	server/src/page-meta.ts (MetaBlock)	10	Nachlauf: og:image unberuehrt
+bildAlt	imageAlt	property	server/src/page-meta.ts (MetaBlock)	10	Nachlauf: og:image:alt unberuehrt
+ogTyp	ogType	property	server/src/page-meta.ts (MetaBlock)	10	Nachlauf
+stand	fetchedAt	property	server/src/page-meta.ts (Cache-Eintrag)	10	Nachlauf: Speicher-Cache, ueberlebt keinen Neustart
+kennung	id	api-pfad	server/src/routes/pages.ts (GET /tour/:kennung)	10	Nachlauf: NUR der Fastify-Platzhaltername, die oeffentliche Adresse /tour/<id> aendert sich nicht
+dauerS	durationS	property	server/src/pipeline/film-tempo.ts (mediumHoldS/momentHoldS); film-axis.ts (DistanceStop)	10	Nachlauf: Spiegel von src/film-axis.ts, dort hiess das Feld schon durationS

@@ -733,7 +733,7 @@ describe('System-Mails verwalten', () => {
     expect(antwort.statusCode).toBe(400)
     expect(antwort.json()).toMatchObject({ error: expect.stringContaining('{{link}}') })
     // Nichts gespeichert: Die Vorlage hängt weiter am Code.
-    expect(u.app.mailTemplates.bausteine('verification')).toEqual(defaultContent())
+    expect(u.app.mailTemplates.blocks2('verification')).toEqual(defaultContent())
   })
 
   it('kennt keine erfundenen Vorlagen', async () => {
@@ -805,7 +805,7 @@ describe('System-Mails verwalten', () => {
     expect(erg.html).toContain('MAPT-4F7K')
     expect(erg.html).not.toContain('{{')
     expect(erg.issues).toEqual([])
-    expect(u.app.mailTemplates.alle().every((v) => !v.customized)).toBe(true)
+    expect(u.app.mailTemplates.all().every((v) => !v.customized)).toBe(true)
   })
 
   it('meldet in der Vorschau dieselben Probleme, an denen das Speichern scheitert', async () => {
@@ -835,9 +835,9 @@ describe('System-Mails verwalten', () => {
     expect(antwort.json()).toMatchObject({ ok: true, to: 'chefin@example.com' })
     expect(u.mail.nachrichten.length).toBe(vorher + 1)
     const mail = u.mail.nachrichten.at(-1)
-    expect(mail?.an).toBe('chefin@example.com')
+    expect(mail?.to2).toBe('chefin@example.com')
     // Als Test erkennbar, damit niemand sie für die echte Mail hält.
-    expect(mail?.betreff.startsWith('[Test] ')).toBe(true)
+    expect(mail?.subject.startsWith('[Test] ')).toBe(true)
     expect(mail?.html).toContain('Probe')
   })
 
@@ -862,7 +862,7 @@ describe('System-Mails verwalten', () => {
   it('meldet einen gescheiterten Versand, statt Erfolg zu behaupten', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    u.mail.sende = async () => {
+    u.mail.send = async () => {
       throw new Error('SMTP tot')
     }
     const antwort = await u.app.inject({

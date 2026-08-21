@@ -108,7 +108,7 @@ export async function runImport(
   // Gewartet wird trotzdem, damit Tests dem Lauf folgen können, statt auf eine
   // offene Zusage zu pollen. `melde` wirft selbst nicht.
   if (finishedTour) {
-    await app.push.melde(link.userId, {
+    await app.push.notify(link.userId, {
       type: 'import-finished',
       tourId: finishedTour,
       importId: importRow.id,

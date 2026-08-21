@@ -435,7 +435,7 @@ export async function enrichTour(input: EnrichmentInput): Promise<TourJson> {
       })
       .sort((a, b) => a.offsetS - b.offsetS)
     momentStops = buildMomentStops(
-      filteredMoments.map((m) => ({ offsetS: m.offsetS, kind: m.kind, dauerS: m.durationS })),
+      filteredMoments.map((m) => ({ offsetS: m.offsetS, kind: m.kind, durationS: m.durationS })),
     )
   }
 
@@ -468,7 +468,7 @@ export async function enrichTour(input: EnrichmentInput): Promise<TourJson> {
                   type: m.type,
                   meters: place.meters,
                   offsetS: place.offsetS,
-                  ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}),
+                  ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
                   ...(m.display ? { display: m.display } : {}),
                 }
               }),

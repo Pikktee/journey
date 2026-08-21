@@ -101,7 +101,7 @@ describe('Geräte an- und abmelden', () => {
     const antwort = await registriere(u)
     expect(antwort.statusCode).toBe(200)
     expect(antwort.json()).toMatchObject({ ok: true, push: true })
-    expect(u.app.push.geraete(benutzerId(u)).map((g) => g.token)).toEqual([TOKEN])
+    expect(u.app.push.devices(benutzerId(u)).map((g) => g.token)).toEqual([TOKEN])
     expect(push.gesendet).toHaveLength(0)
     await u.app.close()
   })
@@ -112,7 +112,7 @@ describe('Geräte an- und abmelden', () => {
     const { u } = await baueMitPush()
     await registriere(u)
     await registriere(u)
-    expect(u.app.push.geraete(benutzerId(u))).toHaveLength(1)
+    expect(u.app.push.devices(benutzerId(u))).toHaveLength(1)
     await u.app.close()
   })
 
@@ -129,7 +129,7 @@ describe('Geräte an- und abmelden', () => {
     })
     const zweiterToken = (login.json() as { apiToken: string }).apiToken
     await registriere(u, TOKEN, zweiterToken)
-    expect(u.app.push.geraete(benutzerId(u))).toHaveLength(0)
+    expect(u.app.push.devices(benutzerId(u))).toHaveLength(0)
     await u.app.close()
   })
 
@@ -152,7 +152,7 @@ describe('Geräte an- und abmelden', () => {
       cookies: u.cookies,
     })
     expect(weg.statusCode).toBe(200)
-    expect(u.app.push.geraete(benutzerId(u))).toHaveLength(0)
+    expect(u.app.push.devices(benutzerId(u))).toHaveLength(0)
     await u.app.close()
   })
 
@@ -166,7 +166,7 @@ describe('Geräte an- und abmelden', () => {
       payload: { token: TOKEN },
     })
     expect(weg.statusCode).toBe(200)
-    expect(u.app.push.geraete(benutzerId(u))).toHaveLength(0)
+    expect(u.app.push.devices(benutzerId(u))).toHaveLength(0)
     // Ein zweites Mal ist kein Fehler: Die App hat erreicht, was sie wollte.
     const nochmal = await u.app.inject({
       method: 'DELETE',
@@ -183,7 +183,7 @@ describe('Geräte an- und abmelden', () => {
     const antwort = await registriere(u)
     expect(antwort.statusCode).toBe(200)
     expect(antwort.json()).toMatchObject({ ok: false, push: false })
-    expect(u.app.push.geraete(benutzerId(u))).toHaveLength(0)
+    expect(u.app.push.devices(benutzerId(u))).toHaveLength(0)
     await u.app.close()
   })
 
@@ -246,10 +246,10 @@ describe('Meldung nach einem Import', () => {
   it('löscht ein Gerät, das FCM als abgemeldet zurückweist', async () => {
     const { u, push } = await baueMitPush()
     await registriere(u)
-    push.abgemeldeteTokens.add(TOKEN)
+    push.unregisteredTokens.add(TOKEN)
     await verknuepfe(u)
     await melde(u, 'a1')
-    expect(u.app.push.geraete(benutzerId(u))).toHaveLength(0)
+    expect(u.app.push.devices(benutzerId(u))).toHaveLength(0)
     await u.app.close()
   })
 
@@ -282,7 +282,7 @@ describe('FCM-Versand (ohne Netz)', () => {
   it('liest ein Dienstkonto und meckert verständlich, wenn es fehlt', () => {
     expect(() => parseServiceAccount('kein json')).toThrow(/lesbares JSON/)
     expect(() => parseServiceAccount('{"project_id":"x"}')).toThrow(/client_email/)
-    expect(parseServiceAccount(DIENSTKONTO).projekt).toBe('maptale-test')
+    expect(parseServiceAccount(DIENSTKONTO).projectId).toBe('maptale-test')
   })
 
   it('holt einen Access-Token, sendet je Gerät einmal und cacht die Anmeldung', async () => {
@@ -295,8 +295,8 @@ describe('FCM-Versand (ohne Netz)', () => {
       return new Response('{}', { status: 200 })
     }
     const versand = new FcmPush(DIENSTKONTO, hol)
-    await versand.sende(['a', 'b'], { type: 'import-finished', tourId: 't_1', importId: 'i_1' })
-    await versand.sende(['a'], { type: 'import-finished', tourId: 't_2', importId: 'i_2' })
+    await versand.send(['a', 'b'], { type: 'import-finished', tourId: 't_1', importId: 'i_1' })
+    await versand.send(['a'], { type: 'import-finished', tourId: 't_2', importId: 'i_2' })
     // Ein Anmelde-Aufruf für alles, danach je Gerät ein Sende-Aufruf.
     expect(aufrufe.filter((u) => u.includes('oauth2'))).toHaveLength(1)
     expect(aufrufe.filter((u) => u.includes('messages:send'))).toHaveLength(3)
@@ -313,7 +313,7 @@ describe('FCM-Versand (ohne Netz)', () => {
       gesendet = JSON.parse(String(init?.body)) as Record<string, unknown>
       return new Response('{}', { status: 200 })
     }
-    await new FcmPush(DIENSTKONTO, hol).sende(['a'], {
+    await new FcmPush(DIENSTKONTO, hol).send(['a'], {
       type: 'import-finished',
       tourId: 't_1',
       importId: 'i_1',
@@ -351,11 +351,11 @@ describe('FCM-Versand (ohne Netz)', () => {
       const [status, koerper] = antworten[token] ?? [200, '{}']
       return new Response(koerper, { status })
     }
-    const ergebnis = await new FcmPush(DIENSTKONTO, hol).sende(
+    const ergebnis = await new FcmPush(DIENSTKONTO, hol).send(
       ['weg', 'nutzlast', 'fremderSender', 'apns', 'stumm', 'gut'],
       { type: 'import-finished', tourId: 't_1', importId: 'i_1' },
     )
-    expect(ergebnis.map((z) => z.abgemeldet)).toEqual([true, false, false, false, false, false])
+    expect(ergebnis.map((z) => z.unregistered)).toEqual([true, false, false, false, false, false])
   })
 
   it('liest den Fehlercode aus dem Körper, nicht den HTTP-Status', () => {
@@ -384,19 +384,19 @@ describe('FCM-Versand (ohne Netz)', () => {
     }
     const versand = new FcmPush(DIENSTKONTO, hol, () => jetzt)
     const nachricht = { type: 'import-finished' as const, tourId: 't_1', importId: 'i_1' }
-    await versand.sende(['a'], nachricht)
+    await versand.send(['a'], nachricht)
     jetzt += 50 * 60_000
-    await versand.sende(['a'], nachricht)
+    await versand.send(['a'], nachricht)
     expect(anmeldungen).toHaveLength(1)
     jetzt += 10 * 60_000
-    await versand.sende(['a'], nachricht)
+    await versand.send(['a'], nachricht)
     expect(anmeldungen).toHaveLength(2)
   })
 
   it('wirft mit lesbarem Grund, wenn die Anmeldung scheitert', async () => {
     const hol = async (): Promise<Response> => new Response('invalid_grant', { status: 400 })
     await expect(
-      new FcmPush(DIENSTKONTO, hol).sende(['a'], {
+      new FcmPush(DIENSTKONTO, hol).send(['a'], {
         type: 'import-finished',
         tourId: 't',
         importId: 'i',
@@ -409,9 +409,9 @@ describe('Dienst ohne Versandweg', () => {
   it('ist nicht einsatzbereit und meldet nichts', async () => {
     const u = await baueTestApp()
     const dienst = new PushService(u.app.deps.db, null)
-    expect(dienst.einsatzbereit).toBe(false)
+    expect(dienst.ready).toBe(false)
     expect(
-      await dienst.melde(benutzerId(u), {
+      await dienst.notify(benutzerId(u), {
         type: 'import-finished',
         tourId: 't_1',
         importId: 'i_1',
@@ -422,12 +422,12 @@ describe('Dienst ohne Versandweg', () => {
 
   it('der Konsolen-Versand schreibt ins Log und meldet niemanden ab', async () => {
     const zeilen: string[] = []
-    const ergebnis = await new ConsolePush((z) => zeilen.push(z)).sende(['a', 'b'], {
+    const ergebnis = await new ConsolePush((z) => zeilen.push(z)).send(['a', 'b'], {
       type: 'import-finished',
       tourId: 't_1',
       importId: 'i_1',
     })
     expect(zeilen[0]).toContain('2 Gerät(e)')
-    expect(ergebnis.every((z) => !z.abgemeldet)).toBe(true)
+    expect(ergebnis.every((z) => !z.unregistered)).toBe(true)
   })
 })

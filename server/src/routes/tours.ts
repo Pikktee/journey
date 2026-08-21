@@ -100,7 +100,7 @@ export const ENRICHMENT_PATH = 'enrichment.json'
  * Vorsicht beim Erhöhen: Ein abgelehnter Aufruf (429) endet im Klassifikator
  * als neutraler Befund — die Tour wird dann still ohne Foto-Verfeinerung fertig.
  */
-const BILDANALYSE_PARALLEL = 10
+const VISION_CONCURRENCY = 10
 
 export function loadTour(app: FastifyInstance, id: string): TourRow | null {
   return (
@@ -124,8 +124,8 @@ export async function mediumExists(
   tourId: string,
   medium: UploadMedium,
 ): Promise<boolean> {
-  for (const datei of mediumFileCandidates(medium)) {
-    if (await storage.info(tourId, `media/${datei}`)) return true
+  for (const file of mediumFileCandidates(medium)) {
+    if (await storage.info(tourId, `media/${file}`)) return true
   }
   return false
 }
@@ -140,29 +140,29 @@ export async function mediumExists(
 export async function availableMedia(
   storage: Storage,
   tourId: string,
-  medien: readonly UploadMedium[],
+  media2: readonly UploadMedium[],
 ): Promise<UploadMedium[]> {
-  const verfuegbar: UploadMedium[] = []
-  for (const medium of medien) {
+  const available: UploadMedium[] = []
+  for (const medium of media2) {
     if (medium.removed) continue
-    if (await mediumExists(storage, tourId, medium)) verfuegbar.push(medium)
+    if (await mediumExists(storage, tourId, medium)) available.push(medium)
   }
-  return verfuegbar
+  return available
 }
 
 /** Sichtbarkeitsregel v1: private nur für Owner; unlisted/public für alle mit Link. */
-export function canView(tour: TourRow, benutzerId: string | null): boolean {
-  return tour.visibility !== 'private' || tour.owner_id === benutzerId
+export function canView(tour: TourRow, userId: string | null): boolean {
+  return tour.visibility !== 'private' || tour.owner_id === userId
 }
 
-function tourOderFehler(
+function tourOrError(
   app: FastifyInstance,
   id: string,
-  benutzerId: string | null,
+  userId: string | null,
   reply: FastifyReply,
 ): TourRow | null {
   const tour = loadTour(app, id)
-  if (!tour || !canView(tour, benutzerId)) {
+  if (!tour || !canView(tour, userId)) {
     reply.code(404).send({ error: 'Tour nicht gefunden' })
     return null
   }
@@ -172,11 +172,11 @@ function tourOderFehler(
 function requireOwner(
   app: FastifyInstance,
   id: string,
-  benutzerId: string,
+  userId: string,
   reply: FastifyReply,
 ): TourRow | null {
   const tour = loadTour(app, id)
-  if (!tour || tour.owner_id !== benutzerId) {
+  if (!tour || tour.owner_id !== userId) {
     // Fremde private Touren sind ununterscheidbar von nicht existierenden
     reply.code(404).send({ error: 'Tour nicht gefunden' })
     return null
@@ -196,7 +196,7 @@ function requireOwner(
  */
 export async function createTour(
   app: FastifyInstance,
-  benutzerId: string,
+  userId: string,
   manifest: UploadManifest,
 ): Promise<
   { ok: true; id: string; reused: boolean } | { ok: false; code: 400 | 403; error: string }
@@ -206,7 +206,7 @@ export async function createTour(
   // M9: Hochladen erst nach E-Mail-Bestätigung — bremst Wegwerf-Accounts und
   // die daran hängenden Speicher-/Vision-Kosten. Gilt für den Cloud-Import
   // genauso: Er IST ein Upload, nur ohne Handgriff.
-  if (!app.auth.isVerified(benutzerId)) {
+  if (!app.auth.isVerified(userId)) {
     return { ok: false, code: 403, error: 'Bitte bestätige zuerst deine E-Mail-Adresse' }
   }
 
@@ -215,10 +215,10 @@ export async function createTour(
   // vorhandene Dedup-Sperre gegen wiederholte Webhook-Zustellungen geschenkt.
   const clientId = manifest.clientTourId ?? null
   if (clientId) {
-    const vorhanden = db
+    const existing = db
       .prepare('SELECT id FROM tours WHERE owner_id = ? AND client_tour_id = ?')
-      .get(benutzerId, clientId) as { id: string } | undefined
-    if (vorhanden) return { ok: true, id: vorhanden.id, reused: true }
+      .get(userId, clientId) as { id: string } | undefined
+    if (existing) return { ok: true, id: existing.id, reused: true }
   }
 
   // Medien-IDs müssen tour-eindeutig sein, Dateiendungen zulässig
@@ -229,8 +229,8 @@ export async function createTour(
     ids.add(medium.id)
     try {
       mediumFilename(medium)
-    } catch (fehler) {
-      return { ok: false, code: 400, error: (fehler as Error).message }
+    } catch (error) {
+      return { ok: false, code: 400, error: (error as Error).message }
     }
   }
 
@@ -252,7 +252,7 @@ export async function createTour(
   }
 
   const id = newTourId()
-  const jetzt = new Date().toISOString()
+  const now = new Date().toISOString()
   await storage.write(id, MANIFEST_PATH, JSON.stringify(manifest, null, 2))
   try {
     // Nummer PRO BENUTZER und im selben synchronen Statement vergeben —
@@ -267,25 +267,25 @@ export async function createTour(
        VALUES (?, ?, (SELECT COALESCE(MAX(no), 0) + 1 FROM tours WHERE owner_id = ?), 'created', 'private', ?, ?, ?, ?, ?)`,
     ).run(
       id,
-      benutzerId,
-      benutzerId,
+      userId,
+      userId,
       clientId,
       manifest.title ?? null,
       manifest.description ?? null,
-      jetzt,
-      jetzt,
+      now,
+      now,
     )
-  } catch (fehler) {
+  } catch (error) {
     // Paralleler Doppel-POST mit gleicher clientTourId: der UNIQUE-Index
     // fängt ihn — idempotent die bereits angelegte Tour zurückgeben.
-    if (clientId && String((fehler as Error).message).includes('UNIQUE')) {
+    if (clientId && String((error as Error).message).includes('UNIQUE')) {
       await storage.removeTour(id)
-      const vorhanden = db
+      const existing = db
         .prepare('SELECT id FROM tours WHERE owner_id = ? AND client_tour_id = ?')
-        .get(benutzerId, clientId) as { id: string } | undefined
-      if (vorhanden) return { ok: true, id: vorhanden.id, reused: true }
+        .get(userId, clientId) as { id: string } | undefined
+      if (existing) return { ok: true, id: existing.id, reused: true }
     }
-    throw fehler
+    throw error
   }
 
   return { ok: true, id, reused: false }
@@ -315,7 +315,7 @@ export async function finalizeTour(
   ) as UploadManifest
   // Bei GPX-Quelle muss die Track-Datei da sein, bevor die Pipeline sie parst
   if (manifest.trackFile && !(await storage.info(tour.id, TRACK_PATH))) {
-    setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
+    setStatus(app, tour.id, tour.status) // Claim zurückgeben
     return { ok: false, code: 409, error: 'Track (GPX) fehlt', missing: ['track.gpx'] }
   }
   // Ein Medium gilt als da, wenn das Original ODER eine daraus abgeleitete
@@ -324,14 +324,14 @@ export async function finalizeTour(
   // jedem Retry) darf deshalb nicht „Medien fehlen" melden. Tombstones werden
   // übersprungen — ein endgültig gelöschtes Medium KANN nicht mehr ankommen,
   // als „fehlend" gemeldet blockierte es das Finalisieren für immer.
-  const fehlend: string[] = []
+  const missing2: string[] = []
   for (const medium of manifest.media) {
     if (medium.removed) continue
-    if (!(await mediumExists(storage, tour.id, medium))) fehlend.push(medium.id)
+    if (!(await mediumExists(storage, tour.id, medium))) missing2.push(medium.id)
   }
-  if (fehlend.length) {
-    setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
-    return { ok: false, code: 409, error: 'Medien fehlen', missing: fehlend }
+  if (missing2.length) {
+    setStatus(app, tour.id, tour.status) // Claim zurückgeben
+    return { ok: false, code: 409, error: 'Medien fehlen', missing: missing2 }
   }
 
   // Erst-Render: alle externen Schritte laufen und füllen den Anreicherungs-Cache.
@@ -340,7 +340,7 @@ export async function finalizeTour(
   // Pipeline ein Musikstück vor. `tour` hält noch den Status VOR dem Claim.
   app.processing.set(
     tour.id,
-    processTour(app, tour.id, { frisch: true, erstmals: tour.status === 'created' }).finally(() =>
+    processTour(app, tour.id, { fresh: true, firstRun: tour.status === 'created' }).finally(() =>
       app.processing.delete(tour.id),
     ),
   )
@@ -363,8 +363,8 @@ export function registerTourRoutes(app: FastifyInstance): void {
    * ist zusammen mit der Start-Migration entfallen; seither gibt es nur noch
    * `error` wie überall sonst.
    */
-  const ALT_KENNUNGEN = ['maptale/upload@1', 'luhambo/upload@1']
-  const APP_AKTUALISIEREN =
+  const LEGACY_IDS = ['maptale/upload@1', 'luhambo/upload@1']
+  const APP_UPDATE =
     'Diese App-Version ist zu alt für den Server. Bitte aktualisiere Maptale und lade die Aufnahme danach erneut hoch.'
 
   // — Anlegen: Manifest validieren + ablegen —
@@ -373,34 +373,34 @@ export function registerTourRoutes(app: FastifyInstance): void {
     {
       schema: { body: uploadManifestJsonSchema },
       preValidation: async (request, reply) => {
-        const kennung = (request.body as { schema?: unknown } | undefined)?.schema
-        if (typeof kennung === 'string' && ALT_KENNUNGEN.includes(kennung)) {
-          return reply.code(400).send({ error: APP_AKTUALISIEREN })
+        const id2 = (request.body as { schema?: unknown } | undefined)?.schema
+        if (typeof id2 === 'string' && LEGACY_IDS.includes(id2)) {
+          return reply.code(400).send({ error: APP_UPDATE })
         }
       },
     },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
-      const ergebnis = await createTour(app, benutzer.id, request.body)
-      if (!ergebnis.ok) return reply.code(ergebnis.code).send({ error: ergebnis.error })
-      return ergebnis.reused
-        ? reply.code(200).send({ id: ergebnis.id, reused: true })
-        : reply.code(201).send({ id: ergebnis.id })
+      const user = requireUser(request, reply)
+      if (!user) return
+      const result = await createTour(app, user.id, request.body)
+      if (!result.ok) return reply.code(result.code).send({ error: result.error })
+      return result.reused
+        ? reply.code(200).send({ id: result.id, reused: true })
+        : reply.code(201).send({ id: result.id })
     },
   )
 
   // — Finalisieren: Vollständigkeit prüfen, Anreicherung asynchron starten —
   app.post<{ Params: { id: string } }>('/api/tours/:id/finalize', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const tour = requireOwner(app, request.params.id, benutzer.id, reply)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const tour = requireOwner(app, request.params.id, user.id, reply)
     if (!tour) return
-    const ergebnis = await finalizeTour(app, tour)
-    if (!ergebnis.ok) {
-      return reply.code(ergebnis.code).send({
-        error: ergebnis.error,
-        ...(ergebnis.missing ? { missing: ergebnis.missing } : {}),
+    const result = await finalizeTour(app, tour)
+    if (!result.ok) {
+      return reply.code(result.code).send({
+        error: result.error,
+        ...(result.missing ? { missing: result.missing } : {}),
       })
     }
     return reply.code(202).send({ id: tour.id, status: 'processing' })
@@ -439,14 +439,14 @@ export function registerTourRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
-      const tour = requireOwner(app, request.params.id, benutzer.id, reply)
+      const user = requireUser(request, reply)
+      if (!user) return
+      const tour = requireOwner(app, request.params.id, user.id, reply)
       if (!tour) return
 
       const { title, description, kicker, finale, finaleTarget, visibility } = request.body
       // finale: undefined → NULL → COALESCE behält den alten Wert; false → 0, true → 1.
-      const finaleWert = finale === undefined ? null : finale ? 1 : 0
+      const finaleValue = finale === undefined ? null : finale ? 1 : 0
       db.prepare(
         `UPDATE tours SET title = COALESCE(?, title), description = COALESCE(?, description),
          kicker = COALESCE(?, kicker),
@@ -456,7 +456,7 @@ export function registerTourRoutes(app: FastifyInstance): void {
         title ?? null,
         description ?? null,
         kicker ?? null,
-        finaleWert,
+        finaleValue,
         finaleTarget ?? null,
         visibility ?? null,
         new Date().toISOString(),
@@ -469,13 +469,13 @@ export function registerTourRoutes(app: FastifyInstance): void {
       // ist nichts zu tun: sie liest die eben aktualisierte DB-Zeile.
       // ACHTUNG: gegen undefined prüfen, nicht truthy — description '' / finale false
       // sind legitime Werte und müssen genauso neu rendern (Review-Fund M7).
-      const textGeaendert =
+      const textChanged =
         title !== undefined ||
         description !== undefined ||
         kicker !== undefined ||
         finale !== undefined ||
         finaleTarget !== undefined
-      if (tour.status === 'ready' && textGeaendert) {
+      if (tour.status === 'ready' && textChanged) {
         const claim = db
           .prepare(
             `UPDATE tours SET status = 'processing', updated_at = ? WHERE id = ? AND status = 'ready'`,
@@ -485,7 +485,7 @@ export function registerTourRoutes(app: FastifyInstance): void {
           // Nur Texte nachziehen — Anreicherung aus dem Cache (kein Netz).
           app.processing.set(
             tour.id,
-            processTour(app, tour.id, { frisch: false }).finally(() =>
+            processTour(app, tour.id, { fresh: false }).finally(() =>
               app.processing.delete(tour.id),
             ),
           )
@@ -497,9 +497,9 @@ export function registerTourRoutes(app: FastifyInstance): void {
 
   // — Edit-Overlay lesen (M7) — Owner-only, wie alles Bearbeitende —
   app.get<{ Params: { id: string } }>('/api/tours/:id/edits', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const tour = requireOwner(app, request.params.id, benutzer.id, reply)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const tour = requireOwner(app, request.params.id, user.id, reply)
     if (!tour) return
     if (!(await storage.info(tour.id, EDITS_PATH))) return { schema: EDITS_SCHEMA_ID }
     return reply
@@ -512,12 +512,12 @@ export function registerTourRoutes(app: FastifyInstance): void {
     '/api/tours/:id/edits',
     { schema: { body: editsJsonSchema } },
     async (request, reply) => {
-      const benutzer = requireUser(request, reply)
-      if (!benutzer) return
-      const tour = requireOwner(app, request.params.id, benutzer.id, reply)
+      const user = requireUser(request, reply)
+      if (!user) return
+      const tour = requireOwner(app, request.params.id, user.id, reply)
       if (!tour) return
-      const fehler = validateEditsSemantics(request.body)
-      if (fehler) return reply.code(400).send({ error: fehler })
+      const error = validateEditsSemantics(request.body)
+      if (error) return reply.code(400).send({ error: error })
       // Während laufender Verarbeitung nicht speichern: sie hätte das Overlay
       // ggf. schon gelesen — das Ergebnis wäre undefiniert. Restrisiko: startet
       // zwischen dieser Prüfung und dem Schreiben ein anderer Handler (finalize)
@@ -538,9 +538,9 @@ export function registerTourRoutes(app: FastifyInstance): void {
 
   // — Neu verarbeiten (M7): Anreicherung (Benennung/Wetter) neu, Edits bleiben —
   app.post<{ Params: { id: string } }>('/api/tours/:id/reprocess', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const tour = requireOwner(app, request.params.id, benutzer.id, reply)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const tour = requireOwner(app, request.params.id, user.id, reply)
     if (!tour) return
     if (tour.status === 'created')
       return reply.code(409).send({ error: 'Tour ist noch nicht finalisiert' })
@@ -555,9 +555,9 @@ export function registerTourRoutes(app: FastifyInstance): void {
   // (Trim/Modus-Grenzen referenzieren Zeitstempel) und auch gelöschte/
   // unplatzierte Medien; das tour.json zeigt dagegen den ANGEWANDTEN Stand.
   app.get<{ Params: { id: string } }>('/api/tours/:id/editor', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const tour = requireOwner(app, request.params.id, benutzer.id, reply)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const tour = requireOwner(app, request.params.id, user.id, reply)
     if (!tour) return
     const manifest = JSON.parse(
       (await storage.read(tour.id, MANIFEST_PATH)).toString(),
@@ -567,13 +567,13 @@ export function registerTourRoutes(app: FastifyInstance): void {
     }
     // Kaputtes GPX als 409 mit Ursache melden — gerade fehler-Touren sollen
     // im Editor sehen, WORAN es liegt, nicht „Interner Fehler" (Review-Fund).
-    let segmente: UploadSegment[]
+    let segments2: UploadSegment[]
     try {
-      segmente = await ladeOriginalSegmente(app, tour.id, manifest)
-    } catch (fehler) {
-      return reply.code(409).send({ error: `Track nicht lesbar: ${(fehler as Error).message}` })
+      segments2 = await loadOriginalSegments(app, tour.id, manifest)
+    } catch (error) {
+      return reply.code(409).send({ error: `Track nicht lesbar: ${(error as Error).message}` })
     }
-    if (!segmente.some((s) => s.pts.length >= 2))
+    if (!segments2.some((s) => s.pts.length >= 2))
       return reply.code(409).send({ error: 'Tour hat keinen Track' })
     const startMs = Date.parse(manifest.time.start)
 
@@ -588,29 +588,29 @@ export function registerTourRoutes(app: FastifyInstance): void {
     // Upload abgebrochen ist. Ihn zu zeigen hieße, eine Aufnahme in die
     // Zeitleiste zu setzen, die es nicht gibt (Bild 404, nichts dahinter);
     // das Manifest behält ihn trotzdem, das Protokoll bleibt vollständig.
-    const sichtbareMedien =
+    const visibleMedia =
       tour.status === 'ready'
         ? await availableMedia(storage, tour.id, manifest.media)
         : manifest.media.filter((m) => !m.removed)
-    const platziert = placeMedia(
-      sichtbareMedien,
-      segmente.flatMap((s) => s.pts),
+    const placed = placeMedia(
+      visibleMedia,
+      segments2.flatMap((s) => s.pts),
       startMs,
     )
-    const videoDauern = await ermittleVideoDauern(app, tour.id, manifest)
-    const medien: Array<Record<string, unknown>> = []
-    for (const { medium, anchor, placement } of platziert) {
+    const videoDurations = await resolveVideoDurations(app, tour.id, manifest)
+    const media2: Array<Record<string, unknown>> = []
+    for (const { medium, anchor, placement } of placed) {
       // Die Anzeige-Fassung ist nach dem ersten Render die einzige noch
       // vorhandene Datei; nur bei unverarbeitetem Altbestand liegt das Original.
-      const anzeige = displayFilename(medium.id)
-      const bildDatei =
-        medium.type === 'photo' && (await storage.info(tour.id, `media/${anzeige}`))
-          ? anzeige
+      const display2 = displayFilename(medium.id)
+      const imageFile =
+        medium.type === 'photo' && (await storage.info(tour.id, `media/${display2}`))
+          ? display2
           : mediumFilename(medium)
-      const eintrag: Record<string, unknown> = {
+      const entry: Record<string, unknown> = {
         id: medium.id,
         type: medium.type,
-        src: `/api/media/${tour.id}/${bildDatei}`,
+        src: `/api/media/${tour.id}/${imageFile}`,
         takenAt: medium.takenAt,
         caption: medium.caption ?? '',
         anchor,
@@ -623,20 +623,20 @@ export function registerTourRoutes(app: FastifyInstance): void {
       if (medium.type === 'video') {
         const poster = `${medium.id}.poster.jpg`
         if (await storage.info(tour.id, `media/${poster}`))
-          eintrag['poster'] = `/api/media/${tour.id}/${poster}`
+          entry['poster'] = `/api/media/${tour.id}/${poster}`
         // Die echte Länge: ohne sie rechnet die Zeitleiste ein 34-s-Video wie
         // ein Foto mit 5,2 s und zeigt ~34 px statt ~200 px Achsenbreite.
-        const dauerS = videoDauern.get(medium.id)
-        if (dauerS !== undefined) eintrag['durationS'] = dauerS
+        const durationS = videoDurations.get(medium.id)
+        if (durationS !== undefined) entry['durationS'] = durationS
       }
       // Kachel für Zeitleiste und Inspector — die Miniatur zog bisher das volle
       // Foto (mehrere MB je Aufnahme, bei jedem Öffnen des Editors)
       const thumb = thumbFilename(medium.id)
       if (await storage.info(tour.id, `media/${thumb}`))
-        eintrag['thumb'] = `/api/media/${tour.id}/${thumb}`
-      medien.push(eintrag)
+        entry['thumb'] = `/api/media/${tour.id}/${thumb}`
+      media2.push(entry)
     }
-    medien.sort(
+    media2.sort(
       (a, b) =>
         (Date.parse(a['takenAt'] as string) || 0) - (Date.parse(b['takenAt'] as string) || 0),
     )
@@ -678,10 +678,10 @@ export function registerTourRoutes(app: FastifyInstance): void {
       finaleTarget: tour.finale_target,
       time: manifest.time,
       // Original-Segmente, fürs Netz vereinfacht — behält [lng,lat,ele,tOffsetS]
-      segments: segmente.map((s) => ({ mode: s.mode, pts: simplifySegment(s.pts) })),
-      media: medien,
+      segments: segments2.map((s) => ({ mode: s.mode, pts: simplifySegment(s.pts) })),
+      media: media2,
       audio,
-      autoWeather: await ermittleAutoWetter(app, tour.id, segmente, edits, startMs),
+      autoWeather: await resolveAutoWeather(app, tour.id, segments2, edits, startMs),
       edits,
     }
   })
@@ -695,14 +695,14 @@ export function registerTourRoutes(app: FastifyInstance): void {
     if (!request.user && !request.headers.authorization && !request.cookies['maptale_session']) {
       return { tours: [] }
     }
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const zeilen = db
+    const user = requireUser(request, reply)
+    if (!user) return
+    const rows = db
       .prepare(
         `SELECT id, no, status, visibility, title, stats_json, cover, cover_thumb, error, created_at
          FROM tours WHERE owner_id = ? ORDER BY created_at DESC`,
       )
-      .all(benutzer.id) as Array<
+      .all(user.id) as Array<
       Pick<
         TourRow,
         | 'id'
@@ -718,7 +718,7 @@ export function registerTourRoutes(app: FastifyInstance): void {
       >
     >
     return {
-      tours: zeilen.map((z) => ({
+      tours: rows.map((z) => ({
         id: z.id,
         no: `N°${String(z.no).padStart(2, '0')}`,
         status: z.status,
@@ -736,15 +736,15 @@ export function registerTourRoutes(app: FastifyInstance): void {
 
   // — Tour-JSON ausliefern —
   app.get<{ Params: { id: string } }>('/api/tours/:id', async (request, reply) => {
-    const tour = tourOderFehler(app, request.params.id, request.user?.id ?? null, reply)
+    const tour = tourOrError(app, request.params.id, request.user?.id ?? null, reply)
     if (!tour) return
     if (tour.status !== 'ready') {
       // Interne Fehlertexte (Pipeline-Exceptions) nur dem Owner zeigen —
       // jeder mit Link sieht nur den Status.
-      const istOwner = request.user?.id === tour.owner_id
+      const isOwner = request.user?.id === tour.owner_id
       return reply
         .code(200)
-        .send({ id: tour.id, status: tour.status, ...(istOwner ? { error: tour.error } : {}) })
+        .send({ id: tour.id, status: tour.status, ...(isOwner ? { error: tour.error } : {}) })
     }
     // Der Autor kommt NICHT aus der Datei, sondern frisch aus der Datenbank:
     // Eingebacken wäre er beim nächsten Namens- oder Handle-Wechsel veraltet,
@@ -766,7 +766,7 @@ export function registerTourRoutes(app: FastifyInstance): void {
     if (tour.kicker === null && /^Aufgezeichnet am /.test(String(tourJson.kicker ?? '')))
       tourJson.kicker = ''
 
-    const besitzer = app.deps.db
+    const owner = app.deps.db
       .prepare(
         'SELECT id, handle, display_name, avatar, profile_visibility FROM users WHERE id = ?',
       )
@@ -779,14 +779,14 @@ export function registerTourRoutes(app: FastifyInstance): void {
           profile_visibility: string
         }
       | undefined
-    if (besitzer?.display_name) {
-      const oeffentlich = besitzer.profile_visibility === 'public'
+    if (owner?.display_name) {
+      const isPublic = owner.profile_visibility === 'public'
       tourJson.author = {
-        displayName: besitzer.display_name,
-        avatarUrl: besitzer.avatar
-          ? `/api/users/${besitzer.id}/avatar?v=${encodeURIComponent(besitzer.avatar)}`
+        displayName: owner.display_name,
+        avatarUrl: owner.avatar
+          ? `/api/users/${owner.id}/avatar?v=${encodeURIComponent(owner.avatar)}`
           : null,
-        ...(oeffentlich ? { id: besitzer.id, handle: besitzer.handle } : {}),
+        ...(isPublic ? { id: owner.id, handle: owner.handle } : {}),
       }
     }
     return reply.send(tourJson)
@@ -794,9 +794,9 @@ export function registerTourRoutes(app: FastifyInstance): void {
 
   // — Löschen —
   app.delete<{ Params: { id: string } }>('/api/tours/:id', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    const tour = requireOwner(app, request.params.id, benutzer.id, reply)
+    const user = requireUser(request, reply)
+    if (!user) return
+    const tour = requireOwner(app, request.params.id, user.id, reply)
     if (!tour) return
     await storage.removeTour(tour.id)
     db.prepare('DELETE FROM tours WHERE id = ?').run(tour.id)
@@ -804,26 +804,26 @@ export function registerTourRoutes(app: FastifyInstance): void {
   })
 }
 
-function setzeStatus(
+function setStatus(
   app: FastifyInstance,
   id: string,
   status: TourRow['status'],
-  fehler?: string,
+  error?: string,
 ): void {
   app.deps.db
     .prepare('UPDATE tours SET status = ?, error = ?, updated_at = ? WHERE id = ?')
-    .run(status, fehler ?? null, new Date().toISOString(), id)
+    .run(status, error ?? null, new Date().toISOString(), id)
 }
 
 /** MIME-Typ eines Foto-Ablagenamens für die Bildanalyse (M5); Default JPEG. */
-function bildMedientyp(datei: string): string {
-  const endung = datei.toLowerCase().split('.').pop()
-  if (endung === 'png') return 'image/png'
-  if (endung === 'webp') return 'image/webp'
+function imageMediaType(file: string): string {
+  const extension = file.toLowerCase().split('.').pop()
+  if (extension === 'png') return 'image/png'
+  if (extension === 'webp') return 'image/webp'
   // Nur der Rückfall: Normalerweise analysiert die Kachel-Fassung (JPEG). Ein
   // Modell, das HEIC nicht liest, meldet es sauber — besser als ein falsch
   // deklarierter Typ.
-  if (endung === 'heic' || endung === 'heif') return 'image/heic'
+  if (extension === 'heic' || extension === 'heif') return 'image/heic'
   return 'image/jpeg'
 }
 
@@ -833,7 +833,7 @@ function bildMedientyp(datei: string): string {
  * Exportiert für die Medien-Routen: endgültiges Löschen rendert direkt neu,
  * damit das tour.json nicht auf verschwundene Dateien zeigt.
  */
-export function startProcessing(app: FastifyInstance, tourId: string, frisch = false): boolean {
+export function startProcessing(app: FastifyInstance, tourId: string, fresh = false): boolean {
   const claim = app.deps.db
     .prepare(
       `UPDATE tours SET status = 'processing', updated_at = ? WHERE id = ? AND status IN ('ready', 'failed')`,
@@ -842,7 +842,7 @@ export function startProcessing(app: FastifyInstance, tourId: string, frisch = f
   if (claim.changes === 0) return false
   app.processing.set(
     tourId,
-    processTour(app, tourId, { frisch }).finally(() => app.processing.delete(tourId)),
+    processTour(app, tourId, { fresh }).finally(() => app.processing.delete(tourId)),
   )
   return true
 }
@@ -860,7 +860,7 @@ export function startProcessing(app: FastifyInstance, tourId: string, frisch = f
  * danach ist das Momentantempo in der Pause exakt 0, und eine Pause kann
  * nicht mehr von einer Segmentteilung zerschnitten werden.
  */
-async function ladeOriginalSegmente(
+async function loadOriginalSegments(
   app: FastifyInstance,
   tourId: string,
   manifest: UploadManifest,
@@ -883,8 +883,8 @@ async function ladeOriginalSegmente(
   // Der Pausen-Kollaps läuft in beiden Fällen: „≥ 15 min im 150-m-Radius" ist
   // auch bei gesetzten Wegpunkten ein Aufenthalt.
   if (!manifest.trackFile) {
-    const segmente = collapsePauses(manifest.segments ?? [])
-    return isRecording(segmente) ? splitWalkSegmentsInSegments(segmente) : segmente
+    const segments2 = collapsePauses(manifest.segments ?? [])
+    return isRecording(segments2) ? splitWalkSegmentsInSegments(segments2) : segments2
   }
   const gpxText = (await app.deps.storage.read(tourId, TRACK_PATH)).toString()
   const { segment } = buildSegmentFromGpx(parseGpx(gpxText), {
@@ -921,21 +921,21 @@ async function ladeOriginalSegmente(
  *
  * Gemeint ist die Länge des MATERIALS, nicht die des Ausschnitts: Daran schlagen
  * die Trimm-Kanten im Editor an. Deshalb gilt aus dem Cache `quellDauerS` vor
- * `dauerS`, und das (getrimmte) tour.json kommt zuletzt.
+ * `durationS`, und das (getrimmte) tour.json kommt zuletzt.
  */
-async function ermittleVideoDauern(
+async function resolveVideoDurations(
   app: FastifyInstance,
   tourId: string,
   manifest: UploadManifest,
 ): Promise<Map<string, number>> {
   const { storage } = app.deps
-  const dauern = new Map<string, number>()
-  const setze = (id: string, wert: unknown): void => {
-    if (typeof wert === 'number' && Number.isFinite(wert) && wert > 0 && !dauern.has(id))
-      dauern.set(id, wert)
+  const durations = new Map<string, number>()
+  const set = (id: string, value: unknown): void => {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0 && !durations.has(id))
+      durations.set(id, value)
   }
   for (const m of manifest.media) {
-    if (m.type === 'video') setze(m.id, m.durationS)
+    if (m.type === 'video') set(m.id, m.durationS)
   }
   try {
     if (await storage.info(tourId, ENRICHMENT_PATH)) {
@@ -943,24 +943,24 @@ async function ermittleVideoDauern(
         (await storage.read(tourId, ENRICHMENT_PATH)).toString(),
       ) as EnrichmentCache
       for (const [id, meta] of Object.entries(cache.videoMeta ?? {}))
-        setze(id, meta?.sourceDurationS ?? meta?.durationS)
+        set(id, meta?.sourceDurationS ?? meta?.durationS)
     }
     if (await storage.info(tourId, TOUR_JSON_PATH)) {
       const tourJson = JSON.parse((await storage.read(tourId, TOUR_JSON_PATH)).toString()) as {
         media?: Array<{ id: string; durationS?: number }>
       }
-      for (const m of tourJson.media ?? []) setze(m.id, m.durationS)
+      for (const m of tourJson.media ?? []) set(m.id, m.durationS)
     }
   } catch {
     // Kaputtes/altes Artefakt darf den Editor nicht am Öffnen hindern
   }
-  return dauern
+  return durations
 }
 
-async function ermittleAutoWetter(
+async function resolveAutoWeather(
   app: FastifyInstance,
   tourId: string,
-  segmente: readonly UploadSegment[],
+  segments2: readonly UploadSegment[],
   edits: EditOverlay,
   startMs: number,
 ): Promise<Array<{ from: string; mode: string; intensity: number }>> {
@@ -982,9 +982,9 @@ async function ermittleAutoWetter(
     }
     if (!keyframes.length) return []
     // Bezug ist der GETRIMMTE Track — auf ihm rechnet die Pipeline ihre f-Werte.
-    const reihe = buildTimeSeries(applyTourTrim(segmente, edits.trim, startMs))
-    if (reihe.points.length < 2) return []
-    return weatherToBoundaries(keyframes, reihe, startMs)
+    const order = buildTimeSeries(applyTourTrim(segments2, edits.trim, startMs))
+    if (order.points.length < 2) return []
+    return weatherToBoundaries(keyframes, order, startMs)
   } catch {
     // Kaputtes/altes tour.json darf den Editor nicht am Öffnen hindern
     return []
@@ -1002,9 +1002,9 @@ async function ermittleAutoWetter(
 export async function processTour(
   app: FastifyInstance,
   tourId: string,
-  opts: { frisch?: boolean; erstmals?: boolean } = {},
+  opts: { fresh?: boolean; firstRun?: boolean } = {},
 ): Promise<void> {
-  const { frisch = false, erstmals = false } = opts
+  const { fresh = false, firstRun = false } = opts
   const {
     db,
     storage,
@@ -1016,7 +1016,7 @@ export async function processTour(
     imageClassifier,
     rails,
   } = app.deps
-  const log = (nachricht: string): void => app.log.warn(nachricht)
+  const log = (message: string): void => app.log.warn(message)
   try {
     const tour = loadTour(app, tourId)
     if (!tour) return
@@ -1030,7 +1030,7 @@ export async function processTour(
     // (`modiAutomatisch`, seit sie die Bewegung selbst erkennt), oder es steht
     // durchgehend „walk" — was in der App zugleich „zu Fuß" und „Automatisch"
     // bedeutet und deshalb als Vorgabe gilt, nicht als Angabe.
-    const modusGeraten =
+    const modeGuessed =
       !manifest.trackMode &&
       (manifest.travelModesAuto === true ||
         (manifest.segments ?? []).every((s) => s.mode === 'walk'))
@@ -1042,7 +1042,7 @@ export async function processTour(
     // Render und Cover-Wahl gelöschte Medien nicht mehr sehen.
     manifest = {
       ...manifest,
-      segments: await ladeOriginalSegmente(app, tourId, manifest),
+      segments: await loadOriginalSegments(app, tourId, manifest),
       media: await availableMedia(storage, tourId, manifest.media),
     }
 
@@ -1061,28 +1061,28 @@ export async function processTour(
     // Grenzen ins OVERLAY — dort ist es sichtbar und korrigierbar, statt als
     // unerklärlicher Automatik-Effekt im fertigen Tour-JSON zu stecken (dasselbe
     // Muster wie die Musikwahl unten).
-    if (frisch && modusGeraten && rails && !edits?.travelModes?.length) {
-      const segmente = manifest.segments ?? []
-      const box = isRecording(segmente) ? boundingBox(segmente) : null
+    if (fresh && modeGuessed && rails && !edits?.travelModes?.length) {
+      const segments2 = manifest.segments ?? []
+      const box = isRecording(segments2) ? boundingBox(segments2) : null
       if (box) {
         try {
-          const gehoben = promoteRailSegments(segmente, await rails.rails(box))
-          if (gehoben.some((s, i) => s.mode !== segmente[i]?.mode)) {
+          const raised = promoteRailSegments(segments2, await rails.rails(box))
+          if (raised.some((s, i) => s.mode !== segments2[i]?.mode)) {
             const startMs = Date.parse(manifest.time.start)
-            const mitModi: EditOverlay = {
+            const withModes: EditOverlay = {
               ...(edits ?? { schema: EDITS_SCHEMA_ID }),
-              travelModes: gehoben.map((s) => ({
+              travelModes: raised.map((s) => ({
                 from: new Date(startMs + (s.pts[0]?.[3] ?? 0) * 1000).toISOString(),
                 mode: s.mode,
               })),
             }
-            await storage.write(tourId, EDITS_PATH, JSON.stringify(mitModi, null, 2))
-            edits = mitModi
+            await storage.write(tourId, EDITS_PATH, JSON.stringify(withModes, null, 2))
+            edits = withModes
           }
-        } catch (fehler) {
+        } catch (error) {
           // OSM ist eine Anreicherung, kein Muss — fällt sie aus, bleibt es bei
           // der Tempo-Automatik (Rad statt Bahn).
-          log(`Schienen-Abgleich übersprungen: ${(fehler as Error).message}`)
+          log(`Schienen-Abgleich übersprungen: ${(error as Error).message}`)
         }
       }
     }
@@ -1093,12 +1093,12 @@ export async function processTour(
     // dann wird unten alles frisch berechnet (selbstheilend, kein Migrationslauf).
     const sig = trimSignature(edits)
     let cache: EnrichmentCache | null = null
-    if (!frisch && (await storage.info(tourId, ENRICHMENT_PATH))) {
+    if (!fresh && (await storage.info(tourId, ENRICHMENT_PATH))) {
       try {
-        const geladen = JSON.parse(
+        const loaded = JSON.parse(
           (await storage.read(tourId, ENRICHMENT_PATH)).toString(),
         ) as EnrichmentCache
-        if (geladen?.schema === ENRICHMENT_SCHEMA_ID) cache = geladen
+        if (loaded?.schema === ENRICHMENT_SCHEMA_ID) cache = loaded
       } catch {
         cache = null
       }
@@ -1118,16 +1118,16 @@ export async function processTour(
     // Der Video-Schnitt (Etappe 4) ist der EINE Edit, der die ausgelieferte
     // Datei verändert — er muss die gecachte Video-Aufbereitung verwerfen,
     // sonst bliebe er bis zum nächsten „Neu verarbeiten" folgenlos.
-    const schnittSig = videoCutSignature(edits)
+    const cutSig = videoCutSignature(edits)
     let videoMeta: Map<string, VideoMeta>
-    if (cache && (cache.videoCutSignature ?? '[]') === schnittSig) {
+    if (cache && (cache.videoCutSignature ?? '[]') === cutSig) {
       videoMeta = recordToMap(cache.videoMeta)
     } else {
       videoMeta = new Map<string, VideoMeta>()
-      const videoMedien = manifest.media.filter((m) => m.type === 'video')
-      if (videoTool && videoMedien.length) {
+      const videoMedia = manifest.media.filter((m) => m.type === 'video')
+      if (videoTool && videoMedia.length) {
         videoMeta = await prepareVideos({
-          media: videoMedien.map((m) => {
+          media: videoMedia.map((m) => {
             const cutRange = edits?.media?.[m.id]?.trim
             return {
               id: m.id,
@@ -1187,35 +1187,35 @@ export async function processTour(
     } else {
       imageFindings = new Map<string, ImageFinding>()
       if (imageClassifier) {
-        const fotos = manifest.media.filter((x) => x.type === 'photo')
-        const ergebnisse = new Array<ImageFinding | null>(fotos.length).fill(null)
-        let naechstes = 0
-        const arbeiter = async (): Promise<void> => {
+        const photos = manifest.media.filter((x) => x.type === 'photo')
+        const results = new Array<ImageFinding | null>(photos.length).fill(null)
+        let nextIndex = 0
+        const workers = async (): Promise<void> => {
           // Kein Zuteilungs-Race: zwischen Lesen und Erhöhen von `naechstes`
           // liegt kein await, und JS führt bis dahin ununterbrochen aus.
-          for (let i = naechstes++; i < fotos.length; i = naechstes++) {
-            const m = fotos[i] as UploadManifest['media'][number]
+          for (let i = nextIndex++; i < photos.length; i = nextIndex++) {
+            const m = photos[i] as UploadManifest['media'][number]
             try {
               const meta = photoMeta.get(m.id)
-              const datei = meta?.thumbFile ?? meta?.displayFile ?? mediumFilename(m)
-              if (!(await storage.info(tourId, `media/${datei}`))) continue
-              ergebnisse[i] = await imageClassifier.classify(
+              const file = meta?.thumbFile ?? meta?.displayFile ?? mediumFilename(m)
+              if (!(await storage.info(tourId, `media/${file}`))) continue
+              results[i] = await imageClassifier.classify(
                 {
-                  data: await storage.read(tourId, `media/${datei}`),
-                  mediaType: bildMedientyp(datei),
+                  data: await storage.read(tourId, `media/${file}`),
+                  mediaType: imageMediaType(file),
                 },
-                (nachricht) => log(`${nachricht} (${m.id})`),
+                (message) => log(`${message} (${m.id})`),
               )
-            } catch (fehler) {
-              app.log.warn(`Bildanalyse fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
+            } catch (error) {
+              app.log.warn(`Bildanalyse fehlgeschlagen (${m.id}): ${(error as Error).message}`)
             }
           }
         }
         await Promise.all(
-          Array.from({ length: Math.min(BILDANALYSE_PARALLEL, fotos.length) }, () => arbeiter()),
+          Array.from({ length: Math.min(VISION_CONCURRENCY, photos.length) }, () => workers()),
         )
-        for (const [i, befund] of ergebnisse.entries()) {
-          if (befund) imageFindings.set((fotos[i] as UploadManifest['media'][number]).id, befund)
+        for (const [i, finding] of results.entries()) {
+          if (finding) imageFindings.set((photos[i] as UploadManifest['media'][number]).id, finding)
         }
       }
     }
@@ -1242,20 +1242,20 @@ export async function processTour(
     // schreiben — dort ist es im Studio sichtbar und austauschbar. Nur beim
     // ersten Mal: wer es später entfernt, soll es nicht beim nächsten Render
     // zurückbekommen. Ein bereits gesetztes `audio` bleibt unangetastet.
-    if (erstmals && !edits?.audio?.length) {
-      const datei = chooseMusic({
+    if (firstRun && !edits?.audio?.length) {
+      const file = chooseMusic({
         segs: manifest.segments ?? [],
         weather: weatherRaw,
         startIso: manifest.time.start,
         endIso: manifest.time.end,
         zone: manifest.time.zone,
       })
-      const mitMusik: EditOverlay = {
+      const withMusic: EditOverlay = {
         ...(edits ?? { schema: EDITS_SCHEMA_ID }),
-        audio: [{ file: datei, type: 'music', from: manifest.time.start, source: 'library' }],
+        audio: [{ file: file, type: 'music', from: manifest.time.start, source: 'library' }],
       }
-      await storage.write(tourId, EDITS_PATH, JSON.stringify(mitMusik, null, 2))
-      edits = mitMusik
+      await storage.write(tourId, EDITS_PATH, JSON.stringify(withMusic, null, 2))
+      edits = withMusic
     }
 
     // Vorhandene Audio-Dateien an die Pipeline reichen (Baukasten) —
@@ -1289,20 +1289,20 @@ export async function processTour(
     await storage.write(tourId, TOUR_JSON_PATH, JSON.stringify(tourJson, null, 2))
 
     // Anreicherungs-Cache zurückschreiben — das nächste Edit-Speichern nutzt ihn.
-    const neuerCache: EnrichmentCache = {
+    const freshCache: EnrichmentCache = {
       schema: ENRICHMENT_SCHEMA_ID,
       findings: mapToRecord(imageFindings),
       videoMeta: mapToRecord(videoMeta),
-      videoCutSignature: schnittSig,
+      videoCutSignature: cutSig,
       trimSignature: sig,
       places,
       weatherRaw,
     }
-    await storage.write(tourId, ENRICHMENT_PATH, JSON.stringify(neuerCache, null, 2))
+    await storage.write(tourId, ENRICHMENT_PATH, JSON.stringify(freshCache, null, 2))
     // title nur setzen, wenn noch keiner existiert (Auto-Benennung persistieren) —
     // ein während der Verarbeitung per PATCH gesetzter Nutzer-Titel darf nicht
     // rückwirkend überschrieben werden (Lost Update).
-    const titelbild = chooseCover(tourJson.media, edits?.cover)
+    const cover2 = chooseCover(tourJson.media, edits?.cover)
     db.prepare(
       `UPDATE tours SET status = ?, title = COALESCE(title, ?), stats_json = ?, cover = ?, cover_thumb = ?,
        error = NULL, updated_at = ? WHERE id = ?`,
@@ -1310,13 +1310,13 @@ export async function processTour(
       'ready',
       tourJson.brandTitle,
       JSON.stringify(tourJson.stats),
-      titelbild?.cover ?? null,
-      titelbild?.thumb ?? null,
+      cover2?.cover ?? null,
+      cover2?.thumb ?? null,
       new Date().toISOString(),
       tourId,
     )
-  } catch (fehler) {
-    app.log.error(fehler, `Anreicherung fehlgeschlagen: ${tourId}`)
-    setzeStatus(app, tourId, 'failed', (fehler as Error).message)
+  } catch (error) {
+    app.log.error(error, `Anreicherung fehlgeschlagen: ${tourId}`)
+    setStatus(app, tourId, 'failed', (error as Error).message)
   }
 }

@@ -179,8 +179,8 @@ export interface VideoMeta {
   posterFile: string
   /**
    * Länge der QUELLE in Sekunden — das Material, gegen das der Editor seine
-   * Trimm-Kanten anschlägt. Ohne Schnitt gleich `dauerS`; fehlt das Feld
-   * (Cache-Eintrag von vor Etappe 4), gilt `dauerS` als Quelle.
+   * Trimm-Kanten anschlägt. Ohne Schnitt gleich `durationS`; fehlt das Feld
+   * (Cache-Eintrag von vor Etappe 4), gilt `durationS` als Quelle.
    */
   sourceDurationS?: number
 }

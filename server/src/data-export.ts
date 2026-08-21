@@ -48,7 +48,7 @@ export type DataExportStatus = {
   files: number | null
 }
 
-type Zeile = {
+type ExportRow = {
   id: string
   user_id: string
   status: 'running' | 'done' | 'failed'
@@ -59,7 +59,7 @@ type Zeile = {
   file_count: number | null
 }
 
-const alsStand = (z: Zeile): DataExportStatus => ({
+const toState = (z: ExportRow): DataExportStatus => ({
   id: z.id,
   status: z.status,
   requestedAt: z.requested_at,
@@ -77,15 +77,15 @@ export class DataExportService {
     private readonly db: Db,
     /** Eigener Ablagebereich (`daten/exporte/<id>/`), nicht neben den Touren. */
     private readonly archive: Storage,
-    private readonly jetzt: () => Date = () => new Date(),
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
   /** Der jüngste Auftrag eines Kontos — für die Anzeige im Konto. */
-  stand(benutzerId: string): DataExportStatus | null {
+  state2(userId: string): DataExportStatus | null {
     const z = this.db
       .prepare('SELECT * FROM data_exports WHERE user_id = ? ORDER BY requested_at DESC LIMIT 1')
-      .get(benutzerId) as Zeile | undefined
-    return z ? alsStand(z) : null
+      .get(userId) as ExportRow | undefined
+    return z ? toState(z) : null
   }
 
   /**
@@ -95,58 +95,58 @@ export class DataExportService {
    * schicken soll. Bei `false` läuft bereits einer: Dann passiert NICHTS
    * weiter, insbesondere geht keine zweite Mail raus.
    */
-  fordereAn(benutzerId: string): { stand: DataExportStatus; neu: boolean } {
-    const jetzt = this.jetzt().toISOString()
+  request(userId: string): { state2: DataExportStatus; fresh: boolean } {
+    const now = this.now().toISOString()
     const id = newDataExportId()
     try {
       this.db
         .prepare(
           `INSERT INTO data_exports (id, user_id, status, requested_at) VALUES (?, ?, 'running', ?)`,
         )
-        .run(id, benutzerId, jetzt)
+        .run(id, userId, now)
     } catch {
       // Der partielle UNIQUE-Index hat zugeschlagen: Es läuft schon einer.
       // Kein Fehler nach außen — der Wunsch ist ja bereits erfüllt.
-      const laufend = this.db
+      const running = this.db
         .prepare(`SELECT * FROM data_exports WHERE user_id = ? AND status = 'running'`)
-        .get(benutzerId) as Zeile | undefined
-      if (laufend) return { stand: alsStand(laufend), neu: false }
+        .get(userId) as ExportRow | undefined
+      if (running) return { state2: toState(running), fresh: false }
       throw new Error('Export konnte nicht angelegt werden')
     }
-    return { stand: this.stand(benutzerId)!, neu: true }
+    return { state2: this.state2(userId)!, fresh: true }
   }
 
   /** Auftrag als fertig eintragen und die Frist setzen. */
-  melde(id: string, bytes: number, dateien: number): DataExportStatus | null {
-    const fertig = this.jetzt()
-    const ablauf = new Date(fertig.getTime() + EXPIRY_HOURS * 60 * 60 * 1000)
+  finish(id: string, bytes: number, fileCount: number): DataExportStatus | null {
+    const finishedAt2 = this.now()
+    const expiresAt2 = new Date(finishedAt2.getTime() + EXPIRY_HOURS * 60 * 60 * 1000)
     this.db
       .prepare(
         `UPDATE data_exports SET status = 'done', finished_at = ?, expires_at = ?, bytes = ?, file_count = ?
          WHERE id = ? AND status = 'running'`,
       )
-      .run(fertig.toISOString(), ablauf.toISOString(), bytes, dateien, id)
+      .run(finishedAt2.toISOString(), expiresAt2.toISOString(), bytes, fileCount, id)
     const z = this.db.prepare('SELECT * FROM data_exports WHERE id = ?').get(id) as
-      Zeile | undefined
-    return z ? alsStand(z) : null
+      ExportRow | undefined
+    return z ? toState(z) : null
   }
 
   /** Auftrag als gescheitert eintragen — der Grund bleibt intern. */
-  meldeFehler(id: string, grund: string): void {
+  reportError(id: string, reason: string): void {
     this.db
       .prepare(
         `UPDATE data_exports SET status = 'failed', error = ? WHERE id = ? AND status = 'running'`,
       )
-      .run(grund.slice(0, 500), id)
+      .run(reason.slice(0, 500), id)
   }
 
   /** Ein abrufbares Archiv: fertig UND innerhalb der Frist. */
-  abrufbar(id: string): DataExportStatus | null {
+  downloadable(id: string): DataExportStatus | null {
     const z = this.db
       .prepare(`SELECT * FROM data_exports WHERE id = ? AND status = 'done'`)
-      .get(id) as Zeile | undefined
+      .get(id) as ExportRow | undefined
     if (!z?.expires_at) return null
-    return new Date(z.expires_at) > this.jetzt() ? alsStand(z) : null
+    return new Date(z.expires_at) > this.now() ? toState(z) : null
   }
 
   /**
@@ -163,31 +163,30 @@ export class DataExportService {
    * sonst blockierte er das Konto für immer (der UNIQUE-Index lässt keinen
    * zweiten zu).
    */
-  async raeumeAuf(): Promise<number> {
-    const jetzt = this.jetzt()
-    const grenze = jetzt.toISOString()
-    const haenger = new Date(jetzt.getTime() - 6 * 60 * 60 * 1000).toISOString()
+  async purgeExpired(): Promise<number> {
+    const now = this.now()
+    const cutoff = now.toISOString()
+    const stale = new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString()
     this.db
       .prepare(
         `UPDATE data_exports SET status = 'failed', error = 'Abgebrochen (Neustart oder Absturz)'
                 WHERE status = 'running' AND requested_at < ?`,
       )
-      .run(haenger)
-    const alt = this.db
+      .run(stale)
+    const previous = this.db
       .prepare(
         `SELECT id FROM data_exports
          WHERE (status = 'done' AND expires_at <= ?)
             OR (status = 'failed' AND requested_at <= ?)`,
       )
-      .all(
-        grenze,
-        new Date(jetzt.getTime() - EXPIRY_HOURS * 60 * 60 * 1000).toISOString(),
-      ) as Array<{ id: string }>
-    for (const { id } of alt) {
+      .all(cutoff, new Date(now.getTime() - EXPIRY_HOURS * 60 * 60 * 1000).toISOString()) as Array<{
+      id: string
+    }>
+    for (const { id } of previous) {
       await this.archive.removeTour(id).catch(() => undefined)
       this.db.prepare('DELETE FROM data_exports WHERE id = ?').run(id)
     }
-    return alt.length
+    return previous.length
   }
 
   /**
@@ -198,20 +197,20 @@ export class DataExportService {
    * vorzeitigen Löschen (Konto weg) hülfe er gar nicht: Was zählt, ist, ob es
    * die Zeile noch gibt.
    */
-  static token(id: string, geheimnis: string): string {
-    const signatur = createHmac('sha256', geheimnis).update(`export:${id}`).digest('base64url')
-    return `${id}.${signatur}`
+  static token(id: string, secret: string): string {
+    const signature = createHmac('sha256', secret).update(`export:${id}`).digest('base64url')
+    return `${id}.${signature}`
   }
 
   /** Token → Auftrags-ID; null bei Unfug oder falscher Signatur. */
-  static ausToken(token: string, geheimnis: string): string | null {
-    const punkt = token.lastIndexOf('.')
-    if (punkt <= 0) return null
-    const id = token.slice(0, punkt)
-    const signatur = token.slice(punkt + 1)
-    const erwartet = createHmac('sha256', geheimnis).update(`export:${id}`).digest('base64url')
-    if (signatur.length !== erwartet.length) return null
-    return timingSafeEqual(Buffer.from(signatur), Buffer.from(erwartet)) ? id : null
+  static byToken(token: string, secret: string): string | null {
+    const dot = token.lastIndexOf('.')
+    if (dot <= 0) return null
+    const id = token.slice(0, dot)
+    const signature = token.slice(dot + 1)
+    const expected = createHmac('sha256', secret).update(`export:${id}`).digest('base64url')
+    if (signature.length !== expected.length) return null
+    return timingSafeEqual(Buffer.from(signature), Buffer.from(expected)) ? id : null
   }
 }
 
@@ -220,9 +219,9 @@ export type ArchiveEntry = {
   /** Pfad IM Archiv, immer mit Schrägstrichen. */
   name: string
   /** Kleine Inhalte direkt; große kommen als Stream. */
-  inhalt: Buffer | string | (() => Readable)
+  content: Buffer | string | (() => Readable)
   /** Schon komprimiert? Dann nicht noch einmal durch Deflate. */
-  gepackt?: boolean
+  packed?: boolean
 }
 
 /**
@@ -232,14 +231,14 @@ export type ArchiveEntry = {
  * Aufrufer schiebt den Strom direkt in die Ablage. Bei zwei Gigabyte Medien
  * ist das der Unterschied zwischen „läuft nebenher" und „Prozess weg".
  */
-export function buildArchive(eintraege: ArchiveEntry[]): Readable {
+export function buildArchive(entries: ArchiveEntry[]): Readable {
   const zip = new ZipFile()
-  for (const e of eintraege) {
-    const opts = { compress: !e.gepackt }
-    if (typeof e.inhalt === 'function') zip.addReadStream(e.inhalt(), e.name, opts)
+  for (const e of entries) {
+    const opts = { compress: !e.packed }
+    if (typeof e.content === 'function') zip.addReadStream(e.content(), e.name, opts)
     else
       zip.addBuffer(
-        Buffer.isBuffer(e.inhalt) ? e.inhalt : Buffer.from(e.inhalt, 'utf8'),
+        Buffer.isBuffer(e.content) ? e.content : Buffer.from(e.content, 'utf8'),
         e.name,
         opts,
       )

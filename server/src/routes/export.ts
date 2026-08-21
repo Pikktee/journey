@@ -25,19 +25,19 @@ import { buildAndStore } from '../data-export-run.js'
 /** „1,4 GB" — für die Mail, nicht für Maschinen. */
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} Bytes`
-  const einheiten = ['KB', 'MB', 'GB', 'TB']
-  let wert = bytes / 1024
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = bytes / 1024
   let i = 0
-  while (wert >= 1024 && i < einheiten.length - 1) {
-    wert /= 1024
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024
     i++
   }
-  return `${wert.toFixed(wert < 10 ? 1 : 0).replace('.', ',')} ${einheiten[i]}`
+  return `${value.toFixed(value < 10 ? 1 : 0).replace('.', ',')} ${units[i]}`
 }
 
 /** Die Adresse, unter der ein Archiv liegt — eine Stelle für Mail und Route. */
-export const exportUrl = (basisUrl: string, token: string): string =>
-  `${basisUrl.replace(/\/+$/, '')}/api/export/${token}`
+export const exportUrl = (baseUrl: string, token: string): string =>
+  `${baseUrl.replace(/\/+$/, '')}/api/export/${token}`
 
 export function registerDataExportRoutes(app: FastifyInstance): void {
   const { config, mail, db, storage } = app.deps
@@ -45,28 +45,28 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
   // Ein Archiv kostet CPU und Platz. Die Bremse ist der Schutz gegen den
   // Fall, den der UNIQUE-Index NICHT abdeckt: schnell hintereinander
   // anfordern, während der vorige Lauf schon fertig ist.
-  const exportGebremst = buildRateLimit(5, 60 * 60_000) // 5 pro Stunde je Konto
+  const exportLimited = buildRateLimit(5, 60 * 60_000) // 5 pro Stunde je Konto
 
   app.post('/api/auth/me/export', async (request, reply) => {
-    const benutzer = requireUser(request, reply)
-    if (!benutzer) return
-    if (exportGebremst(benutzer.id)) {
+    const user = requireUser(request, reply)
+    if (!user) return
+    if (exportLimited(user.id)) {
       return reply
         .code(429)
         .send({ error: 'Zu viele Anforderungen. Versuch es später noch einmal.' })
     }
 
-    const { stand, neu } = app.dataExport.fordereAn(benutzer.id)
+    const { state2, fresh } = app.dataExport.request(user.id)
     // Läuft schon einer: Der Wunsch ist erfüllt, es passiert nichts weiter —
     // insbesondere geht keine zweite Mail raus. Die Antwort ist dieselbe,
     // damit die Oberfläche keinen Sonderfall zeichnen muss.
-    if (!neu) return { ok: true, dataExport: stand }
+    if (!fresh) return { ok: true, dataExport: state2 }
 
     // Erst nach der Antwort. `void` ist Absicht: Niemand wartet, und ein
     // `await` machte aus der Route genau den blockierenden Aufruf, den diese
     // Aufteilung vermeidet.
-    void baueUndSchicke(app, stand.id, benutzer.id, benutzer.email, benutzer.name)
-    return { ok: true, dataExport: stand }
+    void buildAndSend(app, state2.id, user.id, user.email, user.name)
+    return { ok: true, dataExport: state2 }
   })
 
   /**
@@ -79,11 +79,11 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
    * Zwecks.
    */
   app.get<{ Params: { token: string } }>('/api/export/:token', async (request, reply) => {
-    const id = DataExportService.ausToken(request.params.token, config.cookieSecret)
-    const stand = id ? app.dataExport.abrufbar(id) : null
+    const id = DataExportService.byToken(request.params.token, config.cookieSecret)
+    const state2 = id ? app.dataExport.downloadable(id) : null
     // Abgelaufen und gefälscht sind dieselbe Antwort: Ein eigener Text für
     // „abgelaufen" verriete, dass es diesen Auftrag gab.
-    if (!id || !stand) {
+    if (!id || !state2) {
       return reply.code(404).send({ error: 'Dieser Link ist abgelaufen oder ungültig.' })
     }
     const info = await app.deps.archive.info(id, ARCHIVE_FILE)
@@ -104,22 +104,22 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
    * Versand darf den fertigen Auftrag nicht zurücknehmen — das Archiv liegt
    * dann bereit, nur die Mail fehlt, und beim nächsten Anfordern gibt es eine.
    */
-  async function baueUndSchicke(
+  async function buildAndSend(
     app: FastifyInstance,
-    auftragId: string,
-    benutzerId: string,
+    jobId: string,
+    userId: string,
     email: string,
     name: string,
   ): Promise<void> {
     try {
-      const { bytes, dateien } = await buildAndStore(
+      const { bytes, files } = await buildAndStore(
         { db, storage, archive: app.deps.archive, maxBytes: config.maxStoragePerUser * 2 },
-        auftragId,
-        benutzerId,
+        jobId,
+        userId,
         new Date().toISOString(),
       )
-      app.dataExport.melde(auftragId, bytes, dateien)
-      app.log.info({ auftragId, bytes, dateien }, 'Datenexport gebaut')
+      app.dataExport.finish(jobId, bytes, files)
+      app.log.info({ jobId, bytes, files }, 'Datenexport gebaut')
 
       // Der Versand steht in einem EIGENEN try: Ein Mail-Ausfall darf den
       // fertigen Auftrag nicht zurücknehmen. Das Archiv liegt dann bereit, nur
@@ -127,25 +127,19 @@ export function registerDataExportRoutes(app: FastifyInstance): void {
       // Stünde es im äußeren Block, machte eine hakende Mail aus einem
       // gelungenen Export einen gescheiterten.
       try {
-        const link = exportUrl(
-          config.baseUrl,
-          DataExportService.token(auftragId, config.cookieSecret),
-        )
-        const { betreff, text, html } = app.mailTemplates.rendere(
+        const link = exportUrl(config.baseUrl, DataExportService.token(jobId, config.cookieSecret))
+        const { subject, text, html } = app.mailTemplates.render(
           'export',
-          { name, groesse: formatSize(bytes), frist: `${EXPIRY_HOURS} Stunden` },
-          { basisUrl: config.baseUrl, link },
+          { name, size: formatSize(bytes), deadline: `${EXPIRY_HOURS} Stunden` },
+          { baseUrl: config.baseUrl, link },
         )
-        await mail.sende({ an: email, betreff, text, html })
-      } catch (fehler) {
-        app.log.error({ fehler, auftragId }, 'Export-Mail konnte nicht versendet werden')
+        await mail.send({ to2: email, subject, text, html })
+      } catch (error) {
+        app.log.error({ error, jobId }, 'Export-Mail konnte nicht versendet werden')
       }
-    } catch (fehler) {
-      app.log.error({ fehler, auftragId }, 'Datenexport fehlgeschlagen')
-      app.dataExport.meldeFehler(
-        auftragId,
-        fehler instanceof Error ? fehler.message : String(fehler),
-      )
+    } catch (error) {
+      app.log.error({ error, jobId }, 'Datenexport fehlgeschlagen')
+      app.dataExport.reportError(jobId, error instanceof Error ? error.message : String(error))
     }
   }
 }

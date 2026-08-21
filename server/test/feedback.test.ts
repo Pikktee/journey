@@ -23,7 +23,7 @@ describe('Rückmeldungen', () => {
     const antwort = await melde(u, { text: 'Der Upload bricht bei großen Videos ab.' })
     expect(antwort.statusCode).toBe(200)
 
-    const liste = u.app.feedback.liste()
+    const liste = u.app.feedback.list()
     expect(liste).toHaveLength(1)
     expect(liste[0]?.text).toBe('Der Upload bricht bei großen Videos ab.')
     expect(liste[0]?.status).toBe('open')
@@ -42,7 +42,7 @@ describe('Rückmeldungen', () => {
       payload: { text: 'Die Zeitleiste springt beim Ziehen.' },
     })
     expect(antwort.statusCode).toBe(200)
-    const eine = u.app.feedback.liste()[0]
+    const eine = u.app.feedback.list()[0]
     expect(eine?.userId).toBe(admin.id)
     // Der Name kommt aus dem JOIN, damit die Liste nicht nur Kennungen zeigt.
     expect(eine?.userName).toBe('Chefin')
@@ -62,7 +62,7 @@ describe('Rückmeldungen', () => {
         standort: '50.11,8.68',
       },
     })
-    const kontext = u.app.feedback.liste()[0]?.context
+    const kontext = u.app.feedback.list()[0]?.context
     expect(kontext).toEqual({
       page: '/tour/t_abc',
       version: '0.60.5',
@@ -74,10 +74,10 @@ describe('Rückmeldungen', () => {
     const u = await baueTestApp()
     const antwort = await melde(u, { text: 'Bitte Dark Mode.', email: 'keine-adresse' })
     expect(antwort.statusCode).toBe(200)
-    expect(u.app.feedback.liste()[0]?.email).toBeNull()
+    expect(u.app.feedback.list()[0]?.email).toBeNull()
 
     await melde(u, { text: 'Noch etwas.', email: 'mira@example.com' })
-    expect(u.app.feedback.liste()[0]?.email).toBe('mira@example.com')
+    expect(u.app.feedback.list()[0]?.email).toBe('mira@example.com')
   })
 
   it('bremst einen Schwall aus derselben Quelle', async () => {
@@ -124,9 +124,9 @@ describe('Rückmeldungen', () => {
   it('filtert nach Status und zählt je Status', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u)
-    const a = u.app.feedback.nimmAn({ text: 'A' })
-    u.app.feedback.nimmAn({ text: 'B' })
-    u.app.feedback.aktualisiere(a.id, { status: 'in_progress' })
+    const a = u.app.feedback.submit({ text: 'A' })
+    u.app.feedback.submit({ text: 'B' })
+    u.app.feedback.update(a.id, { status: 'in_progress' })
 
     const antwort = await u.app.inject({
       method: 'GET',
@@ -141,10 +141,10 @@ describe('Rückmeldungen', () => {
   it('behält die Meldung, wenn das Konto gelöscht wird', async () => {
     const u = await baueTestApp()
     const admin = await legeAdminAn(u, 'weg@example.com')
-    u.app.feedback.nimmAn({ text: 'Bleibt erhalten.', userId: admin.id })
+    u.app.feedback.submit({ text: 'Bleibt erhalten.', userId: admin.id })
     u.app.deps.db.prepare('DELETE FROM users WHERE id = ?').run(admin.id)
 
-    const eine = u.app.feedback.liste()[0]
+    const eine = u.app.feedback.list()[0]
     expect(eine?.text).toBe('Bleibt erhalten.')
     // Der BEZUG fällt weg, der Sachverhalt bleibt.
     expect(eine?.userId).toBeNull()
@@ -153,19 +153,19 @@ describe('Rückmeldungen', () => {
   it('räumt erledigte Meldungen früher weg als offene', async () => {
     const u = await baueTestApp()
     const alt = (tage: number): string => new Date(Date.now() - tage * 86_400_000).toISOString()
-    const erledigt = u.app.feedback.nimmAn({ text: 'alt und erledigt' })
-    const offen = u.app.feedback.nimmAn({ text: 'alt und offen' })
-    u.app.feedback.aktualisiere(erledigt.id, { status: 'done' })
+    const erledigt = u.app.feedback.submit({ text: 'alt und erledigt' })
+    const offen = u.app.feedback.submit({ text: 'alt und offen' })
+    u.app.feedback.update(erledigt.id, { status: 'done' })
     const setzeDatum = u.app.deps.db.prepare('UPDATE feedback SET created_at = ? WHERE id = ?')
     setzeDatum.run(alt(DONE_RETENTION_DAYS + 1), erledigt.id)
     setzeDatum.run(alt(DONE_RETENTION_DAYS + 1), offen.id)
 
-    expect(u.app.feedback.raeumeAuf()).toBe(1)
-    expect(u.app.feedback.liste().map((r) => r.text)).toEqual(['alt und offen'])
+    expect(u.app.feedback.purgeExpired()).toBe(1)
+    expect(u.app.feedback.list().map((r) => r.text)).toEqual(['alt und offen'])
 
     setzeDatum.run(alt(OPEN_RETENTION_DAYS + 1), offen.id)
-    expect(u.app.feedback.raeumeAuf()).toBe(1)
-    expect(u.app.feedback.liste()).toHaveLength(0)
+    expect(u.app.feedback.purgeExpired()).toBe(1)
+    expect(u.app.feedback.list()).toHaveLength(0)
   })
 
   it('gibt bei kaputtem Kontext-JSON die Meldung trotzdem her', () => {

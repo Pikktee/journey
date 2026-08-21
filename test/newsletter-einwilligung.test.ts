@@ -27,7 +27,7 @@ function einwilligungstexte(): Record<string, { fassung: string; text: string }>
   expect(block, 'CONSENT_TEXTS in server/src/newsletter.ts nicht gefunden').toBeTruthy()
   const texte: Record<string, { fassung: string; text: string }> = {}
   for (const eintrag of (block as string).matchAll(
-    /(\w+): \{\s*fassung: '([^']+)',\s*text:([\s\S]*?),\s*\},/g,
+    /(\w+): \{\s*version: '([^']+)',\s*text:([\s\S]*?),\s*\},/g,
   )) {
     const [, name, fassung, rohText] = eintrag
     // Der Text steht als verkettete Zeichenkette („… ' + '…"); die

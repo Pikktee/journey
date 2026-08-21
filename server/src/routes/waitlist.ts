@@ -20,7 +20,7 @@ import { buildRateLimit } from '../rate-limit.js'
 import { WEB_PATHS } from '../web-paths.js'
 
 const emailSchema = { type: 'string', maxLength: 254 } as const
-const EMAIL_FORM = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const tokenSchema = { type: 'string', maxLength: 200 } as const
 
 /**
@@ -30,23 +30,23 @@ const tokenSchema = { type: 'string', maxLength: 200 } as const
  * beantworten, nicht ein Anschreiben werden — und je länger das Feld, desto
  * mehr steht am Ende darin, was niemand erhoben hat.
  */
-const MAX_NOTIZ = 300
+const MAX_NOTE = 300
 
 export function registerWaitlistRoutes(app: FastifyInstance): void {
   const { config, mail } = app.deps
   // Streng: Ein Mensch trägt sich einmal ein. Die Bremse zählt IP und Adresse,
   // damit weder ein Skript viele Adressen noch viele Quellen eine Adresse
   // zuschütten können.
-  const eintragGebremst = buildRateLimit(3, 10 * 60_000)
-  const tokenGebremst = buildRateLimit(20, 10 * 60_000)
+  const joinLimited = buildRateLimit(3, 10 * 60_000)
+  const tokenLimited = buildRateLimit(20, 10 * 60_000)
 
   /** Steht das Formular vor der Tür überhaupt? */
-  const angeboten = (): boolean =>
+  const offered2 = (): boolean =>
     waitlistOffered(app.waitlist.open(), app.invitations.required(), config.registrationOpen)
 
-  const bestaetigungsLink = (token: string): string =>
+  const confirmLink = (token: string): string =>
     `${config.baseUrl}${WEB_PATHS.register}#warteliste=${token}`
-  const austragenLink = (token: string): string =>
+  const leaveLink2 = (token: string): string =>
     `${config.baseUrl}${WEB_PATHS.register}#warteliste-austragen=${token}`
 
   // — Eintragen —
@@ -62,17 +62,17 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
           type: 'object',
           additionalProperties: false,
           required: ['email'],
-          properties: { email: emailSchema, note: { type: 'string', maxLength: MAX_NOTIZ } },
+          properties: { email: emailSchema, note: { type: 'string', maxLength: MAX_NOTE } },
         },
       },
     },
     async (request, reply) => {
-      if (!angeboten())
+      if (!offered2())
         return reply.code(403).send({ error: 'Die Warteliste ist zurzeit geschlossen.' })
       const email = request.body.email.toLowerCase().trim()
-      if (!EMAIL_FORM.test(email))
+      if (!EMAIL_PATTERN.test(email))
         return reply.code(400).send({ error: 'Diese E-Mail-Adresse stimmt nicht.' })
-      if (eintragGebremst(`ip:${request.ip}`, `mail:${email}`)) {
+      if (joinLimited(`ip:${request.ip}`, `mail:${email}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
@@ -83,15 +83,15 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       if (!app.auth.emailTaken(email)) {
         const { token } = app.waitlist.join(email, request.body.note ?? null, request.ip || null)
         if (token) {
-          const { betreff, text, html } = app.mailTemplates.rendere(
+          const { subject, text, html } = app.mailTemplates.render(
             'waitlist',
             {},
-            { basisUrl: config.baseUrl, link: bestaetigungsLink(token) },
+            { baseUrl: config.baseUrl, link: confirmLink(token) },
           )
           try {
-            await mail.sende({ an: email, betreff, text, html })
-          } catch (fehler) {
-            app.log.error({ fehler }, 'Warteliste-Bestätigungsmail konnte nicht versendet werden')
+            await mail.send({ to2: email, subject, text, html })
+          } catch (error) {
+            app.log.error({ error }, 'Warteliste-Bestätigungsmail konnte nicht versendet werden')
           }
         }
       }
@@ -113,14 +113,14 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (tokenGebremst(`ip:${request.ip}`)) {
+      if (tokenLimited(`ip:${request.ip}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
-      const eintrag = app.waitlist.confirm(request.body.token, request.ip || null)
-      if (!eintrag) return reply.code(400).send({ error: 'Dieser Link gilt nicht mehr.' })
-      return { ok: true, email: eintrag.email }
+      const entry2 = app.waitlist.confirm(request.body.token, request.ip || null)
+      if (!entry2) return reply.code(400).send({ error: 'Dieser Link gilt nicht mehr.' })
+      return { ok: true, email: entry2.email }
     },
   )
 
@@ -141,7 +141,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (tokenGebremst(`ip:${request.ip}`)) {
+      if (tokenLimited(`ip:${request.ip}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Versuche. Bitte versuche es später erneut.' })
@@ -150,9 +150,9 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       // wartet: Sie trägt die Adresse als Notiz, und „wir löschen sie sofort"
       // wäre sonst nur halb wahr. Eine EINGELÖSTE Einladung bleibt stehen —
       // dann gibt es ein Konto, und sie ist dessen Herkunftsnachweis.
-      const eintrag = app.waitlist.byToken(request.body.token)
-      if (eintrag?.invitedCode && app.invitations.check(eintrag.invitedCode) !== 'used') {
-        app.invitations.revoke(eintrag.invitedCode)
+      const entry2 = app.waitlist.byToken(request.body.token)
+      if (entry2?.invitedCode && app.invitations.check(entry2.invitedCode) !== 'used') {
+        app.invitations.revoke(entry2.invitedCode)
       }
       app.waitlist.leave(request.body.token)
       return { ok: true }
@@ -167,7 +167,7 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
       entries: app.waitlist.all(),
       waitlistOpen: app.waitlist.open(),
       /** Ob das Formular gerade wirklich vor der Tür steht — der Schalter allein sagt das nicht. */
-      offered: angeboten(),
+      offered: offered2(),
     }
   })
 
@@ -190,43 +190,43 @@ export function registerWaitlistRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const admin = requireAdmin(request, reply)
       if (!admin) return
-      const eintrag = app.waitlist.byId(request.params.id)
-      if (!eintrag) return reply.code(404).send({ error: 'Unbekannter Eintrag' })
-      if (eintrag.state === 'unconfirmed') {
+      const entry2 = app.waitlist.byId(request.params.id)
+      if (!entry2) return reply.code(404).send({ error: 'Unbekannter Eintrag' })
+      if (entry2.state === 'unconfirmed') {
         return reply.code(409).send({ error: 'Diese Adresse ist noch nicht bestätigt' })
       }
-      if (eintrag.state === 'invited') {
+      if (entry2.state === 'invited') {
         return reply.code(409).send({ error: 'Diese Adresse wurde bereits eingeladen' })
       }
-      if (app.auth.emailTaken(eintrag.email)) {
+      if (app.auth.emailTaken(entry2.email)) {
         return reply.code(409).send({ error: 'Zu dieser Adresse gibt es bereits ein Konto' })
       }
 
-      const tage = request.body?.validDays ?? DEFAULT_VALID_DAYS
+      const days = request.body?.validDays ?? DEFAULT_VALID_DAYS
       // Die Adresse als Notiz: In der Einladungsliste steht später sonst ein
       // Code ohne Empfänger.
-      const einladung = app.invitations.create(admin.id, eintrag.email, tage || null)
+      const invitation2 = app.invitations.create(admin.id, entry2.email, days || null)
       // Frischer Token für den Austragen-Link: Den aus der Bestätigungsmail
       // kennt der Server nur als Hash. Die jüngste Mail trägt damit immer den
       // gültigen Weg hinaus — die ältere wird still stumpf.
-      const austragToken = app.waitlist.renewToken(eintrag.id)
-      const { betreff, text, html } = app.mailTemplates.rendere(
+      const leaveToken = app.waitlist.renewToken(entry2.id)
+      const { subject, text, html } = app.mailTemplates.render(
         'waitlist-invitation',
-        { code: einladung.code, leaveLink: austragenLink(austragToken) },
+        { code: invitation2.code, leaveLink: leaveLink2(leaveToken) },
         {
-          basisUrl: config.baseUrl,
-          link: `${config.baseUrl}${WEB_PATHS.register}#einladung=${encodeURIComponent(einladung.code)}`,
+          baseUrl: config.baseUrl,
+          link: `${config.baseUrl}${WEB_PATHS.register}#einladung=${encodeURIComponent(invitation2.code)}`,
         },
       )
       try {
-        await mail.sende({ an: eintrag.email, betreff, text, html })
-      } catch (fehler) {
-        app.invitations.revoke(einladung.code)
-        app.log.error({ fehler }, 'Warteliste-Einladungsmail konnte nicht versendet werden')
+        await mail.send({ to2: entry2.email, subject, text, html })
+      } catch (error) {
+        app.invitations.revoke(invitation2.code)
+        app.log.error({ error }, 'Warteliste-Einladungsmail konnte nicht versendet werden')
         return reply.code(502).send({ error: 'Die Einladung konnte nicht versendet werden' })
       }
-      app.waitlist.markInvited(eintrag.id, einladung.code)
-      return { entry: app.waitlist.byId(eintrag.id), invitation: einladung }
+      app.waitlist.markInvited(entry2.id, invitation2.code)
+      return { entry: app.waitlist.byId(entry2.id), invitation: invitation2 }
     },
   )
 

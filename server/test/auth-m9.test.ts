@@ -100,7 +100,7 @@ describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
     expect(antwort.statusCode).toBe(201)
     expect(antwort.json()).toMatchObject({ verified: false })
     expect(u.mail.nachrichten).toHaveLength(1)
-    expect(u.mail.nachrichten[0]?.an).toBe('neu@example.com')
+    expect(u.mail.nachrichten[0]?.to2).toBe('neu@example.com')
     expect(u.mail.letzterLink()).toContain('#verify=')
     // me zeigt eingeloggt, aber unbestätigt
     const cookies = sessionAus(antwort)

@@ -62,11 +62,11 @@ describe('Auftragsverwaltung', () => {
     // Fenster, in dem beide Anfragen dasselbe sehen.
     const u = await baueTestApp()
     const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    const erste = u.app.dataExport.fordereAn(wer)
-    const zweite = u.app.dataExport.fordereAn(wer)
-    expect(erste.neu).toBe(true)
-    expect(zweite.neu).toBe(false)
-    expect(zweite.stand.id).toBe(erste.stand.id)
+    const erste = u.app.dataExport.request(wer)
+    const zweite = u.app.dataExport.request(wer)
+    expect(erste.fresh).toBe(true)
+    expect(zweite.fresh).toBe(false)
+    expect(zweite.state2.id).toBe(erste.state2.id)
     const alle = u.app.deps.db.prepare('SELECT count(*) n FROM data_exports').get() as { n: number }
     expect(alle.n).toBe(1)
   })
@@ -74,16 +74,16 @@ describe('Auftragsverwaltung', () => {
   it('lässt nach einem fertigen Auftrag einen neuen zu', async () => {
     const u = await baueTestApp()
     const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    const erste = u.app.dataExport.fordereAn(wer)
-    u.app.dataExport.melde(erste.stand.id, 100, 3)
-    expect(u.app.dataExport.fordereAn(wer).neu).toBe(true)
+    const erste = u.app.dataExport.request(wer)
+    u.app.dataExport.finish(erste.state2.id, 100, 3)
+    expect(u.app.dataExport.request(wer).fresh).toBe(true)
   })
 
   it('setzt die Frist ab der FERTIGSTELLUNG', async () => {
     const u = await baueTestApp()
     const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    const a = u.app.dataExport.fordereAn(wer)
-    const fertig = u.app.dataExport.melde(a.stand.id, 100, 3)
+    const a = u.app.dataExport.request(wer)
+    const fertig = u.app.dataExport.finish(a.state2.id, 100, 3)
     const spanne = new Date(fertig!.expiresAt!).getTime() - new Date(fertig!.finishedAt!).getTime()
     expect(Math.round(spanne / 3_600_000)).toBe(EXPIRY_HOURS)
   })
@@ -96,11 +96,11 @@ describe('Auftragsverwaltung', () => {
     db.prepare(
       `INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_9','a@b.c','x','A','2026-01-01','a9')`,
     ).run()
-    const a = dienst.fordereAn('u_9')
-    dienst.melde(a.stand.id, 10, 1)
-    expect(dienst.abrufbar(a.stand.id)).not.toBeNull()
+    const a = dienst.request('u_9')
+    dienst.finish(a.state2.id, 10, 1)
+    expect(dienst.downloadable(a.state2.id)).not.toBeNull()
     jetzt = new Date('2026-08-08T11:00:00Z') // 49 Stunden später
-    expect(dienst.abrufbar(a.stand.id)).toBeNull()
+    expect(dienst.downloadable(a.state2.id)).toBeNull()
   })
 
   it('löscht abgelaufene Archive samt Datei', async () => {
@@ -113,12 +113,12 @@ describe('Auftragsverwaltung', () => {
     db.prepare(
       `INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_8','c@d.e','x','A','2026-01-01','a8')`,
     ).run()
-    const a = dienst.fordereAn('u_8')
-    await archive.write(a.stand.id, 'maptale-export.zip', Buffer.from('inhalt'))
-    dienst.melde(a.stand.id, 6, 1)
+    const a = dienst.request('u_8')
+    await archive.write(a.state2.id, 'maptale-export.zip', Buffer.from('inhalt'))
+    dienst.finish(a.state2.id, 6, 1)
     jetzt = new Date('2026-08-09T10:00:00Z')
-    expect(await dienst.raeumeAuf()).toBe(1)
-    expect(await archive.info(a.stand.id, 'maptale-export.zip')).toBeNull()
+    expect(await dienst.purgeExpired()).toBe(1)
+    expect(await archive.info(a.state2.id, 'maptale-export.zip')).toBeNull()
     expect(db.prepare('SELECT count(*) n FROM data_exports').get()).toEqual({ n: 0 })
   })
 
@@ -131,10 +131,10 @@ describe('Auftragsverwaltung', () => {
     db.prepare(
       `INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_7','e@f.g','x','A','2026-01-01','a7')`,
     ).run()
-    dienst.fordereAn('u_7')
+    dienst.request('u_7')
     jetzt = new Date('2026-08-06T17:00:00Z') // sieben Stunden später
-    await dienst.raeumeAuf()
-    expect(dienst.fordereAn('u_7').neu).toBe(true)
+    await dienst.purgeExpired()
+    expect(dienst.request('u_7').fresh).toBe(true)
   })
 })
 
@@ -145,24 +145,24 @@ describe('Konto löschen', () => {
     // gelöschten Kontos bliebe für immer liegen.
     const u = await baueTestApp()
     const wer = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    const a = u.app.dataExport.fordereAn(wer)
-    await u.archive.write(a.stand.id, 'maptale-export.zip', Buffer.from('daten'))
-    u.app.dataExport.melde(a.stand.id, 5, 1)
+    const a = u.app.dataExport.request(wer)
+    await u.archive.write(a.state2.id, 'maptale-export.zip', Buffer.from('daten'))
+    u.app.dataExport.finish(a.state2.id, 5, 1)
 
     const weg = await u.app.inject({ method: 'DELETE', url: '/api/auth/me', cookies: u.cookies })
     expect(weg.statusCode).toBe(200)
-    expect(await u.archive.info(a.stand.id, 'maptale-export.zip')).toBeNull()
+    expect(await u.archive.info(a.state2.id, 'maptale-export.zip')).toBeNull()
   })
 })
 
 describe('Download-Token', () => {
   it('gilt nur mit gültiger Signatur', () => {
     const t = DataExportService.token('x_abc', 'geheim')
-    expect(DataExportService.ausToken(t, 'geheim')).toBe('x_abc')
-    expect(DataExportService.ausToken(t, 'anderes')).toBeNull()
-    expect(DataExportService.ausToken('x_abc.gefaelscht', 'geheim')).toBeNull()
-    expect(DataExportService.ausToken('unfug', 'geheim')).toBeNull()
-    expect(DataExportService.ausToken('', 'geheim')).toBeNull()
+    expect(DataExportService.byToken(t, 'geheim')).toBe('x_abc')
+    expect(DataExportService.byToken(t, 'anderes')).toBeNull()
+    expect(DataExportService.byToken('x_abc.gefaelscht', 'geheim')).toBeNull()
+    expect(DataExportService.byToken('unfug', 'geheim')).toBeNull()
+    expect(DataExportService.byToken('', 'geheim')).toBeNull()
   })
 })
 
@@ -187,7 +187,7 @@ describe('Inhalt', () => {
   it('sammelt Konto samt Newsletter-Historie', async () => {
     const u = await baueTestApp()
     const id = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
-    u.app.newsletter.setze(id, true, 'account')
+    u.app.newsletter.set(id, true, 'account')
     const konto = collectAccount(u.app.deps.db, id)!
     expect(konto.email).toBe('test@example.com')
     expect(konto.newsletter.aktuell).toBe(true)
@@ -216,7 +216,7 @@ describe('Inhalt', () => {
     // Der Rechenweg der Anreicherung ist unser Zwischenspeicher, keine Auskunft.
     expect(namen.some((n) => n.includes('anreicherung'))).toBe(false)
     // Und das Foto geht ungepackt hinein.
-    expect(entries.find((e) => e.name.endsWith('.jpg'))?.gepackt).toBe(true)
+    expect(entries.find((e) => e.name.endsWith('.jpg'))?.packed).toBe(true)
   })
 
   it('nennt im Begleittext, was drin ist und was nicht', async () => {
@@ -236,9 +236,9 @@ describe('Archiv', () => {
   it('baut ein gültiges ZIP mit allen Einträgen', async () => {
     const buf = await alsBuffer(
       buildArchive([
-        { name: 'liesmich.txt', inhalt: 'Hallo' },
-        { name: 'touren/01-a/tour.json', inhalt: '{"a":1}' },
-        { name: 'touren/01-a/media/m1.jpg', inhalt: Buffer.from('bild'), gepackt: true },
+        { name: 'liesmich.txt', content: 'Hallo' },
+        { name: 'touren/01-a/tour.json', content: '{"a":1}' },
+        { name: 'touren/01-a/media/m1.jpg', content: Buffer.from('bild'), packed: true },
       ]),
     )
     expect(buf.subarray(0, 2).toString()).toBe('PK')
@@ -278,11 +278,13 @@ describe('Routen', () => {
     // Auf den Hintergrundlauf warten — er hängt an keinem await der Route.
     await warteAufFertig(u)
 
-    const stand = u.app.dataExport.stand(u.app.auth.userFromSession(u.cookies.maptale_session)!.id)!
+    const stand = u.app.dataExport.state2(
+      u.app.auth.userFromSession(u.cookies.maptale_session)!.id,
+    )!
     expect(stand.status).toBe('done')
     expect(stand.bytes).toBeGreaterThan(0)
 
-    const mails = u.mail.nachrichten.filter((m) => m.betreff.includes('Datenexport'))
+    const mails = u.mail.nachrichten.filter((m) => m.subject.includes('Datenexport'))
     expect(mails).toHaveLength(1)
     const link = mails[0]!.text.match(/https?:\/\/\S+\/api\/export\/\S+/)?.[0]
     expect(link).toBeTruthy()
@@ -337,7 +339,7 @@ describe('Größenangabe', () => {
 async function warteAufFertig(u: TestUmgebung): Promise<void> {
   const id = u.app.auth.userFromSession(u.cookies.maptale_session)!.id
   for (let i = 0; i < 100; i++) {
-    if (u.app.dataExport.stand(id)?.status !== 'running') return
+    if (u.app.dataExport.state2(id)?.status !== 'running') return
     await new Promise((r) => setTimeout(r, 20))
   }
   throw new Error('Export wurde nicht fertig')

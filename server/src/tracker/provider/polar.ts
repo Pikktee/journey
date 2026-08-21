@@ -106,12 +106,12 @@ export class PolarProvider implements TrackerProvider {
 
   // — OAuth —
 
-  authorizationUrl(zustand: string, redirectUri: string): string {
+  authorizationUrl(state: string, redirectUri: string): string {
     const p = new URLSearchParams({
       response_type: 'code',
       client_id: this.access.clientId ?? '',
       redirect_uri: redirectUri,
-      state: zustand,
+      state: state,
     })
     return `${AUTHORIZE}?${p.toString()}`
   }

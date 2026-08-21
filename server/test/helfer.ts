@@ -70,28 +70,28 @@ export const TEST_KONFIG: Config = {
 /**
  * Push-Fake: sammelt Nachrichten, statt sie zu senden.
  *
- * `abgemeldeteTokens` ist der Hebel für den einen Fall, den kein anderer Test
+ * `unregisteredTokens` ist der Hebel für den einen Fall, den kein anderer Test
  * erreicht: FCM lehnt einen Token ab, weil die App deinstalliert wurde — und
  * die Zeile muss dann verschwinden, nicht ins Protokoll.
  */
 export class SammelPush implements PushTransport {
-  readonly einsatzbereit = true
+  readonly ready = true
   gesendet: Array<{ tokens: string[]; nachricht: PushMessage }> = []
-  abgemeldeteTokens = new Set<string>()
+  unregisteredTokens = new Set<string>()
   /** Auf `true` gesetzt wirft der Versand — der Import darf davon nicht kippen. */
   faelltAus = false
 
-  async sende(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]> {
+  async send(tokens: readonly string[], nachricht: PushMessage): Promise<Delivery[]> {
     if (this.faelltAus) throw new Error('FCM antwortet nicht')
     this.gesendet.push({ tokens: [...tokens], nachricht })
-    return tokens.map((token) => ({ token, abgemeldet: this.abgemeldeteTokens.has(token) }))
+    return tokens.map((token) => ({ token, unregistered: this.unregisteredTokens.has(token) }))
   }
 }
 
 /** Mail-Fake: sammelt Nachrichten, statt sie zu versenden (Auth-Flüsse testbar). */
 export class SammelMail implements MailTransport {
   nachrichten: MailMessage[] = []
-  async sende(nachricht: MailMessage): Promise<void> {
+  async send(nachricht: MailMessage): Promise<void> {
     this.nachrichten.push(nachricht)
   }
   /** Letzten Link (verify/reset) aus dem Mail-Text ziehen — für die Token-Einlösung. */

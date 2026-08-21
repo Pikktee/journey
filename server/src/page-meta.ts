@@ -39,7 +39,7 @@ export const MARKER_OPEN = '<!-- maptale:meta -->'
 export const MARKER_CLOSE = '<!-- /maptale:meta -->'
 
 /** Wie lange eine geholte Seite im Speicher gilt. */
-const FRISCHE_MS = 5 * 60 * 1000
+const FRESHNESS_MS = 5 * 60 * 1000
 
 /**
  * Was in den Kopf geschrieben wird. Alles optional außer Titel und `robots` —
@@ -49,13 +49,13 @@ const FRISCHE_MS = 5 * 60 * 1000
 export type MetaBlock = {
   title: string
   robots: 'index' | 'noindex'
-  beschreibung?: string | null
+  description?: string | null
   /** Absolute Adresse dieser Seite — `canonical` und `og:url`. */
   url?: string | null
   /** Absolute Adresse des Vorschaubilds. */
-  bild?: string | null
-  bildAlt?: string | null
-  ogTyp?: 'website' | 'profile' | 'article'
+  image?: string | null
+  imageAlt?: string | null
+  ogType?: 'website' | 'profile' | 'article'
 }
 
 /**
@@ -66,8 +66,8 @@ export type MetaBlock = {
  * auch `'`, weil nicht garantiert ist, in welcher Anführungsart ein Wert
  * landet, und `&` zuerst, sonst würde es die eigenen Ersetzungen zerlegen.
  */
-export function escapeAttribute(wert: string): string {
-  return wert
+export function escapeAttribute(value: string): string {
+  return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -82,55 +82,55 @@ export function escapeAttribute(wert: string): string {
  * Zeilenumbrüche werden zu Leerzeichen, weil eine Bio mehrzeilig sein darf,
  * ein `meta`-Attribut aber nicht.
  */
-export function buildDescription(roh: string | null | undefined, maxLaenge = 200): string | null {
-  const text = roh?.replace(/\s+/g, ' ').trim()
+export function buildDescription(raw: string | null | undefined, maxLength = 200): string | null {
+  const text = raw?.replace(/\s+/g, ' ').trim()
   if (!text) return null
-  if (text.length <= maxLaenge) return text
-  const knapp = text.slice(0, maxLaenge)
-  const luecke = knapp.lastIndexOf(' ')
-  return `${(luecke > maxLaenge * 0.6 ? knapp.slice(0, luecke) : knapp).trimEnd()}…`
+  if (text.length <= maxLength) return text
+  const shorten = text.slice(0, maxLength)
+  const gap = shorten.lastIndexOf(' ')
+  return `${(gap > maxLength * 0.6 ? shorten.slice(0, gap) : shorten).trimEnd()}…`
 }
 
 /** Aus einem Metablock die Zeilen bauen, die zwischen den Markern stehen. */
 export function buildMeta(meta: MetaBlock): string {
-  const zeilen: string[] = [
+  const lines: string[] = [
     `<title>${escapeAttribute(meta.title)}</title>`,
     `<meta name="robots" content="${meta.robots}" />`,
   ]
-  if (meta.beschreibung) {
-    const b = escapeAttribute(meta.beschreibung)
-    zeilen.push(`<meta name="description" content="${b}" />`)
-    zeilen.push(`<meta property="og:description" content="${b}" />`)
+  if (meta.description) {
+    const b = escapeAttribute(meta.description)
+    lines.push(`<meta name="description" content="${b}" />`)
+    lines.push(`<meta property="og:description" content="${b}" />`)
   }
   // `canonical` sagt, unter welcher Adresse diese Seite zu Hause ist — nötig,
   // weil dieselbe Person auch unter `/profil?id=…` erreichbar ist und beides
   // sonst als zwei Seiten mit gleichem Inhalt gälte.
   if (meta.url) {
-    zeilen.push(`<link rel="canonical" href="${escapeAttribute(meta.url)}" />`)
-    zeilen.push(`<meta property="og:url" content="${escapeAttribute(meta.url)}" />`)
+    lines.push(`<link rel="canonical" href="${escapeAttribute(meta.url)}" />`)
+    lines.push(`<meta property="og:url" content="${escapeAttribute(meta.url)}" />`)
   }
-  zeilen.push(`<meta property="og:type" content="${meta.ogTyp ?? 'website'}" />`)
-  zeilen.push('<meta property="og:site_name" content="Maptale" />')
-  zeilen.push('<meta property="og:locale" content="de_DE" />')
-  zeilen.push(`<meta property="og:title" content="${escapeAttribute(meta.title)}" />`)
-  if (meta.bild) {
-    zeilen.push(`<meta property="og:image" content="${escapeAttribute(meta.bild)}" />`)
-    if (meta.bildAlt)
-      zeilen.push(`<meta property="og:image:alt" content="${escapeAttribute(meta.bildAlt)}" />`)
-    zeilen.push('<meta name="twitter:card" content="summary_large_image" />')
+  lines.push(`<meta property="og:type" content="${meta.ogType ?? 'website'}" />`)
+  lines.push('<meta property="og:site_name" content="Maptale" />')
+  lines.push('<meta property="og:locale" content="de_DE" />')
+  lines.push(`<meta property="og:title" content="${escapeAttribute(meta.title)}" />`)
+  if (meta.image) {
+    lines.push(`<meta property="og:image" content="${escapeAttribute(meta.image)}" />`)
+    if (meta.imageAlt)
+      lines.push(`<meta property="og:image:alt" content="${escapeAttribute(meta.imageAlt)}" />`)
+    lines.push('<meta name="twitter:card" content="summary_large_image" />')
   }
-  return zeilen.join('\n  ')
+  return lines.join('\n  ')
 }
 
 /** Den Marker-Block in einer gebauten Seite durch den eigenen Kopf ersetzen. */
 export function setMeta(html: string, meta: MetaBlock): string {
-  const von = html.indexOf(MARKER_OPEN)
-  const bis = html.indexOf(MARKER_CLOSE)
+  const from = html.indexOf(MARKER_OPEN)
+  const to = html.indexOf(MARKER_CLOSE)
   // Ohne Marker unverändert durchreichen: Eine Seite mit dem Standardkopf ist
   // brauchbar, eine Ausnahme an dieser Stelle wäre eine weiße Seite.
-  if (von === -1 || bis === -1 || bis < von) return html
+  if (from === -1 || to === -1 || to < from) return html
   return (
-    html.slice(0, von + MARKER_OPEN.length) + '\n  ' + buildMeta(meta) + '\n  ' + html.slice(bis)
+    html.slice(0, from + MARKER_OPEN.length) + '\n  ' + buildMeta(meta) + '\n  ' + html.slice(to)
   )
 }
 
@@ -148,40 +148,40 @@ export function setMeta(html: string, meta: MetaBlock): string {
  * mitreißen.
  */
 export class PageSource {
-  private readonly gespeichert = new Map<string, { html: string; bis: number }>()
-  private readonly laufend = new Map<string, Promise<string>>()
+  private readonly cached = new Map<string, { html: string; to: number }>()
+  private readonly inFlight = new Map<string, Promise<string>>()
 
   constructor(
-    private readonly konfig: Pick<Config, 'webUrl'>,
-    private readonly hole: (url: string) => Promise<string> = standardAbruf,
-    private readonly jetzt: () => number = Date.now,
+    private readonly config: Pick<Config, 'webUrl'>,
+    private readonly fetchHtml: (url: string) => Promise<string> = defaultFetch,
+    private readonly now: () => number = Date.now,
   ) {}
 
   /** `'profil.html'` → der Inhalt der gebauten Datei. */
-  async seite(datei: string): Promise<string> {
-    const stand = this.gespeichert.get(datei)
-    if (stand && stand.bis > this.jetzt()) return stand.html
+  async page(file: string): Promise<string> {
+    const fetchedAt = this.cached.get(file)
+    if (fetchedAt && fetchedAt.to > this.now()) return fetchedAt.html
     // Mehrere gleichzeitige Anfragen teilen sich EINEN Abruf — sonst schickt
     // ein Ansturm nach Cache-Ablauf ebenso viele Anfragen an Nginx zurück.
-    const laufend = this.laufend.get(datei)
-    if (laufend) return laufend
-    const versuch = this.hole(`${this.konfig.webUrl.replace(/\/+$/, '')}/${datei}`)
+    const inFlight = this.inFlight.get(file)
+    if (inFlight) return inFlight
+    const attempt = this.fetchHtml(`${this.config.webUrl.replace(/\/+$/, '')}/${file}`)
       .then((html) => {
-        this.gespeichert.set(datei, { html, bis: this.jetzt() + FRISCHE_MS })
+        this.cached.set(file, { html, to: this.now() + FRESHNESS_MS })
         return html
       })
-      .catch((fehler) => {
-        if (stand) return stand.html
-        throw fehler
+      .catch((error) => {
+        if (fetchedAt) return fetchedAt.html
+        throw error
       })
-      .finally(() => this.laufend.delete(datei))
-    this.laufend.set(datei, versuch)
-    return versuch
+      .finally(() => this.inFlight.delete(file))
+    this.inFlight.set(file, attempt)
+    return attempt
   }
 }
 
-async function standardAbruf(url: string): Promise<string> {
-  const antwort = await fetch(url, { headers: { accept: 'text/html' } })
-  if (!antwort.ok) throw new Error(`${url} antwortete ${antwort.status}`)
-  return antwort.text()
+async function defaultFetch(url: string): Promise<string> {
+  const response = await fetch(url, { headers: { accept: 'text/html' } })
+  if (!response.ok) throw new Error(`${url} antwortete ${response.status}`)
+  return response.text()
 }

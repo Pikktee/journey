@@ -61,7 +61,7 @@ export const CONSENT_TEXTS = {
   // dieser Stelle wird nicht gelesen, und ungelesen ist er kein besserer
   // Nachweis als ein Satz, den man erfasst.
   signup: {
-    fassung: 'registrierung-2026-08-06',
+    version: 'registrierung-2026-08-06',
     text: 'Schick mir Neuigkeiten zu Maptale. Abbestellen jederzeit.',
   },
   // Zweite Fassung desselben Tages: Der Wortlaut IST der Nachweis — wer ihn
@@ -69,7 +69,7 @@ export const CONSENT_TEXTS = {
   // Satz, der so nie dastand. (Der Kommentar steht VOR dem Eintrag, weil der
   // Wächter in test/newsletter-einwilligung.test.ts den Block roh liest.)
   account: {
-    fassung: 'konto-2026-08-06-2',
+    version: 'konto-2026-08-06-2',
     text: 'Ein paar Mal im Jahr Neues von Maptale. Abbestellen jederzeit.',
   },
 } as const
@@ -92,35 +92,31 @@ export interface Recipient {
  * Abmeldelinks — dann bleibt der Schalter in den Kontoeinstellungen, und genau
  * darauf zeigt die Fehlermeldung.
  */
-export function unsubscribeToken(userId: string, geheimnis: string): string {
-  const signatur = createHmac('sha256', geheimnis)
-    .update(`newsletter:${userId}`)
-    .digest('base64url')
-  return `${Buffer.from(userId, 'utf8').toString('base64url')}.${signatur}`
+export function unsubscribeToken(userId: string, secret: string): string {
+  const signature = createHmac('sha256', secret).update(`newsletter:${userId}`).digest('base64url')
+  return `${Buffer.from(userId, 'utf8').toString('base64url')}.${signature}`
 }
 
 /** Token → Benutzer-ID; null bei Unfug oder falscher Signatur. */
-export function checkUnsubscribeToken(token: string, geheimnis: string): string | null {
-  const [kopf, signatur] = token.split('.')
-  if (!kopf || !signatur) return null
-  const userId = Buffer.from(kopf, 'base64url').toString('utf8')
+export function checkUnsubscribeToken(token: string, secret: string): string | null {
+  const [header, signature] = token.split('.')
+  if (!header || !signature) return null
+  const userId = Buffer.from(header, 'base64url').toString('utf8')
   if (!userId) return null
-  const erwartet = createHmac('sha256', geheimnis)
-    .update(`newsletter:${userId}`)
-    .digest('base64url')
+  const expected = createHmac('sha256', secret).update(`newsletter:${userId}`).digest('base64url')
   // Konstante Zeit — die Länge muss vorher stimmen, sonst wirft timingSafeEqual.
-  if (signatur.length !== erwartet.length) return null
-  if (!timingSafeEqual(Buffer.from(signatur), Buffer.from(erwartet))) return null
+  if (signature.length !== expected.length) return null
+  if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null
   return userId
 }
 
 /** Die Adresse, unter der ein Abmeldelink liegt — eine Stelle für Mail und Kopfzeile. */
-export const unsubscribeUrl = (basisUrl: string, token: string): string =>
-  `${basisUrl.replace(/\/+$/, '')}${WEB_PATHS.account}#newsletter-aus=${token}`
+export const unsubscribeUrl = (baseUrl: string, token: string): string =>
+  `${baseUrl.replace(/\/+$/, '')}${WEB_PATHS.account}#newsletter-aus=${token}`
 
 /** Die Adresse, die der Ein-Klick-Widerruf der Mail-Programme anspricht. */
-export const oneClickUrl = (basisUrl: string, token: string): string =>
-  `${basisUrl.replace(/\/+$/, '')}/api/newsletter/one-click/${token}`
+export const oneClickUrl = (baseUrl: string, token: string): string =>
+  `${baseUrl.replace(/\/+$/, '')}/api/newsletter/one-click/${token}`
 
 /**
  * `List-Unsubscribe` samt Ein-Klick-Zusage (RFC 8058) — für jede Werbemail.
@@ -135,9 +131,9 @@ export const oneClickUrl = (basisUrl: string, token: string): string =>
  * keine Werbung, und ein „Abbestellen" an einem Passwort-Reset wäre eine
  * Zusage, die niemand einhalten will.
  */
-export function newsletterHeaders(basisUrl: string, token: string): Record<string, string> {
+export function newsletterHeaders(baseUrl: string, token: string): Record<string, string> {
   return {
-    'List-Unsubscribe': `<${oneClickUrl(basisUrl, token)}>, <${unsubscribeUrl(basisUrl, token)}>`,
+    'List-Unsubscribe': `<${oneClickUrl(baseUrl, token)}>, <${unsubscribeUrl(baseUrl, token)}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   }
 }
@@ -146,10 +142,10 @@ export class NewsletterService {
   constructor(private readonly db: Db) {}
 
   /** Steht der Schalter an? (Der Wunsch — ob etwas rausgeht, sagt `empfaenger`.) */
-  stand(userId: string): boolean {
-    const zeile = this.db.prepare('SELECT newsletter FROM users WHERE id = ?').get(userId) as
+  stateValue(userId: string): boolean {
+    const row = this.db.prepare('SELECT newsletter FROM users WHERE id = ?').get(userId) as
       { newsletter: number } | undefined
-    return !!zeile?.newsletter
+    return !!row?.newsletter
   }
 
   /**
@@ -160,9 +156,9 @@ export class NewsletterService {
    * dass jemand es noch einmal versucht hat — und genau die will man haben,
    * wenn später jemand behauptet, der Link habe nicht gewirkt.
    */
-  setze(userId: string, an: boolean, quelle: ConsentSource): void {
-    const textfassung =
-      quelle === 'unsubscribe_link' ? 'abmeldelink' : CONSENT_TEXTS[quelle].fassung
+  set(userId: string, an: boolean, source2: ConsentSource): void {
+    const textVersion2 =
+      source2 === 'unsubscribe_link' ? 'abmeldelink' : CONSENT_TEXTS[source2].version
     this.db.transaction(() => {
       this.db.prepare('UPDATE users SET newsletter = ? WHERE id = ?').run(an ? 1 : 0, userId)
       this.db
@@ -175,14 +171,14 @@ export class NewsletterService {
           userId,
           new Date().toISOString(),
           an ? 'on' : 'off',
-          quelle,
-          textfassung,
+          source2,
+          textVersion2,
         )
     })()
   }
 
   /** Die Historie eines Kontos, jüngste zuerst — der Nachweis nach Art. 7 Abs. 1. */
-  verlauf(userId: string): Consent[] {
+  history(userId: string): Consent[] {
     return this.db
       .prepare(
         `SELECT at, state, source, text_version AS textVersion FROM newsletter_consents
@@ -203,8 +199,8 @@ export class NewsletterService {
    * aktuellen Zustand. Ohne sie stünde in `users` ein „an", zu dem es keine
    * Herkunft mehr gäbe — genau der Fall, gegen den die Tabelle gebaut ist.
    */
-  raeumeAuf(): number {
-    const grenze = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString()
+  purgeOld(): number {
+    const cutoff = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString()
     return this.db
       .prepare(
         `DELETE FROM newsletter_consents WHERE at < ? AND id NOT IN (
@@ -213,7 +209,7 @@ export class NewsletterService {
                          WHERE user_id = e.user_id)
          )`,
       )
-      .run(grenze).changes
+      .run(cutoff).changes
   }
 
   /**
@@ -230,7 +226,7 @@ export class NewsletterService {
    * `email_verified = 1`. Setzt ein Admin den Haken ab (Benutzerverwaltung),
    * ruht der Versand, bis er wieder steht.
    */
-  empfaenger(): Recipient[] {
+  recipients(): Recipient[] {
     return this.db
       .prepare(
         `SELECT id, email, name FROM users

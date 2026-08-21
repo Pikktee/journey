@@ -79,8 +79,8 @@ describe('SeitenQuelle', () => {
       abrufe++
       return `<i>${url}</i>`
     })
-    expect(await quelle.seite('profil.html')).toBe('<i>https://web.test/profil.html</i>')
-    await quelle.seite('profil.html')
+    expect(await quelle.page('profil.html')).toBe('<i>https://web.test/profil.html</i>')
+    await quelle.page('profil.html')
     expect(abrufe).toBe(1)
   })
 
@@ -93,7 +93,7 @@ describe('SeitenQuelle', () => {
       await new Promise((r) => setTimeout(r, 5))
       return 'x'
     })
-    await Promise.all([quelle.seite('a.html'), quelle.seite('a.html'), quelle.seite('a.html')])
+    await Promise.all([quelle.page('a.html'), quelle.page('a.html'), quelle.page('a.html')])
     expect(abrufe).toBe(1)
   })
 
@@ -109,16 +109,16 @@ describe('SeitenQuelle', () => {
       },
       () => uhr,
     )
-    expect(await quelle.seite('a.html')).toBe('alt')
+    expect(await quelle.page('a.html')).toBe('alt')
     uhr += 10 * 60 * 1000
-    expect(await quelle.seite('a.html')).toBe('alt')
+    expect(await quelle.page('a.html')).toBe('alt')
   })
 
   it('meldet den Fehler, solange es nichts Altes gibt', async () => {
     const quelle = new PageSource({ webUrl: 'https://web.test' }, async () => {
       throw new Error('weg')
     })
-    await expect(quelle.seite('a.html')).rejects.toThrow('weg')
+    await expect(quelle.page('a.html')).rejects.toThrow('weg')
   })
 })
 

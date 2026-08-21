@@ -5,8 +5,8 @@
 // Mailserver testbar, und ein Anbieterwechsel zieht keine Ringe durch den Code.
 
 export interface MailMessage {
-  an: string
-  betreff: string
+  to2: string
+  subject: string
   text: string
   /**
    * HTML-Fassung (Maptale-Layout, s. maillayout.ts). Optional, und beide
@@ -23,11 +23,11 @@ export interface MailMessage {
    * einem Passwort-Reset wäre „Abbestellen" eine Zusage, die niemand einhalten
    * will — abbestellen lässt sich der Newsletter, nicht das eigene Konto.
    */
-  kopfzeilen?: Record<string, string>
+  headers2?: Record<string, string>
 }
 
 export interface MailTransport {
-  sende(nachricht: MailMessage): Promise<void>
+  send(message: MailMessage): Promise<void>
 }
 
 // Die TEXTE der System-Mails stehen nicht mehr hier, sondern im Katalog
@@ -41,10 +41,10 @@ export interface MailTransport {
  * durchspielen — der Bestätigungslink steht im Server-Terminal.
  */
 export class ConsoleMail implements MailTransport {
-  constructor(private readonly log: (zeile: string) => void = console.log) {}
-  async sende(nachricht: MailMessage): Promise<void> {
+  constructor(private readonly log: (line: string) => void = console.log) {}
+  async send(message: MailMessage): Promise<void> {
     this.log(
-      `\n📧 Mail an ${nachricht.an}\n   Betreff: ${nachricht.betreff}\n   ${nachricht.text.replace(/\n/g, '\n   ')}\n`,
+      `\n📧 Mail an ${message.to2}\n   Betreff: ${message.subject}\n   ${message.text.replace(/\n/g, '\n   ')}\n`,
     )
   }
 }
@@ -58,26 +58,26 @@ export class ConsoleMail implements MailTransport {
 export class ResendMail implements MailTransport {
   constructor(
     private readonly apiKey: string,
-    private readonly absender: string,
+    private readonly from2: string,
   ) {}
 
-  async sende(nachricht: MailMessage): Promise<void> {
-    const antwort = await fetch('https://api.resend.com/emails', {
+  async send(message: MailMessage): Promise<void> {
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
       // `text` geht IMMER mit: Resend baut daraus multipart/alternative, und der
       // Text-Teil ist die Fassung, die jedes Programm anzeigen kann.
       body: JSON.stringify({
-        from: this.absender,
-        to: nachricht.an,
-        subject: nachricht.betreff,
-        text: nachricht.text,
-        ...(nachricht.html ? { html: nachricht.html } : {}),
-        ...(nachricht.kopfzeilen ? { headers: nachricht.kopfzeilen } : {}),
+        from: this.from2,
+        to: message.to2,
+        subject: message.subject,
+        text: message.text,
+        ...(message.html ? { html: message.html } : {}),
+        ...(message.headers2 ? { headers: message.headers2 } : {}),
       }),
     })
-    if (!antwort.ok) {
-      throw new Error(`Mail-Versand fehlgeschlagen (${antwort.status}): ${await antwort.text()}`)
+    if (!response.ok) {
+      throw new Error(`Mail-Versand fehlgeschlagen (${response.status}): ${await response.text()}`)
     }
   }
 }

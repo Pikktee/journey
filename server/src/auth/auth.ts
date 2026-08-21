@@ -821,8 +821,8 @@ export class AuthService {
   }
 
   /** Avatar-Dateiname vermerken (die Datei selbst legt der Aufrufer ab). */
-  setAvatar(userId: string, datei: string | null): void {
-    this.db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(datei, userId)
+  setAvatar(userId: string, file: string | null): void {
+    this.db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(file, userId)
   }
 
   /** Titelbild vermerken — Name eines Vorschlags ODER Pfad im Benutzer-Storage. */

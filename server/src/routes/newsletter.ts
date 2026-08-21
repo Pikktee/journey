@@ -28,7 +28,7 @@ const tokenSchema = { type: 'string', maxLength: 400 } as const
 
 export function registerNewsletterRoutes(app: FastifyInstance): void {
   const { config } = app.deps
-  const gebremst = buildRateLimit(20, 10 * 60_000)
+  const limited = buildRateLimit(20, 10 * 60_000)
 
   /**
    * Austragen — und immer „ok".
@@ -38,13 +38,13 @@ export function registerNewsletterRoutes(app: FastifyInstance): void {
    * eine kaputte SIGNATUR wird als Fehler gemeldet — dort kann der Absender
    * etwas tun (der Schalter steht in den Kontoeinstellungen).
    */
-  const trageAus = (token: string): boolean => {
+  const unsubscribe = (token: string): boolean => {
     const userId = checkUnsubscribeToken(token, config.cookieSecret)
     if (!userId) return false
     // Der Zustand wird auch dann geschrieben, wenn er schon „aus" war: Die
     // zweite Zeile in der Historie ist der Beleg, dass jemand es noch einmal
     // versucht hat.
-    if (app.auth.userById(userId)) app.newsletter.setze(userId, false, 'unsubscribe_link')
+    if (app.auth.userById(userId)) app.newsletter.set(userId, false, 'unsubscribe_link')
     return true
   }
 
@@ -61,12 +61,12 @@ export function registerNewsletterRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (gebremst(`ip:${request.ip}`)) {
+      if (limited(`ip:${request.ip}`)) {
         return reply
           .code(429)
           .send({ error: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
-      if (!trageAus(request.body.token)) {
+      if (!unsubscribe(request.body.token)) {
         return reply.code(400).send({
           error:
             'Dieser Abmeldelink gilt nicht mehr. In den Kontoeinstellungen kannst du den Schalter selbst umlegen.',
@@ -86,8 +86,8 @@ export function registerNewsletterRoutes(app: FastifyInstance): void {
   app.post<{ Params: { token: string } }>(
     '/api/newsletter/one-click/:token',
     async (request, reply) => {
-      if (gebremst(`ip:${request.ip}`)) return reply.code(429).send()
-      if (!trageAus(request.params.token)) return reply.code(400).send()
+      if (limited(`ip:${request.ip}`)) return reply.code(429).send()
+      if (!unsubscribe(request.params.token)) return reply.code(400).send()
       return reply.code(200).send()
     },
   )

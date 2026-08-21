@@ -136,7 +136,7 @@ describe('baueAchsenHalte', () => {
   })
 
   it('ein Video zählt mit seiner echten Länge', () => {
-    const halte = buildAxisStops([{ type: 'video', meters: 0, offsetS: 5, dauerS: 34.2 }])
+    const halte = buildAxisStops([{ type: 'video', meters: 0, offsetS: 5, durationS: 34.2 }])
     expect(halte[0]?.widthS).toBeCloseTo(34.2 + STOP_FADE_OUT_S, 6)
   })
 
@@ -150,7 +150,7 @@ describe('baueMomentHalte', () => {
   it('nimmt die Dauer der Art — ohne Ausblendung', () => {
     const halte = buildMomentStops([
       { offsetS: 100, kind: 'orbit' },
-      { offsetS: 200, kind: 'linger', dauerS: 9 },
+      { offsetS: 200, kind: 'linger', durationS: 9 },
     ])
     // Ein Moment endet in der Engine direkt in der Weiterfahrt; 0,8 s
     // Ausblendung wie am Foto-Halt gibt es dort nicht.

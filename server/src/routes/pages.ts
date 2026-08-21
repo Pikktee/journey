@@ -31,22 +31,22 @@ import { type MetaBlock, buildDescription, setMeta } from '../page-meta.js'
 import { defaultBanner } from '../profile-banners.js'
 
 /** Der Kopf, den jede Seite bekommt, über die nichts gesagt werden darf. */
-const VERSCHWIEGEN: MetaBlock = {
+const SILENT: MetaBlock = {
   title: 'Profil · Maptale',
   robots: 'noindex',
 }
 
 /** Dasselbe für den Player — der Titel, der ohne Tour im Build steht. */
-const VERSCHWIEGEN_TOUR: MetaBlock = {
+const SILENT_TOUR: MetaBlock = {
   title: 'Maptale · 3D-Reiseflug',
   robots: 'noindex',
 }
 
 export function registerPageRoutes(app: FastifyInstance): void {
   const db = app.deps.db
-  const basis = app.deps.config.baseUrl.replace(/\/+$/, '')
-  const absolut = (pfad: string | null): string | null =>
-    pfad ? (pfad.startsWith('http') ? pfad : basis + pfad) : null
+  const base = app.deps.config.baseUrl.replace(/\/+$/, '')
+  const absolute = (path: string | null): string | null =>
+    path ? (path.startsWith('http') ? path : base + path) : null
 
   /**
    * `/@henrik` — die Profilseite mit ihrem eigenen Kopf.
@@ -55,9 +55,9 @@ export function registerPageRoutes(app: FastifyInstance): void {
    * passiert: Unter `/@` darf nur landen, was auch ein Handle sein könnte.
    */
   app.get<{ Params: { handle: string } }>('/@:handle', async (request, reply) => {
-    const roh = request.params.handle
-    const html = await app.pages.seite('profil.html').catch((fehler) => {
-      app.log.error({ fehler }, 'profil.html nicht abrufbar')
+    const raw = request.params.handle
+    const html = await app.pages.page('profil.html').catch((error) => {
+      app.log.error({ error }, 'profil.html nicht abrufbar')
       return null
     })
     // Ohne die gebaute Seite kann der Server hier nichts liefern, was ein
@@ -69,36 +69,37 @@ export function registerPageRoutes(app: FastifyInstance): void {
     // also darf ihn niemand über einen Deploy hinweg behalten.
     reply.header('cache-control', 'no-cache')
 
-    const handle = decodeURIComponent(roh)
+    const handle = decodeURIComponent(raw)
     const userId = HANDLE_PATTERN.test(handle) ? app.auth.userIdForHandle(handle) : null
-    const profil = userId ? app.auth.profile(userId) : null
+    const profile2 = userId ? app.auth.profile(userId) : null
     // Unbekannt: 404 mit der Seite, die clientseitig „nicht gefunden" zeigt.
     // Kein Soft-404 (Status 200 auf eine Seite ohne Inhalt) — das belügt
     // Browser wie Suchmaschinen.
-    if (!userId || !profil) return reply.code(404).send(setMeta(html, VERSCHWIEGEN))
-    if (profil.visibility !== 'public') return reply.send(setMeta(html, VERSCHWIEGEN))
+    if (!userId || !profile2) return reply.code(404).send(setMeta(html, SILENT))
+    if (profile2.visibility !== 'public') return reply.send(setMeta(html, SILENT))
 
-    const name = profil.displayName?.trim() || profil.handle || handle
-    const zeile = db.prepare('SELECT search_indexing FROM users WHERE id = ?').get(userId) as
+    const name = profile2.displayName?.trim() || profile2.handle || handle
+    const row = db.prepare('SELECT search_indexing FROM users WHERE id = ?').get(userId) as
       { search_indexing: number } | undefined
-    const bild = bannerUrl(userId, profil.banner) ?? `/titelbilder/${defaultBanner(profil.handle)}`
+    const image =
+      bannerUrl(userId, profile2.banner) ?? `/titelbilder/${defaultBanner(profile2.handle)}`
 
     return reply.send(
       setMeta(html, {
         title: `${name} · Maptale`,
-        robots: zeile?.search_indexing ? 'index' : 'noindex',
+        robots: row?.search_indexing ? 'index' : 'noindex',
         // Die Bio, wenn es eine gibt — sonst ein Satz, der wenigstens sagt,
         // was einen erwartet. Eine leere Beschreibung wäre die dritte Variante
         // und die einzige, die dem Leser nichts gibt.
-        beschreibung:
-          buildDescription(profil.bio) ??
+        description:
+          buildDescription(profile2.bio) ??
           `Die Reisen von ${name} auf Maptale, als 3D-Kamerafahrt über die echte Strecke.`,
-        url: `${basis}/@${profil.handle ?? handle}`,
-        bild: absolut(bild),
-        bildAlt: `Titelbild von ${name}`,
+        url: `${base}/@${profile2.handle ?? handle}`,
+        image: absolute(image),
+        imageAlt: `Titelbild von ${name}`,
         // `profile` und nicht `website`: Es geht um eine Person, und einige
         // Dienste stellen die Karte dann anders dar.
-        ogTyp: 'profile',
+        ogType: 'profile',
       }),
     )
   })
@@ -126,26 +127,26 @@ export function registerPageRoutes(app: FastifyInstance): void {
    * Demo-Fahrten, die von der Landing verlinkt sind und deren Inhalt dort
    * steht.
    */
-  app.get<{ Params: { kennung: string } }>('/tour/:kennung', async (request, reply) => {
-    const html = await app.pages.seite('erlebnis.html').catch((fehler) => {
-      app.log.error({ fehler }, 'erlebnis.html nicht abrufbar')
+  app.get<{ Params: { id: string } }>('/tour/:id', async (request, reply) => {
+    const html = await app.pages.page('erlebnis.html').catch((error) => {
+      app.log.error({ error }, 'erlebnis.html nicht abrufbar')
       return null
     })
     if (html === null) return reply.code(502).send('Seite gerade nicht verfügbar')
     reply.type('text/html; charset=utf-8')
     reply.header('cache-control', 'no-cache')
 
-    const kennung = decodeURIComponent(request.params.kennung)
+    const id = decodeURIComponent(request.params.id)
     // Nur Server-Kennungen; alles andere ist eine mitgelieferte Tour und
     // behält den Kopf aus dem Build (der ein `noindex` trägt).
-    if (!/^t_[A-Za-z0-9_-]+$/.test(kennung)) return reply.send(html)
+    if (!/^t_[A-Za-z0-9_-]+$/.test(id)) return reply.send(html)
 
     const tour = db
       .prepare(
         `SELECT t.id, t.title, t.description, t.visibility, t.status, t.cover, t.owner_id, t.stats_json
          FROM tours t WHERE t.id = ?`,
       )
-      .get(kennung) as
+      .get(id) as
       | {
           id: string
           title: string | null
@@ -158,32 +159,32 @@ export function registerPageRoutes(app: FastifyInstance): void {
         }
       | undefined
 
-    const istBesitzer = !!request.user && tour?.owner_id === request.user.id
-    if (!tour || (tour.visibility === 'private' && !istBesitzer)) {
-      return reply.code(404).send(setMeta(html, VERSCHWIEGEN_TOUR))
+    const isOwner = !!request.user && tour?.owner_id === request.user.id
+    if (!tour || (tour.visibility === 'private' && !isOwner)) {
+      return reply.code(404).send(setMeta(html, SILENT_TOUR))
     }
-    if (tour.visibility === 'private') return reply.send(setMeta(html, VERSCHWIEGEN_TOUR))
+    if (tour.visibility === 'private') return reply.send(setMeta(html, SILENT_TOUR))
 
-    const titel = tour.title?.trim() || 'Eine Reise'
+    const titleText = tour.title?.trim() || 'Eine Reise'
     const km = ((): number | null => {
-      const wert = tour.stats_json ? (JSON.parse(tour.stats_json) as { km?: number }).km : null
-      return typeof wert === 'number' && wert >= 0.1 ? wert : null
+      const value = tour.stats_json ? (JSON.parse(tour.stats_json) as { km?: number }).km : null
+      return typeof value === 'number' && value >= 0.1 ? value : null
     })()
     return reply.send(
       setMeta(html, {
-        title: `${titel} · Maptale`,
+        title: `${titleText} · Maptale`,
         // Nur `public` in den Index — `unlisted` behält die Karte und bleibt
         // aus der Suche. Ein `ready`-Status gehört dazu: Eine Tour in der
         // Verarbeitung hat noch keinen Inhalt, den man indexieren könnte.
         robots: tour.visibility === 'public' && tour.status === 'ready' ? 'index' : 'noindex',
-        beschreibung:
+        description:
           buildDescription(tour.description) ??
-          `${titel}${km === null ? '' : ` · ${km.toFixed(1).replace('.', ',')} km`}, als 3D-Kamerafahrt über die echte Strecke.`,
-        url: `${basis}/tour/${tour.id}`,
+          `${titleText}${km === null ? '' : ` · ${km.toFixed(1).replace('.', ',')} km`}, als 3D-Kamerafahrt über die echte Strecke.`,
+        url: `${base}/tour/${tour.id}`,
         // Die Anzeigefassung (w1920), nicht die Kachel: Die Karte im Chat wird
         // breit dargestellt, ein 480er Vorschaubild sähe dort matschig aus.
-        bild: absolut(tour.cover) ?? `${basis}/og/maptale.jpg`,
-        bildAlt: `Titelbild der Tour ${titel}`,
+        image: absolute(tour.cover) ?? `${base}/og/maptale.jpg`,
+        imageAlt: `Titelbild der Tour ${titleText}`,
       }),
     )
   })
@@ -201,16 +202,16 @@ export function registerPageRoutes(app: FastifyInstance): void {
    * stünde in der Sitemap eine Einladung, der die Seite selbst widerspricht.
    */
   app.get('/sitemap-profile.xml', async (_request, reply) => {
-    const zeilen = db
+    const rows = db
       .prepare(
         `SELECT handle FROM users
          WHERE search_indexing = 1 AND profile_visibility = 'public' AND handle IS NOT NULL
          ORDER BY handle`,
       )
       .all() as Array<{ handle: string }>
-    return sendeSitemap(
+    return sendSitemap(
       reply,
-      zeilen.map((z) => `${basis}/@${z.handle}`),
+      rows.map((z) => `${base}/@${z.handle}`),
     )
   })
 
@@ -222,26 +223,26 @@ export function registerPageRoutes(app: FastifyInstance): void {
    * tatsächlich aufgenommen wurde.
    */
   app.get('/sitemap-touren.xml', async (_request, reply) => {
-    const zeilen = db
+    const rows = db
       .prepare(
         `SELECT id FROM tours WHERE visibility = 'public' AND status = 'ready' ORDER BY created_at DESC`,
       )
       .all() as Array<{ id: string }>
-    return sendeSitemap(
+    return sendSitemap(
       reply,
-      zeilen.map((z) => `${basis}/tour/${z.id}`),
+      rows.map((z) => `${base}/tour/${z.id}`),
     )
   })
 }
 
 /** Eine Sitemap aus fertigen Adressen — beide Routen schreiben dasselbe XML. */
-function sendeSitemap(reply: FastifyReply, adressen: string[]): FastifyReply {
+function sendSitemap(reply: FastifyReply, urls: string[]): FastifyReply {
   reply.type('application/xml; charset=utf-8')
   // Eine Stunde: Die Liste ändert sich, wenn jemand einen Schalter umlegt oder
   // eine Tour veröffentlicht — beides eilt nicht, aber täglich wäre zu träge.
   reply.header('cache-control', 'public, max-age=3600')
   return reply.send(
-    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${adressen
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
       .map((a) => `  <url><loc>${a}</loc></url>`)
       .join('\n')}\n</urlset>\n`,
   )

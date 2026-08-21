@@ -387,7 +387,7 @@ export function buildAxisStops(
     meters: number
     /** Sekunden ab time.start */
     offsetS: number
-    dauerS?: number
+    durationS?: number
     display?: { holdS?: number }
   }>,
   nearM = NEAR_M,
@@ -430,7 +430,7 @@ export function buildMomentStops(
     /** Sekunden ab time.start */
     offsetS: number
     kind: CameraMomentKind
-    dauerS?: number | undefined
+    durationS?: number | undefined
   }>,
 ): AxisStop[] {
   return moments.map((m) => ({ offsetS: m.offsetS, widthS: momentHoldS(m) }))

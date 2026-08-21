@@ -21,7 +21,7 @@ export interface Geocoder {
 /** Nominatim (OSM) — bitte fair nutzen: eigener User-Agent, keine Request-Flut. */
 export class NominatimGeocoder implements Geocoder {
   constructor(
-    private readonly basisUrl = 'https://nominatim.openstreetmap.org',
+    private readonly baseUrl = 'https://nominatim.openstreetmap.org',
     private readonly userAgent = 'Maptale/0.1 (https://maptale.io)',
   ) {}
 
@@ -37,7 +37,7 @@ export class NominatimGeocoder implements Geocoder {
     if (this.last?.key === key) return this.last.address2
     let address2: Record<string, string> | null = null
     try {
-      const url = `${this.basisUrl}/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&accept-language=de`
+      const url = `${this.baseUrl}/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&accept-language=de`
       const response = await fetch(url, { headers: { 'User-Agent': this.userAgent } })
       if (response.ok) {
         const json = (await response.json()) as { address?: Record<string, string> }

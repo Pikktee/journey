@@ -40,7 +40,7 @@ describe('Warteliste — eintragen und bestätigen', () => {
     const u = await baueTestApp()
     const token = await trageEin(u, 'anna@example.com', 'Radtouren in den Alpen')
 
-    expect(u.mail.nachrichten.at(-1)?.an).toBe('anna@example.com')
+    expect(u.mail.nachrichten.at(-1)?.to2).toBe('anna@example.com')
     expect(u.app.waitlist.all()[0]?.state).toBe('unconfirmed')
 
     expect(await bestaetige(u, token)).toBe(200)
@@ -256,7 +256,7 @@ describe('Warteliste — freischalten', () => {
 
     // Die Mail trägt Code UND einen Weg hinaus
     const mail = u.mail.nachrichten.at(-1) as MailMessage
-    expect(mail.an).toBe('anna@example.com')
+    expect(mail.to2).toBe('anna@example.com')
     expect(mail.text).toContain(invitation.code)
     expect(mail.text).toContain('#warteliste-austragen=')
 
@@ -326,8 +326,8 @@ describe('Warteliste — freischalten', () => {
     const id = u.app.waitlist.all()[0]?.id as string
     // Die Methode DER INSTANZ ersetzen, nicht app.deps.mail: Die Routen halten
     // den Versand seit dem Registrieren in ihrer Closure.
-    u.mail.sende = async (n) => {
-      throw new Error(`SMTP tot (${n.betreff})`)
+    u.mail.send = async (n) => {
+      throw new Error(`SMTP tot (${n.subject})`)
     }
 
     const antwort = await u.app.inject({

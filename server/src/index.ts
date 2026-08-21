@@ -87,11 +87,11 @@ if (promoted > 0) app.log.info(`${promoted} Konto/Konten auf die Admin-Rolle geh
 const purgeWaitlist = (): void => {
   const removed = app.waitlist.purgeExpired()
   if (removed > 0) app.log.info(`${removed} abgelaufene Wartelisten-Einträge gelöscht`)
-  const oldConsents = app.newsletter.raeumeAuf()
+  const oldConsents = app.newsletter.purgeOld()
   if (oldConsents > 0) app.log.info(`${oldConsents} alte Newsletter-Protokollzeilen gelöscht`)
   // Rückmeldungen verfallen ebenfalls: erledigte nach einem halben Jahr, offene
   // nach anderthalb. Ein Eingang, den niemand leert, wird sonst zur Sammlung.
-  const oldFeedback = app.feedback.raeumeAuf()
+  const oldFeedback = app.feedback.purgeExpired()
   if (oldFeedback > 0) app.log.info(`${oldFeedback} abgelaufene Rückmeldungen gelöscht`)
 }
 purgeWaitlist()
@@ -104,7 +104,7 @@ setInterval(purgeWaitlist, 24 * 60 * 60 * 1000).unref()
 // abgebrochen ist (sonst blockierte er sie für immer).
 const purgeExports = (): void => {
   void app.dataExport
-    .raeumeAuf()
+    .purgeExpired()
     .then((removed) => {
       if (removed > 0) app.log.info(`${removed} abgelaufene Export-Archive gelöscht`)
     })

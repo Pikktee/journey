@@ -84,10 +84,10 @@ export function filmSeconds(meters: number, mode: TravelMode): number {
  */
 export function mediumHoldS(m: {
   type: 'photo' | 'video'
-  dauerS?: number
+  durationS?: number
   display?: { holdS?: number }
 }): number {
-  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return m.dauerS
+  if (m.type === 'video' && m.durationS !== undefined && m.durationS > 0) return m.durationS
   return m.display?.holdS ?? STOP_ENGINE_S
 }
 
@@ -100,6 +100,6 @@ export function mediumHoldS(m: {
  * Ausblendung addiert, macht jeden Moment im Render um 0,8 s breiter als in der
  * Zeitleiste — und schiebt damit genau die Ton-Klips, um die es geht.
  */
-export function momentHoldS(m: { kind: CameraMomentKind; dauerS?: number | undefined }): number {
-  return m.dauerS ?? MOMENT_DEFAULT_S[m.kind]
+export function momentHoldS(m: { kind: CameraMomentKind; durationS?: number | undefined }): number {
+  return m.durationS ?? MOMENT_DEFAULT_S[m.kind]
 }
