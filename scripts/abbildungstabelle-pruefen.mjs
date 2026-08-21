@@ -91,6 +91,32 @@ const welt = (f) => {
   if (/(^|[\s,;])src\/|\.html/.test(f)) return 'web'
   return null
 }
+/**
+ * Zeilen, die laut Tabelle NICHTS zu tun haben (Zielform = Ist-Name), deren
+ * Bemerkung aber eine Bedingung trägt („bleibt bis Welle 5", „prüfen") — und
+ * deren Welle schon gebaut ist.
+ *
+ * Diese Klasse ist unsichtbar, solange man nur auf Widersprüche prüft: Soll und
+ * Ist sind gleich, also kann kein Wächter rot werden. Genau so blieben
+ * `filmVon`, `filmBis` und `breiteS` nach Welle 5 deutsch stehen, obwohl ihr
+ * Vorbehalt („öffnet den Player-Kern") mit eben dieser Welle entfallen war;
+ * gefunden hat sie ein Mensch beim Lesen, kein Skript.
+ *
+ * GEBAUTE_WELLEN wächst mit dem Vorhaben — dieselbe Handarbeit wie im
+ * Client-Vertrags-Wächter, und dieselbe Stelle, an der die Prüfung still zu
+ * wenig tut, wenn jemand sie vergisst.
+ */
+const GEBAUTE_WELLEN = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+const BEDINGUNG =
+  /bis welle|nach welle|geh(oe|ö)rt nach|pr(ue|ü)fen|grenzfall|offen|vorerst|zun(ae|ä)chst|sp(ae|ä)ter|solange|sobald/i
+const aufgeschoben = zeilen.filter(
+  (z) =>
+    z.ist === z.ziel &&
+    GEBAUTE_WELLEN.has(z.welle) &&
+    BEDINGUNG.test(z.bemerkung ?? '') &&
+    !/ERLEDIGT|BLEIBT \(schon englisch\)/i.test(z.bemerkung ?? ''),
+)
+
 const spiegel = []
 for (const [ist, g] of grupp((z) => z.ist)) {
   // Je Art getrennt: eine Funktion und eine CSS-Klasse gleichen Namens sind kein Spiegel.
@@ -160,6 +186,11 @@ if (process.argv.includes('--json')) {
   console.log('')
   console.log(`HINSEHEN  Spiegel mit uneinigen Zielformen: ${spiegel.length}`)
   spiegel.forEach((s) => console.log(`      ${s.ist} [${s.art}]  ${s.paare}`))
+  console.log('')
+  console.log(`HINSEHEN  Aufgeschobene Zeilen in gebauten Wellen: ${aufgeschoben.length}`)
+  aufgeschoben.forEach((z) =>
+    console.log(`      ${z.ist} [${z.art}] Welle ${z.welle} — ${z.bemerkung.slice(0, 70)}`),
+  )
 }
 
 process.exit(formfehler.length || widersprueche.length || kollisionen.length ? 1 : 0)
