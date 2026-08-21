@@ -1071,7 +1071,7 @@ map.on('load', () => {
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
   const spotPoints: PinStop[] = stops.map((st) => {
     const pos = pointAt(route, st.s)
-    // Für den Pin-Kopf (?pins3d=foto) reicht die Kachel-Fassung: Die Scheibe
+    // Für den Pin-Kopf (?pins3d=photo) reicht die Kachel-Fassung: Die Scheibe
     // ist gut hundert Pixel groß, das Foto in Anzeigegröße wäre reine Last.
     const head = st.items[0]
     return { lnglat: [pos[0], pos[1]], s: st.s, ele: pos[2], src: head?.thumb ?? head?.src }
@@ -1083,7 +1083,7 @@ map.on('load', () => {
 
   // Foto-Stopps stehen als 3D-PINS über dem Gelände (photopins.ts) — das ist der
   // Normalfall; die flachen Kreise klebten im Bergland am Hang und verschwanden hinter
-  // jedem Grat. `?pins3d=0` schaltet auf sie zurück (A/B-Vergleich), `?pins3d=foto`
+  // jedem Grat. `?pins3d=0` schaltet auf sie zurück (A/B-Vergleich), `?pins3d=photo`
   // zeigt das Bild im Kopf statt der Nummer.
   // Der Startpunkt-Dot bleibt in beiden Fällen flach — er ist kein Halt.
   const pinsParam = params.get('pins3d')
@@ -1101,7 +1101,7 @@ map.on('load', () => {
           tour.jumpToPhoto(s)
           afterJump()
         },
-        variant: pinsParam === 'foto' ? 'foto' : 'nummer',
+        variant: pinsParam === 'photo' ? 'photo' : 'number',
       })
       window.__maptale.pins = pins
       pins.sync(tour.s ?? 0)

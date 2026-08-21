@@ -4,7 +4,7 @@ import { nextIndex, pinStates, detailTargets, fadeStep, worldSize, inView } from
 // Streckenmeter der Foto-Stopps einer Beispieltour (Koh Pha-ngan, gerundet)
 const STOPPS = [756, 4228, 9184, 13440, 17304, 19292]
 
-describe('naechsterIndex', () => {
+describe('nextIndex', () => {
   it('nennt den ersten Stopp, solange nichts erreicht ist', () => {
     expect(nextIndex(STOPPS, 0)).toBe(0)
   })
@@ -20,23 +20,23 @@ describe('naechsterIndex', () => {
 })
 
 describe('zustaende', () => {
-  it('teilt in besucht / naechster / kommend', () => {
+  it('teilt in visited / next / upcoming', () => {
     expect(pinStates(STOPPS, 10000)).toEqual([
-      'besucht',
-      'besucht',
-      'besucht',
-      'naechster',
-      'kommend',
-      'kommend',
+      'visited',
+      'visited',
+      'visited',
+      'next',
+      'upcoming',
+      'upcoming',
     ])
   })
 
   it('kennt am Ende keinen nächsten mehr', () => {
-    expect(pinStates(STOPPS, 40000)).toEqual(new Array(STOPPS.length).fill('besucht'))
+    expect(pinStates(STOPPS, 40000)).toEqual(new Array(STOPPS.length).fill('visited'))
   })
 })
 
-describe('stufenZiele', () => {
+describe('detailTargets', () => {
   const F = { ahead: 2, behind: 1 }
 
   it('stellt den nächsten, den zuletzt besuchten und den zweiten kommenden voll dar', () => {
@@ -61,7 +61,7 @@ describe('stufenZiele', () => {
   })
 })
 
-describe('blendeSchritt', () => {
+describe('fadeStep', () => {
   it('nähert sich dem Ziel, ohne es zu überschießen', () => {
     const s1 = fadeStep(0, 1, 0.12)
     expect(s1).toBeCloseTo(0.12, 5)
@@ -90,36 +90,36 @@ describe('weltGroesse', () => {
   // k = 2·tan(fov/2)/hPx bei fov 36,87° und 900 px Höhe
   const k = (2 * Math.tan((36.87 * Math.PI) / 180 / 2)) / 900
   const pxRef = 1 / (k * 420)
-  const groesse = (px: number, d: number, perspektive = 0.82) =>
-    worldSize(px, 1 / (k * d), pxRef, perspektive, 0.5, 1.7)
+  const size = (px: number, d: number, perspective = 0.82) =>
+    worldSize(px, 1 / (k * d), pxRef, perspective, 0.5, 1.7)
 
-  it('ist bei perspektive = 1 bildschirmstabil (gleiche Pixelgröße in jeder Distanz)', () => {
-    const px = (d: number) => groesse(17, d, 1) * (1 / (k * d))
+  it('ist bei perspective = 1 bildschirmstabil (gleiche Pixelgröße in jeder Distanz)', () => {
+    const px = (d: number) => size(17, d, 1) * (1 / (k * d))
     expect(px(200)).toBeCloseTo(px(2000), 6)
   })
 
-  it('ist bei perspektive = 0 weltfest — solange die Pixel-Klemmung nicht greift', () => {
+  it('ist bei perspective = 0 weltfest — solange die Pixel-Klemmung nicht greift', () => {
     // Bei D_REF = 420 m bleibt die Größe zwischen ~250 m und ~840 m ungeklemmt; weiter
     // außen begrenzen PX_MIN/PX_MAX bewusst (Intro-Anflug, Foto-Orbit).
-    expect(groesse(17, 300, 0)).toBeCloseTo(groesse(17, 700, 0), 6)
-    expect(groesse(17, 200, 0)).toBeLessThan(groesse(17, 300, 0)) // geklemmt → kleiner
+    expect(size(17, 300, 0)).toBeCloseTo(size(17, 700, 0), 6)
+    expect(size(17, 200, 0)).toBeLessThan(size(17, 300, 0)) // geklemmt → kleiner
   })
 
   it('wächst mit der Distanz — aber schwächer als die Distanz selbst', () => {
-    const nah = groesse(17, 200)
-    const fern = groesse(17, 2000)
+    const nah = size(17, 200)
+    const fern = size(17, 2000)
     expect(fern).toBeGreaterThan(nah)
     expect(fern / nah).toBeLessThan(10) // rein weltfest wäre Faktor 1, bildschirmstabil 10
   })
 
   it('klemmt Extremdistanzen: der Intro-Anflug sprengt das Bild nicht', () => {
-    const pxBei = (d: number) => groesse(17, d) * (1 / (k * d))
+    const pxBei = (d: number) => size(17, d) * (1 / (k * d))
     expect(pxBei(50_000)).toBeLessThanOrEqual(17 * 1.7 + 1e-9)
     expect(pxBei(20)).toBeGreaterThanOrEqual(17 * 0.5 - 1e-9)
   })
 
   it('hält die Proportion zwischen Kopf und Mast über alle Distanzen', () => {
-    const v = (d: number) => groesse(74, d) / groesse(17, d)
+    const v = (d: number) => size(74, d) / size(17, d)
     expect(v(200)).toBeCloseTo(v(3000), 6)
   })
 })

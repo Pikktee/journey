@@ -1839,17 +1839,67 @@ ton	audio	window-schluessel	src/studio/editor.ts	4	Ton→audio (§6.1); Tonstand
 vorschau	preview	window-schluessel	src/studio/editor.ts	4	Vorschau→preview (§6.7); laufendes Panel-Vorhoeren
 werkzeug	tool	window-schluessel	src/studio/editor.ts	4	VORSCHLAG: Werkzeug→tool (das CSS-Blatt heisst toolkit); aktives Editor-Werkzeug
 zustand	state	window-schluessel	src/studio/editor.ts	4	Zustand→state; window.__studio.state() = Editor-Zustand
+aktualisiere	update	bezeichner	src/photopins.ts	5	Kamera→Matrix→Meshes je Frame
+anstossen	repaint	bezeichner	src/photopins.ts	5	triggerRepaint nötig?
+BLENDE	FADE_RATE	bezeichner	src/photopins.ts	5	Anteil pro Frame; blendeSchritt ging als fadeStep
+blendet	fading	bezeichner	src/photopins.ts	5	läuft gerade eine Detailstufen-Blende?
+breite	width	bezeichner	src/photopins.ts	5	Mastbreite in Metern
+drin	inside	bezeichner	src/photopins.ts	5	im Clip-Raum
+drin	inside	bezeichner	src/audiotracks.ts	5	Nachzügler (§5 Welle 6); Spur liegt im Bereich
+FENSTER	DETAIL_WINDOW	bezeichner	src/photopins.ts	5	Detailstufen-Fenster; NICHT window — fenster→window hat in Welle 4 die globale window verdeckt (§9.1)
 filmBeiS	filmTimeAtDistance	bezeichner	src/filmachse.ts	5	§6.3a
+fussTextur	footTexture	bezeichner	src/photopins.ts	5	Fuß→foot
+groesse	size	bezeichner	src/photopins.ts	5	Bildschirmmaß→Weltmaß; ruft worldSize
+groesse	size	bezeichner	test/pin-model.test.ts	5	Nachzügler; auch perspektive→perspective in derselben Datei
+hoehenPruefen	checkElevations	bezeichner	src/photopins.ts	5	
+jetzt	now	bezeichner	src/photopins.ts	5	
 KACHEL	TILE	bezeichner	src/demclean-rechnung.ts	5	§6.3a
 kachelA	tileA	bezeichner	src/atmosphere.ts	5	§6.3a; auch kachelB→tileB
+kante	edge	bezeichner	src/photopins.ts	5	weiche Ränder der Mast-Textur
+KOPF_PX	HEAD_PX	bezeichner	src/photopins.ts	5	Bezugsgröße fürs Zeichnen der Kopf-Textur
 KURATIERTER_PEGEL	CURATED_GAIN	bezeichner	src/audiotracks.ts bzw. music.ts	5	§6.1
+letzteHoehen	lastElevationCheck	bezeichner	src/photopins.ts	5	Zeitstempel der letzten Terrain-Abfrage, keine Höhenliste
+MASSE	SIZES	bezeichner	src/photopins.ts	5	Bildschirmmaße des Pins in CSS-Pixeln; nicht METRICS — metrik() heißt in derselben Datei metrics()
+mastTextur	poleTexture	bezeichner	src/photopins.ts	5	Mast→pole
+metrik	metrics	bezeichner	src/photopins.ts	5	Öffnungswinkel und Canvas-Maße der Karte
+mitte	center	bezeichner	src/photopins.ts	5	Mercator-Ursprung in der Mitte der Punktwolke
+mitte	mid	bezeichner	src/remote.ts	5	Nachzügler; Mitte der binären Suche in timeAt — nicht center wie in photopins.ts
 MODUS_TEMPO	TRAVEL_MODE_TEMPO	bezeichner	src/filmachse.ts; server/src/pipeline/filmtempo.ts	5	VORSCHLAG; gestalterische Zahl, Server-Spiegel muss mit
+neuZeichnen	redraw	bezeichner	src/photopins.ts	5	
+Projektion	ScreenPoint	bezeichner	src/photopins.ts	5	ENTSCHIEDEN 2026-08-21: projizierter Punkt (NDC + Clip-w). Nicht Projection — in src/ steht bereits TrackProjection, und Projection ist in Spur.kt vergeben
+projiziere	project	bezeichner	src/photopins.ts	5	
+punkt	point	bezeichner	src/photopins.ts	5	Parameter von hit()
+Punkt	Point	bezeichner	src/weather.ts	5	Nachzügler; Polygonpunkt des Blitzes
+pxProM	pxPerM	bezeichner	src/photopins.ts	5	deckungsgleich mit dem Parameter pxPerM in worldSize (pin-model.ts)
+pxRef	pxRef	bezeichner	src/photopins.ts	5	ENTSCHIEDEN 2026-08-21: bleibt (schon englisch). Gleicher Wert wie der Parameter pxRef in worldSize — die Namensgleichheit ist die Auskunft, nicht die Kollision
 RAMPE_M	RAMP_M	bezeichner	src/filmachse.ts; server/src/pipeline/	5	§6.3a
+rFuss	rFoot	bezeichner	src/photopins.ts	5	
+rKopf	rHead	bezeichner	src/photopins.ts	5	
 rohBeiS	rawAtRoute	bezeichner	src/main.ts	5	§6.3a; auch sBeiRoh→routeAtRaw; nur main.ts kennt beide Meterstände
+schirmPunkte	screenPoints	bezeichner	src/photopins.ts	5	Klickziele in CSS-Pixeln
+sichtbar	visible	bezeichner	src/photopins.ts	5	
 Stopp	Stop	bezeichner	src/studio/stopps.ts; Player	5	Glossar-Kopf: Halt→stop; auch PlayerStopp→PlayerStop, gruppiereStopps→groupStops
 streckeBeiFilm	distanceAtFilmTime	bezeichner	src/filmachse.ts; src/main.ts	5	§6.3a
 STUETZ_MAX_M	VERTEX_MAX_M	bezeichner	src/geo.ts	5	§6.3a; Stützpunkt→vertex, nicht waypoint
+sWerte	sValues	bezeichner	src/photopins.ts	5	deckungsgleich mit sValues in pin-model.ts
 tempoMs	tempoMs	bezeichner	src/filmachse.ts	5	grenzfall: schon englisch lesbar; prüfen
+texFuss	texFoot	bezeichner	src/photopins.ts	5	
+texMast	texPole	bezeichner	src/photopins.ts	5	
+treffer	hit	bezeichner	src/photopins.ts	5	
+treffer	hit	bezeichner	src/studio/editor.ts	5	Nachzügler aus Welle 4; sechs gleichnamige Lokale
+vHoch	vUp	bezeichner	src/photopins.ts	5	Basisvektor Bildschirm-Oben
+voll	full	bezeichner	src/photopins.ts	5	Detailstufe steht (Mast + Kopf gezeichnet)
+vRechts	vRight	bezeichner	src/photopins.ts	5	Basisvektor Bildschirm-Rechts
+vSkala	vScale	bezeichner	src/photopins.ts	5	
+vTiefe	vDepth	bezeichner	src/photopins.ts	5	
+zeichneKopf	drawHead	bezeichner	src/photopins.ts	5	Kopfscheibe als Canvas-Textur
+zFuss	zFoot	bezeichner	src/photopins.ts	5	
+ziel	target	bezeichner	src/audiotracks.ts	5	Nachzügler; Zielpegel der Pegel-Rampe
+ziele	targets	bezeichner	src/photopins.ts	5	Zielstufen aus detailTargets
+zielNeu	newTarget	bezeichner	src/photopins.ts	5	
+zust	states	bezeichner	src/photopins.ts	5	
+ZUSTAND	STATE_STYLE	bezeichner	src/photopins.ts	5	Stil je Pin-Zustand (Record<PinState, StateStyle>)
+ZustandStil	StateStyle	bezeichner	src/photopins.ts	5	Zustand→state (§6.8/§4.2)
 .halt-flaeche	.stop-span	css-klasse	style.css; src/ui.ts	5	VORSCHLAG nach §6.3a stopSpan
 .karten-info	.map-attribution	css-klasse	src/karteninfo.ts; test/player-schichtung.test.ts	5	VORSCHLAG; auch .karten-info-popup→.map-attribution-popup
 .karten-leinwand	.card-canvas	css-klasse	src/kartenschicht.ts; test/player-schichtung.test.ts	5	VORSCHLAG; Wächter liest den Namen
@@ -1908,6 +1958,7 @@ btn-app-zurueck	btn-app-back	dom-id	erlebnis.html	5	VORSCHLAG: Zurueck-Knopf im 
 chip-dauer	chip-duration	dom-id	erlebnis.html	5	VORSCHLAG: wie Teil A chip-dauer; Player
 chip-dauer-text	chip-duration-text	dom-id	erlebnis.html	5	VORSCHLAG: ; Player
 farblur	color-blur	dom-id	src/style.css	5	VORSCHLAG: SVG-Filter-Id; Fundort ist style.css, Hinweis nennt den Landing-Hero, vor dem Umbau pruefen; SVG-Filter-Id (Farb-Blur) im Landing-Hero
+foto-karte	editor-card	dom-id	src/studio/editor.ts	5	inerte id der Karten-Leinwand im Editor; NICHT photo-card — so heißt die Figur des Players (erlebnis.html)
 intro-autor	intro-author	dom-id	erlebnis.html	5	VORSCHLAG: wie Teil A intro-autor; Startscreen des Players
 intro-autor-datum	intro-author-date	dom-id	erlebnis.html	5	VORSCHLAG: ; Startscreen des Players
 intro-autor-link	intro-author-link	dom-id	erlebnis.html	5	VORSCHLAG: ; Startscreen des Players
@@ -2196,6 +2247,7 @@ flugKippungGrad	flightTiltDeg	objekt-schluessel	src/einblendung.ts	5	VORSCHLAG: 
 flugKurve	flightCurve	objekt-schluessel	src/einblendung.ts	5	VORSCHLAG: Flugkurve als Bezier-Text
 flugSkala	flightScale	objekt-schluessel	src/einblendung.ts	5	VORSCHLAG: skala→scale
 groesse	size	objekt-schluessel	src/exportformat.ts	5	VORSCHLAG: auch Query-Parameter
+hoehen	elevations	objekt-schluessel	src/photopins.ts	5	_dbg()
 kbDauerRueckfallS	kenBurnsFallbackDurationS	objekt-schluessel	src/einblendung.ts	5	VORSCHLAG: Abkuerzung kb ausgeschrieben (§6.0 nur etablierte Abkuerzungen)
 kenBurnsBis	kenBurnsTo	objekt-schluessel	src/einblendung.ts	5	§6.9 from/to
 kenBurnsVon	kenBurnsFrom	objekt-schluessel	src/einblendung.ts	5	von/bis→from/to wie §6.9
@@ -2211,6 +2263,7 @@ schleierBrightness	scrimBrightness	objekt-schluessel	src/einblendung.ts	5	§6.3a
 schleierFarbe	scrimColor	objekt-schluessel	src/einblendung.ts	5	§6.3a Schleier→scrim; amerikanisch color (§6.0)
 schleierSaturate	scrimSaturate	objekt-schluessel	src/einblendung.ts	5	§6.3a scrim; Filterwort bleibt CSS-nah
 schmal	narrow	objekt-schluessel	src/kartenmaler.ts	5	VORSCHLAG: Schluessel in CARD_METRICS
+stufen	levels	objekt-schluessel	src/photopins.ts	5	_dbg()
 titel	title	objekt-schluessel	src/kartenmaler.ts, src/kartenmaler.ts	5	Schluessel in CARD_COLORS und TEXT_OFFSET_S
 groesse	size	query-parameter	src/exportformat.ts	5	VORSCHLAG: Groesse→size (wie Mail-Platzhalter {{size}} im Grundstock); Export-Zielgroesse
 lage	orientation	query-parameter	src/exportformat.ts	5	VORSCHLAG: Lage quer/hoch→orientation mit landscape/portrait; Werte gehen im selben Commit mit (Kanal beide Seiten)
@@ -3536,9 +3589,28 @@ meldungen	messages	property	src/studio/pruefung.ts	3	ImportReport
 bereit	ready	property	src/studio/pruefung.ts	3	ImportReport; kann daraus eine Tour werden
 quelle	source	property	src/studio/pruefung.ts	3	ImportReport; die WERTE aufzeichnung/fotos/keine bleiben (Welle 4 mit studio.ts)
 bild	image	property	src/studio/pruefung.ts	3	projectPreview; die Bildpunkte je Eingabepunkt
+bild	image	property	src/photopins.ts	5	Pin und drawHead
 breiteS	breiteS	property	src/studio/zeitleiste.ts	5	BLEIBT BIS WELLE 5: AxisStop erfuellt strukturell Halt aus src/filmachse.ts — die Umbenennung oeffnet den Player-Kern und seinen Server-Zwilling
+eleZiel	eleTarget	property	src/photopins.ts	5	Pin; Ziel der Terrain-Abfrage
 filmVon	filmVon	property	src/studio/zeitleiste.ts, src/studio/tonklip.ts	5	BLEIBT BIS WELLE 5: StopInterval spiegelt HaltIntervall aus src/filmachse.ts; AudioClip haelt dieselbe Schreibweise
 filmBis	filmBis	property	src/studio/zeitleiste.ts, src/studio/tonklip.ts	5	BLEIBT BIS WELLE 5: dito
+fuellung	fill	property	src/photopins.ts	5	StateStyle
+fuss	foot	property	src/photopins.ts	5	SIZES und Pin; dazu die lokale Mesh-Variable
+klickZ	clickZ	property	src/photopins.ts	5	Pin
+kopf	head	property	src/photopins.ts	5	SIZES und Pin; dazu die lokale Mesh-Variable
+mast	pole	property	src/photopins.ts	5	StateStyle, SIZES und Pin; dazu die gleichnamige lokale Mesh-Variable
+nummer	no	property	src/photopins.ts	5	Pin und drawHead; laufende Nummer wie tours.no — NICHT number, das ist der Typname
+perspektive	perspective	property	src/photopins.ts	5	SIZES; Mischfaktor bildschirmstabil↔weltfest
+pxKlick	clickPx	property	src/photopins.ts	5	Pin
+schirm	screen	property	src/photopins.ts	5	Pin; zugleich der Schlüssel in _dbg()
+setFenster	setWindow	property	src/photopins.ts (PinControl)	5	PinControl; __maptale.pins.setWindow
+setMasse	setSizes	property	src/photopins.ts (PinControl)	5	PinControl; __maptale.pins.setSizes
+setTiefentest	setDepthTest	property	src/photopins.ts (PinControl)	5	PinControl
+stufe	level	property	src/photopins.ts	5	Pin; dazu die lokale Kopie in update()
+texKopf	texHead	property	src/photopins.ts	5	Pin
+zielStufe	targetLevel	property	src/photopins.ts	5	Pin
+ziffer	digit	property	src/photopins.ts	5	StateStyle
+zustand	state	property	src/photopins.ts	5	Pin und drawHead
 test/studio-abspielen.test.ts	test/studio-playback.test.ts	datei	test/studio-abspielen.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
 test/studio-tipp.test.ts	test/studio-tooltip.test.ts	datei	test/studio-tipp.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
 test/studio-tonklip.test.ts	test/studio-audio-clip.test.ts	datei	test/studio-tonklip.test.ts	4	NACHTRAG 2026-08-21 (Welle 4): Testdateien folgen ihrem Modul (§6.6); studio-inspektor ohne Modulwechsel, nur die Schreibweise
@@ -3605,6 +3677,8 @@ ablage	tray	union-wert	src/studio/add-media.ts (Classification)	4	NACHTRAG 2026-
 reihe	order	union-wert	src/studio/editor.ts (Zug-Etikett)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, kein DOM
 ort	location	union-wert	src/studio/editor.ts (Zug-Etikett)	4	NACHTRAG 2026-08-21 (Welle 4): modulintern, kein DOM
 holdS	photoHoldS	export-funktion	src/studio/timeline.ts	5	Welle 5: Kollision zweier Wellen auf EIN Ziel. Welle 3 nannte `haltedauerS` hier holdS, die Tabelle bildet `standzeitS` (card-timing.ts) ebenfalls auf holdS ab; beide Fundorte, also schwieg der Prüfer. Entschieden am 21.08.: die geteilte Regel (Foto UND Video) behält holdS, der Editor-Helfer heisst photoHoldS — er kennt kein Video
+foto	photo	union-wert	src/photopins.ts (variant), src/main.ts; zugleich der Wert von ?pins3d=	5	s. die pins3d-Zeile: der Parameter bleibt, sein Wert geht mit
+nummer	number	union-wert	src/photopins.ts (variant), src/main.ts	5	Kopf-Variante der 3D-Pins
 quer	landscape	union-wert	src/film-export-channel.ts (ExportOrientation)	5	Wert von `orientation`; steht auch im Dateinamen des Films und in data-orientation des Export-Blatts
 hoch	portrait	union-wert	src/film-export-channel.ts (ExportOrientation)	5	dito
 breit	wide	union-wert	src/card-painter.ts (CardLayout)	5	Layout der Foto-Karte, zugleich Schluessel in CARD_METRICS

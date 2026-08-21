@@ -665,14 +665,14 @@ function fitViewport(): void {
 function clickOnMap(e: maplibregl.MapMouseEvent): void {
   if (!map || !z) return
   const r = 8
-  const treffer = map.queryRenderedFeatures(
+  const hit = map.queryRenderedFeatures(
     [
       [e.point.x - r, e.point.y - r],
       [e.point.x + r, e.point.y + r],
     ],
     { layers: ['track-aktiv', 'track-inaktiv'] },
   )
-  if (!treffer.length) return
+  if (!hit.length) return
   // Lotfußpunkt auf der LINIE — nicht der nächste Stützpunkt: der Track ist
   // vereinfacht, auf Geraden (Fähre) liegen Stützpunkte kilometerweit auseinander.
   const projection = projectOntoTrack(z.track, e.lngLat.lng, e.lngLat.lat)
@@ -3994,8 +3994,8 @@ function bandUnderPointer(e: PointerEvent): EditorSelection | null {
   const direct = (e.target as HTMLElement).closest<HTMLElement>('[data-selected]')
   if (direct) return bandToSelection(direct)
   for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
-    const treffer = (el as HTMLElement).closest?.<HTMLElement>('[data-selected]')
-    if (treffer) return bandToSelection(treffer)
+    const hit = (el as HTMLElement).closest?.<HTMLElement>('[data-selected]')
+    if (hit) return bandToSelection(hit)
   }
   return null
 }
@@ -5048,8 +5048,8 @@ function dragClip(e: PointerEvent, id: string): void {
     hideInsertMark()
 
     // — Ort — über einem fremden Halt andocken, sonst freie Zeit
-    const treffer = stopInnerAt(axis, cursorFilm)
-    const foreign = treffer && !treffer.items?.some((s) => s.id === id) ? treffer : null
+    const hit = stopInnerAt(axis, cursorFilm)
+    const foreign = hit && !hit.items?.some((s) => s.id === id) ? hit : null
     const dock = foreign?.items?.[0] ? (stopOf(stops, foreign.items[0].id) ?? null) : null
     const free = dragTargetTime(dragAxis, startS, fraction - startFraction, total)
     const offsetS = dock ? dock.offsetS : Math.max(scale.fromS, Math.min(scale.toS, free))
@@ -5596,7 +5596,7 @@ function buildCardLayer(): void {
   cardLayer = createCardLayer({
     container: stage,
     stage: 'editor',
-    id: 'foto-karte',
+    id: 'editor-card',
     scrim: stage,
   })
 }
@@ -5706,12 +5706,12 @@ function setRunner(tOffsetS: number): void {
     runner.setLngLat([point[0], point[1]])
   }
   const segments = splitForDisplay(z.data.segments as EditorSegment[], z.edits, z.data.time.start)
-  const treffer = segments.find((a) => {
+  const hit = segments.find((a) => {
     const first = a.pts[0] as TrackPoint
     const last = a.pts[a.pts.length - 1] as TrackPoint
     return tOffsetS >= first[3] && tOffsetS <= last[3]
   })
-  const glyph = `#i-m-${treffer?.mode ?? 'walk'}`
+  const glyph = `#i-m-${hit?.mode ?? 'walk'}`
   const use = runner.getElement().querySelector('.puck use')
   // Nur bei echtem Wechsel setzen — ein neu gesetztes href lässt das <use> flackern.
   if (use && use.getAttribute('href') !== glyph) use.setAttribute('href', glyph)

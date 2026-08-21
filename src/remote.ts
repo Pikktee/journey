@@ -310,9 +310,9 @@ export function createTimeAt(
     let lo = 0
     let hi = punkte.length - 1
     while (lo < hi) {
-      const mitte = (lo + hi) >> 1
-      if (punkte[mitte]!.f < f) lo = mitte + 1
-      else hi = mitte
+      const mid = (lo + hi) >> 1
+      if (punkte[mid]!.f < f) lo = mid + 1
+      else hi = mid
     }
     const b = punkte[hi]!
     const a = punkte[hi - 1]!

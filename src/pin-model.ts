@@ -4,7 +4,7 @@
 // hier. Dieselbe Arbeitsteilung wie im Studio (edit-model.ts / editor.ts).
 
 /** Fortschritts-Zustand eines Foto-Stopps — Sprache der Timeline und der 2D-Layer. */
-export type PinState = 'kommend' | 'naechster' | 'besucht'
+export type PinState = 'upcoming' | 'next' | 'visited'
 
 /** Fenster der Detailstufe: wie viele Stopps vor/hinter dem nächsten voll dargestellt werden. */
 export interface PinWindow {
@@ -24,7 +24,7 @@ export function nextIndex(sValues: readonly number[], s: number, lead = 20): num
 /** Zustand je Stopp: alles bis `s` besucht, der erste offene ist der nächste. */
 export function pinStates(sValues: readonly number[], s: number, lead = 20): PinState[] {
   const next = nextIndex(sValues, s, lead)
-  return sValues.map((_, i) => (i < next ? 'besucht' : i === next ? 'naechster' : 'kommend'))
+  return sValues.map((_, i) => (i < next ? 'visited' : i === next ? 'next' : 'upcoming'))
 }
 
 /**
@@ -54,8 +54,8 @@ export function fadeStep(level: number, target: number, rate: number): number {
 
 /**
  * Bildschirmmaß → Weltmaß in Metern. Geometrisches Mittel aus „bildschirmstabil"
- * (px / pxProM — Verhalten der alten 2D-Kreise, kein Tiefeneindruck) und „weltfest"
- * (Größe bei Referenzdistanz — ferne Pins verschwinden), gewichtet über `perspektive`.
+ * (px / pxPerM — Verhalten der alten 2D-Kreise, kein Tiefeneindruck) und „weltfest"
+ * (Größe bei Referenzdistanz — ferne Pins verschwinden), gewichtet über `perspective`.
  * Anschließend in PIXELN geklemmt, damit weder der Intro-Anflug noch der Foto-Orbit das
  * Bild sprengt.
  *

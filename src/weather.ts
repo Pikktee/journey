@@ -53,10 +53,10 @@ interface Tropfen {
   fq: number
 }
 
-type Punkt = [number, number]
+type Point = [number, number]
 interface Blitz {
-  pts: Punkt[]
-  branches: Punkt[][]
+  pts: Point[]
+  branches: Point[][]
 }
 
 /** Was main.ts vom Overlay braucht. */
@@ -394,20 +394,20 @@ export function createWeather(container: HTMLElement): WeatherOverlay {
     const x0 = w * (0.15 + rand() * 0.7)
     const yEnd = h * (0.45 + rand() * 0.3)
     const lean = (rand() - 0.5) * 0.5 // leichte Gesamtneigung
-    const pts: Punkt[] = [[x0, -20]]
+    const pts: Point[] = [[x0, -20]]
     const n = 11 + Math.floor(rand() * 5)
     for (let i = 1; i <= n; i++) {
       const y = -20 + ((yEnd + 20) * i) / n
       pts.push([x0 + lean * (y + 20) + (rand() - 0.5) * w * 0.045, y])
     }
-    const branches: Punkt[][] = []
+    const branches: Point[][] = []
     const nb = 1 + (rand() < 0.5 ? 1 : 0)
     for (let bi = 0; bi < nb; bi++) {
       const ki = 2 + Math.floor(rand() * (pts.length - 4))
       const dir = rand() < 0.5 ? -1 : 1
       const start = pts[ki]
       if (!start) continue
-      const bp: Punkt[] = [start]
+      const bp: Point[] = [start]
       const segs = 3 + Math.floor(rand() * 3)
       for (let j = 1; j <= segs; j++) {
         const vorher = bp[j - 1]

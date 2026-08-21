@@ -168,11 +168,11 @@ const VIDEO_RAMPE_MAX_DT_S = 0.05
  */
 export function rampedVolume(
   ist: number,
-  ziel: number,
+  target: number,
   dtS: number,
   proS = VIDEO_VOLUME_PER_S,
 ): number {
-  const z = Math.max(0, Math.min(1, Number(ziel) || 0))
+  const z = Math.max(0, Math.min(1, Number(target) || 0))
   const i = Math.max(0, Math.min(1, Number(ist) || 0))
   if (!(dtS > 0)) return i
   const schritt = proS * Math.min(dtS, VIDEO_RAMPE_MAX_DT_S)
@@ -209,7 +209,7 @@ export const asEnvelope = (pegel: DuckVolumes): number =>
 interface Bereichsspur extends AudioTrack {
   el: HTMLAudioElement | null
   level: number
-  drin: boolean
+  inside: boolean
   blocked: boolean
 }
 
@@ -308,7 +308,7 @@ export function createAudioTracks(
   // wie ein Bereich, einer ohne wie eh und je einmal (docs §2E).
   const musik: Bereichsspur[] = tracks
     .filter(hasRange)
-    .map((t) => ({ ...t, el: null, level: 0, drin: false, blocked: false }))
+    .map((t) => ({ ...t, el: null, level: 0, inside: false, blocked: false }))
   const sfx = tracks.filter((t) => !hasRange(t))
   let musikEnabled = true
   let sfxEnabled = true
@@ -350,14 +350,14 @@ export function createAudioTracks(
     if (offen) verklingt = false // Wiedergabe ist zurück — wieder der gewöhnliche Betrieb
     duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s), ohne zu rattern
     for (const spur of musik) {
-      const drin = isActive(spur, jetztS)
+      const inside = isActive(spur, jetztS)
       // Welcher Schalter zuständig ist, sagt der TYP — auch ein Effekt mit
       // Bereich bleibt ein Effekt und geht mit „Klänge aus" mit.
       const anBleibt = spur.type === 'music' ? musikEnabled : sfxEnabled
-      const want = anBleibt && offen && drin
+      const want = anBleibt && offen && inside
       // Eintritt in den Bereich (auch nach Scrub/Jump): von vorn starten —
       // Pause/Weiter INNERHALB des Bereichs setzt dagegen nicht zurück (Einfrieren)
-      if (drin && !spur.drin) {
+      if (inside && !spur.inside) {
         if (!spur.el) {
           // lazy: Element erst beim ersten Eintritt anlegen; preload='none' VOR
           // src, sonst lädt der Browser schon beim Anlegen (erst play() lädt)
@@ -386,7 +386,7 @@ export function createAudioTracks(
             spur.blocked = true
           })
       }
-      spur.drin = drin
+      spur.inside = inside
       const el = spur.el
       if (!el) continue
 
@@ -399,7 +399,7 @@ export function createAudioTracks(
       // `verklingt` nimmt genau diesen Zweig aus: Am Tour-Ende steht der Kopf
       // oft mitten im Bereich, und dort ist das Zumachen des Gates kein
       // Anhalten, sondern ein Schluss (s. `verklinge`).
-      if (drin && !offen && !verklingt) {
+      if (inside && !offen && !verklingt) {
         if (!el.paused) el.pause()
         el.volume = Math.max(0, Math.min(1, spur.level * pegelDuck))
         continue
