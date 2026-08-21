@@ -271,7 +271,7 @@ Länge, beide können wiederholen, beide mischen sich — die Beschriftung „Mu
 Strecke) / Effekt (ein Zeitpunkt)" war eine Aussage über eine Form, die es nicht mehr gibt.
 Was der Unterschied noch bewirkt, sind genau zwei Dinge im Player, und beide fragen dasselbe
 („Score oder Ort?"): Der Zuschauer-Schalter **„Musik"** nimmt `type: 'music'` weg und lässt
-den Ton der Szene stehen (`main.ts`, `setMusikEnabled`/`setSfxEnabled`), und unter dem eigenen
+den Ton der Szene stehen (`main.ts`, `setMusicEnabled`/`setSfxEnabled`), und unter dem eigenen
 Ton eines Videos **duckt** nur die Musik. Deshalb heißt das Feld in der Oberfläche „Rolle"
 (Filmmusik · Ton der Szene). Beim Umschalten kippen zwei Dinge leicht still: `to` fiel früher
 ersatzlos weg (die Länge geht jetzt vorher nach `durationFilmS`), und die Loop-VORGABE hängt an
@@ -428,7 +428,7 @@ brauchte: `startTempoMs` (mit welchem Tempo der Film das Fenster betritt — am 
 dem Stand, sonst mit dem Modus DAVOR, dessen Rampe ins Fenster ragt) und den Modus RECHTS der
 Kante (`rampOffsetS`, nur beim Verzögern von null verschieden). Ohne beides landete die
 gezogene Kante um bis zu 0,36 Filmsekunden neben dem Zeiger. Zwei Folgen, die man
-kennen muss: Das Tempo-Modell ist **keine Kopie** mehr (`tempoMs` kommt aus `film-axis.ts`, die
+kennen muss: Das Tempo-Modell ist **keine Kopie** mehr (`tempoMps` kommt aus `film-axis.ts`, die
 Moment-Dauern ebenso), und die alte Mehrdeutigkeit der realen PAUSEN sitzt jetzt bei den
 HALTEN — mehrere Halte in derselben Pause haben denselben Meterstand und behalten ihre
 Reihenfolge nur, weil sie nach Zeit vorsortiert eingewebt werden. Position auf der Leiste ∝
@@ -795,7 +795,7 @@ Lecks, und beide machten den fertigen Film LEISER als den geprüften Schnitt: `e
 von 0.22 (der gehört den KURATIERTEN Touren in [src/tours.ts](../tours.ts), deren `gain` gegen
 ihn ausgemessen ist — `CURATED_GAIN`). Zusammen ein Faktor 3,6. Jetzt schreibt der Server
 `gain` immer, [remote.ts](../remote.ts) füllt es für bereits gerenderte Bestandstouren nach
-(sonst spielten genau die mit 1.0, also zu LAUT) und setzt `cfg.audioPegel = 1`.
+(sonst spielten genau die mit 1.0, also zu LAUT) und setzt `cfg.masterGain = 1`.
 
 **Der Klip ist um die Ausblendung LÄNGER als das Material** (`mediumHoldS(m) +
 STOP_FADE_OUT_S`) — deshalb klemmt `videoPositionS` das Ziel auf einen Frame vor dem Ende

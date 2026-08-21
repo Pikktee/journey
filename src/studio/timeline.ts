@@ -12,7 +12,7 @@ import {
   interpolate,
   rampOffsetS,
   distanceAtFilmTime,
-  tempoMs,
+  tempoMps,
   type FilmAxis,
   type DistanceSegment,
 } from '../film-axis.js'
@@ -628,7 +628,7 @@ export function buildTrimHandles(
 // nur diese eine Zahl.
 //
 // Das Tempo-Modell ist seit Paket D KEINE Kopie mehr: `film-axis.ts` ist DOM-
-// und importfrei, Studio und Player lesen dieselben Zahlen (`tempoMs`). Genauso
+// und importfrei, Studio und Player lesen dieselben Zahlen (`tempoMps`). Genauso
 // stehen Standzeit und Ausblendung in `card-timing.ts`. Die alten Namen bleiben,
 // sie stehen im ganzen Editor.
 export const STOP_ENGINE_S = HOLD_HIDE
@@ -670,7 +670,7 @@ function rideS(a: { mode: TravelMode; pts: readonly TrackPoint[] }): number {
   for (let i = 1; i < a.pts.length; i++) {
     meters += metersBetween(a.pts[i - 1] as TrackPoint, a.pts[i] as TrackPoint)
   }
-  return meters / tempoMs(a.mode)
+  return meters / tempoMps(a.mode)
 }
 
 /** Haltedauer eines Fotos, wie die Engine sie anwendet (display.holdS oder Default). */
@@ -1243,10 +1243,10 @@ export function buildBoundaryCurve(
     adapter.totalM,
     stopsOnDistance(adapter, inWindow),
     {
-      startTempoMs: filmAtFrom <= 0 ? 0 : before === null ? null : tempoMs(before),
+      startTempoMs: filmAtFrom <= 0 ? 0 : before === null ? null : tempoMps(before),
     },
   )
-  const offsetS = filmAtFrom + rampOffsetS(tempoMs(left), tempoMs(right))
+  const offsetS = filmAtFrom + rampOffsetS(tempoMps(left), tempoMps(right))
   return {
     tS: adapter.tS,
     mM: adapter.mM,
@@ -1297,7 +1297,7 @@ export function filmDurationAtBoundary(
   left: TravelMode,
   right: TravelMode,
 ): number {
-  return totalS + (metersNew - metersOld) * (1 / tempoMs(left) - 1 / tempoMs(right))
+  return totalS + (metersNew - metersOld) * (1 / tempoMps(left) - 1 / tempoMps(right))
 }
 
 // — Einrasten an Haltkanten —

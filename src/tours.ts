@@ -103,7 +103,7 @@ export interface TourConfig {
    * gehört hat, und ein zweiter Faktor darüber machte den Film leiser als den
    * Schnitt (gemessen Faktor 3,6 — der Grund, warum der Player „viel leiser" war).
    */
-  audioPegel?: number
+  masterGain?: number
 }
 
 export const TOURS = {

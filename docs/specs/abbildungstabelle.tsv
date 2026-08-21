@@ -869,7 +869,7 @@ ANZEIGE_KANTE	DISPLAY_EDGE	export-konstante	server/src/pipeline/bild.ts	2	Anzeig
 ARCHIV_DATEI	ARCHIVE_FILE	export-konstante	server/src/export.ts	2	Dateiname des Export-ZIPs
 AUDIO_DATEI_PATTERN	AUDIO_FILE_PATTERN	export-konstante	server/src/schema/edits.ts	2	Datei→file
 AUTO_MUSIK	AUTO_MUSIC	export-konstante	server/src/pipeline/musikwahl.ts	2	Katalog der Auto-Musik; Dateinamen mus-* bleiben (§3.4)
-BASIS_TEMPO_MS	BASE_TEMPO_MS	export-konstante	server/src/pipeline/filmtempo.ts	2	basis→base; welle unsicher: Spiegel-Konstante des Web-Zwillings, ggf. Welle 5 wie TRAVEL_MODE_TEMPO (Grundstock)
+BASIS_TEMPO_MS	BASE_TEMPO_MPS	export-konstante	server/src/pipeline/filmtempo.ts	2	ENTSCHIEDEN im Nachlauf (Welle 10): folgt tempoMps
 BIBLIOTHEK_ORDNER	LIBRARY_FOLDER	export-konstante	server/src/routes/bibliothek.ts	2	Bezeichner; der Ordnername auf Platte ist Datenbestand und wandert nur mit einer Migration
 EDITS_PFAD	EDITS_PATH	export-konstante	server/src/routes/tours.ts	2	edits.json
 EINWILLIGUNGSTEXTE	CONSENT_TEXTS	export-konstante	server/src/newsletter.ts	2	Wortlaut bleibt deutsch; Drift-Wächter zur UI liest mit
@@ -1882,7 +1882,7 @@ Stopp	Stop	bezeichner	src/studio/stopps.ts; Player	5	Glossar-Kopf: Halt→stop; 
 streckeBeiFilm	distanceAtFilmTime	bezeichner	src/filmachse.ts; src/main.ts	5	§6.3a
 STUETZ_MAX_M	VERTEX_MAX_M	bezeichner	src/geo.ts	5	§6.3a; Stützpunkt→vertex, nicht waypoint
 sWerte	sValues	bezeichner	src/photopins.ts	5	deckungsgleich mit sValues in pin-model.ts
-tempoMs	tempoMs	bezeichner	src/filmachse.ts	5	grenzfall: schon englisch lesbar; prüfen
+tempoMs	tempoMps	bezeichner	src/filmachse.ts	5	ENTSCHIEDEN im Nachlauf (Welle 10): Ms meint hier m/s und kollidiert mit §6.0 Regel 1 (Ms = Millisekunden); Android sagt seit Welle 7 Mps
 texFuss	texFoot	bezeichner	src/photopins.ts	5	
 texMast	texPole	bezeichner	src/photopins.ts	5	
 treffer	hit	bezeichner	src/photopins.ts	5	
@@ -2060,7 +2060,7 @@ streckeBeiFilm	distanceAtFilmTime	export-funktion	src/filmachse.ts	5	§6.3a/Grun
 stufenZiele	detailTargets	export-funktion	src/pinmodell.ts	5	VORSCHLAG: Detailstufe→detail, kein LOD-Kuerzel (§6.0 Regel 7); Ziel-Detailstufen je Pin
 teileAngaben	splitFacts	export-funktion	src/kartenmaler.ts	5	VORSCHLAG: teile→split (§5-Tabelle splitForDisplay)
 tempoBeiStrecke	tempoAtDistance	export-funktion	src/filmachse.ts	5	§6.3a Muster …AtDistance
-tempoMs	tempoMs	export-funktion	src/filmachse.ts	5	bleibt (Grundstock-Entscheid: schon englisch lesbar); Ms meint hier m/s
+tempoMs	tempoMps	export-funktion	src/filmachse.ts	5	ENTSCHIEDEN im Nachlauf (Welle 10): Ms meint hier m/s und kollidiert mit §6.0 Regel 1 (Ms = Millisekunden); Android sagt seit Welle 7 Mps
 tonKlipsAusSpuren	audioClipsFromTracks	export-funktion	src/exportfilm.ts	5	§6.1 audioClip/audioTrack
 umbrich	wrapLines	export-funktion	src/exportfilm.ts	5	VORSCHLAG: verb-first; nicht wrapText, das ist der gleichnamige Maler-Helfer den diese Datei importiert
 verbindeSichtbarkeit	connectVisibility	export-funktion	src/filmuhr.ts	5	VORSCHLAG: Uhr an visibilitychange/App-Ereignisse haengen
@@ -2083,7 +2083,7 @@ Filmuhr	FilmClock	export-klasse	src/filmuhr.ts	5	§6.3a filmClock
 Frameuhr	FrameClock	export-klasse	src/exportfilm.ts	5	Uhr→clock (§6.3a); Taktgeber des Video-Exports
 RemoteTourFehler	RemoteTourError	export-klasse	src/remote.ts	5	Fehler→Error (§6.1 Feldname/Klasse; nur der Status heisst failed); Modul-Ebene, nicht Vertrag
 alsHuelle	asEnvelope	export-konstante	src/audiotracks.ts	5	VORSCHLAG: Huelle→envelope; Wert in eine Huellenform heben
-BASIS_TEMPO_MS	BASE_TEMPO_MS	export-konstante	src/filmachse.ts	5	VORSCHLAG: Ms steht hier fuer m/s und nicht fuer Millisekunden (§6.0-Kollision); bleibt wie beim Grundstock-Eintrag tempoMs
+BASIS_TEMPO_MS	BASE_TEMPO_MPS	export-konstante	src/filmachse.ts	5	ENTSCHIEDEN im Nachlauf (Welle 10): folgt tempoMps
 BESCHREIBUNG_MAX	DESCRIPTION_MAX	export-konstante	src/tourtexte.ts	5	Beschreibung→description; Datei wird tour-texts.ts; Maximallaenge
 BEZUGSHOEHE	REFERENCE_HEIGHT_PX	export-konstante	src/kartenmaler.ts	5	VORSCHLAG: Bezugshoehe 900 CSS-Pixel, Einheit in den Namen (§6.0)
 EDITOR_LAGE	EDITOR_LAYOUT	export-konstante	src/kartenmaler.ts	5	VORSCHLAG: feste Lage der Editor-Buehne
@@ -3423,7 +3423,7 @@ TourStatus	TourStatus	enum	android/app/src/main/java/app/maptale/daten/Entities.
 walk/bike/moped/jeep/tram/ferry	bleibt	enum-speicherwert	android/app/src/main/java/app/maptale/daten/LuhamboDb.kt	-	§4.4/§3.4; Modus speichert .schluessel, die Werte wandern NICHT (upload@2-Vertrag).
 maptale:export	maptale:export	event-typ	src/exportformat.ts	-	bleibt (schon englisch); typ-Kennung der postMessage-Meldungen des Export-Rahmens
 megabyte	megabyte	export-funktion	src/studio/nachreichen.ts	-	bleibt (schon englisch); grenzfall: verb-first waere formatMegabytes; Bytes als MB formatieren
-tempoMs	tempoMs	export-funktion	server/src/pipeline/filmtempo.ts	-	bleibt (schon englisch lesbar; Grundstock: prüfen)
+tempoMs	tempoMps	export-funktion	server/src/pipeline/filmtempo.ts	-	ENTSCHIEDEN im Nachlauf (Welle 10): Ms meint hier m/s und kollidiert mit §6.0 Regel 1 (Ms = Millisekunden); Android sagt seit Welle 7 Mps
 Tour	Tour	export-klasse	src/tour.ts	-	bleibt (schon englisch, §6.1 tour); grenzfall aus der Inventur; die Kamera-Engine
 BAND_MIN_PX	BAND_MIN_PX	export-konstante	src/studio/zeitleiste.ts	-	bleibt (band und px schon englisch); grenzfall aus der Inventur; Mindestbreite eines Bands
 MOMENT_DEFAULT_S	MOMENT_DEFAULT_S	export-konstante	server/src/pipeline/filmtempo.ts	-	bleibt (schon englisch)
@@ -3884,3 +3884,19 @@ ogTyp	ogType	property	server/src/page-meta.ts (MetaBlock)	10	Nachlauf
 stand	fetchedAt	property	server/src/page-meta.ts (Cache-Eintrag)	10	Nachlauf: Speicher-Cache, ueberlebt keinen Neustart
 kennung	id	api-pfad	server/src/routes/pages.ts (GET /tour/:kennung)	10	Nachlauf: NUR der Fastify-Platzhaltername, die oeffentliche Adresse /tour/<id> aendert sich nicht
 dauerS	durationS	property	server/src/pipeline/film-tempo.ts (mediumHoldS/momentHoldS); film-axis.ts (DistanceStop)	10	Nachlauf: Spiegel von src/film-axis.ts, dort hiess das Feld schon durationS
+benutzerId	userId	property	src/admin/admin-model.ts (AdminFeedback)	10	Nachlauf: FEHLERHEILUNG — der Server schickt seit jeher userId, der handgetippte Client-Typ hiess anders (§9.2, die teuerste Sorte)
+benutzerName	userName	property	src/admin/admin-model.ts (AdminFeedback)	10	Nachlauf: FEHLERHEILUNG — Name und Suche im Rueckmeldungs-Reiter liefen ins Leere
+setzeTakt	setTick	property	src/atmosphere.ts (Atmosphere)	10	Nachlauf: Taktgeber des Video-Exports
+externerTakt	setExternalTick	property	src/weather.ts (WeatherOverlay)	10	Nachlauf: Taktgeber des Video-Exports
+schritt	step	property	src/weather.ts (WeatherOverlay)	10	Nachlauf; die private Schrittfunktion daneben heisst jetzt advance
+zerstoere	destroy	property	src/weather.ts (WeatherOverlay)	10	Nachlauf
+aktiveSpur	activeTrack	property	src/audiotracks.ts (AudioTracks)	10	Nachlauf: Debug-Sicht, kein Vertrag
+tonStand	audioState	property	src/audiotracks.ts (AudioTracks)	10	Nachlauf: Debug-Sicht
+pegel	volume	property	src/audiotracks.ts (audioState-Eintrag)	10	Nachlauf: §6.1 Pegel je Klip = volume
+verklinge	fadeOut	property	src/audiotracks.ts + src/music.ts	10	Nachlauf
+setMusikEnabled	setMusicEnabled	property	src/audiotracks.ts (AudioTracks)	10	Nachlauf
+audioPegel	masterGain	property	src/tours.ts (TourConfig); src/remote.ts (RemoteTourCfg)	10	Nachlauf: §6.1 Pegel Master = masterGain; KEIN Server-Feld
+WetterModus	WeatherMode	export-typ	src/autoweather.ts	10	Nachlauf: §6.3a; der Server hiess schon so
+TourJsonAntwort	TourJsonResponse	export-typ	src/remote.ts	10	Nachlauf
+PartikelModus	ParticleMode	export-typ	src/weather.ts	10	Nachlauf
+LoopSchluessel	LoopKey	export-typ	src/weather.ts	10	Nachlauf

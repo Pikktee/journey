@@ -1,7 +1,7 @@
 // Wie lange ein Streckenstück im fertigen Film dauert.
 //
 // Die Kamerafahrt fährt nicht nach der Uhr, sondern nach der STRECKE: pro
-// Sekunde legt sie `BASE_TEMPO_MS` Meter zurück, skaliert mit dem
+// Sekunde legt sie `BASE_TEMPO_MPS` Meter zurück, skaliert mit dem
 // Fortbewegungsmittel. Der Server braucht dieselbe Rechnung, um Ereignisse in
 // Filmsekunden zu bemessen statt in Metern — 200 m sind zu Fuß gut vier
 // Sekunden und auf der Fähre eine halbe.
@@ -16,7 +16,7 @@ import type { CameraMomentKind } from '../schema/edits.js'
 import type { TravelMode } from '../schema/upload.js'
 
 /** Streckenfortschritt bei 1× (m/s) — src/tour.ts `baseSpeed`. */
-export const BASE_TEMPO_MS = 120
+export const BASE_TEMPO_MPS = 120
 
 /**
  * Tempo-Faktor je Fortbewegung — Spiegel von `TRAVEL_MODE_TEMPO` in src/film-axis.ts.
@@ -60,18 +60,18 @@ export const MOMENT_DEFAULT_S: Record<CameraMomentKind, number> = {
 }
 
 /** Meter, die der Film in dieser Fortbewegung je Sekunde zurücklegt. */
-export function tempoMs(mode: TravelMode): number {
-  return BASE_TEMPO_MS * (TRAVEL_MODE_TEMPO[mode] ?? 1)
+export function tempoMps(mode: TravelMode): number {
+  return BASE_TEMPO_MPS * (TRAVEL_MODE_TEMPO[mode] ?? 1)
 }
 
 /** Strecke (m), die im Film `sekunden` dauert. */
 export function metersForFilmSeconds(seconds: number, mode: TravelMode): number {
-  return seconds * tempoMs(mode)
+  return seconds * tempoMps(mode)
 }
 
 /** Filmdauer (s) eines Streckenstücks. */
 export function filmSeconds(meters: number, mode: TravelMode): number {
-  return meters / tempoMs(mode)
+  return meters / tempoMps(mode)
 }
 
 /**

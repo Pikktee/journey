@@ -82,8 +82,8 @@ export interface Session {
   }
 }
 
-async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
-  const res = await fetch(`/api${pfad}`, { credentials: 'same-origin', ...optionen })
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`/api${path}`, { credentials: 'same-origin', ...options })
   const text = await res.text()
   let json: unknown = null
   try {
@@ -92,33 +92,33 @@ async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> 
     /* Nicht-JSON (leerer Body o. Ä.) */
   }
   if (!res.ok) {
-    const fehler = (json as { error?: string } | null)?.error ?? `HTTP ${res.status}`
-    throw new ApiError(res.status, fehler)
+    const error = (json as { error?: string } | null)?.error ?? `HTTP ${res.status}`
+    throw new ApiError(res.status, error)
   }
   return json as T
 }
 
-const jsonKopf = { 'content-type': 'application/json' }
+const jsonHeaders = { 'content-type': 'application/json' }
 
-export function login(email: string, passwort: string): Promise<{ user: User }> {
-  return anfrage('/auth/login', {
+export function login(email: string, password: string): Promise<{ user: User }> {
+  return request('/auth/login', {
     method: 'POST',
-    headers: jsonKopf,
-    body: JSON.stringify({ email, password: passwort }),
+    headers: jsonHeaders,
+    body: JSON.stringify({ email, password: password }),
   })
 }
 
 /** Voller Sitzungs-Zustand (benutzer=null wenn nicht angemeldet). Wirft nie. */
 export async function me(): Promise<Session> {
   try {
-    return await anfrage<Session>('/auth/me')
+    return await request<Session>('/auth/me')
   } catch {
     return { user: null }
   }
 }
 
 export function logout(): Promise<unknown> {
-  return anfrage('/auth/logout', { method: 'POST' })
+  return request('/auth/logout', { method: 'POST' })
 }
 
 // — Selbst-Registrierung & Passwort-Reset (M9) —
@@ -126,7 +126,7 @@ export function logout(): Promise<unknown> {
 /** `code` ist die Einladung — Pflicht, solange die Instanz auf „nur mit Code" steht. */
 export function register(
   email: string,
-  passwort: string,
+  password: string,
   code?: string,
   wahl: { newsletter?: boolean } = {},
 ): Promise<{ user: User; verified: boolean }> {
@@ -136,12 +136,12 @@ export function register(
   // `newsletter` geht nur mit, wenn der Haken steht: Ein `false` im Körper
   // wäre eine Aussage über eine Frage, die niemand beantwortet hat — der
   // Server protokolliert deshalb auch nichts, wo das Feld fehlt.
-  return anfrage('/auth/register', {
+  return request('/auth/register', {
     method: 'POST',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify({
       email,
-      password: passwort,
+      password: password,
       ...(code ? { code } : {}),
       ...(wahl.newsletter ? { newsletter: true } : {}),
     }),
@@ -155,9 +155,9 @@ export function register(
  * der Begründung des Servers (unknown / used / expired).
  */
 export function checkInvitation(code: string): Promise<{ ok: boolean; required: boolean }> {
-  return anfrage('/auth/check-invitation', {
+  return request('/auth/check-invitation', {
     method: 'POST',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify({ code }),
   })
 }
@@ -169,68 +169,68 @@ export function checkInvitation(code: string): Promise<{ ok: boolean; required: 
 // Oberfläche zeigt darum immer denselben Satz.
 
 export function joinWaitlist(email: string, notiz?: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/waitlist', {
+  return request('/auth/waitlist', {
     method: 'POST',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify(notiz ? { email, note: notiz } : { email }),
   })
 }
 
 /** Der Klick aus der Bestätigungsmail; gibt die eingetragene Adresse zurück. */
 export function confirmWaitlist(token: string): Promise<{ ok: boolean; email: string }> {
-  return anfrage('/auth/waitlist/confirm', {
+  return request('/auth/waitlist/confirm', {
     method: 'POST',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify({ token }),
   })
 }
 
 export function leaveWaitlist(token: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/waitlist/leave', {
+  return request('/auth/waitlist/leave', {
     method: 'POST',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify({ token }),
   })
 }
 
 export function verifyEmail(token: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/verify', {
+  return request('/auth/verify', {
     method: 'POST',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify({ token }),
   })
 }
 
 export function requestPasswordReset(email: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/password-reset-request', {
+  return request('/auth/password-reset-request', {
     method: 'POST',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify({ email }),
   })
 }
 
-export function resetPassword(token: string, passwort: string): Promise<{ ok: boolean }> {
-  return anfrage('/auth/password-reset', {
+export function resetPassword(token: string, password: string): Promise<{ ok: boolean }> {
+  return request('/auth/password-reset', {
     method: 'POST',
-    headers: jsonKopf,
-    body: JSON.stringify({ token, password: passwort }),
+    headers: jsonHeaders,
+    body: JSON.stringify({ token, password: password }),
   })
 }
 
 export function deleteAccount(): Promise<unknown> {
-  return anfrage('/auth/me', { method: 'DELETE' })
+  return request('/auth/me', { method: 'DELETE' })
 }
 
 export async function listTours(): Promise<TourListItem[]> {
-  return (await anfrage<{ tours: TourListItem[] }>('/tours')).tours
+  return (await request<{ tours: TourListItem[] }>('/tours')).tours
 }
 
 export function createTour(manifest: UploadManifest): Promise<{ id: string; reused?: boolean }> {
-  return anfrage('/tours', { method: 'POST', headers: jsonKopf, body: JSON.stringify(manifest) })
+  return request('/tours', { method: 'POST', headers: jsonHeaders, body: JSON.stringify(manifest) })
 }
 
 export function uploadTrack(id: string, gpx: string): Promise<unknown> {
-  return anfrage(`/tours/${id}/track`, {
+  return request(`/tours/${id}/track`, {
     method: 'PUT',
     headers: { 'content-type': 'application/gpx+xml' },
     body: gpx,
@@ -238,7 +238,7 @@ export function uploadTrack(id: string, gpx: string): Promise<unknown> {
 }
 
 export function uploadMedium(id: string, mid: string, file: Blob): Promise<unknown> {
-  return anfrage(`/tours/${id}/media/${mid}`, {
+  return request(`/tours/${id}/media/${mid}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/octet-stream' },
     body: file,
@@ -246,7 +246,7 @@ export function uploadMedium(id: string, mid: string, file: Blob): Promise<unkno
 }
 
 export function finalize(id: string): Promise<unknown> {
-  return anfrage(`/tours/${id}/finalize`, { method: 'POST' })
+  return request(`/tours/${id}/finalize`, { method: 'POST' })
 }
 
 /** Ein nachzureichendes Medium — die ID vergibt der SERVER (s. reicheMedienNach). */
@@ -270,9 +270,9 @@ export function addMedia(
   id: string,
   media: AddMediaInput[],
 ): Promise<{ media: Array<{ id: string; file: string }> }> {
-  return anfrage(`/tours/${id}/media`, {
+  return request(`/tours/${id}/media`, {
     method: 'POST',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify({ media: media }),
   })
 }
@@ -283,7 +283,7 @@ export function addMedia(
  * dem Cache) — der Aufrufer wartet also auf „bereit", bevor er weiterschreibt.
  */
 export function deleteMedium(id: string, mid: string): Promise<{ ok: boolean }> {
-  return anfrage(`/tours/${id}/media/${mid}`, { method: 'DELETE' })
+  return request(`/tours/${id}/media/${mid}`, { method: 'DELETE' })
 }
 
 export function tour(id: string): Promise<{
@@ -292,11 +292,11 @@ export function tour(id: string): Promise<{
   schema?: string
   media?: Array<{ placement?: string }>
 }> {
-  return anfrage(`/tours/${id}`)
+  return request(`/tours/${id}`)
 }
 
 export function deleteTour(id: string): Promise<unknown> {
-  return anfrage(`/tours/${id}`, { method: 'DELETE' })
+  return request(`/tours/${id}`, { method: 'DELETE' })
 }
 
 // — Editor (M7) —
@@ -352,13 +352,13 @@ export interface EditorPayload {
 }
 
 export function loadEditorPayload(id: string): Promise<EditorPayload> {
-  return anfrage(`/tours/${id}/editor`)
+  return request(`/tours/${id}/editor`)
 }
 
 export function saveEdits(id: string, edits: unknown): Promise<{ ok: boolean; status: string }> {
-  return anfrage(`/tours/${id}/edits`, {
+  return request(`/tours/${id}/edits`, {
     method: 'PUT',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify(edits),
   })
 }
@@ -374,15 +374,15 @@ export function patchTour(
     visibility?: 'private' | 'unlisted' | 'public'
   },
 ): Promise<unknown> {
-  return anfrage(`/tours/${id}`, {
+  return request(`/tours/${id}`, {
     method: 'PATCH',
-    headers: jsonKopf,
+    headers: jsonHeaders,
     body: JSON.stringify(felder),
   })
 }
 
 export function reprocess(id: string): Promise<unknown> {
-  return anfrage(`/tours/${id}/reprocess`, { method: 'POST' })
+  return request(`/tours/${id}/reprocess`, { method: 'POST' })
 }
 
 // — Audio-Assets (Kreativbaukasten) —
@@ -392,7 +392,7 @@ export function uploadAudio(
   file: string,
   daten: Blob,
 ): Promise<{ file: string; bytes: number }> {
-  return anfrage(`/tours/${id}/audio/${encodeURIComponent(file)}`, {
+  return request(`/tours/${id}/audio/${encodeURIComponent(file)}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/octet-stream' },
     body: daten,
@@ -400,7 +400,7 @@ export function uploadAudio(
 }
 
 export function deleteAudio(id: string, file: string): Promise<unknown> {
-  return anfrage(`/tours/${id}/audio/${encodeURIComponent(file)}`, { method: 'DELETE' })
+  return request(`/tours/${id}/audio/${encodeURIComponent(file)}`, { method: 'DELETE' })
 }
 
 // — Benutzerweite Audio-Bibliothek: eigene Uploads, in jeder Tour einsetzbar —
@@ -413,14 +413,14 @@ export interface LibraryFile {
 }
 
 export async function listLibrary(): Promise<LibraryFile[]> {
-  return (await anfrage<{ files: LibraryFile[] }>('/audio-library')).files
+  return (await request<{ files: LibraryFile[] }>('/audio-library')).files
 }
 
 export function uploadLibraryAudio(
   file: string,
   daten: Blob,
 ): Promise<{ file: string; bytes: number }> {
-  return anfrage(`/audio-library/${encodeURIComponent(file)}`, {
+  return request(`/audio-library/${encodeURIComponent(file)}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/octet-stream' },
     body: daten,
@@ -428,5 +428,5 @@ export function uploadLibraryAudio(
 }
 
 export function deleteLibraryAudio(file: string): Promise<unknown> {
-  return anfrage(`/audio-library/${encodeURIComponent(file)}`, { method: 'DELETE' })
+  return request(`/audio-library/${encodeURIComponent(file)}`, { method: 'DELETE' })
 }

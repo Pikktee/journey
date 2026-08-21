@@ -47,7 +47,7 @@
     "beschleunigte der Film auf den letzten Metern auf volle Höhe, um sofort",
     "wieder stillzustehen."
   ],
-  "tempoMs": {
+  "tempoMps": {
     "walk": 60,
     "bike": 120,
     "moped": 138,

@@ -22,7 +22,14 @@
 // zwei Schritten, über den Adapter `tS`/`mM`.
 
 import type { CameraMomentKind } from '../schema/edits.js'
-import { STOP_FADE_OUT_S, NEAR_M, RAMP_M, mediumHoldS, momentHoldS, tempoMs } from './film-tempo.js'
+import {
+  STOP_FADE_OUT_S,
+  NEAR_M,
+  RAMP_M,
+  mediumHoldS,
+  momentHoldS,
+  tempoMps,
+} from './film-tempo.js'
 import type { TimeSeries } from './time.js'
 
 /** Ein Halt auf der Achse: wann er beginnt (Aufnahmezeit) und was er im Film kostet. */
@@ -146,7 +153,7 @@ export function buildFilmAxis(
       // Punkt, exakt wie in der Studio-Achse.
       if (before) meters += metersBetween(before, p)
     }
-    const v = tempoMs(p.mode)
+    const v = tempoMps(p.mode)
     const last = steps[steps.length - 1]
     if (!last) steps.push({ abM: 0, v })
     else if (last.abM === meters) last.v = v

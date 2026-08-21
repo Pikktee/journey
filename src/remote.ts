@@ -28,7 +28,7 @@ export interface RemoteMedium {
 }
 
 /** Server-JSON `maptale/tour@2` (Ausschnitt, den der Player braucht). */
-export interface TourJsonAntwort {
+export interface TourJsonResponse {
   schema: string
   id: string
   status?: string
@@ -100,7 +100,7 @@ export interface RemoteTourCfg {
   /** Der Satz unter dem Titel — aus dem Studio, gekürzt in src/tour-texts.ts. */
   description?: string | null
   /** Aufnehmer der Tour; fehlt bei Konten ohne Anzeigenamen */
-  author?: NonNullable<TourJsonAntwort['author']>
+  author?: NonNullable<TourJsonResponse['author']>
   /** true = Endscreen; fehlt/false = zurück zum Startscreen */
   showFinale?: boolean
   finaleTitle: string
@@ -142,10 +142,10 @@ export interface RemoteTourCfg {
   /**
    * Master über `audio`. Bei aufgezeichneten Touren immer 1: `gain` kommt aus
    * dem Regler des Studios und ist bereits der Pegel, den der Autor beim
-   * Schneiden gehört hat (s. TourConfig.audioPegel). KEIN Server-Feld — die
+   * Schneiden gehört hat (s. TourConfig.masterGain). KEIN Server-Feld — die
    * Aussage gehört zur Herkunft der Tour, nicht zu ihren Daten.
    */
-  audioPegel?: number
+  masterGain?: number
   stats: { km: number; gainM: number }
 }
 
@@ -170,7 +170,7 @@ export class RemoteTourError extends Error {
  * danach nur noch in Metern. Der Adapter rechnete früher `km = f · Gesamt-km`
  * — das war der Rückfall `f × total` in Verkleidung.
  */
-export function adaptTour(tour: TourJsonAntwort): RemoteTourCfg {
+export function adaptTour(tour: TourJsonResponse): RemoteTourCfg {
   if (tour.schema !== 'maptale/tour@2') {
     throw new RemoteTourError(
       tour.status === 'processing'
@@ -229,34 +229,34 @@ export function adaptTour(tour: TourJsonAntwort): RemoteTourCfg {
   if (tour.camera?.length) {
     // Ein kaputter `filmS` fällt weg statt den Keyframe mitzunehmen — main.ts
     // rechnet ihn dann wie bei Bestandsdaten aus `f`.
-    const kamera = tour.camera
+    const camera2 = tour.camera
       .filter((k) => Number.isFinite(k.f))
       .map(({ filmS, ...rest }) =>
         Number.isFinite(filmS) ? { ...rest, filmS: filmS as number } : rest,
       )
-    if (kamera.length) cfg.camera = kamera
+    if (camera2.length) cfg.camera = camera2
   }
   if (tour.moments?.length) {
     // f muss endlich sein (landet als s-Anker in der Engine); dauerS optional,
     // aber wenn gesetzt endlich (sonst NaN-Timer im Moment-Zweig).
-    const momente = tour.moments.filter(
+    const moments2 = tour.moments.filter(
       (m) => Number.isFinite(m.f) && (m.durationS === undefined || Number.isFinite(m.durationS)),
     )
-    if (momente.length) cfg.moments = momente
+    if (moments2.length) cfg.moments = moments2
   }
   if (tour.audio?.length) {
     // gain ist optional — aber wenn gesetzt, muss er endlich sein: NaN liefe
     // sonst bis in el.volume und würfe dort im Abspiel-Timer Exceptions.
     // `startS` ist der Einstieg in die Datei (Etappe 4) — ein NaN darüber
     // landete in el.currentTime und riss dort die Wiedergabe ab.
-    const spuren = tour.audio.filter(
+    const tracks = tour.audio.filter(
       (a) =>
         Number.isFinite(a.f0) &&
         Number.isFinite(a.f1) &&
         (a.gain === undefined || Number.isFinite(a.gain)) &&
         (a.startS === undefined || (Number.isFinite(a.startS) && a.startS >= 0)),
     )
-    if (spuren.length) {
+    if (tracks.length) {
       // `gain` auffüllen statt dem Player seine eigene Vorgabe (1.0) zu lassen:
       // Bis zu dieser Änderung schrieb enrich.ts das Feld nur bei ausdrücklich
       // gesetzter Lautstärke — jedes VORHANDENE tour.json kommt also ohne, und
@@ -265,7 +265,7 @@ export function adaptTour(tour: TourJsonAntwort): RemoteTourCfg {
       // Ein kaputter Film-Anker verschweigt die Spur NICHT — er fällt weg, und
       // main.ts rechnet die Filmsekunde wie bei Bestandsdaten aus `f0`/`f1`.
       // Die Spur wegzuwerfen wäre die teurere Reaktion: Sie klänge dann gar nicht.
-      cfg.audio = spuren.map((a) => ({
+      cfg.audio = tracks.map((a) => ({
         ...a,
         gain: a.gain ?? STUDIO_GAIN_DEFAULT,
         ...(Number.isFinite(a.filmS) ? { filmS: a.filmS } : {}),
@@ -273,8 +273,8 @@ export function adaptTour(tour: TourJsonAntwort): RemoteTourCfg {
       }))
       // Der Pegel einer aufgezeichneten Tour ist ABSOLUT: `gain` kommt aus dem
       // Regler im Studio und wird dort ohne Master vorgehört. Deshalb hier 1
-      // statt der 0.22 der kuratierten Touren (s. TourConfig.audioPegel).
-      cfg.audioPegel = 1
+      // statt der 0.22 der kuratierten Touren (s. TourConfig.masterGain).
+      cfg.masterGain = 1
     }
   }
   return cfg
@@ -295,39 +295,39 @@ export function createTimeAt(
   const clamp = (x: number) => Math.max(0, Math.min(1, x))
   const linear = (frac: number) => t0 + clamp(frac) * (t1 - t0)
   if (!timeline?.length) return linear
-  const punkte = timeline
+  const points = timeline
     .map((e) => ({ f: e.f, t: Date.parse(e.t) }))
     .filter((e) => Number.isFinite(e.f) && Number.isFinite(e.t))
     .sort((a, b) => a.f - b.f)
-  if (punkte.length < 2) return linear
-  const erster = punkte[0]!
-  const letzter = punkte[punkte.length - 1]!
+  if (points.length < 2) return linear
+  const first = points[0]!
+  const last = points[points.length - 1]!
   return (frac: number) => {
     const f = clamp(frac)
-    if (f <= erster.f) return erster.t
-    if (f >= letzter.f) return letzter.t
+    if (f <= first.f) return first.t
+    if (f >= last.f) return last.t
     // Binärsuche: erste Stützstelle mit punkte[hi].f >= f
     let lo = 0
-    let hi = punkte.length - 1
+    let hi = points.length - 1
     while (lo < hi) {
       const mid = (lo + hi) >> 1
-      if (punkte[mid]!.f < f) lo = mid + 1
+      if (points[mid]!.f < f) lo = mid + 1
       else hi = mid
     }
-    const b = punkte[hi]!
-    const a = punkte[hi - 1]!
-    const spanne = b.f - a.f
-    return spanne <= 0 ? b.t : a.t + ((f - a.f) / spanne) * (b.t - a.t)
+    const b = points[hi]!
+    const a = points[hi - 1]!
+    const span = b.f - a.f
+    return span <= 0 ? b.t : a.t + ((f - a.f) / span) * (b.t - a.t)
   }
 }
 
 /** Tour vom Backend laden; wirft RemoteTourFehler bei 404/Verarbeitung/Fehler. */
-export async function loadRemoteTour(id: string, basisUrl = ''): Promise<RemoteTourCfg> {
-  const antwort = await fetch(`${basisUrl}/api/tours/${encodeURIComponent(id)}`)
-  if (!antwort.ok) {
-    throw new RemoteTourError(`Tour „${id}" nicht gefunden (HTTP ${antwort.status})`)
+export async function loadRemoteTour(id: string, baseUrl = ''): Promise<RemoteTourCfg> {
+  const response = await fetch(`${baseUrl}/api/tours/${encodeURIComponent(id)}`)
+  if (!response.ok) {
+    throw new RemoteTourError(`Tour „${id}" nicht gefunden (HTTP ${response.status})`)
   }
-  return adaptTour((await antwort.json()) as TourJsonAntwort)
+  return adaptTour((await response.json()) as TourJsonResponse)
 }
 
 /**
@@ -335,12 +335,12 @@ export async function loadRemoteTour(id: string, basisUrl = ''): Promise<RemoteT
  * anonym liefert die Liste 401 und der Picker bleibt statisch).
  */
 export async function loadServerTours(
-  basisUrl = '',
+  baseUrl = '',
 ): Promise<Array<{ id: string; title: string | null; status: string }>> {
   try {
-    const antwort = await fetch(`${basisUrl}/api/tours`, { credentials: 'same-origin' })
-    if (!antwort.ok) return []
-    const json = (await antwort.json()) as {
+    const response = await fetch(`${baseUrl}/api/tours`, { credentials: 'same-origin' })
+    if (!response.ok) return []
+    const json = (await response.json()) as {
       tours: Array<{ id: string; title: string | null; status: string }>
     }
     return json.tours.filter((t) => t.status === 'ready')

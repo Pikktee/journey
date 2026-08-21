@@ -19,7 +19,7 @@ import {
   STOP_FADE_OUT_S,
   STOP_ENGINE_S,
   MOMENT_DEFAULT_S,
-  tempoMs,
+  tempoMps,
 } from '../src/pipeline/film-tempo.js'
 import { buildTimeSeries } from '../src/pipeline/time.js'
 import type { UploadSegment } from '../src/schema/upload.js'
@@ -52,17 +52,17 @@ describe('baueFilmAchse', () => {
     // Zu Fuß: 60 m/s Filmtempo. 10 Schritte à 96 m = 960 m → 16 Filmsekunden.
     const achse = buildFilmAxis(buildTimeSeries([geradeStrecke(11, 96, 60)]), [], 0)
     expect(achse).not.toBeNull()
-    expect(achse?.totalS).toBeCloseTo(960 / tempoMs('walk'), 1)
+    expect(achse?.totalS).toBeCloseTo(960 / tempoMps('walk'), 1)
     // Aufnahmezeit läuft 600 s, Filmzeit 16 s — die Achse ist kein Zeitmaß
-    expect(filmTimeAtRecordingTime(achse!, 300)).toBeCloseTo(480 / tempoMs('walk'), 1)
+    expect(filmTimeAtRecordingTime(achse!, 300)).toBeCloseTo(480 / tempoMps('walk'), 1)
   })
 
   it('webt einen Halt als Plateau ein: Film läuft, Aufnahmeuhr steht', () => {
     const reihe = buildTimeSeries([geradeStrecke(11, 96, 60)])
     const achse = buildFilmAxis(reihe, [{ offsetS: 300, widthS: 6 }], 0)!
-    const ankunft = 480 / tempoMs('walk')
+    const ankunft = 480 / tempoMps('walk')
     // Der Halt kostet 6 Filmsekunden, die Tour wird also um 6 s länger
-    expect(achse.totalS).toBeCloseTo(960 / tempoMs('walk') + 6, 1)
+    expect(achse.totalS).toBeCloseTo(960 / tempoMps('walk') + 6, 1)
     // Auf der Halt-Zeit steht die ANKUNFT (lower_bound-Konvention)
     expect(filmTimeAtRecordingTime(achse, 300)).toBeCloseTo(ankunft, 1)
     // Und mitten im Halt: dieselbe Aufnahmezeit, verschiedene Filmsekunden
@@ -78,7 +78,7 @@ describe('baueFilmAchse', () => {
     // Wert. Über die Film-Achse hat es drei verschiedene.
     const reihe = buildTimeSeries([geradeStrecke(11, 96, 60)])
     const achse = buildFilmAxis(reihe, [{ offsetS: 300, widthS: 6 }], 0)!
-    const ankunft = 480 / tempoMs('walk')
+    const ankunft = 480 / tempoMps('walk')
     const drin = [0.5, 2, 5].map((f) => recordingTimeAtFilmTime(achse, ankunft + f))
     expect(new Set(drin).size).toBe(1) // in Aufnahmezeit ununterscheidbar
     expect(new Set([0.5, 2, 5]).size).toBe(3) // im Film sehr wohl
@@ -98,11 +98,11 @@ describe('baueFilmAchse', () => {
     const reihe = buildTimeSeries([geradeStrecke(11, 96, 60)]) // 960 m zu Fuß
     // Ein Halt bei 480 m: drei Rampen à 240 m (Start, Bremsen, Anfahren), jede
     // kostet eine Reisezeit ihrer Strecke. Am Tour-Ende wird nicht gebremst.
-    const r = 240 / tempoMs('walk')
+    const r = 240 / tempoMps('walk')
     const achse = buildFilmAxis(reihe, [{ offsetS: 300, widthS: 6 }], 240)!
-    expect(achse.totalS).toBeCloseTo(960 / tempoMs('walk') + 6 + 3 * r, 4)
+    expect(achse.totalS).toBeCloseTo(960 / tempoMps('walk') + 6 + 3 * r, 4)
     // Ankunft am Halt: Reise bis 480 m plus die zwei Rampen davor
-    expect(filmTimeAtRecordingTime(achse, 300)).toBeCloseTo(480 / tempoMs('walk') + 2 * r, 4)
+    expect(filmTimeAtRecordingTime(achse, 300)).toBeCloseTo(480 / tempoMps('walk') + 2 * r, 4)
     // Und die Rampe ist eine FORM, kein Sprung: Nach der halben Rampenzeit sind
     // erst 3/16 ihrer Strecke gefahren — 45 der 240 m, in Aufnahmezeit
     // 45/96 × 60 s.
@@ -112,7 +112,7 @@ describe('baueFilmAchse', () => {
   it('schnellere Fortbewegung staucht die Achse', () => {
     const zuFuss = buildFilmAxis(buildTimeSeries([geradeStrecke(11, 96, 60, 'walk')]), [], 0)!
     const faehre = buildFilmAxis(buildTimeSeries([geradeStrecke(11, 96, 60, 'ferry')]), [], 0)!
-    expect(zuFuss.totalS / faehre.totalS).toBeCloseTo(tempoMs('ferry') / tempoMs('walk'), 2)
+    expect(zuFuss.totalS / faehre.totalS).toBeCloseTo(tempoMps('ferry') / tempoMps('walk'), 2)
   })
 })
 
@@ -199,7 +199,7 @@ describe('baueMomentHalte', () => {
     )!
     // Fahrt + Foto (Standzeit samt Ausblendung) + Moment (nur Dauer)
     expect(achse.totalS).toBeCloseTo(
-      960 / tempoMs('walk') + STOP_ENGINE_S + STOP_FADE_OUT_S + MOMENT_DEFAULT_S.ascend,
+      960 / tempoMps('walk') + STOP_ENGINE_S + STOP_FADE_OUT_S + MOMENT_DEFAULT_S.ascend,
       6,
     )
   })
@@ -243,7 +243,7 @@ describe('Drift-Wächter gegen die Web-Achse', () => {
     // einer Halt-Zeit sitzt, um die ganze Standzeit.
     const reihe = buildTimeSeries([geradeStrecke(11, 96, 60)])
     const achse = buildFilmAxis(reihe, [{ offsetS: 300, widthS: 6 }], 0)!
-    const ankunft = 480 / tempoMs('walk')
+    const ankunft = 480 / tempoMps('walk')
     expect(filmTimeAtRecordingTime(achse, 300)).toBeCloseTo(ankunft, 6) // nicht die Abfahrt
     expect(recordingTimeAtFilmTime(achse, ankunft + 6)).toBeCloseTo(300, 6) // nicht die Zeit danach
   })

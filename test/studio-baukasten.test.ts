@@ -10,7 +10,7 @@ import {
   MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S,
   RAMP_M,
   rampOffsetS,
-  tempoMs,
+  tempoMps,
 } from '../src/film-axis.js'
 import {
   effectiveMedia,
@@ -833,7 +833,7 @@ describe('Zeitleiste', () => {
     // eine 120-m-Rampe genau eine Filmsekunde. Hier sind es drei: aus dem Stand
     // los, vor dem Halt bremsen, danach wieder anfahren — am Tour-Ende wird
     // nicht gebremst. Der Halt liegt dadurch bei 52 statt 50 Filmsekunden.
-    const R = RAMP_M / tempoMs('bike')
+    const R = RAMP_M / tempoMps('bike')
     /**
      * Was eine MODUS-Rampe die ganze Tour kostet: ihre Dauer minus die Reise,
      * die sie ersetzt. Sie liegt ganz im SCHNELLEREN Abschnitt, ersetzt dort
@@ -1235,9 +1235,9 @@ describe('Zeitleiste', () => {
       // liegt zur Hälfte VOR ihr und wird nicht mehr im linken Tempo gefahren.
       expect(kurve.totalS).toBeCloseTo(
         12 +
-          12000 / tempoMs('walk') +
-          (3 * RAMP_M) / tempoMs('walk') +
-          rampOffsetS(tempoMs('walk'), tempoMs('bike')),
+          12000 / tempoMps('walk') +
+          (3 * RAMP_M) / tempoMps('walk') +
+          rampOffsetS(tempoMps('walk'), tempoMps('bike')),
         1,
       )
       expect(
@@ -1251,7 +1251,7 @@ describe('Zeitleiste', () => {
       const meterNeu = 12000
       const laenger = filmDurationAtBoundary(200, meterAlt, meterNeu, 'walk', 'bike')
       // 12 km wechseln von Rad auf zu Fuß — die Differenz der Kehrwerte der Tempi
-      const mehr = 12000 / tempoMs('walk') - 12000 / tempoMs('bike')
+      const mehr = 12000 / tempoMps('walk') - 12000 / tempoMps('bike')
       expect(laenger).toBeCloseTo(200 + mehr, 3)
       // Zurückgezogen kehrt sich das Vorzeichen um
       expect(filmDurationAtBoundary(200, meterNeu, meterAlt, 'walk', 'bike')).toBeCloseTo(
@@ -1493,11 +1493,11 @@ describe('Zeitleiste', () => {
         // Modus-Grenze selbst, die etwas EINSPART.
         // 2880 m zu Fuß + 3120 m mit dem Rad bis zum Halt
         const bis =
-          2880 / tempoMs('walk') +
-          3120 / tempoMs('bike') +
-          RAMP_M / tempoMs('walk') +
-          RAMP_M / tempoMs('bike') +
-          modusRampeS(tempoMs('walk'), tempoMs('bike'))
+          2880 / tempoMps('walk') +
+          3120 / tempoMps('bike') +
+          RAMP_M / tempoMps('walk') +
+          RAMP_M / tempoMps('bike') +
+          modusRampeS(tempoMps('walk'), tempoMps('bike'))
         expect(halt.filmFrom).toBeCloseTo(bis, 6) // rechts der Kante
         expect(halt.filmTo).toBeCloseTo(bis + 20, 6)
 
@@ -1508,7 +1508,7 @@ describe('Zeitleiste', () => {
         // dahinter, nicht mehr auf dem angepeilten Pixel.
         // Alles bis zum Halt ist jetzt Fußweg: 6000 m plus Anfahrt und Bremsen.
         expect(achseVon(f.edits).stops![0]!.filmFrom).toBeCloseTo(
-          6000 / tempoMs('walk') + (2 * RAMP_M) / tempoMs('walk'),
+          6000 / tempoMps('walk') + (2 * RAMP_M) / tempoMps('walk'),
           6,
         )
 

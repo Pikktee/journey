@@ -1142,7 +1142,7 @@ function renderFeedback(): void {
     const row = document.createElement('div')
     row.className = 'row row-feedback'
 
-    const head = mainCell(initial(r.benutzerName ?? r.email ?? '?'))
+    const head = mainCell(initial(r.userName ?? r.email ?? '?'))
     const sender = document.createElement('span')
     sender.className = 'name'
     sender.textContent = describeSender(r)

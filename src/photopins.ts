@@ -34,7 +34,7 @@
 // Fahrer-Marker immer lesbar (MapLibre macht dort dasselbe über opacityWhenCovered).
 
 import * as THREE from 'three'
-import maplibregl, { type CustomLayerInterface, type Map as MapLibreKarte } from 'maplibre-gl'
+import maplibregl, { type CustomLayerInterface, type Map as MapLibreMap } from 'maplibre-gl'
 import { EXAGGERATION, type LngLat2D } from './map.js'
 import {
   nextIndex,
@@ -308,7 +308,7 @@ interface Pin {
  *                 von addSpotLayers (ui.registerSpots)
  */
 export function installPhotoPins(
-  map: MapLibreKarte,
+  map: MapLibreMap,
   spots: PinStop[],
   {
     onSelect,

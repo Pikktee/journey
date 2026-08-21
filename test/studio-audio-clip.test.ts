@@ -20,7 +20,7 @@ import {
   waveformPosition,
   type AudioClip,
 } from '../src/studio/audio-clip'
-import { RAMP_M, tempoMs } from '../src/film-axis'
+import { RAMP_M, tempoMps } from '../src/film-axis'
 import { buildTimelineAxis, type TimelineAxis } from '../src/studio/timeline'
 
 const START = '2026-07-04T08:00:00.000Z'
@@ -63,9 +63,9 @@ function achseMitHalt(): TimelineAxis {
 const klipVon = (klips: readonly AudioClip[], index = 0): AudioClip => klips[index] as AudioClip
 
 /** Zuschlag einer Anfahr-/Ausrollrampe zu Fuß (s). */
-const RAMPE = RAMP_M / tempoMs('walk')
+const RAMPE = RAMP_M / tempoMps('walk')
 /** Filmsekunden für die ersten 300 Aufnahmesekunden (480 m zu Fuß). */
-const BIS_300 = 480 / tempoMs('walk')
+const BIS_300 = 480 / tempoMps('walk')
 
 describe('resolveAudioClips — alte und neue Verankerung nebeneinander', () => {
   const achse = achseOhneHalt()

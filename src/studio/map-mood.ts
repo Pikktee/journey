@@ -74,7 +74,7 @@ export interface MapMood {
    * `.photo-backdrop` (Schleier plus Weichzeichner über der ganzen Szene) —
    * hier genügt die Deckkraft, denn die Karte darunter bleibt Arbeitsfläche.
    */
-  setPhoto(lies: boolean): void
+  setPhoto(visible: boolean): void
   /** Beim Schließen der Tour: Bildschleife, Klänge und Canvas zurücknehmen. */
   destroy(): void
   readonly dayNightOn: boolean
@@ -119,17 +119,17 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
    * die Auskunft, was für Wetter dort ist. Dieselbe Regel wie beim Video im
    * Editor, das ebenfalls nur bei Tempo 1 läuft und sonst schweigt.
    */
-  let partikel: WeatherOverlay | null = null
+  let particles: WeatherOverlay | null = null
   let running = false
   const getParticles = (): WeatherOverlay => {
-    if (!partikel) {
-      partikel = createWeather(stage)
+    if (!particles) {
+      particles = createWeather(stage)
       // Das Overlay fragt selbst, ob es zeichnen darf — so bringt es seine
       // eigene Blende ins Standbild mit, statt hart zu stoppen.
-      partikel.setGate(() => running)
-      partikel.setSoundEnabled(running)
+      particles.setGate(() => running)
+      particles.setSoundEnabled(running)
     }
-    return partikel
+    return particles
   }
 
   let scrimEl: HTMLElement | null = null
@@ -200,7 +200,7 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
     // tatsächlich abgespielt wird: Wer nur schneidet, bekommt weder Canvas noch
     // Klang-Loops. `clouds`/`fog` haben dort ohnehin keine Tropfen — für sie
     // bleibt es beim Schleier, und das ist richtig so.
-    if (partikel || (running && travelMode !== 'off')) {
+    if (particles || (running && travelMode !== 'off')) {
       const o = getParticles()
       if (o.mode !== travelMode) o.setMode(travelMode)
       if (travelMode !== 'off') o.setIntensity(w?.intensity ?? 0.7)
@@ -259,7 +259,7 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
       const next = tempo === 1
       if (next === running) return
       running = next
-      partikel?.setSoundEnabled(next)
+      particles?.setSoundEnabled(next)
       // Die Klasse steuert die Sichtbarkeit (CSS blendet über 900 ms), das Gate
       // im Overlay hält danach das Zeichnen an. Beides zusammen: Der Übergang
       // ist weich UND die Schleife läuft nicht weiter, während man schneidet.
@@ -268,12 +268,12 @@ export function createMapMood(map: MapLibreMap, layer: string, stage: HTMLElemen
       // Overlay nach, falls gerade zum ersten Mal abgespielt wird.
       apply()
     },
-    setPhoto(lies) {
-      stage.classList.toggle('photo-visible', lies)
+    setPhoto(visible) {
+      stage.classList.toggle('photo-visible', visible)
     },
     destroy() {
-      partikel?.zerstoere()
-      partikel = null
+      particles?.destroy()
+      particles = null
       scrimEl?.remove()
       scrimEl = null
       stage.classList.remove('weather-running', 'photo-visible')

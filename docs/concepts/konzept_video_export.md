@@ -224,7 +224,7 @@ die dritte Bühne, auf der sie gilt:
   `tick` ruft. Intro-Orbit, Anfahrt, Halte, Foto-Karte, Modus-Kanten, Finale:
   alles Player-Code. Der Übergang vom Orbit in die Fahrt ist `tour.begin()`,
   also der Griff, den auch „Tour starten" bedient.
-- `weather.externerTakt(true)` + `weather.schritt(dt)`, `atmo.setzeTakt(1/30)`:
+- `weather.setExternalTick(true)` + `weather.step(dt)`, `atmo.setTick(1/30)`:
   dieselben `step`/`render`-Funktionen, andere Zeitquelle.
 - Gemessen (Völklingen, `?export=1`): 5 Wetter-Zustände auf 4 encodete Frames.
   Vorher waren es ~100 Zustände auf 4 Frames.
@@ -271,7 +271,7 @@ t = i / 30                                  // Clip-Zeit
 if (t >= 6 && phase === 'intro') tour.begin()   // derselbe Griff wie „Tour starten"
 tour.exportSchritt(1/30)                    // = tour.schritt(dt), der Player-Weg
 nachKamera()                                // Wetter der neuen Stelle
-weather.schritt(1/30)                       // Partikel in FILMzeit
+weather.step(1/30)                       // Partikel in FILMzeit
 einen rAF später, 120 ms Pause, dann map.once('idle')
 Komposition: Karte → Atmosphäre → Wetter → Reiter → Foto-Karte → Tafel → Attribution
 VideoEncoder.encode(frame)

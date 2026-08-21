@@ -183,13 +183,13 @@ export interface RasterGrading {
  * weißlich, was sich als geschlossene Schneedecke liest. Tagesabhängig
  * skaliert — nachts reflektiert Schnee zwar, glüht aber nicht.
  */
-export function rasterGrading(p: LightMood, schnee = 0): RasterGrading {
+export function rasterGrading(p: LightMood, snow = 0): RasterGrading {
   const dayNorm = Math.min(Math.max((p.br - 0.19) / (1 - 0.19), 0), 1)
   return {
     brightnessMax: +p.br.toFixed(3),
-    brightnessMin: +(schnee * (0.08 + 0.34 * dayNorm)).toFixed(3),
-    saturation: +Math.max(-1, p.sat - 0.5 * schnee).toFixed(3),
-    contrast: +(p.con - 0.06 * schnee).toFixed(3),
+    brightnessMin: +(snow * (0.08 + 0.34 * dayNorm)).toFixed(3),
+    saturation: +Math.max(-1, p.sat - 0.5 * snow).toFixed(3),
+    contrast: +(p.con - 0.06 * snow).toFixed(3),
   }
 }
 

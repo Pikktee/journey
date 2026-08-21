@@ -13,11 +13,11 @@ import type { AnchorPoint, TourTime, Waypoint } from './tours.js'
 const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive'
 
 /** Wetter-Modi des Overlays (src/weather.ts) — „off" heißt: kein Effekt. */
-export type WetterModus = 'off' | 'clouds' | 'rain' | 'snow' | 'fog' | 'storm'
+export type WeatherMode = 'off' | 'clouds' | 'rain' | 'snow' | 'fog' | 'storm'
 
 /** Ein Wetterzustand: Modus plus stufenlose Stärke k (0..1). */
 export interface WeatherCondition {
-  mode: WetterModus
+  mode: WeatherMode
   k: number
 }
 

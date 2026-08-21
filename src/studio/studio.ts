@@ -68,7 +68,7 @@ const els = {
   userName: $('user-name'),
   loginForm: $<HTMLFormElement>('login-form'),
   email: $<HTMLInputElement>('email'),
-  passwort: $<HTMLInputElement>('password'),
+  password: $<HTMLInputElement>('password'),
   loginError: $('login-error'),
   // M9: Registrierung / Passwort-Reset
   authBox: $('auth-box'),
@@ -80,7 +80,7 @@ const els = {
   // Schritt 2: die eigenen Daten
   registerForm: $<HTMLFormElement>('register-form'),
   regEmail: $<HTMLInputElement>('reg-email'),
-  regPasswort: $<HTMLInputElement>('reg-password'),
+  regPassword: $<HTMLInputElement>('reg-password'),
   regNewsletter: $<HTMLInputElement>('reg-newsletter'),
   regCodeChip: $('reg-code-chip'),
   regCodeValue: $('reg-code-value'),
@@ -105,7 +105,7 @@ const els = {
   resetEmail: $<HTMLInputElement>('reset-email'),
   resetRequestStatus: $('reset-request-status'),
   resetSetForm: $<HTMLFormElement>('reset-set-form'),
-  resetPasswort: $<HTMLInputElement>('reset-password'),
+  resetPassword: $<HTMLInputElement>('reset-password'),
   resetSubmit: $<HTMLButtonElement>('reset-submit'),
   resetSetError: $('reset-set-error'),
   // M9: Konto-Menü + Verifikations-Banner
@@ -517,30 +517,30 @@ const bindSubmit =
     button.disabled = field.value.length > 0 && !report.acceptable
   }
 
-const regPasswordField = attachPasswordField(els.regPasswort, {
+const regPasswordField = attachPasswordField(els.regPassword, {
   // Name und Adresse stehen im selben Formular und ändern sich noch, während
   // das Passwort schon getippt ist — deshalb als Funktion, nicht als Wert.
   personal: () => [els.regEmail.value],
-  onChange: bindSubmit(els.regPasswort, els.regSubmit),
+  onChange: bindSubmit(els.regPassword, els.regSubmit),
 })
 
 // Beim Anmelden nur der Sichtbarkeits-Schalter: Ein bestehendes Passwort zu
 // bewerten hilft niemandem, aber ein Tippfehler im verdeckten Feld ist der
 // häufigste Grund, warum eine Anmeldung scheitert.
-attachPasswordField(els.passwort, { showStrength: false })
+attachPasswordField(els.password, { showStrength: false })
 
-attachPasswordField(els.resetPasswort, {
+attachPasswordField(els.resetPassword, {
   // Beim Reset kennen wir nur die Adresse aus dem Anmeldefeld — besser als nichts.
   personal: () => [els.email.value],
-  onChange: bindSubmit(els.resetPasswort, els.resetSubmit),
+  onChange: bindSubmit(els.resetPassword, els.resetSubmit),
 })
 
 els.loginForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   els.loginError.textContent = ''
   try {
-    await api.login(els.email.value.trim(), els.passwort.value)
-    els.passwort.value = ''
+    await api.login(els.email.value.trim(), els.password.value)
+    els.password.value = ''
     await loadSession()
   } catch (error) {
     els.loginError.textContent = (error as Error).message
@@ -598,7 +598,7 @@ els.registerForm.addEventListener('submit', async (e) => {
     // Bestandteil der Anmeldung: Fehlt er, entsteht das Konto unverändert.
     await api.register(
       els.regEmail.value.trim(),
-      els.regPasswort.value,
+      els.regPassword.value,
       confirmedCode || undefined,
       {
         newsletter: els.regNewsletter.checked,
@@ -712,7 +712,7 @@ els.resetSetForm.addEventListener('submit', async (e) => {
   els.resetSetError.textContent = ''
   if (!resetToken) return
   try {
-    await api.resetPassword(resetToken, els.resetPasswort.value)
+    await api.resetPassword(resetToken, els.resetPassword.value)
     resetToken = null
     await loadSession()
   } catch (error) {

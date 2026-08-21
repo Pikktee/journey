@@ -425,8 +425,8 @@ export type FeedbackStatus = 'open' | 'in_progress' | 'done'
 
 export interface AdminFeedback {
   id: string
-  benutzerId: string | null
-  benutzerName: string | null
+  userId: string | null
+  userName: string | null
   email: string | null
   text: string
   context: Record<string, string | number | boolean | null> | null
@@ -466,7 +466,7 @@ export function filterFeedback(
   return list.filter((r) => {
     if (filter !== 'all' && r.status !== filter) return false
     if (!s) return true
-    return [r.text, r.note, r.email, r.benutzerName]
+    return [r.text, r.note, r.email, r.userName]
       .filter(Boolean)
       .some((field) => String(field).toLowerCase().includes(s))
   })
@@ -478,7 +478,7 @@ export function filterFeedback(
  * zusammenzieht, verliert genau die Auskunft, ob eine Rückfrage möglich ist.
  */
 export function describeSender(r: AdminFeedback): string {
-  if (r.benutzerName) return r.email ? `${r.benutzerName} · ${r.email}` : r.benutzerName
+  if (r.userName) return r.email ? `${r.userName} · ${r.email}` : r.userName
   if (r.email) return r.email
   return 'Ohne Absender'
 }

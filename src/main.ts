@@ -119,7 +119,7 @@ interface PlayerTour {
   /** `filmS` bleibt hier ungelesen: Ein Moment IST ein Halt (s. unten) */
   moments?: Array<{ f: number; kind: string; durationS?: number; filmTime?: number }>
   audio?: TourAudio[]
-  /** Master über `audio`; fehlt = CURATED_GAIN (s. TourConfig.audioPegel) */
+  /** Master über `audio`; fehlt = CURATED_GAIN (s. TourConfig.masterGain) */
   audioGain?: number
 }
 
@@ -505,7 +505,7 @@ window.__maptale.filmTime = filmTimeAtS
 // — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
 // Musik-Bereiche + SFX-One-Shots, in FILMSEKUNDEN verankert (E10). Statische
 // Touren haben kein cfg.audio → null, der restliche Code chaint optional.
-// Der Master steht an der TOUR (cfg.audioPegel): aufgezeichnete Touren tragen
+// Der Master steht an der TOUR (cfg.masterGain): aufgezeichnete Touren tragen
 // den Studio-Pegel absolut, kuratierte sind gegen die 0.22 ausgemessen.
 //
 // Die Grenzen laufen EINMAL durch die Übersetzung, danach rechnet
@@ -757,7 +757,7 @@ map.on('load', () => {
    * Geste: Während des Scrubs klingt die Musik (das Gate zählt Scrubben als
    * Wiedergabe), und ein Seek je Frame wäre ein Stottern statt einer Position.
    */
-  const afterJump = () => tourAudio?.richteAus(tour.filmS)
+  const afterJump = () => tourAudio?.align(tour.filmS)
 
   // Fahrzeug-Motorloop (dezent): folgt dem aktiven Segment-Modus, läuft nur während
   // der eigentlichen Fahrt (Gate unten). Moduswechsel blendet den Motor weich über.
@@ -1207,7 +1207,7 @@ map.on('load', () => {
   const applyAudio = () => {
     vehicle.setEnabled(audioOn)
     music?.setEnabled(audioOn && musicOn)
-    tourAudio?.setMusikEnabled(audioOn && musicOn)
+    tourAudio?.setMusicEnabled(audioOn && musicOn)
     tourAudio?.setSfxEnabled(audioOn)
   }
   applyAudio()
@@ -1516,8 +1516,8 @@ map.on('load', () => {
   // Tour-Ende oft mitten in einem Musik-Bereich, und dort ist ein zugehendes Gate
   // sonst dasselbe wie die Pause-Taste — sofortiger Stopp mit gehaltener Position.
   const audioFadeOut = () => {
-    tourAudio?.verklinge()
-    music?.verklinge()
+    tourAudio?.fadeOut()
+    music?.fadeOut()
   }
   tour.onToMenu = () => {
     setClean(false)
@@ -1793,12 +1793,12 @@ map.on('load', () => {
           // Und beide auf FILMzeit: sonst bekämen Partikel, Böen, Wolkendrift
           // und die Wetter-Blende pro Filmbild die 0,3–2 s Wandzeit, die das
           // Warten auf die Kacheln gekostet hat (Konzept §8, „Zeit").
-          weather.externerTakt(true)
+          weather.setExternalTick(true)
           weather.setSoundEnabled(false) // der Mix kommt offline aus filmS
-          window.__maptale.atmo?.setzeTakt(1 / exportFormat.fps)
+          window.__maptale.atmo?.setTick(1 / exportFormat.fps)
           window.dispatchEvent(new Event('resize'))
         },
-        stepOverlays: (dt) => weather.schritt(dt),
+        stepOverlays: (dt) => weather.step(dt),
         afterCamera: () => {
           if (wxTimeline) applyAutoNow()
         },

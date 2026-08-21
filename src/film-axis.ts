@@ -27,7 +27,7 @@
 // nach Zeichenketten absuchten.
 
 /** Streckenfortschritt bei 1× in m/s (die Engine fährt damit, src/tour.ts). */
-export const BASE_TEMPO_MS = 120
+export const BASE_TEMPO_MPS = 120
 
 /**
  * Tempo-Faktor je Fortbewegungsmodus. Schlüssel = die Modi des Austauschformats.
@@ -55,13 +55,13 @@ export const TRAVEL_MODE_TEMPO = {
  * — der Rückfall auf 1 ist deshalb kein Zierrat, sondern der Umgang mit einem
  * unbekannten Modus.
  */
-export function tempoMs(mode: string): number {
-  return BASE_TEMPO_MS * ((TRAVEL_MODE_TEMPO as Record<string, number | undefined>)[mode] ?? 1)
+export function tempoMps(mode: string): number {
+  return BASE_TEMPO_MPS * ((TRAVEL_MODE_TEMPO as Record<string, number | undefined>)[mode] ?? 1)
 }
 
 /** Filmsekunden für eine Strecke im gegebenen Modus. */
 export function filmSeconds(meters: number, mode: string): number {
-  return meters / tempoMs(mode)
+  return meters / tempoMps(mode)
 }
 
 /** Standzeit eines Kamera-Moments je Art (s) — Vorgabe ohne eigene Dauer. */
@@ -353,8 +353,8 @@ export function travelModeMix(
   for (const u of axis.transitions) {
     if (meterM < u.fromM) break // aufsteigend gesammelt
     if (meterM < u.toM) {
-      const v0 = tempoMs(u.fromMode)
-      const v1 = tempoMs(u.toMode)
+      const v0 = tempoMps(u.fromMode)
+      const v1 = tempoMps(u.toMode)
       const span = v1 - v0
       const raw = span === 0 ? 1 : (tempoAtDistance(axis, meterM) - v0) / span
       return { fromMode: u.fromMode, toMode: u.toMode, fraction: Math.max(0, Math.min(1, raw)) }
@@ -417,14 +417,14 @@ export function buildFilmAxis<H extends DistanceStop>(
   // Rampe (dieselbe Fahrt, nur ein anderer Eintrag im Manifest).
   const firstMode = segments[0]?.mode ?? 'bike'
   const steps: Array<{ fromM: number; v: number; mode: string }> = [
-    { fromM: 0, v: tempoMs(firstMode), mode: firstMode },
+    { fromM: 0, v: tempoMps(firstMode), mode: firstMode },
   ]
   {
     let fromM = 0
     for (const a of segments.slice(1)) {
       const toM = Math.max(fromM, Math.min(totalM, a.fromM))
       fromM = toM
-      const v = tempoMs(a.mode)
+      const v = tempoMps(a.mode)
       const last = steps[steps.length - 1] as { fromM: number; v: number; mode: string }
       if (last.fromM === toM) {
         last.v = v

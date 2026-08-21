@@ -4,9 +4,9 @@
 
 import { describe, expect, it } from 'vitest'
 import { STUDIO_GAIN_DEFAULT } from '../src/audiotracks.js'
-import { adaptTour, createTimeAt, RemoteTourError, type TourJsonAntwort } from '../src/remote'
+import { adaptTour, createTimeAt, RemoteTourError, type TourJsonResponse } from '../src/remote'
 
-function beispielTour(): TourJsonAntwort {
+function beispielTour(): TourJsonResponse {
   return {
     schema: 'maptale/tour@2',
     id: 't_abc123',
@@ -183,7 +183,7 @@ describe('adaptiereTour', () => {
     ])
     // Und der Master steht dann auf 1: `gain` ist bei aufgezeichneten Touren
     // absolut (die 0.22 der kuratierten Touren wären ein zweiter Faktor darüber).
-    expect(cfg.audioPegel).toBe(1)
+    expect(cfg.masterGain).toBe(1)
   })
 
   it('filtert Kamera-/Audio-Einträge mit kaputten f-Werten (Number.isFinite)', () => {
@@ -226,7 +226,7 @@ describe('adaptiereTour', () => {
   })
 
   it('wirft bei laufender Verarbeitung einen sprechenden Fehler', () => {
-    const inArbeit = { id: 't_abc123', status: 'processing' } as unknown as TourJsonAntwort
+    const inArbeit = { id: 't_abc123', status: 'processing' } as unknown as TourJsonResponse
     expect(() => adaptTour(inArbeit)).toThrow(RemoteTourError)
     expect(() => adaptTour(inArbeit)).toThrow(/verarbeitet/)
   })
@@ -236,7 +236,7 @@ describe('adaptiereTour', () => {
       id: 't_abc123',
       status: 'fehler',
       error: 'ffmpeg explodiert',
-    } as unknown as TourJsonAntwort
+    } as unknown as TourJsonResponse
     expect(() => adaptTour(kaputt)).toThrow(/ffmpeg explodiert/)
   })
 })

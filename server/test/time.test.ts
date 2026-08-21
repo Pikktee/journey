@@ -26,12 +26,12 @@ const GRAD_PRO_M = 1 / (111_320 * Math.cos((LAT * Math.PI) / 180))
 function marsch({
   dauerS = 3600,
   schrittS = 30,
-  tempoMs = 1.4,
+  tempoMps = 1.4,
   pause,
 }: {
   dauerS?: number
   schrittS?: number
-  tempoMs?: number
+  tempoMps?: number
   pause?: { abS: number; dauerS: number }
 } = {}): UploadSegment {
   const pts: UploadSegment['pts'] = []
@@ -39,7 +39,7 @@ function marsch({
   for (let t = 0; t <= dauerS; t += schrittS) {
     pts.push([8.0 + strecke * GRAD_PRO_M, LAT, 500, t])
     const inPause = pause && t >= pause.abS && t < pause.abS + pause.dauerS
-    if (!inPause) strecke += tempoMs * schrittS
+    if (!inPause) strecke += tempoMps * schrittS
   }
   return { mode: 'walk', pts }
 }

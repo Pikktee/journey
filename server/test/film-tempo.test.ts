@@ -23,7 +23,7 @@ import {
   recordingTimeAtFilmTime,
 } from '../src/pipeline/film-axis.js'
 import {
-  BASE_TEMPO_MS,
+  BASE_TEMPO_MPS,
   STOP_FADE_OUT_S,
   STOP_ENGINE_S,
   TRAVEL_MODE_TEMPO,
@@ -33,7 +33,7 @@ import {
   filmSeconds,
   metersForFilmSeconds,
   momentHoldS,
-  tempoMs,
+  tempoMps,
 } from '../src/pipeline/film-tempo.js'
 import { buildTimeSeries } from '../src/pipeline/time.js'
 import { CAMERA_MOMENT_KINDS } from '../src/schema/edits.js'
@@ -50,7 +50,7 @@ interface Case {
   distanceAtFilmTime: Array<[number, number]>
 }
 interface Fixture {
-  tempoMs: Record<string, number>
+  tempoMps: Record<string, number>
   hold: { photoS: number; fadeOutS: number; momentS: Record<string, number> }
   stopSpacingM: number
   cases: Case[]
@@ -86,14 +86,14 @@ describe('Filmtempo', () => {
   })
 
   it('fährt jeden Modus im festgelegten Film-Tempo (Fixture)', () => {
-    for (const [mode, erwartet] of Object.entries(fixture.tempoMs)) {
-      expect(tempoMs(mode as TravelMode), `Tempo für ${mode}`).toBeCloseTo(erwartet, 9)
+    for (const [mode, erwartet] of Object.entries(fixture.tempoMps)) {
+      expect(tempoMps(mode as TravelMode), `Tempo für ${mode}`).toBeCloseTo(erwartet, 9)
     }
     // Basistempo und Faktoren einzeln — sonst könnten sich zwei Fehler
     // gegenseitig aufheben und das Produkt bliebe richtig.
-    expect(BASE_TEMPO_MS).toBe(120)
+    expect(BASE_TEMPO_MPS).toBe(120)
     expect(Object.keys(TRAVEL_MODE_TEMPO).slice().sort()).toEqual(
-      Object.keys(fixture.tempoMs).slice().sort(),
+      Object.keys(fixture.tempoMps).slice().sort(),
     )
   })
 
@@ -154,8 +154,8 @@ describe('Filmtempo', () => {
   })
 
   it('rechnet Strecke und Filmdauer ineinander um', () => {
-    expect(tempoMs('walk')).toBe(60)
-    expect(tempoMs('ferry')).toBe(300)
+    expect(tempoMps('walk')).toBe(60)
+    expect(tempoMps('ferry')).toBe(300)
     // Zu Fuß dauern 240 m vier Filmsekunden — auf der Fähre keine Sekunde
     expect(filmSeconds(240, 'walk')).toBe(4)
     expect(metersForFilmSeconds(4, 'walk')).toBe(240)

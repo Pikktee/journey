@@ -497,7 +497,7 @@ grabbar ist: Foto-Karte, Startscreen, Finale-Tafel — und deren INHALT kommt au
 Elementen, die der Player füllt. Die Regel von oben gilt hier ein drittes Mal und ist teurer als
 im Player: Ein Filmbild kostet 0,3–2 s Wandzeit (Kachel-Idle), also bekäme jede eigene Schleife
 pro Filmbild bis zu einer halben echten Sekunde Vorschub — der Regen sprang, statt zu
-fallen. Deshalb `weather.externerTakt`/`weather.schritt` und `atmo.setzeTakt`. Wer eine neue
+fallen. Deshalb `weather.setExternalTick`/`weather.step` und `atmo.setTick`. Wer eine neue
 Schleife anlegt (Partikel, Blende, Zähler), gibt ihr einen Schritt von außen.
 **Gerendert wird IM Studio-Tab**, in einem gleich-origin `iframe` mit der Export-Seite
 ([src/studio/export-sheet.ts](src/studio/export-sheet.ts), Meldungen per `postMessage`, Kanal in
@@ -967,7 +967,7 @@ nicht Teil der Szene, und läuft deshalb durch eine Pause hindurch. Aus demselbe
 [src/tour.ts](src/tour.ts) nur bei `playing` weiter — sonst blendete das Foto unter dem
 „Angehalten"-Abzeichen von selbst weiter. Der PEGEL steht absolut (Studio-Regler, Vorgabe 0.8);
 der Master 0.22 gilt nur den kuratierten Touren, deren `gain` gegen ihn ausgemessen ist
-(`CURATED_GAIN` vs. `cfg.audioPegel`, s. [src/studio/CLAUDE.md](src/studio/CLAUDE.md)).
+(`CURATED_GAIN` vs. `cfg.masterGain`, s. [src/studio/CLAUDE.md](src/studio/CLAUDE.md)).
 
 ## Studio
 

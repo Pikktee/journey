@@ -18,7 +18,7 @@ import {
   interpolate,
   momentHoldS,
   distanceAtFilmTime,
-  tempoMs,
+  tempoMps,
 } from '../src/film-axis'
 import { NEAR_M } from '../src/geo'
 import { musicOffsetS } from '../src/audiotracks'
@@ -42,7 +42,7 @@ interface Case {
   distanceAtFilmTime: Array<[number, number]>
 }
 interface Fixture {
-  tempoMs: Record<string, number>
+  tempoMps: Record<string, number>
   hold: { photoS: number; fadeOutS: number; momentS: Record<string, number> }
   stopSpacingM: number
   cases: Case[]
@@ -54,15 +54,15 @@ const fixture: Fixture = JSON.parse(
 
 describe('Verhaltens-Fixture (Web-Seite)', () => {
   it('fährt jeden Modus im festgelegten Film-Tempo', () => {
-    for (const [mode, erwartet] of Object.entries(fixture.tempoMs)) {
-      expect(tempoMs(mode), `Tempo für ${mode}`).toBeCloseTo(erwartet, 9)
+    for (const [mode, erwartet] of Object.entries(fixture.tempoMps)) {
+      expect(tempoMps(mode), `Tempo für ${mode}`).toBeCloseTo(erwartet, 9)
     }
   })
 
   it('kennt genau die Modi des Fixtures — keinen mehr, keinen weniger', () => {
     // Ein hier fehlender Modus fiele sonst still auf den Faktor 1 zurück: Der
     // Player führe ihn mit Radtempo, ohne dass etwas kaputt aussieht.
-    expect(Object.keys(fixture.tempoMs).slice().sort()).toEqual(
+    expect(Object.keys(fixture.tempoMps).slice().sort()).toEqual(
       Object.keys({ walk: 0, moped: 0, bike: 0, jeep: 0, tram: 0, ferry: 0 }).sort(),
     )
   })
@@ -94,7 +94,7 @@ describe('Filmachse', () => {
   const walk960 = () =>
     buildFilmAxis([{ fromM: 0, mode: 'walk' }], 960, [{ meterM: 480, widthS: 6 }], { rampM: 0 })
   /** Filmsekunden für 480 m zu Fuß — aus der Tabelle, nicht als Zahl im Test. */
-  const halbeStrecke = 480 / tempoMs('walk')
+  const halbeStrecke = 480 / tempoMps('walk')
 
   it('gibt einem Halt seine Filmsekunden — die Strecke hat dort keine Ausdehnung', () => {
     const achse = walk960()
@@ -204,7 +204,7 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
     // anfahren. Am Tour-ENDE wird nicht gebremst — der Film läuft dort aus, wie
     // er es heute tut. Jede Rampe kostet eine Reisezeit ihrer Strecke (E14).
     expect(spieler.totalS).toBeCloseTo(
-      METER / tempoMs('walk') + HALT_S + (3 * RAMP_M) / tempoMs('walk'),
+      METER / tempoMps('walk') + HALT_S + (3 * RAMP_M) / tempoMps('walk'),
       6,
     )
     expect(editor.curve?.totalS).toBeCloseTo(spieler.totalS, 6)
@@ -231,7 +231,7 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
     // sehr wohl. Vorher setzte der Player hier hart auf den Dateianfang.
     // Ankunft: 480 m Reise plus die zwei Rampen davor (je RAMPE_M zu Fuß).
     const ankunft = filmTimeAtDistance(spieler, HALT_M)
-    expect(ankunft).toBeCloseTo((HALT_M + 2 * RAMP_M) / tempoMs('walk'), 6)
+    expect(ankunft).toBeCloseTo((HALT_M + 2 * RAMP_M) / tempoMps('walk'), 6)
     expect(musicOffsetS(ankunft, 30)).toBeCloseTo(ankunft, 6)
     expect(musicOffsetS(ankunft + 3, 30)).toBeCloseTo(ankunft + 3, 6)
     expect(distanceAtFilmTime(spieler, ankunft)).toBeCloseTo(

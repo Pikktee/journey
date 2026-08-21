@@ -122,7 +122,7 @@ export interface FilmTrack {
 /** Kamerapose eines Frames — das Atmosphäre-Overlay hängt sich daran. */
 export interface CameraPose {
   cg: LngLat2D
-  alt: number
+  altitude: number
   lt: LngLat2D
   ltAlt: number
 }
@@ -1293,7 +1293,7 @@ export class Tour {
     this.map.jumpTo(opts)
     const pose: CameraPose = {
       cg: [this.cg.lng.v, this.cg.lat.v],
-      alt: this.alt.v,
+      altitude: this.alt.v,
       lt: [this.lt.lng.v, this.lt.lat.v],
       ltAlt: this.ltAlt.v,
     }

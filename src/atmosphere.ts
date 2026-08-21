@@ -49,7 +49,7 @@ export interface Atmosphere {
    * Bild anders. Mit gesetztem Takt läuft alles hier in Filmzeit, und das
    * Idle-Nachrendern schweigt: Der Encoder rendert genau einmal je Bild.
    */
-  setzeTakt(dt: number | null): void
+  setTick(dt: number | null): void
 }
 
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
@@ -90,13 +90,13 @@ const hex = (c: string): Vec3 => [
 // Ohne 2D-Kontext gibt es kein Overlay — das ist kein Zustand, in dem hier
 // irgendetwas sinnvoll weiterläuft. Abbruch mit Adresse statt später ein `null`
 // am Aufrufer (dieselbe Linie wie die Element-Helfer in ui.ts).
-function kontext2d(
+function context2d(
   c: HTMLCanvasElement,
-  wofuer: string,
+  purpose: string,
   opts?: CanvasRenderingContext2DSettings,
 ): CanvasRenderingContext2D {
   const g = c.getContext('2d', opts)
-  if (!g) throw new Error(`Atmosphäre: kein 2D-Kontext (${wofuer})`)
+  if (!g) throw new Error(`Atmosphäre: kein 2D-Kontext (${purpose})`)
   return g
 }
 
@@ -112,15 +112,15 @@ const PROBE_MS = window.matchMedia?.('(pointer: coarse)').matches ? 200 : 120
 
 // Warmton der Sonnenscheibe: am/unter dem Horizont tief orangerot (Extinktion in der
 // dicken Atmosphäre), zur Mittagshöhe blasser/weißer.
-const sunColor = (alt: number) => {
-  const t = clamp01((alt + 2) / 14) // 0 bei ≤−2°, 1 bei ≥+12°
+const sunColor = (altitude: number) => {
+  const t = clamp01((altitude + 2) / 14) // 0 bei ≤−2°, 1 bei ≥+12°
   return `${255},${Math.round(92 + 128 * t)},${Math.round(38 + 182 * t)}`
 }
 
 // Feste Sternenverteilung auf der oberen Himmelshalbkugel (einmalig, deterministisch
 // genug). Gleichverteilt auf der Halbkugel (z = sin(Höhe) linear ⇒ flächengleich),
 // Helligkeit quadratisch gewichtet ⇒ wenige helle, viele schwache Sterne.
-interface Stern {
+interface Star {
   dir: Vec3
   /** 0..1 Helligkeit, quadratisch gewichtet */
   mag: number
@@ -130,8 +130,8 @@ interface Stern {
   warm: boolean
 }
 
-function makeStars(n: number): Stern[] {
-  const stars: Stern[] = []
+function makeStars(n: number): Star[] {
+  const stars: Star[] = []
   for (let i = 0; i < n; i++) {
     const z = 0.02 + 0.98 * Math.random() // Höhe über Horizont (nie exakt am Rand)
     const r = Math.sqrt(1 - z * z)
@@ -165,7 +165,7 @@ function makeCloudNoise(seed: number): Float32Array {
   const S = CLOUD_S
   const rnd = mulberry32(seed)
   // Oktaven mit ihrem Gitter gepaart (statt zwei Arrays über denselben Index)
-  const oktaven = [6, 12, 24, 48].map((n) => {
+  const octaves = [6, 12, 24, 48].map((n) => {
     const g = new Float32Array(n * n)
     for (let i = 0; i < g.length; i++) g[i] = rnd()
     return { n, g }
@@ -176,7 +176,7 @@ function makeCloudNoise(seed: number): Float32Array {
       let v = 0
       let amp = 0.5
       // Die `!` sind Rasterzugriffe mit modulo-geklemmten Indizes (wie in demclean.ts)
-      for (const { n, g } of oktaven) {
+      for (const { n, g } of octaves) {
         const fx = (x / S) * n
         const fy = (y / S) * n
         const x0 = Math.floor(fx)
@@ -215,7 +215,7 @@ function cloudTileFrom(field: Float32Array, lo: number, hi: number): HTMLCanvasE
   const cv = document.createElement('canvas')
   cv.width = S
   cv.height = S
-  const c = kontext2d(cv, 'Wolken-Kachel')
+  const c = context2d(cv, 'Wolken-Kachel')
   const img = c.createImageData(S, S)
   for (let i = 0; i < S * S; i++) {
     const a = smoothstep(lo, hi, field[i]!) // Feld ist exakt S×S groß
@@ -244,7 +244,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   canvas.id = 'atmosphere'
   canvas.setAttribute('aria-hidden', 'true')
   container.appendChild(canvas)
-  const ctx = kontext2d(canvas, 'Overlay')
+  const ctx = context2d(canvas, 'Overlay')
 
   let sun: SunPosition | null = null // { altitude, azimuth } in Grad
   // Horizont-/Himmel-/Fog-Farbe (RGB), von daynight
@@ -266,13 +266,13 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   const stars = makeStars(3000)
   let twinkle = 0
   let lastT = performance.now() // für echtes dt (tour.onPose liefert keins)
-  let taktS: number | null = null // Video-Export: feste Frame-Zeit statt Wanduhr
+  let tickS: number | null = null // Video-Export: feste Frame-Zeit statt Wanduhr
   // Zeitbasis der Gelände-Sondierung. Im Export ist das FILMzeit und nicht die
   // Wanduhr: Zwischen zwei Filmbildern liegen dort 0,3–2 s echte Zeit, die
   // 120-ms-Drossel wäre also in jedem Bild fällig — und genau die hält die
   // DEM-Abfragen bei ~10 statt ~190 je Bild. Ohne diese Zeile kostet der
   // inkrementelle Fächer im Film das Vielfache und bringt nichts.
-  let probeUhr = 0
+  let probeClock = 0
   let getCam: (() => CameraView) | null = null // die ECHTE (geclampte) Render-Kamera aus MapLibre
   // Wetter-Himmel: cover = Wolkendeckung, dark = Wolken-Schwere, fog = Nebel.
   // wx ist das Ziel (vom Umschalter), wxCur zieht weich nach → Umschalten blendet.
@@ -301,8 +301,8 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   const FAN_OFF = [-31, -20, -10, 0, 10, 20, 31]
   const horFan = FAN_OFF.map(() => 1)
   let horFanTgt = FAN_OFF.map(() => 1)
-  let fanBereit = false // erster Durchlauf misst den ganzen Fächer, danach reihum
-  let fanNaechster = 0
+  let fanReady = false // erster Durchlauf misst den ganzen Fächer, danach reihum
+  let fanNext = 0
   let hazeCv: HTMLCanvasElement | null = null,
     hazeCtx: CanvasRenderingContext2D | null = null // Offscreen für die horizontale Maskierung (lazy)
   let occRise = 0,
@@ -338,22 +338,22 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
 
   // Die beiden Offscreens entstehen lazy und werden von resize() verworfen (null),
   // damit sie beim nächsten Zugriff in der neuen Größe neu anfallen.
-  const hazeKontext = (): CanvasRenderingContext2D => {
+  const hazeContext = (): CanvasRenderingContext2D => {
     if (!hazeCv || !hazeCtx) {
       hazeCv = document.createElement('canvas')
       hazeCv.width = w
       hazeCv.height = h
-      hazeCtx = kontext2d(hazeCv, 'Dunst-Maske')
+      hazeCtx = context2d(hazeCv, 'Dunst-Maske')
     }
     return hazeCtx
   }
-  const cloudKontext = (): CanvasRenderingContext2D => {
+  const cloudContext = (): CanvasRenderingContext2D => {
     if (!cloudCv || !cloudCtx) {
       cloudCv = document.createElement('canvas')
       cloudCv.width = w
       cloudCv.height = h
       // Die Sonnen-Abtastung (drawClouds) liest jedes Frame ein paar Pixel zurück
-      cloudCtx = kontext2d(cloudCv, 'Wolken-Offscreen', { willReadFrequently: true })
+      cloudCtx = context2d(cloudCv, 'Wolken-Offscreen', { willReadFrequently: true })
     }
     return cloudCtx
   }
@@ -362,7 +362,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
    * Kamera-Orthonormalbasis plus die beiden Horizontlinien: `horizonNdcY` ist der
    * astronomische Horizont, `horizonRenderNdcY` die GERENDERTE Boden-Himmel-Kante.
    */
-  interface Basis {
+  interface Frame {
     fwd: Vec3
     right: Vec3
     up: Vec3
@@ -377,7 +377,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // gekapptem Pitch ALLES (Sonne + Verdeckungslinie) um die Clamp-Differenz zu tief
   // gegenüber der gerenderten Szene — die Sonne „versinkt in der Textur unterhalb
   // des Horizonts". Fallback ohne Kamera-Zugriff: Pose-Richtung wie bisher.
-  function basisFrom(pose: CameraPose): Basis | null {
+  function frameFrom(pose: CameraPose): Frame | null {
     const cam = getCam?.()
     let fwd: Vec3 | null
     if (cam) {
@@ -386,7 +386,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
       fwd = [Math.sin(be) * Math.sin(pi), Math.cos(be) * Math.sin(pi), -Math.cos(pi)]
     } else {
       fwd = norm(
-        enuOffset([pose.cg[0], pose.cg[1], pose.alt], [pose.lt[0], pose.lt[1], pose.ltAlt]),
+        enuOffset([pose.cg[0], pose.cg[1], pose.altitude], [pose.lt[0], pose.lt[1], pose.ltAlt]),
       )
     }
     if (!fwd) return null
@@ -410,14 +410,14 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
       const tCap = Math.tan((89.25 - cam.pitch) * DEG)
       horizonRenderNdcY = Math.min(t90, tCap) / tanY
     } else {
-      const dip = (pose.alt || 0) > 1 ? Math.sqrt((2 * pose.alt) / 6371000) : 0
+      const dip = (pose.altitude || 0) > 1 ? Math.sqrt((2 * pose.altitude) / 6371000) : 0
       horizonRenderNdcY = horizonNdcY - dip / tanY
     }
     return { fwd, right, up, tanY, horizonNdcY, horizonRenderNdcY }
   }
 
   /** Bildschirmpunkt einer Weltrichtung: NDC plus CSS-Pixel. */
-  interface Bildpunkt {
+  interface ScreenPoint {
     ndcX: number
     ndcY: number
     sx: number
@@ -425,7 +425,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   }
 
   // Weltrichtung → Bildschirm. Gibt null zurück, wenn hinter der Kamera.
-  function project(dir: Vec3, b: Basis): Bildpunkt | null {
+  function project(dir: Vec3, b: Frame): ScreenPoint | null {
     const z = dot(dir, b.fwd)
     if (z <= 0.02) return null
     const ndcX = dot(dir, b.right) / z / (b.tanY * aspect)
@@ -443,7 +443,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // Horizont → Band bleibt; die Luftperspektive auf dem Gelände selbst kommt dort
   // von MapLibres Terrain-Fog (daynight.ts), der echte Distanzen kennt.
   /** Höchster Silhouetten-Punkt eines Sonden-Strahls: Bildhöhe (ndc) und Distanz. */
-  interface Sondenwert {
+  interface ProbeValue {
     ndcY: number
     dist: number
   }
@@ -451,12 +451,12 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // Ein DEM-Strahl: höchster abgetasteter Silhouetten-Punkt entlang eines Azimuts,
   // als ndcY + Distanz (null, wenn nichts abtastbar). Genutzt für den Blick-Bearing
   // (Dunst-Band) UND den Sonnen-Azimut (Scheiben-Verdeckung).
-  function probeRay(pose: CameraPose, b: Basis, be: number): Sondenwert | null {
+  function probeRay(pose: CameraPose, b: Frame, be: number): ProbeValue | null {
     if (!terrainQ || !pose.cg) return null
     const la0 = pose.cg[1] * DEG
     const ln0 = pose.cg[0] * DEG
-    const abfrage = terrainQ
-    const sample = (d: number): Sondenwert | null => {
+    const query = terrainQ
+    const sample = (d: number): ProbeValue | null => {
       const ang = d / 6371000
       const sinLa2 = Math.sin(la0) * Math.cos(ang) + Math.cos(la0) * Math.sin(ang) * Math.cos(be)
       const la2 = Math.asin(sinLa2)
@@ -466,9 +466,9 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
           Math.sin(be) * Math.sin(ang) * Math.cos(la0),
           Math.cos(ang) - Math.sin(la0) * sinLa2,
         )
-      const ele = abfrage(ln2 / DEG, la2 / DEG)
+      const ele = query(ln2 / DEG, la2 / DEG)
       if (ele == null || !Number.isFinite(ele)) return null // Kachel nicht geladen/Wasser-Fallback
-      const dir = norm([Math.sin(be) * d, Math.cos(be) * d, ele - (pose.alt || 0)])
+      const dir = norm([Math.sin(be) * d, Math.cos(be) * d, ele - (pose.altitude || 0)])
       const z = dir ? dot(dir, b.fwd) : 0
       if (!dir || z <= 0.02) return null
       return { ndcY: dot(dir, b.up) / z / b.tanY, dist: d }
@@ -480,7 +480,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     // Der Silhouetten-Winkel ist ein MAX über den Strahl — Unterabtastung kann ihn
     // nur UNTERSCHÄTZEN. queryTerrainElevation ist ein billiger Raster-Lookup,
     // (20+4) Stützstellen × 8 Strahlen alle 120 ms sind vernachlässigbar.
-    let best: Sondenwert | null = null
+    let best: ProbeValue | null = null
     for (const d of PROBE_DISTS) {
       const s = sample(d)
       if (s && (!best || s.ndcY > best.ndcY)) best = s
@@ -504,11 +504,11 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // erst OBERHALB von max(Mercator-Linie, Fluchtpunkt) als echte Silhouette; ohne
   // den Floor hob die Sonde die Sonnen-Verdeckungslinie im flachen Stockholm um
   // 0.04–0.2 ndc an und die Scheibe „versank" weit über dem Wasser.
-  const silhouetteFloor = (b: Basis) => Math.max(b.horizonRenderNdcY, b.horizonNdcY)
+  const silhouetteFloor = (b: Frame) => Math.max(b.horizonRenderNdcY, b.horizonNdcY)
 
   // Ein einzelner Fächer-Strahl. Die weiche Glättung (0,55 s) + die horizontale
   // Interpolation in drawHaze machen Kamera-Schwenks graduell statt sprunghaft.
-  function fanWert(pose: CameraPose, b: Basis, off: number): number {
+  function fanValue(pose: CameraPose, b: Frame, off: number): number {
     const cam = getCam?.()
     if (!cam) return 1
     const rp = probeRay(pose, b, (cam.bearing + off) * DEG)
@@ -523,10 +523,10 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     return 1 - rise * near
   }
 
-  function probeFan(pose: CameraPose, b: Basis): number[] {
+  function probeFan(pose: CameraPose, b: Frame): number[] {
     const cam = getCam?.()
     if (!cam) return FAN_OFF.map(() => 1)
-    return FAN_OFF.map((off) => fanWert(pose, b, off))
+    return FAN_OFF.map((off) => fanValue(pose, b, off))
   }
 
   // — Ebene 1: Horizont-Dunst (Luftperspektive) —
@@ -538,7 +538,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // die zackigen Kachelränder), zum Vordergrund fällt er natürlich ab. Über der
   // Linie ein schmaler heller Saum — der echte Himmel ist am Horizont am hellsten —
   // sodass Boden- und Himmelsseite in derselben Farbe/Dichte zusammenlaufen.
-  function drawHaze(b: Basis) {
+  function drawHaze(b: Frame) {
     const hy = (0.5 - b.horizonRenderNdcY * 0.5) * h
     // KEIN binärer Sichtbarkeits-Cut: der frühere `if (hy < -0.5h) return` lag exakt
     // im Pitch-Bereich des Intros (~52,6°) — die ganze Ebene schaltete beim Kippen
@@ -608,7 +608,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     let tc = ctx
     let fUni = fanMin
     if (!uniform) {
-      const hz = hazeKontext()
+      const hz = hazeContext()
       hz.globalCompositeOperation = 'source-over'
       hz.clearRect(0, 0, w, h)
       tc = hz
@@ -683,7 +683,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     if (!uniform) {
       // Horizontale Fächer-Maske: Stützstellen an den Sonden-Azimuten, auf
       // Bildschirm-x projiziert (tan(offset) im Kamera-Maßstab); Ränder clampen
-      const hz = hazeKontext()
+      const hz = hazeContext()
       hz.globalCompositeOperation = 'destination-in'
       const gm = hz.createLinearGradient(0, 0, w, 0)
       gm.addColorStop(0, `rgba(0,0,0,${fanAt(0).toFixed(3)})`)
@@ -702,7 +702,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // — Ebene 2: Sterne —
   // Welt-verankert (Projektion aus derselben Basis) ⇒ bewegen sich korrekt mit dem
   // Blick, kleben nicht am Screen. Erscheinen erst in tiefer Dämmerung.
-  function drawStars(b: Basis) {
+  function drawStars(b: Frame) {
     // Dichte Bewölkung/Nebel verdecken die Sterne; einzelne lockere Wolken kaum
     const nightFactor =
       (sun ? smoothstep(-6, -14, sun.altitude) : 0) *
@@ -744,11 +744,11 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // Stunde warm, nachts tiefblau. Erst dadurch wird der Tageszeit-Wechsel auf dem sonst
   // nur über Helligkeit/Sättigung gegradeten Boden als echte Lichtfarbe sichtbar.
   // Tagsüber praktisch 0 (kein Filterlook).
-  function drawGrade(b: Basis) {
+  function drawGrade(b: Frame) {
     if (!sun) return
-    const alt = sun.altitude
-    const warm = smoothstep(12, -1, alt) * (1 - smoothstep(-3, -12, alt)) // Golden/Blaue Stunde
-    const night = smoothstep(-3, -13, alt)
+    const altitude = sun.altitude
+    const warm = smoothstep(12, -1, altitude) * (1 - smoothstep(-3, -12, altitude)) // Golden/Blaue Stunde
+    const night = smoothstep(-3, -13, altitude)
     const a = 0.15 * warm + 0.2 * night
     if (a < 0.012) return
     const [hr, hg, hbl] = sky.hor
@@ -797,24 +797,24 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     }
     return g
   }
-  function drawSun(b: Basis) {
+  function drawSun(b: Frame) {
     if (!sun || sun.altitude < -10) return
-    const alt = sun.altitude
-    const p = project(sunDirENU(alt, sun.azimuth), b)
+    const altitude = sun.altitude
+    const p = project(sunDirENU(altitude, sun.azimuth), b)
     if (!p) return // hinter der Kamera
     // Vertikal am gerenderten Horizont verankern (Kopfkommentar Punkt 3): Höhe über
     // der Kante = tan(Sonnenhöhe) im selben Maßstab wie die Kamera-Projektion
-    const ndcY = b.horizonRenderNdcY + Math.tan(alt * DEG) / b.tanY
+    const ndcY = b.horizonRenderNdcY + Math.tan(altitude * DEG) / b.tanY
     const sx = p.sx
     const sy = (0.5 - ndcY * 0.5) * h
     const edge = Math.max(Math.abs(p.ndcX), Math.abs(ndcY))
     if (edge > MAX_EDGE) return
 
-    const col = sunColor(alt)
+    const col = sunColor(altitude)
     const D = Math.min(w, h)
     const pxPerRad = h / 2 / b.tanY
-    const lowSun = 1 - clamp01((alt - 1) / 18) // 1 am/unter Horizont → 0 hoch oben
-    const nearSet = smoothstep(6, 0.5, alt) // erst kurz vor dem Untergang (Säule, Streak, Abflachung)
+    const lowSun = 1 - clamp01((altitude - 1) / 18) // 1 am/unter Horizont → 0 hoch oben
+    const nearSet = smoothstep(6, 0.5, altitude) // erst kurz vor dem Untergang (Säule, Streak, Abflachung)
     const outFade = 1 - smoothstep(1.9, MAX_EDGE, edge) // weit außerhalb des Bildes sanft ausblenden
 
     // Verdeckungslinie = die GERENDERTE Boden-Himmel-Kante (aus basisFrom), PLUS der
@@ -842,8 +842,8 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     const wxDim = (1 - 0.6 * sunOcc) * (1 - wxCur.fog * 0.85)
     const direct = (1 - smoothstep(0.12, 0.7, sunOcc)) * (1 - smoothstep(0.15, 0.7, wxCur.fog))
     const glow =
-      smoothstep(5, -0.5, alt) *
-      (1 - smoothstep(-3, -11, alt)) *
+      smoothstep(5, -0.5, altitude) *
+      (1 - smoothstep(-3, -11, altitude)) *
       (1 - 0.9 * smoothstep(0.35, 0.9, sunOcc)) *
       (1 - wxCur.fog * 0.7) // Glut/Afterglow ums Untergehen (sitzt auf der Silhouette)
     // Auf der Bergflanke UNTER dem Grat gibt es kein Wasser: Reflexion dort ausblenden
@@ -954,7 +954,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
         discVis *
         outFade *
         (1 - wxCur.dark * 0.6) *
-        smoothstep(-4, 1, alt) *
+        smoothstep(-4, 1, altitude) *
         (1 - smoothstep(0.9, 1, wxCur.cover))
       if (diffuse > 0.02) {
         const dr = discR * (9 + 7 * (1 - direct))
@@ -1030,7 +1030,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // dem Horizont; kippt die Kamera, kommt einfach MEHR Band ins Bild.
   // Farbe folgt der Tag/Nacht-Regie; zur Golden Hour glühen die Wolken um die Sonne
   // warm an (source-atop-Pass). Deckung/Schwere kommen vom Wetter-Umschalter.
-  function drawClouds(b: Basis, dt: number) {
+  function drawClouds(b: Frame, dt: number) {
     cloudT += dt
     const cover = wxCur.cover
     if (cover < 0.02) {
@@ -1051,7 +1051,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
         return CLOUD_TIERS.map(([lo, hi]) => cloudTileFrom(f, lo, hi))
       })
     }
-    const cc = cloudKontext()
+    const cc = cloudContext()
     // Feste Winkelhöhe: tan(35°)·pxPerRad — unabhängig von der Himmelshöhe im Bild
     const pxPerRad = h / 2 / b.tanY
     const bandH = Math.ceil(pxPerRad * Math.tan(35 * DEG))
@@ -1118,9 +1118,9 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     cc.fillRect(0, fy0, w, fH)
     // Einfärbung: Tag hellgrau, Golden Hour warm (Horizontfarbe), Nacht dunkles Blaugrau;
     // „dark" (Regen/Gewitter) senkt die Luminanz zusätzlich.
-    const alt = sun ? sun.altitude : 20
-    const dayF = smoothstep(-9, 5, alt)
-    const warm = smoothstep(10, -1, alt) * (1 - smoothstep(-3, -10, alt))
+    const altitude = sun ? sun.altitude : 20
+    const dayF = smoothstep(-9, 5, altitude)
+    const warm = smoothstep(10, -1, altitude) * (1 - smoothstep(-3, -10, altitude))
     const dk = wxCur.dark
     const lum = (0.3 + 0.7 * dayF) * (1 - 0.52 * dk)
     const [hr, hg, hb] = sky.hor
@@ -1134,7 +1134,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     // Sonne in der Decke: Wolken leuchten um die Sonnenposition auf (nur auf
     // vorhandene Wolkenpixel). Tagsüber neutral-hell (die Decke ist dort dünner/
     // durchleuchtet), zur Golden Hour zusätzlich warm gefärbt.
-    if (sun && alt > -4) {
+    if (sun && altitude > -4) {
       const ps = project(sunDirENU(sun.altitude, sun.azimuth), b)
       if (ps) {
         const D = Math.min(w, h)
@@ -1153,7 +1153,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
           cc.fillRect(0, fy0, w, fH)
         }
         if (warm > 0.03) {
-          const col = sunColor(alt)
+          const col = sunColor(altitude)
           const wA = warm * (1 - dk * 0.4) * (1 - 0.7 * thick)
           const g = cc.createRadialGradient(ps.sx, ps.sy, 0, ps.sx, ps.sy, D * 0.85)
           g.addColorStop(0, `rgba(${col},${0.5 * wA})`)
@@ -1204,12 +1204,12 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // — Ebene 5: Nebel —
   // Milchiger Schleier über der ganzen Szene, am dichtesten an der Horizontlinie
   // (dort frisst er die Ferne), nach oben und unten dünner. Farbe folgt der Tageszeit.
-  function drawFog(b: Basis) {
+  function drawFog(b: Frame) {
     const f = wxCur.fog
     if (f < 0.02) return
     const hy = clamp((0.5 - b.horizonRenderNdcY * 0.5) * h, -h * 0.5, h * 1.5)
-    const alt = sun ? sun.altitude : 20
-    const dayF = 0.32 + 0.68 * smoothstep(-9, 5, alt)
+    const altitude = sun ? sun.altitude : 20
+    const dayF = 0.32 + 0.68 * smoothstep(-9, 5, altitude)
     const [hr, hg, hb] = sky.hor
     const r = Math.round((225 * 0.72 + hr * 0.28) * dayF)
     const g = Math.round((228 * 0.72 + hg * 0.28) * dayF)
@@ -1229,7 +1229,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
     },
     // Debug-Einblick (window.__maptale-Konvention): innere Zustände + aktuelle Projektion
     _dbg: () => {
-      const b = lastPose ? basisFrom(lastPose) : null
+      const b = lastPose ? frameFrom(lastPose) : null
       const p = b && sun ? project(sunDirENU(sun.altitude, sun.azimuth), b) : null
       return {
         sun,
@@ -1287,16 +1287,16 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
       if (!(w > 0 && h > 0)) return // vor dem ersten Layout / im Hintergrund-Tab: nichts zu zeichnen
       lastPose = pose
       lastRenderAt = performance.now()
-      camAlt = pose.alt || 0
-      const b = basisFrom(pose)
+      camAlt = pose.altitude || 0
+      const b = frameFrom(pose)
       if (!b) return clear()
       const now = performance.now()
-      let dt = taktS ?? (now - lastT) / 1000
+      let dt = tickS ?? (now - lastT) / 1000
       lastT = now
       // Großzügige Obergrenze: der Idle-Tick darf gedrosselt laufen (0,2–1 s sind
       // legitime Frame-Abstände in Pause/Hintergrund); die exponentielle Glättung
       // bleibt bei großem dt stabil. Nur echte Ausreißer (Tab-Rückkehr) kappen.
-      if (!(dt > 0) || (taktS === null && dt > 1.5)) dt = 0.016
+      if (!(dt > 0) || (tickS === null && dt > 1.5)) dt = 0.016
       twinkle += dt * 2.5
       // Wetter-Himmel weich ans Ziel blenden (Umschalten ohne harten Schnitt)
       const kw = 1 - Math.exp(-dt / 1.2)
@@ -1306,9 +1306,9 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
       // Horizont-Sichtbarkeit (gedrosselt — 2×6 DEM-Lookups) weich nachziehen:
       // einmal am Blick-Bearing (Dunst-Band), einmal am Sonnen-Azimut (die Scheibe
       // versinkt an der GELÄNDE-Silhouette, nicht an der flachen Mercator-Linie)
-      probeUhr = taktS !== null ? probeUhr + dt * 1000 : now
-      if (probeUhr - lastProbe > PROBE_MS) {
-        lastProbe = probeUhr
+      probeClock = tickS !== null ? probeClock + dt * 1000 : now
+      if (probeClock - lastProbe > PROBE_MS) {
+        lastProbe = probeClock
         // INKREMENTELLER FÄCHER. Der volle Fächer kostet 7 Strahlen × 24 Stütz-
         // stellen = 168 DEM-Abfragen, mit dem Sonnenstrahl ~190 je Durchlauf.
         // queryTerrainElevation ist zwar ein reiner CPU-Lookup in die dekodierten
@@ -1320,12 +1320,12 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
         // 10 kosten noch ~1,7 fps). Vertretbar ist das, weil die Werte ohnehin über
         // 0,55 s geglättet werden und Dunst ein weicher Verlauf ist, keine harte
         // Kante. Der erste Durchlauf misst den ganzen Fächer, damit der Start stimmt.
-        if (fanBereit) {
-          const i = fanNaechster++ % FAN_OFF.length
-          horFanTgt[i] = fanWert(pose, b, FAN_OFF[i] ?? 0)
+        if (fanReady) {
+          const i = fanNext++ % FAN_OFF.length
+          horFanTgt[i] = fanValue(pose, b, FAN_OFF[i] ?? 0)
         } else {
           horFanTgt = probeFan(pose, b)
-          fanBereit = true
+          fanReady = true
         }
         horVisTgt = horFanTgt.reduce((s, v) => s + v, 0) / horFanTgt.length
         occRiseTgt = 0
@@ -1352,13 +1352,13 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
       drawClouds(b, (animGate ? !!animGate() : true) ? dt : 0) // Wolken VOR der Sonne (sie verdecken die Scheibe)
       drawFog(b) // Nebel liegt vor allem
     },
-    setzeTakt(dt) {
-      taktS = dt != null && dt > 0 ? dt : null
+    setTick(dt) {
+      tickS = dt != null && dt > 0 ? dt : null
       // Zeitbasis wechselt — die alte Marke ist in der neuen Basis sinnlos.
       // Ohne das Zurücksetzen stünde `lastProbe` auf einem Wanduhr-Zeitstempel,
       // während `probeUhr` bei null anfängt: die Differenz bliebe für immer
       // negativ und das Gelände würde nie wieder sondiert.
-      probeUhr = 0
+      probeClock = 0
       lastProbe = -PROBE_MS
     },
   }
@@ -1370,7 +1370,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphere {
   // setInterval statt rAF: rAF wird ohne Paint-Arbeit (Pause, headless) auf 1 fps
   // gedrosselt; der lastRenderAt-Guard verhindert Doppel-Rendern bei Wiedergabe.
   setInterval(() => {
-    if (!lastPose || taktS !== null) return
+    if (!lastPose || tickS !== null) return
     if (performance.now() - lastRenderAt < 70) return
     api.render(lastPose)
   }, 70)

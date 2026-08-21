@@ -10,14 +10,14 @@ export interface BackgroundMusic {
   setGate(fn: () => boolean): void
   setEnabled(on: boolean): void
   /** Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel. */
-  setDucking(pegel: DuckVolumes): void
+  setDucking(volume2: DuckVolumes): void
   /**
    * Schneller ausklingen als an einer gewöhnlichen Gate-Kante (~0,9 s statt
    * 2,5 s) — der Weg zum Endscreen und zurück zum Startscreen. Die Tour-Musik
    * kennt dasselbe Wort (audiotracks.ts), damit beide Quellen zusammen enden
    * und nicht die eine noch unter dem stehenden Startscreen weiterläuft.
    */
-  verklinge(): void
+  fadeOut(): void
   readonly enabled: boolean
   /** Debug/Abnahme */
   readonly playing: boolean
@@ -36,15 +36,15 @@ export function createMusic(
   let master = 0
   let duckTgt = 1
   let duck = 1
-  let verklingt = false
+  let fadingOut = false
 
   // Träge Blende + Play/Pause nach Ziel (aktiviert && Gate). Eigener Timer, damit die
   // Musik unabhängig von der Wetter-/Kamera-Schleife läuft.
   const timer = setInterval(() => {
     const want = enabled && gate()
-    if (want) verklingt = false
+    if (want) fadingOut = false
     const tgt = want ? volume : 0
-    master += (tgt - master) * (verklingt ? FADE_OUT_S : 0.06) // 2,5 s, beim Verklingen 0,9 s
+    master += (tgt - master) * (fadingOut ? FADE_OUT_S : 0.06) // 2,5 s, beim Verklingen 0,9 s
     duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s)
     if (want && loop.paused && !loop._blocked) loop.play().catch(() => {})
     loop.volume = master * duck
@@ -68,11 +68,11 @@ export function createMusic(
       enabled = on
     },
     // Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel.
-    setDucking: (pegel: DuckVolumes) => {
-      duckTgt = musicDuck(asEnvelope(pegel))
+    setDucking: (volume2: DuckVolumes) => {
+      duckTgt = musicDuck(asEnvelope(volume2))
     },
-    verklinge: () => {
-      verklingt = true
+    fadeOut: () => {
+      fadingOut = true
     },
     get enabled() {
       return enabled
