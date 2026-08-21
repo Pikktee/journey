@@ -85,7 +85,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** Was auf einer Karte über dem Bild liegt, wenn etwas zu melden ist. */
-private data class Meldung(val symbol: ImageVector, val farbe: Color, val text: String)
+private data class Notice(val icon: ImageVector, val color: Color, val text: String)
 
 @Composable
 fun ToursScreen(
@@ -94,34 +94,34 @@ fun ToursScreen(
     zurTour: (tourId: String) -> Unit,
     zurServerTour: (serverId: String) -> Unit,
 ) {
-    val lokale by viewModel.localTours.collectAsState(initial = emptyList())
-    val vomServer by viewModel.serverTours.collectAsState()
-    val laufend by RecordingState.current.collectAsState()
+    val localTours by viewModel.localTours.collectAsState(initial = emptyList())
+    val serverTours by viewModel.serverTours.collectAsState()
+    val running by RecordingState.current.collectAsState()
     val app = LocalContext.current.applicationContext as MaptaleApp
 
     // Bei JEDEM Betreten neu laden, nicht nur beim ersten Aufbau: Kehrt man aus
     // der Detailansicht zurück, bleibt dieser Screen in der Komposition — ein
     // LaunchedEffect(Unit) liefe dann nicht noch einmal, und ein dort geänderter
     // Titel stünde weiter in seiner alten Fassung in der Liste.
-    val lebenszyklus = LocalLifecycleOwner.current.lifecycle
-    DisposableEffect(lebenszyklus) {
-        val beobachter = LifecycleEventObserver { _, ereignis ->
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, ereignis ->
             if (ereignis == Lifecycle.Event.ON_RESUME) viewModel.refresh()
         }
-        lebenszyklus.addObserver(beobachter)
-        onDispose { lebenszyklus.removeObserver(beobachter) }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
     }
     // Nach dem Ende einer Aufnahme läuft der Upload automatisch — die
     // Server-Liste holt die Tour dann von selbst nach.
-    LaunchedEffect(laufend?.tourId) { if (laufend == null) viewModel.refresh() }
+    LaunchedEffect(running?.tourId) { if (running == null) viewModel.refresh() }
 
-    val eintraege = remember(lokale, vomServer) { mergeTours(lokale, vomServer) }
+    val entries = remember(localTours, serverTours) { mergeTours(localTours, serverTours) }
     // Teilen direkt aus der Liste: Touren aus dem Studio haben keinen lokalen
     // Entwurf und wären ohne diesen Weg in der App gar nicht teilbar.
-    var teilen by remember { mutableStateOf<ServerTour?>(null) }
+    var shareLink by remember { mutableStateOf<ServerTour?>(null) }
 
     Box(Modifier.fillMaxSize()) {
-        if (eintraege.isEmpty()) {
+        if (entries.isEmpty()) {
             Column(Modifier.fillMaxSize()) {
                 Kopfabstand()
                 // weight, nicht fillMaxSize: Letzteres nähme die volle Höhe der
@@ -139,34 +139,34 @@ fun ToursScreen(
             ) {
                 item(key = "kopf") { Kopfabstand() }
 
-                items(eintraege, key = { it.key }) { eintrag ->
-                    when (eintrag) {
-                        is TourEntry.Local -> LokaleKarte(
-                            tour = eintrag.tour,
+                items(entries, key = { it.key }) { entry ->
+                    when (entry) {
+                        is TourEntry.Local -> LocalCard(
+                            tour = entry.tour,
                             // Das ÄLTESTE Foto (der Fluss läuft neueste zuerst) —
                             // dieselbe Wahl, die der Server beim Rendern trifft, damit
                             // die Karte nach dem Upload nicht das Bild wechselt.
-                            titelbild = remember(eintrag.tour.id) { app.repository.mediaFlow(eintrag.tour.id) }
+                            titelbild = remember(entry.tour.id) { app.repository.mediaFlow(entry.tour.id) }
                                 .collectAsState(initial = emptyList()).value
                                 .lastOrNull()
                                 ?.let { app.repository.mediumFile(it) },
-                            beiKlick = {
-                                if (eintrag.tour.status == TourStatus.RECORDING) zurAufzeichnung()
-                                else zurTour(eintrag.tour.id)
+                            onClick = {
+                                if (entry.tour.status == TourStatus.RECORDING) zurAufzeichnung()
+                                else zurTour(entry.tour.id)
                             },
                         )
-                        is TourEntry.Server -> ServerKarte(
-                            tour = eintrag.tour,
+                        is TourEntry.Server -> ServerCard(
+                            tour = entry.tour,
                             // Kachel-Fassung, wo es sie gibt: Die Karte ist eine
                             // Bildschirmbreite groß, das Titelfoto in Anzeigegröße
                             // wäre ein Vielfaches davon — über Mobilfunk je Zeile.
-                            bildUrl = (eintrag.tour.coverThumb ?: eintrag.tour.cover)
+                            imageUrl = (entry.tour.coverThumb ?: entry.tour.cover)
                                 ?.let { app.serverUrl() + it },
                             // Tippen öffnet die Reise, nicht den Player: Fotos,
                             // Umbenennen und Löschen gäbe es sonst nirgends, und
                             // der Abspielen-Knopf steht dort groß im Titelbild.
-                            beiKlick = { zurServerTour(eintrag.tour.id) },
-                            beiLangemDruck = { teilen = eintrag.tour },
+                            onClick = { zurServerTour(entry.tour.id) },
+                            beiLangemDruck = { shareLink = entry.tour },
                         )
                     }
                 }
@@ -174,12 +174,12 @@ fun ToursScreen(
         }
     }
 
-    teilen?.let { tour ->
+    shareLink?.let { tour ->
         ShareSheet(
             serverTourId = tour.id,
             title = tour.title,
             aktuelleSichtbarkeit = Visibility.fromKey(tour.visibility),
-            schliessen = { teilen = null },
+            schliessen = { shareLink = null },
             setVisibility = { viewModel.setVisibility(tour.id, it) },
         )
     }
@@ -228,43 +228,43 @@ private fun LeereListe(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun LokaleKarte(tour: TourEntity, titelbild: java.io.File?, beiKlick: () -> Unit) {
+private fun LocalCard(tour: TourEntity, titelbild: java.io.File?, onClick: () -> Unit) {
     // Eine lokale Tour ist per Definition noch nicht durch — sie hat immer
     // etwas zu melden.
-    val meldung = when (tour.status) {
-        TourStatus.RECORDING -> Meldung(Icons.Default.FiberManualRecord, Danger, "Aufnahme läuft")
-        TourStatus.UPLOADING -> Meldung(Icons.Default.CloudUpload, Sun, "Wird geladen")
-        TourStatus.FAILED -> Meldung(Icons.Default.ErrorOutline, Danger, tour.error ?: "Fehler")
-        else -> Meldung(Icons.Default.CloudUpload, Ink, "Wartet auf Upload")
+    val message = when (tour.status) {
+        TourStatus.RECORDING -> Notice(Icons.Default.FiberManualRecord, Danger, "Aufnahme läuft")
+        TourStatus.UPLOADING -> Notice(Icons.Default.CloudUpload, Sun, "Wird geladen")
+        TourStatus.FAILED -> Notice(Icons.Default.ErrorOutline, Danger, tour.error ?: "Fehler")
+        else -> Notice(Icons.Default.CloudUpload, Ink, "Wartet auf Upload")
     }
     Bildkarte(
         title = tour.title ?: "Unbenannte Tour",
-        meta = listOfNotNull(km(tour.distanceM / 1000), datum(tour.startMs, tour.zone)),
-        meldung = meldung,
-        bild = titelbild,
-        beiKlick = beiKlick,
+        meta = listOfNotNull(km(tour.distanceM / 1000), date(tour.startMs, tour.zone)),
+        message = message,
+        image = titelbild,
+        onClick = onClick,
     )
 }
 
 @Composable
-private fun ServerKarte(
+private fun ServerCard(
     tour: ServerTour,
-    bildUrl: String?,
-    beiKlick: () -> Unit,
+    imageUrl: String?,
+    onClick: () -> Unit,
     beiLangemDruck: () -> Unit,
 ) {
-    val meldung = when (tour.status) {
+    val message = when (tour.status) {
         // „bereit" ist der Normalfall und deshalb stumm
         "ready" -> null
-        "failed" -> Meldung(Icons.Default.ErrorOutline, Danger, "Fehlgeschlagen")
-        else -> Meldung(Icons.Default.HourglassEmpty, Sun, "Wird verarbeitet")
+        "failed" -> Notice(Icons.Default.ErrorOutline, Danger, "Fehlgeschlagen")
+        else -> Notice(Icons.Default.HourglassEmpty, Sun, "Wird verarbeitet")
     }
     Bildkarte(
         title = tour.title ?: "Unbenannte Tour",
-        meta = listOfNotNull(tour.km?.let { km(it) }, isoDatum(tour.createdAt)),
-        meldung = meldung,
-        bild = bildUrl,
-        beiKlick = beiKlick,
+        meta = listOfNotNull(tour.km?.let { km(it) }, isoDate(tour.createdAt)),
+        message = message,
+        image = imageUrl,
+        onClick = onClick,
         beiLangemDruck = beiLangemDruck,
     )
 }
@@ -279,9 +279,9 @@ private fun ServerKarte(
 private fun Bildkarte(
     title: String,
     meta: List<String>,
-    meldung: Meldung?,
-    bild: Any?,
-    beiKlick: () -> Unit,
+    message: Notice?,
+    image: Any?,
+    onClick: () -> Unit,
     beiLangemDruck: (() -> Unit)? = null,
 ) {
     Box(
@@ -290,15 +290,15 @@ private fun Bildkarte(
             .padding(horizontal = 16.dp)
             .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .combinedClickable(onClick = beiKlick, onLongClick = beiLangemDruck)
+            .combinedClickable(onClick = onClick, onLongClick = beiLangemDruck)
             // Etwas flacher als das 3:2 der Fotos: beschnitten wird ohnehin, und
             // so sind zwei Reisen ganz und die dritte angeschnitten zu sehen —
             // die Liste lädt zum Weiterblättern ein, statt bei einer aufzuhören.
             .aspectRatio(16f / 10f),
     ) {
-        if (bild != null) {
+        if (image != null) {
             AsyncImage(
-                model = bild,
+                model = image,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -327,8 +327,8 @@ private fun Bildkarte(
                 ),
         )
 
-        if (meldung != null) {
-            Zustandsplakette(meldung, Modifier.align(Alignment.TopEnd).padding(14.dp))
+        if (message != null) {
+            Zustandsplakette(message, Modifier.align(Alignment.TopEnd).padding(14.dp))
         }
 
         Column(
@@ -359,7 +359,7 @@ private fun Bildkarte(
 }
 
 @Composable
-private fun Zustandsplakette(meldung: Meldung, modifier: Modifier = Modifier) {
+private fun Zustandsplakette(message: Notice, modifier: Modifier = Modifier) {
     Row(
         modifier
             .background(Color(0xB306090E), CircleShape)
@@ -368,25 +368,25 @@ private fun Zustandsplakette(meldung: Meldung, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(meldung.symbol, contentDescription = null, tint = meldung.farbe, modifier = Modifier.size(13.dp))
+        Icon(message.icon, contentDescription = null, tint = message.color, modifier = Modifier.size(13.dp))
         Text(
-            meldung.text,
+            message.text,
             style = MaterialTheme.typography.labelSmall,
-            color = meldung.farbe,
+            color = message.color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
-private fun km(wert: Double): String = String.format(Locale.GERMAN, "%.1f km", wert)
+private fun km(value: Double): String = String.format(Locale.GERMAN, "%.1f km", value)
 
 private val DATUM = DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.GERMAN)
 
-private fun datum(ms: Long, zone: String): String? = runCatching {
+private fun date(ms: Long, zone: String): String? = runCatching {
     DATUM.withZone(ZoneId.of(zone)).format(Instant.ofEpochMilli(ms))
 }.getOrNull()
 
-private fun isoDatum(iso: String): String? = runCatching {
+private fun isoDate(iso: String): String? = runCatching {
     DATUM.withZone(ZoneId.systemDefault()).format(Instant.parse(iso))
 }.getOrNull()

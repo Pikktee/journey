@@ -12,20 +12,20 @@ class TourNamingTest {
 
     @Test
     fun `Start nach Ziel`() {
-        assertEquals("Wengen → Grindelwald", TourNaming.baueTitel("Wengen", "Grindelwald", runde = false))
+        assertEquals("Wengen → Grindelwald", TourNaming.buildTitle("Wengen", "Grindelwald", runde = false))
     }
 
     @Test
     fun `gleicher Ort wird zur Runde`() {
-        assertEquals("Runde bei Wengen", TourNaming.baueTitel("Wengen", "Wengen", runde = false))
-        assertEquals("Runde bei Wengen", TourNaming.baueTitel("Wengen", "Grindelwald", runde = true))
+        assertEquals("Runde bei Wengen", TourNaming.buildTitle("Wengen", "Wengen", runde = false))
+        assertEquals("Runde bei Wengen", TourNaming.buildTitle("Wengen", "Grindelwald", runde = true))
     }
 
     @Test
     fun `einseitige und fehlende Ortsnamen`() {
-        assertEquals("Wengen", TourNaming.baueTitel("Wengen", null, runde = false))
-        assertEquals("Grindelwald", TourNaming.baueTitel(null, "Grindelwald", runde = false))
-        assertNull(TourNaming.baueTitel(null, null, runde = false))
+        assertEquals("Wengen", TourNaming.buildTitle("Wengen", null, runde = false))
+        assertEquals("Grindelwald", TourNaming.buildTitle(null, "Grindelwald", runde = false))
+        assertNull(TourNaming.buildTitle(null, null, runde = false))
     }
 
     @Test

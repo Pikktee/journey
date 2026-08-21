@@ -41,7 +41,7 @@ class MaptaleApp : Application(), ImageLoaderFactory {
      *  (z. B. seltene DB-Kollision) soll geloggt werden, nicht die App abschießen. */
     val appScope = CoroutineScope(
         SupervisorJob() + Dispatchers.Main.immediate +
-            CoroutineExceptionHandler { _, fehler -> Log.e("Maptale", "Unbehandelt im appScope", fehler) },
+            CoroutineExceptionHandler { _, error -> Log.e("Maptale", "Unbehandelt im appScope", error) },
     )
 
     val db: MaptaleDb by lazy { MaptaleDb.build(this) }
@@ -58,20 +58,20 @@ class MaptaleApp : Application(), ImageLoaderFactory {
      * nur mit Token. Der Header geht ausschließlich an unser eigenes Origin —
      * ein Token an fremde Hosts zu schicken, wäre ein Leck.
      */
-    private val bildLader: ImageLoader by lazy {
+    private val imageLoader: ImageLoader by lazy {
         val serverHost = STANDARD_SERVER.toHttpUrlOrNull()?.host
         ImageLoader.Builder(this)
             .okHttpClient {
                 OkHttpClient.Builder().addInterceptor { kette ->
-                    val anfrage = kette.request()
+                    val request = kette.request()
                     val token = settings.lastAccount.apiToken
-                    val eigenerHost = anfrage.url.host == serverHost ||
-                        anfrage.url.host == settings.lastAccount.serverUrl.toHttpUrlOrNull()?.host
+                    val eigenerHost = request.url.host == serverHost ||
+                        request.url.host == settings.lastAccount.serverUrl.toHttpUrlOrNull()?.host
                     kette.proceed(
                         if (token != null && eigenerHost) {
-                            anfrage.newBuilder().header("Authorization", "Bearer $token").build()
+                            request.newBuilder().header("Authorization", "Bearer $token").build()
                         } else {
-                            anfrage
+                            request
                         },
                     )
                 }.build()
@@ -85,7 +85,7 @@ class MaptaleApp : Application(), ImageLoaderFactory {
             .build()
     }
 
-    override fun newImageLoader(): ImageLoader = bildLader
+    override fun newImageLoader(): ImageLoader = imageLoader
 
     override fun onCreate() {
         super.onCreate()

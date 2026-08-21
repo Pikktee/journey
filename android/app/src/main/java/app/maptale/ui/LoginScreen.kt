@@ -37,8 +37,8 @@ import androidx.compose.ui.unit.dp
 fun LoginScreen(viewModel: SettingsViewModel) {
     val state by viewModel.state.collectAsState()
     var email by rememberSaveable { mutableStateOf("") }
-    var passwort by rememberSaveable { mutableStateOf("") }
-    val laedt = state is SettingsViewModel.State.Loading
+    var password by rememberSaveable { mutableStateOf("") }
+    val loading = state is SettingsViewModel.State.Loading
 
     Column(
         Modifier
@@ -51,7 +51,7 @@ fun LoginScreen(viewModel: SettingsViewModel) {
         verticalArrangement = Arrangement.Center,
     ) {
         Spacer(Modifier.height(32.dp))
-        WordMark(markenGroesse = 32.dp)
+        WordMark(brandSize = 32.dp)
         Spacer(Modifier.height(22.dp))
         Text(
             "Deine Reisen als filmischer Flug über echtes Gelände.",
@@ -67,26 +67,26 @@ fun LoginScreen(viewModel: SettingsViewModel) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !laedt,
+            enabled = !loading,
         )
         Spacer(Modifier.height(12.dp))
         BrandField(
-            value = passwort,
-            onValueChange = { passwort = it },
+            value = password,
+            onValueChange = { password = it },
             label = { Text("Passwort") },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !laedt,
+            enabled = !loading,
         )
         Spacer(Modifier.height(20.dp))
         PrimaryButton(
-            onClick = { viewModel.login(email.trim(), passwort) },
-            enabled = !laedt && email.isNotBlank() && passwort.isNotBlank(),
+            onClick = { viewModel.login(email.trim(), password) },
+            enabled = !loading && email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (laedt) {
+            if (loading) {
                 CircularProgressIndicator(
                     Modifier.size(16.dp).padding(end = 8.dp),
                     strokeWidth = 2.dp,

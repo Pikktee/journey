@@ -54,7 +54,7 @@ class RecordingService : LifecycleService() {
             val id = tourId ?: return
             if (paused) return
             for (ort in ergebnis.locations) {
-                val punkt = RawPoint(
+                val point = RawPoint(
                     lng = ort.longitude,
                     lat = ort.latitude,
                     ele = if (ort.hasAltitude()) ort.altitude else 0.0,
@@ -64,16 +64,16 @@ class RecordingService : LifecycleService() {
                     // Filter das Positionsrauschen einer Rast für Wegstrecke.
                     speedMps = if (ort.hasSpeed()) ort.speed else null,
                 )
-                if (!filter.check(punkt)) continue
+                if (!filter.check(point)) continue
                 synchronized(puffer) {
                     puffer.add(
                         TrackPointEntity(
                             tourId = id,
-                            lng = punkt.lng,
-                            lat = punkt.lat,
-                            ele = punkt.ele,
-                            tOffsetS = punkt.tOffsetS,
-                            accuracyM = punkt.accuracyM,
+                            lng = point.lng,
+                            lat = point.lat,
+                            ele = point.ele,
+                            tOffsetS = point.tOffsetS,
+                            accuracyM = point.accuracyM,
                         ),
                     )
                 }
@@ -81,8 +81,8 @@ class RecordingService : LifecycleService() {
                     it.copy(
                         distanceM = filter.distanceM,
                         pointCount = it.pointCount + 1,
-                        lastPoint = punkt,
-                        track = appendPoint(it.track, TrackPoint(punkt.lng, punkt.lat)),
+                        lastPoint = point,
+                        track = appendPoint(it.track, TrackPoint(point.lng, point.lat)),
                     )
                 }
             }
@@ -100,8 +100,8 @@ class RecordingService : LifecycleService() {
             )
             ACTION_TRAVEL_MODE -> changeTravelMode(TravelMode.fromKey(intent.getStringExtra(EXTRA_TRAVEL_MODE) ?: "walk"))
             ACTION_ACTIVITY -> ActivityRecognizer.activityKindFrom(intent)?.let(::deuteBewegung)
-            ACTION_PAUSE -> setzePause(true)
-            ACTION_RESUME -> setzePause(false)
+            ACTION_PAUSE -> pause(true)
+            ACTION_RESUME -> pause(false)
             ACTION_STOP -> finishRecording()
         }
         return START_STICKY
@@ -138,7 +138,7 @@ class RecordingService : LifecycleService() {
         val travelMode = gewaehlt ?: TravelMode.WALK
         startForeground(
             NOTIFICATION_ID,
-            baueNotification(),
+            buildNotification(),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
         )
         if (automatik) ActivityRecognizer.start(this)
@@ -148,11 +148,11 @@ class RecordingService : LifecycleService() {
             startMs = tour.startMs
             RecordingState.start(tour.id, tour.startMs, travelMode)
 
-            val anfrage = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2_000L)
+            val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2_000L)
                 .setMinUpdateDistanceMeters(0f) // filtern macht der PunktFilter
                 .setMaxUpdateDelayMillis(10_000L) // Batching spart Akku
                 .build()
-            locationClient.requestLocationUpdates(anfrage, callback, Looper.getMainLooper())
+            locationClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
 
             // 30-s-Flush: Puffer in die DB, Distanz für die Liste nachziehen
             while (tourId != null) {
@@ -169,7 +169,7 @@ class RecordingService : LifecycleService() {
         RecordingState.update { it.copy(travelMode = travelMode) }
     }
 
-    private fun setzePause(an: Boolean) {
+    private fun pause(an: Boolean) {
         paused = an
         RecordingState.update { it.copy(paused = an) }
     }
@@ -209,7 +209,7 @@ class RecordingService : LifecycleService() {
         app.repository.savePoints(ziel, batch, filter.distanceM)
     }
 
-    private fun baueNotification(): Notification {
+    private fun buildNotification(): Notification {
         val oeffnen = PendingIntent.getActivity(
             this,
             0,
@@ -263,7 +263,7 @@ class RecordingService : LifecycleService() {
             sende(context, ACTION_TRAVEL_MODE) { putExtra(EXTRA_TRAVEL_MODE, travelMode.key) }
 
         fun pausiere(context: Context) = sende(context, ACTION_PAUSE)
-        fun setzeFort(context: Context) = sende(context, ACTION_RESUME)
+        fun resume(context: Context) = sende(context, ACTION_RESUME)
         fun stop(context: Context) = sende(context, ACTION_STOP)
 
         // Nur der START geht als startForegroundService (verpflichtet binnen 5 s

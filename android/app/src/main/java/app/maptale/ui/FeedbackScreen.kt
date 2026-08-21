@@ -44,35 +44,35 @@ import androidx.compose.ui.viewinterop.AndroidView
 fun FeedbackScreen(
     serverUrl: String,
     /** Tauscht das API-Token gegen eine Sitzung; null = ohne Anmeldung weiter. */
-    sitzungHolen: suspend () -> String?,
-    zurueck: () -> Unit,
+    fetchSession: suspend () -> String?,
+    back: () -> Unit,
 ) {
     // Dieselbe Reihenfolge wie im Player: erst das Sitzungs-Cookie, dann laden.
     // Ohne Sitzung käme die Meldung anonym an — sie zählt trotzdem, aber die
     // Rückfrage wäre nur über eine von Hand getippte Adresse möglich.
-    var bereit by remember { mutableStateOf(false) }
+    var ready by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        val sitzung = sitzungHolen()
-        if (sitzung != null) {
+        val session = fetchSession()
+        if (session != null) {
             CookieManager.getInstance().apply {
                 setAcceptCookie(true)
-                setCookie("$serverUrl/", "maptale_session=$sitzung; Path=/; Secure; SameSite=Lax")
+                setCookie("$serverUrl/", "maptale_session=$session; Path=/; Secure; SameSite=Lax")
                 flush()
             }
         }
-        bereit = true
+        ready = true
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         TopAppBar(
             title = { Text("Rückmeldung geben") },
             navigationIcon = {
-                IconButton(onClick = zurueck) {
+                IconButton(onClick = back) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
                 }
             },
         )
-        if (!bereit) return@Column
+        if (!ready) return@Column
         AndroidView(
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
             factory = { ctx ->

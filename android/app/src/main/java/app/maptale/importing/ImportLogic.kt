@@ -7,7 +7,7 @@ object ImportLogic {
 
     // MIME → (Medientyp, Ablage-Endung). Nur was das Backend zulässt
     // (ENDUNGEN in schema/upload.ts) kommt durch.
-    private val fotoTypen = mapOf(
+    private val photoTypes = mapOf(
         "image/jpeg" to "jpg",
         "image/jpg" to "jpg",
         "image/png" to "png",
@@ -23,7 +23,7 @@ object ImportLogic {
     fun mediaType(mime: String?): String? {
         val m = mime?.lowercase() ?: return null
         return when {
-            m in fotoTypen -> "photo"
+            m in photoTypes -> "photo"
             m in videoTypen -> "video"
             else -> null
         }
@@ -32,7 +32,7 @@ object ImportLogic {
     /** Ablage-Endung zum MIME-Typ (jpg/png/webp/mp4/mov/webm) oder null. */
     fun extension(mime: String?): String? {
         val m = mime?.lowercase() ?: return null
-        return fotoTypen[m] ?: videoTypen[m]
+        return photoTypes[m] ?: videoTypen[m]
     }
 
     /** Tour-eindeutige Medien-ID (m1, m2 …). */

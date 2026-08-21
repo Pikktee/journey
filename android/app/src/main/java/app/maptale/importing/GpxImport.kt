@@ -11,7 +11,7 @@ import java.time.Instant
 object GpxImport {
 
     // <time>2026-07-04T08:12:31Z</time> — der ISO-Zeitstempel je Trackpunkt.
-    private val zeitMuster = Regex("<time>\\s*([^<]+?)\\s*</time>", RegexOption.IGNORE_CASE)
+    private val timePattern = Regex("<time>\\s*([^<]+?)\\s*</time>", RegexOption.IGNORE_CASE)
 
     /**
      * Zeitspanne (erster/letzter Zeitstempel) aus dem GPX. null, wenn der Export
@@ -19,15 +19,15 @@ object GpxImport {
      * nichtlineare Zeit möglich — der Aufrufer meldet das dem Nutzer).
      */
     fun timeSpan(gpx: String): TimeSpan? {
-        val zeiten = zeitMuster.findAll(gpx)
+        val zeiten = timePattern.findAll(gpx)
             .mapNotNull { runCatching { Instant.parse(it.groupValues[1].trim()).toEpochMilli() }.getOrNull() }
             .toList()
         if (zeiten.isEmpty()) return null
         val start = zeiten.min()
-        val ende = zeiten.max()
+        val end = zeiten.max()
         // Gleicher Start/Ende (nur ein Zeitstempel) → 1 s Spanne, damit
         // start < end (Server-Invariante) gewahrt bleibt.
-        return TimeSpan(start, if (ende > start) ende else start + 1000)
+        return TimeSpan(start, if (end > start) end else start + 1000)
     }
 
     /** Enthält das GPX überhaupt Trackpunkte? (Vorabprüfung vor dem Upload.) */

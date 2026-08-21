@@ -24,9 +24,9 @@ const val EDITS_SCHEMA = "maptale/edits@2"
  */
 fun withMediumCaption(overlay: JsonObject, mediumId: String, title: String?): JsonObject {
     val media = overlay["media"]?.jsonObject ?: JsonObject(emptyMap())
-    val eintrag = media[mediumId]?.jsonObject ?: JsonObject(emptyMap())
-    val neuerEintrag = ersetze(eintrag, "caption", JsonPrimitive(title?.trim().orEmpty()))
-    return ersetze(grundgeruest(overlay), "media", ersetze(media, mediumId, neuerEintrag))
+    val entry = media[mediumId]?.jsonObject ?: JsonObject(emptyMap())
+    val newEntry = ersetze(entry, "caption", JsonPrimitive(title?.trim().orEmpty()))
+    return ersetze(grundgeruest(overlay), "media", ersetze(media, mediumId, newEntry))
 }
 
 /** Titelbild der Tour festlegen. */
@@ -42,5 +42,5 @@ private fun grundgeruest(overlay: JsonObject): JsonObject =
     ersetze(overlay, "schema", JsonPrimitive(EDITS_SCHEMA))
 
 /** Einen Schlüssel setzen; alle übrigen bleiben, wie sie sind. */
-private fun ersetze(objekt: JsonObject, key: String, wert: JsonElement): JsonObject =
-    JsonObject(LinkedHashMap(objekt).also { it[key] = wert })
+private fun ersetze(objekt: JsonObject, key: String, value: JsonElement): JsonObject =
+    JsonObject(LinkedHashMap(objekt).also { it[key] = value })

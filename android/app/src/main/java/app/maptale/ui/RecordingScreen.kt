@@ -63,30 +63,30 @@ import java.util.Locale
 @Composable
 fun RecordingScreen(
     zurKamera: () -> Unit,
-    zumFoto: (tourId: String, mediumId: String) -> Unit,
+    toPhoto: (tourId: String, mediumId: String) -> Unit,
     fertig: (tourId: String) -> Unit,
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as MaptaleApp
-    val aufnahme by RecordingState.current.collectAsState()
+    val activeRecording by RecordingState.current.collectAsState()
 
     // Uhr für die Dauer-Anzeige (1-Hz-Tick, unabhängig von GPS-Updates)
-    var jetztMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(aufnahme?.tourId) {
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(activeRecording?.tourId) {
         while (true) {
-            jetztMs = System.currentTimeMillis()
+            nowMs = System.currentTimeMillis()
             delay(1000)
         }
     }
 
     // Kamera-Berechtigung erst am Foto-Knopf — ohne sie bliebe die CameraX-
     // Vorschau einfach schwarz, das wäre für den Nutzer unerklärlich
-    val kameraLauncher = rememberLauncherForActivityResult(
+    val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { erlaubt -> if (erlaubt) zurKamera() }
 
-    val laufend = aufnahme
-    if (laufend == null) {
+    val running = activeRecording
+    if (running == null) {
         // Zwischenzustand: die Aufnahme ist gerade beendet worden und der
         // Bildschirm wird abgeräumt. Gestartet wird ausschließlich über den
         // Knopf in der Hauptleiste.
@@ -109,14 +109,14 @@ fun RecordingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(20.dp))
-        Zustandsmarke(paused = laufend.paused)
+        Zustandsmarke(paused = running.paused)
 
         Spacer(Modifier.height(28.dp))
 
         // — Die Uhr —
-        val dauerS = ((jetztMs - laufend.startMs) / 1000).coerceAtLeast(0)
+        val durationS = ((nowMs - running.startMs) / 1000).coerceAtLeast(0)
         Text(
-            String.format(Locale.GERMAN, "%d:%02d:%02d", dauerS / 3600, dauerS / 60 % 60, dauerS % 60),
+            String.format(Locale.GERMAN, "%d:%02d:%02d", durationS / 3600, durationS / 60 % 60, durationS % 60),
             style = MaterialTheme.typography.displayLarge,
         )
         Spacer(Modifier.height(20.dp))
@@ -124,13 +124,13 @@ fun RecordingScreen(
         // der Empfänger arbeitet — aber sie beantwortet eine Frage, die sich auf
         // einem Spaziergang niemand stellt, und verrät mehr über die Bauweise
         // der App als über die Tour.
-        Wert(String.format(Locale.GERMAN, "%.2f", laufend.distanceM / 1000), "Kilometer")
+        Value(String.format(Locale.GERMAN, "%.2f", running.distanceM / 1000), "Kilometer")
 
         // — Der Weg, während er entsteht —
         // Nimmt den freien Raum zwischen Uhr und Bedienung ein; vorher klaffte
         // hier eine leere Fläche.
         RouteSketch(
-            track = laufend.track,
+            track = running.track,
             modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 12.dp),
         )
 
@@ -138,8 +138,8 @@ fun RecordingScreen(
         // Ohne den Streifen verschwindet jedes Foto nach dem Auslösen spurlos;
         // man weiß bis zum Hochladen nicht, ob es etwas geworden ist. Neueste
         // zuerst, weil das eben Ausgelöste zuerst zählt.
-        val media by remember(laufend.tourId) {
-            app.repository.mediaFlow(laufend.tourId)
+        val media by remember(running.tourId) {
+            app.repository.mediaFlow(running.tourId)
         }.collectAsState(initial = emptyList())
 
         if (media.isNotEmpty()) {
@@ -152,7 +152,7 @@ fun RecordingScreen(
                         Modifier
                             .size(64.dp)
                             .clip(MaterialTheme.shapes.small)
-                            .clickable { zumFoto(laufend.tourId, medium.id) },
+                            .clickable { toPhoto(running.tourId, medium.id) },
                         contentAlignment = Alignment.Center,
                     ) {
                         AsyncImage(
@@ -170,7 +170,7 @@ fun RecordingScreen(
 
         // — Bedienung —
         PrimaryButton(
-            onClick = { kameraLauncher.launch(Manifest.permission.CAMERA) },
+            onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(
@@ -193,21 +193,21 @@ fun RecordingScreen(
         ) {
             OutlinedButton(
                 onClick = {
-                    if (laufend.paused) RecordingService.setzeFort(context)
+                    if (running.paused) RecordingService.resume(context)
                     else RecordingService.pausiere(context)
                 },
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
                 Icon(
-                    if (laufend.paused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    if (running.paused) Icons.Default.PlayArrow else Icons.Default.Pause,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
-                Text(if (laufend.paused) "Weiter" else "Pause", Modifier.padding(start = 8.dp))
+                Text(if (running.paused) "Weiter" else "Pause", Modifier.padding(start = 8.dp))
             }
             OutlinedButton(
                 onClick = {
-                    val tourId = laufend.tourId
+                    val tourId = running.tourId
                     RecordingService.stop(context)
                     fertig(tourId)
                 },
@@ -249,9 +249,9 @@ private fun Zustandsmarke(paused: Boolean) {
 
 /** Eine Kennzahl mit Beschriftung darunter. */
 @Composable
-private fun Wert(wert: String, beschriftung: String) {
+private fun Value(value: String, beschriftung: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(wert, style = MaterialTheme.typography.headlineMedium)
+        Text(value, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(3.dp))
         Text(
             beschriftung,

@@ -36,15 +36,15 @@ import androidx.exifinterface.media.ExifInterface
  * Vorschlag, der nicht zustande kommt, kein Grund ist, irgendetwas abzubrechen.
  */
 fun imagesInWindow(context: Context, startMs: Long, endMs: Long): List<GalleryItem> {
-    val fenster = searchWindow(startMs, endMs)
+    val window = searchWindow(startMs, endMs)
     // ZWEI Abfragen, weil MediaStore zwei Sammlungen führt. Videos fehlten hier
     // bis 2026-08-10 vollständig: Wer unterwegs filmte, bekam sie nie
     // vorgeschlagen — obwohl die Pipeline sie längst annimmt (Transcode,
     // Poster, Faststart). Zusammengeführt wird nach Zeit, damit die Vorschläge
     // in der Reihenfolge der Aufnahme stehen und nicht in zwei Blöcken.
     return (
-        frage(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, fenster, isVideo = false) +
-            frage(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, fenster, isVideo = true)
+        frage(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, window, isVideo = false) +
+            frage(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, window, isVideo = true)
         ).sortedBy { it.takenAtMs }
 }
 
@@ -59,47 +59,47 @@ fun imagesInWindow(context: Context, startMs: Long, endMs: Long): List<GalleryIt
 private fun frage(
     context: Context,
     sammlung: Uri,
-    fenster: LongRange,
+    window: LongRange,
     isVideo: Boolean,
 ): List<GalleryItem> {
     // OHNE LATITUDE/LONGITUDE: Seit Android 10 gibt MediaStore dort immer 0
     // zurück — der Ort steckt nur noch im EXIF des Originals und ist erst mit
     // `ACCESS_MEDIA_LOCATION` lesbar (s. `gpsAnchor`). Die Spalten mitzuführen
     // sähe aus, als käme etwas heraus, und läge in Wahrheit im Golf von Guinea.
-    val spalten = arrayOf(
+    val columns = arrayOf(
         MediaStore.MediaColumns._ID,
         MediaStore.MediaColumns.DISPLAY_NAME,
         MediaStore.MediaColumns.DATE_TAKEN,
         MediaStore.MediaColumns.BUCKET_DISPLAY_NAME,
     )
     val bedingung = "${MediaStore.MediaColumns.DATE_TAKEN} BETWEEN ? AND ?"
-    val werte = arrayOf(fenster.first.toString(), fenster.last.toString())
+    val args = arrayOf(window.first.toString(), window.last.toString())
     return try {
         context.contentResolver.query(
             sammlung,
-            spalten,
+            columns,
             bedingung,
-            werte,
+            args,
             "${MediaStore.MediaColumns.DATE_TAKEN} ASC",
-        )?.use { zeiger -> leseBilder(zeiger, isVideo) } ?: emptyList()
-    } catch (fehler: SecurityException) {
-        Log.w("Maptale", "Galerie nicht lesbar — kein Vorschlag", fehler)
+        )?.use { cursor -> readImages(cursor, isVideo) } ?: emptyList()
+    } catch (error: SecurityException) {
+        Log.w("Maptale", "Galerie nicht lesbar — kein Vorschlag", error)
         emptyList()
     }
 }
 
-private fun leseBilder(zeiger: Cursor, isVideo: Boolean): List<GalleryItem> {
-    val spalteId = zeiger.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-    val spalteName = zeiger.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
-    val spalteZeit = zeiger.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_TAKEN)
-    val spalteOrdner = zeiger.getColumnIndexOrThrow(MediaStore.MediaColumns.BUCKET_DISPLAY_NAME)
+private fun readImages(cursor: Cursor, isVideo: Boolean): List<GalleryItem> {
+    val colId = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+    val colName = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+    val colTaken = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_TAKEN)
+    val colBucket = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.BUCKET_DISPLAY_NAME)
     val bilder = mutableListOf<GalleryItem>()
-    while (zeiger.moveToNext()) {
+    while (cursor.moveToNext()) {
         bilder += GalleryItem(
-            id = zeiger.getLong(spalteId),
-            fileName = zeiger.getString(spalteName) ?: if (isVideo) "video.mp4" else "foto.jpg",
-            takenAtMs = zeiger.getLong(spalteZeit),
-            folder = if (zeiger.isNull(spalteOrdner)) null else zeiger.getString(spalteOrdner),
+            id = cursor.getLong(colId),
+            fileName = cursor.getString(colName) ?: if (isVideo) "video.mp4" else "foto.jpg",
+            takenAtMs = cursor.getLong(colTaken),
+            folder = if (cursor.isNull(colBucket)) null else cursor.getString(colBucket),
             isVideo = isVideo,
         )
     }
@@ -113,11 +113,11 @@ private fun leseBilder(zeiger: Cursor, isVideo: Boolean): List<GalleryItem> {
  * `Images.EXTERNAL_CONTENT_URI` gehängt zeigt entweder auf nichts oder — weil
  * die IDs pro Sammlung vergeben werden — auf ein FREMDES Bild.
  */
-fun imageUri(bild: GalleryItem): Uri =
+fun imageUri(image: GalleryItem): Uri =
     ContentUris.withAppendedId(
-        if (bild.isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        if (image.isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         else MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-        bild.id,
+        image.id,
     )
 
 /**
@@ -138,14 +138,14 @@ fun imageUri(bild: GalleryItem): Uri =
  * verankert die Zeit, und das ist bei einer laufenden Aufzeichnung ohnehin der
  * genauere Weg: Ein Video hat eine Dauer, sein GPS-Punkt nur einen Anfang.
  */
-fun gpsAnchor(context: Context, bild: GalleryItem): Pair<Double, Double>? = if (bild.isVideo) null else try {
-    val uri = MediaStore.setRequireOriginal(imageUri(bild))
+fun gpsAnchor(context: Context, image: GalleryItem): Pair<Double, Double>? = if (image.isVideo) null else try {
+    val uri = MediaStore.setRequireOriginal(imageUri(image))
     context.contentResolver.openInputStream(uri)?.use { strom ->
         ExifInterface(strom).latLong?.let { (lat, lng) -> lat to lng }
     }
-} catch (fehler: Exception) {
+} catch (error: Exception) {
     // Keine Erlaubnis, kein EXIF, Datei inzwischen weg: Alles kein Grund, den
     // Nachzug abzubrechen — ohne Anker platziert der Server über die Zeit.
-    Log.d("Maptale", "Kein GPS im Bild ${bild.fileName}: ${fehler.message}")
+    Log.d("Maptale", "Kein GPS im Bild ${image.fileName}: ${error.message}")
     null
 }

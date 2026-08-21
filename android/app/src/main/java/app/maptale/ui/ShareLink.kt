@@ -10,7 +10,7 @@ import app.maptale.upload.Settings
  * Sichtbarkeit einer Tour. Die Reihenfolge ist die der Öffnung — sie bestimmt
  * auch, wie die Auswahl im Teilen-Blatt untereinandersteht.
  */
-enum class Visibility(val key: String, val label: String, val erklaerung: String) {
+enum class Visibility(val key: String, val label: String, val explanation: String) {
     PRIVATE("private", "Privat", "Nur du siehst diese Tour."),
     UNLISTED("unlisted", "Über Link", "Jeder mit dem Link kann sie ansehen."),
     PUBLIC("public", "Öffentlich", "Erscheint zusätzlich in der Galerie auf der Website."),

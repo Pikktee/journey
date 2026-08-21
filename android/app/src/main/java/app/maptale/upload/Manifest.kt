@@ -65,8 +65,8 @@ data class TimeSpan(val startMs: Long, val endMs: Long)
 /** Ein zu importierendes Medium mit den für die Platzierung nötigen Metadaten. */
 data class ImportMedium(
     val id: String,
-    val typ: String, // "photo" | "video"
-    val datei: String,
+    val type: String, // "photo" | "video"
+    val file: String,
     val takenAtMs: Long,
     val anchorLng: Double? = null,
     val anchorLat: Double? = null,
@@ -87,10 +87,10 @@ object ManifestBuilder {
      */
     fun buildSegments(
         points: List<TrackPointEntity>,
-        wechsel: List<TravelModeChangeEntity>,
+        changes: List<TravelModeChangeEntity>,
     ): List<ManifestSegment> {
         if (points.size < 2) return emptyList()
-        val sortiert = wechsel.sortedBy { it.tOffsetS }
+        val sortiert = changes.sortedBy { it.tOffsetS }
             .ifEmpty { return listOf(segment("walk", points)) }
 
         val segmente = mutableListOf<ManifestSegment>()
@@ -124,12 +124,12 @@ object ManifestBuilder {
      * es bleiben; was ein belastbarer Abschnitt ist, entscheidet
      * `ActivityInterpretation` (pure, getestet).
      */
-    fun smoothChanges(wechsel: List<TravelModeChangeEntity>, endeS: Double): List<TravelModeChangeEntity> {
-        if (wechsel.size < 2) return wechsel.sortedBy { it.tOffsetS }
-        val behalten = ActivityInterpretation.smooth(wechsel.map { TravelModeSegment(it.tOffsetS, it.travelMode) }, endeS)
-        val vorlage = wechsel.minByOrNull { it.tOffsetS } ?: return wechsel
-        return behalten.map { a ->
-            wechsel.firstOrNull { it.tOffsetS == a.tOffsetS && it.travelMode == a.travelMode }
+    fun smoothChanges(changes: List<TravelModeChangeEntity>, endS: Double): List<TravelModeChangeEntity> {
+        if (changes.size < 2) return changes.sortedBy { it.tOffsetS }
+        val kept = ActivityInterpretation.smooth(changes.map { TravelModeSegment(it.tOffsetS, it.travelMode) }, endS)
+        val vorlage = changes.minByOrNull { it.tOffsetS } ?: return changes
+        return kept.map { a ->
+            changes.firstOrNull { it.tOffsetS == a.tOffsetS && it.travelMode == a.travelMode }
                 ?: vorlage.copy(tOffsetS = a.tOffsetS, travelMode = a.travelMode)
         }
     }
@@ -156,18 +156,18 @@ object ManifestBuilder {
         zone: String,
         timeSpan: TimeSpan,
         media: List<ImportMedium>,
-        trackDatei: String = "track.gpx",
+        trackFileName: String = "track.gpx",
     ): UploadManifest = UploadManifest(
         clientTourId = clientTourId,
         title = title?.ifBlank { null },
         time = ManifestTime(start = iso(timeSpan.startMs), end = iso(timeSpan.endMs), zone = zone),
         segments = null,
-        trackFile = trackDatei,
+        trackFile = trackFileName,
         media = media.map { m ->
             ManifestMedium(
                 id = m.id,
-                type = m.typ,
-                file = m.datei.substringAfterLast('/'),
+                type = m.type,
+                file = m.file.substringAfterLast('/'),
                 takenAt = iso(m.takenAtMs),
                 anchor = if (m.anchorLng != null && m.anchorLat != null) listOf(m.anchorLng, m.anchorLat) else null,
             )
@@ -178,7 +178,7 @@ object ManifestBuilder {
     fun build(
         tour: TourEntity,
         points: List<TrackPointEntity>,
-        wechsel: List<TravelModeChangeEntity>,
+        changes: List<TravelModeChangeEntity>,
         media: List<MediumEntity>,
     ): UploadManifest = UploadManifest(
         clientTourId = tour.id,
@@ -189,7 +189,7 @@ object ManifestBuilder {
             end = iso(tour.endMs ?: (tour.startMs + ((points.lastOrNull()?.tOffsetS ?: 1.0) * 1000).toLong())),
             zone = tour.zone,
         ),
-        segments = buildSegments(points, smoothChanges(wechsel, points.lastOrNull()?.tOffsetS ?: 0.0)),
+        segments = buildSegments(points, smoothChanges(changes, points.lastOrNull()?.tOffsetS ?: 0.0)),
         // Nur wenn die App das Mittel selbst erkannt hat, darf der Server die
         // Aufteilung verfeinern (Fahrzeug auf Schienen → Straßenbahn).
         travelModesAuto = if (tour.travelModeAuto) true else null,

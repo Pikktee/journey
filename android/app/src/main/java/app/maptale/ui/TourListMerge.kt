@@ -43,33 +43,33 @@ sealed interface TourEntry {
  * Eine laufende Aufnahme steht immer oben: sie ist das, was gerade passiert.
  */
 fun mergeTours(lokale: List<TourEntity>, vomServer: List<ServerTour>): List<TourEntry> {
-    val fertigHochgeladen = lokale
+    val uploaded = lokale
         .filter { it.status == TourStatus.UPLOADED }
         .mapNotNull { it.serverId }
         .toSet()
     // Server-Einträge, die lokal noch in Arbeit sind, werden unterdrückt
-    val lokalInArbeit = lokale
+    val localInProgress = lokale
         .filter { it.status != TourStatus.UPLOADED }
         .mapNotNull { it.serverId }
         .toSet()
 
-    val eintraege = mutableListOf<Pair<Long, TourEntry>>()
+    val entries = mutableListOf<Pair<Long, TourEntry>>()
     for (tour in lokale) {
-        if (tour.serverId != null && tour.serverId in fertigHochgeladen) continue
-        eintraege += tour.startMs to TourEntry.Local(tour)
+        if (tour.serverId != null && tour.serverId in uploaded) continue
+        entries += tour.startMs to TourEntry.Local(tour)
     }
     for (tour in vomServer) {
-        if (tour.id in lokalInArbeit) continue
-        eintraege += timestamp(tour.createdAt) to TourEntry.Server(tour)
+        if (tour.id in localInProgress) continue
+        entries += timestamp(tour.createdAt) to TourEntry.Server(tour)
     }
 
-    return eintraege
-        .sortedWith(compareByDescending<Pair<Long, TourEntry>> { laeuft(it.second) }.thenByDescending { it.first })
+    return entries
+        .sortedWith(compareByDescending<Pair<Long, TourEntry>> { running(it.second) }.thenByDescending { it.first })
         .map { it.second }
 }
 
-private fun laeuft(eintrag: TourEntry): Boolean =
-    eintrag is TourEntry.Local && eintrag.tour.status == TourStatus.RECORDING
+private fun running(entry: TourEntry): Boolean =
+    entry is TourEntry.Local && entry.tour.status == TourStatus.RECORDING
 
 /**
  * ISO-Zeitstempel des Servers zu Millisekunden. Ein unlesbarer Wert darf die

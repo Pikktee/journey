@@ -20,10 +20,10 @@ data class ScreenPoint(val x: Float, val y: Float)
 data class PhotoMark(val id: String, val lng: Double, val lat: Double)
 
 /**
- * Ein gezeichneter Foto-Punkt in Bildkoordinaten. `anzahl` > 1, wenn mehrere
+ * Ein gezeichneter Foto-Punkt in Bildkoordinaten. `count` > 1, wenn mehrere
  * Fotos zu nah beieinander lagen und zu einem Ball zusammengefasst wurden.
  */
-data class PhotoPoint(val id: String, val punkt: ScreenPoint, val anzahl: Int)
+data class PhotoPoint(val id: String, val point: ScreenPoint, val count: Int)
 
 /** Mehr Stützpunkte kann eine Skizze in Daumengröße ohnehin nicht zeigen. */
 const val TRACK_MAX_POINTS = 600
@@ -74,17 +74,17 @@ fun thinOut(points: List<TrackPoint>, hoechstzahl: Int = TRACK_MAX_POINTS): List
  * ohnehin auf ihr.
  */
 class Projection private constructor(
-    private val kosinus: Double,
+    private val cosLat: Double,
     private val xMin: Double,
     private val yMax: Double,
-    private val massstab: Double,
-    private val versatzX: Float,
-    private val versatzY: Float,
+    private val scale: Double,
+    private val offsetX: Float,
+    private val offsetY: Float,
 ) {
-    fun project(punkt: TrackPoint): ScreenPoint = ScreenPoint(
-        x = versatzX + ((punkt.lng * kosinus - xMin) * massstab).toFloat(),
+    fun project(point: TrackPoint): ScreenPoint = ScreenPoint(
+        x = offsetX + ((point.lng * cosLat - xMin) * scale).toFloat(),
         // Bildschirmkoordinaten laufen nach unten, Breitengrade nach oben
-        y = versatzY + ((yMax - punkt.lat) * massstab).toFloat(),
+        y = offsetY + ((yMax - point.lat) * scale).toFloat(),
     )
 
     companion object {
@@ -93,30 +93,30 @@ class Projection private constructor(
          * Liste oder Fläche — zu Beginn einer Aufzeichnung und vor dem ersten
          * Layout gibt es noch nichts zu rechnen.
          */
-        fun aus(rahmen: List<TrackPoint>, breite: Float, hoehe: Float, rand: Float = 0f): Projection? {
-            if (rahmen.isEmpty() || breite <= 0f || hoehe <= 0f) return null
+        fun from(frame: List<TrackPoint>, width: Float, height: Float, margin: Float = 0f): Projection? {
+            if (frame.isEmpty() || width <= 0f || height <= 0f) return null
 
-            val mittlereBreite = rahmen.sumOf { it.lat } / rahmen.size
-            val kosinus = cos(Math.toRadians(mittlereBreite)).coerceAtLeast(0.01)
-            val xs = rahmen.map { it.lng * kosinus }
-            val ys = rahmen.map { it.lat }
+            val midLatitude = frame.sumOf { it.lat } / frame.size
+            val cosLat = cos(Math.toRadians(midLatitude)).coerceAtLeast(0.01)
+            val xs = frame.map { it.lng * cosLat }
+            val ys = frame.map { it.lat }
 
             val xMin = xs.min(); val xMax = xs.max()
             val yMin = ys.min(); val yMax = ys.max()
-            val spanneX = (xMax - xMin).coerceAtLeast(1e-9)
-            val spanneY = (yMax - yMin).coerceAtLeast(1e-9)
+            val spanX = (xMax - xMin).coerceAtLeast(1e-9)
+            val spanY = (yMax - yMin).coerceAtLeast(1e-9)
 
-            val nutzbarX = (breite - 2 * rand).coerceAtLeast(1f)
-            val nutzbarY = (hoehe - 2 * rand).coerceAtLeast(1f)
+            val usableX = (width - 2 * margin).coerceAtLeast(1f)
+            val usableY = (height - 2 * margin).coerceAtLeast(1f)
             // Ein gemeinsamer Maßstab für beide Achsen erhält die Form; der
             // kleinere von beiden sorgt dafür, dass die Spur ganz hineinpasst.
-            val massstab = minOf(nutzbarX / spanneX, nutzbarY / spanneY)
+            val scale = minOf(usableX / spanX, usableY / spanY)
 
             // Rest gleichmäßig auf beide Seiten — die Zeichnung sitzt mittig
-            val versatzX = rand + (nutzbarX - spanneX * massstab).toFloat() / 2f
-            val versatzY = rand + (nutzbarY - spanneY * massstab).toFloat() / 2f
+            val offsetX = margin + (usableX - spanX * scale).toFloat() / 2f
+            val offsetY = margin + (usableY - spanY * scale).toFloat() / 2f
 
-            return Projection(kosinus, xMin, yMax, massstab, versatzX, versatzY)
+            return Projection(cosLat, xMin, yMax, scale, offsetX, offsetY)
         }
     }
 }
@@ -127,12 +127,12 @@ class Projection private constructor(
  */
 fun projectTrack(
     points: List<TrackPoint>,
-    breite: Float,
-    hoehe: Float,
-    rand: Float = 0f,
+    width: Float,
+    height: Float,
+    margin: Float = 0f,
 ): List<ScreenPoint> {
-    val projektion = Projection.aus(points, breite, hoehe, rand) ?: return emptyList()
-    return points.map { projektion.project(it) }
+    val projection = Projection.from(points, width, height, margin) ?: return emptyList()
+    return points.map { projection.project(it) }
 }
 
 /**
@@ -144,8 +144,8 @@ fun projectTrack(
  * obwohl beide Angaben stimmen. Der nächstliegende gezeichnete Stützpunkt ist
  * die ehrlichste Antwort auf „wo an DIESER Linie war das".
  */
-fun snapToLine(punkt: ScreenPoint, linie: List<ScreenPoint>): ScreenPoint =
-    linie.minByOrNull { hypot(it.x - punkt.x, it.y - punkt.y) } ?: punkt
+fun snapToLine(point: ScreenPoint, line: List<ScreenPoint>): ScreenPoint =
+    line.minByOrNull { hypot(it.x - point.x, it.y - point.y) } ?: point
 
 /**
  * Nah beieinander liegende Foto-Punkte zu einem zusammenfassen.
@@ -157,10 +157,10 @@ fun snapToLine(punkt: ScreenPoint, linie: List<ScreenPoint>): ScreenPoint =
  */
 fun clusterPhotos(points: List<Pair<String, ScreenPoint>>, mindestabstand: Float): List<PhotoPoint> {
     val baelle = mutableListOf<PhotoPoint>()
-    for ((id, punkt) in points) {
-        val treffer = baelle.indexOfFirst { hypot(it.punkt.x - punkt.x, it.punkt.y - punkt.y) < mindestabstand }
-        if (treffer < 0) baelle += PhotoPoint(id, punkt, 1)
-        else baelle[treffer] = baelle[treffer].copy(anzahl = baelle[treffer].anzahl + 1)
+    for ((id, point) in points) {
+        val treffer = baelle.indexOfFirst { hypot(it.point.x - point.x, it.point.y - point.y) < mindestabstand }
+        if (treffer < 0) baelle += PhotoPoint(id, point, 1)
+        else baelle[treffer] = baelle[treffer].copy(count = baelle[treffer].count + 1)
     }
     return baelle
 }

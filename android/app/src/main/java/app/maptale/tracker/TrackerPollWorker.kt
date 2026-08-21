@@ -46,11 +46,11 @@ class TrackerPollWorker(
          * zurück, und bei häufigem Starten liefe die Abfrage nie.
          */
         fun ensure(context: Context) {
-            val anfrage = PeriodicWorkRequestBuilder<TrackerPollWorker>(15, TimeUnit.MINUTES)
+            val request = PeriodicWorkRequestBuilder<TrackerPollWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
             WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, anfrage)
+                .enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, request)
         }
 
         /** Beim Abmelden: Es gibt nichts mehr abzufragen. */

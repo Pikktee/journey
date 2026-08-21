@@ -67,7 +67,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             repo.setStatus(tourId, TourStatus.UPLOADING)
             // Vor dem ERSTEN Netzzugriff, sonst ist die Benennung des Ortes
             // schon der Aufruf, der ins Leere läuft.
-            zeigeUebertragung(tour.title, 0, 0)
+            showTransfer(tour.title, 0, 0)
 
             val points = repo.points(tourId)
             if (points.size < 2) {
@@ -120,26 +120,26 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             // und das sieht aus, als finge der Upload wieder von vorn an.
             val media = repo.media(tourId)
             for ((nummer, medium) in media.withIndex()) {
-                zeigeUebertragung(aktuelleTour.title, nummer, media.size)
+                showTransfer(aktuelleTour.title, nummer, media.size)
                 if (medium.uploadStatus == MediumUploadStatus.UPLOADED) continue
                 app.apiClient.uploadMedium(serverId, medium.id, repo.mediumFile(medium))
                 repo.setMediumUploaded(tourId, medium.id)
             }
-            zeigeUebertragung(aktuelleTour.title, media.size, media.size)
+            showTransfer(aktuelleTour.title, media.size, media.size)
 
             try {
                 app.apiClient.finalize(serverId)
-            } catch (fehler: ApiError) {
+            } catch (error: ApiError) {
                 // 409 ist doppeldeutig („läuft bereits" vs. „Medien fehlen") —
                 // semantisch auflösen: nur wenn der Server wirklich arbeitet
                 // oder fertig ist, geht es weiter
-                val status = if (fehler.status == 409) app.apiClient.tourStatus(serverId) else null
-                if (status != "processing" && status != "ready") throw fehler
+                val status = if (error.status == 409) app.apiClient.tourStatus(serverId) else null
+                if (status != "processing" && status != "ready") throw error
             }
 
-            // Kurz auf „bereit" warten — nur fürs unmittelbare Abspielen; bei
-            // Timeout in „verarbeitung" bleibt die Tour hochgeladen (Server
-            // rechnet weiter). „angelegt" nach dem Poll wäre dagegen ein Fehler.
+            // Kurz auf „ready" warten — nur fürs unmittelbare Abspielen; bei
+            // Timeout in „processing" bleibt die Tour hochgeladen (Server
+            // rechnet weiter). „created" nach dem Poll wäre dagegen ein Fehler.
             var letzterStatus = ""
             repeat(30) {
                 letzterStatus = app.apiClient.tourStatus(serverId)
@@ -162,32 +162,32 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             repo.setStatus(tourId, TourStatus.UPLOADED)
             gleicheTitelAb(tourId, serverId, manifest)
             Result.success(workDataOf(OUTPUT_SERVER_ID to serverId))
-        } catch (fehler: ApiError) {
-            if (isFinalUploadError(fehler.status)) {
+        } catch (error: ApiError) {
+            if (isFinalUploadError(error.status)) {
                 // Retry hilft nicht, der Nutzer muss ran
                 app.repository.setStatus(
                     tourId,
                     TourStatus.FAILED,
-                    uploadErrorText(fehler.status, fehler.message),
+                    uploadErrorText(error.status, error.message),
                 )
                 Result.failure()
             } else {
-                vermerkeUndRetry(tourId, fehler)
+                vermerkeUndRetry(tourId, error)
             }
-        } catch (fehler: Exception) {
-            vermerkeUndRetry(tourId, fehler)
+        } catch (error: Exception) {
+            vermerkeUndRetry(tourId, error)
         }
     }
 
     /**
      * WorkManager fragt das ab, wenn es den Auftrag von sich aus in den
      * Vordergrund hebt (auf Android 11 und darunter jeder beschleunigte
-     * Auftrag). Es muss dieselbe Meldung sein wie in `zeigeUebertragung`,
+     * Auftrag). Es muss dieselbe Meldung sein wie in `showTransfer`,
      * sonst blitzte beim Start kurz eine zweite auf.
      */
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val title = inputData.getString(INPUT_TOUR_ID)?.let { app.repository.tour(it)?.title }
-        return vordergrund(meldung(title, 0, 0))
+        return vordergrund(notification(title, 0, 0))
     }
 
     /**
@@ -205,14 +205,14 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
      * ebenfalls, nur sieht man ihn nicht. Auch das ist kein Abbruchgrund: Es
      * geht hier um den Netzzugang, die Meldung ist die Gegenleistung dafür.
      */
-    private suspend fun zeigeUebertragung(title: String?, fertig: Int, gesamt: Int) {
-        runCatching { setForeground(vordergrund(meldung(title, fertig, gesamt))) }
+    private suspend fun showTransfer(title: String?, fertig: Int, gesamt: Int) {
+        runCatching { setForeground(vordergrund(notification(title, fertig, gesamt))) }
     }
 
-    private fun vordergrund(meldung: Notification) =
-        ForegroundInfo(MELDUNG_ID, meldung, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    private fun vordergrund(notification: Notification) =
+        ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
 
-    private fun meldung(title: String?, fertig: Int, gesamt: Int): Notification =
+    private fun notification(title: String?, fertig: Int, gesamt: Int): Notification =
         NotificationCompat.Builder(applicationContext, MaptaleApp.CHANNEL_UPLOAD)
             .setSmallIcon(R.drawable.ic_launcher_vordergrund)
             .setContentTitle(title?.ifBlank { null } ?: "Tour wird übertragen")
@@ -244,18 +244,18 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             var overlay = app.apiClient.loadEdits(serverId)
             for (medium in abweichungen) overlay = withMediumCaption(overlay, medium.id, medium.caption)
             app.apiClient.saveEdits(serverId, overlay)
-        }.onFailure { fehler ->
+        }.onFailure { error ->
             // Kein Grund, den Upload scheitern zu lassen: die Tour ist da, nur
             // ein nachträglich getippter Titel fehlt. Er lässt sich jederzeit
             // im Detail erneut setzen.
-            android.util.Log.w("Maptale", "Foto-Titel konnten nicht nachgereicht werden", fehler)
+            android.util.Log.w("Maptale", "Foto-Titel konnten nicht nachgereicht werden", error)
         }
     }
 
-    private suspend fun vermerkeUndRetry(tourId: String, fehler: Exception): Result {
+    private suspend fun vermerkeUndRetry(tourId: String, error: Exception): Result {
         // ENTWURF statt FEHLER: WorkManager versucht es mit Backoff erneut,
         // die Tour bleibt in der Liste als „wartet auf Upload" sichtbar
-        app.repository.setStatus(tourId, TourStatus.DRAFT, fehler.message)
+        app.repository.setStatus(tourId, TourStatus.DRAFT, error.message)
         return Result.retry()
     }
 
@@ -264,7 +264,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         const val OUTPUT_SERVER_ID = "serverId"
 
         /** Eigene ID: 1 gehört der Aufzeichnung, 4711 den Cloud-Importen. */
-        private const val MELDUNG_ID = 4712
+        private const val NOTIFICATION_ID = 4712
 
         /** Name der eindeutigen Arbeit je Tour — auch für die Fortschritts-Anzeige. */
         fun workName(tourId: String): String = "upload-$tourId"
@@ -277,7 +277,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
          * nicht zurückgesetzt und doppelt gestartet werden.
          */
         fun start(context: Context, tourId: String, ersetzen: Boolean = true) {
-            val anfrage = OneTimeWorkRequestBuilder<UploadWorker>()
+            val request = OneTimeWorkRequestBuilder<UploadWorker>()
                 .setInputData(workDataOf(INPUT_TOUR_ID to tourId))
                 .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, Duration.ofSeconds(15))
@@ -297,7 +297,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             WorkManager.getInstance(context).enqueueUniqueWork(
                 workName(tourId),
                 if (ersetzen) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
-                anfrage,
+                request,
             )
         }
     }

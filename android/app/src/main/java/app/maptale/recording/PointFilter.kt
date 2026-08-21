@@ -67,44 +67,44 @@ class PointFilter(
      * Entscheidet, ob der Punkt gespeichert wird; akzeptierte Punkte werden
      * interner Referenzzustand (Kurs/Distanz beziehen sich immer darauf).
      */
-    fun check(punkt: RawPoint): Boolean {
-        if (punkt.accuracyM > maxGenauigkeitM) return false
-        val lastPoint = letzter ?: return akzeptiere(punkt)
+    fun check(point: RawPoint): Boolean {
+        if (point.accuracyM > maxGenauigkeitM) return false
+        val lastPoint = letzter ?: return akzeptiere(point)
 
         // Zeit läuft rückwärts (Batch-Nachzügler) → verwerfen
-        if (punkt.tOffsetS <= lastPoint.tOffsetS) return false
+        if (point.tOffsetS <= lastPoint.tOffsetS) return false
 
-        val distanz = distanceM(lastPoint.lng, lastPoint.lat, punkt.lng, punkt.lat)
-        val zeit = punkt.tOffsetS - lastPoint.tOffsetS
+        val distanz = distanceM(lastPoint.lng, lastPoint.lat, point.lng, point.lat)
+        val time = point.tOffsetS - lastPoint.tOffsetS
         val kursAlt = vorletzter?.let { kursGrad(it.lng, it.lat, lastPoint.lng, lastPoint.lat) }
-        val kursNeu = kursGrad(lastPoint.lng, lastPoint.lat, punkt.lng, punkt.lat)
+        val kursNeu = kursGrad(lastPoint.lng, lastPoint.lat, point.lng, point.lat)
         val kurswechsel = kursAlt?.let { winkelDifferenzGrad(it, kursNeu) } ?: 0.0
 
         // Ohne Tempo-Angabe (GPX-Import, ältere Geräte) wie bisher entscheiden:
         // Dann ist die Distanz das einzige Maß, das zur Verfügung steht.
-        val bewegt = punkt.speedMps?.let { it >= stillstandMps } ?: true
+        val bewegt = point.speedMps?.let { it >= stillstandMps } ?: true
 
         // Kurswechsel zählt nur mit Mindestbewegung — GPS-Jitter im Stand dreht
         // den Kurs beliebig, würde also ohne diese Schwelle dauernd speichern.
         val speichern = if (bewegt) {
             distanz >= minDistanzM ||
                 (kurswechsel > minKurswechselGrad && distanz >= minDistanzM * 0.4) ||
-                zeit >= maxAbstandS
+                time >= maxAbstandS
         } else {
             // Im Stand nur der Takt für die Pausen-Erkennung des Backends
-            zeit >= maxAbstandS
+            time >= maxAbstandS
         }
         if (!speichern) return false
 
         // Im Stand zurückgelegte „Strecke" ist Rauschen und darf die Telemetrie
         // nicht aufblähen.
         if (bewegt) distanceM += distanz
-        return akzeptiere(punkt)
+        return akzeptiere(point)
     }
 
-    private fun akzeptiere(punkt: RawPoint): Boolean {
+    private fun akzeptiere(point: RawPoint): Boolean {
         vorletzter = letzter
-        letzter = punkt
+        letzter = point
         return true
     }
 

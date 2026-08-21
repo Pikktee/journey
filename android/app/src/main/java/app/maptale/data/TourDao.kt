@@ -25,8 +25,8 @@ interface TourDao {
     @Query("SELECT * FROM tours ORDER BY startMs DESC")
     fun allTours(): Flow<List<TourEntity>>
 
-    @Query("UPDATE tours SET status = :status, error = :fehler WHERE id = :id")
-    suspend fun setStatus(id: String, status: TourStatus, fehler: String? = null)
+    @Query("UPDATE tours SET status = :status, error = :error WHERE id = :id")
+    suspend fun setStatus(id: String, status: TourStatus, error: String? = null)
 
     @Query("SELECT * FROM tours WHERE status = :status")
     suspend fun toursByStatus(status: TourStatus): List<TourEntity>

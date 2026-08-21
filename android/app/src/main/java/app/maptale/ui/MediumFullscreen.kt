@@ -50,20 +50,20 @@ import app.maptale.data.TourStatus
 import coil.compose.AsyncImage
 
 @Composable
-fun MediumFullscreen(viewModel: PhotoViewModel, zurueck: () -> Unit) {
+fun MediumFullscreen(viewModel: PhotoViewModel, back: () -> Unit) {
     val medium by viewModel.medium.collectAsState(initial = null)
     val tour by viewModel.tour.collectAsState(initial = null)
-    val tastatur = LocalSoftwareKeyboardController.current
+    val keyboard = LocalSoftwareKeyboardController.current
     // Während des Uploads ist das Manifest schon beim Server; verschwindet eine
     // Datei danach, hängt seine Vollständigkeitsprüfung. Und was hochgeladen
     // ist, wird nicht mehr auf dem Gerät gelöscht — dafür gibt es das Studio.
-    val loeschenErlaubt = tour?.status == TourStatus.RECORDING ||
+    val deleteAllowed = tour?.status == TourStatus.RECORDING ||
         tour?.status == TourStatus.DRAFT ||
         (tour?.status == TourStatus.FAILED && tour?.serverId == null)
     var title by rememberSaveable { mutableStateOf<String?>(null) }
-    var fragtLoeschen by remember { mutableStateOf(false) }
-    val fokus = remember { FocusRequester() }
-    val fokusManager = LocalFocusManager.current
+    var askDelete by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
 
     // Einmalig aus der Datenbank befüllen; danach gehört das Feld dem Nutzer
     // (dasselbe Muster wie die Titelfelder im Tour-Entwurf).
@@ -87,7 +87,7 @@ fun MediumFullscreen(viewModel: PhotoViewModel, zurueck: () -> Unit) {
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-            ) { fokusManager.clearFocus() },
+            ) { focusManager.clearFocus() },
     ) {
         Column(Modifier.fillMaxSize()) {
             Box(
@@ -100,13 +100,13 @@ fun MediumFullscreen(viewModel: PhotoViewModel, zurueck: () -> Unit) {
                         // Standbild dient sie selbst: Coil zieht daraus (mit dem
                         // VideoFrameDecoder) denselben Frame wie für die Kachel.
                         VideoSurface(
-                            source = Uri.fromFile(viewModel.datei(m)),
-                            standbild = viewModel.datei(m),
+                            source = Uri.fromFile(viewModel.file(m)),
+                            standbild = viewModel.file(m),
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {
                         AsyncImage(
-                            model = viewModel.datei(m),
+                            model = viewModel.file(m),
                             contentDescription = "Aufgenommenes Foto",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize(),
@@ -128,11 +128,11 @@ fun MediumFullscreen(viewModel: PhotoViewModel, zurueck: () -> Unit) {
             ) {
                 SectionTitle("Titel")
                 EditRow(
-                    wert = title.orEmpty(),
-                    setzeWert = { title = it },
+                    value = title.orEmpty(),
+                    setValue = { title = it },
                     platzhalter = "Was ist hier zu sehen?",
                     stil = MaterialTheme.typography.titleLarge,
-                    fokus = fokus,
+                    focus = focus,
                 )
             }
         }
@@ -140,35 +140,35 @@ fun MediumFullscreen(viewModel: PhotoViewModel, zurueck: () -> Unit) {
         RoundButton(
             symbol = Icons.Default.Close,
             description = "Schließen",
-            beiKlick = zurueck,
+            onClick = back,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
 
-        if (loeschenErlaubt) {
+        if (deleteAllowed) {
             RoundButton(
                 symbol = Icons.Default.DeleteOutline,
                 description = "Foto löschen",
-                beiKlick = { fragtLoeschen = true },
+                onClick = { askDelete = true },
                 modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
             )
         }
     }
 
-    if (fragtLoeschen) {
+    if (askDelete) {
         AlertDialog(
-            onDismissRequest = { fragtLoeschen = false },
+            onDismissRequest = { askDelete = false },
             title = { Text("Foto löschen?") },
             text = { Text("Das Foto wird vom Gerät entfernt und erscheint nicht in der Tour.") },
             confirmButton = {
                 TextButton(onClick = {
-                    fragtLoeschen = false
+                    askDelete = false
                     // Der Titel des gelöschten Fotos darf nicht nachträglich
                     // wieder eingetragen werden (DisposableEffect oben).
                     title = null
-                    viewModel.delete(zurueck)
+                    viewModel.delete(back)
                 }) { Text("Löschen") }
             },
-            dismissButton = { TextButton(onClick = { fragtLoeschen = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(onClick = { askDelete = false }) { Text("Abbrechen") } },
         )
     }
 }

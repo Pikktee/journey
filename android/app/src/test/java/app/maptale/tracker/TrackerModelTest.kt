@@ -11,18 +11,18 @@ private fun anbieter(
     available: Boolean = true,
     verbunden: Boolean = false,
     status: String? = null,
-    fehler: String? = null,
+    error: String? = null,
 ) = TrackerProvider(
     id = "polar",
     name = "Polar",
     available = available,
     verbunden = verbunden,
     status = status,
-    fehler = fehler,
+    error = error,
 )
 
 private fun importEintrag(status: String) =
-    TrackerImport(id = "i_$status", anbieter = "polar", status = status, tourId = null, fehler = null)
+    TrackerImport(id = "i_$status", anbieter = "polar", status = status, tourId = null, error = null)
 
 class TrackerModelTest {
 
@@ -39,7 +39,7 @@ class TrackerModelTest {
 
     @Test
     fun `abgelaufen nennt den Grund und den naechsten Schritt`() {
-        val satz = providerText(anbieter(status = "expired", fehler = "Zugriff beim Anbieter widerrufen."))
+        val satz = providerText(anbieter(status = "expired", error = "Zugriff beim Anbieter widerrufen."))
         assertTrue(satz.contains("widerrufen"))
         assertTrue(satz.contains("neu verbinden"))
     }

@@ -111,43 +111,43 @@ fun MaptaleNavigation() {
 private fun AngemeldeteNavigation(app: MaptaleApp) {
     val navController = rememberNavController()
     val context = LocalContext.current
-    val aufnahme by RecordingState.current.collectAsState()
-    var neueTour by remember { mutableStateOf(false) }
+    val activeRecording by RecordingState.current.collectAsState()
+    var newTour by remember { mutableStateOf(false) }
 
     // Eigener Sekundentakt: Die Leiste ist auch dann sichtbar, wenn der
     // Aufzeichnungs-Screen längst verlassen wurde — sie kann sich seine Uhr
     // nicht ausleihen.
-    var jetztMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(aufnahme?.tourId) {
-        while (aufnahme != null) {
-            jetztMs = System.currentTimeMillis()
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(activeRecording?.tourId) {
+        while (activeRecording != null) {
+            nowMs = System.currentTimeMillis()
             delay(1000)
         }
     }
-    val laufendeDauer = aufnahme?.let {
-        val s = ((jetztMs - it.startMs) / 1000).coerceAtLeast(0)
+    val runningDuration = activeRecording?.let {
+        val s = ((nowMs - it.startMs) / 1000).coerceAtLeast(0)
         String.format(Locale.GERMAN, "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
     }
 
-    val eintrag by navController.currentBackStackEntryAsState()
-    val route = eintrag?.destination?.route
-    val leisteSichtbar = route == REITER_TOUREN || route == REITER_PROFIL
+    val entry by navController.currentBackStackEntryAsState()
+    val route = entry?.destination?.route
+    val barVisible = route == REITER_TOUREN || route == REITER_PROFIL
 
     // Ohne Standort-Erlaubnis beendet sich der Aufzeichnungs-Service wortlos.
     // Sie wird deshalb erst erfragt, wenn wirklich losgeht — und die Wahl aus
     // dem Blatt so lange gemerkt, bis der Systemdialog beantwortet ist.
-    var wunsch by remember { mutableStateOf<Startwunsch?>(null) }
-    val rechteLauncher = rememberLauncherForActivityResult(
+    var wanted by remember { mutableStateOf<Startwunsch?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { ergebnis ->
-        val wahl = wunsch
-        wunsch = null
-        if (ergebnis[Manifest.permission.ACCESS_FINE_LOCATION] == true && wahl != null) {
+        val choice = wanted
+        wanted = null
+        if (ergebnis[Manifest.permission.ACCESS_FINE_LOCATION] == true && choice != null) {
             // `null` heißt „Automatisch": Der Service erkennt das Mittel dann
             // unterwegs selbst — sofern die Bewegungs-Erlaubnis erteilt wurde,
             // sonst leitet es der Server aus dem Tempo ab. Eine Absage dort darf
             // die Aufnahme nicht verhindern, sie kostet nur die Automatik.
-            RecordingService.start(context, wahl.travelMode, null)
+            RecordingService.start(context, choice.travelMode, null)
             navController.navigate("aufzeichnung")
         }
     }
@@ -158,26 +158,26 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
         // doppelt: einmal von hier, einmal vom Screen darin.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (leisteSichtbar) {
+            if (barVisible) {
                 Hauptleiste(
                     aktuelleRoute = route,
-                    aufnahmeLaeuft = aufnahme != null,
-                    dauer = laufendeDauer,
-                    wechsle = { ziel -> wechsleReiter(navController, ziel) },
-                    aufnahmeKnopf = {
+                    aufnahmeLaeuft = activeRecording != null,
+                    duration = runningDuration,
+                    wechsle = { ziel -> switchTab(navController, ziel) },
+                    recordButton = {
                         // Läuft schon eine Aufnahme, führt der Knopf zu ihr zurück —
                         // zwei gleichzeitige Aufzeichnungen gibt es nicht.
-                        if (aufnahme != null) navController.navigate("aufzeichnung") else neueTour = true
+                        if (activeRecording != null) navController.navigate("aufzeichnung") else newTour = true
                     },
                 )
             }
         },
-    ) { innen ->
+    ) { inner ->
         NavHost(
             navController = navController,
             startDestination = REITER_TOUREN,
             // Nur unten Platz machen — für die Leiste, wo sie steht
-            modifier = Modifier.padding(bottom = if (leisteSichtbar) innen.calculateBottomPadding() else 0.dp),
+            modifier = Modifier.padding(bottom = if (barVisible) inner.calculateBottomPadding() else 0.dp),
         ) {
             composable(REITER_TOUREN) {
                 ToursScreen(
@@ -199,21 +199,21 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                 // zöge den WebView auf eine tote Adresse.
                 FeedbackScreen(
                     serverUrl = Settings.STANDARD_SERVER,
-                    sitzungHolen = { runCatching { app.apiClient.sessionForPlayer() }.getOrNull() },
-                    zurueck = { navController.popBackStack() },
+                    fetchSession = { runCatching { app.apiClient.sessionForPlayer() }.getOrNull() },
+                    back = { navController.popBackStack() },
                 )
             }
             composable("aufzeichnung") {
                 RecordingScreen(
                     zurKamera = { navController.navigate("kamera") },
-                    zumFoto = { tourId, mediumId -> navController.navigate("foto/$tourId/$mediumId") },
+                    toPhoto = { tourId, mediumId -> navController.navigate("foto/$tourId/$mediumId") },
                     fertig = { tourId ->
                         navController.navigate("tour/$tourId") { popUpTo(REITER_TOUREN) }
                     },
                 )
             }
             composable("kamera") {
-                CameraScreen(zurueck = { navController.popBackStack() })
+                CameraScreen(back = { navController.popBackStack() })
             }
             composable(
                 "foto/{tourId}/{mediumId}",
@@ -226,7 +226,7 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                 val mediumId = ziel.arguments?.getString("mediumId") ?: return@composable
                 MediumFullscreen(
                     viewModel = viewModel(factory = MaptaleViewModelFactory(app, tourId, mediumId)),
-                    zurueck = { navController.popBackStack() },
+                    back = { navController.popBackStack() },
                 )
             }
             composable(
@@ -236,9 +236,9 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                 val tourId = ziel.arguments?.getString("tourId") ?: return@composable
                 TourScreen(
                     viewModel = viewModel(factory = MaptaleViewModelFactory(app, tourId)),
-                    zurueck = { navController.popBackStack() },
+                    back = { navController.popBackStack() },
                     abspielen = { serverId -> navController.navigate("player/$serverId") },
-                    zumFoto = { mediumId -> navController.navigate("foto/$tourId/$mediumId") },
+                    toPhoto = { mediumId -> navController.navigate("foto/$tourId/$mediumId") },
                 )
             }
             composable(
@@ -248,7 +248,7 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                 val serverId = ziel.arguments?.getString("serverId") ?: return@composable
                 ServerTourScreen(
                     viewModel = viewModel(factory = MaptaleViewModelFactory(app, serverId)),
-                    zurueck = { navController.popBackStack() },
+                    back = { navController.popBackStack() },
                     abspielen = { id -> navController.navigate("player/$id") },
                 )
             }
@@ -263,20 +263,20 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                 PlayerScreen(
                     serverUrl = Settings.STANDARD_SERVER,
                     serverTourId = serverId,
-                    sitzungHolen = { runCatching { app.apiClient.sessionForPlayer() }.getOrNull() },
-                    zurueck = { navController.popBackStack() },
+                    fetchSession = { runCatching { app.apiClient.sessionForPlayer() }.getOrNull() },
+                    back = { navController.popBackStack() },
                 )
             }
         }
     }
 
-    if (neueTour) {
+    if (newTour) {
         NewTourSheet(
-            schliessen = { neueTour = false },
+            schliessen = { newTour = false },
             starten = { travelMode ->
-                neueTour = false
-                wunsch = Startwunsch(travelMode)
-                rechteLauncher.launch(
+                newTour = false
+                wanted = Startwunsch(travelMode)
+                permissionLauncher.launch(
                     buildList {
                         add(Manifest.permission.ACCESS_FINE_LOCATION)
                         if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
@@ -294,7 +294,7 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
  * Reiter wechseln, ohne den Rückweg-Stapel wachsen zu lassen: Touren und Profil
  * behalten ihren Zustand, ein zweites Tippen auf denselben Reiter tut nichts.
  */
-private fun wechsleReiter(navController: NavHostController, ziel: String) {
+private fun switchTab(navController: NavHostController, ziel: String) {
     navController.navigate(ziel) {
         popUpTo(navController.graph.startDestinationId) { saveState = true }
         launchSingleTop = true
@@ -315,7 +315,7 @@ private fun wechsleReiter(navController: NavHostController, ziel: String) {
  * gelbe Punkte nebeneinander, und keiner von beiden führt mehr.
  */
 @Composable
-private fun reiterFarben(): NavigationBarItemColors = NavigationBarItemDefaults.colors(
+private fun tabColors(): NavigationBarItemColors = NavigationBarItemDefaults.colors(
     selectedIconColor = Ink,
     selectedTextColor = Ink,
     indicatorColor = Color.Transparent,
@@ -332,8 +332,8 @@ private fun reiterFarben(): NavigationBarItemColors = NavigationBarItemDefaults.
  * sie ist sofort verständlich und braucht dafür deutlich weniger Gelb.
  */
 @Composable
-private fun Ausloeser(aufnahmeLaeuft: Boolean, beiKlick: () -> Unit, modifier: Modifier = Modifier) {
-    val beschriftung =
+private fun Ausloeser(aufnahmeLaeuft: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val label =
         if (aufnahmeLaeuft) "Zur laufenden Aufzeichnung" else "Neue Tour aufzeichnen"
     Box(
         modifier
@@ -342,8 +342,8 @@ private fun Ausloeser(aufnahmeLaeuft: Boolean, beiKlick: () -> Unit, modifier: M
             // Der eigene dunkle Grund schneidet den Knopf sauber aus der Leiste
             .background(Night)
             .border(2.dp, Ink.copy(alpha = 0.5f), CircleShape)
-            .clickable(onClickLabel = beschriftung, onClick = beiKlick)
-            .semantics { contentDescription = beschriftung },
+            .clickable(onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -360,9 +360,9 @@ private fun Hauptleiste(
     aktuelleRoute: String?,
     aufnahmeLaeuft: Boolean,
     /** Laufende Aufnahmedauer als „0:07:12"; null, wenn nichts läuft. */
-    dauer: String?,
+    duration: String?,
     wechsle: (String) -> Unit,
-    aufnahmeKnopf: () -> Unit,
+    recordButton: () -> Unit,
 ) {
     Box(contentAlignment = Alignment.TopCenter) {
         NavigationBar(
@@ -372,7 +372,7 @@ private fun Hauptleiste(
             NavigationBarItem(
                 selected = aktuelleRoute == REITER_TOUREN,
                 onClick = { wechsle(REITER_TOUREN) },
-                colors = reiterFarben(),
+                colors = tabColors(),
                 icon = {
                     Icon(
                         if (aktuelleRoute == REITER_TOUREN) Icons.Filled.Map else Icons.Outlined.Map,
@@ -387,7 +387,7 @@ private fun Hauptleiste(
             NavigationBarItem(
                 selected = aktuelleRoute == REITER_PROFIL,
                 onClick = { wechsle(REITER_PROFIL) },
-                colors = reiterFarben(),
+                colors = tabColors(),
                 icon = {
                     Icon(
                         if (aktuelleRoute == REITER_PROFIL) Icons.Filled.Person else Icons.Outlined.Person,
@@ -401,14 +401,14 @@ private fun Hauptleiste(
             Modifier.offset(y = (-20).dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Ausloeser(aufnahmeLaeuft = aufnahmeLaeuft, beiKlick = aufnahmeKnopf)
+            Ausloeser(aufnahmeLaeuft = aufnahmeLaeuft, onClick = recordButton)
             // Die laufende Zeit unter dem Knopf: Aus jeder Ansicht heraus ist so
             // zu sehen, dass gerade aufgezeichnet wird — sonst verrät es nur die
             // rote Farbe, und die kann man für Zierde halten.
-            if (dauer != null) {
+            if (duration != null) {
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    dauer,
+                    duration,
                     style = MaterialTheme.typography.labelSmall,
                     color = Danger,
                 )

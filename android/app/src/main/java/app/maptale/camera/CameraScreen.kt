@@ -117,7 +117,7 @@ private enum class BlitzModus(val ausCameraX: Int, val beschriftung: String) {
 private const val FOKUS_RING_MS = 900L
 
 @Composable
-fun CameraScreen(zurueck: () -> Unit) {
+fun CameraScreen(back: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val app = context.applicationContext as MaptaleApp
@@ -126,21 +126,21 @@ fun CameraScreen(zurueck: () -> Unit) {
     var captureMode by remember { mutableStateOf(CaptureMode.PHOTO) }
     var speichert by remember { mutableStateOf(false) } // Foto wird gerade abgelegt
     var aufnahmeLaeuft by remember { mutableStateOf<Recording?>(null) } // laufende Videoaufnahme
-    var vorschau by remember { mutableStateOf<PreviewView?>(null) }
+    var preview by remember { mutableStateOf<PreviewView?>(null) }
     var provider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
     // Steht nur im Video-Modus, weil es dort gebunden wird — im Foto-Modus ist es null.
     var videoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
     // Aufnahme-Rotation: Zustand statt Feld, weil die Video-Instanz pro Bindung wechselt.
     var rotation by remember { mutableStateOf(Surface.ROTATION_0) }
-    var vorne by remember { mutableStateOf(false) }
+    var frontCamera by remember { mutableStateOf(false) }
     var blitz by remember { mutableStateOf(BlitzModus.AUS) }
     // Zoom-Grenzen und -Stand kommen vom gebundenen Objektiv; beim Kamerawechsel
     // gelten andere, deshalb hängen sie am Kamera-Handle und nicht am Screen.
     var zoomMin by remember { mutableStateOf(1f) }
     var zoomMax by remember { mutableStateOf(1f) }
     var zoom by remember { mutableStateOf(1f) }
-    var fokusPunkt by remember { mutableStateOf<Offset?>(null) }
+    var focusPoint by remember { mutableStateOf<Offset?>(null) }
     // Ton ist Opt-in: withAudioEnabled() wirft ohne RECORD_AUDIO, also nur mit Erlaubnis
     var tonErlaubt by remember {
         mutableStateOf(
@@ -150,15 +150,15 @@ fun CameraScreen(zurueck: () -> Unit) {
     }
     // Genau einmal zurück navigieren: der X-Knopf und der asynchrone Foto-Callback
     // dürfen nicht beide popBackStack aufrufen (sonst überspringt es einen Screen).
-    var fertig by remember { mutableStateOf(false) }
-    val zurueckEinmal = { if (!fertig) { fertig = true; zurueck() } }
+    var done by remember { mutableStateOf(false) }
+    val backOnce = { if (!done) { done = true; back() } }
 
     val imageCapture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build() }
 
     // Der Blitz sitzt an der Rückseite — vorne gibt es keinen, also gilt dort „aus".
-    val blitzNutzbar = captureMode == CaptureMode.PHOTO && !vorne
-    LaunchedEffect(blitz, blitzNutzbar) {
-        imageCapture.flashMode = if (blitzNutzbar) blitz.ausCameraX else ImageCapture.FLASH_MODE_OFF
+    val flashUsable = captureMode == CaptureMode.PHOTO && !frontCamera
+    LaunchedEffect(blitz, flashUsable) {
+        imageCapture.flashMode = if (flashUsable) blitz.ausCameraX else ImageCapture.FLASH_MODE_OFF
     }
 
     // Geräteausrichtung nachführen: die Compose-UI ist nicht rotationsgebunden,
@@ -191,20 +191,20 @@ fun CameraScreen(zurueck: () -> Unit) {
     // Video im App-Speicher ablegen und im App-Scope registrieren — das Finalize
     // kommt asynchron NACH dem Stopp, muss also den Screen-Wechsel überleben.
     fun starteVideoAufnahme() {
-        val aufnahme = RecordingState.current.value ?: return
+        val activeRecording = RecordingState.current.value ?: return
         // Steht erst nach der Bindung im Video-Modus — bis dahin gibt es nichts aufzunehmen.
-        val aufnehmer = videoCapture ?: return
-        val (relativ, datei) = app.repository.newMediumFile(aufnahme.tourId, "mp4")
-        var vorbereitung = aufnehmer.output.prepareRecording(context, FileOutputOptions.Builder(datei).build())
-        if (tonErlaubt) vorbereitung = vorbereitung.withAudioEnabled()
-        aufnahmeLaeuft = vorbereitung.start(ContextCompat.getMainExecutor(context)) { ereignis ->
+        val recorder = videoCapture ?: return
+        val (relative, file) = app.repository.newMediumFile(activeRecording.tourId, "mp4")
+        var pending = recorder.output.prepareRecording(context, FileOutputOptions.Builder(file).build())
+        if (tonErlaubt) pending = pending.withAudioEnabled()
+        aufnahmeLaeuft = pending.start(ContextCompat.getMainExecutor(context)) { ereignis ->
             if (ereignis is VideoRecordEvent.Finalize) {
                 if (ereignis.hasError()) {
-                    datei.delete()
+                    file.delete()
                 } else {
-                    val anchor = aufnahme.lastPoint?.let { it.lng to it.lat }
+                    val anchor = activeRecording.lastPoint?.let { it.lng to it.lat }
                     app.appScope.launch {
-                        app.repository.registerVideo(aufnahme.tourId, relativ, System.currentTimeMillis(), anchor)
+                        app.repository.registerVideo(activeRecording.tourId, relative, System.currentTimeMillis(), anchor)
                     }
                 }
             }
@@ -218,10 +218,10 @@ fun CameraScreen(zurueck: () -> Unit) {
 
     // Kamera (neu) binden, sobald Vorschau + Provider stehen, der Modus wechselt
     // oder auf das andere Objektiv umgeschaltet wird.
-    LaunchedEffect(captureMode, provider, vorschau, vorne) {
+    LaunchedEffect(captureMode, provider, preview, frontCamera) {
         val p = provider ?: return@LaunchedEffect
-        val view = vorschau ?: return@LaunchedEffect
-        val waehler = if (vorne) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val view = preview ?: return@LaunchedEffect
+        val selector = if (frontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
 
         // Erst fragen, dann einschalten: ungeprüft gesetzt quittiert die HAL die
         // Stabilisierung mit einem Fehler, sie wird nicht still übergangen. Im
@@ -229,7 +229,7 @@ fun CameraScreen(zurueck: () -> Unit) {
         // gefragt — die Video-Fähigkeit liest Camcorder-Profile, und dieser
         // Effekt läuft auf dem Hauptthread bei JEDEM Öffnen der Kamera.
         val fuerVideo = captureMode == CaptureMode.VIDEO
-        val info = if (fuerVideo) runCatching { p.getCameraInfo(waehler) }.getOrNull() else null
+        val info = if (fuerVideo) runCatching { p.getCameraInfo(selector) }.getOrNull() else null
         val stabil = chooseStabilization(
             fuerVideo = fuerVideo,
             vorschauMoeglich = info != null && Preview.getPreviewCapabilities(info).isStabilizationSupported(),
@@ -241,7 +241,7 @@ fun CameraScreen(zurueck: () -> Unit) {
             .build()
             .also { it.surfaceProvider = view.surfaceProvider }
 
-        val aufnehmer = if (!fuerVideo) {
+        val recorder = if (!fuerVideo) {
             videoCapture = null
             imageCapture
         } else {
@@ -257,7 +257,7 @@ fun CameraScreen(zurueck: () -> Unit) {
         }
 
         p.unbindAll()
-        val gebunden = p.bindToLifecycle(lifecycleOwner, waehler, preview, aufnehmer)
+        val gebunden = p.bindToLifecycle(lifecycleOwner, selector, preview, recorder)
         camera = gebunden
         // Der Zoom-Stand gehört zum Objektiv: nach dem Wechsel gelten die Grenzen
         // der neuen Kamera, ein übernommener Wert wäre schlicht falsch.
@@ -265,20 +265,20 @@ fun CameraScreen(zurueck: () -> Unit) {
         zoomMin = stand?.minZoomRatio ?: 1f
         zoomMax = stand?.maxZoomRatio ?: 1f
         zoom = stand?.zoomRatio ?: 1f
-        fokusPunkt = null
+        focusPoint = null
     }
 
-    fun setzeZoom(neu: Float) {
-        val geklemmt = neu.coerceIn(zoomMin, zoomMax)
+    fun setZoom(next: Float) {
+        val geklemmt = next.coerceIn(zoomMin, zoomMax)
         camera?.cameraControl?.setZoomRatio(geklemmt)
         zoom = geklemmt
     }
 
     // Fokus-Ring wieder ausblenden (CameraX beendet die Messung selbst nach 3 s)
-    LaunchedEffect(fokusPunkt) {
-        if (fokusPunkt != null) {
+    LaunchedEffect(focusPoint) {
+        if (focusPoint != null) {
             delay(FOKUS_RING_MS)
-            fokusPunkt = null
+            focusPoint = null
         }
     }
 
@@ -292,19 +292,19 @@ fun CameraScreen(zurueck: () -> Unit) {
                 // über der Vorschau, weil die PreviewView selbst keine annimmt.
                 .pointerInput(camera, zoomMin, zoomMax) {
                     detectTransformGestures { _, _, faktor, _ ->
-                        if (faktor != 1f) setzeZoom(zoom * faktor)
+                        if (faktor != 1f) setZoom(zoom * faktor)
                     }
                 }
                 .pointerInput(camera) {
-                    detectTapGestures { stelle ->
-                        val view = vorschau ?: return@detectTapGestures
-                        val punkt = view.meteringPointFactory.createPoint(stelle.x, stelle.y)
+                    detectTapGestures { spot ->
+                        val view = preview ?: return@detectTapGestures
+                        val point = view.meteringPointFactory.createPoint(spot.x, spot.y)
                         camera?.cameraControl?.startFocusAndMetering(
-                            FocusMeteringAction.Builder(punkt, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
+                            FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
                                 .setAutoCancelDuration(3, java.util.concurrent.TimeUnit.SECONDS)
                                 .build(),
                         )
-                        fokusPunkt = stelle
+                        focusPoint = spot
                     }
                 },
             factory = { ctx ->
@@ -316,19 +316,19 @@ fun CameraScreen(zurueck: () -> Unit) {
                 }
                 val future = ProcessCameraProvider.getInstance(ctx)
                 future.addListener({ provider = future.get() }, ContextCompat.getMainExecutor(ctx))
-                vorschau = view
+                preview = view
                 view
             },
         )
 
         // Fokus-Ring an der getippten Stelle
-        fokusPunkt?.let { stelle ->
-            val ringGroesse = 72.dp
-            val halb = with(dichte) { ringGroesse.toPx() / 2 }
+        focusPoint?.let { spot ->
+            val ringSize = 72.dp
+            val halb = with(dichte) { ringSize.toPx() / 2 }
             Box(
                 Modifier
-                    .offset { IntOffset((stelle.x - halb).toInt(), (stelle.y - halb).toInt()) }
-                    .size(ringGroesse)
+                    .offset { IntOffset((spot.x - halb).toInt(), (spot.y - halb).toInt()) }
+                    .size(ringSize)
                     .border(2.dp, Color.White, CircleShape),
             )
         }
@@ -342,18 +342,18 @@ fun CameraScreen(zurueck: () -> Unit) {
         RoundButton(
             symbol = Icons.Default.Close,
             description = "Schließen",
-            beiKlick = {
+            onClick = {
                 if (aufnahmeLaeuft != null) {
                     aufnahmeLaeuft?.stop()
                     aufnahmeLaeuft = null
                 }
-                zurueckEinmal()
+                backOnce()
             },
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
 
         // Blitz oben rechts — während einer laufenden Videoaufnahme gesperrt
-        if (aufnahmeLaeuft == null && blitzNutzbar) {
+        if (aufnahmeLaeuft == null && flashUsable) {
             Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp)) {
                 Box(
                     Modifier
@@ -429,7 +429,7 @@ fun CameraScreen(zurueck: () -> Unit) {
                                 style = MaterialTheme.typography.labelMedium,
                                 modifier = Modifier
                                     .clip(CircleShape)
-                                    .clickable { setzeZoom(stufe.ratio) }
+                                    .clickable { setZoom(stufe.ratio) }
                                     .background(if (gewaehlt) Color(0x26FFFFFF) else Color.Transparent)
                                     .padding(horizontal = 12.dp, vertical = 7.dp),
                             )
@@ -455,15 +455,15 @@ fun CameraScreen(zurueck: () -> Unit) {
                         .padding(horizontal = 5.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    CaptureMode.entries.forEach { eintrag ->
-                        val gewaehlt = captureMode == eintrag
+                    CaptureMode.entries.forEach { entry ->
+                        val gewaehlt = captureMode == entry
                         Text(
-                            if (eintrag == CaptureMode.PHOTO) "FOTO" else "VIDEO",
+                            if (entry == CaptureMode.PHOTO) "FOTO" else "VIDEO",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (gewaehlt) Sun else Ink,
                             modifier = Modifier
                                 .clip(CircleShape)
-                                .clickable { captureMode = eintrag }
+                                .clickable { captureMode = entry }
                                 .background(if (gewaehlt) Color(0x26FFFFFF) else Color.Transparent)
                                 .padding(horizontal = 14.dp, vertical = 8.dp),
                         )
@@ -481,30 +481,30 @@ fun CameraScreen(zurueck: () -> Unit) {
                     captureMode = captureMode,
                     speichert = speichert,
                     laeuftVideo = aufnahmeLaeuft != null,
-                    beiKlick = {
-                        val aufnahme = RecordingState.current.value ?: return@Ausloeser
+                    onClick = {
+                        val activeRecording = RecordingState.current.value ?: return@Ausloeser
                         if (captureMode == CaptureMode.PHOTO) {
                             if (speichert) return@Ausloeser
                             speichert = true
-                            val (relativ, datei) = app.repository.newMediumFile(aufnahme.tourId, "jpg")
+                            val (relative, file) = app.repository.newMediumFile(activeRecording.tourId, "jpg")
                             imageCapture.takePicture(
-                                ImageCapture.OutputFileOptions.Builder(datei).build(),
+                                ImageCapture.OutputFileOptions.Builder(file).build(),
                                 ContextCompat.getMainExecutor(context),
                                 object : ImageCapture.OnImageSavedCallback {
                                     override fun onImageSaved(ergebnis: ImageCapture.OutputFileResults) {
                                         app.appScope.launch {
                                             // Vor dem Registrieren aufrecht drehen (EXIF → Pixel) und auf
                                             // Uploadgröße bringen — danach ist die Datei das, was hochgeht.
-                                            withContext(Dispatchers.IO) { preparePhotoForUpload(datei) }
-                                            val anchor = aufnahme.lastPoint?.let { it.lng to it.lat }
-                                            app.repository.registerPhoto(aufnahme.tourId, relativ, System.currentTimeMillis(), anchor)
+                                            withContext(Dispatchers.IO) { preparePhotoForUpload(file) }
+                                            val anchor = activeRecording.lastPoint?.let { it.lng to it.lat }
+                                            app.repository.registerPhoto(activeRecording.tourId, relative, System.currentTimeMillis(), anchor)
                                             speichert = false
-                                            zurueckEinmal()
+                                            backOnce()
                                         }
                                     }
 
-                                    override fun onError(fehler: ImageCaptureException) {
-                                        datei.delete()
+                                    override fun onError(error: ImageCaptureException) {
+                                        file.delete()
                                         speichert = false
                                     }
                                 },
@@ -513,7 +513,7 @@ fun CameraScreen(zurueck: () -> Unit) {
                             // Stopp: Finalize registriert asynchron im App-Scope, wir gehen zurück
                             aufnahmeLaeuft?.stop()
                             aufnahmeLaeuft = null
-                            zurueckEinmal()
+                            backOnce()
                         } else {
                             // Start: Ton beim ersten Mal anfragen (danach startet der Launcher-Callback)
                             if (tonErlaubt) starteVideoAufnahme()
@@ -525,8 +525,8 @@ fun CameraScreen(zurueck: () -> Unit) {
                     if (aufnahmeLaeuft == null) {
                         RoundButton(
                             symbol = Icons.Default.Cameraswitch,
-                            description = if (vorne) "Rückkamera" else "Frontkamera",
-                            beiKlick = { vorne = !vorne },
+                            description = if (frontCamera) "Rückkamera" else "Frontkamera",
+                            onClick = { frontCamera = !frontCamera },
                         )
                     }
                 }
@@ -547,7 +547,7 @@ private fun Ausloeser(
     captureMode: CaptureMode,
     speichert: Boolean,
     laeuftVideo: Boolean,
-    beiKlick: () -> Unit,
+    onClick: () -> Unit,
 ) {
     val description = when {
         captureMode == CaptureMode.PHOTO -> "Foto aufnehmen"
@@ -559,7 +559,7 @@ private fun Ausloeser(
             .size(74.dp)
             .clip(CircleShape)
             .border(3.dp, Ink.copy(alpha = 0.9f), CircleShape)
-            .clickable(onClickLabel = description, onClick = beiKlick),
+            .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         when {

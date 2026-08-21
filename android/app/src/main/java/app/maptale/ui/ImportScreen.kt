@@ -51,18 +51,18 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ImportScreen(
     viewModel: ImportViewModel,
-    zurueck: () -> Unit,
+    back: () -> Unit,
     abspielen: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     var gpxUri by remember { mutableStateOf<Uri?>(null) }
     var gpxName by remember { mutableStateOf<String?>(null) }
-    var medienUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var mediaUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var title by remember { mutableStateOf("") }
 
     // SAF: GPX öffnen (OpenDocument gibt eine dauerhaft lesbare Uri). GPX hat
     // keinen verlässlichen MIME-Typ → breit filtern und alles zulassen.
-    val gpxWahl = rememberLauncherForActivityResult(
+    val gpxPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri != null) {
@@ -70,24 +70,24 @@ fun ImportScreen(
             gpxName = uri.lastPathSegment?.substringAfterLast('/')
         }
     }
-    val medienWahl = rememberLauncherForActivityResult(
+    val mediaPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments(),
-    ) { uris -> if (uris.isNotEmpty()) medienUris = uris }
+    ) { uris -> if (uris.isNotEmpty()) mediaUris = uris }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Tour importieren") },
                 navigationIcon = {
-                    IconButton(onClick = zurueck) {
+                    IconButton(onClick = back) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
                     }
                 },
             )
         },
-    ) { innen ->
+    ) { inner ->
         Column(
-            Modifier.fillMaxSize().padding(innen).padding(20.dp).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().padding(inner).padding(20.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
@@ -98,7 +98,7 @@ fun ImportScreen(
             )
 
             OutlinedButton(
-                onClick = { gpxWahl.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*")) },
+                onClick = { gpxPicker.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*")) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Default.Map, contentDescription = null)
@@ -106,13 +106,13 @@ fun ImportScreen(
             }
 
             OutlinedButton(
-                onClick = { medienWahl.launch(arrayOf("image/*", "video/*")) },
+                onClick = { mediaPicker.launch(arrayOf("image/*", "video/*")) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Default.PhotoLibrary, contentDescription = null)
                 Text(
-                    "  " + if (medienUris.isEmpty()) "Fotos & Videos wählen (optional)"
-                    else "${medienUris.size} Medien gewählt",
+                    "  " + if (mediaUris.isEmpty()) "Fotos & Videos wählen (optional)"
+                    else "${mediaUris.size} Medien gewählt",
                 )
             }
 
@@ -126,7 +126,7 @@ fun ImportScreen(
 
             when (val z = state) {
                 is ImportViewModel.State.Loading -> {
-                    LinearProgressIndicator(progress = { z.fortschritt }, modifier = Modifier.fillMaxWidth())
+                    LinearProgressIndicator(progress = { z.progress }, modifier = Modifier.fillMaxWidth())
                     Text(z.text, style = MaterialTheme.typography.bodySmall)
                 }
                 is ImportViewModel.State.Failed ->
@@ -140,13 +140,13 @@ fun ImportScreen(
                 ImportViewModel.State.Idle -> {}
             }
 
-            val laeuft = state is ImportViewModel.State.Loading
+            val running = state is ImportViewModel.State.Loading
             Button(
-                onClick = { gpxUri?.let { viewModel.importGpx(it, medienUris, title.ifBlank { null }) } },
-                enabled = gpxUri != null && !laeuft,
+                onClick = { gpxUri?.let { viewModel.importGpx(it, mediaUris, title.ifBlank { null }) } },
+                enabled = gpxUri != null && !running,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                if (laeuft) {
+                if (running) {
                     CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
                 } else {
                     Text("Importieren & hochladen")

@@ -93,18 +93,18 @@ import java.util.Locale
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {}) {
     val account by viewModel.account.collectAsState()
-    val lokale by viewModel.localTours.collectAsState(initial = emptyList())
-    val vomServer by viewModel.serverTours.collectAsState()
+    val localTours by viewModel.localTours.collectAsState(initial = emptyList())
+    val serverTours by viewModel.serverTours.collectAsState()
     val context = LocalContext.current
     val app = context.applicationContext as MaptaleApp
 
     var displayName by remember { mutableStateOf<String?>(null) }
     var bio by remember { mutableStateOf<String?>(null) }
-    var hinweisOhneNamen by remember { mutableStateOf(false) }
-    var bildBlatt by remember { mutableStateOf(false) }
-    var kontoLoeschenDialog by remember { mutableStateOf(false) }
+    var noNameHint by remember { mutableStateOf(false) }
+    var imageSheet by remember { mutableStateOf(false) }
+    var deleteAccountDialog by remember { mutableStateOf(false) }
     val tracker by viewModel.tracker.collectAsState()
-    var meldung by remember { mutableStateOf<String?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { viewModel.refresh() }
 
@@ -114,14 +114,14 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
     // sie ablehnt, bekommt keinen Token hinterlegt — dann läge eine Adresse
     // auf dem Server, an die nichts gehen darf. Bis Android 12 gibt es keine
     // Abfrage, dort zählt das Verbinden selbst als Zustimmung.
-    val meldeErlaubnis = rememberLauncherForActivityResult(
+    val notifyPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { erlaubt -> if (erlaubt) app.appScope.launch { MaptalePush.enable(app) } }
 
     // Der Foto-Nachzug braucht das Leserecht auf Bilder. Erfragt wird es erst
     // beim Einschalten des Schalters — nicht beim Anmelden, nicht beim Start.
     val autoPhotos by viewModel.autoPhotos.collectAsState()
-    val galerieErlaubnis = rememberLauncherForActivityResult(
+    val galleryPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { erlaubt -> viewModel.setAutoPhotos(erlaubt) }
 
@@ -135,17 +135,17 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
         TrackerReturn.events.collect {
             viewModel.refresh()
             if (Build.VERSION.SDK_INT >= 33) {
-                meldeErlaubnis.launch(Manifest.permission.POST_NOTIFICATIONS)
+                notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             } else {
                 app.appScope.launch { MaptalePush.enable(app) }
             }
         }
     }
 
-    meldung?.let { text ->
+    message?.let { text ->
         LaunchedEffect(text) {
             kotlinx.coroutines.delay(4000)
-            meldung = null
+            message = null
         }
     }
 
@@ -166,7 +166,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
         }
     }
 
-    val bildWaehler = rememberLauncherForActivityResult(
+    val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         if (uri != null) {
@@ -174,12 +174,12 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
         }
     }
 
-    val waehleBild = {
-        bildWaehler.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    val pickImage = {
+        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
-    val statistik = remember(lokale, vomServer) {
-        computeTravelStats(mergeTours(lokale, vomServer))
+    val stats = remember(localTours, serverTours) {
+        computeTravelStats(mergeTours(localTours, serverTours))
     }
 
     Column(
@@ -209,7 +209,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
                     .clickable(
                         onClickLabel = if (avatarUrl == null) "Profilbild wählen" else "Profilbild ändern",
                     ) {
-                        if (avatarUrl == null) waehleBild() else bildBlatt = true
+                        if (avatarUrl == null) pickImage() else imageSheet = true
                     },
                 contentAlignment = Alignment.Center,
             ) {
@@ -260,11 +260,11 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Kennzahl(statistik.tourCount.toString(), "Reisen", Modifier.weight(1f))
+            Kennzahl(stats.tourCount.toString(), "Reisen", Modifier.weight(1f))
             Trenner()
-            Kennzahl(String.format(Locale.GERMAN, "%.0f", statistik.km), "Kilometer", Modifier.weight(1f))
+            Kennzahl(String.format(Locale.GERMAN, "%.0f", stats.km), "Kilometer", Modifier.weight(1f))
             Trenner()
-            Kennzahl(String.format(Locale.GERMAN, "%.0f", statistik.gainM), "Höhenmeter", Modifier.weight(1f))
+            Kennzahl(String.format(Locale.GERMAN, "%.0f", stats.gainM), "Höhenmeter", Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(34.dp))
@@ -311,7 +311,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
                 checked = account?.profile?.public == true,
                 onCheckedChange = { an ->
                     // Ohne Anzeigenamen wäre die Seite namenlos — einmal nachfragen
-                    if (an && displayName.isNullOrBlank()) hinweisOhneNamen = true
+                    if (an && displayName.isNullOrBlank()) noNameHint = true
                     else viewModel.setPublic(an)
                 },
             )
@@ -329,11 +329,11 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
             SectionTitle("Verbundene Dienste")
             Spacer(Modifier.height(14.dp))
             for (anbieter in tracker) {
-                TrackerZeile(
+                TrackerRow(
                     anbieter = anbieter,
-                    beiAktion = { aktion ->
-                        when (aktion) {
-                            TrackerAction.DISCONNECT -> viewModel.disconnectTracker(anbieter.id) { meldung = it }
+                    beiAktion = { action ->
+                        when (action) {
+                            TrackerAction.DISCONNECT -> viewModel.disconnectTracker(anbieter.id) { message = it }
                             else -> viewModel.connectTracker(
                                 anbieter.id,
                                 oeffne = { url ->
@@ -342,10 +342,10 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
                                     // Zurück kommt die App über den Deep Link
                                     // maptale://tracker/…
                                     if (!openAuthorization(context, url)) {
-                                        meldung = "Kein Browser gefunden."
+                                        message = "Kein Browser gefunden."
                                     }
                                 },
-                                beiFehler = { meldung = it },
+                                onError = { message = it },
                             )
                         }
                     },
@@ -386,7 +386,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
                     onCheckedChange = { an ->
                         if (!an) viewModel.setAutoPhotos(false)
                         else if (canReadGallery(context)) viewModel.setAutoPhotos(true)
-                        else galerieErlaubnis.launch(READ_PERMISSION)
+                        else galleryPermission.launch(READ_PERMISSION)
                     },
                 )
             }
@@ -442,7 +442,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "${megabyte(stand.usedBytes)} von ${megabyte(stand.limitBytes)} belegt",
+                    "${megabytes(stand.usedBytes)} von ${megabytes(stand.limitBytes)} belegt",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -489,7 +489,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(14.dp))
         TextButton(
-            onClick = { kontoLoeschenDialog = true },
+            onClick = { deleteAccountDialog = true },
             colors = ButtonDefaults.textButtonColors(
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
@@ -509,17 +509,17 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
         Spacer(Modifier.height(56.dp))
     }
 
-    if (bildBlatt) {
-        BildBlatt(
-            schliessen = { bildBlatt = false },
-            waehlen = { bildBlatt = false; waehleBild() },
-            entfernen = { bildBlatt = false; viewModel.deleteAvatar() },
+    if (imageSheet) {
+        ImageSheet(
+            schliessen = { imageSheet = false },
+            waehlen = { imageSheet = false; pickImage() },
+            entfernen = { imageSheet = false; viewModel.deleteAvatar() },
         )
     }
 
-    if (kontoLoeschenDialog) {
+    if (deleteAccountDialog) {
         AlertDialog(
-            onDismissRequest = { kontoLoeschenDialog = false },
+            onDismissRequest = { deleteAccountDialog = false },
             icon = {
                 Icon(
                     Icons.Default.WarningAmber,
@@ -537,7 +537,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
             },
             confirmButton = {
                 TextButton(onClick = {
-                    kontoLoeschenDialog = false
+                    deleteAccountDialog = false
                     // Die Serverzeile fällt mit dem Konto (CASCADE); hier geht
                     // es um das GERÄT: Token löschen, Auto-Init aus. Sonst
                     // meldete die App nach dem Löschen weiter eine Adresse an
@@ -549,32 +549,32 @@ fun ProfileScreen(viewModel: ProfileViewModel, zurRueckmeldung: () -> Unit = {})
                 }) { Text("Endgültig löschen", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { kontoLoeschenDialog = false }) { Text("Abbrechen") }
+                TextButton(onClick = { deleteAccountDialog = false }) { Text("Abbrechen") }
             },
         )
     }
 
-    if (hinweisOhneNamen) {
+    if (noNameHint) {
         AlertDialog(
-            onDismissRequest = { hinweisOhneNamen = false },
+            onDismissRequest = { noNameHint = false },
             title = { Text("Noch ohne Anzeigenamen") },
             text = { Text("Ohne Anzeigenamen erscheint deine Profilseite namenlos. Trotzdem freischalten?") },
             confirmButton = {
                 TextButton(onClick = {
-                    hinweisOhneNamen = false
+                    noNameHint = false
                     viewModel.setPublic(true)
                 }) { Text("Freischalten") }
             },
-            dismissButton = { TextButton(onClick = { hinweisOhneNamen = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(onClick = { noNameHint = false }) { Text("Abbrechen") } },
         )
     }
 }
 
 /** Eine Zahl mit ihrer Bedeutung darunter — Ziffern in gleicher Breite. */
 @Composable
-private fun Kennzahl(wert: String, beschriftung: String, modifier: Modifier = Modifier) {
+private fun Kennzahl(value: String, beschriftung: String, modifier: Modifier = Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(wert, style = MaterialTheme.typography.displayMedium.copy(fontSize = 30.sp))
+        Text(value, style = MaterialTheme.typography.displayMedium.copy(fontSize = 30.sp))
         Spacer(Modifier.height(4.dp))
         Text(
             beschriftung,
@@ -595,13 +595,13 @@ private fun Trenner() {
     )
 }
 
-private fun megabyte(bytes: Long): String =
+private fun megabytes(bytes: Long): String =
     String.format(Locale.GERMAN, "%.0f MB", bytes / 1024.0 / 1024.0)
 
 /** Was sich mit einem vorhandenen Profilbild anstellen lässt. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BildBlatt(schliessen: () -> Unit, waehlen: () -> Unit, entfernen: () -> Unit) {
+private fun ImageSheet(schliessen: () -> Unit, waehlen: () -> Unit, entfernen: () -> Unit) {
     ModalBottomSheet(onDismissRequest = schliessen, sheetState = rememberModalBottomSheetState()) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding(),
@@ -614,7 +614,7 @@ private fun BildBlatt(schliessen: () -> Unit, waehlen: () -> Unit, entfernen: ()
                 Icons.Default.DeleteOutline,
                 "Bild entfernen",
                 entfernen,
-                farbe = MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error,
             )
             Spacer(Modifier.height(20.dp))
         }
@@ -625,20 +625,20 @@ private fun BildBlatt(schliessen: () -> Unit, waehlen: () -> Unit, entfernen: ()
 private fun Blattzeile(
     symbol: androidx.compose.ui.graphics.vector.ImageVector,
     text: String,
-    beiKlick: () -> Unit,
-    farbe: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit,
+    color: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Row(
         Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = beiKlick)
+            .clickable(onClick = onClick)
             .padding(vertical = 14.dp, horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(symbol, contentDescription = null, tint = farbe, modifier = Modifier.size(20.dp))
-        Text(text, style = MaterialTheme.typography.bodyLarge, color = farbe)
+        Icon(symbol, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = color)
     }
 }
 
@@ -652,8 +652,8 @@ private fun Blattzeile(
  * gemeinsam mit der Weboberfläche gehalten).
  */
 @Composable
-private fun TrackerZeile(anbieter: TrackerProvider, beiAktion: (TrackerAction) -> Unit) {
-    val aktion = providerAction(anbieter)
+private fun TrackerRow(anbieter: TrackerProvider, beiAktion: (TrackerAction) -> Unit) {
+    val action = providerAction(anbieter)
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -677,11 +677,11 @@ private fun TrackerZeile(anbieter: TrackerProvider, beiAktion: (TrackerAction) -
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (aktion != null) {
-            TextButton(onClick = { beiAktion(aktion) }) {
+        if (action != null) {
+            TextButton(onClick = { beiAktion(action) }) {
                 Text(
-                    actionLabel(aktion),
-                    color = if (aktion == TrackerAction.DISCONNECT) {
+                    actionLabel(action),
+                    color = if (action == TrackerAction.DISCONNECT) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.primary

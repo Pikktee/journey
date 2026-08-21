@@ -76,12 +76,12 @@ fun NewTourSheet(
                         onClick = { travelMode = null },
                         label = { Text("Automatisch") },
                     )
-                    TravelMode.entries.forEach { eintrag ->
+                    TravelMode.entries.forEach { entry ->
                         FilterChip(
-                            selected = travelMode == eintrag,
+                            selected = travelMode == entry,
                             // Nochmal tippen führt zurück auf „Automatisch"
-                            onClick = { travelMode = if (travelMode == eintrag) null else eintrag },
-                            label = { Text(eintrag.label) },
+                            onClick = { travelMode = if (travelMode == entry) null else entry },
+                            label = { Text(entry.label) },
                         )
                     }
                 }

@@ -53,7 +53,7 @@ class TourNaming(private val geocoder: PlaceGeocoder) {
     ): String? {
         val startName = geocoder.placeName(start.second, start.first)
         val zielName = geocoder.placeName(ziel.second, ziel.first)
-        return baueTitel(startName, zielName, istRunde(start, ziel))
+        return buildTitle(startName, zielName, istRunde(start, ziel))
     }
 
     companion object {
@@ -66,7 +66,7 @@ class TourNaming(private val geocoder: PlaceGeocoder) {
         }
 
         /** Titelform wie das Backend: „Start → Ziel", „Runde bei X" oder null. */
-        fun baueTitel(startName: String?, zielName: String?, runde: Boolean): String? = when {
+        fun buildTitle(startName: String?, zielName: String?, runde: Boolean): String? = when {
             runde && (startName ?: zielName) != null -> "Runde bei ${startName ?: zielName}"
             startName != null && zielName != null && startName != zielName -> "$startName → $zielName"
             startName != null && zielName != null -> "Runde bei $startName"

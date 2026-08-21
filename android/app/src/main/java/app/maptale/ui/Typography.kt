@@ -50,15 +50,15 @@ val Mono = FontFamily(
 )
 
 /** Outfit mit Tabular Figures — Anti-Zucken ohne Mono. */
-private fun zahlenStil(
+private fun numberStyle(
     gewicht: FontWeight,
-    groesse: TextUnit,
+    size: TextUnit,
     zeilenhoehe: TextUnit,
     tracking: TextUnit = 0.em,
 ) = TextStyle(
     fontFamily = Sans,
     fontWeight = gewicht,
-    fontSize = groesse,
+    fontSize = size,
     lineHeight = zeilenhoehe,
     letterSpacing = tracking,
     fontFeatureSettings = "tnum",
@@ -66,8 +66,8 @@ private fun zahlenStil(
 
 val MaptaleTypography = Typography(
     // Bühnengrößen: Aufnahme-Uhr & große Kennzahlen — Outfit + tnum
-    displayLarge = zahlenStil(FontWeight.Medium, 50.sp, 56.sp, (-0.03).em),
-    displayMedium = zahlenStil(FontWeight.Medium, 40.sp, 46.sp, (-0.03).em),
+    displayLarge = numberStyle(FontWeight.Medium, 50.sp, 56.sp, (-0.03).em),
+    displayMedium = numberStyle(FontWeight.Medium, 40.sp, 46.sp, (-0.03).em),
     displaySmall = TextStyle(
         fontFamily = Sans, fontWeight = FontWeight.SemiBold,
         fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.02).em,
@@ -77,7 +77,7 @@ val MaptaleTypography = Typography(
         fontFamily = Sans, fontWeight = FontWeight.SemiBold,
         fontSize = 29.sp, lineHeight = 34.sp, letterSpacing = (-0.02).em,
     ),
-    headlineMedium = zahlenStil(FontWeight.SemiBold, 24.sp, 29.sp, (-0.015).em),
+    headlineMedium = numberStyle(FontWeight.SemiBold, 24.sp, 29.sp, (-0.015).em),
     headlineSmall = TextStyle(
         fontFamily = Sans, fontWeight = FontWeight.SemiBold,
         fontSize = 21.sp, lineHeight = 27.sp, letterSpacing = (-0.01).em,

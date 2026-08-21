@@ -75,13 +75,13 @@ private val UEBERNOMMENE_ANGABEN = listOf(
 )
 
 /**
- * Bereitet [datei] IN PLACE für den Upload auf.
+ * Bereitet [file] IN PLACE für den Upload auf.
  *
  * Bei Fehlern (OutOfMemory, unlesbares JPEG) bleibt die Originaldatei
  * unangetastet — lieber ein großes Foto hochladen als gar keins.
  */
-fun preparePhotoForUpload(datei: File) {
-    val quellExif = runCatching { ExifInterface(datei.absolutePath) }.getOrNull()
+fun preparePhotoForUpload(file: File) {
+    val quellExif = runCatching { ExifInterface(file.absolutePath) }.getOrNull()
     val orientierung = quellExif?.getAttributeInt(
         ExifInterface.TAG_ORIENTATION,
         ExifInterface.ORIENTATION_NORMAL,
@@ -92,7 +92,7 @@ fun preparePhotoForUpload(datei: File) {
 
     runCatching {
         val masse = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(datei.absolutePath, masse)
+        BitmapFactory.decodeFile(file.absolutePath, masse)
         if (masse.outWidth <= 0 || masse.outHeight <= 0) return
 
         // Nichts zu tun? Dann die Datei nicht anfassen: Ein zweites Encodieren
@@ -105,18 +105,18 @@ fun preparePhotoForUpload(datei: File) {
         val optionen = BitmapFactory.Options().apply {
             inSampleSize = sampleFactor(masse.outWidth, masse.outHeight, UPLOAD_EDGE)
         }
-        val grob = BitmapFactory.decodeFile(datei.absolutePath, optionen) ?: return
+        val grob = BitmapFactory.decodeFile(file.absolutePath, optionen) ?: return
         val gedreht = drehe(grob, orientierung)
         val fertig = scaleToEdge(gedreht, UPLOAD_EDGE)
 
-        FileOutputStream(datei).use { fertig.compress(Bitmap.CompressFormat.JPEG, UPLOAD_GUETE, it) }
-        val breite = fertig.width
-        val hoehe = fertig.height
+        FileOutputStream(file).use { fertig.compress(Bitmap.CompressFormat.JPEG, UPLOAD_GUETE, it) }
+        val width = fertig.width
+        val height = fertig.height
         if (fertig !== gedreht) fertig.recycle()
         if (gedreht !== grob) gedreht.recycle()
         grob.recycle()
 
-        schreibeAngaben(datei, angaben, breite, hoehe)
+        schreibeAngaben(file, angaben, width, height)
     }.onFailure { Log.w("MaptaleFoto", "Foto-Aufbereitung fehlgeschlagen, Original bleibt", it) }
 }
 
@@ -125,7 +125,7 @@ private fun mussGedrehtWerden(orientierung: Int): Boolean =
     orientierung != ExifInterface.ORIENTATION_NORMAL && orientierung != ExifInterface.ORIENTATION_UNDEFINED
 
 /** Dreht die Pixel gemäß EXIF-Lage; NORMAL/UNDEFINED gibt das Bild unverändert zurück. */
-private fun drehe(bild: Bitmap, orientierung: Int): Bitmap {
+private fun drehe(bitmap: Bitmap, orientierung: Int): Bitmap {
     val matrix = Matrix()
     when (orientierung) {
         ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
@@ -135,9 +135,9 @@ private fun drehe(bild: Bitmap, orientierung: Int): Bitmap {
         ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
         ExifInterface.ORIENTATION_TRANSPOSE -> { matrix.postRotate(90f); matrix.postScale(-1f, 1f) }
         ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.postRotate(-90f); matrix.postScale(-1f, 1f) }
-        else -> return bild
+        else -> return bitmap
     }
-    return Bitmap.createBitmap(bild, 0, 0, bild.width, bild.height, matrix, true)
+    return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
 }
 
 /**
@@ -146,13 +146,13 @@ private fun drehe(bild: Bitmap, orientierung: Int): Bitmap {
  * Die Lage steht ausdrücklich auf „normal": Sie steckt jetzt in den Pixeln, und
  * bliebe der alte Wert stehen, drehte jeder EXIF-treue Betrachter ein zweites Mal.
  */
-private fun schreibeAngaben(datei: File, angaben: List<Pair<String, String>>, breite: Int, hoehe: Int) {
+private fun schreibeAngaben(file: File, angaben: List<Pair<String, String>>, width: Int, height: Int) {
     runCatching {
-        val ziel = ExifInterface(datei.absolutePath)
-        for ((tag, wert) in angaben) ziel.setAttribute(tag, wert)
+        val ziel = ExifInterface(file.absolutePath)
+        for ((tag, value) in angaben) ziel.setAttribute(tag, value)
         ziel.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
-        ziel.setAttribute(ExifInterface.TAG_PIXEL_X_DIMENSION, breite.toString())
-        ziel.setAttribute(ExifInterface.TAG_PIXEL_Y_DIMENSION, hoehe.toString())
+        ziel.setAttribute(ExifInterface.TAG_PIXEL_X_DIMENSION, width.toString())
+        ziel.setAttribute(ExifInterface.TAG_PIXEL_Y_DIMENSION, height.toString())
         ziel.saveAttributes()
     }.onFailure { Log.w("MaptaleFoto", "EXIF konnte nicht übernommen werden", it) }
 }

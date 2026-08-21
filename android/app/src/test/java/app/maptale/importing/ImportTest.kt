@@ -72,8 +72,8 @@ class ImportTest {
             zone = "Europe/Zurich",
             timeSpan = spanne,
             media = listOf(
-                ImportMedium(id = "m1", typ = "photo", datei = "m1.jpg", takenAtMs = spanne.startMs, anchorLng = 8.0, anchorLat = 46.5),
-                ImportMedium(id = "m2", typ = "video", datei = "m2.mp4", takenAtMs = spanne.startMs),
+                ImportMedium(id = "m1", type = "photo", file = "m1.jpg", takenAtMs = spanne.startMs, anchorLng = 8.0, anchorLat = 46.5),
+                ImportMedium(id = "m2", type = "video", file = "m2.mp4", takenAtMs = spanne.startMs),
             ),
         )
         assertEquals("track.gpx", manifest.trackFile)

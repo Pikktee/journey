@@ -66,8 +66,8 @@ object MaptalePush {
             messaging.isAutoInitEnabled = true
             messaging.register().await()
             app.apiClient.registerPushDevice(FirebaseInstallations.getInstance().id.await())
-        }.getOrElse { fehler ->
-            Log.w("Maptale", "Push konnte nicht eingeschaltet werden", fehler)
+        }.getOrElse { error ->
+            Log.w("Maptale", "Push konnte nicht eingeschaltet werden", error)
             false
         }
     }
@@ -92,11 +92,11 @@ object MaptalePush {
             val messaging = FirebaseMessaging.getInstance()
             messaging.unregister().await()
             messaging.isAutoInitEnabled = false
-        }.onFailure { fehler ->
+        }.onFailure { error ->
             // Ein misslungenes Abmelden darf das Abmelden vom KONTO nicht
             // aufhalten. Die Zeile fällt spätestens, wenn FCM die Adresse als
             // ungültig meldet — oder mit dem Zugang, an dem sie hängt.
-            Log.w("Maptale", "Push konnte nicht abgemeldet werden", fehler)
+            Log.w("Maptale", "Push konnte nicht abgemeldet werden", error)
         }
     }
 }

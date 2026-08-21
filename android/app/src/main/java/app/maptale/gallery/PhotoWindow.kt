@@ -200,16 +200,16 @@ fun matchingImages(
  * sich wie ein Fehler, eine Mitteilung über eine offene wie eine verpasste
  * Gelegenheit.
  */
-fun backfillMessage(anzahl: Int, automatisch: Boolean, videos: Int = 0): String? {
-    if (anzahl <= 0) return null
+fun backfillMessage(count: Int, automatisch: Boolean, videos: Int = 0): String? {
+    if (count <= 0) return null
     // Das Wort muss decken, was tatsächlich kommt: „3 Fotos hinzugefügt" über
     // zwei Bildern und einem Video ist schlicht falsch, und wer das Video
     // vermisst, sucht den Fehler beim Hochladen. Ein reiner Videofund heißt
     // beim Namen, ein gemischter „Aufnahmen".
     val wort = when {
-        videos <= 0 -> if (anzahl == 1) "Foto" else "Fotos"
-        videos == anzahl -> if (anzahl == 1) "Video" else "Videos"
+        videos <= 0 -> if (count == 1) "Foto" else "Fotos"
+        videos == count -> if (count == 1) "Video" else "Videos"
         else -> "Aufnahmen"
     }
-    return if (automatisch) "$anzahl $wort hinzugefügt" else "$anzahl $wort aus dieser Zeit gefunden — hinzufügen?"
+    return if (automatisch) "$count $wort hinzugefügt" else "$count $wort aus dieser Zeit gefunden — hinzufügen?"
 }

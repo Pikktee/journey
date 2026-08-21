@@ -66,10 +66,10 @@ private tailrec fun Context.findeActivity(): Activity? = when (this) {
  * Origin — die Angriffsfläche bleibt damit auf genau diesen Aufruf beschränkt.
  * Der Rückweg läuft über den Haupt-Thread, weil Navigation UI-Arbeit ist.
  */
-private class PlayerBridge(private val ansicht: WebView, private val zurueck: () -> Unit) {
+private class PlayerBridge(private val view: WebView, private val back: () -> Unit) {
     @JavascriptInterface
     fun exit() {
-        ansicht.post { zurueck() }
+        view.post { back() }
     }
 }
 
@@ -79,41 +79,41 @@ fun PlayerScreen(
     serverUrl: String,
     serverTourId: String,
     /** Tauscht das API-Token gegen eine Sitzung; null = ohne Anmeldung weiter. */
-    sitzungHolen: suspend () -> String?,
-    zurueck: () -> Unit,
+    fetchSession: suspend () -> String?,
+    back: () -> Unit,
 ) {
-    val ansicht = LocalView.current
+    val view = LocalView.current
     // Der WebView schickt nur Cookies mit — das API-Token der App steckt im
     // OkHttp-Client und erreicht ihn nicht. Ohne Sitzung sähe er nur Touren,
     // die ohnehin für jeden mit Link sichtbar sind; private wären in der
     // eigenen App unabspielbar. Erst danach laden, sonst rennt die Seite dem
     // Cookie davon.
-    var bereit by remember { mutableStateOf(false) }
+    var ready by remember { mutableStateOf(false) }
     LaunchedEffect(serverTourId) {
-        val sitzung = sitzungHolen()
-        if (sitzung != null) {
+        val session = fetchSession()
+        if (session != null) {
             CookieManager.getInstance().apply {
                 setAcceptCookie(true)
-                setCookie("$serverUrl/", "maptale_session=$sitzung; Path=/; Secure; SameSite=Lax")
+                setCookie("$serverUrl/", "maptale_session=$session; Path=/; Secure; SameSite=Lax")
                 flush()
             }
         }
-        bereit = true
+        ready = true
     }
 
     // — Vollbild: System-Leisten weg, Wischen holt sie kurz zurück —
-    DisposableEffect(ansicht) {
-        val fenster = ansicht.context.findeActivity()?.window
-        val steuerung = fenster?.let { WindowCompat.getInsetsController(it, ansicht) }
-        steuerung?.apply {
+    DisposableEffect(view) {
+        val window = view.context.findeActivity()?.window
+        val controls = window?.let { WindowCompat.getInsetsController(it, view) }
+        controls?.apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
-        onDispose { steuerung?.show(WindowInsetsCompat.Type.systemBars()) }
+        onDispose { controls?.show(WindowInsetsCompat.Type.systemBars()) }
     }
 
     // Referenz auf den WebView, damit Lebenszyklus-Beobachter und Abbau ihn erreichen
-    val halter = remember { arrayOfNulls<WebView>(1) }
+    val holder = remember { arrayOfNulls<WebView>(1) }
 
     // — App im Hintergrund: Ton anhalten, beim Zurückkommen fortsetzen —
     //
@@ -125,10 +125,10 @@ fun PlayerScreen(
     // Deshalb sagt die App es hier ausdrücklich. Reihenfolge ist Absicht:
     // erst der Seite Bescheid geben, dann die Zeitgeber einfrieren — und beim
     // Zurückkommen umgekehrt.
-    val lebenszyklus = ansicht.findViewTreeLifecycleOwner()?.lifecycle
-    DisposableEffect(lebenszyklus) {
-        val beobachter = LifecycleEventObserver { _, ereignis ->
-            val web = halter[0]
+    val lifecycle = view.findViewTreeLifecycleOwner()?.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, ereignis ->
+            val web = holder[0]
             when (ereignis) {
                 Lifecycle.Event.ON_PAUSE -> {
                     web?.evaluateJavascript(
@@ -149,24 +149,24 @@ fun PlayerScreen(
                 else -> Unit
             }
         }
-        lebenszyklus?.addObserver(beobachter)
-        onDispose { lebenszyklus?.removeObserver(beobachter) }
+        lifecycle?.addObserver(observer)
+        onDispose { lifecycle?.removeObserver(observer) }
     }
 
-    if (!bereit) return
+    if (!ready) return
 
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
             WebView(ctx).apply {
-                halter[0] = this
+                holder[0] = this
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 // Der Player startet Audio/Video (Motor, Wetter, Musik) ohne
                 // frische Nutzergeste — sonst blockt der WebView den Autoplay.
                 settings.mediaPlaybackRequiresUserGesture = false
                 // Weg zurück in die Tourliste für den Knopf im Web-Player
-                addJavascriptInterface(PlayerBridge(this, zurueck), "MaptaleApp")
+                addJavascriptInterface(PlayerBridge(this, back), "MaptaleApp")
                 // MapLibre GL braucht WebGL — in modernen WebViews vorhanden.
                 webChromeClient = object : WebChromeClient() {
                     override fun onConsoleMessage(message: ConsoleMessage): Boolean {
@@ -181,12 +181,12 @@ fun PlayerScreen(
                 webViewClient = object : WebViewClient() {
                     override fun onReceivedError(
                         view: WebView,
-                        anfrage: WebResourceRequest,
-                        fehler: WebResourceError,
+                        request: WebResourceRequest,
+                        error: WebResourceError,
                     ) {
                         Log.e(
                             "MaptalePlayer",
-                            "Ladefehler ${fehler.errorCode} ${fehler.description} für ${anfrage.url}",
+                            "Ladefehler ${error.errorCode} ${error.description} für ${request.url}",
                         )
                     }
                 }
@@ -207,7 +207,7 @@ fun PlayerScreen(
         // Hintergrund heraus verlassen wird. Diese Instanz braucht ihn nicht mehr,
         // sie wird zwei Zeilen später zerstört.
         onRelease = { web ->
-            halter[0] = null
+            holder[0] = null
             web.stopLoading()
             web.loadUrl("about:blank")
             web.onPause()

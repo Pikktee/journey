@@ -52,7 +52,7 @@ import java.time.Duration
  * Was der Deckel fängt, ist der Fall MIT Netz: Server antwortet nicht, Tour
  * rendert noch, Upload bricht ab.
  */
-private const val MAX_VERSUCHE_BIS_MELDUNG = 4
+private const val MAX_ATTEMPTS_BEFORE_NOTICE = 4
 
 class PhotoBackfillWorker(
     context: Context,
@@ -104,7 +104,7 @@ class PhotoBackfillWorker(
      * verspätete unvollständige Nachricht ist besser als gar keine.
      */
     private suspend fun spaeter(app: MaptaleApp, tourId: String, importId: String?): Result {
-        if (runAttemptCount + 1 < MAX_VERSUCHE_BIS_MELDUNG) return Result.retry()
+        if (runAttemptCount + 1 < MAX_ATTEMPTS_BEFORE_NOTICE) return Result.retry()
         report(app, tourId, importId, 0)
         return Result.retry()
     }
@@ -117,7 +117,7 @@ class PhotoBackfillWorker(
      * sobald die Benachrichtigungs-Berechtigung fehlt.
      */
     private fun alsImport(tourId: String, importId: String?) =
-        TrackerImport(id = importId ?: "", anbieter = "", status = "done", tourId = tourId, fehler = null)
+        TrackerImport(id = importId ?: "", anbieter = "", status = "done", tourId = tourId, error = null)
 
     private suspend fun report(app: MaptaleApp, tourId: String, importId: String?, media: Int): Result {
         val (title, unterzeile) = describeTours(app, listOf(alsImport(tourId, importId)), media)
@@ -141,13 +141,13 @@ class PhotoBackfillWorker(
          * nichts doppelt anlegt.
          */
         fun start(context: Context, tourId: String, importId: String? = null) {
-            val anfrage = OneTimeWorkRequestBuilder<PhotoBackfillWorker>()
+            val request = OneTimeWorkRequestBuilder<PhotoBackfillWorker>()
                 .setInputData(workDataOf(INPUT_TOUR_ID to tourId, INPUT_IMPORT_ID to importId))
                 .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, Duration.ofSeconds(30))
                 .build()
             WorkManager.getInstance(context)
-                .enqueueUniqueWork("photo-backfill-$tourId", ExistingWorkPolicy.KEEP, anfrage)
+                .enqueueUniqueWork("photo-backfill-$tourId", ExistingWorkPolicy.KEEP, request)
         }
     }
 }

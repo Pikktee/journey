@@ -28,7 +28,7 @@ import androidx.browser.customtabs.CustomTabsIntent
  * ein greller Balken mitten im dunklen Ablauf. Der Akzent gehört auf Knöpfe,
  * nicht auf Flächen.
  */
-private const val LEISTE = 0xFF10151C.toInt()
+private const val TOOLBAR = 0xFF10151C.toInt()
 
 /**
  * `true`, wenn die Seite geöffnet werden konnte.
@@ -45,13 +45,13 @@ fun openAuthorization(context: Context, url: String): Boolean {
         .setShowTitle(false)
         .setUrlBarHidingEnabled(false)
         .setDefaultColorSchemeParams(
-            CustomTabColorSchemeParams.Builder().setToolbarColor(LEISTE).build(),
+            CustomTabColorSchemeParams.Builder().setToolbarColor(TOOLBAR).build(),
         )
         .build()
     return try {
         tab.launchUrl(context, adresse)
         true
-    } catch (fehler: ActivityNotFoundException) {
+    } catch (error: ActivityNotFoundException) {
         // Kein Browser, der Custom Tabs versteht — der nackte Weg als letzte
         // Möglichkeit. Scheitert auch der, ist wirklich kein Browser da.
         try {

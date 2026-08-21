@@ -3900,3 +3900,11 @@ WetterModus	WeatherMode	export-typ	src/autoweather.ts	10	Nachlauf: §6.3a; der S
 TourJsonAntwort	TourJsonResponse	export-typ	src/remote.ts	10	Nachlauf
 PartikelModus	ParticleMode	export-typ	src/weather.ts	10	Nachlauf
 LoopSchluessel	LoopKey	export-typ	src/weather.ts	10	Nachlauf
+typ	type	property	android/app/src/main/java/app/maptale/upload/Manifest.kt (ImportMedium)	10	Nachlauf: prozessinterne Zwischenform, NICHT serialisiert (kein @Serializable)
+datei	file	property	android/app/src/main/java/app/maptale/upload/Manifest.kt (ImportMedium)	10	Nachlauf: s. typ
+endeS	endS	property	android/app/src/main/java/app/maptale/recording/ActivityInterpretation.kt	10	Nachlauf
+fehler	error	property	android/app/src/main/java/app/maptale/data/TourDao.kt (@Query-Parameter :fehler)	10	Nachlauf: der Room-Platzhalter steht in einer ZEICHENKETTE und ist von Hand mitgezogen; die Spalte heisst weiterhin error
+beiKlick	onClick	property	android/app/src/main/java/app/maptale/ui/ (Compose-Bausteine)	10	Nachlauf: folgt Composes eigenem onClick
+zurueck	back	property	android/app/src/main/java/app/maptale/ui/ (Screens)	10	Nachlauf: Rueckweg-Callback der Screens
+fokus	focus	property	android/app/src/main/java/app/maptale/ui/Components.kt	10	Nachlauf
+bereit	ready	api-wert	android/app/src/main/java/app/maptale/upload/ApiClient.kt (tourStatus-Rueckfall)	10	FEHLERHEILUNG: der Rueckfallwert war seit Welle 1 deutsch, alle Vergleiche daneben englisch — der Poll konnte nie fertig werden

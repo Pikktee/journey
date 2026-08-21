@@ -67,7 +67,7 @@ suspend fun findMatchingPhotos(app: MaptaleApp, serverTourId: String): List<Gall
     // fröhlich beide „IMG_0001.jpg".
     val bekannt = runCatching { app.apiClient.tourDetail(serverTourId).media }
         .getOrDefault(emptyList())
-        .mapNotNull { foto -> foto.takenAtIso?.let(::fromIso) }
+        .mapNotNull { photo -> photo.takenAtIso?.let(::fromIso) }
         .toSet()
     return matchingImages(imagesInWindow(app, startMs, endMs), startMs, endMs, bekannt)
 }
@@ -88,49 +88,49 @@ suspend fun findMatchingPhotos(app: MaptaleApp, serverTourId: String): List<Gall
 suspend fun uploadPhotos(
     app: MaptaleApp,
     serverTourId: String,
-    bilder: List<GalleryItem>,
+    images: List<GalleryItem>,
     /** Nach jedem Bild aufgerufen — die Grundlage der Fortschrittsanzeige. */
     beiFortschritt: (fertig: Int, gesamt: Int) -> Unit = { _, _ -> },
-): Int = nachzugSperre.withLock {
-    if (bilder.isEmpty()) return@withLock 0
-    val eintraege = bilder.map { bild ->
+): Int = backfillLock.withLock {
+    if (images.isEmpty()) return@withLock 0
+    val entries = images.map { image ->
         AddMediaItem(
-            fileName = bild.fileName,
-            takenAtIso = toIso(bild.takenAtMs),
+            fileName = image.fileName,
+            takenAtIso = toIso(image.takenAtMs),
             // Erst hier gelesen und nicht beim Suchen: Es ist ein Dateizugriff
             // je Bild, und die meisten Vorschläge werden nie hochgeladen.
-            anchor = gpsAnchor(app, bild)?.let { (lat, lng) -> lng to lat },
-            isVideo = bild.isVideo,
+            anchor = gpsAnchor(app, image)?.let { (lat, lng) -> lng to lat },
+            isVideo = image.isVideo,
             // Der Idempotenz-Schlüssel: Derselbe Lauf ein zweites Mal legt
             // beim Server nichts Neues an (s. `AddMediaItem.quelle`).
-            source = "galerie:${bild.id}",
+            source = "galerie:${image.id}",
         )
     }
-    val ids = runCatching { app.apiClient.addMedia(serverTourId, eintraege) }.getOrElse { fehler ->
-        Log.w("Maptale", "Fotos konnten nicht angemeldet werden", fehler)
+    val ids = runCatching { app.apiClient.addMedia(serverTourId, entries) }.getOrElse { error ->
+        Log.w("Maptale", "Fotos konnten nicht angemeldet werden", error)
         return@withLock 0
     }
     // Die Antwort ist Zuordnung über den INDEX. Passt die Länge nicht, ist die
     // Paarung geraten — und ein stilles `zip` lüde Bild B unter der ID von A
     // hoch. Lieber gar nichts tun: Die Einträge stehen im Manifest, der
     // nächste Lauf findet sie über ihre `quelle` wieder.
-    if (ids.size != bilder.size) {
-        Log.w("Maptale", "Nachreichen antwortete mit ${ids.size} IDs für ${bilder.size} Bilder — abgebrochen")
+    if (ids.size != images.size) {
+        Log.w("Maptale", "Nachreichen antwortete mit ${ids.size} IDs für ${images.size} Bilder — abgebrochen")
         return@withLock 0
     }
-    var geschafft = 0
-    for ((bild, mediumId) in bilder.zip(ids)) {
+    var done = 0
+    for ((image, mediumId) in images.zip(ids)) {
         val ok = runCatching {
             app.apiClient.uploadMedium(serverTourId, mediumId) {
-                requireNotNull(app.contentResolver.openInputStream(imageUri(bild))) {
-                    "Bild ${bild.fileName} nicht lesbar"
+                requireNotNull(app.contentResolver.openInputStream(imageUri(image))) {
+                    "Bild ${image.fileName} nicht lesbar"
                 }
             }
         }.isSuccess
-        if (ok) geschafft++ else Log.w("Maptale", "Foto ${bild.fileName} ließ sich nicht hochladen")
-        beiFortschritt(geschafft, bilder.size)
+        if (ok) done++ else Log.w("Maptale", "Foto ${image.fileName} ließ sich nicht hochladen")
+        beiFortschritt(done, images.size)
     }
-    if (geschafft > 0) {
+    if (done > 0) {
         // Ohne diesen Schritt lägen die Bilder in der Ablage, aber nicht im
         // Film. Scheitert er (409 während einer laufenden Verarbeitung, Netz
         // weg), ist nichts verloren: Die Einträge stehen im Manifest, und der
@@ -139,7 +139,7 @@ suspend fun uploadPhotos(
         runCatching { app.apiClient.reprocess(serverTourId) }
             .onFailure { Log.w("Maptale", "Neuverarbeitung nach dem Foto-Nachzug fehlgeschlagen", it) }
     }
-    return@withLock geschafft
+    return@withLock done
 }
 
 /**
@@ -156,7 +156,7 @@ suspend fun uploadPhotos(
  * höchstens ein paar Mal am Tag — eine Karte von Mutexen wäre Buchhaltung für
  * einen Fall, den es nicht gibt.
  */
-private val nachzugSperre = Mutex()
+private val backfillLock = Mutex()
 
 /** ISO-8601 mit Zone, wie das Manifest ihn erwartet. */
 internal fun toIso(ms: Long): String = DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(ms))

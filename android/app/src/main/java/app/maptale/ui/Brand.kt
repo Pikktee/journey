@@ -30,12 +30,12 @@ import app.maptale.R
 @Composable
 fun BrandMark(
     modifier: Modifier = Modifier,
-    groesse: Dp = 28.dp,
+    size: Dp = 28.dp,
 ) {
     Image(
         painter = painterResource(R.drawable.ic_marke),
         contentDescription = null,
-        modifier = modifier.size(groesse),
+        modifier = modifier.size(size),
     )
 }
 
@@ -45,17 +45,17 @@ fun BrandMark(
 @Composable
 fun WordMark(
     modifier: Modifier = Modifier,
-    markenGroesse: Dp = 28.dp,
-    textFarbe: Color = Ink,
+    brandSize: Dp = 28.dp,
+    textColor: Color = Ink,
 ) {
     Row(
         modifier.semantics { contentDescription = "Maptale" },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(markenGroesse * 0.45f),
+        horizontalArrangement = Arrangement.spacedBy(brandSize * 0.45f),
     ) {
         // 1 px nach unten — wie CSS `translate: 0 1px` auf dem Web.
         BrandMark(
-            groesse = markenGroesse,
+            size = brandSize,
             modifier = Modifier.offset(y = 1.dp),
         )
         Text(
@@ -67,7 +67,7 @@ fun WordMark(
                 lineHeight = 17.sp,
                 letterSpacing = (-0.02).em,
             ),
-            color = textFarbe,
+            color = textColor,
         )
     }
 }

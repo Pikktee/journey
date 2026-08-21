@@ -22,7 +22,7 @@ import app.maptale.gallery.PhotoBackfillWorker
 import app.maptale.gallery.canReadGallery
 import app.maptale.upload.TrackerImport
 
-private const val MELDUNG_ID = 4711
+private const val NOTIFICATION_ID = 4711
 
 /**
  * Offene Importe holen, melden und quittieren.
@@ -64,8 +64,8 @@ suspend fun notifyPendingImports(app: MaptaleApp) {
     val (anNachzug, sofort) = fertige.partition { backfillRunning && it.tourId != null }
     for (i in anNachzug) PhotoBackfillWorker.start(app, i.tourId!!, i.id)
 
-    val meldung = describeTours(app, sofort)
-    if (meldung == null || showImportNotification(app, meldung.first, meldung.second)) {
+    val notification = describeTours(app, sofort)
+    if (notification == null || showImportNotification(app, notification.first, notification.second)) {
         erledigt += sofort.map { it.id }
     }
     // Scheitert das Abhaken, kommen sie beim nächsten Mal wieder — eine
@@ -127,7 +127,7 @@ fun showProgress(context: Context, title: String, fertig: Int, gesamt: Int): Boo
     if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
         != PackageManager.PERMISSION_GRANTED
     ) return false
-    val meldung = NotificationCompat.Builder(context, MaptaleApp.CHANNEL_IMPORTS)
+    val notification = NotificationCompat.Builder(context, MaptaleApp.CHANNEL_IMPORTS)
         .setSmallIcon(R.drawable.ic_launcher_vordergrund)
         .setContentTitle(title)
         .setContentText(
@@ -140,7 +140,7 @@ fun showProgress(context: Context, title: String, fertig: Int, gesamt: Int): Boo
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .build()
-    context.getSystemService(NotificationManager::class.java).notify(MELDUNG_ID, meldung)
+    context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
     return true
 }
 
@@ -166,13 +166,13 @@ fun showImportNotification(context: Context, title: String, unterzeile: String =
         },
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
-    val meldung = NotificationCompat.Builder(context, MaptaleApp.CHANNEL_IMPORTS)
+    val notification = NotificationCompat.Builder(context, MaptaleApp.CHANNEL_IMPORTS)
         .setSmallIcon(R.drawable.ic_launcher_vordergrund)
         .setContentTitle(title)
         .apply { if (unterzeile.isNotBlank()) setContentText(unterzeile) }
         .setAutoCancel(true)
         .setContentIntent(oeffnen)
         .build()
-    context.getSystemService(NotificationManager::class.java).notify(MELDUNG_ID, meldung)
+    context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
     return true
 }

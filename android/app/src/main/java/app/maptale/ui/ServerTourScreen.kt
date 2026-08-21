@@ -89,33 +89,33 @@ import java.util.Locale
 @Composable
 fun ServerTourScreen(
     viewModel: ServerTourViewModel,
-    zurueck: () -> Unit,
+    back: () -> Unit,
     abspielen: (serverId: String) -> Unit,
 ) {
     val tour by viewModel.tour.collectAsState()
     val detail by viewModel.detail.collectAsState()
-    val laedt by viewModel.laedt.collectAsState()
-    val fehler by viewModel.fehler.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
     val app = LocalContext.current.applicationContext as MaptaleApp
 
     var title by rememberSaveable { mutableStateOf<String?>(null) }
     var description by rememberSaveable { mutableStateOf<String?>(null) }
-    var loeschenDialog by remember { mutableStateOf(false) }
-    var teilen by remember { mutableStateOf(false) }
-    var grossesFoto by remember { mutableStateOf<ServerMedium?>(null) }
+    var deleteDialog by remember { mutableStateOf(false) }
+    var shareLink by remember { mutableStateOf(false) }
+    var largePhoto by remember { mutableStateOf<ServerMedium?>(null) }
     // Der VideoView schickt kein Bearer-Token — er kennt nur Kopfzeilen, die wir
     // ihm mitgeben. Dieselbe Sitzung wie beim WebView-Player tut es auch hier.
-    var sitzung by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { sitzung = runCatching { app.apiClient.sessionForPlayer() }.getOrNull() }
+    var session by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { session = runCatching { app.apiClient.sessionForPlayer() }.getOrNull() }
 
     // Fotos aus der Galerie, die zeitlich passen — der Weg ohne stehende
     // Einwilligung. Gesucht wird nur, wenn das Leserecht schon erteilt ist und
     // die Automatik AUS ist: Mit Automatik hat der Meldungspfad die Bilder
     // längst hochgeladen, und dann wäre die Frage hier ein zweites Angebot für
     // etwas, das schon geschehen ist.
-    val vorschlag by viewModel.photoSuggestion.collectAsState()
+    val suggestion by viewModel.photoSuggestion.collectAsState()
     val backfillRunning by viewModel.backfillRunning.collectAsState()
-    var nachzugMeldung by remember { mutableStateOf<String?>(null) }
+    var backfillMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(tour?.status) {
         if (tour?.playable == true &&
             canReadGallery(app) &&
@@ -139,9 +139,9 @@ fun ServerTourScreen(
         onDispose { if (title != null) viewModel.saveTexts(title, description) }
     }
 
-    val unten = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val media = detail?.media.orEmpty()
-    val aktuelleTour = tour
+    val currentTour = tour
 
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -149,14 +149,14 @@ fun ServerTourScreen(
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
-            contentPadding = PaddingValues(bottom = unten + 36.dp),
+            contentPadding = PaddingValues(bottom = bottom + 36.dp),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Serverkopf(
-                    titelbild = aktuelleTour?.cover?.let { app.serverUrl() + it },
+                    titelbild = currentTour?.cover?.let { app.serverUrl() + it },
                     title = title.orEmpty(),
                     setTitle = { title = it },
-                    abspielen = aktuelleTour
+                    abspielen = currentTour
                         ?.takeIf { it.playable }
                         ?.let { t -> { abspielen(t.id) } },
                 )
@@ -166,11 +166,11 @@ fun ServerTourScreen(
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        kennzahlen(aktuelleTour, media.size),
+                        stats(currentTour, media.size),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (aktuelleTour != null && !aktuelleTour.playable) {
+                    if (currentTour != null && !currentTour.playable) {
                         Row(
                             Modifier.fillMaxWidth().padding(top = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -189,7 +189,7 @@ fun ServerTourScreen(
                             )
                         }
                     }
-                    fehler?.let {
+                    error?.let {
                         Text(
                             it,
                             style = MaterialTheme.typography.labelMedium,
@@ -205,9 +205,9 @@ fun ServerTourScreen(
                     // wirklich etwas gefunden wurde — ein „0 Fotos gefunden"
                     // wäre eine Meldung über nichts.
                     backfillMessage(
-                        vorschlag.size,
+                        suggestion.size,
                         automatisch = false,
-                        videos = vorschlag.count { it.isVideo },
+                        videos = suggestion.count { it.isVideo },
                     )?.let { frage ->
                         Row(
                             Modifier.fillMaxWidth().padding(top = 14.dp),
@@ -225,11 +225,11 @@ fun ServerTourScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(
                                 onClick = {
-                                    viewModel.acceptPhotos(app) { anzahl ->
-                                        nachzugMeldung = backfillMessage(
-                                            anzahl,
+                                    viewModel.acceptPhotos(app) { count ->
+                                        backfillMessage = backfillMessage(
+                                            count,
                                             automatisch = true,
-                                            videos = vorschlag.count { it.isVideo },
+                                            videos = suggestion.count { it.isVideo },
                                         )
                                             ?: "Die Fotos ließen sich nicht hinzufügen."
                                     }
@@ -246,7 +246,7 @@ fun ServerTourScreen(
                             ) { Text("Nein danke") }
                         }
                     }
-                    nachzugMeldung?.let {
+                    backfillMessage?.let {
                         Text(
                             it,
                             style = MaterialTheme.typography.labelMedium,
@@ -261,11 +261,11 @@ fun ServerTourScreen(
                     // Nur platzierte Medien: Wo der Server keinen Anker fand,
                     // gibt es auch keine Stelle auf dem Weg, an die der Punkt
                     // gehörte. Im Gitter darunter sind sie trotzdem alle.
-                    val fotomarken = remember(detail) {
-                        media.mapNotNull { foto ->
-                            val lng = foto.anchorLng
-                            val lat = foto.anchorLat
-                            if (lng != null && lat != null) PhotoMark(foto.id, lng, lat) else null
+                    val photoMarks = remember(detail) {
+                        media.mapNotNull { photo ->
+                            val lng = photo.anchorLng
+                            val lat = photo.anchorLat
+                            if (lng != null && lat != null) PhotoMark(photo.id, lng, lat) else null
                         }
                     }
                     if (route.size >= 2) {
@@ -275,9 +275,9 @@ fun ServerTourScreen(
                         RouteSketch(
                             track = route,
                             abgeschlossen = true,
-                            media = fotomarken,
+                            media = photoMarks,
                             beiFotoklick = { id ->
-                                media.firstOrNull { it.id == id }?.let { treffer -> grossesFoto = treffer }
+                                media.firstOrNull { it.id == id }?.let { treffer -> largePhoto = treffer }
                             },
                             modifier = Modifier.fillMaxWidth().height(150.dp),
                         )
@@ -286,22 +286,22 @@ fun ServerTourScreen(
                 }
             }
 
-            items(media, key = { it.id }) { foto ->
+            items(media, key = { it.id }) { photo ->
                 Box(
                     Modifier
                         .aspectRatio(1f)
                         .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .clickable { grossesFoto = foto },
+                        .clickable { largePhoto = photo },
                 ) {
                     AsyncImage(
                         // Das Raster zeigt Drittelbreiten — dafür genügt die
                         // Kachel-Fassung. Die Vollansicht holt das große Bild.
-                        model = app.serverUrl() + (foto.thumb ?: foto.path),
-                        contentDescription = foto.title,
+                        model = app.serverUrl() + (photo.thumb ?: photo.path),
+                        contentDescription = photo.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    if (foto.isVideo) {
+                    if (photo.isVideo) {
                         VideoBadge(Modifier.align(Alignment.Center))
                     }
                 }
@@ -309,7 +309,7 @@ fun ServerTourScreen(
 
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(horizontal = 20.dp)) {
-                    if (laedt && media.isEmpty()) {
+                    if (loading && media.isEmpty()) {
                         Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), Alignment.Center) {
                             CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Sun)
                         }
@@ -326,7 +326,7 @@ fun ServerTourScreen(
                     )
                     Spacer(Modifier.height(26.dp))
                     TextButton(
-                        onClick = { loeschenDialog = true },
+                        onClick = { deleteDialog = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Tour löschen", color = MaterialTheme.colorScheme.error)
@@ -338,42 +338,42 @@ fun ServerTourScreen(
         RoundButton(
             symbol = Icons.AutoMirrored.Filled.ArrowBack,
             description = "Zurück",
-            beiKlick = zurueck,
+            onClick = back,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
         RoundButton(
             symbol = Icons.Default.Share,
             description = "Tour teilen",
-            beiKlick = { teilen = true },
+            onClick = { shareLink = true },
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
         )
     }
 
-    grossesFoto?.let { foto ->
+    largePhoto?.let { photo ->
         Fotoschau(
-            bildUrl = app.serverUrl() + foto.path,
-            videoUrl = (app.serverUrl() + foto.sourcePath).takeIf { foto.isVideo },
-            sitzung = sitzung,
-            caption = foto.caption,
-            timeLabel = foto.timeLabel,
-            setTitle = { viewModel.setPhotoTitle(foto.id, it) },
-            schliessen = { grossesFoto = null },
+            imageUrl = app.serverUrl() + photo.path,
+            videoUrl = (app.serverUrl() + photo.sourcePath).takeIf { photo.isVideo },
+            session = session,
+            caption = photo.caption,
+            timeLabel = photo.timeLabel,
+            setTitle = { viewModel.setPhotoTitle(photo.id, it) },
+            schliessen = { largePhoto = null },
         )
     }
 
-    if (teilen && aktuelleTour != null) {
+    if (shareLink && currentTour != null) {
         ShareSheet(
-            serverTourId = aktuelleTour.id,
-            title = title ?: aktuelleTour.title,
-            aktuelleSichtbarkeit = Visibility.fromKey(aktuelleTour.visibility),
-            schliessen = { teilen = false },
+            serverTourId = currentTour.id,
+            title = title ?: currentTour.title,
+            aktuelleSichtbarkeit = Visibility.fromKey(currentTour.visibility),
+            schliessen = { shareLink = false },
             setVisibility = viewModel::setVisibility,
         )
     }
 
-    if (loeschenDialog) {
+    if (deleteDialog) {
         AlertDialog(
-            onDismissRequest = { loeschenDialog = false },
+            onDismissRequest = { deleteDialog = false },
             title = { Text("Tour löschen?") },
             text = {
                 Text(
@@ -383,13 +383,13 @@ fun ServerTourScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    loeschenDialog = false
+                    deleteDialog = false
                     // Kein Sichern beim Verlassen mehr — die Tour ist ja weg
                     title = null
-                    viewModel.delete(danach = zurueck)
+                    viewModel.delete(danach = back)
                 }) { Text("Löschen", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { loeschenDialog = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(onClick = { deleteDialog = false }) { Text("Abbrechen") } },
         )
     }
 }
@@ -401,8 +401,8 @@ private fun Serverkopf(
     setTitle: (String) -> Unit,
     abspielen: (() -> Unit)?,
 ) {
-    val tastatur = LocalSoftwareKeyboardController.current
-    val fokus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = remember { FocusRequester() }
     Box(Modifier.fillMaxWidth().aspectRatio(16f / 11f)) {
         if (titelbild != null) {
             AsyncImage(
@@ -455,11 +455,11 @@ private fun Serverkopf(
         }
 
         EditRow(
-            wert = title,
-            setzeWert = setTitle,
+            value = title,
+            setValue = setTitle,
             platzhalter = "Unbenannte Tour",
             stil = MaterialTheme.typography.headlineMedium,
-            fokus = fokus,
+            focus = focus,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 18.dp, end = 14.dp, bottom = 10.dp),
@@ -476,20 +476,20 @@ private fun Serverkopf(
  */
 @Composable
 private fun Fotoschau(
-    bildUrl: String,
+    imageUrl: String,
     /** Gesetzt, wenn das Medium ein Video ist — dann wird abgespielt statt gezeigt. */
     videoUrl: String?,
-    sitzung: String?,
+    session: String?,
     caption: String,
     /** „Foto · 14:32“ — der Zeitstempel über dem Titel. */
     timeLabel: String?,
     setTitle: (String) -> Unit,
     schliessen: () -> Unit,
 ) {
-    val tastatur = LocalSoftwareKeyboardController.current
-    val fokusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     var text by rememberSaveable(caption) { mutableStateOf(caption) }
-    val fokus = remember { FocusRequester() }
+    val focus = remember { FocusRequester() }
 
     val cancel = {
         setTitle(text)
@@ -509,20 +509,20 @@ private fun Fotoschau(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-            ) { fokusManager.clearFocus() },
+            ) { focusManager.clearFocus() },
     ) {
         if (videoUrl != null) {
             VideoSurface(
                 source = Uri.parse(videoUrl),
-                kopfzeilen = sitzung?.let { mapOf("Cookie" to "maptale_session=$it") }.orEmpty(),
+                kopfzeilen = session?.let { mapOf("Cookie" to "maptale_session=$it") }.orEmpty(),
                 // `bildUrl` ist bei einem Video das Poster — dasselbe Bild, das
                 // schon die Kachel zeigte. Es steht, bis das erste Videobild da ist.
-                standbild = bildUrl,
+                standbild = imageUrl,
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
             AsyncImage(
-                model = bildUrl,
+                model = imageUrl,
                 contentDescription = caption.ifBlank { timeLabel },
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
@@ -543,18 +543,18 @@ private fun Fotoschau(
                 Spacer(Modifier.height(8.dp))
             }
             EditRow(
-                wert = text,
-                setzeWert = { text = it },
+                value = text,
+                setValue = { text = it },
                 platzhalter = "Was ist hier zu sehen?",
                 stil = MaterialTheme.typography.titleLarge,
-                fokus = fokus,
+                focus = focus,
             )
         }
 
         RoundButton(
             symbol = Icons.Default.Close,
             description = "Schließen",
-            beiKlick = cancel,
+            onClick = cancel,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
     }
@@ -562,8 +562,8 @@ private fun Fotoschau(
 
 private val DATUM = DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.GERMAN)
 
-private fun kennzahlen(tour: app.maptale.upload.ServerTour?, media: Int): String {
-    val teile = buildList {
+private fun stats(tour: app.maptale.upload.ServerTour?, media: Int): String {
+    val share = buildList {
         tour?.km?.let { add(String.format(Locale.GERMAN, "%.1f km", it)) }
         tour?.gainM?.takeIf { it > 0 }?.let { add(String.format(Locale.GERMAN, "%.0f hm", it)) }
         add(if (media == 1) "1 Foto" else "$media Fotos")
@@ -571,5 +571,5 @@ private fun kennzahlen(tour: app.maptale.upload.ServerTour?, media: Int): String
             runCatching { DATUM.withZone(ZoneId.systemDefault()).format(Instant.parse(iso)) }.getOrNull()?.let(::add)
         }
     }
-    return teile.joinToString(" · ")
+    return share.joinToString(" · ")
 }

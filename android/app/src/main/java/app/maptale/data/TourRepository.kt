@@ -21,7 +21,7 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
     // sonst nicht atomar — zwei parallele Registrierungen (Video-Finalize läuft
     // asynchron nach, währenddessen ein Foto) läsen dieselbe Zahl und kollidierten
     // im (tourId, id)-Primärschlüssel.
-    private val medienMutex = Mutex()
+    private val mediaMutex = Mutex()
 
     fun allTours(): Flow<List<TourEntity>> = dao.allTours()
     fun tourFlow(id: String): Flow<TourEntity?> = dao.tourFlow(id)
@@ -91,8 +91,8 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
         dao.updateTour(tour.copy(title = title, description = description))
     }
 
-    suspend fun setStatus(tourId: String, status: TourStatus, fehler: String? = null) =
-        dao.setStatus(tourId, status, fehler)
+    suspend fun setStatus(tourId: String, status: TourStatus, error: String? = null) =
+        dao.setStatus(tourId, status, error)
 
     suspend fun toursByStatus(status: TourStatus): List<TourEntity> = dao.toursByStatus(status)
 
@@ -124,48 +124,48 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
     /** Zieldatei für ein neues Foto; Ordner je Tour unterm App-Speicher. */
     fun newMediumFile(tourId: String, extension: String): Pair<String, File> {
         val relativ = "tours/$tourId/${UUID.randomUUID()}.$extension"
-        val datei = File(filesDir, relativ)
-        datei.parentFile?.mkdirs()
-        return relativ to datei
+        val file = File(filesDir, relativ)
+        file.parentFile?.mkdirs()
+        return relativ to file
     }
 
     fun mediumFile(medium: MediumEntity): File = File(filesDir, medium.file)
 
     suspend fun registerPhoto(
         tourId: String,
-        relativerPfad: String,
+        relativePath: String,
         takenAtMs: Long,
         anchor: Pair<Double, Double>?,
-    ) = registriereMedium(tourId, "photo", relativerPfad, takenAtMs, anchor)
+    ) = registriereMedium(tourId, "photo", relativePath, takenAtMs, anchor)
 
     /** Video registrieren (M4); Dauer/Poster ermittelt das Backend beim Anreichern. */
     suspend fun registerVideo(
         tourId: String,
-        relativerPfad: String,
+        relativePath: String,
         takenAtMs: Long,
         anchor: Pair<Double, Double>?,
-    ) = registriereMedium(tourId, "video", relativerPfad, takenAtMs, anchor)
+    ) = registriereMedium(tourId, "video", relativePath, takenAtMs, anchor)
 
     // Foto UND Video werden fortlaufend über die ganze Tour nummeriert (m1, m2 …).
     // Die Nummer ist die HÖCHSTE vergebene plus eins, nicht die Anzahl: nach dem
     // Löschen eines Fotos zeigte „Anzahl + 1" wieder auf eine schon vergebene ID
     // und kollidierte im (tourId, id)-Primärschlüssel. Vergebene Nummern werden
     // also nie erneut benutzt — Lücken sind harmlos.
-    // Der Mutex macht „Nummer lesen + einfügen" atomar (s. medienMutex oben).
+    // Der Mutex macht „Nummer lesen + einfügen" atomar (s. mediaMutex oben).
     private suspend fun registriereMedium(
         tourId: String,
         typ: String,
-        relativerPfad: String,
+        relativePath: String,
         takenAtMs: Long,
         anchor: Pair<Double, Double>?,
-    ) = medienMutex.withLock {
+    ) = mediaMutex.withLock {
         val nummer = nextMediumNumber(dao.media(tourId).map { it.id })
         dao.insertMedium(
             MediumEntity(
                 id = "m$nummer",
                 tourId = tourId,
                 type = typ,
-                file = relativerPfad,
+                file = relativePath,
                 takenAtMs = takenAtMs,
                 anchorLng = anchor?.first,
                 anchorLat = anchor?.second,

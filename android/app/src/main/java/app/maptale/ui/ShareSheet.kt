@@ -49,7 +49,7 @@ fun ShareSheet(
 ) {
     val state = rememberModalBottomSheetState()
     val context = LocalContext.current
-    var gewaehlt by remember { mutableStateOf(aktuelleSichtbarkeit) }
+    var chosen by remember { mutableStateOf(aktuelleSichtbarkeit) }
 
     ModalBottomSheet(onDismissRequest = schliessen, sheetState = state) {
         Column(
@@ -64,9 +64,9 @@ fun ShareSheet(
                     Modifier
                         .fillMaxWidth()
                         .selectable(
-                            selected = gewaehlt == stufe,
+                            selected = chosen == stufe,
                             onClick = {
-                                gewaehlt = stufe
+                                chosen = stufe
                                 setVisibility(stufe)
                             },
                         )
@@ -74,11 +74,11 @@ fun ShareSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    RadioButton(selected = gewaehlt == stufe, onClick = null)
+                    RadioButton(selected = chosen == stufe, onClick = null)
                     Column {
                         Text(stufe.label, style = MaterialTheme.typography.titleSmall)
                         Text(
-                            stufe.erklaerung,
+                            stufe.explanation,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -88,8 +88,8 @@ fun ShareSheet(
 
             Spacer(Modifier.height(12.dp))
             PrimaryButton(
-                onClick = { sendeLink(context, serverTourId, title) },
-                enabled = gewaehlt != Visibility.PRIVATE,
+                onClick = { sendLink(context, serverTourId, title) },
+                enabled = chosen != Visibility.PRIVATE,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(
@@ -105,7 +105,7 @@ fun ShareSheet(
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
-            if (gewaehlt == Visibility.PRIVATE) {
+            if (chosen == Visibility.PRIVATE) {
                 Text(
                     "Wähle „Über Link“, um die Tour verschicken zu können.",
                     style = MaterialTheme.typography.bodySmall,
@@ -119,12 +119,12 @@ fun ShareSheet(
 }
 
 /** Systemweites Teilen-Menü mit Link und Titel. */
-private fun sendeLink(context: Context, serverTourId: String, title: String?) {
+private fun sendLink(context: Context, serverTourId: String, title: String?) {
     val link = shareLink(serverTourId)
-    val absicht = Intent(Intent.ACTION_SEND).apply {
+    val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, if (title.isNullOrBlank()) link else "$title\n$link")
         putExtra(Intent.EXTRA_SUBJECT, title ?: "Eine Tour auf Maptale")
     }
-    context.startActivity(Intent.createChooser(absicht, "Tour teilen"))
+    context.startActivity(Intent.createChooser(intent, "Tour teilen"))
 }

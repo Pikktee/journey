@@ -142,7 +142,7 @@ class ManifestTest {
             wechsel(600.0, TravelMode.WALK),
             wechsel(620.0, TravelMode.JEEP),
         )
-        val erg = ManifestBuilder.smoothChanges(roh, endeS = 1800.0)
+        val erg = ManifestBuilder.smoothChanges(roh, endS = 1800.0)
         assertEquals(1, erg.size)
         assertEquals(TravelMode.JEEP, erg[0].travelMode)
         assertEquals(0.0, erg[0].tOffsetS, 1e-9)
@@ -155,12 +155,12 @@ class ManifestTest {
             wechsel(420.0, TravelMode.WALK),
             wechsel(1320.0, TravelMode.JEEP),
         )
-        assertEquals(3, ManifestBuilder.smoothChanges(roh, endeS = 2700.0).size)
+        assertEquals(3, ManifestBuilder.smoothChanges(roh, endS = 2700.0).size)
     }
 
     @Test
     fun `smoothChanges laesst die einzelne Angabe des Nutzers unberuehrt`() {
         val roh = listOf(wechsel(0.0, TravelMode.TRAM))
-        assertEquals(roh, ManifestBuilder.smoothChanges(roh, endeS = 1800.0))
+        assertEquals(roh, ManifestBuilder.smoothChanges(roh, endS = 1800.0))
     }
 }

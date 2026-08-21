@@ -30,7 +30,7 @@ import com.google.android.gms.location.DetectedActivity
 
 object ActivityRecognizer {
 
-    private const val ANFRAGE_CODE = 42
+    private const val REQUEST_CODE = 42
 
     /** Diese Aktivitäten interessieren — der Rest (STILL, TILTING) sagt nichts über das Mittel. */
     private val ARTEN = mapOf(
@@ -87,7 +87,7 @@ object ActivityRecognizer {
 
     private fun intent(context: Context): PendingIntent = PendingIntent.getService(
         context,
-        ANFRAGE_CODE,
+        REQUEST_CODE,
         Intent(context, RecordingService::class.java).setAction(RecordingService.ACTION_ACTIVITY),
         // MUTABLE, weil Play Services die Übergänge als Extras hineinschreibt
         PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

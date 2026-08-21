@@ -29,15 +29,15 @@ class TrackTest {
             TrackPoint(8.0, 50.001),
         )
         val bild = projectTrack(quadrat, 200f, 200f)
-        val breite = bild.maxOf { it.x } - bild.minOf { it.x }
-        val hoehe = bild.maxOf { it.y } - bild.minOf { it.y }
-        assertEquals(breite.toDouble(), hoehe.toDouble(), 1.0)
+        val width = bild.maxOf { it.x } - bild.minOf { it.x }
+        val height = bild.maxOf { it.y } - bild.minOf { it.y }
+        assertEquals(width.toDouble(), height.toDouble(), 1.0)
     }
 
     @Test
     fun `legt die Spur in die Flaeche und haelt den Rand ein`() {
         val track = listOf(TrackPoint(8.0, 50.0), TrackPoint(8.01, 50.01))
-        val bild = projectTrack(track, 100f, 100f, rand = 10f)
+        val bild = projectTrack(track, 100f, 100f, margin = 10f)
         assertTrue(bild.all { it.x >= 9.9f && it.x <= 90.1f })
         assertTrue(bild.all { it.y >= 9.9f && it.y <= 90.1f })
     }
@@ -60,10 +60,10 @@ class TrackTest {
         // sich, richtete sich sein Maßstab nach seinen eigenen Grenzen — er
         // säße irgendwo, nur nicht auf dem Weg.
         val route = listOf(TrackPoint(8.0, 50.0), TrackPoint(8.02, 50.02))
-        val rahmen = Projection.aus(route, 200f, 200f, rand = 10f)!!
+        val rahmen = Projection.from(route, 200f, 200f, margin = 10f)!!
         val mitte = rahmen.project(TrackPoint(8.01, 50.01))
 
-        val linie = projectTrack(route, 200f, 200f, rand = 10f)
+        val linie = projectTrack(route, 200f, 200f, margin = 10f)
         assertEquals((linie.first().x + linie.last().x) / 2f, mitte.x, 0.5f)
         assertEquals((linie.first().y + linie.last().y) / 2f, mitte.y, 0.5f)
     }
@@ -92,9 +92,9 @@ class TrackTest {
         assertEquals(2, baelle.size)
         // Der erste gewinnt Ort und Kennung; ein Tipp öffnet ihn.
         assertEquals("m1", baelle[0].id)
-        assertEquals(10f, baelle[0].punkt.x, 1e-4f)
-        assertEquals(2, baelle[0].anzahl)
+        assertEquals(10f, baelle[0].point.x, 1e-4f)
+        assertEquals(2, baelle[0].count)
         assertEquals("m3", baelle[1].id)
-        assertEquals(1, baelle[1].anzahl)
+        assertEquals(1, baelle[1].count)
     }
 }

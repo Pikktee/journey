@@ -23,20 +23,20 @@ private const val AVATAR_GUETE = 85
  * faktor dekodieren.
  */
 fun scaleForAvatar(oeffne: () -> InputStream): ByteArray? {
-    val masse = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    oeffne().use { BitmapFactory.decodeStream(it, null, masse) }
-    if (masse.outWidth <= 0 || masse.outHeight <= 0) return null
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    oeffne().use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
-    val optionen = BitmapFactory.Options().apply {
-        inSampleSize = sampleFactor(masse.outWidth, masse.outHeight, AVATAR_EDGE)
+    val options = BitmapFactory.Options().apply {
+        inSampleSize = sampleFactor(bounds.outWidth, bounds.outHeight, AVATAR_EDGE)
     }
-    val grob = oeffne().use { BitmapFactory.decodeStream(it, null, optionen) } ?: return null
-    val fertig = scaleToEdge(grob, AVATAR_EDGE)
+    val coarse = oeffne().use { BitmapFactory.decodeStream(it, null, options) } ?: return null
+    val done = scaleToEdge(coarse, AVATAR_EDGE)
 
     return ByteArrayOutputStream().use { puffer ->
-        fertig.compress(Bitmap.CompressFormat.JPEG, AVATAR_GUETE, puffer)
-        if (fertig !== grob) fertig.recycle()
-        grob.recycle()
+        done.compress(Bitmap.CompressFormat.JPEG, AVATAR_GUETE, puffer)
+        if (done !== coarse) done.recycle()
+        coarse.recycle()
         puffer.toByteArray()
     }
 }
@@ -46,21 +46,21 @@ fun scaleForAvatar(oeffne: () -> InputStream): ByteArray? {
  * bleibt bewusst eine Stufe zu grob (>= statt >), damit für den anschließenden
  * sauberen Skalierschritt noch genug Pixel da sind.
  */
-internal fun sampleFactor(breite: Int, hoehe: Int, zielKante: Int): Int {
-    var faktor = 1
-    while (max(breite, hoehe) / (faktor * 2) >= zielKante) faktor *= 2
-    return faktor
+internal fun sampleFactor(width: Int, height: Int, zielKante: Int): Int {
+    var factor = 1
+    while (max(width, height) / (factor * 2) >= zielKante) factor *= 2
+    return factor
 }
 
 /** Auf die Zielkante bringen; kleinere Bilder bleiben, wie sie sind. */
-internal fun scaleToEdge(bild: Bitmap, zielKante: Int): Bitmap {
-    val laengste = max(bild.width, bild.height)
-    if (laengste <= zielKante) return bild
-    val faktor = zielKante.toDouble() / laengste
+internal fun scaleToEdge(bitmap: Bitmap, zielKante: Int): Bitmap {
+    val longest = max(bitmap.width, bitmap.height)
+    if (longest <= zielKante) return bitmap
+    val factor = zielKante.toDouble() / longest
     return Bitmap.createScaledBitmap(
-        bild,
-        (bild.width * faktor).roundToInt().coerceAtLeast(1),
-        (bild.height * faktor).roundToInt().coerceAtLeast(1),
+        bitmap,
+        (bitmap.width * factor).roundToInt().coerceAtLeast(1),
+        (bitmap.height * factor).roundToInt().coerceAtLeast(1),
         true,
     )
 }

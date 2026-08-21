@@ -27,9 +27,9 @@ object MediumMetadataReader {
      */
     fun read(input: InputStream): MediumMetadata = runCatching {
         val exif = ExifInterface(input)
-        val zeit = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)
+        val time = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)
             ?: exif.getAttribute(ExifInterface.TAG_DATETIME)
-        val ms = zeit?.let { runCatching { exifFormat.parse(it)?.time }.getOrNull() }
+        val ms = time?.let { runCatching { exifFormat.parse(it)?.time }.getOrNull() }
         val latLng = exif.latLong // FloatArray? [lat, lng] oder null
         MediumMetadata(
             takenAtMs = ms,

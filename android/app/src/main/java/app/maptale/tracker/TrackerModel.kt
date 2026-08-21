@@ -22,7 +22,7 @@ enum class TrackerAction { CONNECT, RECONNECT, DISCONNECT }
  */
 fun providerText(a: TrackerProvider): String = when {
     !a.available -> "Auf diesem Server noch nicht eingerichtet."
-    a.abgelaufen -> a.fehler?.let { "Der Zugang gilt nicht mehr: $it Bitte neu verbinden." }
+    a.abgelaufen -> a.error?.let { "Der Zugang gilt nicht mehr: $it Bitte neu verbinden." }
         ?: "Der Zugang gilt nicht mehr — bitte neu verbinden."
     a.verbunden -> "Verbunden. Neue Aufzeichnungen kommen von selbst an."
     else -> "Nach dem Verbinden landen neue Aufzeichnungen von selbst in deiner Bibliothek."

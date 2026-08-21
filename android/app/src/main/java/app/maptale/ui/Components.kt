@@ -155,7 +155,7 @@ fun PrimaryButton(
     enabled: Boolean = true,
     inhalt: @Composable () -> Unit,
 ) {
-    val interaktion = remember { MutableInteractionSource() }
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier
             .height(52.dp)
@@ -166,7 +166,7 @@ fun PrimaryButton(
             )
             .clickable(
                 enabled = enabled,
-                interactionSource = interaktion,
+                interactionSource = interaction,
                 indication = null,
                 onClick = onClick,
             ),
@@ -192,7 +192,7 @@ fun PrimaryButton(
 fun RoundButton(
     symbol: ImageVector,
     description: String,
-    beiKlick: () -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -200,7 +200,7 @@ fun RoundButton(
             .size(40.dp)
             .clip(CircleShape)
             .background(Color(0x8A06090E))
-            .clickable(onClickLabel = description, onClick = beiKlick),
+            .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(symbol, contentDescription = description, tint = Ink, modifier = Modifier.size(20.dp))
@@ -260,9 +260,9 @@ fun VideoSurface(
     standbild: Any? = null,
 ) {
     // Auf `quelle` geschlüsselt: ein anderes Video fängt wieder beim Warten an.
-    var laeuft by remember(source) { mutableStateOf(false) }
-    var fehler by remember(source) { mutableStateOf(false) }
-    var gesetzt by remember { mutableStateOf<Pair<Uri, Map<String, String>>?>(null) }
+    var running by remember(source) { mutableStateOf(false) }
+    var error by remember(source) { mutableStateOf(false) }
+    var placed by remember { mutableStateOf<Pair<Uri, Map<String, String>>?>(null) }
 
     Box(modifier, contentAlignment = Alignment.Center) {
         AndroidView(
@@ -277,13 +277,13 @@ fun VideoSurface(
                     // Das erste GERENDERTE Bild, nicht `onPrepared`: Zwischen
                     // „bereit" und „sichtbar" liegt noch der erste Frame.
                     setOnInfoListener { _, was, _ ->
-                        if (was == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) laeuft = true
+                        if (was == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) running = true
                         false
                     }
                     // `true` = wir haben den Fehler behandelt; sonst schöbe
                     // VideoView seinen eigenen Systemdialog darüber.
                     setOnErrorListener { _, _, _ ->
-                        fehler = true
+                        error = true
                         true
                     }
                 }
@@ -295,11 +295,11 @@ fun VideoSurface(
             // Chance. Der Vergleich mit dem zuletzt Gesetzten verhindert, dass
             // jede Recomposition die Wiedergabe von vorn beginnen lässt.
             update = { ansicht ->
-                val jetzt = source to kopfzeilen
-                if (gesetzt != jetzt) {
-                    gesetzt = jetzt
-                    laeuft = false
-                    fehler = false
+                val now = source to kopfzeilen
+                if (placed != now) {
+                    placed = now
+                    running = false
+                    error = false
                     ansicht.setVideoURI(source, kopfzeilen)
                 }
             },
@@ -309,7 +309,7 @@ fun VideoSurface(
             },
         )
 
-        if (!laeuft) {
+        if (!running) {
             if (standbild != null) {
                 AsyncImage(
                     model = standbild,
@@ -318,7 +318,7 @@ fun VideoSurface(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-            if (fehler) {
+            if (error) {
                 Text(
                     "Video lässt sich nicht abspielen",
                     style = MaterialTheme.typography.labelLarge,
@@ -352,7 +352,7 @@ fun VideoSurface(
  * Ist die Tour fertig, tragen Anfang und Ende je eine Marke — gefüllt der
  * Start, ein Ring das Ziel; bei einer Rundtour fallen sie zusammen.
  *
- * Sind [fotos] gesetzt, sitzen sie als Cremepunkte auf dem Weg. Das macht die
+ * Sind [photos] gesetzt, sitzen sie als Cremepunkte auf dem Weg. Das macht die
  * Skizze zum RÄUMLICHEN Verzeichnis: „das Bild von oben am Grat" findet man hier,
  * im zeitlich sortierten Gitter darunter nicht. Als Kacheln ginge das nicht —
  * ein erkennbares Vorschaubild misst ~40 dp, ein Dutzend davon deckt die Linie
@@ -378,42 +378,42 @@ fun RouteSketch(
         return
     }
 
-    val dichte = LocalDensity.current
-    val randPx = with(dichte) { 14.dp.toPx() }
+    val density = LocalDensity.current
+    val marginPx = with(density) { 14.dp.toPx() }
     // Zusammenfassen etwa ab Punktdurchmesser — enger sähe es nur nach Klecks aus.
-    val ballAbstandPx = with(dichte) { 13.dp.toPx() }
+    val dotSpacingPx = with(density) { 13.dp.toPx() }
     // Großzügige Trefferfläche: Die Punkte sind winzig, die Fingerkuppe ist es nicht.
-    val trefferPx = with(dichte) { 22.dp.toPx() }
+    val hitPx = with(density) { 22.dp.toPx() }
 
     // Die Geometrie liegt NEBEN dem Zeichnen, nicht darin: Der Tipp muss dieselben
     // Punkte treffen, die gemalt wurden — sonst zeigt die Skizze das eine und
     // öffnet das andere.
-    var flaeche by remember { mutableStateOf(IntSize.Zero) }
-    val geometrie = remember(flaeche, track, media) {
-        val projektion = Projection.aus(track, flaeche.width.toFloat(), flaeche.height.toFloat(), randPx)
+    var area by remember { mutableStateOf(IntSize.Zero) }
+    val geometry = remember(area, track, media) {
+        val projection = Projection.from(track, area.width.toFloat(), area.height.toFloat(), marginPx)
             ?: return@remember null
-        val linie = track.map { projektion.project(it) }
+        val line = track.map { projection.project(it) }
         Skizzengeometrie(
-            linie = linie,
+            line = line,
             media = clusterPhotos(
-                media.map { it.id to snapToLine(projektion.project(TrackPoint(it.lng, it.lat)), linie) },
-                ballAbstandPx,
+                media.map { it.id to snapToLine(projection.project(TrackPoint(it.lng, it.lat)), line) },
+                dotSpacingPx,
             ),
         )
     }
 
-    val klick = beiFotoklick
+    val click = beiFotoklick
     Canvas(
         modifier
-            .onSizeChanged { flaeche = it }
+            .onSizeChanged { area = it }
             .then(
-                if (klick != null && media.isNotEmpty()) {
-                    Modifier.pointerInput(geometrie) {
-                        detectTapGestures { tipp ->
-                            geometrie?.media
-                                ?.minByOrNull { hypot(it.punkt.x - tipp.x, it.punkt.y - tipp.y) }
-                                ?.takeIf { hypot(it.punkt.x - tipp.x, it.punkt.y - tipp.y) <= trefferPx }
-                                ?.let { klick(it.id) }
+                if (click != null && media.isNotEmpty()) {
+                    Modifier.pointerInput(geometry) {
+                        detectTapGestures { tap ->
+                            geometry?.media
+                                ?.minByOrNull { hypot(it.point.x - tap.x, it.point.y - tap.y) }
+                                ?.takeIf { hypot(it.point.x - tap.x, it.point.y - tap.y) <= hitPx }
+                                ?.let { click(it.id) }
                         }
                     }
                 } else {
@@ -421,12 +421,12 @@ fun RouteSketch(
                 },
             ),
     ) {
-        val gezeichnet = geometrie ?: return@Canvas
+        val drawn = geometry ?: return@Canvas
 
-        if (gezeichnet.linie.size >= 2) {
+        if (drawn.line.size >= 2) {
             val path = Path().apply {
-                moveTo(gezeichnet.linie.first().x, gezeichnet.linie.first().y)
-                for (p in gezeichnet.linie.drop(1)) lineTo(p.x, p.y)
+                moveTo(drawn.line.first().x, drawn.line.first().y)
+                for (p in drawn.line.drop(1)) lineTo(p.x, p.y)
             }
             drawPath(
                 path,
@@ -442,18 +442,18 @@ fun RouteSketch(
         // Alle Marken folgen derselben Grammatik: ein haarfeiner dunkler Rand,
         // dann die Füllung. Der Rand trennt sie von der gelben Linie, ohne sie
         // zu zerhacken — ein breiter Hof riss sichtbare Löcher in den Weg.
-        fun DrawScope.marke(bei: ScreenPoint, aussen: Float, male: DrawScope.(Offset) -> Unit) {
-            val mitte = Offset(bei.x, bei.y)
-            drawCircle(Night, radius = aussen, center = mitte)
-            male(mitte)
+        fun DrawScope.mark(at: ScreenPoint, outer: Float, draw: DrawScope.(Offset) -> Unit) {
+            val center = Offset(at.x, at.y)
+            drawCircle(Night, radius = outer, center = center)
+            draw(center)
         }
 
         // Foto-Punkte gut halb so groß wie Start und Ziel: Sie sind die zweite
         // Stimme, das Gelb der Linie bleibt der eine kräftige Ton. Bei voller
         // Größe wurde die Skizze zur Perlenschnur.
-        for (foto in gezeichnet.media) {
-            marke(foto.punkt, 3.2.dp.toPx()) { mitte ->
-                drawCircle(Ink, radius = 2.4.dp.toPx(), center = mitte)
+        for (photo in drawn.media) {
+            mark(photo.point, 3.2.dp.toPx()) { center ->
+                drawCircle(Ink, radius = 2.4.dp.toPx(), center = center)
             }
         }
 
@@ -461,22 +461,22 @@ fun RouteSketch(
             // Start gefüllt, Ziel als Ring — so ist die Richtung ablesbar, ohne
             // dass es eine Beschriftung braucht. Zuletzt gezeichnet: Wo ein Foto
             // genau am Anfang oder Ende liegt, gewinnt die Wegmarke.
-            marke(gezeichnet.linie.first(), 5.2.dp.toPx()) { mitte ->
-                drawCircle(Sun, radius = 4.2.dp.toPx(), center = mitte)
+            mark(drawn.line.first(), 5.2.dp.toPx()) { center ->
+                drawCircle(Sun, radius = 4.2.dp.toPx(), center = center)
             }
-            marke(gezeichnet.linie.last(), 5.2.dp.toPx()) { mitte ->
-                drawCircle(Ink, radius = 4.2.dp.toPx(), center = mitte, style = Stroke(width = 1.8.dp.toPx()))
+            mark(drawn.line.last(), 5.2.dp.toPx()) { center ->
+                drawCircle(Ink, radius = 4.2.dp.toPx(), center = center, style = Stroke(width = 1.8.dp.toPx()))
             }
         } else {
-            marke(gezeichnet.linie.last(), 5.2.dp.toPx()) { mitte ->
-                drawCircle(Ink, radius = 4.2.dp.toPx(), center = mitte)
+            mark(drawn.line.last(), 5.2.dp.toPx()) { center ->
+                drawCircle(Ink, radius = 4.2.dp.toPx(), center = center)
             }
         }
     }
 }
 
 /** Was die Skizze zeichnet und was ein Tipp trifft — dieselben Koordinaten. */
-private data class Skizzengeometrie(val linie: List<ScreenPoint>, val media: List<PhotoPoint>)
+private data class Skizzengeometrie(val line: List<ScreenPoint>, val media: List<PhotoPoint>)
 
 /**
  * Abschnittsüberschrift — Titelstil, keine Versal-Dachzeile.
@@ -508,21 +508,21 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
  */
 @Composable
 fun EditRow(
-    wert: String,
-    setzeWert: (String) -> Unit,
+    value: String,
+    setValue: (String) -> Unit,
     platzhalter: String,
     stil: TextStyle,
-    fokus: FocusRequester,
+    focus: FocusRequester,
     modifier: Modifier = Modifier,
-    farbe: Color = Ink,
+    color: Color = Ink,
 ) {
-    val fokusManager = LocalFocusManager.current
-    var wirdBearbeitet by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    var editing by remember { mutableStateOf(false) }
 
     // Bestätigen heißt: Fokus WEG. Die Tastatur nur zu schließen reichte nicht —
     // das Feld blieb aktiv, der Schreibzeiger blinkte weiter, und man wusste
     // nicht, ob die Änderung nun gilt.
-    val bestaetige = { fokusManager.clearFocus() }
+    val confirm = { focusManager.clearFocus() }
 
     Row(
         modifier
@@ -540,34 +540,34 @@ fun EditRow(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClickLabel = "Bearbeiten",
-                ) { fokus.requestFocus() },
+                ) { focus.requestFocus() },
         ) {
-            if (wert.isEmpty()) {
-                Text(platzhalter, style = stil, color = farbe.copy(alpha = 0.45f), maxLines = 2)
+            if (value.isEmpty()) {
+                Text(platzhalter, style = stil, color = color.copy(alpha = 0.45f), maxLines = 2)
             }
             BasicTextField(
-                value = wert,
-                onValueChange = { setzeWert(it.replace("\n", " ")) },
-                textStyle = stil.copy(color = farbe),
+                value = value,
+                onValueChange = { setValue(it.replace("\n", " ")) },
+                textStyle = stil.copy(color = color),
                 cursorBrush = SolidColor(Sun),
                 maxLines = 2,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { bestaetige() }),
+                keyboardActions = KeyboardActions(onDone = { confirm() }),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(fokus)
-                    .onFocusChanged { wirdBearbeitet = it.isFocused },
+                    .focusRequester(focus)
+                    .onFocusChanged { editing = it.isFocused },
             )
         }
         // Der Stift wird beim Schreiben zum Haken — dieselbe Stelle, zwei
         // Zustände: „lässt sich ändern" und „fertig". Ein sichtbarer Abschluss
         // an genau der Stelle, an der man ihn sucht.
-        if (wirdBearbeitet) {
+        if (editing) {
             Box(
                 Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .clickable(onClickLabel = "Fertig", onClick = bestaetige),
+                    .clickable(onClickLabel = "Fertig", onClick = confirm),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -583,7 +583,7 @@ fun EditRow(
                 // Die Zeile trägt die Beschriftung; ein zweites Mal „Bearbeiten"
                 // würde die Sprachausgabe nur wiederholen.
                 contentDescription = null,
-                tint = farbe.copy(alpha = 0.5f),
+                tint = color.copy(alpha = 0.5f),
                 modifier = Modifier.size(17.dp),
             )
         }

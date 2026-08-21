@@ -75,19 +75,19 @@ import java.util.Locale
 @Composable
 fun TourScreen(
     viewModel: TourViewModel,
-    zurueck: () -> Unit,
+    back: () -> Unit,
     abspielen: (serverId: String) -> Unit,
-    zumFoto: (mediumId: String) -> Unit,
+    toPhoto: (mediumId: String) -> Unit,
 ) {
     val tour by viewModel.tour.collectAsState(initial = null)
     val media by viewModel.media.collectAsState(initial = emptyList())
-    val sichtbarkeit by viewModel.sichtbarkeit.collectAsState()
+    val visibility by viewModel.visibility.collectAsState()
     val route by viewModel.route.collectAsState()
 
     var title by rememberSaveable { mutableStateOf<String?>(null) }
     var description by rememberSaveable { mutableStateOf<String?>(null) }
-    var loeschenDialog by remember { mutableStateOf(false) }
-    var teilen by remember { mutableStateOf(false) }
+    var deleteDialog by remember { mutableStateOf(false) }
+    var shareLink by remember { mutableStateOf(false) }
 
     LaunchedEffect(tour?.serverId) { if (tour?.serverId != null) viewModel.loadVisibility() }
 
@@ -104,8 +104,8 @@ fun TourScreen(
         onDispose { if (title != null) viewModel.saveTexts(title, description) }
     }
 
-    val aktuelleTour = tour ?: return
-    val unten = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val currentTour = tour ?: return
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -115,16 +115,16 @@ fun TourScreen(
             // nicht als Reihe einzelner Kacheln.
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
-            contentPadding = PaddingValues(bottom = unten + 36.dp),
+            contentPadding = PaddingValues(bottom = bottom + 36.dp),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Kopfbild(
-                    tour = aktuelleTour,
-                    titelbild = media.lastOrNull()?.let { viewModel.datei(it) },
+                    tour = currentTour,
+                    titelbild = media.lastOrNull()?.let { viewModel.file(it) },
                     title = title.orEmpty(),
                     setTitle = { title = it },
-                    abspielen = aktuelleTour.serverId
-                        ?.takeIf { aktuelleTour.status == TourStatus.UPLOADED }
+                    abspielen = currentTour.serverId
+                        ?.takeIf { currentTour.status == TourStatus.UPLOADED }
                         ?.let { id -> { abspielen(id) } },
                 )
             }
@@ -132,16 +132,16 @@ fun TourScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     Spacer(Modifier.height(16.dp))
-                    Kennzahlen(aktuelleTour, media.size)
+                    Kennzahlen(currentTour, media.size)
                     Zustandszeile(
-                        status = aktuelleTour.status,
-                        fehler = aktuelleTour.error,
+                        status = currentTour.status,
+                        error = currentTour.error,
                         erneutVersuchen = { viewModel.upload(title, description) },
                     )
                     // Die Form der Reise — sobald ein Track vorliegt. Die Fotos
                     // sitzen als Punkte darauf; ohne GPS beim Auslösen hat ein
                     // Medium keinen Anker und bleibt der Skizze fern.
-                    val fotomarken = remember(media) {
+                    val photoMarks = remember(media) {
                         media.mapNotNull { medium ->
                             val lng = medium.anchorLng
                             val lat = medium.anchorLat
@@ -155,8 +155,8 @@ fun TourScreen(
                         RouteSketch(
                             track = route,
                             abgeschlossen = true,
-                            media = fotomarken,
-                            beiFotoklick = zumFoto,
+                            media = photoMarks,
+                            beiFotoklick = toPhoto,
                             modifier = Modifier.fillMaxWidth().height(150.dp),
                         )
                     }
@@ -173,10 +173,10 @@ fun TourScreen(
                     Modifier
                         .aspectRatio(1f)
                         .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .clickable { zumFoto(medium.id) },
+                        .clickable { toPhoto(medium.id) },
                 ) {
                     AsyncImage(
-                        model = viewModel.datei(medium),
+                        model = viewModel.file(medium),
                         contentDescription = medium.caption ?: "Aufnahme ${medium.id}",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
@@ -204,7 +204,7 @@ fun TourScreen(
                     // einzige Schritt hier, der sich nicht rückgängig machen
                     // lässt — er soll gesucht, nicht getroffen werden.
                     TextButton(
-                        onClick = { loeschenDialog = true },
+                        onClick = { deleteDialog = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Tour löschen", color = MaterialTheme.colorScheme.error)
@@ -217,48 +217,48 @@ fun TourScreen(
         RoundButton(
             symbol = Icons.AutoMirrored.Filled.ArrowBack,
             description = "Zurück",
-            beiKlick = zurueck,
+            onClick = back,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
         // Teilen erst, wenn die Tour beim Server liegt — vorher gäbe es keinen
         // Link, auf den man jemanden schicken könnte.
-        if (aktuelleTour.serverId != null) {
+        if (currentTour.serverId != null) {
             RoundButton(
                 symbol = Icons.Default.Share,
                 description = "Tour teilen",
-                beiKlick = { teilen = true },
+                onClick = { shareLink = true },
                 modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
             )
         }
     }
 
-    if (teilen) {
-        aktuelleTour.serverId?.let { serverId ->
+    if (shareLink) {
+        currentTour.serverId?.let { serverId ->
             ShareSheet(
                 serverTourId = serverId,
-                title = title ?: aktuelleTour.title,
-                aktuelleSichtbarkeit = sichtbarkeit ?: Visibility.PRIVATE,
-                schliessen = { teilen = false },
+                title = title ?: currentTour.title,
+                aktuelleSichtbarkeit = visibility ?: Visibility.PRIVATE,
+                schliessen = { shareLink = false },
                 setVisibility = viewModel::setVisibility,
             )
         }
     }
 
-    if (loeschenDialog) {
+    if (deleteDialog) {
         AlertDialog(
-            onDismissRequest = { loeschenDialog = false },
+            onDismissRequest = { deleteDialog = false },
             title = { Text("Tour löschen?") },
             text = { Text("Track, Fotos und Entwurf werden vom Gerät entfernt.") },
             confirmButton = {
                 TextButton(onClick = {
-                    loeschenDialog = false
+                    deleteDialog = false
                     // Der Titel des gelöschten Entwurfs darf nicht nachträglich
                     // wieder gesichert werden (DisposableEffect oben).
                     title = null
-                    viewModel.delete(danach = zurueck)
+                    viewModel.delete(danach = back)
                 }) { Text("Löschen", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { loeschenDialog = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(onClick = { deleteDialog = false }) { Text("Abbrechen") } },
         )
     }
 }
@@ -277,8 +277,8 @@ private fun Kopfbild(
     setTitle: (String) -> Unit,
     abspielen: (() -> Unit)?,
 ) {
-    val tastatur = LocalSoftwareKeyboardController.current
-    val fokus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = remember { FocusRequester() }
     Box(Modifier.fillMaxWidth().aspectRatio(16f / 11f)) {
         if (titelbild != null) {
             AsyncImage(
@@ -331,11 +331,11 @@ private fun Kopfbild(
         }
 
         EditRow(
-            wert = title,
-            setzeWert = setTitle,
+            value = title,
+            setValue = setTitle,
             platzhalter = if (tour.serverId == null) "Tour benennen" else "Unbenannte Tour",
             stil = MaterialTheme.typography.headlineMedium,
-            fokus = fokus,
+            focus = focus,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 18.dp, end = 14.dp, bottom = 10.dp),
@@ -346,13 +346,13 @@ private fun Kopfbild(
 /** Die harten Zahlen der Reise, in gleich breiten Ziffern. */
 @Composable
 private fun Kennzahlen(tour: TourEntity, media: Int) {
-    val teile = buildList {
+    val share = buildList {
         add(String.format(Locale.GERMAN, "%.1f km", tour.distanceM / 1000))
-        dauer(tour)?.let { add(it) }
+        duration(tour)?.let { add(it) }
         add(if (media == 1) "1 Foto" else "$media Fotos")
     }
     Text(
-        teile.joinToString(" · "),
+        share.joinToString(" · "),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -365,7 +365,7 @@ private fun Kennzahlen(tour: TourEntity, media: Int) {
  * sie fertig ist.
  */
 @Composable
-private fun Zustandszeile(status: TourStatus, fehler: String?, erneutVersuchen: () -> Unit) {
+private fun Zustandszeile(status: TourStatus, error: String?, erneutVersuchen: () -> Unit) {
     when (status) {
         TourStatus.UPLOADED, TourStatus.RECORDING -> Unit
         TourStatus.UPLOADING -> Hinweiszeile {
@@ -390,7 +390,7 @@ private fun Zustandszeile(status: TourStatus, fehler: String?, erneutVersuchen: 
                 modifier = Modifier.size(15.dp),
             )
             Text(
-                fehler ?: "Upload fehlgeschlagen",
+                error ?: "Upload fehlgeschlagen",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.weight(1f, fill = false),
@@ -429,9 +429,9 @@ private fun Hinweiszeile(inhalt: @Composable androidx.compose.foundation.layout.
 }
 
 /** Aufnahmedauer als „1 h 12 min"; null, solange die Aufnahme läuft. */
-private fun dauer(tour: TourEntity): String? {
-    val ende = tour.endMs ?: return null
-    val minuten = ((ende - tour.startMs) / 60_000).coerceAtLeast(0)
-    if (minuten < 1) return null
-    return if (minuten < 60) "$minuten min" else "${minuten / 60} h ${minuten % 60} min"
+private fun duration(tour: TourEntity): String? {
+    val end = tour.endMs ?: return null
+    val minutes = ((end - tour.startMs) / 60_000).coerceAtLeast(0)
+    if (minutes < 1) return null
+    return if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min"
 }

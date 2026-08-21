@@ -49,13 +49,13 @@ object ActivityInterpretation {
      * kurze Abschnitte im Vorgänger aufgehen lassen, und der erste Abschnitt
      * beginnt immer bei 0 — sonst gälte für den Anfang der Tour gar nichts.
      *
-     * `endeS` ist das Tour-Ende; ohne das ließe sich die Dauer des LETZTEN
+     * `endS` ist das Tour-Ende; ohne das ließe sich die Dauer des LETZTEN
      * Abschnitts nicht messen, und ein zufällig kurz vor Schluss erkannter
      * Sprint bliebe als eigener Abschnitt stehen.
      */
     fun smooth(
         abschnitte: List<TravelModeSegment>,
-        endeS: Double,
+        endS: Double,
         minAbschnittS: Double = MIN_SEGMENT_S,
     ): List<TravelModeSegment> {
         if (abschnitte.isEmpty()) return emptyList()
@@ -69,7 +69,7 @@ object ActivityInterpretation {
             geaendert = false
             liste = verschmelzeGleiche(liste)
             val index = liste.indices.firstOrNull { i ->
-                val bis = liste.getOrNull(i + 1)?.tOffsetS ?: endeS
+                val bis = liste.getOrNull(i + 1)?.tOffsetS ?: endS
                 bis - liste[i].tOffsetS < minAbschnittS
             }
             if (index != null) {
