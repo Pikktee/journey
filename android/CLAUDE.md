@@ -24,7 +24,7 @@ kein Netz: An einem Xiaomi (HyperOS, frisch installierte App, Standby-Bucket RAR
 `dumpsys netpolicy` für die UID `blocked=APP_BACKGROUND, allowed=NONE,
 effective=APP_BACKGROUND` und der JobScheduler `Unsatisfied constraints: CONNECTIVITY` —
 während dasselbe WLAN für jede andere App stand. Das erzeugt keinen Fehler, sondern eine
-Endlosschleife: Worker startet, findet kein Netz, `vermerkeUndRetry` setzt `ENTWURF`, Backoff,
+Endlosschleife: Worker startet, findet kein Netz, `vermerkeUndRetry` setzt `DRAFT`, Backoff,
 von vorn. Sichtbar war das nur als abwechselnd „Wird hochgeladen" und „Wird geladen, sobald
 eine Verbindung besteht", also als Verbindungsproblem an einem funktionierenden WLAN. Sobald
 die App im Vordergrund lag, war `allowed=FOREGROUND|TOP` und der Upload lief sofort durch.
@@ -105,7 +105,7 @@ Nachrichten, und die Zeit zwischen „Konto verknüpft" und „Adresse registrie
 15-Minuten-Intervall zurück und die Abfrage liefe nie. Gemeldet werden **nur FERTIGE**
 Importe: Eine übersprungene Halleneinheit ist kein Ereignis für den Sperrbildschirm, und ein
 Fehler, den niemand beheben kann, ist dort Lärm — beides steht in der Liste im Konto. **Geholt
-wird ohne `?seen=1`, abgehakt wird hinterher** (`trackerImporteGesehen` mit den IDs): Wer
+wird ohne `?seen=1`, abgehakt wird hinterher** (`trackerImportsSeen` mit den IDs): Wer
 beim Holen quittiert, verliert die Meldung, sobald das Zeigen scheitert — und es scheitert
 regelmäßig, weil die Benachrichtigungs-Berechtigung ab Android 13 fehlen kann. Abgehakt wird
 deshalb genau, was erledigt IST: das nicht Meldenswerte immer, das Fertige nur bei gestellter
@@ -144,7 +144,7 @@ rechnenden Teile stehen DOM-frei und getestet in `PhotoWindow.kt`, die MediaStor
 `Gallery.kt`, der Weg zum Server in `PhotoBackfill.kt`. Sechs Dinge, die man dabei kippt:
 **Gelesen wird NUR im Zeitfenster einer Tour** — es gibt bewusst keine Funktion, die „alle
 Bilder" liefert; das ist die Zusage aus der Datenschutzerklärung, nicht Sparsamkeit im Code.
-**Es gibt KEINE Toleranz um das Fenster** (`TOLERANZ_MS = 0`): Sie stand einmal bei zwei
+**Es gibt KEINE Toleranz um das Fenster** (`TOLERANCE_MS = 0`): Sie stand einmal bei zwei
 Stunden, begründet damit, dass EXIF keine Zone trage — nur lesen wir kein EXIF, sondern
 `MediaStore.DATE_TAKEN`, und das ist bereits UTC. Die Folge war, dass zwei Runden desselben
 Vormittags DIESELBEN dreizehn Fotos bekamen (tatsächlich im Fenster lagen vier bzw. fünf).
@@ -185,7 +185,7 @@ schon im Manifest steht, wird kein zweites Mal angelegt. Das ist nötig, weil de
 nachgereichte Bilder erst nach `reprocess`; scheitert der, schlüge der nächste Lauf dieselben
 Fotos wieder vor. Der andere ist `backfillLock`, ein prozessweiter Mutex: `notifyPendingImports`
 läuft aus zwei Richtungen (Push-Dienst und `TrackerPollWorker`), und zwei gleichzeitige
-`POST …/medien` sehen dasselbe Manifest — der Server-Riegel greift erst, wenn der erste
+`POST …/media` sehen dasselbe Manifest — der Server-Riegel greift erst, wenn der erste
 GESCHRIEBEN hat. Dazu die Längenprüfung vor dem `zip`: Ein stilles Abschneiden lüde Bild B
 unter der ID von A hoch.
 
@@ -277,8 +277,8 @@ beim Start ab. Der Weg dorthin ist deinstallieren und neu installieren.
 **WorkManager ist ein zweites Room** (`WorkQueueMigration.kt`). Er legt den vollqualifizierten
 KLASSENNAMEN eines eingereihten Auftrags in einer eigenen Datenbank ab, und die überlebt jedes
 Update — ein Auftrag unter einem umbenannten Worker scheitert danach mit ClassNotFound, und
-zwar still: Er steht nur im `logcat`. Welle 7 hat `FotoNachzugWorker` und
-`TrackerAbfrageWorker` umbenannt und räumt deren Aufträge beim ersten Start einmalig ab
+zwar still: Er steht nur im `logcat`. Welle 7 hat `PhotoBackfillWorker` und
+`TrackerPollWorker` umbenannt und räumt deren Aufträge beim ersten Start einmalig ab
 (Merker im DataStore, `work_queue_migrated_v7`). Drei Dinge, die man dabei kippt: Abgeräumt
 wird über den **TAG** (WorkManager vergibt jedem Auftrag von sich aus einen mit dem
 Klassennamen) und nicht über den Unique-Namen — welche `photo-backfill-<tourId>` in der

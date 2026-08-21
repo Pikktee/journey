@@ -13,7 +13,7 @@ Konto-Menü im Studio — der Eintrag erscheint nur für Admins. Rechnende Teile
 **Sechs Reiter, und die Regel steht bei dem, was sie regelt.** Konten · Einladungen ·
 Warteliste · Statistiken · Protokoll · System-Mails; alle sechs Panels liegen im DOM, sichtbar ist eins
 (dasselbe `hidden`-Muster wie im Studio). Die Liste `TABS` in [admin-model.ts](admin-model.ts)
-ist die einzige Quelle für Leiste, Zähler und URL-Anhang (`/admin#einladungen`, per
+ist die einzige Quelle für Leiste, Zähler und URL-Anhang (`/admin#invitations`, per
 `replaceState` — mit `pushState` führte der Zurück-Knopf durch die zuletzt besuchten Reiter,
 statt die Seite zu verlassen); ein Drift-Wächter prüft, dass zu jedem Reiter ein
 `panel-<id>` in [admin.html](../../admin.html) steht. Die beiden Schalter der Registrierung liegen
@@ -21,7 +21,7 @@ NICHT mehr zusammen in einer Karte, sondern je im Reiter, den sie betreffen — 
 Einladungspflicht bei den Einladungen, das Wartelisten-Angebot bei der Warteliste. Weil die
 Warteliste dadurch „angeschaltet, aber ohne Wirkung" sein kann, ohne dass die Ursache
 sichtbar wäre, steht dort ein Knopf zum anderen Reiter; ob sie wirkt, rechnet
-`wartelisteAngeboten` nach (Spiegel der Server-Regel, Wahrheitstabelle doppelt getestet).
+`waitlistOffered` nach (Spiegel der Server-Regel, Wahrheitstabelle doppelt getestet).
 **Der Zähler am Reiter ist ein Hinweis, keine Statistik:** bei den Konten sind es alle, bei
 Einladungen die OFFENEN, bei der Warteliste die WARTENDEN — und nur die färbt sich amber,
 denn nur dort wartet Arbeit. Bei Statistiken steht „Live", bei den Vorlagen ihre Zahl; was
@@ -40,9 +40,9 @@ stdout, das Docker-Log bleibt also die vollständige Quelle. Drei Feinheiten: De
 Reiter zählt nur die FEHLER (eine Warnung ist Betrieb), die Zusammenfassung über der Liste
 zählt denselben Vorrat (sonst widerspräche sie ihm sichtbar), und Meldungen, die während
 des Lesens eintreffen, rutschen NICHT von selbst in die Liste, sondern warten hinter dem
-Streifen „N neue Meldungen anzeigen". Der Abgleich läuft über `seit=<höchste Nummer>`;
+Streifen „N neue Meldungen anzeigen". Der Abgleich läuft über `since=<höchste Nummer>`;
 weil die Nummern nach einem Neustart wieder bei 1 beginnen, vergleicht die Ansicht
-zusätzlich `gestartet` und lädt dann komplett neu — ohne das bliebe sie nach jedem Deploy
+zusätzlich `startedAt` und lädt dann komplett neu — ohne das bliebe sie nach jedem Deploy
 für immer still und sähe dabei gesund aus.
 
 **Suche und Filter greifen mit UND, und die Segmente zählen INNERHALB der Suche.** Dadurch

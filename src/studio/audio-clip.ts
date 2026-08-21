@@ -395,7 +395,7 @@ export function commitAudioClip(
  * ausgedrückt skaliert der Browser sie mit, ohne dass etwas neu gebaut wird.
  *
  * Bezug ist `totalFilmS`, weil genau dafür `--timeline-width` steht
- * (`timeWidthPx` = totalFilmS × pxProFilmS — und zwar in genau dem Fall, in
+ * (`timeWidthPx` = totalFilmS × pxPerFilmS — und zwar in genau dem Fall, in
  * dem eine Filmsekunde überhaupt existiert; ohne Kurve fällt die Breite auf
  * die Fensterbreite zurück, und dann gibt es hier nichts zu zeichnen).
  */

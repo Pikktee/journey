@@ -39,7 +39,7 @@ und die ist bewusst so gebaut, dass sie sich nie wiederholt.
 einzige, was der Player lädt — mit fertiger Route, Zeitleiste, Wetter-Keyframes,
 aufgelösten URLs und Statistik.
 
-Dazu kommt **`anreicherung.json`**: weder Quelle noch Ergebnis, sondern ein
+Dazu kommt **`enrichment.json`**: weder Quelle noch Ergebnis, sondern ein
 Cache für das, was Geld oder Zeit kostet — Ortsnamen (Nominatim), Auto-Wetter
 (Open-Meteo), Foto-Bildanalyse, Video-Metadaten. Ohne ihn liefe bei jedem
 Speichern eines Edits die komplette externe Beschaffung erneut. Invalidiert wird

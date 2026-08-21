@@ -77,8 +77,8 @@ Grundprinzipien:
   z. B. `galerie:4711`. Er macht `POST /api/tours/:id/media` idempotent — derselbe
   Schlüssel legt keinen zweiten Eintrag an. Der Foto-Nachzug der App setzt ihn, das
   Studio nicht (s. [konzept_medien_nachreichen_und_loeschen.md](../concepts/konzept_medien_nachreichen_und_loeschen.md)).
-  Die Liste ist deckungsgleich mit `MODI` in `server/src/schema/upload.ts` und der
-  Engine (`MODUS_TEMPO` in `src/film-axis.ts`, `MODE_SCALE` in `src/tour.ts`);
+  Die Liste ist deckungsgleich mit `TRAVEL_MODES` in `server/src/schema/upload.ts` und der
+  Engine (`TRAVEL_MODE_TEMPO` in `src/film-axis.ts`, `MODE_SCALE` in `src/tour.ts`);
   Motorgeräusche gibt es für
   `moped`, `jeep` und `ferry` (`MODE_SOUND` in `src/vehicle.ts`).
 - `title: null` ⇒ Auto-Benennung serverseitig (Reverse-Geocoding Start/Ziel).
@@ -153,7 +153,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   Tour anonym, statt ersatzweise Klarname oder Mailadresse zu zeigen); `id` und
   `handle` kommen nur bei öffentlichem Profil dazu, sonst gibt es keine Seite,
   auf die der Name führen könnte. Dieselbe Linie wie die Galerie-Karte.
-- **`description` ist auf 150 Zeichen ausgelegt** (`BESCHREIBUNG_MAX` in
+- **`description` ist auf 150 Zeichen ausgelegt** (`DESCRIPTION_MAX` in
   `src/tour-texts.ts`). Das Schema erlaubt weiter 5000 — Bestandstexte sollen
   nicht abgelehnt werden —, das Studio-Feld begrenzt neue Eingaben, und der
   Startscreen kürzt Längeres an der Wortgrenze. Unter 150 bleibt der Text auch in
@@ -172,14 +172,14 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   `src` als `<id>.web.mp4` ausgeliefert — das Original wird danach VERWORFEN, s.
   „Abgeleitete Fassungen"). Die Medien-Route liefert Videos mit
   HTTP-Range-Support (Seeking).
-- **Abgeleitete Fassungen** (`server/src/pipeline/bild.ts`): `src` zeigt bei
+- **Abgeleitete Fassungen** (`server/src/pipeline/image.ts`): `src` zeigt bei
   Fotos auf die Anzeige-Fassung `<id>.w1920.jpg` (längste Kante 1920), `thumb`
   auf die Kachel-Fassung `<id>.t480.jpg` für Listen, Zeitleiste und Pin-Köpfe.
   Das hochgeladene Original wird nach dem Erzeugen verworfen — es kostete an
   einer echten Tour das Neunfache dessen, was je ausgeliefert wurde. Videos
   bekommen nur `thumb` (aus dem Poster). `thumb` FEHLT bei Touren, die vor der
   Umstellung gerendert wurden und den Start-Nachtrag noch nicht durchlaufen
-  haben (`server/src/pipeline/bildnachtrag.ts`) — jede Anzeige braucht deshalb
+  haben (`server/src/pipeline/image-addendum.ts`) — jede Anzeige braucht deshalb
   einen Rückfall auf `src`.
 - `segments[].f` (**additiv**, `maptale/tour@2` bleibt): Streckenanteil je Punkt
   von `pts`, auf der ROHEN Geometrie gemessen — parallele Liste, gleiche Länge.
@@ -197,7 +197,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
     einmal als erster des nächsten) und trägt beide Male denselben Wert; der
     Player wirft die Kopie mit `slice(1)` weg und muss die `f`-Liste dabei
     mitziehen.
-- `timeline` (M2, `server/src/pipeline/zeit.ts`): destillierte Stützstellen
+- `timeline` (M2, `server/src/pipeline/time.ts`): destillierte Stützstellen
   Streckenanteil→Pseudo-Zeit (stückweise linear, ±45 s genau); Pausen > 15 min
   sind serverseitig auf 2 min komprimiert (sonst springt die Pseudo-Sonne beim
   Überfahren) — die Pseudo-Uhr läuft danach bewusst der echten Zeit hinterher.
@@ -343,7 +343,7 @@ Beim Rendern bildet die Pipeline die Zeit-Anker über `positionAtTime` auf
 den **bearbeiteten** (getrimmten) Track ab: `camera.from → camera[].f`,
 `audio.from/to → f0/f1` (Musik ohne `to` → f1 = 1; Einträge, die komplett
 außerhalb der Wiedergabespanne liegen, entfallen mit Warnung). Parallel dazu
-läuft dieselbe Abbildung über die **Film-Achse** (`server/src/pipeline/filmachse.ts`,
+läuft dieselbe Abbildung über die **Film-Achse** (`server/src/pipeline/film-axis.ts`,
 Spiegel von `src/film-axis.ts`) und liefert die Film-Anker. „Komplett außerhalb"
 wird seit E10 in FILMZEIT geprüft: Ein Klip ganz in einer Standzeit hat dort
 sehr wohl eine Länge und bleibt — vorher fiel genau er heraus.
@@ -359,7 +359,7 @@ sehr wohl eine Länge und bleibt — vorher fiel genau er heraus.
 Versionierung: Schema-Änderungen erhöhen die `@`-Version. Das Backend nimmt
 GENAU die aktuelle an; ältere werden mit einem Hinweis abgelehnt (400 mit dem
 Satz „Diese App-Version ist zu alt für den Server …", s. u.). Der Player prüft
-`schema` und meldet Unverständliches sauber (`RemoteTourFehler`).
+`schema` und meldet Unverständliches sauber (`RemoteTourError`).
 
 **Die Ablehnung trägt ihren Text zweimal** — als `error` UND als `fehler`. Sie
 ist die eine Stelle, an der ein Client antwortet, der die Umbenennung nicht

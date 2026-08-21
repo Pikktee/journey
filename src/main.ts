@@ -119,7 +119,7 @@ interface PlayerTour {
   /** `filmS` bleibt hier ungelesen: Ein Moment IST ein Halt (s. unten) */
   moments?: Array<{ f: number; kind: string; durationS?: number; filmTime?: number }>
   audio?: TourAudio[]
-  /** Master über `audio`; fehlt = KURATIERTER_PEGEL (s. TourConfig.audioPegel) */
+  /** Master über `audio`; fehlt = CURATED_GAIN (s. TourConfig.audioPegel) */
   audioGain?: number
 }
 

@@ -6,7 +6,7 @@
 //
 // **Die Position FOLGT der Filmzeit** (Konzept E2, Etappe 4). Die Engine
 // integriert `s` nicht mehr selbst, sondern liest es aus der geteilten Achse:
-// `s = streckeBeiFilm(achse, filmS)`, und `filmS` kommt aus der Filmuhr. Was
+// `s = distanceAtFilmTime(axis, filmS)`, und `filmS` kommt aus der Filmuhr. Was
 // dadurch ERSATZLOS entfallen ist, ist der eigentliche Gewinn (E13): die
 // Zeiger `nextIdx`/`nextMomentIdx` samt `syncNextIdx`, der Bremsweg-Vorgriff
 // (`speed · 0.62`), die Ausrollschwelle `speed < 4` und jede `dir > 0`-Schranke.

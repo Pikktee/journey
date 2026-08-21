@@ -1381,9 +1381,9 @@ export function clampFilmS(
   filmS: number,
   minFilmS: number,
   maxFilmS: number,
-  pxProFilmS: number,
+  pxPerFilmS: number,
 ): number {
-  const slack = pxProFilmS > 0 ? BAND_MIN_PX / pxProFilmS : 0
+  const slack = pxPerFilmS > 0 ? BAND_MIN_PX / pxPerFilmS : 0
   const min = minFilmS + slack
   const max = maxFilmS - slack
   // Ist das Fenster schmaler als zweimal Luft, bleibt nur seine Mitte übrig —

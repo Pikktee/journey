@@ -58,12 +58,12 @@ Ein bestehendes Passwort zu benoten ändert nichts mehr.
 **Die Bibliothek ist die Bühne.** Kacheln mit Titelbild statt Zeilen; über dem Bild liegt die
 **Routen-Signatur** — die Form DIESER Tour. Fotos sehen einander ähnlich, Routen nicht.
 Sie entsteht beim Anreichern ([server/src/pipeline/signature.ts](../../server/src/pipeline/signature.ts))
-und liegt als `stats.spur` neben `stats.fotos` in der Tour-Liste; ältere Touren haben beides
+und liegt als `stats.trackSignature` neben `stats.placedMedia` in der Tour-Liste; ältere Touren haben beides
 erst nach dem nächsten Rendern, die Kachel muss ohne auskommen. Die ganze Kachel spielt ab —
 die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben genau zwei Griffe
 (Bearbeiten, Sichtbarkeit, letztere zugleich Anzeige UND Umschalter).
 
-**„Neue Tour" steht in der KACHEL, im Kopf nur bei Bedarf.** Der Knopf `#neu-oben` ist
+**„Neue Tour" steht in der KACHEL, im Kopf nur bei Bedarf.** Der Knopf `#new-top` ist
 standardmäßig aus und erscheint erst, wenn die Kachel aus dem Sichtfeld gescrollt ist
 (`observeNewTile`, IntersectionObserver mit `rootMargin: -64px` für die überlagernde
 Kopfleiste). Beides gleichzeitig war eine Dopplung, und der Knopf war dabei der farbigste
@@ -87,7 +87,7 @@ NACHLEGEN — „Dateien wählen" mitten im Fenster sagt dasselbe größer) noch
 über eine Tour, die es noch nicht gibt) noch „Tour bauen" (der Weg dorthin führt ohnehin über den
 Befund), und kein gestrichelter Kasten im Kasten — die ganze Fläche IST die Ablage. Mit den ersten
 Dateien wächst das Fenster in einem Zug von 560×452 auf 1080×780 (`transition` auf `width`/`height`,
-gesteuert von `setWindowSize`), und der Befund steigt dabei EINMAL mit auf (`.new-body.wachst`,
+gesteuert von `setWindowSize`), und der Befund steigt dabei EINMAL mit auf (`.new-body.growing`,
 Klasse räumt sich beim nächsten Render selbst weg — sonst zuckte die Fläche unter jedem
 „Weglassen"). Dazwischen liegt der Zustand „Liest die Aufnahmen" mit füllendem Ring: das Lesen der
 EXIF-Blöcke dauert bei dreißig Fotos merkbar, und ohne ihn stand die Einladung still und sprang
@@ -102,11 +102,11 @@ Tempo wäre Zufall. Die eigene Inszenierung dafür (gestrichelte Bodenlinie, fli
 fahrende Kamera) steht noch aus: [docs/concepts/foto-tour.md](../../docs/concepts/foto-tour.md).
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
-sondern schreibt ein **Edit-Overlay** (`maptale/edits@1`, [server/src/schema/edits.ts](../../server/src/schema/edits.ts)):
-`medien` (Caption, Anker, gelöscht, Anzeigeoptionen, Video-Schnitt), `modi`, `kamera`, `audio`,
-`wetter`, `cover` (dazu das TOUR-`trim` — im Format erhalten und serverseitig angewandt,
+sondern schreibt ein **Edit-Overlay** (`maptale/edits@2`, [server/src/schema/edits.ts](../../server/src/schema/edits.ts)):
+`media` (Caption, Anker, gelöscht, Anzeigeoptionen, Video-Schnitt), `travelModes`, `camera`, `audio`,
+`weather`, `cover` (dazu das TOUR-`trim` — im Format erhalten und serverseitig angewandt,
 aber **nicht mehr bedienbar**: die Griffe an den Leistenrändern sind entfallen, eine Tour
-beginnt und endet, wo sie aufgezeichnet wurde; nicht zu verwechseln mit `medien[].trim`, dem
+beginnt und endet, wo sie aufgezeichnet wurde; nicht zu verwechseln mit `media[].trim`, dem
 Video-Schnitt aus Etappe 4).
 Beim Speichern rendert der Server die Tour aus Rohdaten + Overlay neu. Edits referenzieren
 **stabile Anker** — Medien-IDs, Koordinaten, absolute ISO-Zeitstempel, nie den Streckenanteil `f`.
@@ -118,7 +118,7 @@ gerenderte `tour.json` für elf echte Overlay-Formen als Schnappschuss festhält
 Probe, dass die Fälle sich überhaupt UNTERSCHEIDEN (ohne sie könnten elf identische Ergebnisse
 grün sein und der Vertrag bewachte nichts).
 
-**Die eine Ausnahme von „nie destruktiv": entfernte Aufnahmen.** `medien[].removed` ist seit
+**Die eine Ausnahme von „nie destruktiv": entfernte Aufnahmen.** `media[].removed` ist seit
 dem endgültigen Löschen nur noch der ZWISCHENZUSTAND bis zum Speichern — er hält Undo/Redo am
 Leben, während die Datei noch liegt. Beim Speichern werden die markierten Medien wirklich
 gelöscht (`DELETE /api/tours/:id/media/:mid`): Rohdatei und alle Fassungen sind weg, der
@@ -130,7 +130,7 @@ darin — Studio-Sprache, kein `confirm()`-Kasten; die Beschriftung davor wird b
 gesichert und nirgends sonst gelesen — beim zweiten Klick steht im Knopf längst die
 Löschfrage, ein erneutes `innerHTML` schriebe sie als Ruhezustand fest); **gelöscht wird VOR
 dem Overlay**, weil der
-Server dabei seine eigene Overlay-Fassung mitstutzt (`medien`-Eintrag, `cover`) und ein
+Server dabei seine eigene Overlay-Fassung mitstutzt (`media`-Eintrag, `cover`) und ein
 danach geschriebenes Overlay toten Zustand zurückschriebe; **`gespeichert` wird mitgezogen**
 (`withoutMedia` in [edit-model.ts](edit-model.ts) auch auf den Schnappschuss anwenden), sonst
 liefe direkt danach ein Speichern für eine Änderung, die keine mehr ist; und **nacheinander**,
@@ -146,14 +146,14 @@ zeigt **Aufnahmezeit, nicht Filmzeit** (die Übersetzung macht der Server beim N
 vorher zu zeigen wäre geraten); **„Weglassen" steht nur an Zeilen, die eine Frage stellen** —
 die Aufnahme ohne Zeit UND Ort, und selbst die hat mit der Ablage eine brauchbare Vorgabe; und
 **die Streifen-Spanne bleibt am ursprünglichen Befund**, damit die Achse nicht springt, sobald
-jemand etwas weglässt. Hochgeladen wird über die additive Medien-Route (`POST …/medien`, IDs
+jemand etwas weglässt. Hochgeladen wird über die additive Medien-Route (`POST …/media`, IDs
 vom Server), danach **`reprocess` und kein Edit-Speichern**: Ein neues Foto hat noch keinen
 Bildbefund im Anreicherungs-Cache und liefe sonst ohne Wetter-Verfeinerung mit.
 
 **Der Dialog sagt VORHER, was der Server nachher tut** — `classify` bildet
 `bestimmePlatzierung` ([server/src/pipeline/placement.ts](../../server/src/pipeline/placement.ts))
 Regel für Regel nach, sonst verspricht er Plätze, die es nicht gibt. Zwei Kanten waren genau
-so falsch: Ein GPS-Anker gilt nur bis **500 m** an die Strecke (`MAX_ABSTAND_M`, deshalb
+so falsch: Ein GPS-Anker gilt nur bis **500 m** an die Strecke (`MAX_DISTANCE_M`, deshalb
 bekommt `classify` die Abstandsfunktion aus dem Editor-Track herein), und die Zeitspanne hat
 **keine Toleranz** — anders als beim Anlegen (import-validation.ts), wo die Achse erst aus dem Material
 entsteht und ein Foto kurz vor dem Start sie DEHNT. Hier steht sie fest; außerhalb findet
@@ -175,7 +175,7 @@ beide Bernstein und nebeneinander nicht zu unterscheiden (gefüllt = sitzt auf d
 offen = hat noch keinen Ort). `STRIP_EDGE` in [editor.ts](editor.ts) und
 `--strip-margin` im CSS sind DIESELBE Zahl; laufen sie auseinander, sitzen die Punkte neben
 ihrer Achse.
-`wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
+`weather` (Grenzen `[{from, mode, intensity?}]` wie `travelModes`/`camera`) ist ein Sonderfall: sobald
 gesetzt, **ersetzt** es das Auto-Wetter (Open-Meteo + Foto-Verfeinerung) der ganzen Tour
 vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `weatherFromOverlay`
 ([server/src/pipeline/weather.ts](../../server/src/pipeline/weather.ts)) baut daraus eine
@@ -186,10 +186,10 @@ Marken) exakt auf die Grenze. Rein render-seitig → der Anreicherungs-Cache ble
 **Die Wetterspur zeigt das echte Wetter, nicht das Wort „automatisch".** Weil das Overlay das
 Auto-Wetter vollständig ersetzt, hätte die erste eigene Grenze früher den Rest der Tour
 schlagartig klar gemacht. Deshalb liefert `/api/tours/:id/editor` das **ermittelte** Wetter als
-Zeitgrenzen mit (`autoWetter`): `weatherToBoundaries` ist die Umkehrung von `weatherFromOverlay` —
+Zeitgrenzen mit (`autoWeather`): `weatherToBoundaries` ist die Umkehrung von `weatherFromOverlay` —
 Keyframes → Grenzen, die Bandkante auf die MITTE zweier Marken (dort schaltet `weatherAt` im
 Player), `f` → Zeit über `timeAtPosition`. Quelle ist das gerenderte `tour.json` (enthält die
-Foto-Verfeinerung), ersatzweise `wetterRoh` aus dem Anreicherungs-Cache; rein lesend, keine
+Foto-Verfeinerung), ersatzweise `weatherRaw` aus dem Anreicherungs-Cache; rein lesend, keine
 externen Aufrufe. Der Editor zeigt diese Grenzen als normale Bänder und schreibt sie beim
 ERSTEN Eingriff ins Overlay (`writeWeatherFixed`) — genau das Muster von `materializeTravelModes`
 bei der Fortbewegung. Die Kamera-Spur bleibt dagegen ohne Vorgabe: ihr Grundband heißt
@@ -233,10 +233,10 @@ Element, audiotracks.ts) wie im Studio-Abspielen (je Klip ein Element, playback.
 Zeitleiste stapelt sie in Unterzeilen (`lane` aus `resolveAudioClips`), die Bahn wächst mit.
 
 **Ein Ton-Klip hängt an der REISE, nicht an einer Filmsekunde** (Etappe 4, rechnende Teile
-DOM-frei in [src/studio/audio-clip.ts](audio-clip.ts)). Er merkt sich `anker`
-(Aufnahmezeit — wo auf der Reise), `versatzFilmS` (die Feinlage in FILMsekunden, darf mitten
-in einer Standzeit liegen — was reine Aufnahmezeit nicht ausdrücken kann), `dauerFilmS`,
-`einstiegS` (Einstieg in die Datei) und `loop`. Dadurch rückt Ton mit, wenn Standzeiten oder
+DOM-frei in [src/studio/audio-clip.ts](audio-clip.ts)). Er merkt sich `anchor`
+(Aufnahmezeit — wo auf der Reise), `offsetFilmS` (die Feinlage in FILMsekunden, darf mitten
+in einer Standzeit liegen — was reine Aufnahmezeit nicht ausdrücken kann), `durationFilmS`,
+`startS` (Einstieg in die Datei) und `loop`. Dadurch rückt Ton mit, wenn Standzeiten oder
 die Fortbewegung sich ändern — vorher war er das einzige Element, das liegen blieb (gemessen:
 Standzeit +24,5 s → der Klip dahinter +116,0 px, der davor exakt 0 px). Alle Felder sind
 optional und `from`/`to` bleiben als Fallback lesbar; **aufgewertet wird nur der Klip, den man
@@ -274,7 +274,7 @@ Was der Unterschied noch bewirkt, sind genau zwei Dinge im Player, und beide fra
 den Ton der Szene stehen (`main.ts`, `setMusikEnabled`/`setSfxEnabled`), und unter dem eigenen
 Ton eines Videos **duckt** nur die Musik. Deshalb heißt das Feld in der Oberfläche „Rolle"
 (Filmmusik · Ton der Szene). Beim Umschalten kippen zwei Dinge leicht still: `to` fiel früher
-ersatzlos weg (die Länge geht jetzt vorher nach `dauerFilmS`), und die Loop-VORGABE hängt an
+ersatzlos weg (die Länge geht jetzt vorher nach `durationFilmS`), und die Loop-VORGABE hängt an
 der Rolle — `loopAfterRoleChange` schreibt den bisherigen Wert fest, wo die neue Vorgabe ihn
 umdrehen würde.
 
@@ -302,8 +302,8 @@ braucht ein eigenes `overflow: hidden` — am Klip selbst schnitte es die übers
 Kanten-Griffe weg und Anfang/Ende wären nicht mehr zu greifen.
 
 **Und ihre Maße stehen in ANTEILEN der Achse, nie in Pixeln** (`waveformPosition` rechnet gegen
-`totalFilmS`, `timeWidth()` schreibt `calc(anteil * var(--timeline-width))`). Das ist die
-allgemeine Regel für alles, was auf der Leiste eine LÄNGE hat — `zeitX` ist ihr Gegenstück für
+`totalFilmS`, `timeWidth()` schreibt `calc(fraction * var(--timeline-width))`). Das ist die
+allgemeine Regel für alles, was auf der Leiste eine LÄNGE hat — `timeX` ist ihr Gegenstück für
 eine STELLE: **Zoomen baut die Bahnen nicht neu**, `setScale` schreibt nur `--timeline-width`
 fort und lässt CSS den Rest rechnen. Feste Pixel frieren ein Element auf dem Maßstab des
 letzten Renders ein; die Wellenform behielt dadurch beim Hineinzoomen ihre Größe und endete
@@ -370,7 +370,7 @@ Vorframes sprang sie um 116 px, und genau deshalb war der Zug zwischenzeitlich e
 Gemessen kostet ein Zieh-Frame 5,5 ms im Median (335 Trackpunkte, 12 Klips) bzw. 4,0 ms
 (541 Punkte ohne Medien) — der Editor-Track ist serverseitig auf 5 m vereinfacht
 ([tours.ts](../../server/src/routes/tours.ts)), aus 9 000 Rohpunkten werden 541.
-Ein Undo-Schritt bleibt es: `renderAfterDrag` schreibt `letzterStand` nicht fort.
+Ein Undo-Schritt bleibt es: `renderAfterDrag` schreibt `lastState` nicht fort.
 
 **Die Ziellinie ist eine Orientierung durch alle Bahnen** — den ganzen Zug über sichtbar, weil
 man beim Setzen einer Grenze wissen will, was dort zeitlich übereinanderliegt. Beim Einrasten
@@ -419,16 +419,16 @@ seine Aufnahmezeit und sein Meterstand) und darüber die geteilte Achse
 seither in zwei Schritten — Film → Strecke → Zeit —, `filmTimeAtRecordingTime` umgekehrt; die Signaturen
 sind dieselben geblieben. Grund ist E12: Der Player braucht Filmsekunde → Streckenposition, und
 das kann eine über der Aufnahmezeit parametrisierte Achse nicht liefern. Seit Etappe 4 legt
-derselbe Kern auch die **Rampen** hinein (`RAMPE_M`, 120 m an jedem Tempowechsel — am Halt auf
+derselbe Kern auch die **Rampen** hinein (`RAMP_M`, 120 m an jedem Tempowechsel — am Halt auf
 beiden Seiten, an einer Modus-Grenze ganz im schnelleren Abschnitt): Die Filmdauer, die das
 Pult zeigt, ist damit die, die der Player wirklich braucht — jede Bestandstour wurde dadurch
 auf dem Papier 2,7–7,8 % länger, der Film ist derselbe. Das Zug-Fenster einer
 Fortbewegungs-Grenze (`buildBoundaryCurve`) braucht dafür zwei Angaben, die es früher nicht
 brauchte: `startTempoMs` (mit welchem Tempo der Film das Fenster betritt — am Tour-Anfang aus
 dem Stand, sonst mit dem Modus DAVOR, dessen Rampe ins Fenster ragt) und den Modus RECHTS der
-Kante (`rampenVersatzS`, nur beim Verzögern von null verschieden). Ohne beides landete die
+Kante (`rampOffsetS`, nur beim Verzögern von null verschieden). Ohne beides landete die
 gezogene Kante um bis zu 0,36 Filmsekunden neben dem Zeiger. Zwei Folgen, die man
-kennen muss: Das Tempo-Modell ist **keine Kopie** mehr (`tempoMs` kommt aus `filmachse.ts`, die
+kennen muss: Das Tempo-Modell ist **keine Kopie** mehr (`tempoMs` kommt aus `film-axis.ts`, die
 Moment-Dauern ebenso), und die alte Mehrdeutigkeit der realen PAUSEN sitzt jetzt bei den
 HALTEN — mehrere Halte in derselben Pause haben denselben Meterstand und behalten ihre
 Reihenfolge nur, weil sie nach Zeit vorsortiert eingewebt werden. Position auf der Leiste ∝
@@ -448,13 +448,13 @@ einen Pixel (Ausweg: Zeitfelder im Inspector).
 
 **Der Abspielkopf steht in FILMsekunden** (`playheadFilmS_`, Etappe 1 des
 [Zeitleisten-Umbaus](../../docs/architecture/zeitleiste-umbau.md)) — eine Quelle für Scrubben, Klick,
-Pfeiltasten und Abspielen; die Aufnahmezeit (`z.auswahl`, zugleich Einfügemarke) wird daraus
+Pfeiltasten und Abspielen; die Aufnahmezeit (`z.cursor`, zugleich Einfügemarke) wird daraus
 ABGELEITET, nie umgekehrt. Der Grund ist die Umkehrbarkeit: In Aufnahmezeit gibt es keinen
 Wert für „mitten im Halt" (zwei Stützstellen auf derselben Sekunde), jede Rückrechnung fällt
 auf die linke Haltkante. Genau daran klebte der Kopf — 28 von 39 Frames Stillstand, und mit
 Pfeiltasten (5 Filmsekunden) kam man an einem 6-s-Halt NIE vorbei. Deshalb gibt `buildTimelineAxis`
-die Halte als **Intervalle** zurück (`filmVon`/`filmBis`, dazu `stuecke` je Aufnahme und
-`indizes` als Rückweg zum Stopp), und `stopAtFilmS` beantwortet „steht der Kopf in einem
+die Halte als **Intervalle** zurück (`filmVon`/`filmBis`, dazu `items` je Aufnahme und
+`indices` als Rückweg zum Stopp), und `stopAtFilmS` beantwortet „steht der Kopf in einem
 Halt, und wo darin?" (`describeStopState`: „Aufnahme 2 von 3 · 2,1 s von 6,0 s") — die
 Grundlage der Klip-Kette aus Etappe 2. **In der Kopfleiste steht diese Auskunft NICHT**: Eine
 Pille, die beim Scrubben erscheint und verschwindet, verschiebt Uhr, Werkzeuge und
@@ -537,15 +537,15 @@ Zeile (es hält `margin-left: auto` und bleibt die letzte Sache darin). Der Puls
 Tour wird an der kleineren Plakette WICHTIGER als am früheren Knopf mit Satz, nicht entbehrlich.
 
 **Ein Video zählt mit seiner echten Länge, ein Moment mit seiner Dauer.** `mediumHoldS`
-ist die eine Formel dafür (Video → `dauerS`, sonst `holdS`); `display.holdS` ist bei
-Video wirkungslos, der Player läuft bis zum Dateiende. `dauerS` liefert die Editor-Route aus
+ist die eine Formel dafür (Video → `durationS`, sonst `holdS`); `display.holdS` ist bei
+Video wirkungslos, der Player läuft bis zum Dateiende. `durationS` liefert die Editor-Route aus
 drei Quellen (Manifest → Anreicherungs-Cache → tour.json), rein lesend; fehlt alles
 (unverarbeiteter Altbestand), bleibt es bei der Foto-Annahme. Vorher bekam ein 34-s-Video
 ~34 px statt ~200 px, und Momente hatten gar keine Breite — an der Beispieltour 13,6
 unsichtbare Filmsekunden. Gemeint ist dabei die Länge des MATERIALS, nicht die des
-Ausschnitts (`quellDauerS` vor `dauerS`): daran schlagen die Schnitt-Kanten an.
+Ausschnitts (`durationS` ist die DATEI-Länge): daran schlagen die Schnitt-Kanten an.
 
-**Der Maßstab ist px je FILMSEKUNDE** (`pxProFilmS` + `einpassen`), kein Faktor auf die
+**Der Maßstab ist px je FILMSEKUNDE** (`pxPerFilmS` + `fit`), kein Faktor auf die
 Fensterbreite. Der Unterschied zählt, weil die Fortbewegung die Filmdauer bestimmt: Im
 Faktor-Modell skalierte jede Modus- oder Standzeit-Änderung die GANZE Leiste, auch alles vor
 der geänderten Stelle. Jetzt wächst die Achse hinten und links bleibt jedes Pixel stehen
@@ -572,7 +572,7 @@ Bild+Name+Bild — gemessene JS-Klassen schalteten erst beim Loslassen, weil
 **Die rechte Kante eines Fotos ist seine Standzeit** (`display.holdS`, Blase am Griff). Ein
 Video hat diesen Griff NICHT — der Player läuft bis zum Dateiende, `holdS` ist dort wirkungslos
 (src/tour.ts), ein Griff dafür wäre eine Lüge. Es hat stattdessen **zwei SCHNITT-Kanten**
-(`edits.medien[].trim` in DATEI-Sekunden, Etappe 4): Der alte Satz „ein Video trägt seine
+(`edits.media[].trim` in DATEI-Sekunden, Etappe 4): Der alte Satz „ein Video trägt seine
 Länge, sie steht nicht zur Wahl" stimmt für die Standzeit, nicht für den Schnitt. Anschlag
 ist an beiden Kanten die Datei, Loop gibt es hier nicht. Der **Ripple kostet keine Zeile
 Code** — ein Video liegt in einer Halt-Kette ohne Lücken, ein kürzerer Ausschnitt macht
@@ -591,7 +591,7 @@ werden. Ein waagerechter Scrollbalken ist dann kein Fehler, sondern die Folge ei
 Nutzerhandlung.
 
 **Der Klip-Zug ist EINE Geste mit zwei Bedeutungen.** Innerhalb der eigenen Kette ordnet er um
-(`reihe`, risikofrei), darüber hinaus setzt er den ORT auf der Route — was gerade gilt, sagt
+(`order`, risikofrei), darüber hinaus setzt er den ORT auf der Route — was gerade gilt, sagt
 das Etikett am Zeiger, nicht erst das Ergebnis. Über einem FREMDEN Halt dockt der Klip an
 (über dessen volle Breite: dort gibt es keine Zwischenposition, die Pixel gehören einer
 Standzeit und keiner Fahrzeit) und übernimmt dessen Anker — über die Zeit gerechnet läge er
@@ -599,7 +599,7 @@ knapp daneben und der Halt zerfiele wieder. Die Rückübersetzung px → Zeit l�
 Achse OHNE die Halte DIESER Aufnahme: auf der echten Achse hat der gezogene Klip selbst
 Breite, um die Ruhelage läge also eine tote Zone von Sprungbreite. Welche Bedeutung gilt,
 entscheidet die Kette, in der der Zug BEGANN — sonst kippte sie mitten in der Bewegung. Ein
-Zug, der auf seinem eigenen Platz endet, schreibt nichts: `reiheVergeben` erzeugte sonst ein
+Zug, der auf seinem eigenen Platz endet, schreibt nichts: `assignOrder` erzeugte sonst ein
 neues Overlay und damit einen leeren Undo-Schritt.
 Den ganzen Halt bewegt seither nur noch der Punkt auf der KARTE; den Filmstreifen im Inspector
 gibt es nicht mehr (er war der einzige Weg zum Umordnen und Herauslösen — beides tut jetzt der
@@ -643,7 +643,7 @@ Lage-Rechnung ist DOM-frei und getestet (`positionFor`), samt dem Fall
 ohne Rückfall klemmte jede Rechnung die Blase in die linke obere Ecke.
 
 **Die globalen Knopf-Regeln schlagen jede Klasse.** `button:hover { background: … }` wiegt durch
-die Pseudoklasse mehr als `.knopf-primaer` oder `.header-grip` — wer einem Knopf eine eigene
+die Pseudoklasse mehr als `.button-primary` oder `.header-grip` — wer einem Knopf eine eigene
 Fläche gibt, muss sie in der `:hover`-Regel WIEDERHOLEN, sonst wird er beim Zeigen grau (der
 orange Primärknopf und der Abspielkopf wurden so ausgerechnet dunkler). Dasselbe gilt für
 `:disabled:hover`. Ein Knopf, der gar keinen Hover haben soll, braucht trotzdem eine leere
@@ -666,7 +666,7 @@ Breite; beide brauchen eine eigene `:active`-Regel, die beides kombiniert.
 Box — bei einem Element am Rand seines Containers schneidet ihn dessen `overflow` weg. Auf der
 Zeitleiste war das an `.lanes-viewport { overflow-x: scroll }` zu sehen: Ein Ton-Klip, der bei
 0:00 beginnt, hatte oben, unten und rechts einen Rahmen und links keinen. Die Zustandsbänder
-lösen es längst mit `inset` (`.band.fokus`); bei den Klips musste es ein eigenes
+lösen es längst mit `inset` (`.band.selected`); bei den Klips musste es ein eigenes
 `::after`-Pseudo-Element werden, weil die Wellenform (`inset: 0`) einen Inset-Schatten am Klip
 selbst wieder zudeckte — mit `pointer-events: none`, sonst schluckt der Ring die überstehenden
 Kanten-Griffe. Der weiche SCHEIN darf außen bleiben: dass er an einer Kante fehlt, sieht man
@@ -680,11 +680,11 @@ vorbehalten („Vorschau"). Die Schrittlogik `tick()` ist rein und getestet; das
 `1/estimateAnimationDuration`, sodass der Halt an einem Foto hier so viel Zeit „kostet" wie
 später. Musik läuft über EIN `Audio`-Element je Klip mit **Eintritts-Seek** (wer mitten im Bereich
 startet, hört, was dort im Film liefe). Die Rechnung dahinter ist seit Paket D geteilt:
-`musikVersatzS` steht in [audiotracks.ts](../audiotracks.ts) und bekommt die Filmzeit seit
+`musicOffsetS` steht in [audiotracks.ts](../audiotracks.ts) und bekommt die Filmzeit seit
 Klipbeginn herein (`sinceClipStartS` über die Spielkurve) — der Player ruft dieselbe Funktion
 über seine Filmachse, und beide Bühnen greifen an derselben Filmsekunde auf dieselbe
-Datei-Position zu (Wächter in [test/film-axis.test.ts](../../test/film-axis.test.ts)); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts) — seit E10 in
-FILMSEKUNDEN, der Abspieler rechnet seine Marken dafür über `filmAt(plan.kurve, …)` um; die
+Datei-Position zu (Wächter in [test/film-axis.test.ts](../../test/film-axis.test.ts)); Klänge nutzen `sfxShouldFire` aus [src/audiotracks.ts](../audiotracks.ts) — seit E10 in
+FILMSEKUNDEN, der Abspieler rechnet seine Marken dafür über `filmAt(plan.curve, …)` um; die
 Schwelle, ab der ein Schritt als Sprung gilt, ist eine Frame-Zeit und hinge im Achsen-Anteil
 an der Länge der Tour. Das ändert Player und Editor in einem Zug, damit im
 Studio nichts klingt, was der Film nicht spielt (Drift-Wächter). Bis zur
@@ -721,9 +721,9 @@ irgendeinen Frame statt des gemeinten. Der Ausweg waren dauerhaft PAUSIERTE Anim
 negativem Delay (`--fe-zeit`) — der Kunstgriff, mit dem man ein Standbild aus einer Animation
 zieht, und der Behelf für genau das, was ein MALER von Natur aus tut. **Seit dem 2026-08-17
 gibt es den Maler auch hier** (s. den nächsten Absatz), und die `--fe-*`-Choreografie ist weg.
-Das Video wird weiter auf `trim.vonS + imS` gesetzt und läuft nur
+Das Video wird weiter auf `trim.fromS + inS` gesetzt und läuft nur
 bei Tempo 1 selbst; WANN dabei gesucht wird, entscheidet die mit dem Player geteilte
-`videoNachfuehrung` ([einblendung.ts](../card-timing.ts), Regeln in der Wurzel-CLAUDE.md).
+`videoSeekDecision` ([card-timing.ts](../card-timing.ts), Regeln in der Wurzel-CLAUDE.md).
 Die Toleranz im Lauf ist 0,5 s und im Stand 0,04 s, und ein begonnener Suchlauf wird
 abgewartet: Ein Sprung je Frame ruckelte sichtbar, und auf einem langsamen Gerät kam gar
 keiner mehr an. **Beide
@@ -731,8 +731,8 @@ Trim-Kanten** stehen im `dataset` des Elements, weil die ausgelieferte Datei der
 Master ist und der Schnitt erst in der Pipeline entsteht.
 
 **Und die Karte MALT seit dem 2026-08-17 derselbe Zeichner wie im Player und im Film** —
-`maleKarte` in [src/card-painter.ts](../card-painter.ts), eingehängt über
-`createKartenSchicht({ buehne: 'editor' })` („Eine Bühne, ein Maler" Etappe 1,
+`paintCard` in [src/card-painter.ts](../card-painter.ts), eingehängt über
+`createCardLayer({ stage: 'editor' })` („Eine Bühne, ein Maler" Etappe 1,
 [docs/concepts/eine-buehne-ein-maler.md](../../docs/archive/eine-buehne-ein-maler.md)). Damit
 ist die Begründung aus §6A des Gleichlauf-Konzepts abgelaufen: Sie richtete sich gegen ein
 gemeinsames DOM-BAUTEIL, das zwei Zeitmodelle tragen müsste — ein Maler trägt keines, er
@@ -741,10 +741,10 @@ die der Maler nicht beschaffen kann: die ZEICHENQUELLE (ein `img`/`video` in `#p
 unsichtbar im Dokument, weil der Browser nur dekodiert und spielt, was er lädt) und der TEXT.
 Fünf Dinge, die man dabei kippt:
 
-- **Die Lage wird GESETZT** (`EDITOR_LAGE`), nicht aus Breite und Höhe abgeleitet: Eine
-  Editor-Bühne von 700 × 500 fiele in `quer` und bekäme das Telefon-Layout „Bild links, Text
-  rechts". Ebenso Maßsatz (`EDITOR_MASSE`), Maßstabsgrenzen und Flugweite — alles vier
-  liefert `kartenSatz(buehne)`.
+- **Die Lage wird GESETZT** (`EDITOR_LAYOUT`), nicht aus Breite und Höhe abgeleitet: Eine
+  Editor-Bühne von 700 × 500 fiele in `landscape` und bekäme das Telefon-Layout „Bild links, Text
+  rechts". Ebenso Maßsatz (`EDITOR_METRICS`), Maßstabsgrenzen und Flugweite — alles vier
+  liefert `cardStageSet(stage)`.
 - **Eine Leinwand zeichnet sich nicht von selbst neu, und hier STEHT der Kopf meistens.** Ein
   `img` in der alten DOM-Karte erschien von selbst, sobald es geladen war; auf der Leinwand
   sah man beim Scrubben die Karte mit LEEREM Bildfeld liegen. `showPhoto` hängt deshalb an
@@ -769,17 +769,17 @@ Fünf Dinge, die man dabei kippt:
   nennt den Editor als benannte Ausnahme. Das gilt nur, solange die Angaben daneben stehen:
   Verlöre die Szenen-Bahn ihre Titel, wäre die Karte die einzige Quelle.
 
-Die vier geteilten Rechnungen bleiben, wo sie waren: `kartenZeiten`, `balkenAnteil`,
-`klipDauerS` und `videoStandS` in [src/card-timing.ts](../card-timing.ts) — dort auch die
-geteilten ZAHLEN (`KARTE`) und die benannten Bühnen-Varianten (`KARTE_BUEHNE`).
+Die vier geteilten Rechnungen bleiben, wo sie waren: `cardTimings`, `barFraction`,
+`clipDurationS` und `videoPositionS` in [src/card-timing.ts](../card-timing.ts) — dort auch die
+geteilten ZAHLEN (`CARD`) und die benannten Bühnen-Varianten (`CARD_STAGE`).
 
 **Das Video KLINGT — und duckt dabei die Musik.** Es lief lange mit hartem `muted = true`, und
 damit prüfte das Abspielen einen Film, den es nicht gibt: Im Player hat die Aufnahme ihre eigene
 Stimme und die Filmmusik taucht darunter weg, im Editor stand die Musik ungedämpft über einer
 stummen Szene. Beides kommt jetzt aus denselben Funktionen wie im Player
-([audiotracks.ts](../audiotracks.ts)): `videoTonHuelle` über den AUSSCHNITT (nicht die Datei —
+([audiotracks.ts](../audiotracks.ts)): `videoVolumeEnvelope` über den AUSSCHNITT (nicht die Datei —
 die ausgelieferte ist der ungeschnittene Master, die Blenden gehören an die Schnittkanten),
-`videoLautstaerke` fürs Video und `videoMusikDuck` für die Musik, gereicht über
+`videoVolume` fürs Video und `musicDuck` für die Musik, gereicht über
 `Abspieler.setDucking`. Drei Dinge, die man dabei kippt: Gehört wird nur bei **Tempo 1** (im
 Schnelllauf steht das Video ohnehin), der **Autoplay-Rückfall** muss bleiben (unmuted-Play ohne
 frische Geste wird geblockt — dann stumm erzwingen, sonst steht am Video-Halt ein Standbild),
@@ -787,19 +787,19 @@ und `hidePhoto` muss die Dämpfung **zurücknehmen**, sonst bleibt die Musik nac
 Video für den Rest der Wiedergabe leise.
 
 **Der Pegel eines Ton-Klips ist ABSOLUT — im Studio wie im Player.** Ohne eigenen Wert gilt
-`STUDIO_PEGEL_VORGABE` (0.8, in [audiotracks.ts](../audiotracks.ts), Spiegel von `STUDIO_PEGEL`
+`STUDIO_GAIN_DEFAULT` (0.8, in [audiotracks.ts](../audiotracks.ts), Spiegel von `STUDIO_GAIN`
 in [server/src/schema/edits.ts](../../server/src/schema/edits.ts), Drift-Wächter in
 [test/studio-baukasten.test.ts](../../test/studio-baukasten.test.ts)). Der Weg dorthin hatte zwei
 Lecks, und beide machten den fertigen Film LEISER als den geprüften Schnitt: `enrich.ts` schrieb
 `gain` nur bei ausdrücklich gesetzter Lautstärke, und der Player legte über alles einen Master
 von 0.22 (der gehört den KURATIERTEN Touren in [src/tours.ts](../tours.ts), deren `gain` gegen
-ihn ausgemessen ist — `KURATIERTER_PEGEL`). Zusammen ein Faktor 3,6. Jetzt schreibt der Server
+ihn ausgemessen ist — `CURATED_GAIN`). Zusammen ein Faktor 3,6. Jetzt schreibt der Server
 `gain` immer, [remote.ts](../remote.ts) füllt es für bereits gerenderte Bestandstouren nach
 (sonst spielten genau die mit 1.0, also zu LAUT) und setzt `cfg.audioPegel = 1`.
 
 **Der Klip ist um die Ausblendung LÄNGER als das Material** (`mediumHoldS(m) +
-STOP_FADE_OUT_S`) — deshalb klemmt `videoStandS` das Ziel auf einen Frame vor dem Ende
-(Schnitt-`bisS`, sonst `video.duration`). Ohne die Klemme lief `vonS + imS` darüber hinaus:
+STOP_FADE_OUT_S`) — deshalb klemmt `videoPositionS` das Ziel auf einen Frame vor dem Ende
+(Schnitt-`toS`, sonst `video.duration`). Ohne die Klemme lief `fromS + inS` darüber hinaus:
 Der Browser klemmt `currentTime` still, die Abweichung bleibt dadurch dauerhaft über der
 Nachzieh-Schwelle, und die Wiedergabe seekte in JEDEM Frame ans Ende — das sichtbare Zittern am
 Klip-Ende. Gemessen an einer 6-s-Datei: Ziel 6,80 s → `currentTime` 6,00 s, Abweichung 0,80 s.
@@ -808,7 +808,7 @@ Klip-Ende. Gemessen an einer 6-s-Datei: Ziel 6,80 s → `currentTime` 6,00 s, Ab
 `transition` (opacity 500 ms, transform 950 ms), und eine Transition hat keine ansteuerbare
 Zeitachse: Sie startet beim Klassenwechsel und läuft nach Wanduhr, beim Scrubben sprang die
 Karte deshalb sofort auf ihren Zielzustand. Danach waren es drei pausierte Animationen mit
-negativem Delay, seit dem 2026-08-17 rechnet der Maler sie (`kartenPhasen`). **Der Kamerablitz
+negativem Delay, seit dem 2026-08-17 rechnet der Maler sie (`cardPhases`). **Der Kamerablitz
 ist am selben Tag ganz entfallen**: Auf seiner Spitze steht die Karte bei 7 % Deckkraft und das
 „Entwickeln" bei `brightness(1.45)` — das Foto ist dort ohnehin ein heller Schleier, zwei
 Gesten für dieselbe Sache im selben Moment. Er strobte außerdem (er hing am Klip, nicht am
@@ -824,15 +824,15 @@ bewegte. Der Abspieler ist jetzt eine Kopfbewegung unter vielen. Was dabei ERHAL
 muss, ist `pauseCardFollow`: Jedes Follow-`jumpTo` bricht eine laufende Zoom-Animation ab,
 deshalb setzt Rad/Pinch/Zoomstart das Folgen für 450 ms aus.
 
-**Eine Auswahl über drei Ansichten.** `z.fokus` (ausgewähltes Objekt) ist getrennt von
-`z.auswahl` (Einfügemarke für „ab hier"-Aktionen) — wie Selektion und Abspielkopf in einem
+**Eine Auswahl über drei Ansichten.** `z.selection` (ausgewähltes Objekt) ist getrennt von
+`z.cursor` (Einfügemarke für „ab hier"-Aktionen) — wie Selektion und Abspielkopf in einem
 Schnittprogramm. Der Fokus speichert nur die **Identität**; die Spanne löst `resolveSelection()`
 bei jedem Render neu auf, sonst veraltet sie beim Verschieben einer Grenze. Das fokussierte
 Objekt ist gleichzeitig im Band hervorgehoben, im Inspector beschrieben und als leuchtender
 Streckenabschnitt auf der Karte sichtbar.
 
 **Undo/Redo** nutzt aus, dass das Overlay immutabel fortgeschrieben wird: Ein Referenzvergleich
-beim Render (`letzterStand`) erkennt jede Änderung, egal aus welchem Handler. Während eines
+beim Render (`lastState`) erkennt jede Änderung, egal aus welchem Handler. Während eines
 Zeitleisten-Zugs läuft nur `renderAfterDrag()`, das den Stand nicht fortschreibt — der ganze Zug
 wird dadurch zu genau einem Undo-Schritt.
 

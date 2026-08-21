@@ -400,7 +400,7 @@ export interface CardFrame {
   medium: CardMedium
   text: CardText
   /**
-   * Die Zeichenquelle, oder `null`. Der Aufrufer sagt mit `bereit`, dass der
+   * Die Zeichenquelle, oder `null`. Der Aufrufer sagt mit `ready`, dass der
    * FRAME steht — `drawImage` auf einem noch suchenden `<video>` zeichnet ohne
    * Fehler das alte Bild, und im Film ist das ein falsches Einzelbild in der
    * Datei (Konzept §5, „Bild und Video").
@@ -437,7 +437,7 @@ export interface CardRects {
   layout: CardLayout
 }
 
-/** Was der Maler gemalt hat. `bereit: false` = der Frame stand nicht. */
+/** Was der Maler gemalt hat. `ready: false` = der Frame stand nicht. */
 export interface CardPaintResult {
   rects: CardRects | null
   ready: boolean
@@ -565,7 +565,7 @@ function textEntrance(inS: number, offsetS: number, calm: boolean): TextEntrance
 /**
  * Aus Filmsekunde und Klip-Länge alles Sichtbare.
  *
- * Bei `ruhig` (reduzierte Bewegung) bleibt genau eine Bewegung übrig: eine
+ * Bei `calm` (reduzierte Bewegung) bleibt genau eine Bewegung übrig: eine
  * kurze Deckkraft-Blende. Die abgelöste CSS-Fassung machte es ebenso — sie
  * setzte `animation: none` und ließ `transition: opacity 0.2s` stehen. Ein
  * harter Schnitt wäre hier falsch: Im Film wäre er ein Bildsprung.

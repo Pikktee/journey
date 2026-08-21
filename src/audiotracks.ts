@@ -1,7 +1,7 @@
 // Tour-eigene Audio-Spuren (Kreativbaukasten): vom Autor im Studio hinterlegte
 // Musik-Bereiche und SFX-One-Shots, verankert in FILMSEKUNDEN (cfg.audio aus
 // remote.ts, übersetzt in main.ts). Musik läuft geloopt, solange der Playhead im
-// Bereich [filmVonS, filmBisS) steht — mit träger Blende an den Grenzen (wie
+// Bereich [filmFromS, filmToS) steht — mit träger Blende an den Grenzen (wie
 // music.ts); SFX feuern einmalig beim Vorwärts-Überfahren ihrer Filmsekunde (nur
 // echte Wiedergabe, keine Scrub-/Seek-Sprünge).
 // Läuft nur, wenn das Gate wahr ist (z.B. „Tour läuft/Foto/Scrub"). Pause INNERHALB

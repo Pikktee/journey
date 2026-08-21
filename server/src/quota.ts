@@ -21,7 +21,7 @@ export interface QuotaStatus {
  * Arten sind das, was sich sinnvoll unterscheiden lässt; feiner wird es eine
  * Dateiliste, und die ist der Editor.
  *
- * `sonstiges` ist kein Rest-Eimer aus Bequemlichkeit, sondern die Zusicherung,
+ * `other` ist kein Rest-Eimer aus Bequemlichkeit, sondern die Zusicherung,
  * dass die Summe der Teile die Gesamtsumme IST: Eine Aufschlüsselung, die
  * weniger ergibt als der Balken zeigt, ist schlimmer als keine.
  */

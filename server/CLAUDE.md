@@ -170,22 +170,22 @@ Zustellung (Wahoo staffelt bis 72 h), der andere den parallelen Anlege-Versuch.
 **Der Webhook antwortet SOFORT und arbeitet danach** (`app.trackerLaeufe`, Muster wie
 `app.verarbeitungen`): Strava verlangt eine Antwort in unter zwei Sekunden, ein Download plus
 Pipeline schafft das nie. Er läuft **vor jeder Anmeldeprüfung** — seine Autorität ist die
-Signatur, sein einziger Schreibzugriff geht über `externer_nutzer`. Verifikation kommt VOR
+Signatur, sein einziger Schreibzugriff geht über `external_user`. Verifikation kommt VOR
 jedem Datenbankzugriff (sonst wäre schon das Protokoll ein Ziel für Müll von außen), und eine
 Zustellung für ein unbekanntes Konto wird STILL verworfen — eine Fehlermeldung wäre eine
 Auskunft darüber, welche Anbieter-Konten bei uns liegen.
 
-**`uebersprungen` ist kein Fehler.** Aktivität ohne GPS, zu kurz (< 100 m UND < 2 min — die
+**`skipped` ist kein Fehler.** Aktivität ohne GPS, zu kurz (< 100 m UND < 2 min — die
 Schwelle steht gegen das VERSEHEN, nicht gegen die kurze Runde, s. `touranleger.ts`) oder
 Speicher voll: Das sind normale Ereignisse, keine Störungen. Als Fehler geführt stünde die
 Liste eines Vielsportlers dauerhaft rot, und die eine echte Störung ginge darin unter.
-Umgekehrt gilt: Eine tote Verknüpfung wird SICHTBAR tot (`abgelaufen` samt Grund) — der Nutzer
+Umgekehrt gilt: Eine tote Verknüpfung wird SICHTBAR tot (`expired` samt Grund) — der Nutzer
 wartet sonst auf Touren, die nie kommen.
 
 **Ein Fehlschlag ist kein Grabstein.** Der Dedup-Index beantwortete anfangs zwei Fragen mit
 derselben Zeile — „schon erledigt?" und „schon versucht?" —, und damit war jeder vorübergehende
 Fehler das endgültige Ende einer Aktivität: Die wiederholte Zustellung, auf die das ganze
-Verfahren baut (Wahoo staffelt bis 72 h), lief wirkungslos in den Index. `wiederholbar` trennt
+Verfahren baut (Wahoo staffelt bis 72 h), lief wirkungslos in den Index. `retryable` trennt
 das und wird vom GRUND gesetzt, nicht vom Status: „ohne Route" und „zu kurz" sind Aussagen über
 die Aktivität und bleiben endgültig; „Speicher voll", ein stummer Anbieter und jeder Netzfehler
 sind Aussagen über den Moment. `beanspruche` nimmt eine solche Zeile wieder an (`ON CONFLICT …
@@ -207,7 +207,7 @@ sein. Wer in dieser Lücke „Jetzt abrufen" drückt, schob den Cursor hinter di
 eigenen Tour, und der Vergleich filterte sie danach für immer weg: Der Rückfallweg konnte das
 eine nicht, wofür es ihn gibt. `PolarProvider.listeNeue` filtert deshalb GAR NICHT mehr nach
 Zeit — die Grenze ist `beanspruche` (Import-Zeile in der Datenbank, VOR jedem Netzaufruf), und
-Polars Liste ist ohnehin kurz. Ein künftiger Adapter, der `seit` an die Anbieter-API
+Polars Liste ist ohnehin kurz. Ein künftiger Adapter, der `since` an die Anbieter-API
 weiterreicht, muss prüfen, worauf sie filtert (Erscheinungszeit ja, Startzeit nein) und im
 Zweifel großzügig überlappen.
 
@@ -223,7 +223,7 @@ in den allgemeinen Handler, und dort steht „Interner Fehler" statt dessen, was
 einmalig aus, wer den neuen nicht speichert, hat die Verknüpfung verloren. Eine falsche
 Stelle, ein zerstörter Zustand. Beim Erneuern wird die Anbieter-Nutzerkennung
 weitergetragen — sie kommt oft nicht mit, und auf `null` gesetzt kappte sie den
-Zuordnungsweg des Webhooks. `verbunden_am` bleibt beim Erneuern dagegen STEHEN: `verknuepfe`
+Zuordnungsweg des Webhooks. `connected_at` bleibt beim Erneuern dagegen STEHEN: `verknuepfe`
 schreibt beide Fälle, und mitgeschrieben stünde auf der Kontoseite dauerhaft „verbunden seit
 vor ein paar Minuten" (Tokens laufen stündlich ab). Nach dem Trennen gibt es keine Zeile mehr,
 dort setzt der INSERT-Zweig das Datum ohnehin frisch. Die Tokens liegen AES-256-GCM-verschlüsselt
@@ -295,7 +295,7 @@ Vertrag ohne Netz erfüllbar ist, und weil sich der erste echte Adapter an ihm m
 ## Konten, Registrierung, Warteliste
 
 **Es gibt zwei Rollen** (`users.role`), keine Rechtematrix: wer verwalten darf und wer seine
-eigenen Touren hat. `User.rolle` hängt an jeder aufgelösten Sitzung und kommt über
+eigenen Touren hat. `User.role` hängt an jeder aufgelösten Sitzung und kommt über
 `/auth/me` bis in die Oberfläche.
 
 **Wer Admin ist, entscheidet zuerst die Konfiguration.** `MAPTALE_ADMINS` (Default:
@@ -306,7 +306,7 @@ gab, wird Admin, sobald es angelegt ist. Die Kehrseite: Diese Konten lassen sich
 Oberfläche NICHT herabstufen oder löschen — die Route lehnt es mit 409 ab, statt es beim
 nächsten Neustart still rückgängig zu machen. Dieselbe Sorge deckt zwei weitere Riegel: die
 eigene Admin-Rolle ist nicht ablegbar, und der letzte Admin bleibt Admin. Alle drei Regeln
-stehen doppelt (Server + `rolleGesperrt`/`loeschenGesperrt` im Modell): Der Server MUSS sie
+stehen doppelt (Server + `roleChangeDisabled`/`deleteDisabled` im Modell): Der Server MUSS sie
 durchsetzen, die Oberfläche SOLL den Knopf gar nicht erst anbieten.
 
 **Registrierung: ein Schalter, zwei Ebenen.** Die DB-Einstellung `invitation_required`
@@ -342,7 +342,7 @@ auf (Versalien, Bindestrich von selbst), statt hinterher zu meckern. Zwei Kanten
 `#registrieren` von der Landing fällt VOR der `/auth/me`-Antwort an und kennt die Pflicht noch
 nicht — `showRegisterMode` stellt ihn nachträglich gerade. Und ein zwischen Schritt 1
 und 2 verbrauchter Code wirft zurück auf Schritt 1, weil nur dort das Feld steht, in dem sich
-das beheben lässt. Der Link aus der Verwaltung (`/studio.html#einladung=CODE`) prüft den Code
+das beheben lässt. Der Link aus der Verwaltung (`/registrieren#einladung=CODE`) prüft den Code
 sofort und überspringt Schritt 1; wie `#verify=`/`#reset=` wirkt er nur beim Laden der Seite,
 nicht bei einem Hash-Wechsel in einem offenen Tab.
 
@@ -353,7 +353,7 @@ lässt sich „vereinfachen", bis es rechtlich kippt:
 **Double-Opt-in** — ein Eintrag zählt erst nach dem Klick in der Bestätigungsmail; ohne ihn
 trüge jeder fremde Adressen ein, und der Einwilligungs-Nachweis (Art. 7 Abs. 1 DSGVO, deshalb
 Zeitpunkt UND IP beider Schritte in der Zeile) fehlte. Eingeladen wird **nur, wer bestätigt
-hat** (409 sonst, doppelt geprüft via `einladenGesperrt`).
+hat** (409 sonst, doppelt geprüft via `inviteDisabled`).
 **Ein Token für beide Wege** — bestätigen und austragen. Gespeichert ist nur sein Hash, deshalb
 bekommt die Einladungsmail einen FRISCHEN (`erneuereToken`): Es gilt immer der Link aus der
 jüngsten Mail. Das Austragen läuft nie auf den bloßen Link-Aufruf, sondern über einen Knopf —
@@ -379,8 +379,8 @@ bereit: `empfaenger()` und `newsletterHeaders()`.
 
 **Ein Boolean allein wäre kein Nachweis.** `users.newsletter` trägt den aktuellen Zustand
 (der Versand fragt ihn je Empfänger), daneben steht die Historie
-`newsletter_consents` mit Zeitpunkt, Zustand, Quelle (`registrierung` · `konto` ·
-`abmeldelink`) und Textfassung — Art. 7 Abs. 1 DSGVO. Gespeichert wird ein LABEL
+`newsletter_consents` mit Zeitpunkt, Zustand, Quelle (`signup` · `konto` ·
+`unsubscribe_link`) und Textfassung — Art. 7 Abs. 1 DSGVO. Gespeichert wird ein LABEL
 (`konto-2026-08-06`), nicht der Satz; **wer den Wortlaut ändert, hebt das Datum im
 Label**, sonst behauptet die Zeile eine Zustimmung zu einem Text, den niemand gelesen hat.
 Ein Drift-Wächter ([test/newsletter-einwilligung.test.ts](../test/newsletter-einwilligung.test.ts))
@@ -447,7 +447,7 @@ ohne ihren Link ist keine Geschmacksfrage, sondern eine Sackgasse. Ein Absatz, d
 `{{code}}` besteht, wird zur hervorgehobenen Code-Box (ein Feld „Code hervorheben" wäre ein
 Formularfeld für etwas, das man am Text schon sieht).
 In der Verwaltung (Karte „System-Mails") liegen Felder und **Live-Vorschau** nebeneinander;
-gerendert wird die Vorschau vom SERVER (`POST …/vorschau`) — ein zweiter Renderer im Browser
+gerendert wird die Vorschau vom SERVER (`POST …/preview`) — ein zweiter Renderer im Browser
 wäre genau die Kopie, die auseinanderläuft. „Testmail" geht **nur an die eigene Adresse** und
 trägt `[Test]` im Betreff; ein Empfängerfeld machte aus der Verwaltung ein Versandwerkzeug.
 
