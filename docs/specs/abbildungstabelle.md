@@ -190,6 +190,8 @@ Sie ist auch **nicht das Glossar**. §6 bleibt die Quelle der Wörter; diese Tab
 ihre Anwendung auf jeden einzelnen Bezeichner im Repo. Wo beide sich widersprechen, gilt
 §6, und die Tabelle wird korrigiert.
 
-**Für die Start-Migration** (§4.3) wird aus den Zeilen mit Art `json-feld`, `json-wert`
+**Für die Start-Migration** (§4.3) wurde aus den Zeilen mit Art `json-feld`, `json-wert`
 und `schema-kennung` die Datenstruktur `server/src/migrations/keys-v2.ts` erzeugt, nicht
-abgeschrieben: „Die Abbildung ist dieselbe Tabelle wie im Code, nicht zwei Listen."
+abgeschrieben: „Die Abbildung ist dieselbe Tabelle wie im Code, nicht zwei Listen." Beides
+ist mit Welle 8 ausgebaut, seit Produktion und Entwicklung auf Stand 2 stehen; die Zeilen
+mit Welle 1 bleiben als Nachweis stehen, aber nichts liest sie mehr.

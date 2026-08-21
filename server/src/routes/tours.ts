@@ -354,15 +354,14 @@ export function registerTourRoutes(app: FastifyInstance): void {
    * Eine alte App schickt `maptale/upload@1` — und soll das LESEN können.
    *
    * Ohne diesen Griff fiele sie in die Schema-Validierung und bekäme
-   * `additionalProperties`-Kauderwelsch. Die Antwort trägt den Klartext
-   * deshalb zweimal: unter `error` (die neue Form) UND unter `fehler` (die
-   * alte) — die Bestands-App liest ihre Meldungen aus `fehler` und zeigte
-   * sonst den rohen JSON-Body.
+   * `additionalProperties`-Kauderwelsch. Das ist KEIN Rückwärtsleser: Sie
+   * liest nichts, sie lehnt ab (§4.1 des Englisch-Konzepts).
    *
-   * **Das ist die einzige bewusste Alt-Ausnahme des ganzen Umbaus** (§4.1 des
-   * Englisch-Konzepts) und KEIN Rückwärtsleser: Sie liest nichts, sie lehnt
-   * ab. Sie verschwindet zusammen mit der Start-Migration, nicht früher —
-   * gebraucht wird sie, solange irgendwo eine alte App laufen kann.
+   * **Das doppelte Fehlerfeld ist mit Welle 8 gefallen.** Die Antwort trug
+   * den Klartext eine Zeit lang zweimal — unter `error` und unter dem alten
+   * `fehler` —, weil die Bestands-App ihre Meldungen aus `fehler` las. Sie
+   * ist zusammen mit der Start-Migration entfallen; seither gibt es nur noch
+   * `error` wie überall sonst.
    */
   const ALT_KENNUNGEN = ['maptale/upload@1', 'luhambo/upload@1']
   const APP_AKTUALISIEREN =
@@ -376,7 +375,7 @@ export function registerTourRoutes(app: FastifyInstance): void {
       preValidation: async (request, reply) => {
         const kennung = (request.body as { schema?: unknown } | undefined)?.schema
         if (typeof kennung === 'string' && ALT_KENNUNGEN.includes(kennung)) {
-          return reply.code(400).send({ error: APP_AKTUALISIEREN, fehler: APP_AKTUALISIEREN })
+          return reply.code(400).send({ error: APP_AKTUALISIEREN })
         }
       },
     },
